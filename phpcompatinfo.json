@@ -1,0 +1,15 @@
+{
+    "source-providers": [
+        {
+            "in": "src as source",
+            "exclude": "vendor",
+            "name": "/\\.(php)$/"
+        }
+    ],
+    "plugins": [
+    ],
+    "analysers": [
+    ],
+    "services": [
+    ]
+}

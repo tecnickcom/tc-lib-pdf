@@ -1,0 +1,7 @@
+~#PKGNAME#~ (~#VERSION#~-~#RELEASE#~) UNRELEASED; urgency=low
+
+  * Please check the
+    https://github.com/~#VENDOR#~/~#PROJECT#~
+    commit history
+
+ -- Nicola Asuni <info@tecnick.com>  ~#DATE#~

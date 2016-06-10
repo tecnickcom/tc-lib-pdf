@@ -1,0 +1,15 @@
+Source: ~#PKGNAME#~
+Maintainer: Nicola Asuni <info@tecnick.com>
+Section: php
+Priority: optional
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.7
+Homepage: https://github.com/~#VENDOR#~/~#PROJECT#~
+Vcs-Git: https://github.com/~#VENDOR#~/~#PROJECT#~.git
+
+Package: ~#PKGNAME#~
+Provides: php-~#PROJECT#~
+Architecture: all
+Depends: php5 (>= 5.4.0), php-tc-lib-barcode (>=1.8.0), php-tc-lib-color (>=1.10.3), php-tc-lib-pdf-image (>=1.0.1), php-tc-lib-pdf-font (>=1.6.0), php-tc-lib-file (>=1.5.0), php-tc-lib-pdf-encrypt (>=1.3.2), php-tc-lib-unicode-data (>=1.5.1), php-tc-lib-unicode (>=1.2.2), php-tc-lib-pdf-page (>=2.0.2), php-tc-lib-pdf-graph (>=1.0.2), ${misc:Depends}
+Description: PHP Barcode library
+ This library includes PHP classes to generate PDF documents.
