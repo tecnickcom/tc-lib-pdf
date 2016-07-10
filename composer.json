@@ -4,7 +4,7 @@
     "type": "library",
     "homepage": "http://www.tecnick.com",
     "license": "LGPL-3.0",
-    "keywords": ["tc-lib-pdf", "PDF", "PDF/A-1b", "PDFD32000-2008", "document"],
+    "keywords": ["tc-lib-pdf", "PDF", "PDFD32000-2008", "document"],
     "authors": [
         {
             "name": "Nicola Asuni",
