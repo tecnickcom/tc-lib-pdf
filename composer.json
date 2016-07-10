@@ -13,7 +13,17 @@
         }
     ],
     "require": {
-        "php": ">=5.4"
+        "php": ">=5.4",
+        "tecnickcom/tc-lib-barcode": "^1.8.0",
+        "tecnickcom/tc-lib-color": "^1.10.3",
+        "tecnickcom/tc-lib-pdf-image": "^1.0.1",
+        "tecnickcom/tc-lib-pdf-font": "^1.6.0",
+        "tecnickcom/tc-lib-file": "^1.5.0",
+        "tecnickcom/tc-lib-pdf-encrypt": "^1.3.2",
+        "tecnickcom/tc-lib-unicode-data": "^1.5.1",
+        "tecnickcom/tc-lib-unicode": "^1.2.2",
+        "tecnickcom/tc-lib-pdf-page": "^2.0.2",
+        "tecnickcom/tc-lib-pdf-graph": "^1.0.2"
     },
     "require-dev": {
         "apigen/apigen" : "^4.1.2",
@@ -27,17 +37,7 @@
     },
     "autoload": {
         "psr-4":{
-            "Com\\Tecnick\\Pdf\\": "src",
-            "tecnickcom/tc-lib-barcode": "^1.8.0",
-            "tecnickcom/tc-lib-color": "^1.10.3",
-            "tecnickcom/tc-lib-pdf-image": "^1.0.1",
-            "tecnickcom/tc-lib-pdf-font": "^1.6.0",
-            "tecnickcom/tc-lib-file": "^1.5.0",
-            "tecnickcom/tc-lib-pdf-encrypt": "^1.3.2",
-            "tecnickcom/tc-lib-unicode-data": "^1.5.1",
-            "tecnickcom/tc-lib-unicode": "^1.2.2",
-            "tecnickcom/tc-lib-pdf-page": "^2.0.2",
-            "tecnickcom/tc-lib-pdf-graph": "^1.0.2"
+            "Com\\Tecnick\\Pdf\\": "src"
         }
     },
     "repositories": [
