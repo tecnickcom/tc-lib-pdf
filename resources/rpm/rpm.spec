@@ -18,16 +18,16 @@ BuildArch: noarch
 
 Requires:  php(language) >= 5.4.0
 Requires:  php-pcre
-Requires:  php-tc-lib-barcode >= 1.8.0
-Requires:  php-tc-lib-color >= 1.10.3
-Requires:  php-tc-lib-pdf-image >= 1.0.1
-Requires:  php-tc-lib-pdf-font >= 1.6.0
-Requires:  php-tc-lib-file >= 1.5.0
-Requires:  php-tc-lib-pdf-encrypt >= 1.3.2
-Requires:  php-tc-lib-unicode-data >= 1.5.1
-Requires:  php-tc-lib-unicode >= 1.2.2
-Requires:  php-tc-lib-pdf-page >= 2.0.2
-Requires:  php-tc-lib-pdf-graph >= 1.0.2
+Requires:  php-tc-lib-barcode >= 1.10.3
+Requires:  php-tc-lib-color >= 1.11.2
+Requires:  php-tc-lib-pdf-image >= 1.1.2
+Requires:  php-tc-lib-pdf-font >= 1.7.2
+Requires:  php-tc-lib-file >= 1.6.2
+Requires:  php-tc-lib-pdf-encrypt >= 1.4.2
+Requires:  php-tc-lib-unicode-data >= 1.6.2
+Requires:  php-tc-lib-unicode >= 1.3.2
+Requires:  php-tc-lib-pdf-page >= 2.1.2
+Requires:  php-tc-lib-pdf-graph >= 1.1.2
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}

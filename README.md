@@ -8,7 +8,7 @@
 [![Master Coverage Status](https://coveralls.io/repos/tecnickcom/tc-lib-pdf/badge.svg?branch=master&service=github)](https://coveralls.io/github/tecnickcom/tc-lib-pdf?branch=master)
 [![License](https://poser.pugx.org/tecnickcom/tc-lib-pdf/license)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 [![Total Downloads](https://poser.pugx.org/tecnickcom/tc-lib-pdf/downloads)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
-*
+
 [![Develop Branch](https://img.shields.io/badge/-develop:-gray.svg)](https://github.com/tecnickcom/tc-lib-pdf/tree/develop)
 [![Develop Build Status](https://secure.travis-ci.org/tecnickcom/tc-lib-pdf.png?branch=develop)](https://travis-ci.org/tecnickcom/tc-lib-pdf?branch=develop)
 [![Develop Coverage Status](https://coveralls.io/repos/tecnickcom/tc-lib-pdf/badge.svg?branch=develop&service=github)](https://coveralls.io/github/tecnickcom/tc-lib-pdf?branch=develop)
@@ -23,6 +23,9 @@
 * **license**     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
 * **link**        https://tcpdf.org
 * **source**      https://github.com/tecnickcom/tc-lib-pdf
+* **SRC DOC**     https://tcpdf.org/docs/srcdoc/tc-lib-pdf
+* **RPM**         https://bintray.com/tecnickcom/rpm/tc-lib-pdf
+* **DEB**         https://bintray.com/tecnickcom/deb/tc-lib-pdf
 
 ## Description
 
