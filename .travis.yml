@@ -45,7 +45,8 @@ before_script:
 script:
   - make qa_all
   - make report
-  - if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PHP_VERSION" = "5.6" ] && [ -n "$BT_APIUSER" ]; then make bintray APIUSER=${BT_APIUSER} APIKEY=${BT_APIKEY}; fi;
+  - make rpm
+  - make deb
 
 after_failure:
   - cat ./target/logs/junit.xml
@@ -57,3 +58,4 @@ after_success:
   - "echo 'coverage_clover: target/coverage/coverage.xml' >> .coveralls.yml"
   - "echo 'json_path: target/coverage/coveralls-upload.json' >> .coveralls.yml"
   - if [ "$TRAVIS_PHP_VERSION" = "5.6" ]; then php vendor/bin/coveralls -v; fi;
+  - if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PHP_VERSION" = "5.6" ] && [ -n "$BT_APIUSER" ]; then make bintray APIUSER=${BT_APIUSER} APIKEY=${BT_APIKEY}; fi;
