@@ -18,16 +18,26 @@ BuildArch: noarch
 
 Requires:  php(language) >= 5.4.0
 Requires:  php-pcre
-Requires:  php-tc-lib-barcode >= 1.10.3
-Requires:  php-tc-lib-color >= 1.11.2
-Requires:  php-tc-lib-pdf-image >= 1.1.2
-Requires:  php-tc-lib-pdf-font >= 1.7.2
-Requires:  php-tc-lib-file >= 1.6.2
-Requires:  php-tc-lib-pdf-encrypt >= 1.4.2
-Requires:  php-tc-lib-unicode-data >= 1.6.2
-Requires:  php-tc-lib-unicode >= 1.3.2
-Requires:  php-tc-lib-pdf-page >= 2.1.2
-Requires:  php-tc-lib-pdf-graph >= 1.1.2
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode >= 1.11.0
+Requires:  php-composer(%{c_vendor}/tc-lib-color) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 1.12.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image >= 1.2.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font >= 1.7.2
+Requires:  php-composer(%{c_vendor}/tc-lib-file) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-file >= 1.6.2
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt >= 1.4.2
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data >= 1.6.2
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode >= 1.3.2
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 3.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page >= 2.2.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph >= 1.4.0
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}
