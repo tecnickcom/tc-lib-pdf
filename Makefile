@@ -270,6 +270,6 @@ bz2: build
 	tar -jcvf $(PATHBZ2PKG)/$(PKGNAME)-$(VERSION)-$(RELEASE).tbz2 -C $(PATHBZ2PKG) $(DATADIR)
 
 # upload linux packages to bintray
-bintray:
+bintray: rpm deb
 	@curl -T target/RPM/RPMS/noarch/php-tecnickcom-${PROJECT}-${VERSION}-${RELEASE}.noarch.rpm -u${APIUSER}:${APIKEY} -H "X-Bintray-Package:${PROJECT}" -H "X-Bintray-Version:${VERSION}" -H "X-Bintray-Publish:1" -H "X-Bintray-Override:1" https://api.bintray.com/content/tecnickcom/rpm/php-tecnickcom-${PROJECT}-${VERSION}-${RELEASE}.noarch.rpm
 	@curl -T target/DEB/php-tecnickcom-${PROJECT}_${VERSION}-${RELEASE}_all.deb -u${APIUSER}:${APIKEY} -H "X-Bintray-Package:${PROJECT}" -H "X-Bintray-Version:${VERSION}" -H "X-Bintray-Debian-Distribution:all" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:all" -H "X-Bintray-Publish:1" -H "X-Bintray-Override:1" https://api.bintray.com/content/tecnickcom/deb/php-tecnickcom-${PROJECT}_${VERSION}-${RELEASE}_all.deb
