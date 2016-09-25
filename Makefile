@@ -178,7 +178,7 @@ phpcmpinfo:
 report: phploc phpdep phpcmpinfo
 
 # alias to run targets: test, phpcs, phpmd and phpcpd
-qa: test phpcs phpmd phpcpd
+qa: version test phpcs phpmd phpcpd
 
 # alias to run targets: phpcs_test and phpmd_test
 qa_test: phpcs_test phpmd_test
@@ -190,12 +190,16 @@ qa_all: qa qa_test
 clean:
 	rm -rf ./vendor/
 
+# set the version
+version:
+	@sed -i -e "s/protected \$$version = '.*';/protected \$$version = '${VERSION}';/g" src/MetaInfo.php
+	
 # clean and download the composer dependencies
-build:
+build: version
 	rm -rf ./vendor/ && ($(COMPOSER) install --no-dev --no-interaction)
 
 # clean and download the composer dependencies including dev ones
-build_dev:
+build_dev: version
 	rm -rf ./vendor/ && ($(COMPOSER) install --no-interaction)
 
 # update composer dependencies

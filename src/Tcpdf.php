@@ -39,8 +39,15 @@ use \Com\Tecnick\Pdf\Image\Import as ObjImage;
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  */
-class Tcpdf
+class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 {
+    /**
+     * Document ID
+     *
+     * @var string
+     */
+    protected $fileid;
+
     /**
      * Unit of measure
      *
@@ -84,67 +91,11 @@ class Tcpdf
     protected $unicodemode = true;
 
     /**
-     * Color object
+     * Current PDF object number
      *
-     * @var \Com\Tecnick\Color\Pdf
+     * @var int
      */
-    protected $color;
-
-    /**
-     * Barcode object
-     *
-     * @var \Com\Tecnick\Barcode\Barcode
-     */
-    protected $barcode;
-
-    /**
-     * File object
-     *
-     * @var \Com\Tecnick\File\File
-     */
-    protected $file;
-
-    /**
-     * Unicode Convert object
-     *
-     * @var \Com\Tecnick\Unicode\Convert
-     */
-    protected $uniconv;
-
-    /**
-     * Encrypt object
-     *
-     * @var \Com\Tecnick\Pdf\Encrypt\Encrypt
-     */
-    protected $encrypt;
-
-    /**
-     * Page object
-     *
-     * @var \Com\Tecnick\Pdf\Page\Page
-     */
-    protected $page;
-
-    /**
-     * Graph object
-     *
-     * @var \Com\Tecnick\Pdf\Graph\Draw
-     */
-    protected $graph;
-
-    /**
-     * Font object
-     *
-     * @var \Com\Tecnick\Pdf\Font\Stack
-     */
-    protected $font;
-
-    /**
-     * Image Import object
-     *
-     * @var \Com\Tecnick\Pdf\Image\Import
-     */
-    protected $image;
+    protected $pon = 0;
 
     /**
      * Initialize a new PDF object
@@ -160,57 +111,17 @@ class Tcpdf
         $unicodemode = true,
         $subsetfont = false,
         $pdfa = false,
-        \Com\Tecnick\Pdf\Encrypt\Encrypt $encobj = null
+        ObjEncrypt $encobj = null
     ) {
-    
+        $this->doctime = time();
+        $this->docmodtime = $this->doctime;
+        $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
+        $this->fileid = md5($seedobj->encrypt('TCPDF'));
         $this->unit = $unit;
         $this->unicodemode = $unicodemode;
         $this->subsetfont = $subsetfont;
         $this->pdfa = $pdfa;
-
-        $this->color = new ObjColor;
-        $this->barcode = new ObjBarcode;
-        $this->file = new ObjFile;
-        $this->uniconv = new ObjUniConvert;
-
-        if ($encobj === null) {
-            $this->encrypt = new ObjEncrypt();
-        } else {
-            $this->encrypt = $encobj;
-        }
-
-        $this->page = new ObjPage(
-            $this->unit,
-            $this->color,
-            $this->encrypt,
-            $this->pdfa,
-            $this->sigapp
-        );
-        $this->kunit = $this->page->getKUnit();
-        //$this->page->enableSignatureApproval($sigapp);
-
-        $this->graph = new ObjGraph(
-            $this->kunit,
-            0,
-            0,
-            $this->color,
-            $this->encrypt,
-            $this->pdfa
-        );
-        //$this->graph->setPageHeight($pageh)
-        //$this->graph->setPageWidth($pagew);
-
-        $this->font = new ObjFont(
-            $this->kunit,
-            $this->subsetfont,
-            $this->unicodemode,
-            $this->pdfa
-        );
-        
-        $this->image = new ObjImage(
-            $this->kunit,
-            $this->encrypt,
-            $this->pdfa
-        );
+        $this->encrypt = $encobj;
+        $this->initClassObjects();
     }
 }
