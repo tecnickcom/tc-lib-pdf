@@ -176,7 +176,7 @@ abstract class MetaInfo
      * Set the PDF version (check PDF reference for valid values).
      *
      * @param string $version PDF document version.
-     * 
+     *
      * @throw PdfException in case of error
      */
     public function setPDFVersion($version = '1.7')
