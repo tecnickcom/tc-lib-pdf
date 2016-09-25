@@ -185,7 +185,8 @@ abstract class MetaInfo
             $this->pdfver = '1.4';
             return $this;
         }
-        if (empty(preg_match('/^[0-9]+[.][0-9]+$/', $version))) {
+        $isvalid = preg_match('/^[0-9]+[.][0-9]+$/', $version);
+        if (empty($isvalid)) {
             throw new PdfException('Invalid PDF version format');
         }
         $this->pdfver = $version;
