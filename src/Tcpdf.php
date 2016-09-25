@@ -98,6 +98,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $pon = 0;
 
     /**
+     * PDF version
+     *
+     * @var string
+     */
+    protected $pdfver = '1.7';
+
+    /**
      * Initialize a new PDF object
      *
      * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in')
@@ -121,6 +128,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->unicodemode = $unicodemode;
         $this->subsetfont = $subsetfont;
         $this->pdfa = $pdfa;
+        $this->setPDFVersion();
         $this->encrypt = $encobj;
         $this->initClassObjects();
     }

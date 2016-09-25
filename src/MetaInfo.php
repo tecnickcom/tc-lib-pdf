@@ -173,6 +173,26 @@ abstract class MetaInfo
     }
 
     /**
+     * Set the PDF version (check PDF reference for valid values).
+     *
+     * @param string $version PDF document version.
+     * 
+     * @throw PdfException in case of error
+     */
+    public function setPDFVersion($version = '1.7')
+    {
+        if ($this->pdfa) { // PDF/A mode
+            $this->pdfver = '1.4';
+            return $this;
+        }
+        if (empty(preg_match('/^[0-9]+[.][0-9]+$/', $version))) {
+            throw new PdfException('Invalid PDF version format');
+        }
+        $this->pdfver = $version;
+        return $this;
+    }
+
+    /**
      * Format a text string for output.
      *
      * @param string $str String to escape.
