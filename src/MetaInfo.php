@@ -108,6 +108,16 @@ abstract class MetaInfo
     protected $custom_xmp = '';
 
     /**
+     * Return the program version.
+     *
+     * @return string
+     */
+    public function getVersion()
+    {
+        return $this->version;
+    }
+
+    /**
      * Set a field value only if it is not empty.
      *
      * @param strign $field Field name
