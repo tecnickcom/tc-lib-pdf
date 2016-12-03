@@ -213,7 +213,7 @@ abstract class MetaInfo
      */
     protected function getOutTextString($str, $oid)
     {
-        if ($this->unicodemode) {
+        if ($this->isunicode) {
             $str = $this->uniconv->toUTF16BE($str);
         }
         return $this->encrypt->escapeDataString($str, $oid);

@@ -16,15 +16,7 @@
 namespace Com\Tecnick\Pdf;
 
 use \Com\Tecnick\Pdf\Exception as PdfException;
-use \Com\Tecnick\Color\Pdf as ObjColor;
-use \Com\Tecnick\Barcode\Barcode as ObjBarcode;
-use \Com\Tecnick\File\File as ObjFile;
-use \Com\Tecnick\Unicode\Convert as ObjUniConvert;
 use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
-use \Com\Tecnick\Pdf\Page\Page as ObjPage;
-use \Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
-use \Com\Tecnick\Pdf\Font\Stack as ObjFont;
-use \Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -88,7 +80,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * @var boolean
      */
-    protected $unicodemode = true;
+    protected $isunicode = true;
 
     /**
      * Current PDF object number
@@ -108,14 +100,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * Initialize a new PDF object
      *
      * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in')
-     * @param bool       $unicodemode True if the document is in Unicode mode
+     * @param bool       $isunicode   True if the document is in Unicode mode
      * @param bool       $subsetfont  If true subset the embedded fonts to remove the unused characters
      * @param bool       $pdfa        True to produce a PDF/A document (some features will be bisabled)
      * @param ObjEncrypt $encobj      Encryption object
      */
     public function __construct(
         $unit = 'mm',
-        $unicodemode = true,
+        $isunicode = true,
         $subsetfont = false,
         $pdfa = false,
         ObjEncrypt $encobj = null
@@ -125,7 +117,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
         $this->fileid = md5($seedobj->encrypt('TCPDF'));
         $this->unit = $unit;
-        $this->unicodemode = $unicodemode;
+        $this->isunicode = $isunicode;
         $this->subsetfont = $subsetfont;
         $this->pdfa = $pdfa;
         $this->setPDFVersion();

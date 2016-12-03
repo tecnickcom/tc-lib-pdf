@@ -1,7 +1,10 @@
 # tc-lib-pdf
 *PHP PDF Library*
 
-# UNDER DEVELOPMENT
+# UNDER DEVELOPMENT (NOT READY)
+
+UPDATE: CURRENTLY ALL THE DEPENDENCY LIBRARIES ARE ALMOST COMPLETE
+BUT THE CORE LIBRARY STILL REQUIRES A SIGNIFICANT AMOUNT OF WORK TO BE COMPLETED.
 
 [![Latest Stable Version](https://poser.pugx.org/tecnickcom/tc-lib-pdf/version)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 [![Master Build Status](https://secure.travis-ci.org/tecnickcom/tc-lib-pdf.png?branch=master)](https://travis-ci.org/tecnickcom/tc-lib-pdf?branch=master)

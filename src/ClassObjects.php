@@ -139,7 +139,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
         $this->font = new ObjFont(
             $this->kunit,
             $this->subsetfont,
-            $this->unicodemode,
+            $this->isunicode,
             $this->pdfa
         );
         

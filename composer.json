@@ -14,7 +14,7 @@
     ],
     "require": {
         "php": ">=5.4",
-        "tecnickcom/tc-lib-barcode": "^1.15.2",
+        "tecnickcom/tc-lib-barcode": "^1.15.4",
         "tecnickcom/tc-lib-color": "^1.12.1",
         "tecnickcom/tc-lib-pdf-image": "^1.2.1",
         "tecnickcom/tc-lib-pdf-font": "^1.7.3",
