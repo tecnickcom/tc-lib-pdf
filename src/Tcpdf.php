@@ -112,6 +112,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $pdfa = false,
         ObjEncrypt $encobj = null
     ) {
+        setlocale(LC_NUMERIC, 'C');
         $this->doctime = time();
         $this->docmodtime = $this->doctime;
         $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
