@@ -24,6 +24,7 @@ use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use \Com\Tecnick\Pdf\Page\Page as ObjPage;
 use \Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
 use \Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use \Com\Tecnick\Pdf\Font\Output as OutFont;
 use \Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
@@ -39,7 +40,7 @@ use \Com\Tecnick\Pdf\Image\Import as ObjImage;
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  */
-abstract class MetaInfo
+abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
 {
     /**
      * TCPDF version.
@@ -106,6 +107,13 @@ abstract class MetaInfo
      * @var string
      */
     protected $custom_xmp = '';
+
+    /**
+     * Set this to TRUE to add the default sRGB ICC color profile
+     *
+     * @var bool
+     */
+    protected $sRGB = false;
 
     /**
      * Return the program version.
@@ -195,11 +203,22 @@ abstract class MetaInfo
             $this->pdfver = '1.4';
             return $this;
         }
-        $isvalid = preg_match('/^[0-9]+[.][0-9]+$/', $version);
+        $isvalid = preg_match('/^[1-9]+[.][0-9]+$/', $version);
         if (empty($isvalid)) {
             throw new PdfException('Invalid PDF version format');
         }
         $this->pdfver = $version;
+        return $this;
+    }
+
+    /**
+     * Set the sRGB mode
+     *
+     * @param bool $enabled Set to true to add the default sRGB ICC color profile
+     */
+    public function setSRGB($enabled)
+    {
+        $this->srgb = (bool) $enabled;
         return $this;
     }
 
@@ -251,8 +270,8 @@ abstract class MetaInfo
     protected function getProducer()
     {
         return "\x54\x43\x50\x44\x46\x20"
-            .$this->version
-            ."\x20\x28\x68\x74\x74\x70\x73\x3a\x2f\x2f\x74\x63\x70\x64\x66\x2e\x6f\x72\x67\x29";
+        .$this->version
+        ."\x20\x28\x68\x74\x74\x70\x73\x3a\x2f\x2f\x74\x63\x70\x64\x66\x2e\x6f\x72\x67\x29";
     }
     
     /**
@@ -280,19 +299,20 @@ abstract class MetaInfo
     protected function getOutMetaInfo()
     {
         $oid = ++$this->pon;
+        $this->objid['info'] = $oid;
         $out = $oid.' 0 obj'."\n"
-            .'<<'
-            .' /Creator '.$this->getOutTextString($this->creator, $oid)
-            .' /Author '.$this->getOutTextString($this->author, $oid)
-            .' /Subject '.$this->getOutTextString($this->subject, $oid)
-            .' /Title '.$this->getOutTextString($this->title, $oid)
-            .' /Keywords '.$this->getOutTextString($this->keywords, $oid)
-            .' /Producer '.$this->getOutTextString($this->getProducer(), $oid)
-            .' /CreationDate '.$this->getOutDateTimeString($this->doctime, $oid)
-            .' /ModDate '.$this->getOutDateTimeString($this->docmodtime, $oid)
-            .' /Trapped /False'
-            .' >>'."\n"
-            .'endobj'."\n";
+        .'<<'
+        .' /Creator '.$this->getOutTextString($this->creator, $oid)
+        .' /Author '.$this->getOutTextString($this->author, $oid)
+        .' /Subject '.$this->getOutTextString($this->subject, $oid)
+        .' /Title '.$this->getOutTextString($this->title, $oid)
+        .' /Keywords '.$this->getOutTextString($this->keywords, $oid)
+        .' /Producer '.$this->getOutTextString($this->getProducer(), $oid)
+        .' /CreationDate '.$this->getOutDateTimeString($this->doctime, $oid)
+        .' /ModDate '.$this->getOutDateTimeString($this->docmodtime, $oid)
+        .' /Trapped /False'
+        .' >>'."\n"
+        .'endobj'."\n";
         return $out;
     }
 
@@ -331,130 +351,131 @@ abstract class MetaInfo
     protected function getOutXMP()
     {
         $uuid = 'uuid:'.substr($this->fileid, 0, 8)
-            .'-'.substr($this->fileid, 8, 4)
-            .'-'.substr($this->fileid, 12, 4)
-            .'-'.substr($this->fileid, 16, 4)
-            .'-'.substr($this->fileid, 20, 12);
+        .'-'.substr($this->fileid, 8, 4)
+        .'-'.substr($this->fileid, 12, 4)
+        .'-'.substr($this->fileid, 16, 4)
+        .'-'.substr($this->fileid, 20, 12);
         
         // @codingStandardsIgnoreStart
         $xmp = '<?xpacket begin="'.$this->uniconv->chr(0xfeff).'" id="W5M0MpCehiHzreSzNTczkc9d"?>'."\n"
-            .'<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 4.2.1-c043 52.372728, 2009/01/18-15:08:04">'."\n"
-            ."\t".'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'."\n"
-            ."\t\t".'<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'."\n"
-            ."\t\t\t".'<dc:format>application/pdf</dc:format>'."\n"
-            ."\t\t\t".'<dc:title>'."\n"
-            ."\t\t\t\t".'<rdf:Alt>'."\n"
-            ."\t\t\t\t\t".'<rdf:li xml:lang="x-default">'.$this->getEscapedXML($this->title).'</rdf:li>'."\n"
-            ."\t\t\t\t".'</rdf:Alt>'."\n"
-            ."\t\t\t".'</dc:title>'."\n"
-            ."\t\t\t".'<dc:creator>'."\n"
-            ."\t\t\t\t".'<rdf:Seq>'."\n"
-            ."\t\t\t\t\t".'<rdf:li>'.$this->getEscapedXML($this->author).'</rdf:li>'."\n"
-            ."\t\t\t\t".'</rdf:Seq>'."\n"
-            ."\t\t\t".'</dc:creator>'."\n"
-            ."\t\t\t".'<dc:description>'."\n"
-            ."\t\t\t\t".'<rdf:Alt>'."\n"
-            ."\t\t\t\t\t".'<rdf:li xml:lang="x-default">'.$this->getEscapedXML($this->subject).'</rdf:li>'."\n"
-            ."\t\t\t\t".'</rdf:Alt>'."\n"
-            ."\t\t\t".'</dc:description>'."\n"
-            ."\t\t\t".'<dc:subject>'."\n"
-            ."\t\t\t\t".'<rdf:Bag>'."\n"
-            ."\t\t\t\t\t".'<rdf:li>'.$this->getEscapedXML($this->keywords).'</rdf:li>'."\n"
-            ."\t\t\t\t".'</rdf:Bag>'."\n"
-            ."\t\t\t".'</dc:subject>'."\n"
-            ."\t\t".'</rdf:Description>'."\n"
-            ."\t\t".'<rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">'."\n"
-            ."\t\t\t".'<xmp:CreateDate>'.$this->getXMPFormattedDate($this->doctime).'</xmp:CreateDate>'."\n"
-            ."\t\t\t".'<xmp:CreatorTool>'.$this->creator.'</xmp:CreatorTool>'."\n"
-            ."\t\t\t".'<xmp:ModifyDate>'.$this->getXMPFormattedDate($this->docmodtime).'</xmp:ModifyDate>'."\n"
-            ."\t\t\t".'<xmp:MetadataDate>'.$this->getXMPFormattedDate($this->doctime).'</xmp:MetadataDate>'."\n"
-            ."\t\t".'</rdf:Description>'."\n"
-            ."\t\t".'<rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'."\n"
-            ."\t\t\t".'<pdf:Keywords>'.$this->getEscapedXML($this->keywords).'</pdf:Keywords>'."\n"
-            ."\t\t\t".'<pdf:Producer>'.$this->getEscapedXML($this->getProducer()).'</pdf:Producer>'."\n"
-            ."\t\t".'</rdf:Description>'."\n"
-            ."\t\t".'<rdf:Description rdf:about="" xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/">'."\n"
-            ."\t\t\t".'<xmpMM:DocumentID>'.$uuid.'</xmpMM:DocumentID>'."\n"
-            ."\t\t\t".'<xmpMM:InstanceID>'.$uuid.'</xmpMM:InstanceID>'."\n"
-            ."\t\t".'</rdf:Description>'."\n";
+        .'<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 4.2.1-c043 52.372728, 2009/01/18-15:08:04">'."\n"
+        ."\t".'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'."\n"
+        ."\t\t".'<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'."\n"
+        ."\t\t\t".'<dc:format>application/pdf</dc:format>'."\n"
+        ."\t\t\t".'<dc:title>'."\n"
+        ."\t\t\t\t".'<rdf:Alt>'."\n"
+        ."\t\t\t\t\t".'<rdf:li xml:lang="x-default">'.$this->getEscapedXML($this->title).'</rdf:li>'."\n"
+        ."\t\t\t\t".'</rdf:Alt>'."\n"
+        ."\t\t\t".'</dc:title>'."\n"
+        ."\t\t\t".'<dc:creator>'."\n"
+        ."\t\t\t\t".'<rdf:Seq>'."\n"
+        ."\t\t\t\t\t".'<rdf:li>'.$this->getEscapedXML($this->author).'</rdf:li>'."\n"
+        ."\t\t\t\t".'</rdf:Seq>'."\n"
+        ."\t\t\t".'</dc:creator>'."\n"
+        ."\t\t\t".'<dc:description>'."\n"
+        ."\t\t\t\t".'<rdf:Alt>'."\n"
+        ."\t\t\t\t\t".'<rdf:li xml:lang="x-default">'.$this->getEscapedXML($this->subject).'</rdf:li>'."\n"
+        ."\t\t\t\t".'</rdf:Alt>'."\n"
+        ."\t\t\t".'</dc:description>'."\n"
+        ."\t\t\t".'<dc:subject>'."\n"
+        ."\t\t\t\t".'<rdf:Bag>'."\n"
+        ."\t\t\t\t\t".'<rdf:li>'.$this->getEscapedXML($this->keywords).'</rdf:li>'."\n"
+        ."\t\t\t\t".'</rdf:Bag>'."\n"
+        ."\t\t\t".'</dc:subject>'."\n"
+        ."\t\t".'</rdf:Description>'."\n"
+        ."\t\t".'<rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">'."\n"
+        ."\t\t\t".'<xmp:CreateDate>'.$this->getXMPFormattedDate($this->doctime).'</xmp:CreateDate>'."\n"
+        ."\t\t\t".'<xmp:CreatorTool>'.$this->creator.'</xmp:CreatorTool>'."\n"
+        ."\t\t\t".'<xmp:ModifyDate>'.$this->getXMPFormattedDate($this->docmodtime).'</xmp:ModifyDate>'."\n"
+        ."\t\t\t".'<xmp:MetadataDate>'.$this->getXMPFormattedDate($this->doctime).'</xmp:MetadataDate>'."\n"
+        ."\t\t".'</rdf:Description>'."\n"
+        ."\t\t".'<rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'."\n"
+        ."\t\t\t".'<pdf:Keywords>'.$this->getEscapedXML($this->keywords).'</pdf:Keywords>'."\n"
+        ."\t\t\t".'<pdf:Producer>'.$this->getEscapedXML($this->getProducer()).'</pdf:Producer>'."\n"
+        ."\t\t".'</rdf:Description>'."\n"
+        ."\t\t".'<rdf:Description rdf:about="" xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/">'."\n"
+        ."\t\t\t".'<xmpMM:DocumentID>'.$uuid.'</xmpMM:DocumentID>'."\n"
+        ."\t\t\t".'<xmpMM:InstanceID>'.$uuid.'</xmpMM:InstanceID>'."\n"
+        ."\t\t".'</rdf:Description>'."\n";
         
         if ($this->pdfa) {
             $xmp .= "\t\t".'<rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">'."\n"
-                ."\t\t\t".'<pdfaid:part>1</pdfaid:part>'."\n"
-                ."\t\t\t".'<pdfaid:conformance>B</pdfaid:conformance>'."\n"
-                ."\t\t".'</rdf:Description>'."\n";
-        }
+            ."\t\t\t".'<pdfaid:part>1</pdfaid:part>'."\n"
+            ."\t\t\t".'<pdfaid:conformance>B</pdfaid:conformance>'."\n"
+            ."\t\t".'</rdf:Description>'."\n";
+            }
 
         // XMP extension schemas
         $xmp .= "\t\t".'<rdf:Description rdf:about="" xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/" xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#" xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">'."\n"
-            ."\t\t\t".'<pdfaExtension:schemas>'."\n"
-            ."\t\t\t\t".'<rdf:Bag>'."\n"
-            ."\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:namespaceURI>http://ns.adobe.com/pdf/1.3/</pdfaSchema:namespaceURI>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:prefix>pdf</pdfaSchema:prefix>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:schema>Adobe PDF Schema</pdfaSchema:schema>'."\n"
-            ."\t\t\t\t\t".'</rdf:li>'."\n"
-            ."\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:namespaceURI>http://ns.adobe.com/xap/1.0/mm/</pdfaSchema:namespaceURI>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:prefix>xmpMM</pdfaSchema:prefix>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:schema>XMP Media Management Schema</pdfaSchema:schema>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:property>'."\n"
-            ."\t\t\t\t\t\t\t".'<rdf:Seq>'."\n"
-            ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>UUID based identifier for specific incarnation of a document</pdfaProperty:description>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>InstanceID</pdfaProperty:name>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>URI</pdfaProperty:valueType>'."\n"
-            ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
-            ."\t\t\t\t\t\t\t".'</rdf:Seq>'."\n"
-            ."\t\t\t\t\t\t".'</pdfaSchema:property>'."\n"
-            ."\t\t\t\t\t".'</rdf:li>'."\n"
-            ."\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:namespaceURI>http://www.aiim.org/pdfa/ns/id/</pdfaSchema:namespaceURI>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:prefix>pdfaid</pdfaSchema:prefix>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:schema>PDF/A ID Schema</pdfaSchema:schema>'."\n"
-            ."\t\t\t\t\t\t".'<pdfaSchema:property>'."\n"
-            ."\t\t\t\t\t\t\t".'<rdf:Seq>'."\n"
-            ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>Part of PDF/A standard</pdfaProperty:description>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>part</pdfaProperty:name>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>Integer</pdfaProperty:valueType>'."\n"
-            ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
-            ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>Amendment of PDF/A standard</pdfaProperty:description>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>amd</pdfaProperty:name>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>Text</pdfaProperty:valueType>'."\n"
-            ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
-            ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>Conformance level of PDF/A standard</pdfaProperty:description>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>conformance</pdfaProperty:name>'."\n"
-            ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>Text</pdfaProperty:valueType>'."\n"
-            ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
-            ."\t\t\t\t\t\t\t".'</rdf:Seq>'."\n"
-            ."\t\t\t\t\t\t".'</pdfaSchema:property>'."\n"
-            ."\t\t\t\t\t".'</rdf:li>'."\n"
-            ."\t\t\t\t".'</rdf:Bag>'."\n"
-            ."\t\t\t".'</pdfaExtension:schemas>'."\n"
-            ."\t\t".'</rdf:Description>'."\n"
-            ."\t".'</rdf:RDF>'."\n"
-            .$this->custom_xmp
-            .'</x:xmpmeta>'."\n"
-            .'<?xpacket end="w"?>';
+        ."\t\t\t".'<pdfaExtension:schemas>'."\n"
+        ."\t\t\t\t".'<rdf:Bag>'."\n"
+        ."\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:namespaceURI>http://ns.adobe.com/pdf/1.3/</pdfaSchema:namespaceURI>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:prefix>pdf</pdfaSchema:prefix>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:schema>Adobe PDF Schema</pdfaSchema:schema>'."\n"
+        ."\t\t\t\t\t".'</rdf:li>'."\n"
+        ."\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:namespaceURI>http://ns.adobe.com/xap/1.0/mm/</pdfaSchema:namespaceURI>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:prefix>xmpMM</pdfaSchema:prefix>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:schema>XMP Media Management Schema</pdfaSchema:schema>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:property>'."\n"
+        ."\t\t\t\t\t\t\t".'<rdf:Seq>'."\n"
+        ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>UUID based identifier for specific incarnation of a document</pdfaProperty:description>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>InstanceID</pdfaProperty:name>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>URI</pdfaProperty:valueType>'."\n"
+        ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
+        ."\t\t\t\t\t\t\t".'</rdf:Seq>'."\n"
+        ."\t\t\t\t\t\t".'</pdfaSchema:property>'."\n"
+        ."\t\t\t\t\t".'</rdf:li>'."\n"
+        ."\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:namespaceURI>http://www.aiim.org/pdfa/ns/id/</pdfaSchema:namespaceURI>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:prefix>pdfaid</pdfaSchema:prefix>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:schema>PDF/A ID Schema</pdfaSchema:schema>'."\n"
+        ."\t\t\t\t\t\t".'<pdfaSchema:property>'."\n"
+        ."\t\t\t\t\t\t\t".'<rdf:Seq>'."\n"
+        ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>Part of PDF/A standard</pdfaProperty:description>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>part</pdfaProperty:name>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>Integer</pdfaProperty:valueType>'."\n"
+        ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
+        ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>Amendment of PDF/A standard</pdfaProperty:description>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>amd</pdfaProperty:name>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>Text</pdfaProperty:valueType>'."\n"
+        ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
+        ."\t\t\t\t\t\t\t\t".'<rdf:li rdf:parseType="Resource">'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:category>internal</pdfaProperty:category>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:description>Conformance level of PDF/A standard</pdfaProperty:description>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:name>conformance</pdfaProperty:name>'."\n"
+        ."\t\t\t\t\t\t\t\t\t".'<pdfaProperty:valueType>Text</pdfaProperty:valueType>'."\n"
+        ."\t\t\t\t\t\t\t\t".'</rdf:li>'."\n"
+        ."\t\t\t\t\t\t\t".'</rdf:Seq>'."\n"
+        ."\t\t\t\t\t\t".'</pdfaSchema:property>'."\n"
+        ."\t\t\t\t\t".'</rdf:li>'."\n"
+        ."\t\t\t\t".'</rdf:Bag>'."\n"
+        ."\t\t\t".'</pdfaExtension:schemas>'."\n"
+        ."\t\t".'</rdf:Description>'."\n"
+        ."\t".'</rdf:RDF>'."\n"
+        .$this->custom_xmp
+        .'</x:xmpmeta>'."\n"
+        .'<?xpacket end="w"?>';
         // @codingStandardsIgnoreEnd
 
         $oid = ++$this->pon;
+        $this->objid['xmp'] = $oid;
         $out = $oid.' 0 obj'."\n"
-            .'<<'
-            .' /Type /Metadata'
-            .' /Subtype /XML'
-            .' /Length '.strlen($xmp)
-            .' >> stream'."\n"
-            .$xmp."\n"
-            .'endstream'."\n"
-            .'endobj'."\n";
+        .'<<'
+        .' /Type /Metadata'
+        .' /Subtype /XML'
+        .' /Length '.strlen($xmp)
+        .' >> stream'."\n"
+        .$xmp."\n"
+        .'endstream'."\n"
+        .'endobj'."\n";
 
         return $out;
     }
