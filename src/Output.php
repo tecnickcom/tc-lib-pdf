@@ -15,17 +15,7 @@
 
 namespace Com\Tecnick\Pdf;
 
-use \Com\Tecnick\Pdf\Exception as PdfException;
-use \Com\Tecnick\Color\Pdf as ObjColor;
-use \Com\Tecnick\Barcode\Barcode as ObjBarcode;
-use \Com\Tecnick\File\File as ObjFile;
-use \Com\Tecnick\Unicode\Convert as ObjUniConvert;
-use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
-use \Com\Tecnick\Pdf\Page\Page as ObjPage;
-use \Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
-use \Com\Tecnick\Pdf\Font\Stack as ObjFont;
 use \Com\Tecnick\Pdf\Font\Output as OutFont;
-use \Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Output
@@ -65,6 +55,7 @@ abstract class Output
             .'startxref'."\n"
             .$startxref."\n"
             .'%%EOF'."\n";
+        // @TODO: sign the document ...
         return $out;
     }
 

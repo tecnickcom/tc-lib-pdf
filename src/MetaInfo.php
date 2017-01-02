@@ -15,18 +15,6 @@
 
 namespace Com\Tecnick\Pdf;
 
-use \Com\Tecnick\Pdf\Exception as PdfException;
-use \Com\Tecnick\Color\Pdf as ObjColor;
-use \Com\Tecnick\Barcode\Barcode as ObjBarcode;
-use \Com\Tecnick\File\File as ObjFile;
-use \Com\Tecnick\Unicode\Convert as ObjUniConvert;
-use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
-use \Com\Tecnick\Pdf\Page\Page as ObjPage;
-use \Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
-use \Com\Tecnick\Pdf\Font\Stack as ObjFont;
-use \Com\Tecnick\Pdf\Font\Output as OutFont;
-use \Com\Tecnick\Pdf\Image\Import as ObjImage;
-
 /**
  * Com\Tecnick\Pdf\MetaInfo
  *
@@ -114,6 +102,23 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      * @var bool
      */
     protected $sRGB = false;
+
+    /**
+     * Viewer preferences dictionary controlling the way the document is to be presented on the screen or in print.
+     * (Section 8.1 of PDF reference, "Viewer Preferences").
+     *
+     * @var array
+     */
+    protected $viewerpref = array();
+
+    /**
+     * Boolean flag to set the default document language direction.
+     *    False = LTR = Left-To-Right.
+     *    True = RTL = Right-To-Left.
+     *
+     * @val bool
+     */
+    protected $rtl = false;
 
     /**
      * Return the program version.
@@ -477,6 +482,150 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         .'endstream'."\n"
         .'endobj'."\n";
 
+        return $out;
+    }
+
+    /**
+     * Set the default document language direction.
+     *
+     * @param bool $enabled False = LTR = Left-To-Right; True = RTL = Right-To-Left.
+     */
+    public function setRTL($enabled)
+    {
+        $this->rtl = (bool) $enabled;
+        return $this;
+    }
+
+    /**
+     * Set the viewer preferences dictionary
+     * controlling the way the document is to be presented on the screen or in print.
+     *
+     * @param array $pref Array of options (see Section 8.1 of PDF reference, "Viewer Preferences").
+     */
+    public function setViewerPreferences($pref)
+    {
+        $this->viewerpref = $pref;
+        return $this;
+    }
+
+    /**
+     * Sanitize the page box name and return the default 'CropBox' in case of error.
+     *
+     * @param string $name Entry name.
+     *
+     * @return string
+     */
+    protected function getPageBoxName($name)
+    {
+        $box = 'CropBox';
+        if (isset($this->viewerpref[$name])) {
+            $val = $this->viewerpref[$name];
+            if (isset($this->page->$box[$val])) {
+                $box = $this->page->$box[$val];
+            }
+        }
+        return ' /'.$name.' /'.$box;
+    }
+
+    /**
+     * Sanitize the page box name and return the default 'CropBox' in case of error.
+     *
+     * @return string
+     */
+    protected function getPagePrintScaling()
+    {
+        $mode = 'AppDefault';
+        if (isset($this->viewerpref['PrintScaling'])) {
+            $name = strtolower($this->viewerpref['PrintScaling']);
+            $valid = array(
+                'none'       => 'None',
+                'appdefault' => 'AppDefault',
+            );
+            if (isset($valid[$name])) {
+                $mode = $valid[$name];
+            }
+        }
+        return ' /PrintScaling /'.$mode;
+    }
+
+    /**
+     * Returns the Duplex mode for the Viewer Preferences
+     *
+     * @return string
+     */
+    protected function getDuplexMode()
+    {
+        $mode = 'none';
+        if (isset($this->viewerpref['Duplex'])) {
+            $name = strtolower($this->viewerpref['Duplex']);
+            $valid = array(
+                'simplex'             => 'Simplex',
+                'duplexflipshortedge' => 'DuplexFlipShortEdge',
+                'duplexfliplongedge'  => 'DuplexFlipLongEdge',
+            );
+            if (isset($valid[$name])) {
+                $mode = $valid[$name];
+            }
+        }
+        return ' /Duplex /'.$mode;
+    }
+
+    /**
+     * Returns the Viewer Preference boolean entry.
+     *
+     * @param string $name Entry name.
+     *
+     * @return string
+     */
+    protected function getBooleanMode($name)
+    {
+        if (isset($this->viewerpref[$name])) {
+            return ' /'.$name.' '.var_export((bool)$this->viewerpref[$name], true);
+        }
+        return '';
+    }
+
+    /**
+     * Returns the PDF viewer preferences for the catalog section
+     *
+     * @return string
+     */
+    protected function getOutViewerPref()
+    {
+        $vpr = $this->viewerpref;
+        $out = ' /ViewerPreferences <<';
+        if ($this->rtl) {
+            $out .= ' /Direction /R2L';
+        } else {
+            $out .= ' /Direction /L2R';
+        }
+        $out .= $this->getBooleanMode('HideToolbar');
+        $out .= $this->getBooleanMode('HideMenubar');
+        $out .= $this->getBooleanMode('HideWindowUI');
+        $out .= $this->getBooleanMode('FitWindow');
+        $out .= $this->getBooleanMode('CenterWindow');
+        $out .= $this->getBooleanMode('DisplayDocTitle');
+        if (isset($vpr['NonFullScreenPageMode'])) {
+            $out .= ' /NonFullScreenPageMode /'.$this->page->getDisplay($vpr['NonFullScreenPageMode']);
+        }
+        $out .= $this->getPageBoxName('ViewArea');
+        $out .= $this->getPageBoxName('ViewClip');
+        $out .= $this->getPageBoxName('PrintArea');
+        $out .= $this->getPageBoxName('PrintClip');
+        $out .= $this->getPagePrintScaling();
+        $out .= $this->getDuplexMode();
+        $out .= $this->getBooleanMode('PickTrayByPDFSize');
+        if (isset($vpr['PrintPageRange'])) {
+            $PrintPageRangeNum = '';
+            foreach ($vpr['PrintPageRange'] as $pnum) {
+                $PrintPageRangeNum .= ' '.($pnum - 1).'';
+            }
+            $out .= ' /PrintPageRange ['.$PrintPageRangeNum.' ]';
+        }
+        if (isset($vpr['NumCopies'])) {
+            $out .= ' /NumCopies '.intval($vpr['NumCopies']);
+        }
+        $out .= ' >>';
         return $out;
     }
 }
