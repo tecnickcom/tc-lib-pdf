@@ -307,9 +307,9 @@ abstract class Output
                 .' /Name '.$this->getOutTextString($layer['name'], $oid)
                 .' /Usage <<';
             if (isset($layer['print']) && ($layer['print'] !== null)) {
-                $out .= ' /Print <</PrintState /'.($layer['print']?'ON':'OFF').'>>';
+                $out .= ' /Print <</PrintState /'.$this->getOnOff($layer['print']).'>>';
             }
-            $out .= ' /View <</ViewState /'.($layer['view']?'ON':'OFF').'>>'
+            $out .= ' /View <</ViewState /'.$this->getOnOff($layer['view']).'>>'
                 .' >>'
                 .' >>'."\n"
                 .'endobj'."\n";
@@ -481,5 +481,18 @@ abstract class Output
         }
         $out .= ' >>';
         return $out;
+    }
+
+    /**
+     * Returns 'ON' if $val is true, 'OFF' otherwise
+     *
+     * return string
+     */
+    protected function getOnOff($val)
+    {
+        if (bool($val)) {
+            return 'ON';
+        }
+        return 'OFF';
     }
 }
