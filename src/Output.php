@@ -204,7 +204,7 @@ abstract class Output
             .' stream'."\n"
             .$icc."\n"
             .'endstream'."\n"
-            .'endobj';
+            .'endobj'."\n";
         return $out;
     }
 
@@ -232,7 +232,7 @@ abstract class Output
     }
 
     /**
-     * Set OutputIntent to sRGB IEC61966-2.1 if required
+     * Get the PDF layers
      *
      * @return string
      */
@@ -294,8 +294,27 @@ abstract class Output
      */
     protected function getOutOCG()
     {
-        // @TODO
-        return '';
+        if (empty($this->pdflayer)) {
+            return '';
+        }
+        $out = '';
+        foreach ($this->pdflayer as $key => $layer) {
+            $oid = ++$this->pon;
+            $this->pdflayer[$key]['objid'] = $oid;
+            $out .= $oid.' 0 obj'."\n";
+            $out .= '<< '
+                .' /Type /OCG'
+                .' /Name '.$this->getOutTextString($layer['name'], $oid)
+                .' /Usage <<';
+            if (isset($layer['print']) && ($layer['print'] !== null)) {
+                $out .= ' /Print <</PrintState /'.($layer['print']?'ON':'OFF').'>>';
+            }
+            $out .= ' /View <</ViewState /'.($layer['view']?'ON':'OFF').'>>'
+                .' >>'
+                .' >>'."\n"
+                .'endobj'."\n";
+        }
+        return $out;
     }
 
     /**
@@ -316,8 +335,20 @@ abstract class Output
      */
     protected function getOutResourcesDict()
     {
-        // @TODO
-        return '';
+        $oid = ++$this->pon;
+        $this->objid['resdic'] = $oid;
+        $out .= $oid.' 0 obj'."\n"
+            .'<<'
+            .' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
+            .$this->getOutFontDic()
+            .$this->getXObjectDic()
+            .$this->getLayerDic()
+            .$this->graph->getOutExtGStateResources()
+            .$this->graph->getOutGradientResources()
+            .$this->color->getPdfSpotResources()
+            .' >>'."\n"
+            .'endobj'."\n";
+        return $out;
     }
 
     /**
@@ -395,5 +426,60 @@ abstract class Output
     {
         // @TODO
         return '';
+    }
+
+    /**
+     * Get the PDF output string for Font resources dictionary
+     *
+     * return string
+     */
+    protected function getOutFontDic()
+    {
+        $fonts = $this->font->getFonts();
+        if (empty($fonts)) {
+            return '';
+        }
+        $out = ' /Font <<';
+        foreach ($fonts as $font) {
+            $out .= ' /F'.$font['i'].' '.$font['n'].' 0 R';
+        }
+        $out .= ' >>';
+        return $out;
+    }
+
+    /**
+     * Get the PDF output string for XObject resources dictionary
+     *
+     * return string
+     */
+    protected function getXObjectDic()
+    {
+        if (empty($this->xobject)) {
+            return '';
+        }
+        $out = ' /XObject <<';
+        foreach ($this->xobject as $id => $oid) {
+            $out .= ' /'.$id.' '.$oid['n'].' 0 R';
+        }
+        $out .= ' >>';
+        return $out;
+    }
+
+    /**
+     * Get the PDF output string for Layer resources dictionary
+     *
+     * return string
+     */
+    protected function getLayerDic()
+    {
+        if (empty($this->pdflayer)) {
+            return '';
+        }
+        $out = ' /Properties <<';
+        foreach ($this->pdflayer as $layer) {
+            $out .= ' /'.$layer['layer'].' '.$layer['objid'].' 0 R';
+        }
+        $out .= ' >>';
+        return $out;
     }
 }
