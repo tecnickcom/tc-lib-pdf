@@ -29,6 +29,8 @@ use \Com\Tecnick\Pdf\Font\Output as OutFont;
  * @copyright   2002-2017 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * @SuppressWarnings(PHPMD)
  */
 abstract class Output
 {
@@ -106,7 +108,7 @@ abstract class Output
         }
         $out .= $this->getOutSignatureFields();
         $out .= $this->getOutSignature();
-        $out .= $this->getOutOutput();
+        $out .= $this->getOutMetaInfo();
         $out .= $this->getOutXMP();
         $out .= $this->getOutICC();
         $out .= $this->getOutCatalog();
@@ -209,13 +211,13 @@ abstract class Output
     }
 
     /**
-     * Set OutputIntent to sRGB IEC61966-2.1 if required
+     * Get OutputIntents for sRGB IEC61966-2.1 if required
      *
      * @return string
      */
-    protected function getOutputIntents()
+    protected function getOutputIntentsSrgb()
     {
-        if (empty($this->objid['srgbicc']) || empty($this->objid['catalog'])) {
+        if (empty($this->objid['srgbicc'])) {
             return '';
         }
         $oid = $this->objid['catalog'];
@@ -229,6 +231,40 @@ abstract class Output
             .' /DestOutputProfile '.$this->objid['srgbicc'].' 0 R'
             .' >>]';
         return $out;
+    }
+
+    /**
+     * Get OutputIntents for PDF-X if required
+     *
+     * @return string
+     */
+    protected function getOutputIntentsPdfX()
+    {
+        $oid = $this->objid['catalog'];
+        $out = ' /OutputIntents [<<'
+            .' /Type /OutputIntent'
+            .' /S /GTS_PDFX'
+            .' /OutputConditionIdentifier '.$this->getOutTextString('OFCOM_PO_P1_F60_95', $oid)
+            .' /RegistryName '.$this->getOutTextString('http://www.color.org', $oid)
+            .' /Info '.$this->getOutTextString('OFCOM_PO_P1_F60_95', $oid)
+            .' >>]';
+        return $out;
+    }
+
+    /**
+     * Set OutputIntents
+     *
+     * @return string
+     */
+    protected function getOutputIntents()
+    {
+        if (empty($this->objid['catalog'])) {
+            return '';
+        }
+        if ($this->pdfx) {
+            $this->getOutputIntentsPdfX();
+        }
+        return $this->getOutputIntentsSrgb();
     }
 
     /**
@@ -284,7 +320,142 @@ abstract class Output
     protected function getOutCatalog()
     {
         // @TODO
-        return '';
+        $oid = ++$this->pon;
+        $this->objid['catalog'] = $oid;
+        $out = $oid.' 0 obj'."\n"
+            .'<<'
+            .' /Type /Catalog'
+            .' /Version /'.$this->pdfver
+            //.' /Extensions <<>>'
+            .' /Pages 1 0 R'
+            //.' /PageLabels ' //...
+            .' /Names <<';
+        if (!$this->pdfa && !empty($this->objid['javascript'])) {
+            $out .= ' /JavaScript '.$this->objid['javascript'];
+        }
+        if (!empty($this->efnames)) {
+            $out .= ' /EmbeddedFiles << /Names [';
+            foreach ($this->efnames as $fn => $fref) {
+                $out .= ' '.$this->getOutTextString($fn, $oid).' '.$fref;
+            }
+            $out .= ' ] >>';
+        }
+        $out .= ' >>';
+
+        if (!empty($this->objid['dests'])) {
+            $out .= ' /Dests '.($this->objid['dests']).' 0 R';
+        }
+
+        $out .= $this->getOutViewerPref();
+
+        if (!empty($this->LayoutMode)) {
+            $out .= ' /PageLayout /'.$this->page->getLayout($this->LayoutMode);
+        }
+        if (!empty($this->PageMode)) {
+            $out .= ' /PageMode /'.$this->page->getDisplay($this->PageMode);
+        }
+        if (!empty($this->outlines)) {
+            $out .= ' /Outlines '.$this->OutlineRoot.' 0 R';
+            $out .= ' /PageMode /UseOutlines';
+        }
+
+        //$out .= ' /Threads []';
+        /*
+        if ($this->ZoomMode == 'fullpage') {
+            $out .= ' /OpenAction ['.$this->page_obj_id[1].' 0 R /Fit]';
+        } elseif ($this->ZoomMode == 'fullwidth') {
+            $out .= ' /OpenAction ['.$this->page_obj_id[1].' 0 R /FitH null]';
+        } elseif ($this->ZoomMode == 'real') {
+            $out .= ' /OpenAction ['.$this->page_obj_id[1].' 0 R /XYZ null null 1]';
+        } elseif (!is_string($this->ZoomMode)) {
+            $out .= sprintf(' /OpenAction ['.$this->page_obj_id[1].' 0 R /XYZ null null %F]', ($this->ZoomMode / 100));
+        }
+        */
+
+        //$out .= ' /AA <<>>';
+        //$out .= ' /URI <<>>';
+        $out .= ' /Metadata '.$this->objid['xmp'].' 0 R';
+        //$out .= ' /StructTreeRoot <<>>';
+        //$out .= ' /MarkInfo <<>>';
+
+        if (!empty($this->l['a_meta_language'])) {
+            $out .= ' /Lang '.$this->getOutTextString($this->l['a_meta_language'], $oid);
+        }
+
+        //$out .= ' /SpiderInfo <<>>';
+        $out .= $this->getOutputIntents();
+        //$out .= ' /PieceInfo <<>>';
+        $out .= $this->getPDFLayers();
+
+        /*
+        // AcroForm
+        if (!empty($this->form_obj_id)
+            OR ($this->sign AND isset($this->signature_data['cert_type']))
+            OR !empty($this->empty_signature_appearance)) {
+            $out .= ' /AcroForm <<';
+            $objrefs = '';
+            if ($this->sign AND isset($this->signature_data['cert_type'])) {
+                // set reference for signature object
+                $objrefs .= $this->sig_obj_id.' 0 R';
+            }
+            if (!empty($this->empty_signature_appearance)) {
+                foreach ($this->empty_signature_appearance as $esa) {
+                    // set reference for empty signature objects
+                    $objrefs .= ' '.$esa['objid'].' 0 R';
+                }
+            }
+            if (!empty($this->form_obj_id)) {
+                foreach($this->form_obj_id as $objid) {
+                    $objrefs .= ' '.$objid.' 0 R';
+                }
+            }
+            $out .= ' /Fields ['.$objrefs.']';
+            // It's better to turn off this value and set the appearance stream for 
+            // each annotation (/AP) to avoid conflicts with signature fields.
+            if (empty($this->signature_data['approval']) OR ($this->signature_data['approval'] != 'A')) {
+                $out .= ' /NeedAppearances false';
+            }
+            if ($this->sign AND isset($this->signature_data['cert_type'])) {
+                if ($this->signature_data['cert_type'] > 0) {
+                    $out .= ' /SigFlags 3';
+                } else {
+                    $out .= ' /SigFlags 1';
+                }
+            }
+            //$out .= ' /CO ';
+            if (isset($this->annotation_fonts) AND !empty($this->annotation_fonts)) {
+                $out .= ' /DR <<';
+                $out .= ' /Font <<';
+                foreach ($this->annotation_fonts as $fontkey => $fontid) {
+                    $out .= ' /F'.$fontid.' '.$this->font_obj_ids[$fontkey].' 0 R';
+                }
+                $out .= ' >> >>';
+            }
+            $font = $this->getFontBuffer('helvetica');
+            $out .= ' /DA (/F'.$font['i'].' 0 Tf 0 g)';
+            $out .= ' /Q '.(($this->rtl)?'2':'0');
+            //$out .= ' /XFA ';
+            $out .= ' >>';
+            // signatures
+            if ($this->sign AND isset($this->signature_data['cert_type']) 
+                AND (empty($this->signature_data['approval']) OR ($this->signature_data['approval'] != 'A'))) {
+                if ($this->signature_data['cert_type'] > 0) {
+                    $out .= ' /Perms << /DocMDP '.($this->sig_obj_id + 1).' 0 R >>';
+                } else {
+                    $out .= ' /Perms << /UR3 '.($this->sig_obj_id + 1).' 0 R >>';
+                }
+            }
+        }
+        */
+
+        //$out .= ' /Legal <<>>';
+        //$out .= ' /Requirements []';
+        //$out .= ' /Collection <<>>';
+        //$out .= ' /NeedsRendering true';
+
+        $out .= ' >>'."\n"
+            .'endobj'."\n";
+        return $out;
     }
 
     /**
@@ -335,9 +506,8 @@ abstract class Output
      */
     protected function getOutResourcesDict()
     {
-        $oid = ++$this->pon;
-        $this->objid['resdic'] = $oid;
-        $out .= $oid.' 0 obj'."\n"
+        $this->objid['resdic'] = $this->page->getResourceDictObjID();
+        $out = $this->objid['resdic'].' 0 obj'."\n"
             .'<<'
             .' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
             .$this->getOutFontDic()

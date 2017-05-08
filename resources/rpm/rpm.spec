@@ -36,7 +36,7 @@ Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data >= 1.6.5
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 2.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode >= 1.3.5
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page >= 2.4.2
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page >= 2.4.3
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 2.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph >= 1.4.4
 

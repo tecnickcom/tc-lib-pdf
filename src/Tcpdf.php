@@ -62,6 +62,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $pdfa = false;
 
     /**
+     * True if we are in PDF/X mode.
+     *
+     * @var bool
+     */
+    protected $pdfx = false;
+
+    /**
      * True if the signature approval is enabled (for incremental updates).
      *
      * @var bool
@@ -102,14 +109,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in')
      * @param bool       $isunicode   True if the document is in Unicode mode
      * @param bool       $subsetfont  If true subset the embedded fonts to remove the unused characters
-     * @param bool       $pdfa        True to produce a PDF/A document (some features will be bisabled)
+     * @param string     $mode        PDF mode: "pdfa", "pdfx" or empty
      * @param ObjEncrypt $encobj      Encryption object
      */
     public function __construct(
         $unit = 'mm',
         $isunicode = true,
         $subsetfont = false,
-        $pdfa = false,
+        $mode = '',
         ObjEncrypt $encobj = null
     ) {
         setlocale(LC_NUMERIC, 'C');
@@ -120,7 +127,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->unit = $unit;
         $this->isunicode = $isunicode;
         $this->subsetfont = $subsetfont;
-        $this->pdfa = $pdfa;
+        $this->pdfa = ($mode == 'pdfa');
+        $this->pdfx = ($mode == 'pdfx');
         $this->setPDFVersion();
         $this->encrypt = $encobj;
         $this->initClassObjects();
