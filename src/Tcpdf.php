@@ -104,6 +104,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $pdfver = '1.7';
 
     /**
+     * Defines the way the document is to be displayed by the viewer.
+     *
+     * @var string
+     */
+    protected $display = array('zoom' => 'default', 'layout' => 'SinglePage', 'mode' => 'UseNone');
+
+    /**
      * Initialize a new PDF object
      *
      * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in')
@@ -132,5 +139,40 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->setPDFVersion();
         $this->encrypt = $encobj;
         $this->initClassObjects();
+    }
+
+    /**
+     * Defines the way the document is to be displayed by the viewer.
+     *
+     * @param mixed  $zoom   The zoom to use. It can be one of the following string values or a number indicating the
+     *                       zooming factor to use.
+     *                       * fullpage: displays the entire page on screen
+     *                       * fullwidth: uses maximum width of window
+     *                       * real: uses real size (equivalent to 100% zoom)
+     *                       * default: uses viewer default mode
+     * @param string $layout The page layout. Possible values are:
+     *                       * SinglePage Display one page at a time
+     *                       * OneColumn Display the pages in one column
+     *                       * TwoColumnLeft Display the pages in two columns, with odd-numbered pages on the left
+     *                       * TwoColumnRight Display the pages in two columns, with odd-numbered pages on the right
+     *                       * TwoPageLeft Display the pages two at a time, with odd-numbered pages on the left
+     *                       * TwoPageRight Display the pages two at a time, with odd-numbered pages on the right
+     * @param string $mode   A name object specifying how the document should be displayed when opened:
+     *                       * UseNone Neither document outline nor thumbnail images visible
+     *                       * UseOutlines Document outline visible
+     *                       * UseThumbs Thumbnail images visible
+     *                       * FullScreen Full screen, with no menu bar, window controls, or any other window visible
+     *                       * UseOC (PDF 1.5) Optional content group panel visible
+     *                       * UseAttachments (PDF 1.6) Attachments panel visible
+     */
+    public function setDisplayMode($zoom = 'default', $layout = 'SinglePage', $mode = 'UseNone')
+    {
+        if (is_numeric($zoom) || in_array($zoom, $this->valid_zoom)) {
+            $this->display['zoom'] = $zoom;
+        } else {
+            $this->display['zoom'] = 'default';
+        }
+        $this->display['layout'] = $this->page->getLayout($layout);
+        $this->display['page'] = $this->page->getDisplay($mode);
     }
 }

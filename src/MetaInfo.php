@@ -121,6 +121,18 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
     protected $rtl = false;
 
     /**
+     * Valid document zoom modes
+     *
+     * @var array
+     */
+    protected static $valid_zoom = array(
+        'fullpage',
+        'fullwidth',
+        'real',
+        'default'
+    );
+
+    /**
      * Return the program version.
      *
      * @return string
@@ -500,7 +512,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      * Set the viewer preferences dictionary
      * controlling the way the document is to be presented on the screen or in print.
      *
-     * @param array $pref Array of options (see Section 8.1 of PDF reference, "Viewer Preferences").
+     * @param array $pref Array of options (see Section 12.2 of PDF reference, "Viewer Preferences").
      */
     public function setViewerPreferences($pref)
     {

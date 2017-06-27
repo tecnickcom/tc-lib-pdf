@@ -348,11 +348,11 @@ abstract class Output
 
         $out .= $this->getOutViewerPref();
 
-        if (!empty($this->LayoutMode)) {
-            $out .= ' /PageLayout /'.$this->page->getLayout($this->LayoutMode);
+        if (!empty($this->display['layout'])) {
+            $out .= ' /PageLayout /'.$this->display['layout'];
         }
-        if (!empty($this->PageMode)) {
-            $out .= ' /PageMode /'.$this->page->getDisplay($this->PageMode);
+        if (!empty($this->display['mode'])) {
+            $out .= ' /PageMode /'.$this->display['mode'];
         }
         if (!empty($this->outlines)) {
             $out .= ' /Outlines '.$this->OutlineRoot.' 0 R';
@@ -360,17 +360,18 @@ abstract class Output
         }
 
         //$out .= ' /Threads []';
-        /*
-        if ($this->ZoomMode == 'fullpage') {
-            $out .= ' /OpenAction ['.$this->page_obj_id[1].' 0 R /Fit]';
-        } elseif ($this->ZoomMode == 'fullwidth') {
-            $out .= ' /OpenAction ['.$this->page_obj_id[1].' 0 R /FitH null]';
-        } elseif ($this->ZoomMode == 'real') {
-            $out .= ' /OpenAction ['.$this->page_obj_id[1].' 0 R /XYZ null null 1]';
-        } elseif (!is_string($this->ZoomMode)) {
-            $out .= sprintf(' /OpenAction ['.$this->page_obj_id[1].' 0 R /XYZ null null %F]', ($this->ZoomMode / 100));
+
+        $firstpage = $this->page->getPage(0);
+        $fpo = $firstpage['n'];
+        if ($this->display['zoom'] == 'fullpage') {
+            $out .= ' /OpenAction ['.$fpo.' 0 R /Fit]';
+        } elseif ($this->display['zoom'] == 'fullwidth') {
+            $out .= ' /OpenAction ['.$fpo.' 0 R /FitH null]';
+        } elseif ($this->display['zoom'] == 'real') {
+            $out .= ' /OpenAction ['.$fpo.' 0 R /XYZ null null 1]';
+        } elseif (!is_string($this->display['zoom'])) {
+            $out .= sprintf(' /OpenAction ['.$fpo.' 0 R /XYZ null null %F]', ($this->display['zoom'] / 100));
         }
-        */
 
         //$out .= ' /AA <<>>';
         //$out .= ' /URI <<>>';
