@@ -174,5 +174,6 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
         $this->display['layout'] = $this->page->getLayout($layout);
         $this->display['page'] = $this->page->getDisplay($mode);
+        return $this;
     }
 }
