@@ -402,7 +402,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         ."\t\t".'</rdf:Description>'."\n"
         ."\t\t".'<rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">'."\n"
         ."\t\t\t".'<xmp:CreateDate>'.$this->getXMPFormattedDate($this->doctime).'</xmp:CreateDate>'."\n"
-        ."\t\t\t".'<xmp:CreatorTool>'.$this->creator.'</xmp:CreatorTool>'."\n"
+        ."\t\t\t".'<xmp:CreatorTool>'.$this->getEscapedXML($this->creator).'</xmp:CreatorTool>'."\n"
         ."\t\t\t".'<xmp:ModifyDate>'.$this->getXMPFormattedDate($this->docmodtime).'</xmp:ModifyDate>'."\n"
         ."\t\t\t".'<xmp:MetadataDate>'.$this->getXMPFormattedDate($this->doctime).'</xmp:MetadataDate>'."\n"
         ."\t\t".'</rdf:Description>'."\n"
