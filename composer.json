@@ -1,87 +1,51 @@
 {
-    "name": "tecnickcom/tc-lib-pdf",
-    "description": "PHP PDF Library",
-    "type": "library",
-    "homepage": "http://www.tecnick.com",
-    "license": "LGPL-3.0",
-    "keywords": ["tc-lib-pdf", "TCPDF", "PDF", "PDFD32000-2008", "document"],
-    "authors": [
-        {
-            "name": "Nicola Asuni",
-            "email": "info@tecnick.com",
-            "role": "lead"
-        }
-    ],
-    "require": {
-        "php": ">=5.4",
-        "ext-date": "*",
-        "ext-pcre": "*",
-        "tecnickcom/tc-lib-barcode": "^1.15.6",
-        "tecnickcom/tc-lib-color": "^1.12.6",
-        "tecnickcom/tc-lib-pdf-image": "^1.2.3",
-        "tecnickcom/tc-lib-pdf-font": "^1.7.5",
-        "tecnickcom/tc-lib-file": "^1.6.5",
-        "tecnickcom/tc-lib-pdf-encrypt": "^1.5.2",
-        "tecnickcom/tc-lib-unicode-data": "^1.6.5",
-        "tecnickcom/tc-lib-unicode": "^1.3.5",
-        "tecnickcom/tc-lib-pdf-page": "^2.4.3",
-        "tecnickcom/tc-lib-pdf-graph": "^1.4.4"
-    },
-    "require-dev": {
-        "apigen/apigen" : "^4.1.2",
-        "bartlett/php-compatinfo" : "^5.0.4",
-        "pdepend/pdepend" : "^2.5.0",
-        "phploc/phploc" : "^2.1.5 || ^3.0.1",
-        "phpmd/phpmd" : "^2.6.0",
-        "phpunit/phpunit": "^4.8.35 || ^5.7 || ^6.0",
-        "sebastian/phpcpd" : "^2.0.4 || 3.0.0",
-        "squizlabs/php_codesniffer": "^2.8.0 || ^3.0.0"
-    },
-    "autoload": {
-        "psr-4":{
-            "Com\\Tecnick\\Pdf\\": "src"
-        }
-    },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-barcode.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-color.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-pdf-image.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-pdf-font.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-file.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-pdf-encrypt.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-unicode-data.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-unicode.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-pdf-page.git"
-        },
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-pdf-graph.git"
-        }
-    ]
+  "name": "tecnickcom/tc-lib-pdf",
+  "description": "PHP PDF Library",
+  "type": "library",
+  "homepage": "http://www.tecnick.com",
+  "license": "LGPL-3.0",
+  "keywords": [
+    "tc-lib-pdf",
+    "TCPDF",
+    "PDF",
+    "PDFD32000-2008",
+    "document"
+  ],
+  "authors": [
+    {
+      "name": "Nicola Asuni",
+      "email": "info@tecnick.com",
+      "role": "lead"
+    }
+  ],
+  "require": {
+    "php": ">=5.4",
+    "ext-date": "*",
+    "ext-pcre": "*",
+    "tecnickcom/tc-lib-barcode": "^1.15.7",
+    "tecnickcom/tc-lib-color": "^1.12.7",
+    "tecnickcom/tc-lib-pdf-image": "^1.2.4",
+    "tecnickcom/tc-lib-pdf-font": "^1.7.6",
+    "tecnickcom/tc-lib-file": "^1.6.6",
+    "tecnickcom/tc-lib-pdf-encrypt": "^1.5.4",
+    "tecnickcom/tc-lib-unicode-data": "^1.6.6",
+    "tecnickcom/tc-lib-unicode": "^1.3.6",
+    "tecnickcom/tc-lib-pdf-page": "^2.4.4",
+    "tecnickcom/tc-lib-pdf-graph": "^1.4.5"
+  },
+  "require-dev": {
+    "apigen/apigen": "^4.1.2",
+    "bartlett/php-compatinfo": "^5.0.4",
+    "pdepend/pdepend": "^2.5.0",
+    "phploc/phploc": "^2.1.5 || ^3.0.1",
+    "phpmd/phpmd": "^2.6.0",
+    "phpunit/phpunit": "^4.8.35 || ^5.7 || ^6.0",
+    "sebastian/phpcpd": "^2.0.4 || 3.0.0",
+    "squizlabs/php_codesniffer": "^2.8.0 || ^3.0.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Com\\Tecnick\\Pdf\\": "src"
+    }
+  }
 }
