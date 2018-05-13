@@ -411,7 +411,7 @@ abstract class Output
                 }
             }
             $out .= ' /Fields ['.$objrefs.']';
-            // It's better to turn off this value and set the appearance stream for 
+            // It's better to turn off this value and set the appearance stream for
             // each annotation (/AP) to avoid conflicts with signature fields.
             if (empty($this->signature_data['approval']) OR ($this->signature_data['approval'] != 'A')) {
                 $out .= ' /NeedAppearances false';
@@ -438,7 +438,7 @@ abstract class Output
             //$out .= ' /XFA ';
             $out .= ' >>';
             // signatures
-            if ($this->sign AND isset($this->signature_data['cert_type']) 
+            if ($this->sign AND isset($this->signature_data['cert_type'])
                 AND (empty($this->signature_data['approval']) OR ($this->signature_data['approval'] != 'A'))) {
                 if ($this->signature_data['cert_type'] > 0) {
                     $out .= ' /Perms << /DocMDP '.($this->sig_obj_id + 1).' 0 R >>';

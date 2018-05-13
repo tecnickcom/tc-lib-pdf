@@ -22,26 +22,26 @@
     "php": ">=5.4",
     "ext-date": "*",
     "ext-pcre": "*",
-    "tecnickcom/tc-lib-barcode": "^1.15.7",
-    "tecnickcom/tc-lib-color": "^1.12.7",
-    "tecnickcom/tc-lib-pdf-image": "^1.2.4",
-    "tecnickcom/tc-lib-pdf-font": "^1.8.0",
-    "tecnickcom/tc-lib-file": "^1.6.6",
-    "tecnickcom/tc-lib-pdf-encrypt": "^1.5.4",
-    "tecnickcom/tc-lib-unicode-data": "^1.6.6",
-    "tecnickcom/tc-lib-unicode": "^1.3.6",
-    "tecnickcom/tc-lib-pdf-page": "^2.4.4",
-    "tecnickcom/tc-lib-pdf-graph": "^1.4.5"
+    "tecnickcom/tc-lib-barcode": "^1.15.10",
+    "tecnickcom/tc-lib-color": "^1.12.10",
+    "tecnickcom/tc-lib-pdf-image": "^1.2.6",
+    "tecnickcom/tc-lib-pdf-font": "^1.8.2",
+    "tecnickcom/tc-lib-file": "^1.6.7",
+    "tecnickcom/tc-lib-pdf-encrypt": "^1.5.6",
+    "tecnickcom/tc-lib-unicode-data": "^1.6.7",
+    "tecnickcom/tc-lib-unicode": "^1.3.7",
+    "tecnickcom/tc-lib-pdf-page": "^2.4.6",
+    "tecnickcom/tc-lib-pdf-graph": "^1.4.7"
   },
   "require-dev": {
     "apigen/apigen": "^4.1.2",
-    "bartlett/php-compatinfo": "^5.0.4",
-    "pdepend/pdepend": "^2.5.0",
-    "phploc/phploc": "^2.1.5 || ^3.0.1",
+    "bartlett/php-compatinfo": "^5.0.10 || ^5.0.12",
+    "pdepend/pdepend": "^2.5.2",
+    "phploc/phploc": "^2.1 || ^3.0 || ^4.0",
     "phpmd/phpmd": "^2.6.0",
-    "phpunit/phpunit": "^4.8.35 || ^5.7 || ^6.0",
-    "sebastian/phpcpd": "^2.0.4 || 3.0.0",
-    "squizlabs/php_codesniffer": "^2.8.0 || ^3.0.0"
+    "phpunit/phpunit": "^4.8 || ^5.7 || ^6.5 || ^7.1",
+    "sebastian/phpcpd": "^2.0 || ^3.0 || ^4.0",
+    "squizlabs/php_codesniffer": "^2.8.0 || ^3.2.0"
   },
   "autoload": {
     "psr-4": {
