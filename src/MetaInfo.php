@@ -6,7 +6,7 @@
  * @category    Library
  * @package     Pdf
  * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2017 Nicola Asuni - Tecnick.com LTD
+ * @copyright   2002-2019 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -24,7 +24,7 @@ namespace Com\Tecnick\Pdf;
  * @category    Library
  * @package     Pdf
  * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2017 Nicola Asuni - Tecnick.com LTD
+ * @copyright   2002-2019 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  */
@@ -95,6 +95,13 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      * @var string
      */
     protected $custom_xmp = '';
+
+    /**
+     * Additional XMP RDF data to be appended just before the end of "rdf:RDF" tag.
+     *
+     * @var string
+     */
+    protected $custom_xmp_rdf = '';
 
     /**
      * Set this to TRUE to add the default sRGB ICC color profile
@@ -216,7 +223,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      */
     public function setPDFVersion($version = '1.7')
     {
-        if ($this->pdfa) { // PDF/A mode
+        if ($this->pdfa == 1) { // PDF/A 1 mode
             $this->pdfver = '1.4';
             return $this;
         }
@@ -359,6 +366,19 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
     }
 
     /**
+     * Set additional XMP data to be appended just before the end of "rdf:RDF" tag.
+     *
+     * IMPORTANT:
+     * This data is added as-is without controls, so you have to validate your data before using this method.
+     *
+     * @param string $xmp Custom XMP data.
+     */
+    public function setExtraXMPRDF($xmp)
+    {
+        return $this->setNonEmptyFieldValue('custom_xmp_rdf', $xmp);
+    }
+
+    /**
      * Get the PDF output string for the XMP data object
      *
      * @return string
@@ -417,10 +437,10 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         
         if ($this->pdfa) {
             $xmp .= "\t\t".'<rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">'."\n"
-            ."\t\t\t".'<pdfaid:part>1</pdfaid:part>'."\n"
+            ."\t\t\t".'<pdfaid:part>'.$this->pdfa.'</pdfaid:part>'."\n"
             ."\t\t\t".'<pdfaid:conformance>B</pdfaid:conformance>'."\n"
             ."\t\t".'</rdf:Description>'."\n";
-            }
+        }
 
         // XMP extension schemas
         $xmp .= "\t\t".'<rdf:Description rdf:about="" xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/" xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#" xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">'."\n"
@@ -476,8 +496,9 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         ."\t\t\t\t".'</rdf:Bag>'."\n"
         ."\t\t\t".'</pdfaExtension:schemas>'."\n"
         ."\t\t".'</rdf:Description>'."\n"
+        .$this->custom_xmp_rdf."\n"
         ."\t".'</rdf:RDF>'."\n"
-        .$this->custom_xmp
+        .$this->custom_xmp."\n"
         .'</x:xmpmeta>'."\n"
         .'<?xpacket end="w"?>';
         // @codingStandardsIgnoreEnd
