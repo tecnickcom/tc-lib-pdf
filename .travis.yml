@@ -17,6 +17,7 @@ php:
   - 7.1
   - 7.2
   - 7.3
+  - 7.4
   - hhvm-3.18
   - hhvm-nightly
   - nightly
