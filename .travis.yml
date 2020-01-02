@@ -36,6 +36,7 @@ addons:
   apt:
     packages:
     - devscripts
+    - fakeroot
     - debhelper
     - pkg-config
     - alien
