@@ -200,10 +200,10 @@ abstract class Output
         $icc = file_get_contents(dirname(__FILE__).'/include/sRGB.icc.z');
         $icc = $this->encrypt->encryptString($icc, $oid);
         $out .= '<<'
-            .'/N 3'
+            .' /N 3'
             .' /Filter /FlateDecode'
             .' /Length '.strlen($icc)
-            .'>>'
+            .' >>'
             .' stream'."\n"
             .$icc."\n"
             .'endstream'."\n"
@@ -541,8 +541,56 @@ abstract class Output
      */
     protected function getOutEmbeddedFiles()
     {
-        // @TODO
-        return '';
+        if (($this->pdfa == 1 ) || ($this->pdfa == 2)) {
+            // embedded files are not allowed in PDF/A mode version 1 and 2
+            return;
+        }
+        reset($this->embeddedfiles);
+        foreach ($this->embeddedfiles as $name => $data) {
+            try {
+                $content = $this->file->fileGetContents($data['file']);
+            } catch (Exception $e) {
+                continue; // silently skip the file
+            }
+            $rawsize = strlen($content);
+            if ($rawsize <= 0) {
+                continue; // silently skip the file
+            }
+            // update name tree
+            $oid = $data['f'];
+            $this->efnames[$name] = $oid.' 0 R';
+            // embedded file specification object
+            $out = $oid.' 0 obj'."\n"
+                .'<<'
+                .' /Type /Filespec /F '.$this->getOutTextString($name, $oid)
+                .' /UF '.$this->getOutTextString($name, $oid)
+                .' /AFRelationship /Source'
+                .' /EF <</F '.$data['n'].' 0 R>>'
+                .' >>'."\n"
+                .'endobj';
+            // embedded file object
+            $filter = '';
+            if ($this->pdfa == 3) {
+                $filter = ' /Subtype /text#2Fxml';
+            } else {
+                $content = gzcompress($content);
+                $filter = ' /Filter /FlateDecode';
+            }
+            $stream = $this->encrypt->encryptString($content, $data['n']);
+            $out .= "\n"
+                .$data['n'].' 0 obj'."\n"
+                .'<<'
+                .' /Type /EmbeddedFile'
+                .$filter
+                .' /Length '.strlen($stream)
+                .' /Params <</Size '.$rawsize.'>>'
+                .' >>'
+                .' stream'."\n"
+                .$stream."\n"
+                .'endstream'."\n"
+                .'endobj';
+            return $out;
+        }
     }
 
     /**

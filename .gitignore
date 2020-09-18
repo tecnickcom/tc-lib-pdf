@@ -10,4 +10,5 @@ phpunit.xml
 **/.#*
 **/._*
 **/*.tmp
+**/*.tmp.php
 **/*.bak

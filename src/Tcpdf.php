@@ -111,6 +111,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $display = array('zoom' => 'default', 'layout' => 'SinglePage', 'mode' => 'UseNone');
 
     /**
+     * Embedded files data
+     *
+     * @var array
+     */
+    protected $embeddedfiles = array();
+
+    /**
      * Initialize a new PDF object
      *
      * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in')
