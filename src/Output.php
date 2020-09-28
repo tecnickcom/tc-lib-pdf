@@ -35,7 +35,7 @@ use \Com\Tecnick\Pdf\Font\Output as OutFont;
 abstract class Output
 {
     /**
-     * Array containing the ID of some PDF objects
+     * Array containing the ID of some named PDF objects
      *
      * @var array
      */
@@ -530,8 +530,22 @@ abstract class Output
      */
     protected function getOutDestinations()
     {
-        // @TODO
-        return '';
+        if (empty($this->dests)) {
+            return '';
+        }
+        $oid = ++$this->pon;
+        $this->objid['dests'] = $oid;
+        $out .= $oid.' 0 obj'."\n"
+            .'<< ';
+        foreach ($this->dests as $name => $dst) {
+            $poid = $this->page[$dst['p']]['n'];
+            $pgx = ($dst['x'] * $this->page->getKUnit());
+            $pgy = ($this->page[$dst['p']]['pheight'] - ($dst['y'] * $this->page->getKUnit()));
+            $out .= ' /'.$name.' '.sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
+        }
+        $out .= ' >>'."\n"
+            .'endobj';
+        return $out;
     }
 
     /**
