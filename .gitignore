@@ -12,3 +12,5 @@ phpunit.xml
 **/*.tmp
 **/*.tmp.php
 **/*.bak
+.phpunit.result.cache
+.phpdoc
