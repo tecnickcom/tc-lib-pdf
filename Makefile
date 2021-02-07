@@ -89,7 +89,6 @@ help:
 	@echo "$(PROJECT) Makefile."
 	@echo "The following commands are available:"
 	@echo ""
-	@echo "  make bintray  : Upload RPM and DEB packages to bintray (requires APIUSER and APIKEY)"
 	@echo "  make buildall : Build and test everything from scratch"
 	@echo "  make bz2      : Package the library in a compressed bz2 archive"
 	@echo "  make clean    : Delete the vendor and target directories"
@@ -111,12 +110,6 @@ help:
 # alias for help target
 .PHONY: all
 all: help
-
-# upload rpm and deb packages to bintray
-.PHONY: bintray
-bintray:
-	@curl -T $(TARGETDIR)/RPM/RPMS/noarch/php-tecnickcom-${PROJECT}-${VERSION}-${RELEASE}.noarch.rpm -u${APIUSER}:${APIKEY} -H "X-Bintray-Package:${PROJECT}" -H "X-Bintray-Version:${VERSION}" -H "X-Bintray-Publish:1" -H "X-Bintray-Override:1" https://api.bintray.com/content/tecnickcom/rpm/php-tecnickcom-${PROJECT}-${VERSION}-${RELEASE}.noarch.rpm
-	@curl -T $(TARGETDIR)/DEB/php-tecnickcom-${PROJECT}_${VERSION}-${RELEASE}_all.deb -u${APIUSER}:${APIKEY} -H "X-Bintray-Package:${PROJECT}" -H "X-Bintray-Version:${VERSION}" -H "X-Bintray-Debian-Distribution:all" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:all" -H "X-Bintray-Publish:1" -H "X-Bintray-Override:1" https://api.bintray.com/content/tecnickcom/deb/php-tecnickcom-${PROJECT}_${VERSION}-${RELEASE}_all.deb
 
 # Full build and test sequence
 .PHONY: buildall

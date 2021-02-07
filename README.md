@@ -23,8 +23,6 @@ BUT THE CORE LIBRARY STILL REQUIRES A SIGNIFICANT AMOUNT OF WORK TO BE COMPLETED
 * **link**        https://tcpdf.org
 * **source**      https://github.com/tecnickcom/tc-lib-pdf
 * **SRC DOC**     https://tcpdf.org/docs/srcdoc/tc-lib-pdf
-* **RPM**         https://bintray.com/tecnickcom/rpm/tc-lib-pdf
-* **DEB**         https://bintray.com/tecnickcom/deb/tc-lib-pdf
 
 ## Description
 
@@ -162,8 +160,6 @@ When this library is installed using an RPM or DEB package, you can use it your 
 ```
 require_once ('/usr/share/php/Com/Tecnick/Barcode/autoload.php');
 ```
-
-**NOTE:** Updated RPM and Debian packages of this library can be downloaded from: https://bintray.com/tecnickcom
 
 
 ## Developer(s) Contact
