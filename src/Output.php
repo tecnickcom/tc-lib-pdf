@@ -625,8 +625,50 @@ abstract class Output
      */
     protected function getOutJavascript()
     {
-        // @TODO
-        return '';
+        if (($this->pdfa_mode > 0) || (empty($this->javascript) && empty($this->jsobjects))) {
+            return;
+        }
+        if (strpos($this->javascript, 'this.addField') > 0) {
+            // if (!$this->usage_rights['enabled']) {
+            //     $this->setUsageRights();
+            // }
+            // The following two lines are used to avoid form fields duplication after saving.
+            // The addField method only works when releasing user rights (UR3)
+            $pattern = "ftcpdfdocsaved=this.addField('%s','%s',%d,[%F,%F,%F,%F]);";
+            $jsa = sprintf($pattern, 'tcpdfdocsaved', 'text', 0, 0, 1, 0, 1);
+            $jsb = "getField('tcpdfdocsaved').value='saved';";
+            $this->javascript = $jsa."\n".$this->javascript."\n".$jsb;
+        }
+        $out = '';
+        // name tree for javascript
+        $njs = '<< /Names [';
+        if (!empty($this->javascript)) {
+            // default Javascript object
+            $oid = ++$this->pon;
+            $out .= $oid.' 0 obj'."\n"
+            .'<<'
+            .' /S /JavaScript /JS '
+            .$this->getOutTextString($this->javascript, $oid)
+            .' >>'."\n"
+            .'endobj'."\n";
+            $njs .= ' (EmbeddedJS) '.$oid.' 0 R';
+        }
+        foreach ($this->jsobjects as $key => $val) {
+            if ($val['onload']) {
+                // additional Javascript object
+                $oid = ++$this->pon;
+                $out .= $oid.' 0 obj'."\n"
+                .'<< '
+                .'/S /JavaScript /JS '
+                .$this->getOutTextString($val['js'], $oid)
+                .' >>'."\n"
+                .'endobj'."\n";
+                $njs .= ' (JS'.$key.') '.$oid.' 0 R';
+            }
+        }
+        $njs .= ' ] >>';
+        $this->jstree = $njs;
+        return $out;
     }
 
     /**
