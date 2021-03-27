@@ -704,8 +704,23 @@ abstract class Output
      */
     protected function getOutSignatureFields()
     {
-        // @TODO
-        return '';
+        foreach ($this->signature['appearance']['empty'] as $key => $esa) {
+            $page = $this->page->getPage($esa['page']);
+            $signame = $esa['name'].sprintf(' [%03d]', ($key + 1));
+            $out .= $esa['objid'].' 0 obj'."\n"
+                .'<<'
+                .' /Type /Annot'
+                .' /Subtype /Widget'
+                .' /Rect ['.$esa['rect'].']'
+                .' /P '.$page['n'].' 0 R' // link to signature appearance page
+                .' /F 4'
+                .' /FT /Sig'
+                .' /T '.$this->getOutTextString($signame, $esa['objid'])
+                .' /Ff 0'
+                .' >>'
+                ."\n".'endobj';
+        }
+        return $out;
     }
 
     /**
@@ -722,7 +737,7 @@ abstract class Output
         $soid = $this->objid['signature'];
         $oid = $soid + 1;
         $page = $this->page->getPage($this->signature['appearance']['page']);
-        $out = $soid."\n"
+        $out = $soid.' 0 obj'."\n"
             .'<<'
             .' /Type /Annot'
             .' /Subtype /Widget'
