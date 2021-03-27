@@ -40,6 +40,20 @@ abstract class Output
      * @var array
      */
     protected $objid = array();
+    
+    /**
+     * ByteRange placemark used during digital signature process.
+     *
+     * @var string
+    */
+    protected static $byterange = '/ByteRange[0 ********** ********** **********]';
+
+    /**
+     * Digital signature max length.
+     *
+     * @var int
+     */
+    protected static $sigmaxlen = 11742;
 
     /**
      * Returns the RAW PDF string
@@ -625,13 +639,13 @@ abstract class Output
      */
     protected function getOutJavascript()
     {
-        if (($this->pdfa_mode > 0) || (empty($this->javascript) && empty($this->jsobjects))) {
+        if (($this->pdfa > 0) || (empty($this->javascript) && empty($this->jsobjects))) {
             return;
         }
         if (strpos($this->javascript, 'this.addField') > 0) {
-            // if (!$this->usage_rights['enabled']) {
-            //     $this->setUsageRights();
-            // }
+            if (!$this->userrights['enabled']) {
+                // $this->setUserRights();
+            }
             // The following two lines are used to avoid form fields duplication after saving.
             // The addField method only works when releasing user rights (UR3)
             $pattern = "ftcpdfdocsaved=this.addField('%s','%s',%d,[%F,%F,%F,%F]);";
@@ -700,8 +714,79 @@ abstract class Output
      */
     protected function getOutSignature()
     {
-        // @TODO
-        return '';
+        if ((!$this->sign) || empty($this->signature['cert_type'])) {
+            return;
+        }
+        $oid = $this->objid['signature'] + 1;
+        $out .= $oid.' 0 obj'."\n";
+        $out .= '<<'
+            .' /Type /Sig'
+            .' /Filter /Adobe.PPKLite'
+            .' /SubFilter /adbe.pkcs7.detached '
+            .$this->byterange
+            .' /Contents<'.str_repeat('0', $this->sigmaxlen)
+            .'>';
+        if (empty($this->signature['approval']) || ($this->signature['approval'] != 'A')) {
+            $out .= ' /Reference [' // array of signature reference dictionaries
+                .' << /Type /SigRef';
+            if ($this->signature['cert_type'] > 0) {
+                $out .= ' /TransformMethod /DocMDP'
+                    .' /TransformParams'
+                    .' <<'
+                    .' /Type /TransformParams'
+                    .' /P '.$this->signature['cert_type']
+                    .' /V /1.2';
+            } else {
+                $out .= ' /TransformMethod /UR3'
+                    .' /TransformParams'
+                    .' <<'
+                    .' /Type /TransformParams'
+                    .' /V /2.2';
+                if (!empty($this->userrights['document'])) {
+                    $out .= ' /Document['.$this->userrights['document'].']';
+                }
+                if (!empty($this->userrights['form'])) {
+                    $out .= ' /Form['.$this->userrights['form'].']';
+                }
+                if (!empty($this->userrights['signature'])) {
+                    $out .= ' /Signature['.$this->userrights['signature'].']';
+                }
+                if (!empty($this->userrights['annots'])) {
+                    $out .= ' /Annots['.$this->userrights['annots'].']';
+                }
+                if (!empty($this->userrights['ef'])) {
+                    $out .= ' /EF['.$this->userrights['ef'].']';
+                }
+                if (!empty($this->userrights['formex'])) {
+                    $out .= ' /FormEX['.$this->userrights['formex'].']';
+                }
+            }
+            $out .= ' >>'; // close TransformParams
+            // optional digest data (values must be calculated and replaced later)
+            //$out .= ' /Data ********** 0 R'
+            //    .' /DigestMethod/MD5'
+            //    .' /DigestLocation[********** 34]'
+            //    .' /DigestValue<********************************>';
+            $out .= ' >>'
+                .' ]'; // end of reference
+        }
+        if (!empty($this->signature['info']['Name'])) {
+            $out .= ' /Name '.$this->getOutTextString($this->signature['info']['Name'], $oid);
+        }
+        if (!empty($this->signature['info']['Location'])) {
+            $out .= ' /Location '.$this->getOutTextString($this->signature['info']['Location'], $oid);
+        }
+        if (!empty($this->signature['info']['Reason'])) {
+            $out .= ' /Reason '.$this->getOutTextString($this->signature['info']['Reason'], $oid);
+        }
+        if (!empty($this->signature['info']['ContactInfo'])) {
+            $out .= ' /ContactInfo '.$this->getOutTextString($this->signature['info']['ContactInfo'], $oid);
+        }
+        $out .= ' /M '
+            .$this->getOutDateTimeString($this->docmodtime, $oid)
+            .' >>'."\n"
+            .'endobj';
+        return $out;
     }
 
     /**

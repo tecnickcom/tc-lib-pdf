@@ -69,6 +69,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $pdfx = false;
 
     /**
+     * True if the document is signed.
+     *
+     * @var bool
+     */
+    protected $sign = false;
+
+    /**
      * True if the signature approval is enabled (for incremental updates).
      *
      * @var bool
