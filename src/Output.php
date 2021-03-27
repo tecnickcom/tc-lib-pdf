@@ -552,9 +552,10 @@ abstract class Output
         $out .= $oid.' 0 obj'."\n"
             .'<< ';
         foreach ($this->dests as $name => $dst) {
-            $poid = $this->page[$dst['p']]['n'];
+            $page = $this->page->getPage($dst['p']);
+            $poid = $page['n'];
             $pgx = ($dst['x'] * $this->page->getKUnit());
-            $pgy = ($this->page[$dst['p']]['pheight'] - ($dst['y'] * $this->page->getKUnit()));
+            $pgy = ($page['pheight'] - ($dst['y'] * $this->page->getKUnit()));
             $out .= ' /'.$name.' '.sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
         }
         $out .= ' >>'."\n"
@@ -717,7 +718,23 @@ abstract class Output
         if ((!$this->sign) || empty($this->signature['cert_type'])) {
             return;
         }
-        $oid = $this->objid['signature'] + 1;
+        // widget annotation for signature
+        $soid = $this->objid['signature'];
+        $oid = $soid + 1;
+        $page = $this->page->getPage($this->signature['appearance']['page']);
+        $out = $soid."\n"
+            .'<<'
+            .' /Type /Annot'
+            .' /Subtype /Widget'
+            .' /Rect ['.$this->signature['appearance']['rect'].']'
+            .' /P '.$page['n'].' 0 R' // link to signature appearance page
+            .' /F 4'
+            .' /FT /Sig'
+            .' /T '.$this->getOutTextString($this->signature['appearance']['name'], $soid)
+            .' /Ff 0'
+            .' /V '.$oid.' 0 R'
+            .' >>'."\n"
+            .'endobj';
         $out .= $oid.' 0 obj'."\n";
         $out .= '<<'
             .' /Type /Sig'
