@@ -767,33 +767,11 @@ abstract class Output
                     .' <<'
                     .' /Type /TransformParams'
                     .' /P '.$this->signature['cert_type']
-                    .' /V /1.2';
+                    .' /V /1.2'
+                    .' >>'; // close TransformParams
             } else {
-                $out .= ' /TransformMethod /UR3'
-                    .' /TransformParams'
-                    .' <<'
-                    .' /Type /TransformParams'
-                    .' /V /2.2';
-                if (!empty($this->userrights['document'])) {
-                    $out .= ' /Document['.$this->userrights['document'].']';
-                }
-                if (!empty($this->userrights['form'])) {
-                    $out .= ' /Form['.$this->userrights['form'].']';
-                }
-                if (!empty($this->userrights['signature'])) {
-                    $out .= ' /Signature['.$this->userrights['signature'].']';
-                }
-                if (!empty($this->userrights['annots'])) {
-                    $out .= ' /Annots['.$this->userrights['annots'].']';
-                }
-                if (!empty($this->userrights['ef'])) {
-                    $out .= ' /EF['.$this->userrights['ef'].']';
-                }
-                if (!empty($this->userrights['formex'])) {
-                    $out .= ' /FormEX['.$this->userrights['formex'].']';
-                }
+                $this->getOutSignatureUserRights();
             }
-            $out .= ' >>'; // close TransformParams
             // optional digest data (values must be calculated and replaced later)
             //$out .= ' /Data ********** 0 R'
             //    .' /DigestMethod/MD5'
@@ -802,6 +780,56 @@ abstract class Output
             $out .= ' >>'
                 .' ]'; // end of reference
         }
+        $out .= $this->getOutSignatureInfo();
+        $out .= ' /M '
+            .$this->getOutDateTimeString($this->docmodtime, $oid)
+            .' >>'."\n"
+            .'endobj';
+        return $out;
+    }
+
+    /**
+     * Returns the PDF signarure entry
+     *
+     * @return string
+     */
+    protected function getOutSignatureUserRights()
+    {
+        $out = ' /TransformMethod /UR3'
+            .' /TransformParams'
+            .' <<'
+            .' /Type /TransformParams'
+            .' /V /2.2';
+        if (!empty($this->userrights['document'])) {
+            $out .= ' /Document['.$this->userrights['document'].']';
+        }
+        if (!empty($this->userrights['form'])) {
+            $out .= ' /Form['.$this->userrights['form'].']';
+        }
+        if (!empty($this->userrights['signature'])) {
+            $out .= ' /Signature['.$this->userrights['signature'].']';
+        }
+        if (!empty($this->userrights['annots'])) {
+            $out .= ' /Annots['.$this->userrights['annots'].']';
+        }
+        if (!empty($this->userrights['ef'])) {
+            $out .= ' /EF['.$this->userrights['ef'].']';
+        }
+        if (!empty($this->userrights['formex'])) {
+            $out .= ' /FormEX['.$this->userrights['formex'].']';
+        }
+        $out .= ' >>';
+        return $out;
+    }
+
+    /**
+     * Returns the PDF signarure info section
+     *
+     * @return string
+     */
+    protected function getOutSignatureInfo()
+    {
+        $out = '';
         if (!empty($this->signature['info']['Name'])) {
             $out .= ' /Name '.$this->getOutTextString($this->signature['info']['Name'], $oid);
         }
@@ -814,10 +842,6 @@ abstract class Output
         if (!empty($this->signature['info']['ContactInfo'])) {
             $out .= ' /ContactInfo '.$this->getOutTextString($this->signature['info']['ContactInfo'], $oid);
         }
-        $out .= ' /M '
-            .$this->getOutDateTimeString($this->docmodtime, $oid)
-            .' >>'."\n"
-            .'endobj';
         return $out;
     }
 
