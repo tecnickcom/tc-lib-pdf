@@ -756,21 +756,14 @@ abstract class Output
             .' /Filter /Adobe.PPKLite'
             .' /SubFilter /adbe.pkcs7.detached '
             .$this->byterange
-            .' /Contents<'.str_repeat('0', $this->sigmaxlen)
-            .'>';
+            .' /Contents<'.str_repeat('0', $this->sigmaxlen).'>';
         if (empty($this->signature['approval']) || ($this->signature['approval'] != 'A')) {
             $out .= ' /Reference [' // array of signature reference dictionaries
                 .' << /Type /SigRef';
             if ($this->signature['cert_type'] > 0) {
-                $out .= ' /TransformMethod /DocMDP'
-                    .' /TransformParams'
-                    .' <<'
-                    .' /Type /TransformParams'
-                    .' /P '.$this->signature['cert_type']
-                    .' /V /1.2'
-                    .' >>'; // close TransformParams
+                $out .= $this->getOutSignatureDocMDP();
             } else {
-                $this->getOutSignatureUserRights();
+                $out .= $this->getOutSignatureUserRights();
             }
             // optional digest data (values must be calculated and replaced later)
             //$out .= ' /Data ********** 0 R'
@@ -785,6 +778,23 @@ abstract class Output
             .$this->getOutDateTimeString($this->docmodtime, $oid)
             .' >>'."\n"
             .'endobj';
+        return $out;
+    }
+
+    /**
+     * Returns the PDF signarure entry
+     *
+     * @return string
+     */
+    protected function getOutSignatureDocMDP()
+    {
+        $out .= ' /TransformMethod /DocMDP'
+            .' /TransformParams'
+            .' <<'
+            .' /Type /TransformParams'
+            .' /P '.$this->signature['cert_type']
+            .' /V /1.2'
+            .' >>';
         return $out;
     }
 
