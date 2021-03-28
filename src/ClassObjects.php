@@ -19,6 +19,7 @@ use \Com\Tecnick\Pdf\Exception as PdfException;
 use \Com\Tecnick\Color\Pdf as ObjColor;
 use \Com\Tecnick\Barcode\Barcode as ObjBarcode;
 use \Com\Tecnick\File\File as ObjFile;
+use \Com\Tecnick\File\Cache as ObjCache;
 use \Com\Tecnick\Unicode\Convert as ObjUniConvert;
 use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use \Com\Tecnick\Pdf\Page\Page as ObjPage;
@@ -70,6 +71,13 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
     public $file;
 
     /**
+     * Cache object
+     *
+     * @var \Com\Tecnick\File\Cache
+     */
+    public $cache;
+
+    /**
      * Unicode Convert object
      *
      * @var \Com\Tecnick\Unicode\Convert
@@ -112,6 +120,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
         $this->color = new ObjColor;
         $this->barcode = new ObjBarcode;
         $this->file = new ObjFile;
+        $this->cache = new ObjCache;
         $this->uniconv = new ObjUniConvert;
         
         if ($this->encrypt === null) {

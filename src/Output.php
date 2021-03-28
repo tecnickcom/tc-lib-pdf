@@ -71,8 +71,7 @@ abstract class Output
             .'startxref'."\n"
             .$startxref."\n"
             .'%%EOF'."\n";
-        // @TODO: sign the document ...
-        // ...
+        $out = $this->signDocument($out);
         return $out;
     }
 
@@ -406,11 +405,11 @@ abstract class Output
         /*
         // AcroForm
         if (!empty($this->form_obj_id)
-            OR ($this->sign AND isset($this->signature_data['cert_type']))
+            OR ($this->sign AND isset($this->signature['cert_type']))
             OR !empty($this->empty_signature_appearance)) {
             $out .= ' /AcroForm <<';
             $objrefs = '';
-            if ($this->sign AND isset($this->signature_data['cert_type'])) {
+            if ($this->sign AND isset($this->signature['cert_type'])) {
                 // set reference for signature object
                 $objrefs .= $this->sig_obj_id.' 0 R';
             }
@@ -428,11 +427,11 @@ abstract class Output
             $out .= ' /Fields ['.$objrefs.']';
             // It's better to turn off this value and set the appearance stream for
             // each annotation (/AP) to avoid conflicts with signature fields.
-            if (empty($this->signature_data['approval']) OR ($this->signature_data['approval'] != 'A')) {
+            if (empty($this->signature['approval']) OR ($this->signature['approval'] != 'A')) {
                 $out .= ' /NeedAppearances false';
             }
-            if ($this->sign AND isset($this->signature_data['cert_type'])) {
-                if ($this->signature_data['cert_type'] > 0) {
+            if ($this->sign AND isset($this->signature['cert_type'])) {
+                if ($this->signature['cert_type'] > 0) {
                     $out .= ' /SigFlags 3';
                 } else {
                     $out .= ' /SigFlags 1';
@@ -453,9 +452,9 @@ abstract class Output
             //$out .= ' /XFA ';
             $out .= ' >>';
             // signatures
-            if ($this->sign AND isset($this->signature_data['cert_type'])
-                AND (empty($this->signature_data['approval']) OR ($this->signature_data['approval'] != 'A'))) {
-                if ($this->signature_data['cert_type'] > 0) {
+            if ($this->sign AND isset($this->signature['cert_type'])
+                AND (empty($this->signature['approval']) OR ($this->signature['approval'] != 'A'))) {
+                if ($this->signature['cert_type'] > 0) {
                     $out .= ' /Perms << /DocMDP '.($this->sig_obj_id + 1).' 0 R >>';
                 } else {
                     $out .= ' /Perms << /UR3 '.($this->sig_obj_id + 1).' 0 R >>';
@@ -885,6 +884,96 @@ abstract class Output
                 ."\n".'endobj';
         }
         return $out;
+    }
+
+    /**
+     * Sign the document
+     *
+     * @param string $pdfdoc string containing the PDF document
+     *
+     * @return string
+     */
+    protected function signDocument($pdfdoc)
+    {
+        $out = '';
+        if (!$this->sign) {
+            return $out;
+        }
+        // remove last newline
+        $pdfdoc = substr($pdfdoc, 0, -1);
+        // remove filler space
+        $byterange_strlen = strlen($this->byterange);
+        // define the ByteRange
+        $byte_range = array();
+        $byte_range[0] = 0;
+        $byte_range[1] = strpos($pdfdoc, $this->byterange) + $byterange_strlen + 10;
+        $byte_range[2] = $byte_range[1] + $this->signature_max_length + 2;
+        $byte_range[3] = strlen($pdfdoc) - $byte_range[2];
+        $pdfdoc = substr($pdfdoc, 0, $byte_range[1]).substr($pdfdoc, $byte_range[2]);
+        // replace the ByteRange
+        $byterange = sprintf('/ByteRange[0 %u %u %u]', $byte_range[1], $byte_range[2], $byte_range[3]);
+        $byterange .= str_repeat(' ', ($byterange_strlen - strlen($byterange)));
+        $pdfdoc = str_replace($this->byterange, $byterange, $pdfdoc);
+        // write the document to a temporary folder
+        $tempdoc = $this->cache->getNewFileName('doc', $this->fileid);
+        $f = $this->file->fopenLocal($tempdoc, 'wb');
+        $pdfdoc_length = strlen($pdfdoc);
+        fwrite($f, $pdfdoc, $pdfdoc_length);
+        fclose($f);
+        // get digital signature via openssl library
+        $tempsign = $this->cache->getNewFileName('sig', $this->fileid);
+        if (empty($this->signature['extracerts'])) {
+            openssl_pkcs7_sign(
+                $tempdoc,
+                $tempsign,
+                $this->signature['signcert'],
+                array($this->signature['privkey'],
+                $this->signature['password']),
+                array(),
+                PKCS7_BINARY | PKCS7_DETACHED
+            );
+        } else {
+            openssl_pkcs7_sign(
+                $tempdoc,
+                $tempsign,
+                $this->signature['signcert'],
+                array($this->signature['privkey'],
+                $this->signature['password']),
+                array(),
+                PKCS7_BINARY | PKCS7_DETACHED,
+                $this->signature['extracerts']
+            );
+        }
+        // read signature
+        $signature = $this->file->getFileData($tempsign);
+        // extract signature
+        $signature = substr($signature, $pdfdoc_length);
+        $signature = substr($signature, (strpos($signature, "%%EOF\n\n------") + 13));
+        $tmparr = explode("\n\n", $signature);
+        $signature = $tmparr[1];
+        // decode signature
+        $signature = base64_decode(trim($signature));
+        // add TSA timestamp to signature
+        $signature = $this->applySignatureTimestamp($signature);
+        // convert signature to hex
+        $signature = current(unpack('H*', $signature));
+        $signature = str_pad($signature, $this->signature_max_length, '0');
+        // Add signature to the document
+        $out = substr($pdfdoc, 0, $byte_range[1]).'<'.$signature.'>'.substr($pdfdoc, $byte_range[1]);
+        return $out;
+    }
+
+    /**
+     * -- NOT YET IMPLEMENTED --
+     * Add TSA timestamp to the signature.
+     *
+     * @param string $signature Digital signature as binary string
+     *
+     * @return string
+     */
+    protected function applySignatureTimestamp($signature)
+    {
+        return $signature;
     }
 
     /**
