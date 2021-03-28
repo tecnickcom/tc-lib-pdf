@@ -97,6 +97,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $isunicode = true;
 
     /**
+     * Document encoding
+     *
+     * @var string
+     */
+    protected $encoding = 'UTF-8';
+
+    /**
      * Current PDF object number
      *
      * @var int

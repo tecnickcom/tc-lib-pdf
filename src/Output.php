@@ -687,14 +687,178 @@ abstract class Output
     }
 
     /**
+     * Sort bookmarks by page and original position
+     */
+    protected function sortBookmarks()
+    {
+        $outline_p = array();
+        $outline_y = array();
+        foreach ($this->outlines as $key => $row) {
+            $outline_p[$key] = $row['p'];
+            $outline_k[$key] = $key;
+        }
+        // sort outlines by page and original position
+        array_multisort($outline_p, SORT_NUMERIC, SORT_ASC, $outline_k, SORT_NUMERIC, SORT_ASC, $this->outlines);
+    }
+    
+    /**
+     * Process the bookmarks to get the previous and next one.
+     *
+     * @return int first bookmark object ID
+     */
+    protected function processPrevNextBookmarks()
+    {
+        $this->sortBookmarks();
+        $lru = array();
+        $level = 0;
+        foreach ($this->outlines as $i => $o) {
+            if ($o['l'] > 0) {
+                $parent = $lru[($o['l'] - 1)];
+                // set parent and last pointers
+                $this->outlines[$i]['parent'] = $parent;
+                $this->outlines[$parent]['last'] = $i;
+                if ($o['l'] > $level) {
+                    // level increasing: set first pointer
+                    $this->outlines[$parent]['first'] = $i;
+                }
+            } else {
+                $this->outlines[$i]['parent'] = $numbookmarks;
+            }
+            if (($o['l'] <= $level) && ($i > 0)) {
+                // set prev and next pointers
+                $prev = $lru[$o['l']];
+                $this->outlines[$prev]['next'] = $i;
+                $this->outlines[$i]['prev'] = $prev;
+            }
+            $lru[$o['l']] = $i;
+            $level = $o['l'];
+        }
+        return $lru[0];
+    }
+
+    /**
+     * Reverse function for htmlentities.
+     *
+     * @param string $text_to_convert Text to convert.
+     *
+     * @return string converted text string
+     */
+    protected function unhtmlentities($text_to_convert)
+    {
+        return html_entity_decode($text_to_convert, ENT_QUOTES, $this->encoding);
+    }
+
+    /**
      * Returns the PDF Bookmarks entry
      *
      * @return string
      */
     protected function getOutBookmarks()
     {
-        // @TODO
-        return '';
+        $numbookmarks = count($this->outlines);
+        if ($numbookmarks <= 0) {
+            return;
+        }
+        $root_oid = $this->processPrevNextBookmarks();
+        $first_oid = $this->pon + 1;
+        $nltags = '/<br[\s]?\/>|<\/(blockquote|dd|dl|div|dt|h1|h2|h3|h4|h5|h6|hr|li|ol|p|pre|ul|tcpdf|table|tr|td)>/si';
+        foreach ($this->outlines as $i => $o) {
+            // covert HTML title to string
+            $title = preg_replace($nltags, "\n", $o['t']);
+            $title = preg_replace("/[\r]+/si", '', $title);
+            $title = preg_replace("/[\n]+/si", "\n", $title);
+            $title = strip_tags($title);
+            $title = preg_replace("/^\s+|\s+$/u", '', $title);
+            $oid = ++$this->pon;
+            $out .= $oid.' 0 obj'."\n"
+                .'<<'
+                .' /Title '.$this->getOutTextString($title, $oid)
+                .' /Parent '.($first_oid + $o['parent']).' 0 R';
+            if (isset($o['prev'])) {
+                $out .= ' /Prev '.($first_oid + $o['prev']).' 0 R';
+            }
+            if (isset($o['next'])) {
+                $out .= ' /Next '.($first_oid + $o['next']).' 0 R';
+            }
+            if (isset($o['first'])) {
+                $out .= ' /First '.($first_oid + $o['first']).' 0 R';
+            }
+            if (isset($o['last'])) {
+                $out .= ' /Last '.($first_oid + $o['last']).' 0 R';
+            }
+            if (isset($o['u']) and !empty($o['u'])) {
+                // link
+                if (is_string($o['u'])) {
+                    if ($o['u'][0] == '#') {
+                        // internal destination
+                        $out .= ' /Dest /'.$this->encrypt->encodeNameObject(substr($o['u'], 1));
+                    } elseif ($o['u'][0] == '%') {
+                        // embedded PDF file
+                        $filename = basename(substr($o['u'], 1));
+                        $out .= ' /A <<'
+                            .' /S /GoToE /D [0 /Fit] /NewWindow true /T'
+                            .' << /R /C /P '.($o['p'] - 1).' /A '.$this->embeddedfiles[$filename]['a'].' >>'
+                            .' >>';
+                    } elseif ($o['u'][0] == '*') {
+                        // embedded generic file
+                        $filename = basename(substr($o['u'], 1));
+                        $jsa = 'var D=event.target.doc;'
+                        .'var MyData=D.dataObjects;'
+                        .'for (var i in MyData)'
+                        .' if (MyData[i].path=="'.$filename.'")'
+                        .' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
+                        $out .= ' /A <</S /JavaScript /JS '.$this->getOutTextString($jsa, $oid).'>>';
+                    } else {
+                        // external URI link
+                        $out .= ' /A << /S /URI /URI '
+                            .$this->encrypt->escapeDataString($this->unhtmlentities($o['u']), $oid)
+                            .' >>';
+                    }
+                } elseif (isset($this->links[$o['u']])) {
+                    // internal link ID
+                    $l = $this->links[$o['u']];
+                    $page = $this->page->getPage($l['p']);
+                    $y = ($page['height'] - ($l['y'] * $this->k));
+                    $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
+                }
+            } else {
+                // link to a page
+                $page = $this->page->getPage($o['p']);
+                $x = ($o['x'] * $this->k);
+                $y = ($page['height'] - ($o['y'] * $this->k));
+                $out .= ' '.sprintf('/Dest [%u 0 R /XYZ %F %F null]', $page['n'], $x, $y);
+            }
+            // set font style
+            $style = 0;
+            if (!empty($o['s'])) {
+                if (strpos($o['s'], 'B') !== false) {
+                    $style |= 2; // bold
+                }
+                if (strpos($o['s'], 'I') !== false) {
+                    $style |= 1; // oblique
+                }
+            }
+            $out .= sprintf(' /F %d', $style);
+            // set bookmark color
+            if (!empty($color)) {
+                $out .= ' /C ['.$this->color->getPdfRgbComponents($color).']';
+            } else {
+                $out .= ' /C [0.0 0.0 0.0]'; // black
+            }
+            $out .= ' /Count 0' // normally closed item
+                .' >>'."\n"
+                .'endobj';
+        }
+        //Outline root
+        $this->OutlineRoot = ++$this->pon;
+        $out .= $this->OutlineRoot.' 0 obj'."\n"
+            .'<<'
+            .' /Type /Outlines'
+            .' /First '.$first_oid.' 0 R'
+            .' /Last '.($first_oid + $root_oid).' 0 R'
+            .' >>'."\n"
+            .'endobj';
+        return $out;
     }
 
     /**
