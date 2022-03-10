@@ -754,7 +754,7 @@ abstract class Output
      */
     protected function getOutBookmarks()
     {
-        $numbookmarks = count($this->outlines);
+        $numbookmarks = (is_array($this->outlines) || is_countable($this->outlines))?count($this->outlines):0;
         if ($numbookmarks <= 0) {
             return;
         }
