@@ -18,7 +18,7 @@ BUT THE CORE LIBRARY STILL REQUIRES A SIGNIFICANT AMOUNT OF WORK TO BE COMPLETED
 * **category**    Library
 * **package**     \Com\Tecnick\Pdf
 * **author**      Nicola Asuni <info@tecnick.com>
-* **copyright**   2002-2021 Nicola Asuni - Tecnick.com LTD
+* **copyright**   2002-2022 Nicola Asuni - Tecnick.com LTD
 * **license**     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
 * **link**        https://tcpdf.org
 * **source**      https://github.com/tecnickcom/tc-lib-pdf
