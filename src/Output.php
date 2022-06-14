@@ -6,7 +6,7 @@
  * @category    Library
  * @package     Pdf
  * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2019 Nicola Asuni - Tecnick.com LTD
+ * @copyright   2002-2022 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -26,7 +26,7 @@ use \Com\Tecnick\Pdf\Font\Output as OutFont;
  * @category    Library
  * @package     Pdf
  * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2019 Nicola Asuni - Tecnick.com LTD
+ * @copyright   2002-2022 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -71,7 +71,7 @@ abstract class Output
             .'startxref'."\n"
             .$startxref."\n"
             .'%%EOF'."\n";
-        $out = $this->signDocument($out);
+        $out .= $this->signDocument($out);
         return $out;
     }
 
@@ -333,7 +333,6 @@ abstract class Output
      */
     protected function getOutCatalog()
     {
-        // @TODO
         $oid = ++$this->pon;
         $this->objid['catalog'] = $oid;
         $out = $oid.' 0 obj'."\n"
@@ -402,35 +401,34 @@ abstract class Output
         //$out .= ' /PieceInfo <<>>';
         $out .= $this->getPDFLayers();
 
-        /*
         // AcroForm
-        if (!empty($this->form_obj_id)
-            OR ($this->sign AND isset($this->signature['cert_type']))
-            OR !empty($this->empty_signature_appearance)) {
+        if (!empty($this->objid['form'])
+            || ($this->sign && isset($this->signature['cert_type']))
+            || !empty($this->signature['appearance']['empty'])) {
             $out .= ' /AcroForm <<';
             $objrefs = '';
-            if ($this->sign AND isset($this->signature['cert_type'])) {
+            if ($this->sign && isset($this->signature['cert_type'])) {
                 // set reference for signature object
-                $objrefs .= $this->sig_obj_id.' 0 R';
+                $objrefs .= $this->objid['signature'].' 0 R';
             }
-            if (!empty($this->empty_signature_appearance)) {
-                foreach ($this->empty_signature_appearance as $esa) {
+            if (!empty($this->signature['appearance']['empty'])) {
+                foreach ($this->signature['appearance']['empty'] as $esa) {
                     // set reference for empty signature objects
                     $objrefs .= ' '.$esa['objid'].' 0 R';
                 }
             }
-            if (!empty($this->form_obj_id)) {
-                foreach($this->form_obj_id as $objid) {
+            if (!empty($this->objid['form'])) {
+                foreach ($this->objid['form'] as $objid) {
                     $objrefs .= ' '.$objid.' 0 R';
                 }
             }
             $out .= ' /Fields ['.$objrefs.']';
             // It's better to turn off this value and set the appearance stream for
             // each annotation (/AP) to avoid conflicts with signature fields.
-            if (empty($this->signature['approval']) OR ($this->signature['approval'] != 'A')) {
+            if (empty($this->signature['approval']) || ($this->signature['approval'] != 'A')) {
                 $out .= ' /NeedAppearances false';
             }
-            if ($this->sign AND isset($this->signature['cert_type'])) {
+            if ($this->sign && isset($this->signature['cert_type'])) {
                 if ($this->signature['cert_type'] > 0) {
                     $out .= ' /SigFlags 3';
                 } else {
@@ -438,30 +436,35 @@ abstract class Output
                 }
             }
             //$out .= ' /CO ';
-            if (isset($this->annotation_fonts) AND !empty($this->annotation_fonts)) {
+
+            if (!empty($this->annotation_fonts)) {
                 $out .= ' /DR <<';
                 $out .= ' /Font <<';
                 foreach ($this->annotation_fonts as $fontkey => $fontid) {
-                    $out .= ' /F'.$fontid.' '.$this->font_obj_ids[$fontkey].' 0 R';
+                    $out .= ' /F'.$fontid.' '.$this->font->getFont($fontkey)['n'].' 0 R';
                 }
                 $out .= ' >> >>';
             }
-            $font = $this->getFontBuffer('helvetica');
+
+            $font = $this->font->getFont('helvetica');
             $out .= ' /DA (/F'.$font['i'].' 0 Tf 0 g)';
             $out .= ' /Q '.(($this->rtl)?'2':'0');
             //$out .= ' /XFA ';
             $out .= ' >>';
+
+
             // signatures
-            if ($this->sign AND isset($this->signature['cert_type'])
-                AND (empty($this->signature['approval']) OR ($this->signature['approval'] != 'A'))) {
+            if ($this->sign and isset($this->signature['cert_type'])
+                && (empty($this->signature['approval']) || ($this->signature['approval'] != 'A'))) {
+                $out .= ' /Perms << ';
                 if ($this->signature['cert_type'] > 0) {
-                    $out .= ' /Perms << /DocMDP '.($this->sig_obj_id + 1).' 0 R >>';
+                    $out .= '/DocMDP ';
                 } else {
-                    $out .= ' /Perms << /UR3 '.($this->sig_obj_id + 1).' 0 R >>';
+                    $out .= '/UR3 ';
                 }
+                $out .= ($this->objid['signature'] + 1).' 0 R >>';
             }
         }
-        */
 
         //$out .= ' /Legal <<>>';
         //$out .= ' /Requirements []';
@@ -647,7 +650,7 @@ abstract class Output
                 // $this->setUserRights();
             }
             // The following two lines are used to avoid form fields duplication after saving.
-            // The addField method only works when releasing user rights (UR3)
+            // The addField method only works when releasing user rights (UR3).
             $pattern = "ftcpdfdocsaved=this.addField('%s','%s',%d,[%F,%F,%F,%F]);";
             $jsa = sprintf($pattern, 'tcpdfdocsaved', 'text', 0, 0, 1, 0, 1);
             $jsb = "getField('tcpdfdocsaved').value='saved';";
@@ -754,6 +757,9 @@ abstract class Output
      */
     protected function getOutBookmarks()
     {
+        if (empty($this->outlines)) {
+            return '';
+        }
         $numbookmarks = is_countable($this->outlines)?count($this->outlines):0;
         if ($numbookmarks <= 0) {
             return;
@@ -867,6 +873,9 @@ abstract class Output
      */
     protected function getOutSignatureFields()
     {
+        if (empty($this->signature)) {
+            return '';
+        }
         foreach ($this->signature['appearance']['empty'] as $key => $esa) {
             $page = $this->page->getPage($esa['page']);
             $signame = $esa['name'].sprintf(' [%03d]', ($key + 1));
@@ -907,7 +916,7 @@ abstract class Output
         $byte_range = array();
         $byte_range[0] = 0;
         $byte_range[1] = strpos($pdfdoc, $this->byterange) + $byterange_strlen + 10;
-        $byte_range[2] = $byte_range[1] + $this->signature_max_length + 2;
+        $byte_range[2] = $byte_range[1] + $this->sigmaxlen + 2;
         $byte_range[3] = strlen($pdfdoc) - $byte_range[2];
         $pdfdoc = substr($pdfdoc, 0, $byte_range[1]).substr($pdfdoc, $byte_range[2]);
         // replace the ByteRange
@@ -957,7 +966,7 @@ abstract class Output
         $signature = $this->applySignatureTimestamp($signature);
         // convert signature to hex
         $signature = current(unpack('H*', $signature));
-        $signature = str_pad($signature, $this->signature_max_length, '0');
+        $signature = str_pad($signature, $this->sigmaxlen, '0');
         // Add signature to the document
         $out = substr($pdfdoc, 0, $byte_range[1]).'<'.$signature.'>'.substr($pdfdoc, $byte_range[1]);
         return $out;
