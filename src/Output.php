@@ -35,12 +35,19 @@ use \Com\Tecnick\Pdf\Font\Output as OutFont;
 abstract class Output
 {
     /**
-     * Array containing the ID of some named PDF objects
+     * Array containing the ID of some named PDF objects.
      *
      * @var array
      */
     protected $objid = array();
-    
+
+    /**
+     * Store XObject.
+     *
+     * @var array
+     */
+    protected $xobject = array();
+
     /**
      * ByteRange placemark used during digital signature process.
      *
@@ -56,7 +63,7 @@ abstract class Output
     protected static $sigmaxlen = 11742;
 
     /**
-     * Returns the RAW PDF string
+     * Returns the RAW PDF string.
      *
      * @return string
      */
@@ -76,7 +83,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF document header
+     * Returns the PDF document header.
      *
      * @return string
      */
@@ -87,7 +94,7 @@ abstract class Output
     }
 
     /**
-     * Returns the raw PDF Body section
+     * Returns the raw PDF Body section.
      *
      * @return string
      */
@@ -130,7 +137,7 @@ abstract class Output
     }
 
     /**
-     * Returns the ordered offset array for each object
+     * Returns the ordered offset array for each object.
      *
      * @param string $data Raw PDF data
      *
@@ -148,7 +155,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF XREF section
+     * Returns the PDF XREF section.
      *
      * @param array $offset Ordered offset array for each PDF object
      *
@@ -174,7 +181,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Trailer section
+     * Returns the PDF Trailer section.
      *
      * @param array $offset Ordered offset array for each PDF object
      *
@@ -197,7 +204,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF object to include a standard sRGB_IEC61966-2.1 blackscaled ICC colour profile
+     * Returns the PDF object to include a standard sRGB_IEC61966-2.1 blackscaled ICC colour profile.
      *
      * @return string
      */
@@ -225,7 +232,7 @@ abstract class Output
     }
 
     /**
-     * Get OutputIntents for sRGB IEC61966-2.1 if required
+     * Get OutputIntents for sRGB IEC61966-2.1 if required.
      *
      * @return string
      */
@@ -248,7 +255,7 @@ abstract class Output
     }
 
     /**
-     * Get OutputIntents for PDF-X if required
+     * Get OutputIntents for PDF-X if required.
      *
      * @return string
      */
@@ -266,7 +273,7 @@ abstract class Output
     }
 
     /**
-     * Set OutputIntents
+     * Set OutputIntents.
      *
      * @return string
      */
@@ -282,7 +289,7 @@ abstract class Output
     }
 
     /**
-     * Get the PDF layers
+     * Get the PDF layers.
      *
      * @return string
      */
@@ -327,7 +334,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Catalog entry
+     * Returns the PDF Catalog entry.
      *
      * @return string
      */
@@ -477,7 +484,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF OCG entry
+     * Returns the PDF OCG entry.
      *
      * @return string
      */
@@ -507,7 +514,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF XObjects entry
+     * Returns the PDF XObjects entry.
      *
      * @return string
      */
@@ -518,7 +525,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Resources Dictionary entry
+     * Returns the PDF Resources Dictionary entry.
      *
      * @return string
      */
@@ -540,7 +547,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Destinations entry
+     * Returns the PDF Destinations entry.
      *
      * @return string
      */
@@ -566,7 +573,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Embedded Files entry
+     * Returns the PDF Embedded Files entry.
      *
      * @return string
      */
@@ -625,7 +632,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Annotations entry
+     * Returns the PDF Annotations entry.
      *
      * @return string
      */
@@ -636,7 +643,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Javascript entry
+     * Returns the PDF Javascript entry.
      *
      * @return string
      */
@@ -689,7 +696,7 @@ abstract class Output
     }
 
     /**
-     * Sort bookmarks by page and original position
+     * Sort bookmarks by page and original position.
      */
     protected function sortBookmarks()
     {
@@ -751,7 +758,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Bookmarks entry
+     * Returns the PDF Bookmarks entry.
      *
      * @return string
      */
@@ -867,7 +874,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF Signature Fields entry
+     * Returns the PDF Signature Fields entry.
      *
      * @return string
      */
@@ -896,7 +903,7 @@ abstract class Output
     }
 
     /**
-     * Sign the document
+     * Sign the document.
      *
      * @param string $pdfdoc string containing the PDF document
      *
@@ -986,7 +993,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF signarure entry
+     * Returns the PDF signarure entry.
      *
      * @return string
      */
@@ -1044,7 +1051,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF signarure entry
+     * Returns the PDF signarure entry.
      *
      * @return string
      */
@@ -1061,7 +1068,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF signarure entry
+     * Returns the PDF signarure entry.
      *
      * @return string
      */
@@ -1095,7 +1102,7 @@ abstract class Output
     }
 
     /**
-     * Returns the PDF signarure info section
+     * Returns the PDF signarure info section.
      *
      * @return string
      */
@@ -1118,7 +1125,7 @@ abstract class Output
     }
 
     /**
-     * Get the PDF output string for Font resources dictionary
+     * Get the PDF output string for Font resources dictionary.
      *
      * return string
      */
@@ -1137,25 +1144,23 @@ abstract class Output
     }
 
     /**
-     * Get the PDF output string for XObject resources dictionary
+     * Get the PDF output string for XObject resources dictionary.
      *
      * return string
      */
     protected function getXObjectDic()
     {
-        if (empty($this->xobject)) {
-            return '';
-        }
         $out = ' /XObject <<';
         foreach ($this->xobject as $id => $oid) {
             $out .= ' /'.$id.' '.$oid['n'].' 0 R';
         }
+        $out .= $this->image->getXobjectDict();
         $out .= ' >>';
         return $out;
     }
 
     /**
-     * Get the PDF output string for Layer resources dictionary
+     * Get the PDF output string for Layer resources dictionary.
      *
      * return string
      */
@@ -1173,7 +1178,7 @@ abstract class Output
     }
 
     /**
-     * Returns 'ON' if $val is true, 'OFF' otherwise
+     * Returns 'ON' if $val is true, 'OFF' otherwise.
      *
      * return string
      */
