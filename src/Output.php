@@ -445,8 +445,7 @@ abstract class Output
             //$out .= ' /CO ';
 
             if (!empty($this->annotation_fonts)) {
-                $out .= ' /DR <<';
-                $out .= ' /Font <<';
+                $out .= ' /DR << /Font <<';
                 foreach ($this->annotation_fonts as $fontkey => $fontid) {
                     $out .= ' /F'.$fontid.' '.$this->font->getFont($fontkey)['n'].' 0 R';
                 }
@@ -520,8 +519,83 @@ abstract class Output
      */
     protected function getOutXObjects()
     {
-        // @TODO
-        return '';
+        $out = '';
+        foreach ($this->xobject as $key => $data) {
+            if (empty($data['outdata'])) {
+                continue;
+            }
+            $out .= ' '.$data['n'].' 0 R'."\n"
+                .'<<'
+                .' /Type /XObject'
+                .' /Subtype /Form'
+                .' /FormType 1';
+            $stream = trim($data['outdata']);
+            if ($this->pdfa != 3) {
+                $stream = gzcompress($stream);
+                $out .= ' /Filter /FlateDecode';
+            }
+            $out .= sprintf(
+                ' /BBox [%F %F %F %F]',
+                ($data['x'] * $this->kunit),
+                (-$data['y'] * $this->kunit),
+                (($data['w'] + $data['x']) * $this->kunit),
+                (($data['h'] - $data['y']) * $this->kunit)
+            );
+            $out .= ' /Matrix [1 0 0 1 0 0]'
+                .' /Resources <<'
+                .' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
+            if (!empty($data['fonts'])) {
+                $fonts = $data['fonts']->getFonts();
+                $out = ' /Font <<';
+                foreach ($fonts as $font) {
+                    $out .= ' /F'.$font['i'].' '.$font['n'].' 0 R';
+                }
+                $out .= ' >>';
+            }
+            if (!empty($data['extgstates'])) {
+                $out .= $data['extgstates']->getOutExtGStateResources();
+            }
+            if (!empty($data['gradients'])) {
+                $out .= $data['gradients']->getOutGradientResources();
+            }
+            if (!empty($data['spot_colors'])) {
+                $out .= $data['spot_colors']->getPdfSpotResources();
+            }
+            // images or nested xobjects
+            if (!empty($data['images']) || !empty($data['xobjects'])) {
+                $out .= ' /XObject <<';
+                foreach ($data['images'] as $imgid) {
+                    $out .= ' /I'.$imgid.' '.$this->xobject['I'.$imgid]['n'].' 0 R';
+                }
+                foreach ($data['xobjects'] as $sub_id => $sub_objid) {
+                    $out .= ' /'.$sub_id.' '.$sub_objid['n'].' 0 R';
+                }
+                $out .= ' >>';
+            }
+            $out .= ' >>';
+            if (!empty($data['group'])) {
+                // set transparency group
+                $out .= ' /Group << /Type /Group /S /Transparency';
+                if (is_array($data['group'])) {
+                    if (!empty($data['group']['CS'])) {
+                        $out .= ' /CS /'.$data['group']['CS'];
+                    }
+                    if (isset($data['group']['I'])) {
+                        $out .= ' /I /'.($data['group']['I']===true?'true':'false');
+                    }
+                    if (isset($data['group']['K'])) {
+                        $out .= ' /K /'.($data['group']['K']===true?'true':'false');
+                    }
+                }
+                $out .= ' >>';
+            }
+            $stream = $this->encrypt->encryptString($stream, $data['n']);
+            $out .= ' /Length '.strlen($stream);
+            $out .= ' >>';
+            $out .= ' stream'."\n".$stream."\n".'endstream';
+            $out .= "\n".'endobj';
+        }
+        return $out;
     }
 
     /**
