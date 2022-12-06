@@ -717,6 +717,58 @@ abstract class Output
     }
 
     /**
+     * Returns the Annotation Flags code.
+     *
+     * @params array|int $flags
+     *
+     * @return int
+     */
+    protected function getAnnotationFlagsCode($flags)
+    {
+        if (!is_array($flags)) {
+            return intval($flags);
+        }
+        $fval = 0;
+        foreach ($flags as $f) {
+            switch (strtolower($f)) {
+                case 'invisible':
+                    $fval += 1 << 0;
+                    break;
+                case 'hidden':
+                    $fval += 1 << 1;
+                    break;
+                case 'print':
+                    $fval += 1 << 2;
+                    break;
+                case 'nozoom':
+                    $fval += 1 << 3;
+                    break;
+                case 'norotate':
+                    $fval += 1 << 4;
+                    break;
+                case 'noview':
+                    $fval += 1 << 5;
+                    break;
+                case 'readonly':
+                    $fval += 1 << 6;
+                    break;
+                case 'locked':
+                    $fval += 1 << 7;
+                    break;
+                case 'togglenoview':
+                    $fval += 1 << 8;
+                    break;
+                case 'lockedcontents':
+                    $fval += 1 << 9;
+                    break;
+                default:
+                    break;
+            }
+        }
+        return $fval;
+    }
+
+    /**
      * Returns the PDF Javascript entry.
      *
      * @return string
@@ -1201,7 +1253,7 @@ abstract class Output
     /**
      * Get the PDF output string for Font resources dictionary.
      *
-     * return string
+     * @return string
      */
     protected function getOutFontDic()
     {
@@ -1220,7 +1272,7 @@ abstract class Output
     /**
      * Get the PDF output string for XObject resources dictionary.
      *
-     * return string
+     * @return string
      */
     protected function getXObjectDic()
     {
@@ -1236,7 +1288,7 @@ abstract class Output
     /**
      * Get the PDF output string for Layer resources dictionary.
      *
-     * return string
+     * @return string
      */
     protected function getLayerDic()
     {
@@ -1254,7 +1306,9 @@ abstract class Output
     /**
      * Returns 'ON' if $val is true, 'OFF' otherwise.
      *
-     * return string
+     * @param mixed $val Item to parse for boolean value.
+     *
+     * @return string
      */
     protected function getOnOff($val)
     {

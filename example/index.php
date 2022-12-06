@@ -25,6 +25,6 @@ $pdf->page->add();
 
 $doc = $pdf->getOutPDFString();
 
-//var_export($doc);
+// var_export($doc);
 
 file_put_contents('../target/example.pdf', $doc);
