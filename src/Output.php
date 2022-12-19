@@ -460,7 +460,7 @@ abstract class Output
 
 
             // signatures
-            if ($this->sign and isset($this->signature['cert_type'])
+            if ($this->sign && isset($this->signature['cert_type'])
                 && (empty($this->signature['approval']) || ($this->signature['approval'] != 'A'))) {
                 $out .= ' /Perms << ';
                 if ($this->signature['cert_type'] > 0) {
@@ -509,6 +509,43 @@ abstract class Output
                 .' >>'."\n"
                 .'endobj'."\n";
         }
+        return $out;
+    }
+
+    /**
+     * Returns the PDF Annotation code for Apearance Stream XObjects entry.
+     *
+     * @param int $width annotation width
+     * @param int $height annotation height
+     * @param string $stream appearance stream
+     *
+     * @return int
+     */
+    protected function getOutAPXObjects($width = 0, $height = 0, $stream = '')
+    {
+        $stream = trim($stream);
+        $oid = ++$this->pon;
+        $out = $oid.' 0 obj'."\n";
+        $this->xobjects['AX'.$oid] = array('n' => $oid);
+        $out .= '<<'
+            .' /Type /XObject'
+            .' /Subtype /Form'
+            .' /FormType 1';
+        if ($this->pdfa != 3) {
+            $stream = gzcompress($stream);
+            $out .= ' /Filter /FlateDecode';
+        }
+        $stream = $this->_getrawstream($stream);
+        $rect = sprintf('%F %F', $width, $height);
+        $out .= ' /BBox [0 0 '.$rect.']'
+            .' /Matrix [1 0 0 1 0 0]'
+            .' /Resources 2 0 R'
+            .' /Length '.strlen($stream)
+            .' >>'
+            .' stream'."\n"
+            .$stream."\n"
+            .'endstream'."\n"
+            .'endobj'."\n";
         return $out;
     }
 
@@ -590,10 +627,12 @@ abstract class Output
                 $out .= ' >>';
             }
             $stream = $this->encrypt->encryptString($stream, $data['n']);
-            $out .= ' /Length '.strlen($stream);
-            $out .= ' >>';
-            $out .= ' stream'."\n".$stream."\n".'endstream';
-            $out .= "\n".'endobj';
+            $out .= ' /Length '.strlen($stream)
+                .' >>'
+                .' stream'."\n"
+                .$stream."\n"
+                .'endstream'."\n"
+                .'endobj'."\n";
         }
         return $out;
     }
@@ -642,7 +681,7 @@ abstract class Output
             $out .= ' /'.$name.' '.sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
         }
         $out .= ' >>'."\n"
-            .'endobj';
+            .'endobj'."\n";
         return $out;
     }
 
@@ -655,7 +694,7 @@ abstract class Output
     {
         if (($this->pdfa == 1 ) || ($this->pdfa == 2)) {
             // embedded files are not allowed in PDF/A mode version 1 and 2
-            return;
+            return '';
         }
         reset($this->embeddedfiles);
         foreach ($this->embeddedfiles as $name => $data) {
@@ -679,7 +718,7 @@ abstract class Output
                 .' /AFRelationship /Source'
                 .' /EF <</F '.$data['n'].' 0 R>>'
                 .' >>'."\n"
-                .'endobj';
+                .'endobj'."\n";
             // embedded file object
             $filter = '';
             if ($this->pdfa == 3) {
@@ -700,9 +739,54 @@ abstract class Output
                 .' stream'."\n"
                 .$stream."\n"
                 .'endstream'."\n"
-                .'endobj';
+                .'endobj'."\n";
             return $out;
         }
+    }
+
+    /**
+     * Convert a color array into a string representation for annotations.
+     * The number of array elements determines the colour space in which the colour shall be defined:
+     *     0 No colour; transparent
+     *     1 DeviceGray
+     *     3 DeviceRGB
+     *     4 DeviceCMYK
+     *
+     * @param array $colors Array of colors.
+     *
+     * @return string
+     */
+    protected static function getColorStringFromArray($colors)
+    {
+        $col = array_values($colors);
+        $out = '[';
+        switch (count($c)) {
+            case 4: // CMYK
+                $out .= sprintf(
+                    '%F %F %F %F',
+                    (max(0, min(100, floatval($col[0]))) / 100),
+                    (max(0, min(100, floatval($col[1]))) / 100),
+                    (max(0, min(100, floatval($col[2]))) / 100),
+                    (max(0, min(100, floatval($col[3]))) / 100)
+                );
+                break;
+            case 3: // RGB
+                $out .= sprintf(
+                    '%F %F %F',
+                    (max(0, min(255, floatval($col[0]))) / 255),
+                    (max(0, min(255, floatval($col[1]))) / 255),
+                    (max(0, min(255, floatval($col[2]))) / 255)
+                );
+                break;
+            case 1: // grayscale
+                $out .= sprintf(
+                    '%F',
+                    (max(0, min(255, floatval($col[0]))) / 255)
+                );
+                break;
+        }
+        $out .= ']';
+        return $out;
     }
 
     /**
@@ -712,14 +796,291 @@ abstract class Output
      */
     protected function getOutAnnotations()
     {
-        // @TODO
-        return '';
+        $out = '';
+        $pages = $this->page->getPages();
+        foreach ($pages as $num => $page) {
+            foreach ($page['annotrefs'] as $key => $oid) {
+                $annot = $this->pageAnnots[$oid];
+                $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
+                $out .= $this->getAnnotationRadiobuttonGroups($annot);
+                $orx = $annot['x'] * $this->kunit;
+                $ory = $page['height'] - (($annot['y'] + $annot['h']) * $this->kunit);
+                $width = $annot['w'] * $this->kunit;
+                $height = $annot['h'] * $this->kunit;
+                $rect = sprintf('%F %F %F %F', $orx, $ory, $orx+$width, $ory+$height);
+                $out .= $oid.' 0 R'."\n"
+                    .'<<'
+                    .' /Type /Annot'
+                    .' /Subtype /'.$annot['opt']['subtype']
+                    .' /Rect ['.$rect.']';
+                $ft = array('Btn', 'Tx', 'Ch', 'Sig');
+                $formfield = (!empty($annot['opt']['ft']) && in_array($annot['opt']['ft'], $ft));
+                if ($formfield) {
+                    $out .= ' /FT /'.$annot['opt']['ft'];
+                }
+                if ($annot['opt']['subtype'] !== 'Link') {
+                    $out .= ' /Contents '.$this->getOutTextString($annot['txt'], $oid);
+                }
+                $out .= ' /P '.$page['n'].' 0 R'
+                    .' /NM '.$this->encrypt->escapeDataString(sprintf('%04u-%04u', $n, $key), $oid)
+                    .' /M '.$this->getOutDateTimeString($this->docmodtime, $oid)
+                    .$this->getOutAnnotationFlags($annot)
+                    .$this->getAnnotationAppearanceStream($annot, $width, $height)
+                    .$this->getAnnotationBorder($annot);
+                if (!empty($annot['opt']['c']) && is_array($annot['opt']['c'])) {
+                    $out .= ' /C '.$this->getColorStringFromArray($annot['opt']['c']);
+                }
+                //$out .= ' /StructParent ';
+                //$out .= ' /OC ';
+                $out .= $this->getOutAnnotationMarkups($annot, $oid)
+                    .$this->getOutAnnotationOptSubtype($annot, $pagenum, $oid, $key)
+                    .' >>'."\n"
+                    .'endobj'."\n";
+                if ($formfield && !isset($this->radiobuttonGroups[$n][$annot['txt']])) {
+                    $this->objid['form'][] = $oid;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Returns the Annotation code for Radio buttons.
+     *
+     * @params array $annot   Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getAnnotationRadiobuttonGroups($annot)
+    {
+        $out = '';
+        if (empty($this->radiobuttonGroups[$n][$annot['txt']])
+            || !is_array($this->radiobuttonGroups[$n][$annot['txt']])) {
+            return $out;
+        }
+        $oid = $this->radiobuttonGroups[$n][$annot['txt']]['n'];
+        $out = $oid.' 0 obj'."\n"
+            .'<<'
+            .' /Type /Annot'
+            .' /Subtype /Widget'
+            .' /Rect [0 0 0 0]';
+        if ($this->radiobuttonGroups[$n][$annot['txt']]['#readonly#']) {
+            // read only
+            $out .= ' /F 68 /Ff 49153';
+        } else {
+            $out .= ' /F 4 /Ff 49152'; // default print for PDF/A
+        }
+        $out .= ' /T '.$this->encrypt->escapeDataString($annot['txt'], $oid);
+        if (!empty($annot['opt']['tu']) && is_string($annot['opt']['tu'])) {
+            $out .= ' /TU '.$this->encrypt->escapeDataString($annot['opt']['tu'], $oid);
+        }
+        $out .= ' /FT /Btn /Kids [';
+        $defval = '';
+        foreach ($this->radiobuttonGroups[$n][$annot['txt']] as $key => $data) {
+            if (isset($data['kid'])) {
+                $out .= ' '.$data['kid'].' 0 R';
+                if ($data['def'] !== 'Off') {
+                    $defval = $data['def'];
+                }
+            }
+        }
+        $out .= ' ]';
+        if (!empty($defval)) {
+            $out .= ' /V /'.$defval;
+        }
+        $out .= ' >>'."\n"
+            .'endobj'."\n";
+        $this->objid['form'][] = $oid;
+        // store object id to be used on Parent entry of Kids
+        $this->radiobuttonGroups[$n][$annot['txt']] = $oid;
+        return $out;
+    }
+
+    /**
+     * Returns the Annotation code for Appearance Stream.
+     *
+     * @params array $annot  Array containing page annotations.
+     * @param int $width     Annotation width.
+     * @param int $height    Annotation height.
+     *
+     * @return string
+     */
+    protected function getAnnotationAppearanceStream($annot, $width = 0, $height = 0)
+    {
+        $out = '';
+        if (!empty($annot['opt']['as']) && is_string($annot['opt']['as'])) {
+            $out .= ' /AS /'.$annot['opt']['as'];
+        }
+        if (empty($annot['opt']['ap'])) {
+            return $out;
+        }
+        $out .= ' /AP <<';
+        if (!is_array($annot['opt']['ap'])) {
+            $out .= $annot['opt']['ap'];
+        } else {
+            foreach ($annot['opt']['ap'] as $mode => $def) {
+                // $mode can be: n = normal; r = rollover; d = down;
+                $out .= ' /'.strtoupper($mode);
+                if (is_array($def)) {
+                    $out .= ' <<';
+                    foreach ($def as $apstate => $stream) {
+                        // reference to XObject that define the appearance for this mode-state
+                        $apsobjid = $this->getOutAPXObjects($width, $height, $stream);
+                        $out .= ' /'.$apstate.' '.$apsobjid.' 0 R';
+                    }
+                    $out .= ' >>';
+                } else {
+                    // reference to XObject that define the appearance for this mode
+                    $apsobjid = $this->getOutAPXObjects($width, $height, $def);
+                    $out .= ' '.$apsobjid.' 0 R';
+                }
+            }
+        }
+        $out .= ' >>';
+        return $out;
+    }
+
+    /**
+     * Returns the Annotation code for Borders.
+     *
+     * @params array $annot  Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getAnnotationBorder($annot)
+    {
+        $out = '';
+        if (!empty($annot['opt']['bs']) && (is_array($annot['opt']['bs']))) {
+            $out .= ' /BS <<'
+                .' /Type /Border';
+            if (isset($annot['opt']['bs']['w'])) {
+                $out .= ' /W '.intval($annot['opt']['bs']['w']);
+            }
+            $bstyles = array('S', 'D', 'B', 'I', 'U');
+            if (!empty($annot['opt']['bs']['s']) && in_array($annot['opt']['bs']['s'], $bstyles)) {
+                $out .= ' /S /'.$annot['opt']['bs']['s'];
+            }
+            if (isset($annot['opt']['bs']['d']) && (is_array($annot['opt']['bs']['d']))) {
+                $out .= ' /D [';
+                foreach ($annot['opt']['bs']['d'] as $cord) {
+                    $out .= ' '.intval($cord);
+                }
+                $out .= ']';
+            }
+            $out .= ' >>';
+        } else {
+            $out .= ' /Border [';
+            if (isset($annot['opt']['border']) && (count($annot['opt']['border']) >= 3)) {
+                $out .= intval($annot['opt']['border'][0])
+                    .' '.intval($annot['opt']['border'][1])
+                    .' '.intval($annot['opt']['border'][2]);
+                if (isset($annot['opt']['border'][3]) && is_array($annot['opt']['border'][3])) {
+                    $out .= ' [';
+                    foreach ($annot['opt']['border'][3] as $dash) {
+                        $out .= ' '.intval($dash);
+                    }
+                    $out .= ' ]';
+                }
+            } else {
+                $out .= '0 0 0';
+            }
+            $out .= ']';
+        }
+        if (isset($annot['opt']['be']) && (is_array($annot['opt']['be']))) {
+            $out .= ' /BE <<';
+            $bstyles = array('S', 'C');
+            if (!empty($annot['opt']['be']['s']) && in_array($annot['opt']['be']['s'], $bstyles)) {
+                $out .= ' /S /'.$annot['opt']['bs']['s'];
+            } else {
+                $out .= ' /S /S';
+            }
+            if (isset($annot['opt']['be']['i'])
+                && ($annot['opt']['be']['i'] >= 0)
+                && ($annot['opt']['be']['i'] <= 2)) {
+                $out .= ' /I '.sprintf(' %F', $annot['opt']['be']['i']);
+            }
+            $out .= '>>';
+        }
+        return $out;
+    }
+
+    /**
+     * Returns the Annotation code for Makups.
+     *
+     * @params array $annot Array containing page annotations.
+     * @params int   $oid   Annotation Object ID.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationMarkups($annot, $oid)
+    {
+        $out = '';
+        $markups = array(
+            'text',
+            'freetext',
+            'line',
+            'square',
+            'circle',
+            'polygon',
+            'polyline',
+            'highlight',
+            'underline',
+            'squiggly',
+            'strikeout',
+            'stamp',
+            'caret',
+            'ink',
+            'fileattachment',
+            'sound'
+        );
+        if (empty($annot['opt']['subtype']) || !in_array(strtolower($annot['opt']['subtype']), $markups)) {
+            return $out;
+        }
+        if (!empty($annot['opt']['t']) && is_string($annot['opt']['t'])) {
+            $out .= ' /T '.$this->getOutTextString($annot['opt']['t'], $oid);
+        }
+        //$out .= ' /Popup ';
+        if (isset($annot['opt']['ca'])) {
+            $out .= ' /CA '.sprintf('%F', floatval($annot['opt']['ca']));
+        }
+        if (isset($annot['opt']['rc'])) {
+            $out .= ' /RC '.$this->getOutTextString($annot['opt']['rc'], $oid);
+        }
+        $out .= ' /CreationDate '.$this->getOutDateTimeString($this->doctime, $oid);
+        //$out .= ' /IRT ';
+        if (isset($annot['opt']['subj'])) {
+            $out .= ' /Subj '.$this->getOutTextString($annot['opt']['subj'], $oid);
+        }
+        //$out .= ' /RT ';
+        //$out .= ' /IT ';
+        //$out .= ' /ExData ';
+        return $out;
+    }
+
+    /**
+     * Returns the Annotation code for Flags.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationFlags($annot)
+    {
+        $fval = 4;
+        if (isset($annot['opt']['f'])) {
+            $fval = $this->getAnnotationFlagsCode($annot['opt']['f']);
+        }
+        if ($this->pdfa > 0) {
+            // force print flag for PDF/A mode
+            $fval |= 4;
+        }
+        return' /F '.intval($fval);
     }
 
     /**
      * Returns the Annotation Flags code.
      *
-     * @params array|int $flags
+     * @params array|int $flags Annotation flags.
      *
      * @return int
      */
@@ -766,6 +1127,757 @@ abstract class Output
             }
         }
         return $fval;
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.
+     *
+     * @params array $annot   Array containing page annotations.
+     * @params int   $pagenum Page number.
+     * @params int   $oid     Annotation Object ID.
+     * @params int   $key     Annotation index in the current page.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtype($annot, $pagenum, $oid, $key)
+    {
+        switch (strtolower($annot['opt']['subtype'])) {
+            case 'text':
+                return $this->getOutAnnotationOptSubtypeText($annot);
+            case 'link':
+                return $this->getOutAnnotationOptSubtypeLink($annot, $pagenum, $oid);
+            case 'freetext':
+                return $this->getOutAnnotationOptSubtypeFreetext($annot);
+            case 'line':
+                return $this->getOutAnnotationOptSubtypeLine($annot);
+            case 'square':
+                return $this->getOutAnnotationOptSubtypeSquare($annot);
+            case 'circle':
+                return $this->getOutAnnotationOptSubtypeCircle($annot);
+            case 'polygon':
+                return $this->getOutAnnotationOptSubtypePolygon($annot);
+            case 'polyline':
+                return $this->getOutAnnotationOptSubtypePolyline($annot);
+            case 'highlight':
+                return $this->getOutAnnotationOptSubtypeHighlight($annot);
+            case 'underline':
+                return $this->getOutAnnotationOptSubtypeUnderline($annot);
+            case 'squiggly':
+                return $this->getOutAnnotationOptSubtypeSquiggly($annot);
+            case 'strikeout':
+                return $this->getOutAnnotationOptSubtypeStrikeout($annot);
+            case 'stamp':
+                return $this->getOutAnnotationOptSubtypeStamp($annot);
+            case 'caret':
+                return $this->getOutAnnotationOptSubtypeCaret($annot);
+            case 'ink':
+                return $this->getOutAnnotationOptSubtypeInk($annot);
+            case 'popup':
+                return $this->getOutAnnotationOptSubtypePopup($annot);
+            case 'fileattachment':
+                return $this->getOutAnnotationOptSubtypeFileattachment($annot, $key);
+            case 'sound':
+                return $this->getOutAnnotationOptSubtypeSound($annot);
+            case 'movie':
+                return $this->getOutAnnotationOptSubtypeMovie($annot);
+            case 'widget':
+                return $this->getOutAnnotationOptSubtypeWidget($annot, $oid);
+            case 'screen':
+                return $this->getOutAnnotationOptSubtypeScreen($annot);
+            case 'printermark':
+                return $this->getOutAnnotationOptSubtypePrintermark($annot);
+            case 'trapnet':
+                return $this->getOutAnnotationOptSubtypeTrapnet($annot);
+            case 'watermark':
+                return $this->getOutAnnotationOptSubtypeWatermark($annot);
+            case '3d':
+                return $this->getOutAnnotationOptSubtype3D($annot);
+        }
+        return '';
+    }
+
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.text.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeText($annot)
+    {
+        $out = '';
+        if (isset($annot['opt']['open'])) {
+            $out .= ' /Open '. (strtolower($annot['opt']['open']) == 'true' ? 'true' : 'false');
+        }
+        $iconsapp = array('Comment', 'Help', 'Insert', 'Key', 'NewParagraph', 'Note', 'Paragraph');
+        if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+            $out .= ' /Name /'.$annot['opt']['name'];
+        } else {
+            $out .= ' /Name /Note';
+        }
+        $hasStateModel = isset($annot['opt']['statemodel']);
+        $hasState = isset($annot['opt']['state']);
+        $statemodels = array('Marked', 'Review');
+        if (!$hasStateModel && !$hasState) {
+            return $out;
+        }
+        if ($hasStateModel && in_array($annot['opt']['statemodel'], $statemodels)) {
+            $out .= ' /StateModel /'.$annot['opt']['statemodel'];
+        } else {
+            $annot['opt']['statemodel'] = 'Marked';
+            $out .= ' /StateModel /'.$annot['opt']['statemodel'];
+        }
+        if ($annot['opt']['statemodel'] == 'Marked') {
+            $states = array('Accepted', 'Unmarked');
+        } else {
+            $states = array('Accepted', 'Rejected', 'Cancelled', 'Completed', 'None');
+        }
+        if ($hasState && in_array($annot['opt']['state'], $states)) {
+            $out .= ' /State /'.$annot['opt']['state'];
+        } else {
+            if ($annot['opt']['statemodel'] == 'Marked') {
+                $out .= ' /State /Unmarked';
+            } else {
+                $out .= ' /State /None';
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.link.
+     *
+     * @params array $annot   Array containing page annotations.
+     * @params int   $pagenum Page number.
+     * @params int   $oid     Annotation Object ID.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeLink($annot, $pagenum, $oid)
+    {
+        $out = '';
+        if (!empty($annot['txt']) && is_string($annot['txt'])) {
+            switch ($annot['txt'][0]) {
+                case '#': // internal destination
+                    $out .= ' /A << /S /GoTo /D /'.$this->encrypt->encodeNameObject(substr($annot['txt'], 1)).'>>';
+                    break;
+                case '%': // embedded PDF file
+                    $filename = basename(substr($annot['txt'], 1));
+                    $out .= ' /A <<'
+                        .' /S /GoToE'
+                        .' /D [0 /Fit]'
+                        .' /NewWindow true'
+                        .' /T <<'
+                        .' /R /C /P '.($pagenum - 1)
+                        .' /A '.$this->embeddedfiles[$filename]['a']
+                        .' >>'
+                        .' >>';
+                    break;
+                case '*': // embedded generic file
+                    $filename = basename(substr($annot['txt'], 1));
+                    $jsa = 'var D=event.target.doc;'
+                        .'var MyData=D.dataObjects;'
+                        .'for (var i in MyData)'
+                        .' if (MyData[i].path=="'.$filename.'")'
+                        .' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
+                    $out .= ' /A << /S /JavaScript /JS '.$this->getOutTextString($jsa, $oid).' >>';
+                    break;
+                default:
+                    $parsedUrl = parse_url($annot['txt']);
+                    if (empty($parsedUrl['scheme'])
+                        && (!empty($parsedUrl['path'])
+                        && strtolower(substr($parsedUrl['path'], -4)) == '.pdf')) {
+                        // relative link to a PDF file
+                        $dest = '[0 /Fit]'; // default page 0
+                        if (!empty($parsedUrl['fragment'])) {
+                            // check for named destination
+                            $tmp = explode('=', $parsedUrl['fragment']);
+                            $dest = '('.((count($tmp) == 2) ? $tmp[1] : $tmp[0]).')';
+                        }
+                        $out .= ' /A <<'
+                            .' /S /GoToR'
+                            .' /D '.$dest
+                            .' /F '.$this->encrypt->escapeDataString($this->unhtmlentities($parsedUrl['path']), $oid)
+                            .' /NewWindow true'
+                            .' >>';
+                    } else {
+                        // external URI link
+                        $out .= ' /A <<'
+                            .' /S /URI'
+                            .' /URI '.$this->encrypt->escapeDataString($this->unhtmlentities($annot['txt']), $oid)
+                            .' >>';
+                    }
+                    break;
+            }
+        } elseif (!empty($this->links[$annot['txt']])) {
+            // internal link ID
+            $l = $this->links[$annot['txt']];
+            $page = $this->page->getPage($l['p']);
+            $y = ($page['height'] - ($l['y'] * $this->kunit));
+            $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
+        }
+        $hmodes = array('N', 'I', 'O', 'P');
+        if (!empty($annot['opt']['h']) && in_array($annot['opt']['h'], $hmodes)) {
+            $out .= ' /H /'.$annot['opt']['h'];
+        } else {
+            $out .= ' /H /I';
+        }
+        //$out .= ' /PA ';
+        //$out .= ' /Quadpoints ';
+        return $out;
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.freetext.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeFreetext($annot)
+    {
+        $out = '';
+        if (!empty($annot['opt']['da'])) {
+            $out .= ' /DA ('.$annot['opt']['da'].')';
+        }
+        if (isset($annot['opt']['q']) && ($annot['opt']['q'] >= 0) && ($annot['opt']['q'] <= 2)) {
+            $out .= ' /Q '.intval($annot['opt']['q']);
+        }
+        if (isset($annot['opt']['rc'])) {
+            $out .= ' /RC '.$this->getOutTextString($annot['opt']['rc'], $annot_obj_id);
+        }
+        if (isset($annot['opt']['ds'])) {
+            $out .= ' /DS '.$this->getOutTextString($annot['opt']['ds'], $annot_obj_id);
+        }
+        if (isset($annot['opt']['cl']) && is_array($annot['opt']['cl'])) {
+            $out .= ' /CL [';
+            foreach ($annot['opt']['cl'] as $cl) {
+                $out .= sprintf('%F ', $cl * $this->kunit);
+            }
+            $out .= ']';
+        }
+        $tfit = array('FreeText', 'FreeTextCallout', 'FreeTextTypeWriter');
+        if (isset($annot['opt']['it']) && in_array($annot['opt']['it'], $tfit)) {
+            $out .= ' /IT /'.$annot['opt']['it'];
+        }
+        if (isset($annot['opt']['rd']) && is_array($annot['opt']['rd'])) {
+            $l = $annot['opt']['rd'][0] * $this->kunit;
+            $r = $annot['opt']['rd'][1] * $this->kunit;
+            $t = $annot['opt']['rd'][2] * $this->kunit;
+            $b = $annot['opt']['rd'][3] * $this->kunit;
+            $out .= ' /RD ['.sprintf('%F %F %F %F', $l, $r, $t, $b).']';
+        }
+        $lineendings = array(
+            'Square',
+            'Circle',
+            'Diamond',
+            'OpenArrow',
+            'ClosedArrow',
+            'None',
+            'Butt',
+            'ROpenArrow',
+            'RClosedArrow',
+            'Slash'
+        );
+        if (isset($annot['opt']['le']) && in_array($annot['opt']['le'], $lineendings)) {
+            $out .= ' /LE /'.$annot['opt']['le'];
+        }
+        return $out;
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.line.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeLine($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.square.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeSquare($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.circle.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeCircle($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.polygon.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypePolygon($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.polyline.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypePolyline($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.highlight.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeHighlight($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeUnderline($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.squiggly.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeSquiggly($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.strikeout.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeStrikeout($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.stamp.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeStamp($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.caret.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeCaret($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.ink.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeInk($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.popup.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypePopup($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.fileattachment.
+     *
+     * @params array $annot Array containing page annotations.
+     * @params int   $key   Annotation index in the current page.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeFileattachment($annot, $key)
+    {
+        $out = '';
+        if (($this->pdfa == 1 ) || ($this->pdfa == 2) || !isset($annot['opt']['fs'])) {
+            // embedded files are not allowed in PDF/A mode version 1 and 2
+            return $out;
+        }
+        $filename = basename($annot['opt']['fs']);
+        if (isset($this->embeddedfiles[$filename]['f'])) {
+            $out .= ' /FS '.$this->embeddedfiles[$filename]['f'].' 0 R';
+            $iconsapp = array('Graph', 'Paperclip', 'PushPin', 'Tag');
+            if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+                $out .= ' /Name /'.$annot['opt']['name'];
+            } else {
+                $out .= ' /Name /PushPin';
+            }
+            // index (zero-based) of the annotation in the Annots array of this page
+            $this->embeddedfiles[$filename]['a'] = $key;
+        }
+        return $out;
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.sound.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeSound($annot)
+    {
+        $out = '';
+        if (empty($annot['opt']['fs'])) {
+            return $out;
+        }
+        $filename = basename($annot['opt']['fs']);
+        if (isset($this->embeddedfiles[$filename]['f'])) {
+            // ... TO BE COMPLETED ...
+            // /R /C /B /E /CO /CP
+            $out .= ' /Sound '.$this->embeddedfiles[$filename]['f'].' 0 R';
+            $iconsapp = array('Speaker', 'Mic');
+            if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+                $out .= ' /Name /'.$annot['opt']['name'];
+            } else {
+                $out .= ' /Name /Speaker';
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.movie.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeMovie($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.widget.
+     *
+     * @params array $annot Array containing page annotations.
+     * @params int   $oid   Annotation Object ID.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeWidget($annot, $oid)
+    {
+        $out = '';
+        $hmode = array('N', 'I', 'O', 'P', 'T');
+        if (!empty($annot['opt']['h']) && in_array($annot['opt']['h'], $hmode)) {
+            $out .= ' /H /'.$annot['opt']['h'];
+        }
+        if (!empty($annot['opt']['mk']) && is_array($annot['opt']['mk'])) {
+            $out .= ' /MK <<';
+            if (isset($annot['opt']['mk']['r'])) {
+                $out .= ' /R '.$annot['opt']['mk']['r'];
+            }
+            if (isset($annot['opt']['mk']['bc']) && (is_array($annot['opt']['mk']['bc']))) {
+                $out .= ' /BC '.$this->getColorStringFromArray($annot['opt']['mk']['bc']);
+            }
+            if (isset($annot['opt']['mk']['bg']) && (is_array($annot['opt']['mk']['bg']))) {
+                $out .= ' /BG '.$this->getColorStringFromArray($annot['opt']['mk']['bg']);
+            }
+            if (isset($annot['opt']['mk']['ca'])) {
+                $out .= ' /CA '.$annot['opt']['mk']['ca'];
+            }
+            if (isset($annot['opt']['mk']['rc'])) {
+                $out .= ' /RC '.$annot['opt']['mk']['rc'];
+            }
+            if (isset($annot['opt']['mk']['ac'])) {
+                $out .= ' /AC '.$annot['opt']['mk']['ac'];
+            }
+            if (isset($annot['opt']['mk']['i'])) {
+                $info = $this->getImageBuffer($annot['opt']['mk']['i']);
+                if ($info !== false) {
+                    $out .= ' /I '.$info['n'].' 0 R';
+                }
+            }
+            if (isset($annot['opt']['mk']['ri'])) {
+                $info = $this->getImageBuffer($annot['opt']['mk']['ri']);
+                if ($info !== false) {
+                    $out .= ' /RI '.$info['n'].' 0 R';
+                }
+            }
+            if (isset($annot['opt']['mk']['ix'])) {
+                $info = $this->getImageBuffer($annot['opt']['mk']['ix']);
+                if ($info !== false) {
+                    $out .= ' /IX '.$info['n'].' 0 R';
+                }
+            }
+            if (!empty($annot['opt']['mk']['if']) && is_array($annot['opt']['mk']['if'])) {
+                $out .= ' /IF <<';
+                $if_sw = array('A', 'B', 'S', 'N');
+                if (isset($annot['opt']['mk']['if']['sw']) && in_array($annot['opt']['mk']['if']['sw'], $if_sw)) {
+                    $out .= ' /SW /'.$annot['opt']['mk']['if']['sw'];
+                }
+                $if_s = array('A', 'P');
+                if (isset($annot['opt']['mk']['if']['s']) && in_array($annot['opt']['mk']['if']['s'], $if_s)) {
+                    $out .= ' /S /'.$annot['opt']['mk']['if']['s'];
+                }
+                if (isset($annot['opt']['mk']['if']['a'])
+                    && (is_array($annot['opt']['mk']['if']['a']))
+                    && !empty($annot['opt']['mk']['if']['a'])) {
+                    $out .= sprintf(
+                        ' /A [%F %F]',
+                        $annot['opt']['mk']['if']['a'][0],
+                        $annot['opt']['mk']['if']['a'][1]
+                    );
+                }
+                if (isset($annot['opt']['mk']['if']['fb']) && ($annot['opt']['mk']['if']['fb'])) {
+                    $out .= ' /FB true';
+                }
+                $out .= '>>';
+            }
+            if (isset($annot['opt']['mk']['tp'])
+                && ($annot['opt']['mk']['tp'] >= 0)
+                && ($annot['opt']['mk']['tp'] <= 6)) {
+                $out .= ' /TP '.intval($annot['opt']['mk']['tp']);
+            }
+            $out .= '>>';
+        }
+        // --- Entries for field dictionaries ---
+        if (isset($this->radiobuttonGroups[$n][$annot['txt']])) {
+            // set parent
+            $out .= ' /Parent '.$this->radiobuttonGroups[$n][$annot['txt']].' 0 R';
+        }
+        if (isset($annot['opt']['t']) && is_string($annot['opt']['t'])) {
+            $out .= ' /T '.$this->encrypt->escapeDataString($annot['opt']['t'], $oid);
+        }
+        if (isset($annot['opt']['tu']) && is_string($annot['opt']['tu'])) {
+            $out .= ' /TU '.$this->encrypt->escapeDataString($annot['opt']['tu'], $oid);
+        }
+        if (isset($annot['opt']['tm']) && is_string($annot['opt']['tm'])) {
+            $out .= ' /TM '.$this->encrypt->escapeDataString($annot['opt']['tm'], $oid);
+        }
+        if (isset($annot['opt']['ff'])) {
+            if (is_array($annot['opt']['ff'])) {
+                // array of bit settings
+                $flag = 0;
+                foreach ($annot['opt']['ff'] as $val) {
+                    $flag += 1 << ($val - 1);
+                }
+            } else {
+                $flag = intval($annot['opt']['ff']);
+            }
+            $out .= ' /Ff '.$flag;
+        }
+        if (isset($annot['opt']['maxlen'])) {
+            $out .= ' /MaxLen '.intval($annot['opt']['maxlen']);
+        }
+        if (isset($annot['opt']['v'])) {
+            $out .= ' /V';
+            if (is_array($annot['opt']['v'])) {
+                foreach ($annot['opt']['v'] as $optval) {
+                    if (is_float($optval)) {
+                        $optval = sprintf('%F', $optval);
+                    }
+                    $out .= ' '.$optval;
+                }
+            } else {
+                $out .= ' '.$this->getOutTextString($annot['opt']['v'], $oid);
+            }
+        }
+        if (isset($annot['opt']['dv'])) {
+            $out .= ' /DV';
+            if (is_array($annot['opt']['dv'])) {
+                foreach ($annot['opt']['dv'] as $optval) {
+                    if (is_float($optval)) {
+                        $optval = sprintf('%F', $optval);
+                    }
+                    $out .= ' '.$optval;
+                }
+            } else {
+                $out .= ' '.$this->getOutTextString($annot['opt']['dv'], $oid);
+            }
+        }
+        if (isset($annot['opt']['rv'])) {
+            $out .= ' /RV';
+            if (is_array($annot['opt']['rv'])) {
+                foreach ($annot['opt']['rv'] as $optval) {
+                    if (is_float($optval)) {
+                        $optval = sprintf('%F', $optval);
+                    }
+                    $out .= ' '.$optval;
+                }
+            } else {
+                $out .= ' '.$this->getOutTextString($annot['opt']['rv'], $oid);
+            }
+        }
+        if (!empty($annot['opt']['a'])) {
+            $out .= ' /A << '.$annot['opt']['a'].' >>';
+        }
+        if (!empty($annot['opt']['aa'])) {
+            $out .= ' /AA << '.$annot['opt']['aa'].' >>';
+        }
+        if (!empty($annot['opt']['da'])) {
+            $out .= ' /DA ('.$annot['opt']['da'].')';
+        }
+        if (isset($annot['opt']['q']) && ($annot['opt']['q'] >= 0) && ($annot['opt']['q'] <= 2)) {
+            $out .= ' /Q '.intval($annot['opt']['q']);
+        }
+        if (!empty($annot['opt']['opt']) && is_array($annot['opt']['opt'])) {
+            $out .= ' /Opt [';
+            foreach ($annot['opt']['opt'] as $copt) {
+                if (is_array($copt)) {
+                    $out .= ' ['.$this->getOutTextString($copt[0], $oid)
+                        .' '.$this->getOutTextString($copt[1], $oid).']';
+                } else {
+                    $out .= ' '.$this->getOutTextString($copt, $oid);
+                }
+            }
+            $out .= ']';
+        }
+        if (isset($annot['opt']['ti'])) {
+            $out .= ' /TI '.intval($annot['opt']['ti']);
+        }
+        if (!empty($annot['opt']['i']) && is_array($annot['opt']['i'])) {
+            $out .= ' /I [';
+            foreach ($annot['opt']['i'] as $copt) {
+                $out .= intval($copt).' ';
+            }
+            $out .= ']';
+        }
+        return $out;
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.screen.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeScreen($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.printermark.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypePrintermark($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.trapnet.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeTrapnet($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.watermark.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtypeWatermark($annot)
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
+     * Returns the output code associated with the annotation opt.subtype.3d.
+     *
+     * @params array $annot Array containing page annotations.
+     *
+     * @return string
+     */
+    protected function getOutAnnotationOptSubtype3D($annot)
+    {
+        // @TODO
+        return '';
     }
 
     /**
@@ -924,33 +2036,38 @@ abstract class Output
             if (isset($o['last'])) {
                 $out .= ' /Last '.($first_oid + $o['last']).' 0 R';
             }
-            if (isset($o['u']) and !empty($o['u'])) {
+            if (!empty($o['u'])) {
                 // link
                 if (is_string($o['u'])) {
-                    if ($o['u'][0] == '#') {
-                        // internal destination
-                        $out .= ' /Dest /'.$this->encrypt->encodeNameObject(substr($o['u'], 1));
-                    } elseif ($o['u'][0] == '%') {
-                        // embedded PDF file
-                        $filename = basename(substr($o['u'], 1));
-                        $out .= ' /A <<'
-                            .' /S /GoToE /D [0 /Fit] /NewWindow true /T'
-                            .' << /R /C /P '.($o['p'] - 1).' /A '.$this->embeddedfiles[$filename]['a'].' >>'
-                            .' >>';
-                    } elseif ($o['u'][0] == '*') {
-                        // embedded generic file
-                        $filename = basename(substr($o['u'], 1));
-                        $jsa = 'var D=event.target.doc;'
-                        .'var MyData=D.dataObjects;'
-                        .'for (var i in MyData)'
-                        .' if (MyData[i].path=="'.$filename.'")'
-                        .' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                        $out .= ' /A <</S /JavaScript /JS '.$this->getOutTextString($jsa, $oid).'>>';
-                    } else {
-                        // external URI link
-                        $out .= ' /A << /S /URI /URI '
-                            .$this->encrypt->escapeDataString($this->unhtmlentities($o['u']), $oid)
-                            .' >>';
+                    switch ($o['u'][0]) {
+                        case '#':
+                            // internal destination
+                            $out .= ' /Dest /'.$this->encrypt->encodeNameObject(substr($o['u'], 1));
+                            break;
+                        case '%':
+                            // embedded PDF file
+                            $filename = basename(substr($o['u'], 1));
+                            $out .= ' /A <<'
+                                .' /S /GoToE /D [0 /Fit] /NewWindow true /T'
+                                .' << /R /C /P '.($o['p'] - 1).' /A '.$this->embeddedfiles[$filename]['a'].' >>'
+                                .' >>';
+                            break;
+                        case '*':
+                            // embedded generic file
+                            $filename = basename(substr($o['u'], 1));
+                            $jsa = 'var D=event.target.doc;'
+                            .'var MyData=D.dataObjects;'
+                            .'for (var i in MyData)'
+                            .' if (MyData[i].path=="'.$filename.'")'
+                            .' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
+                            $out .= ' /A <</S /JavaScript /JS '.$this->getOutTextString($jsa, $oid).'>>';
+                            break;
+                        default:
+                            // external URI link
+                            $out .= ' /A << /S /URI /URI '
+                                .$this->encrypt->escapeDataString($this->unhtmlentities($o['u']), $oid)
+                                .' >>';
+                            break;
                     }
                 } elseif (isset($this->links[$o['u']])) {
                     // internal link ID
@@ -978,8 +2095,8 @@ abstract class Output
             }
             $out .= sprintf(' /F %d', $style);
             // set bookmark color
-            if (!empty($color)) {
-                $out .= ' /C ['.$this->color->getPdfRgbComponents($color).']';
+            if (!empty($o['c']) && is_array($o['c'])) {
+                $out .= ' /C ['.$this->getColorStringFromArray($o['c']).']';
             } else {
                 $out .= ' /C [0.0 0.0 0.0]'; // black
             }

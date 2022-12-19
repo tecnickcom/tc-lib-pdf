@@ -152,7 +152,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
     /**
      * Set a field value only if it is not empty.
      *
-     * @param strign $field Field name
+     * @param string $field Field name
      * @param srting $value Value to set
      */
     private function setNonEmptyFieldValue($field, $value)
