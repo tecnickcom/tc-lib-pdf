@@ -245,10 +245,10 @@ abstract class Output
         $out = ' /OutputIntents [<<'
             .' /Type /OutputIntent'
             .' /S /GTS_PDFA1'
-            .' /OutputCondition '.$this->getOutTextString('sRGB IEC61966-2.1', $oid)
-            .' /OutputConditionIdentifier '.$this->getOutTextString('sRGB IEC61966-2.1', $oid)
-            .' /RegistryName '.$this->getOutTextString('http://www.color.org', $oid)
-            .' /Info '.$this->getOutTextString('sRGB IEC61966-2.1', $oid)
+            .' /OutputCondition '.$this->getOutTextString('sRGB IEC61966-2.1', $oid, true)
+            .' /OutputConditionIdentifier '.$this->getOutTextString('sRGB IEC61966-2.1', $oid, true)
+            .' /RegistryName '.$this->getOutTextString('http://www.color.org', $oid, true)
+            .' /Info '.$this->getOutTextString('sRGB IEC61966-2.1', $oid, true)
             .' /DestOutputProfile '.$this->objid['srgbicc'].' 0 R'
             .' >>]';
         return $out;
@@ -265,9 +265,9 @@ abstract class Output
         $out = ' /OutputIntents [<<'
             .' /Type /OutputIntent'
             .' /S /GTS_PDFX'
-            .' /OutputConditionIdentifier '.$this->getOutTextString('OFCOM_PO_P1_F60_95', $oid)
-            .' /RegistryName '.$this->getOutTextString('http://www.color.org', $oid)
-            .' /Info '.$this->getOutTextString('OFCOM_PO_P1_F60_95', $oid)
+            .' /OutputConditionIdentifier '.$this->getOutTextString('OFCOM_PO_P1_F60_95', $oid, true)
+            .' /RegistryName '.$this->getOutTextString('http://www.color.org', $oid, true)
+            .' /Info '.$this->getOutTextString('OFCOM_PO_P1_F60_95', $oid, true)
             .' >>]';
         return $out;
     }
@@ -314,8 +314,8 @@ abstract class Output
         }
         $out = ' /OCProperties << /OCGs ['.$lyrobjs.' ]'
             .' /D <<'
-            .' /Name '.$this->getOutTextString('Layers', $oid)
-            .' /Creator '.$this->getOutTextString($this->creator, $oid)
+            .' /Name '.$this->getOutTextString('Layers', $oid, true)
+            .' /Creator '.$this->getOutTextString($this->creator, $oid, true)
             .' /BaseState /ON'
             .' /OFF ['.$lyrobjs_off.']'
             .' /Locked ['.$lyrobjs_lock.']'
@@ -400,7 +400,7 @@ abstract class Output
         //$out .= ' /MarkInfo <<>>';
 
         if (!empty($this->l['a_meta_language'])) {
-            $out .= ' /Lang '.$this->getOutTextString($this->l['a_meta_language'], $oid);
+            $out .= ' /Lang '.$this->getOutTextString($this->l['a_meta_language'], $oid, true);
         }
 
         //$out .= ' /SpiderInfo <<>>';
@@ -499,7 +499,7 @@ abstract class Output
             $out .= $oid.' 0 obj'."\n";
             $out .= '<< '
                 .' /Type /OCG'
-                .' /Name '.$this->getOutTextString($layer['name'], $oid)
+                .' /Name '.$this->getOutTextString($layer['name'], $oid, true)
                 .' /Usage <<';
             if (isset($layer['print']) && ($layer['print'] !== null)) {
                 $out .= ' /Print <</PrintState /'.$this->getOnOff($layer['print']).'>>';
@@ -819,7 +819,7 @@ abstract class Output
                     $out .= ' /FT /'.$annot['opt']['ft'];
                 }
                 if ($annot['opt']['subtype'] !== 'Link') {
-                    $out .= ' /Contents '.$this->getOutTextString($annot['txt'], $oid);
+                    $out .= ' /Contents '.$this->getOutTextString($annot['txt'], $oid, true);
                 }
                 $out .= ' /P '.$page['n'].' 0 R'
                     .' /NM '.$this->encrypt->escapeDataString(sprintf('%04u-%04u', $n, $key), $oid)
@@ -1037,19 +1037,19 @@ abstract class Output
             return $out;
         }
         if (!empty($annot['opt']['t']) && is_string($annot['opt']['t'])) {
-            $out .= ' /T '.$this->getOutTextString($annot['opt']['t'], $oid);
+            $out .= ' /T '.$this->getOutTextString($annot['opt']['t'], $oid, true);
         }
         //$out .= ' /Popup ';
         if (isset($annot['opt']['ca'])) {
             $out .= ' /CA '.sprintf('%F', floatval($annot['opt']['ca']));
         }
         if (isset($annot['opt']['rc'])) {
-            $out .= ' /RC '.$this->getOutTextString($annot['opt']['rc'], $oid);
+            $out .= ' /RC '.$this->getOutTextString($annot['opt']['rc'], $oid, true);
         }
         $out .= ' /CreationDate '.$this->getOutDateTimeString($this->doctime, $oid);
         //$out .= ' /IRT ';
         if (isset($annot['opt']['subj'])) {
-            $out .= ' /Subj '.$this->getOutTextString($annot['opt']['subj'], $oid);
+            $out .= ' /Subj '.$this->getOutTextString($annot['opt']['subj'], $oid, true);
         }
         //$out .= ' /RT ';
         //$out .= ' /IT ';
@@ -1281,7 +1281,7 @@ abstract class Output
                         .'for (var i in MyData)'
                         .' if (MyData[i].path=="'.$filename.'")'
                         .' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                    $out .= ' /A << /S /JavaScript /JS '.$this->getOutTextString($jsa, $oid).' >>';
+                    $out .= ' /A << /S /JavaScript /JS '.$this->getOutTextString($jsa, $oid, true).' >>';
                     break;
                 default:
                     $parsedUrl = parse_url($annot['txt']);
@@ -1345,10 +1345,10 @@ abstract class Output
             $out .= ' /Q '.intval($annot['opt']['q']);
         }
         if (isset($annot['opt']['rc'])) {
-            $out .= ' /RC '.$this->getOutTextString($annot['opt']['rc'], $annot_obj_id);
+            $out .= ' /RC '.$this->getOutTextString($annot['opt']['rc'], $annot_obj_id, true);
         }
         if (isset($annot['opt']['ds'])) {
-            $out .= ' /DS '.$this->getOutTextString($annot['opt']['ds'], $annot_obj_id);
+            $out .= ' /DS '.$this->getOutTextString($annot['opt']['ds'], $annot_obj_id, true);
         }
         if (isset($annot['opt']['cl']) && is_array($annot['opt']['cl'])) {
             $out .= ' /CL [';
@@ -1749,7 +1749,7 @@ abstract class Output
                     $out .= ' '.$optval;
                 }
             } else {
-                $out .= ' '.$this->getOutTextString($annot['opt']['v'], $oid);
+                $out .= ' '.$this->getOutTextString($annot['opt']['v'], $oid, true);
             }
         }
         if (isset($annot['opt']['dv'])) {
@@ -1762,7 +1762,7 @@ abstract class Output
                     $out .= ' '.$optval;
                 }
             } else {
-                $out .= ' '.$this->getOutTextString($annot['opt']['dv'], $oid);
+                $out .= ' '.$this->getOutTextString($annot['opt']['dv'], $oid, true);
             }
         }
         if (isset($annot['opt']['rv'])) {
@@ -1775,7 +1775,7 @@ abstract class Output
                     $out .= ' '.$optval;
                 }
             } else {
-                $out .= ' '.$this->getOutTextString($annot['opt']['rv'], $oid);
+                $out .= ' '.$this->getOutTextString($annot['opt']['rv'], $oid, true);
             }
         }
         if (!empty($annot['opt']['a'])) {
@@ -1794,10 +1794,10 @@ abstract class Output
             $out .= ' /Opt [';
             foreach ($annot['opt']['opt'] as $copt) {
                 if (is_array($copt)) {
-                    $out .= ' ['.$this->getOutTextString($copt[0], $oid)
-                        .' '.$this->getOutTextString($copt[1], $oid).']';
+                    $out .= ' ['.$this->getOutTextString($copt[0], $oid, true)
+                        .' '.$this->getOutTextString($copt[1], $oid, true).']';
                 } else {
-                    $out .= ' '.$this->getOutTextString($copt, $oid);
+                    $out .= ' '.$this->getOutTextString($copt, $oid, true);
                 }
             }
             $out .= ']';
@@ -1910,7 +1910,7 @@ abstract class Output
             $out .= $oid.' 0 obj'."\n"
             .'<<'
             .' /S /JavaScript /JS '
-            .$this->getOutTextString($this->javascript, $oid)
+            .$this->getOutTextString($this->javascript, $oid, true)
             .' >>'."\n"
             .'endobj'."\n";
             $njs .= ' (EmbeddedJS) '.$oid.' 0 R';
@@ -1922,7 +1922,7 @@ abstract class Output
                 $out .= $oid.' 0 obj'."\n"
                 .'<< '
                 .'/S /JavaScript /JS '
-                .$this->getOutTextString($val['js'], $oid)
+                .$this->getOutTextString($val['js'], $oid, true)
                 .' >>'."\n"
                 .'endobj'."\n";
                 $njs .= ' (JS'.$key.') '.$oid.' 0 R';
@@ -2022,7 +2022,7 @@ abstract class Output
             $oid = ++$this->pon;
             $out .= $oid.' 0 obj'."\n"
                 .'<<'
-                .' /Title '.$this->getOutTextString($title, $oid)
+                .' /Title '.$this->getOutTextString($title, $oid, true)
                 .' /Parent '.($first_oid + $o['parent']).' 0 R';
             if (isset($o['prev'])) {
                 $out .= ' /Prev '.($first_oid + $o['prev']).' 0 R';
@@ -2060,7 +2060,7 @@ abstract class Output
                             .'for (var i in MyData)'
                             .' if (MyData[i].path=="'.$filename.'")'
                             .' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                            $out .= ' /A <</S /JavaScript /JS '.$this->getOutTextString($jsa, $oid).'>>';
+                            $out .= ' /A <</S /JavaScript /JS '.$this->getOutTextString($jsa, $oid, true).'>>';
                             break;
                         default:
                             // external URI link
@@ -2137,7 +2137,7 @@ abstract class Output
                 .' /P '.$page['n'].' 0 R' // link to signature appearance page
                 .' /F 4'
                 .' /FT /Sig'
-                .' /T '.$this->getOutTextString($signame, $esa['objid'])
+                .' /T '.$this->getOutTextString($signame, $esa['objid'], true)
                 .' /Ff 0'
                 .' >>'
                 ."\n".'endobj';
@@ -2257,7 +2257,7 @@ abstract class Output
             .' /P '.$page['n'].' 0 R' // link to signature appearance page
             .' /F 4'
             .' /FT /Sig'
-            .' /T '.$this->getOutTextString($this->signature['appearance']['name'], $soid)
+            .' /T '.$this->getOutTextString($this->signature['appearance']['name'], $soid, true)
             .' /Ff 0'
             .' /V '.$oid.' 0 R'
             .' >>'."\n"
@@ -2353,16 +2353,16 @@ abstract class Output
     {
         $out = '';
         if (!empty($this->signature['info']['Name'])) {
-            $out .= ' /Name '.$this->getOutTextString($this->signature['info']['Name'], $oid);
+            $out .= ' /Name '.$this->getOutTextString($this->signature['info']['Name'], $oid, true);
         }
         if (!empty($this->signature['info']['Location'])) {
-            $out .= ' /Location '.$this->getOutTextString($this->signature['info']['Location'], $oid);
+            $out .= ' /Location '.$this->getOutTextString($this->signature['info']['Location'], $oid, true);
         }
         if (!empty($this->signature['info']['Reason'])) {
-            $out .= ' /Reason '.$this->getOutTextString($this->signature['info']['Reason'], $oid);
+            $out .= ' /Reason '.$this->getOutTextString($this->signature['info']['Reason'], $oid, true);
         }
         if (!empty($this->signature['info']['ContactInfo'])) {
-            $out .= ' /ContactInfo '.$this->getOutTextString($this->signature['info']['ContactInfo'], $oid);
+            $out .= ' /ContactInfo '.$this->getOutTextString($this->signature['info']['ContactInfo'], $oid, true);
         }
         return $out;
     }
