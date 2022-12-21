@@ -108,7 +108,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * @var int
      */
-    protected $pon = 0;
+    public $pon = 0;
 
     /**
      * PDF version

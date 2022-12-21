@@ -101,6 +101,7 @@ abstract class Output
     protected function getOutPDFBody()
     {
         $out = $this->page->getPdfPages($this->pon);
+        $this->objid['pages'] = $this->page->getRootObjID();
         $out .= $this->graph->getOutExtGState($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutOCG();
@@ -347,7 +348,7 @@ abstract class Output
             .' /Type /Catalog'
             .' /Version /'.$this->pdfver
             //.' /Extensions <<>>'
-            .' /Pages 1 0 R'
+            .' /Pages '.$this->objid['pages'].' 0 R'
             //.' /PageLabels ' //...
             .' /Names <<';
         if (!$this->pdfa && !empty($this->objid['javascript'])) {

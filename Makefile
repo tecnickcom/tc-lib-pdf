@@ -96,6 +96,7 @@ help:
 	@echo "  make deb      : Build a DEB package for Debian-like Linux distributions"
 	@echo "  make deps     : Download all dependencies"
 	@echo "  make doc      : Generate source code documentation"
+	@echo "  make fonts    : Build default tc-font-mirror fonts via tc-lib-pdf-font"
 	@echo "  make lint     : Test source code for coding standard violations"
 	@echo "  make qa       : Run all tests and reports"
 	@echo "  make report   : Generate various reports"
@@ -175,6 +176,11 @@ ensuretarget:
 	mkdir -p $(TARGETDIR)/test
 	mkdir -p $(TARGETDIR)/report
 	mkdir -p $(TARGETDIR)/doc
+
+# Build default tc-font-mirror fonts via tc-lib-pdf-font
+.PHONY: fonts
+fonts:
+	cd vendor/tecnickcom/tc-lib-pdf-font/ && make deps fonts
 
 # Install this application
 .PHONY: install
