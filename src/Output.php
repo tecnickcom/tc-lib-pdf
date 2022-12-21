@@ -113,7 +113,7 @@ abstract class Output
         $out .= $outfont->getFontsBlock();
         $this->pon = $outfont->getObjectNumber();
         $out .= $this->image->getOutImagesBlock($this->pon);
-        $this->pon = $outfont->getObjectNumber();
+        $this->pon = $this->image->getObjectNumber();
         $out .= $this->color->getPdfSpotObjects($this->pon);
         $out .= $this->graph->getOutGradientShaders($this->pon);
         $this->pon = $this->graph->getObjectNumber();
