@@ -35,7 +35,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      *
      * @var string
      */
-    protected $version = '8.0.11';
+    protected $version = '8.0.14';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -255,7 +255,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      *
      * @return string escaped string.
      */
-    protected function getOutTextString($str, $oid, $bom=false)
+    protected function getOutTextString($str, $oid, $bom = false)
     {
         if ($this->isunicode) {
             $str = $this->uniconv->toUTF16BE($str);
