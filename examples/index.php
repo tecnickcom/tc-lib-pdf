@@ -13,6 +13,8 @@
  * This file is part of tc-lib-pdf software library.
  */
 
+// NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
+
 // autoloader when using Composer
 require ('../vendor/autoload.php');
 
