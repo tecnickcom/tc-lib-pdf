@@ -33,25 +33,50 @@ $pdf->setSubject('tc-lib-pdf example');
 $pdf->setTitle('Example');
 $pdf->setKeywords('TCPDF','tc-lib-pdf','example');
 
-// Add a page
-$pdf->page->add();
-
 // Insert fonts
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica');
 $bfont = $pdf->font->insert($pdf->pon, 'times', 'BI');
 
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.jpg');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.png');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX16.png');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX256.png');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEXALPHA.png');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.jpg');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.png');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBALPHA.png');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.png');
-// $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBINT.png');
+// Add a page
+$page01 = $pdf->page->add();
+
+// Add Images
+$iid01 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
+$pdf->page->addContent($pdf->image->getSetImage($iid01, 0, 0, 40, 20, $page01['height']));
+
+// $iid02 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.jpg');
+// $pdf->page->addContent($pdf->image->getSetImage($iid02, 40, 0, 40, 20, $page01['height']));
+
+// $iid03 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid03, 0, 0, 40, 20, $page01['height']));
+
+// $iid04 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX16.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid04, 0, 0, 40, 20, $page01['height']));
+
+// $iid05 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX256.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid05, 0, 0, 40, 20, $page01['height']));
+
+// $iid06 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEXALPHA.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid06, 0, 0, 40, 20, $page01['height']));
+
+// $iid07 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.jpg');
+// $pdf->page->addContent($pdf->image->getSetImage($iid07, 0, 0, 40, 20, $page01['height']));
+
+// $iid08 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid08, 0, 0, 40, 20, $page01['height']));
+
+// $iid09 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBALPHA.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid09, 0, 0, 40, 20, $page01['height']));
+
+// $iid10 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
+// $pdf->page->addContent($pdf->image->getSetImage($iid10, 0, 0, 40, 20, $page01['height']));
+
+// $iid11 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid11, 0, 0, 40, 20, $page01['height']));
+
+// $iid12 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBINT.png');
+// $pdf->page->addContent($pdf->image->getSetImage($iid12, 0, 0, 40, 20, $page01['height']));
+
 
 
 // PDF document as string
