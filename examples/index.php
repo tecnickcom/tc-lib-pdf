@@ -27,7 +27,7 @@ define('K_PATH_FONTS', '../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/'
 //require ('/usr/share/php/Com/Tecnick/Pdf/autoload.php');
 
 // main TCPDF object
-$pdf = new \Com\Tecnick\Pdf\Tcpdf();
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, '');
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('John Doe');
@@ -91,8 +91,6 @@ $pdf->page->addContent($iid11_out);
 $iid12 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBINT.png');
 $iid12_out = $pdf->image->getSetImage($iid12, 40, 40, 40, 20, $page01['height']);
 $pdf->page->addContent($iid12_out);
-
-
 
 // PDF document as string
 $doc = $pdf->getOutPDFString();
