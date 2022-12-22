@@ -18,6 +18,8 @@
 // autoloader when using Composer
 require ('../vendor/autoload.php');
 
+define('OUTPUT_FILE', '../target/example.pdf');
+
 // define fonts directory
 define('K_PATH_FONTS', '../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/');
 
@@ -41,41 +43,54 @@ $bfont = $pdf->font->insert($pdf->pon, 'times', 'BI');
 $page01 = $pdf->page->add();
 
 // Add Images
+
 $iid01 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
-$pdf->page->addContent($pdf->image->getSetImage($iid01, 0, 0, 40, 20, $page01['height']));
+$iid01_out = $pdf->image->getSetImage($iid01, 0, 0, 40, 20, $page01['height']);
+$pdf->page->addContent($iid01_out);
 
-// $iid02 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.jpg');
-// $pdf->page->addContent($pdf->image->getSetImage($iid02, 40, 0, 40, 20, $page01['height']));
+$iid02 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.jpg');
+$iid02_out = $pdf->image->getSetImage($iid02, 40, 0, 40, 20, $page01['height']);
+$pdf->page->addContent($iid02_out);
 
-// $iid03 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid03, 0, 0, 40, 20, $page01['height']));
+$iid03 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.png');
+$iid03_out = $pdf->image->getSetImage($iid03, 80, 0, 40, 20, $page01['height']);
+$pdf->page->addContent($iid03_out);
 
-// $iid04 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX16.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid04, 0, 0, 40, 20, $page01['height']));
+$iid04 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX16.png');
+$iid04_out = $pdf->image->getSetImage($iid04, 120, 0, 40, 20, $page01['height']);
+$pdf->page->addContent($iid04_out);
 
-// $iid05 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX256.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid05, 0, 0, 40, 20, $page01['height']));
+$iid05 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX256.png');
+$iid05_out = $pdf->image->getSetImage($iid05, 160, 0, 40, 20, $page01['height']);
+$pdf->page->addContent($iid05_out);
 
-// $iid06 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEXALPHA.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid06, 0, 0, 40, 20, $page01['height']));
+$iid06 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEXALPHA.png');
+$iid06_out = $pdf->image->getSetImage($iid06, 0, 20, 40, 20, $page01['height']);
+$pdf->page->addContent($iid06_out);
 
-// $iid07 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.jpg');
-// $pdf->page->addContent($pdf->image->getSetImage($iid07, 0, 0, 40, 20, $page01['height']));
+$iid07 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.jpg');
+$iid07_out = $pdf->image->getSetImage($iid07, 40, 20, 40, 20, $page01['height']);
+$pdf->page->addContent($iid07_out);
 
-// $iid08 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid08, 0, 0, 40, 20, $page01['height']));
+$iid08 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.png');
+$iid08_out = $pdf->image->getSetImage($iid08, 80, 20, 40, 20, $page01['height']);
+$pdf->page->addContent($iid08_out);
 
-// $iid09 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBALPHA.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid09, 0, 0, 40, 20, $page01['height']));
+$iid09 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBALPHA.png');
+$iid09_out = $pdf->image->getSetImage($iid09, 120, 20, 40, 20, $page01['height']);
+$pdf->page->addContent($iid09_out);
 
-// $iid10 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
-// $pdf->page->addContent($pdf->image->getSetImage($iid10, 0, 0, 40, 20, $page01['height']));
+$iid10 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
+$iid10_out = $pdf->image->getSetImage($iid10, 160, 20, 40, 20, $page01['height']);
+$pdf->page->addContent($iid10_out);
 
-// $iid11 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid11, 0, 0, 40, 20, $page01['height']));
+$iid11 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.png');
+$iid11_out = $pdf->image->getSetImage($iid11, 0, 40, 40, 20, $page01['height']);
+$pdf->page->addContent($iid11_out);
 
-// $iid12 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBINT.png');
-// $pdf->page->addContent($pdf->image->getSetImage($iid12, 0, 0, 40, 20, $page01['height']));
+$iid12 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBINT.png');
+$iid12_out = $pdf->image->getSetImage($iid12, 40, 40, 40, 20, $page01['height']);
+$pdf->page->addContent($iid12_out);
 
 
 
@@ -83,7 +98,9 @@ $pdf->page->addContent($pdf->image->getSetImage($iid01, 0, 0, 40, 20, $page01['h
 $doc = $pdf->getOutPDFString();
 
 // Debug document output:
-var_export($doc);
+//var_export($doc);
 
 // Save the PDF document as a file
-file_put_contents('../target/example.pdf', $doc);
+file_put_contents(OUTPUT_FILE, $doc);
+
+echo 'OK: '.OUTPUT_FILE;
