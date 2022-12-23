@@ -30,7 +30,7 @@
     "tecnickcom/tc-lib-pdf-encrypt": "^1.6",
     "tecnickcom/tc-lib-unicode-data": "^1.7",
     "tecnickcom/tc-lib-unicode": "^1.4",
-    "tecnickcom/tc-lib-pdf-page": "^2.5",
+    "tecnickcom/tc-lib-pdf-page": "^3.0",
     "tecnickcom/tc-lib-pdf-graph": "^1.5"
   },
   "require-dev": {
