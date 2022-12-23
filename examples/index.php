@@ -18,6 +18,11 @@
 // autoloader when using Composer
 require ('../vendor/autoload.php');
 
+use \Com\Tecnick\Color\Model\Cmyk as ColorCMYK;
+use \Com\Tecnick\Color\Model\Gray as ColorGray;
+use \Com\Tecnick\Color\Model\Hsl as ColorHSL;
+use \Com\Tecnick\Color\Model\Rgb as ColorRGB;
+
 define('OUTPUT_FILE', '../target/example.pdf');
 
 // define fonts directory
@@ -422,6 +427,171 @@ $pdf->page->addContent($pie2);
 
 $pie3 = $pdf->graph->getPieSector($xc, $yc, $r, 250, 20, 'FD', $style7, 2);
 $pdf->page->addContent($pie3);
+
+
+// ----------
+// Add fifth page
+
+$page05 = $pdf->page->add();
+
+$pdf->graph->setPageWidth($page05['width']);
+$pdf->graph->setPageHeight($page05['height']);
+
+
+
+$pdf->graph->add($style7);
+
+$style8 = $pdf->graph->getCurrentStyleArray();
+
+// Crop Marks
+
+$crpmrk1 = $pdf->graph->getCropMark(50, 70, 10, 10, 'TL', $style8);
+$pdf->page->addContent($crpmrk1);
+
+$crpmrk2 = $pdf->graph->getCropMark(140, 70, 10, 10, 'TR', $style8);
+$pdf->page->addContent($crpmrk2);
+
+$crpmrk3 = $pdf->graph->getCropMark(50, 120, 10, 10, 'BL', $style8);
+$pdf->page->addContent($crpmrk3);
+
+$crpmrk4 = $pdf->graph->getCropMark(140, 120, 10, 10, 'BR', $style8);
+$pdf->page->addContent($crpmrk4);
+
+$crpmrk5 = $pdf->graph->getCropMark(95, 65, 5, 5, 'LTR');
+$pdf->page->addContent($crpmrk5);
+
+$crpmrk6 = $pdf->graph->getCropMark(95, 125, 5, 5, 'LBR');
+$pdf->page->addContent($crpmrk6);
+
+$crpmrk7 = $pdf->graph->getCropMark(45, 95, 5, 5, 'TLB');
+$pdf->page->addContent($crpmrk7);
+
+$crpmrk8 = $pdf->graph->getCropMark(145, 95, 5, 5, 'TRB');
+$pdf->page->addContent($crpmrk8);
+
+$crpmrk9 = $pdf->graph->getCropMark(95, 140, 5, 5, 'TLBR', array('lineColor' => 'lime'));
+$pdf->page->addContent($crpmrk9);
+
+
+// Registration Marks
+
+$regmrk1 = $pdf->graph->getRegistrationMark(40, 60, 5, false);
+$pdf->page->addContent($regmrk1);
+
+$regmrk2 = $pdf->graph->getRegistrationMark(150, 60, 5, true);
+$pdf->page->addContent($regmrk2);
+
+$regmrk3 = $pdf->graph->getRegistrationMark(40, 130, 5, true);
+$pdf->page->addContent($regmrk3);
+
+$regmrk4 = $pdf->graph->getRegistrationMark(150, 130, 5, false, 'blue');
+$pdf->page->addContent($regmrk4);
+
+// CYMK Registration Mark
+$regmrk5 = $pdf->graph->getCmykRegistrationMark(150, 155, 8);
+$pdf->page->addContent($regmrk5);
+
+// Add Spot Colors
+
+$color_custom_dark_green =  new \Com\Tecnick\Color\Model\Cmyk(
+    array(
+        'cyan'    => 1,
+        'magenta' => 0.5,
+        'yellow'  => 0.8,
+        'key'     => 0.45,
+        'alpha'   => 0
+    )
+);
+$pdf->color->addSpotColor('Custom Dark Green', $color_custom_dark_green);
+
+$color_custom_light_yellow =  new \Com\Tecnick\Color\Model\Cmyk(
+    array(
+        'cyan'    => 0,
+        'magenta' => 0,
+        'yellow'  => 0.55,
+        'key'     => 0,
+        'alpha'   => 0
+    )
+);
+$pdf->color->addSpotColor('Custom Light Yellow', $color_custom_light_yellow);
+
+$color_custom_black =  new \Com\Tecnick\Color\Model\Cmyk(
+    array(
+        'cyan'    => 0,
+        'magenta' => 0,
+        'yellow'  => 0,
+        'key'     => 1,
+        'alpha'   => 0
+    )
+);
+$pdf->color->addSpotColor('Custom Black', $color_custom_black);
+
+$color_custom_red =  new \Com\Tecnick\Color\Model\Cmyk(
+    array(
+        'cyan'    => 0.3,
+        'magenta' => 1,
+        'yellow'  => 0.9,
+        'key'     => 0.1,
+        'alpha'   => 0
+    )
+);
+$pdf->color->addSpotColor('Custom Red', $color_custom_red);
+
+$color_custom_green =  new \Com\Tecnick\Color\Model\Cmyk(
+    array(
+        'cyan'    => 1,
+        'magenta' => 0.3,
+        'yellow'  => 1,
+        'key'     => 0,
+        'alpha'   => 0
+    )
+);
+$pdf->color->addSpotColor('Custom Green', $color_custom_green);
+
+$color_custom_blue =  new \Com\Tecnick\Color\Model\Cmyk(
+    array(
+        'cyan'    => 1,
+        'magenta' => 0.6,
+        'yellow'  => 0.1,
+        'key'     => 0.05,
+        'alpha'   => 0
+    )
+);
+$pdf->color->addSpotColor('Custom Blue', $color_custom_blue);
+
+$color_custom_yellow =  new \Com\Tecnick\Color\Model\Cmyk(
+    array(
+        'cyan'    => 0,
+        'magenta' => 0.2,
+        'yellow'  => 1,
+        'key'     => 0,
+        'alpha'   => 0
+    )
+);
+$pdf->color->addSpotColor('Custom Yellow', $color_custom_yellow);
+
+// Color Registration Bars with spot colors
+
+$colregspot = $pdf->graph->getColorRegistrationBar(30, 150, 100, 10, true,
+array(
+'black',
+'red',
+'green',
+'blue',
+'Custom Dark Green',
+'Custom Light Yellow',
+'Custom Black',
+'Custom Red',
+'Custom Green',
+'Custom Blue',
+'Custom Yellow'
+));
+$pdf->page->addContent($colregspot);
+
+
+
+//$colreg1 = $pdf->graph->getColorRegistrationBar(50, 70, 40, 40, true);
+//$pdf->page->addContent($colreg1);
 
 
 // ----------
