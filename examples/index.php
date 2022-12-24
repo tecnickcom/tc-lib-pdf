@@ -32,7 +32,7 @@ define('K_PATH_FONTS', '../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/'
 //require ('/usr/share/php/Com/Tecnick/Pdf/autoload.php');
 
 // main TCPDF object
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, '');
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '');
 
 // ----------
 // Set Metadata

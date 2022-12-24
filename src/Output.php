@@ -532,7 +532,7 @@ abstract class Output
             .' /Type /XObject'
             .' /Subtype /Form'
             .' /FormType 1';
-        if ($this->pdfa != 3) {
+        if ($this->compress) {
             $stream = gzcompress($stream);
             $out .= ' /Filter /FlateDecode';
         }
@@ -568,7 +568,7 @@ abstract class Output
                 .' /Subtype /Form'
                 .' /FormType 1';
             $stream = trim($data['outdata']);
-            if ($this->pdfa != 3) {
+            if ($this->compress) {
                 $stream = gzcompress($stream);
                 $out .= ' /Filter /FlateDecode';
             }
@@ -724,7 +724,7 @@ abstract class Output
             $filter = '';
             if ($this->pdfa == 3) {
                 $filter = ' /Subtype /text#2Fxml';
-            } else {
+            } elseif ($this->compress) {
                 $content = gzcompress($content);
                 $filter = ' /Filter /FlateDecode';
             }

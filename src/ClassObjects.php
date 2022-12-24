@@ -132,6 +132,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
             $this->color,
             $this->encrypt,
             $this->pdfa,
+            $this->compress,
             $this->sigapp
         );
         $this->kunit = $this->page->getKUnit();
@@ -142,20 +143,23 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
             0, // $this->graph->setPageHeight($pageh)
             $this->color,
             $this->encrypt,
-            $this->pdfa
+            $this->pdfa,
+            $this->compress
         );
 
         $this->font = new ObjFont(
             $this->kunit,
             $this->subsetfont,
             $this->isunicode,
-            $this->pdfa
+            $this->pdfa,
+            $this->compress
         );
         
         $this->image = new ObjImage(
             $this->kunit,
             $this->encrypt,
-            $this->pdfa
+            $this->pdfa,
+            $this->compress
         );
     }
 

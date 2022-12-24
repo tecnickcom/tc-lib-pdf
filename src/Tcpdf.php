@@ -34,21 +34,21 @@ use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 {
     /**
-     * Document ID
+     * Document ID.
      *
      * @var string
      */
     protected $fileid;
 
     /**
-     * Unit of measure
+     * Unit of measure.
      *
      * @var string
      */
     protected $unit = 'mm';
 
     /**
-     * Unit of measure conversion ratio
+     * Unit of measure conversion ratio.
      *
      * @var float
      */
@@ -60,6 +60,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @var int
      */
     protected $pdfa = 0;
+
+    /**
+     * Enable stream compression.
+     *
+     * @var int
+     */
+    protected $compress = true;
 
     /**
      * True if we are in PDF/X mode.
@@ -83,35 +90,35 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $sigapp = false;
 
     /**
-     * True to subset the fonts
+     * True to subset the fonts.
      *
      * @var boolean
      */
     protected $subsetfont = false;
 
     /**
-     * True for Unicode font mode
+     * True for Unicode font mode.
      *
      * @var boolean
      */
     protected $isunicode = true;
 
     /**
-     * Document encoding
+     * Document encoding.
      *
      * @var string
      */
     protected $encoding = 'UTF-8';
 
     /**
-     * Current PDF object number
+     * Current PDF object number.
      *
      * @var int
      */
     public $pon = 0;
 
     /**
-     * PDF version
+     * PDF version.
      *
      * @var string
      */
@@ -125,25 +132,27 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $display = array('zoom' => 'default', 'layout' => 'SinglePage', 'mode' => 'UseNone');
 
     /**
-     * Embedded files data
+     * Embedded files data.
      *
      * @var array
      */
     protected $embeddedfiles = array();
 
     /**
-     * Initialize a new PDF object
+     * Initialize a new PDF object.
      *
-     * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in')
-     * @param bool       $isunicode   True if the document is in Unicode mode
-     * @param bool       $subsetfont  If true subset the embedded fonts to remove the unused characters
-     * @param string     $mode        PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx" or empty
-     * @param ObjEncrypt $encobj      Encryption object
+     * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in').
+     * @param bool       $isunicode   True if the document is in Unicode mode.
+     * @param bool       $subsetfont  If true subset the embedded fonts to remove the unused characters.
+     * @param bool       $compress    Set to false to disable stream compression.
+     * @param string     $mode        PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx" or empty.
+     * @param ObjEncrypt $encobj      Encryption object.
      */
     public function __construct(
         $unit = 'mm',
         $isunicode = true,
         $subsetfont = false,
+        $compress = true,
         $mode = '',
         ObjEncrypt $encobj = null
     ) {
@@ -161,6 +170,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         if (preg_match('/^pdfa([1-3])$/', $mode, $matches) === 1) {
             $this->pdfa = (int) $matches[1];
         }
+        $this->compress = (((bool) $compress) && ($this->pdfa != 3));
         $this->setPDFVersion();
         $this->encrypt = $encobj;
         $this->initClassObjects();
