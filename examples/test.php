@@ -50,9 +50,29 @@ $pdf->graph->setPageWidth($page05['width']);
 $pdf->graph->setPageHeight($page05['height']);
 
 
-$coonspatchmesh = $pdf->graph->getCoonsPatchMesh(20, 155, 80, 80);
-$pdf->page->addContent($coonspatchmesh);
 
+
+
+
+//  Mirroring against a straigth line described by a point (120, 120) and an angle -20°
+$angle=-20;
+$px=120;
+$py=170;
+
+// just for visualisation: the straight line to mirror against
+$t8 = $pdf->graph->getLine($px-1,$py-1,$px+1,$py+1);
+$t8 .= $pdf->graph->getLine($px-1,$py+1,$px+1,$py-1);
+$t8 .= $pdf->graph->getStartTransform();
+$t8 .= $pdf->graph->getRotation($angle, $px, $py);
+$t8 .= $pdf->graph->getLine($px-5, $py, $px+60, $py);
+$t8 .= $pdf->graph->getStopTransform();
+$t8 .= $pdf->graph->getRect(125, 160, 40, 10, 'D');
+$t8 .= $pdf->graph->getStartTransform();
+// mirror against the straight line
+$t8 .= $pdf->graph->getReflection($angle, $px, $py);
+$t8 .= $pdf->graph->getRect(125, 160, 40, 10, 'D');
+$t8 .= $pdf->graph->getStopTransform();
+$pdf->page->addContent($t8);
 
 // ----------
 
