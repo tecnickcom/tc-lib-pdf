@@ -835,10 +835,10 @@ $pdf->page->addContent($t8);
 // ----------
 // Add page 9
 
-$page08 = $pdf->page->add();
+$page09 = $pdf->page->add();
 
-$pdf->graph->setPageWidth($page08['width']);
-$pdf->graph->setPageHeight($page08['height']);
+$pdf->graph->setPageWidth($page09['width']);
+$pdf->graph->setPageHeight($page09['height']);
 
 // Barcode
 
@@ -875,6 +875,25 @@ $barcode2 = $pdf->getBarcode(
     $barcode_style
 );
 $pdf->page->addContent($barcode2);
+
+
+// ----------
+// Add page 10
+
+$page10 = $pdf->page->add();
+
+$pdf->graph->setPageWidth($page10['width']);
+$pdf->graph->setPageHeight($page10['height']);
+
+// Clipping Mask
+
+$cnz = $pdf->graph->getStartTransform();
+$cnz .= $pdf->graph->getStarPolygon(50, 50, 40, 10, 3, 0, 'CNZ');
+$clipimg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
+$cnz .= $pdf->image->getSetImage($clipimg, 10, 10, 80, 80, $page10['height']);
+$cnz .= $pdf->graph->getStopTransform();
+$pdf->page->addContent($cnz);
+
 
 // ----------
 

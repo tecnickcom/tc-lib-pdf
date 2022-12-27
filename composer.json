@@ -31,7 +31,7 @@
     "tecnickcom/tc-lib-unicode-data": "^1.7",
     "tecnickcom/tc-lib-unicode": "^1.4",
     "tecnickcom/tc-lib-pdf-page": "^3.1",
-    "tecnickcom/tc-lib-pdf-graph": "^1.6"
+    "tecnickcom/tc-lib-pdf-graph": "^1.7"
   },
   "require-dev": {
     "pdepend/pdepend": "2.12.1",

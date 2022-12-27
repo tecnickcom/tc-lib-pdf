@@ -50,27 +50,15 @@ $pdf->graph->setPageWidth($page05['width']);
 $pdf->graph->setPageHeight($page05['height']);
 
 
-$barcode_style =  array(
-    'lineWidth' => 0,
-    'lineCap'   => 'butt',
-    'lineJoin'  => 'miter',
-    'dashArray' => array(),
-    'dashPhase' => 0,
-    'lineColor' => 'black',
-    'fillColor' => 'red',
-);
+// Clipping Mask
 
-$barcode2 = $pdf->getBarcode(
-    'IMB',
-    '01234567094987654321-01234567891',
-    10,
-    80,
-    -1, 
-    -2,
-    array(0,0,0,0),
-    $barcode_style
-);
-$pdf->page->addContent($barcode2);
+$cnz = $pdf->graph->getStartTransform();
+$cnz .= $pdf->graph->getStarPolygon(50, 50, 40, 10, 3, 0, 'CNZ');
+$clipimg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
+$cnz .= $pdf->image->getSetImage($clipimg, 10, 10, 80, 80, $page05['height']);
+$cnz .= $pdf->graph->getStopTransform();
+$pdf->page->addContent($cnz);
+
 
 // ----------
 
