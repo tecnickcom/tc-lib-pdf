@@ -211,4 +211,44 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->display['page'] = $this->page->getDisplay($mode);
         return $this;
     }
+
+    /**
+     * Get a barcode PDF code.
+     *
+     * @param string $type    Barcode type.
+     * @param string $code    Barcode content.
+     * @param float  $posx   Abscissa of upper-left corner.
+     * @param float  $posy   Ordinate of upper-left corner.
+     * @param int    $width   Barcode width in user units (excluding padding).
+     *                        A negative value indicates the multiplication factor for each column.
+     * @param int    $height  Barcode height in user units (excluding padding).
+     *                        A negative value indicates the multiplication factor for each row.
+     * @param array  $padding Additional padding to add around the barcode (top, right, bottom, left) in user units.
+     *                        A negative value indicates the multiplication factor for each row or column.
+     *
+     * @return string
+     *
+     * @throws BarcodeException in case of error
+     */
+    public function getBarcode(
+        $type,
+        $code,
+        $posx = 0,
+        $posy = 0,
+        $width = -1,
+        $height = -1,
+        $padding = array(0, 0, 0, 0),
+        array $style = array()
+    ) {
+        $bobj = $this->barcode->getBarcodeObj($type, $code, $width, $height, 'black', $padding);
+        $bars = $bobj->getBarsArray('XYWH');
+        $out = '';
+        $out .= $this->graph->getStartTransform();
+        $out .= $this->graph->getStyleCmd($style);
+        foreach ($bars as $rect) {
+            $out .= $this->graph->getBasicRect(($posx + $rect[0]), ($posy + $rect[1]), $rect[2], $rect[3], 'f');
+        }
+        $out .= $this->graph->getStopTransform();
+        return $out;
+    }
 }

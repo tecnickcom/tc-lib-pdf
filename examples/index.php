@@ -712,7 +712,7 @@ $coonspatchmesh3 = $pdf->graph->getCoonsPatchMesh(0, 0, 210, 297, '', '', '', ''
 $pdf->page->addContent($coonspatchmesh3);
 
 // ----------
-// Add page
+// Add page 8
 
 $page08 = $pdf->page->add();
 
@@ -723,71 +723,71 @@ $pdf->graph->setPageHeight($page08['height']);
 
 
 // Scaling
-$t1 = $pdf->graph->getRect(50, 70, 40, 10, 'D');
+$t1 = $pdf->graph->getBasicRect(50, 70, 40, 10, 'D');
 $t1 .= $pdf->graph->getStartTransform();
 // Scale by 150% centered by (50,80) which is the lower left corner of the rectangle
 $t1 .= $pdf->graph->getScaling(1.5, 1.5, 50, 80);
-$t1 .= $pdf->graph->getRect(50, 70, 40, 10, 'D');
+$t1 .= $pdf->graph->getBasicRect(50, 70, 40, 10, 'D');
 $t1 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t1);
 
 
 //  Translation
-$t2 = $pdf->graph->getRect(125, 70, 40, 10, 'D');
+$t2 = $pdf->graph->getBasicRect(125, 70, 40, 10, 'D');
 $t2 .= $pdf->graph->getStartTransform();
 // Translate 7 to the right, 5 to the bottom
 $t2 .= $pdf->graph->getTranslation(7, 5);
-$t2 .= $pdf->graph->getRect(125, 70, 40, 10, 'D');
+$t2 .= $pdf->graph->getBasicRect(125, 70, 40, 10, 'D');
 $t2 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t2);
 
 
 // Rotation
-$t3 = $pdf->graph->getRect(70, 100, 40, 10, 'D');
+$t3 = $pdf->graph->getBasicRect(70, 100, 40, 10, 'D');
 $t3 .= $pdf->graph->getStartTransform();
 // Rotate 20 degrees counter-clockwise centered by (70,110) which is the lower left corner of the rectangle
 $t3 .= $pdf->graph->getRotation(20, 70, 110);
-$t3 .= $pdf->graph->getRect(70, 100, 40, 10, 'D');
+$t3 .= $pdf->graph->getBasicRect(70, 100, 40, 10, 'D');
 $t3 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t3);
 
 
 // Skewing 
-$t4 = $pdf->graph->getRect(125, 100, 40, 10, 'D');
+$t4 = $pdf->graph->getBasicRect(125, 100, 40, 10, 'D');
 $t4 .= $pdf->graph->getStartTransform();
 // skew 30 degrees along the x-axis centered by (125,110) which is the lower left corner of the rectangle
 $t4 .= $pdf->graph->getSkewing(30, 0, 125, 110);
-$t4 .= $pdf->graph->getRect(125, 100, 40, 10, 'D');
+$t4 .= $pdf->graph->getBasicRect(125, 100, 40, 10, 'D');
 $t4 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t4);
 
 
 //  Mirroring Horizontally 
-$t5 = $pdf->graph->getRect(70, 130, 40, 10, 'D');
+$t5 = $pdf->graph->getBasicRect(70, 130, 40, 10, 'D');
 $t5 .= $pdf->graph->getStartTransform();
 // mirror horizontally with axis of reflection at x-position 70 (left side of the rectangle)
 $t5 .= $pdf->graph->getHorizMirroring(70);
-$t5 .= $pdf->graph->getRect(70, 130, 40, 10, 'D');
+$t5 .= $pdf->graph->getBasicRect(70, 130, 40, 10, 'D');
 $t5 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t5);
 
 
 //  Mirroring Vertically
-$t6 = $pdf->graph->getRect(125, 130, 40, 10, 'D');
+$t6 = $pdf->graph->getBasicRect(125, 130, 40, 10, 'D');
 $t6 .= $pdf->graph->getStartTransform();
 // mirror vertically with axis of reflection at y-position 140 (bottom side of the rectangle)
 $t6 .= $pdf->graph->getVertMirroring(140);
-$t6 .= $pdf->graph->getRect(125, 130, 40, 10, 'D');
+$t6 .= $pdf->graph->getBasicRect(125, 130, 40, 10, 'D');
 $t6 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t6);
 
 
 //  Point Reflection
-$t7 = $pdf->graph->getRect(70, 160, 40, 10, 'D');
+$t7 = $pdf->graph->getBasicRect(70, 160, 40, 10, 'D');
 $t7 .= $pdf->graph->getStartTransform();
 // point reflection at the lower left point of rectangle
 $t7 .= $pdf->graph->getPointMirroring(70,170);
-$t7 .= $pdf->graph->getRect(70, 160, 40, 10, 'D');
+$t7 .= $pdf->graph->getBasicRect(70, 160, 40, 10, 'D');
 $t7 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t7);
 
@@ -803,15 +803,58 @@ $t8 .= $pdf->graph->getStartTransform();
 $t8 .= $pdf->graph->getRotation($angle, $px, $py);
 $t8 .= $pdf->graph->getLine($px-5, $py, $px+60, $py);
 $t8 .= $pdf->graph->getStopTransform();
-$t8 .= $pdf->graph->getRect(125, 160, 40, 10, 'D');
+$t8 .= $pdf->graph->getBasicRect(125, 160, 40, 10, 'D');
 $t8 .= $pdf->graph->getStartTransform();
 // mirror against the straight line
 $t8 .= $pdf->graph->getReflection($angle, $px, $py);
-$t8 .= $pdf->graph->getRect(125, 160, 40, 10, 'D');
+$t8 .= $pdf->graph->getBasicRect(125, 160, 40, 10, 'D');
 $t8 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t8);
 
 
+// ----------
+// Add page 9
+
+$page08 = $pdf->page->add();
+
+$pdf->graph->setPageWidth($page08['width']);
+$pdf->graph->setPageHeight($page08['height']);
+
+// Barcode
+
+$barcode_style =  array(
+    'lineWidth' => 0,
+    'lineCap'   => 'butt',
+    'lineJoin'  => 'miter',
+    'dashArray' => array(),
+    'dashPhase' => 0,
+    'lineColor' => 'black',
+    'fillColor' => 'black',
+);
+
+$barcode1 = $pdf->getBarcode(
+    'QRCODE,H',
+    'https://tecnick.com', 
+    10,
+    10,
+    -1, 
+    -1,
+    array(0,0,0,0),
+    $barcode_style
+);
+$pdf->page->addContent($barcode1);
+
+$barcode2 = $pdf->getBarcode(
+    'IMB',
+    '01234567094987654321-01234567891',
+    10,
+    80,
+    -1, 
+    -2,
+    array(0,0,0,0),
+    $barcode_style
+);
+$pdf->page->addContent($barcode2);
 
 // ----------
 
