@@ -156,7 +156,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $mode = '',
         ObjEncrypt $encobj = null
     ) {
-        setlocale(LC_NUMERIC, 'C');
+        $this->setDecimalSeparator();
         $this->doctime = time();
         $this->docmodtime = $this->doctime;
         $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
@@ -174,6 +174,23 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->setPDFVersion();
         $this->encrypt = $encobj;
         $this->initClassObjects();
+    }
+
+    /**
+     * Set the decimal separator.
+     *
+     * @throw PdfException in case of error.
+     */
+    protected function setDecimalSeparator()
+    {
+        // check for locale-related bug
+        if (1.1 == 1) {
+            throw new PdfException('Don\'t alter the locale before including class file');
+        }
+        // check for decimal separator
+        if (sprintf('%.1F', 1.0) != '1.0') {
+            setlocale(LC_NUMERIC, 'C');
+        }
     }
 
     /**

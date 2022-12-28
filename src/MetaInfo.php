@@ -219,7 +219,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      *
      * @param string $version PDF document version.
      *
-     * @throw PdfException in case of error
+     * @throw PdfException in case of error.
      */
     public function setPDFVersion($version = '1.7')
     {
