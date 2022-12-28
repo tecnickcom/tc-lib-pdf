@@ -259,9 +259,9 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
     {
         if ($this->isunicode) {
             $str = $this->uniconv->toUTF16BE($str);
-        }
-        if ($bom) {
-            $str = "\xFE\xFF".$str; // Byte Order Mark (BOM)
+            if ($bom) {
+                $str = "\xFE\xFF".$str; // Byte Order Mark (BOM)
+            }
         }
         return $this->encrypt->escapeDataString($str, $oid);
     }
