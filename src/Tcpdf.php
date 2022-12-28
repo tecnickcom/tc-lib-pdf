@@ -164,16 +164,36 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->unit = $unit;
         $this->isunicode = $isunicode;
         $this->subsetfont = $subsetfont;
-        $this->pdfx = ($mode == 'pdfx');
-        $matches = array('', '0');
-        $this->pdfa = 0;
-        if (preg_match('/^pdfa([1-3])$/', $mode, $matches) === 1) {
-            $this->pdfa = (int) $matches[1];
-        }
-        $this->compress = (((bool) $compress) && ($this->pdfa != 3));
+        $this->setPDFMode($mode);
+        $this->setCompressMode($compress);
         $this->setPDFVersion();
         $this->encrypt = $encobj;
         $this->initClassObjects();
+    }
+
+    /**
+     * Set the pdf mode.
+     *
+     * @param string $mode Input PDFA mode.
+     */
+    protected function setPDFMode($mode)
+    {
+        $this->pdfx = ($mode == 'pdfx');
+        $this->pdfa = 0;
+        $matches = array('', '0');
+        if (preg_match('/^pdfa([1-3])$/', $mode, $matches) === 1) {
+            $this->pdfa = (int) $matches[1];
+        }
+    }
+
+    /**
+     * Set the compression mode.
+     *
+     * @param bool $compress Set to false to disable stream compression.
+     */
+    protected function setCompressMode($compress)
+    {
+        $this->compress = (((bool) $compress) && ($this->pdfa != 3));
     }
 
     /**
