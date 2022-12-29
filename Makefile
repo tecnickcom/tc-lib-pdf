@@ -208,7 +208,7 @@ endif
 .PHONY: lint
 lint:
 	./vendor/bin/phpcs --ignore="./vendor/" --standard=psr2 src test
-	./vendor/bin/phpmd src text codesize,unusedcode,naming,design --exclude vendor
+	./vendor/bin/phpmd src text unusedcode,naming,design --exclude vendor
 	./vendor/bin/phpmd test text unusedcode,naming,design
 
 # Run all tests and reports

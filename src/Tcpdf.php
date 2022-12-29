@@ -139,6 +139,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $embeddedfiles = array();
 
     /**
+     * Array containing the regular expression used to identify withespaces or word separators.
+     *
+     * @var array
+     */
+    protected $spaceregexp = array('r' => '/[^\S\xa0]/', 'p' => '[^\S\xa0]', 'm' => '');
+
+    /**
      * Initialize a new PDF object.
      *
      * @param string     $unit        Unit of measure ('pt', 'mm', 'cm', 'in').
@@ -162,8 +169,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
         $this->fileid = md5($seedobj->encrypt('TCPDF'));
         $this->unit = $unit;
-        $this->isunicode = $isunicode;
-        $this->subsetfont = $subsetfont;
+        $this->setUnicodeMode($isunicode);
+        $this->subsetfont = (bool) $subsetfont;
         $this->setPDFMode($mode);
         $this->setCompressMode($compress);
         $this->setPDFVersion();
@@ -211,6 +218,50 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         if (sprintf('%.1F', 1.0) != '1.0') {
             setlocale(LC_NUMERIC, 'C');
         }
+    }
+
+    /**
+     * Set the decimal separator.
+     *
+     * @param bool $unicode True when using Unicode mode.
+     */
+    protected function setUnicodeMode($isunicode)
+    {
+        $this->isunicode = (bool) $isunicode;
+        // check if PCRE Unicode support is enabled
+        if ($this->isunicode && (@preg_match('/\pL/u', 'a') == 1)) {
+            $this->setSpaceRegexp('/(?!\xa0)[\s\p{Z}]/u');
+            return;
+        }
+        // PCRE unicode support is turned OFF
+        $this->setSpaceRegexp('/[^\S\xa0]/');
+    }
+
+    /**
+     * Set regular expression to detect withespaces or word separators.
+     * The pattern delimiter must be the forward-slash character "/".
+     * Some example patterns are:
+     * <pre>
+     * Non-Unicode or missing PCRE unicode support: "/[^\S\xa0]/"
+     * Unicode and PCRE unicode support: "/(?!\xa0)[\s\p{Z}]/u"
+     * Unicode and PCRE unicode support in Chinese mode: "/(?!\xa0)[\s\p{Z}\p{Lo}]/u"
+     * if PCRE unicode support is turned ON ("\P" is the negate class of "\p"):
+     *      \s     : any whitespace character
+     *      \p{Z}  : any separator
+     *      \p{Lo} : Unicode letter or ideograph that does not have lowercase and uppercase variants.
+     *      \xa0   : Unicode Character 'NO-BREAK SPACE' (U+00A0)
+     * </pre>
+     *
+     * @param string $regexp regular expression (leave empty for default).
+     */
+    public function setSpaceRegexp($regexp = '/[^\S\xa0]/')
+    {
+        $parts = explode('/', $regexp);
+        $this->spaceregexp = array(
+            'r' => $regexp,
+            'p' => (empty($parts[1]) ? '[\s]' : $parts[1]),
+            'm' => (empty($parts[2]) ? '' : $parts[2]),
+        );
     }
 
     /**
