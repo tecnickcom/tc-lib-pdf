@@ -91,7 +91,7 @@ First, you need to install all development dependencies using [Composer](https:/
 You can install the library via composer:
 
 ```bash
-$ https://packagist.org/packages/tecnickcom/tc-lib-pdf
+composer require tecnickcom/tc-lib-pdf
 ```
 
 ```bash
