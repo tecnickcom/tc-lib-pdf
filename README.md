@@ -88,15 +88,15 @@ https://packages.debian.org/source/stable/icc-profiles-free
 
 First, you need to install all development dependencies using [Composer](https://getcomposer.org/):
 
-You can install the library via composer:
-
-```bash
-$ https://packagist.org/packages/tecnickcom/tc-lib-pdf
-```
-
 ```bash
 $ curl -sS https://getcomposer.org/installer | php
 $ mv composer.phar /usr/local/bin/composer
+```
+
+You can install the library via composer:
+
+```bash
+composer require tecnickcom/tc-lib-pdf
 ```
 
 This project include a Makefile that allows you to test and build the project with simple commands.
