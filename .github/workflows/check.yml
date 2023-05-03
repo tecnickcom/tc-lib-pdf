@@ -31,7 +31,7 @@ jobs:
                     - { php-version: '5.6', experimental: false, os: ubuntu-latest, coverage-extension: 'xdebug' }
                     - { php-version: '7.1', experimental: false, os: ubuntu-latest, coverage-extension: 'xdebug' }
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v3
             - name: Install pdfinfo
               run: sudo apt-get install -y poppler-utils
             - name: Use php ${{ matrix.php-version }}
@@ -46,7 +46,7 @@ jobs:
             - name: List php modules using "no php ini" mode
               run: php -m -n
             - name: Cache module
-              uses: actions/cache@v2
+              uses: actions/cache@v3
               with:
                   path: ~/.composer/cache/
                   key: composer-cache
@@ -55,7 +55,7 @@ jobs:
             - name: Run all tests
               run: make qa
             - name: Send coverage
-              uses: codecov/codecov-action@v1
+              uses: codecov/codecov-action@v3
               with:
                 flags: php-${{ matrix.php-version }}-${{ matrix.os }}
                 name: php-${{ matrix.php-version }}-${{ matrix.os }}
