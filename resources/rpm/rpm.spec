@@ -20,25 +20,25 @@ Requires:  php(language) >= 5.4.0
 Requires:  php-date
 Requires:  php-pcre
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 1.17.21
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 1.17.22
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 1.14.20
+Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 1.14.21
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 1.4.2
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 1.4.3
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 1.11.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 1.11.4
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 1.7.20
+Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 1.7.21
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 1.6.16
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 1.6.17
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 1.7.14
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 1.7.15
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 1.4.15
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 1.4.16
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 3.1.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 3.1.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 1.7.5
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 1.7.6
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}
