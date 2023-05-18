@@ -905,6 +905,6 @@ $doc = $pdf->getOutPDFString();
 //var_export($doc);
 
 // Save the PDF document as a file
-file_put_contents(OUTPUT_FILE, $doc);
+$res = file_put_contents(OUTPUT_FILE, $doc);
 
 echo 'OK: '.OUTPUT_FILE;

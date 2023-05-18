@@ -35,7 +35,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      *
      * @var string
      */
-    protected $version = '8.0.21';
+    protected $version = '8.0.22';
 
     /**
      * Time is seconds since EPOCH when the document was created.
