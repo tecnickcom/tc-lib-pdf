@@ -3,7 +3,7 @@
   "description": "PHP PDF Library",
   "type": "library",
   "homepage": "http://www.tecnick.com",
-  "license": "LGPL-3.0",
+  "license": "LGPL-3.0-or-later",
   "keywords": [
     "tc-lib-pdf",
     "TCPDF",
