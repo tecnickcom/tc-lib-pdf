@@ -168,6 +168,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->docmodtime = $this->doctime;
         $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
         $this->fileid = md5($seedobj->encrypt('TCPDF'));
+        $this->setPDFFilename($this->fileid.'.pdf');
         $this->unit = $unit;
         $this->setUnicodeMode($isunicode);
         $this->subsetfont = (bool) $subsetfont;
@@ -235,6 +236,21 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
         // PCRE unicode support is turned OFF
         $this->setSpaceRegexp('/[^\S\xa0]/');
+    }
+
+    /**
+     * Set the pdf document base file name.
+     * If the file extension is present, it must be '.pdf' or '.PDF'.
+     *
+     * @param string $name File name.
+     */
+    public function setPDFFilename($name)
+    {
+        $bname = basename($name);
+        if (preg_match('/^[\w,\s-]+(\.pdf)?$/i', $bname) === 1) {
+            $this->pdffilename = $bname;
+            $this->encpdffilename = rawurlencode($bname);
+        }
     }
 
     /**

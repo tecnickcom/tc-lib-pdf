@@ -42,6 +42,7 @@ $pdf->setAuthor('John Doe');
 $pdf->setSubject('tc-lib-pdf example');
 $pdf->setTitle('Example');
 $pdf->setKeywords('TCPDF','tc-lib-pdf','example');
+$pdf->setPDFFilename('test_index.pdf');
 
 // ----------
 // Insert fonts
@@ -898,13 +899,12 @@ $pdf->page->addContent($cnz);
 // ----------
 
 
-// PDF document as string
-$doc = $pdf->getOutPDFString();
+// get PDF document as raw string
+$rawpdf = $pdf->getOutPDFString();
 
-// Debug document output:
-//var_export($doc);
+// Various output modes:
 
-// Save the PDF document as a file
-$res = file_put_contents(OUTPUT_FILE, $doc);
-
-echo 'OK: '.OUTPUT_FILE;
+//$pdf->savePDF(dirname(__DIR__).'/target', $rawpdf);
+$pdf->renderPDF($rawpdf);
+//$pdf->downloadPDF($rawpdf);
+//echo $pdf->getMIMEAttachmentPDF($rawpdf);

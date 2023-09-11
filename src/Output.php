@@ -35,6 +35,20 @@ use \Com\Tecnick\Pdf\Font\Output as OutFont;
 abstract class Output
 {
     /**
+     * File name of the PDF document.
+     *
+     * @var string
+     */
+    protected $pdffilename;
+
+    /**
+     * Raw encoded fFile name of the PDF document.
+     *
+     * @var string
+     */
+    protected $encpdffilename;
+
+    /**
      * Array containing the ID of some named PDF objects.
      *
      * @var array
@@ -2434,5 +2448,112 @@ abstract class Output
             return 'ON';
         }
         return 'OFF';
+    }
+
+    /**
+     * Render the PDF in the browser or output the RAW data in the CLI.
+     *
+     * @return string $rawpdf Raw PDF data string from getOutPDFString().
+     *
+     * @throw PdfException in case of error.
+     */
+    public function renderPDF($rawpdf = '')
+    {
+        if (php_sapi_name() == 'cli') {
+            echo $rawpdf;
+            return;
+        }
+        if (headers_sent()) {
+            throw new PdfException(
+                'The PDF file cannot be sent because some data has already been output to the browser.'
+            );
+        }
+        header('Content-Type: application/pdf');
+        header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0, max-age=1');
+        header('Pragma: public');
+        header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
+        header('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT');
+        header('Content-Disposition: inline; filename="'.$this->encpdffilename.'"; filename*=UTF-8\'\''
+        .$this->encpdffilename);
+        if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
+            // the content length may vary if the server is using compression
+            header('Content-Length: '.strlen($rawpdf));
+        }
+        echo $rawpdf;
+    }
+
+    /**
+     * Trigger the browser Download dialog to download the PDF document.
+     *
+     * @return string $rawpdf Raw PDF data string from getOutPDFString().
+     *
+     * @throw PdfException in case of error.
+     */
+    public function downloadPDF($rawpdf = '')
+    {
+        if (ob_get_contents()) {
+            throw new PdfException(
+                'The PDF file cannot be sent, some data has already been output to the browser.'
+            );
+        }
+        if (headers_sent()) {
+            throw new PdfException(
+                'The PDF file cannot be sent because some data has already been output to the browser.'
+            );
+        }
+        header('Content-Description: File Transfer');
+        header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0, max-age=1');
+        header('Pragma: public');
+        header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
+        header('Last-Modified: '.gmdate('D, d M Y H:i:s').' GMT');
+        // force download dialog
+        header('Content-Type: application/pdf');
+        if (strpos(php_sapi_name(), 'cgi') === false) {
+            header('Content-Type: application/force-download', false);
+            header('Content-Type: application/octet-stream', false);
+            header('Content-Type: application/download', false);
+        }
+        // use the Content-Disposition header to supply a recommended filename
+        header('Content-Disposition: attachment; filename="'.$this->encpdffilename.'";'
+        .' filename*=UTF-8\'\''.$this->encpdffilename);
+        header('Content-Transfer-Encoding: binary');
+        if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
+            // the content length may vary if the server is using compression
+            header('Content-Length: '.strlen($rawpdf));
+        }
+        echo $rawpdf;
+    }
+
+    /**
+     * Save the PDF document to a local file.
+     *
+     * @return string $rawpdf Raw PDF data string from getOutPDFString().
+     */
+    public function savePDF($path = '', $rawpdf = '')
+    {
+        $filepath = join('/', array(realpath($path), $this->pdffilename));
+        $fhd = $this->file->fopenLocal($filepath, 'wb');
+        if (!$fhd) {
+            throw new PdfException('Unable to create output file: '.$filepath);
+        }
+        fwrite($fhd, $rawpdf, strlen($rawpdf));
+        fclose($fhd);
+    }
+
+    /**
+     * Returns the PDF as base64 mime multi-part email attachment (RFC 2045).
+     *
+     * @return string $rawpdf Raw PDF data string from getOutPDFString().
+     *
+     * @return string Email attachment as raw string.
+     */
+    public function getMIMEAttachmentPDF($rawpdf = '')
+    {
+        return 'Content-Type: application/pdf;'."\r\n"
+        .' name="'.$this->encpdffilename.'"'."\r\n"
+        .'Content-Transfer-Encoding: base64'."\r\n"
+        .'Content-Disposition: attachment;'."\r\n"
+        .' filename="'.$this->encpdffilename.'"'."\r\n\r\n"
+        .chunk_split(base64_encode($rawpdf), 76, "\r\n");
     }
 }
