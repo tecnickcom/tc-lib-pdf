@@ -15,6 +15,8 @@
 
 namespace Com\Tecnick\Pdf;
 
+use \Com\Tecnick\Unicode\Bidi;
+
 /**
  * Com\Tecnick\Pdf\Text
  *
@@ -166,7 +168,7 @@ abstract class Text
             case 'Tj': // Show a text string.
                 return sprintf('($s) Tj', $str);
             case 'TJ': // Show one or more text strings, allowing individual glyph positioning.
-                return sprintf('[$s] TJ', $str);
+                return sprintf('[($s)] TJ', $str);
             case '\'': // Move to the next line and show a text string. Same as: T* $str Tj
                 return sprintf('($s) \'', $str);
         }
@@ -174,18 +176,50 @@ abstract class Text
     }
 
     /**
-     * Get the PDF code for showing one or more text strings, allowing individual glyph positioning.
+     * Returns the string to be used as input for getOutTextShowing().
      *
-     * @param string $txt        Text to output.
-     * @param float  $spacewidth Width of the unicode space character used to
+     * @param string  $str       Text string to be processed.
+     * @param float   $width     Desired string width (0 = automatic).
+     * @param boolean $forcertl  If true forces the RTL mode in the Unicode BIDI algorithm.
      *
      * @return string
      */
-    protected function getOutUnicodeWordSpacing($txt, $spacewidth = 0)
+    protected function getJustifiedString($txt = '', $width = 0, $forcertl = false)
     {
-        $txt = '('.str_replace(chr(0).chr(32), ') '.sprintf('%F', $spacewidth).' (', $txt).')';
+        if (empty($txt)) {
+            return '';
+        }
+        $txt = str_replace("\r", ' ', $txt);
+        // replace 'NO-BREAK SPACE' (U+00A0) character with a simple space
+        $txt = str_replace($this->uniconv->chr(0x00A0), ' ', $txt);
+        // remove 'SHY' (U+00AD) SOFT HYPHEN used for hyphenation
+        $txt = str_replace($this->uniconv->chr(0x00AD), '', $txt);
+        // converts an UTF-8 string to an array of UTF-8 codepoints (integer values)
+        $ordarr = $this->uniconv->strToOrdArr($txt);
+        $dim = $this->font->getOrdArrDims($ordarr);
+        $spacewidth = (($width - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces']?$dim['spaces']:1));
+        if (!$this->isunicode) {
+            $txt = $this->encypt->escapeString($txt);
+            $txt = $this->getOutTextShowing($txt, 'Tj');
+            if ($width > 0) {
+                return $this->getOutTextStateOperator($txt, 'Tw', $spacewidth * $this->kunit);
+            }
+            return $txt;
+        }
+        if ($this->font->isCurrentByteFont()) {
+            $txt = $this->uniconv->latinArrToStr($this->uniconv->uniArrToLatinArr($ordarr));
+        } else {
+            $bidi = new Bidi($txt, null, $ordarr, $forcertl);
+            $txt = $this->uniconv->toUTF16BE($bidi->getString());
+        }
+        $txt = $this->encypt->escapeString($txt);
+        
+        $fontsize = $this->font->getCurrentFont()['usize']?$this->font->getCurrentFont()['usize']:1;
+        $spacewidth = -1000 * $spacewidth / $fontsize;
+        $txt = str_replace(chr(0).chr(32), ') '.sprintf('%F', $spacewidth).' (', $txt);
         return $this->getOutTextShowing($txt, 'TJ');
     }
+
 
     /**
      * Returns a text oject by wrapping the $raw input.
