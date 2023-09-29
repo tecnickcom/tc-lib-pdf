@@ -34,6 +34,154 @@ use \Com\Tecnick\Unicode\Bidi;
  */
 abstract class Text
 {
+    
+    /**
+     * Last text bounding box [llx, lly, urx, ury].
+     *
+     * @var array
+     */
+    protected $lasttxtbbox = array(
+        'llx'=>0,
+        'lly'=>0,
+        'urx'=>0,
+        'ury'=>0
+    );
+
+    /**
+     * Returns the PDF code to render a line of text.
+     *
+     * @param string  $txt          Text string to be processed.
+     * @param float   $xpos         X position relative to the start of the current line.
+     * @param float   $ypos         Y position relative to the start of the current line.
+     * @param float   $width        Desired string width to force justification via word spacing (0 = automatic).
+     * @param float   $strokewidth  Stroke width.
+     * @param float   $wordspacing  Word spacing (use it only when width == 0).
+     * @param float   $leading      Leading.
+     * @param float   $rise         Text rise.
+     * @param boolean $fill         If true fills the text.
+     * @param boolean $stroke       If true stroke the text.
+     * @param boolean $clip         If true activate clipping mode.
+     * @param boolean $forcertl     If true forces the RTL mode in the Unicode BIDI algorithm.
+     *
+     * @return string
+     */
+    public function getTextLine(
+        $txt,
+        $xpos = 0,
+        $ypos = 0,
+        $width = 0,
+        $strokewidth = 0,
+        $wordspacing = 0,
+        $leading = 0,
+        $rise = 0,
+        $fill = true,
+        $stroke = false,
+        $clip = false,
+        $forcertl = false
+    ) {
+        $width = $width>0?$width:0;
+        $curfont = $this->font->getCurrentFont();
+        $this->lasttxtbbox = array(
+            'llx' => $xpos,
+            'lly' => ($ypos + $curfont['descent']),
+            'urx' => ($xpos + $width),
+            'ury' => ($ypos - $curfont['ascent'])
+        );
+        $out = $this->getJustifiedString($txt, $width, $forcertl);
+        $out = $this->getOutTextPosXY($out, $xpos, $ypos, 'Td');
+        $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
+        $out = $this->getOutTextStateOperator($out, 'w', $strokewidth);
+        $out = $this->getOutTextStateOperator($out, 'Tr', $trmode);
+        $out = $this->getOutTextStateOperator($out, 'Tw', $wordspacing);
+        $out = $this->getOutTextStateOperator($out, 'Tc', $curfont['spacing']);
+        $out = $this->getOutTextStateOperator($out, 'Tz', $curfont['stretching']);
+        $out = $this->getOutTextStateOperator($out, 'TL', $leading);
+        $out = $this->getOutTextStateOperator($out, 'Ts', $rise);
+        return $this->getOutTextObject($out);
+    }
+
+    /**
+     * Returns the last text bounding box [llx, lly, urx, ury].
+     * @return array
+     */
+    public function getLastTextBBox()
+    {
+        return $this->lasttxtbbox;
+    }
+
+    /**
+     * Returns the string to be used as input for getOutTextShowing().
+     *
+     * @param string  $txt       Text string to be processed.
+     * @param float   $width     Desired string width (0 = automatic).
+     * @param boolean $forcertl  If true forces the RTL mode in the Unicode BIDI algorithm.
+     *
+     * @return string
+     */
+    protected function getJustifiedString($txt, $width = 0, $forcertl = false)
+    {
+        if (empty($txt)) {
+            return '';
+        }
+        $txt = str_replace("\r", ' ', $txt);
+        // replace 'NO-BREAK SPACE' (U+00A0) character with a simple space
+        $txt = str_replace($this->uniconv->chr(0x00A0), ' ', $txt);
+        // remove 'SHY' (U+00AD) SOFT HYPHEN used for hyphenation
+        $txt = str_replace($this->uniconv->chr(0x00AD), '', $txt);
+        // converts an UTF-8 string to an array of UTF-8 codepoints (integer values)
+        $ordarr = $this->uniconv->strToOrdArr($txt);
+        $dim = $this->font->getOrdArrDims($ordarr);
+        $spacewidth = (($width - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces']?$dim['spaces']:1));
+        if (!$this->isunicode) {
+            $txt = $this->encrypt->escapeString($txt);
+            $txt = $this->getOutTextShowing($txt, 'Tj');
+            if ($width > 0) {
+                return $this->getOutTextStateOperator($txt, 'Tw', $spacewidth * $this->kunit);
+            }
+            $this->lasttxtbbox['urx'] += $dim['totwidth'];
+            return $txt;
+        }
+        if ($this->font->isCurrentByteFont()) {
+            $txt = $this->uniconv->latinArrToStr($this->uniconv->uniArrToLatinArr($ordarr));
+        } else {
+            $bidi = new Bidi($txt, null, $ordarr, $forcertl);
+            $unistr = $this->replaceUnicodeChars($bidi->getString());
+            $txt = $this->uniconv->toUTF16BE($unistr);
+        }
+        $txt = $this->encrypt->escapeString($txt);
+        if ($width <= 0) {
+            $this->lasttxtbbox['urx'] += $dim['totwidth'];
+            return $this->getOutTextShowing($txt, 'Tj');
+        }
+        $fontsize = $this->font->getCurrentFont()['size']?$this->font->getCurrentFont()['size']:1;
+        $spacewidth = -1000 * $spacewidth / $fontsize;
+        $txt = str_replace(chr(0).chr(32), ') '.sprintf('%F', $spacewidth).' (', $txt);
+        return $this->getOutTextShowing($txt, 'TJ');
+    }
+
+    /**
+     * Get the PDF code for the specified Text Positioning Operator mode.
+     *
+     * @param string $raw   Raw PDf data to be wrapped by this command.
+     * @param float  $xpos  X position relative to the start of the current line.
+     * @param float  $ypos  Y position relative to the start of the current line.
+     * @param string $mode  Text state parameter to apply (one of: Td, TD, T*).
+     *
+     * @return string
+     */
+    protected function getOutTextPosXY($raw, $xpos = 0, $ypos = 0, $mode = 'Td')
+    {
+        switch ($mode) {
+            case 'Td': // Move to the start of the next line, offset from the start of the current line by (xpos, ypos).
+                return sprintf('%F %F Td '.$raw, $xpos, $ypos);
+            case 'TD': // Same as: -xpos TL xpos ypos Td
+                return sprintf('%F %F TD '.$raw, $xpos, $ypos);
+            case 'T*': // Move to the start of the next line.
+                return sprintf('T* '.$raw);
+        }
+        return '';
+    }
+
     /**
      * Get the text rendering mode.
      *
@@ -100,34 +248,14 @@ abstract class Text
                 }
                 return sprintf('%d Tr '.$raw, $value);
             case 'Ts': // text rise
+                if ($value == 0) {
+                    break;
+                }
                 return sprintf('%F Ts '.$raw.' 0 Ts', $value);
             case 'w': // stroke width
-                return sprintf('%F w '.$raw, ($value > 0 ? $value : 0));
+                return sprintf('%F w '.$raw, ($value > 0 ? ($value * $this->kunit) : 0));
         }
         return $raw;
-    }
-
-    /**
-     * Get the PDF code for the specified Text Positioning Operator mode.
-     *
-     * @param string $raw   Raw PDf data to be wrapped by this command.
-     * @param float  $xpos  X position relative to the start of the current line.
-     * @param float  $ypos  Y position relative to the start of the current line.
-     * @param string $mode  Text state parameter to apply (one of: Td, TD, T*).
-     *
-     * @return string
-     */
-    protected function getOutTextPosXY($raw, $xpos = 0, $ypos = 0, $mode = 'Td')
-    {
-        switch ($mode) {
-            case 'Td': // Move to the start of the next line, offset from the start of the current line by (xpos, ypos).
-                return sprintf('%F %F Td '.$raw, $xpos, $xpos);
-            case 'TD': // Same as: -xpos TL xpos ypos Td
-                return sprintf('%F %F TD '.$raw, $xpos, $xpos);
-            case 'T*': // Move to the start of the next line.
-                return sprintf('T* '.$raw);
-        }
-        return '';
     }
 
     /**
@@ -166,60 +294,14 @@ abstract class Text
     {
         switch ($mode) {
             case 'Tj': // Show a text string.
-                return sprintf('($s) Tj', $str);
+                return '('.$str.') Tj';
             case 'TJ': // Show one or more text strings, allowing individual glyph positioning.
-                return sprintf('[($s)] TJ', $str);
+                return '[('.$str.')] TJ';
             case '\'': // Move to the next line and show a text string. Same as: T* $str Tj
-                return sprintf('($s) \'', $str);
+                return '('.$str.') \'';
         }
         return '';
     }
-
-    /**
-     * Returns the string to be used as input for getOutTextShowing().
-     *
-     * @param string  $str       Text string to be processed.
-     * @param float   $width     Desired string width (0 = automatic).
-     * @param boolean $forcertl  If true forces the RTL mode in the Unicode BIDI algorithm.
-     *
-     * @return string
-     */
-    protected function getJustifiedString($txt = '', $width = 0, $forcertl = false)
-    {
-        if (empty($txt)) {
-            return '';
-        }
-        $txt = str_replace("\r", ' ', $txt);
-        // replace 'NO-BREAK SPACE' (U+00A0) character with a simple space
-        $txt = str_replace($this->uniconv->chr(0x00A0), ' ', $txt);
-        // remove 'SHY' (U+00AD) SOFT HYPHEN used for hyphenation
-        $txt = str_replace($this->uniconv->chr(0x00AD), '', $txt);
-        // converts an UTF-8 string to an array of UTF-8 codepoints (integer values)
-        $ordarr = $this->uniconv->strToOrdArr($txt);
-        $dim = $this->font->getOrdArrDims($ordarr);
-        $spacewidth = (($width - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces']?$dim['spaces']:1));
-        if (!$this->isunicode) {
-            $txt = $this->encypt->escapeString($txt);
-            $txt = $this->getOutTextShowing($txt, 'Tj');
-            if ($width > 0) {
-                return $this->getOutTextStateOperator($txt, 'Tw', $spacewidth * $this->kunit);
-            }
-            return $txt;
-        }
-        if ($this->font->isCurrentByteFont()) {
-            $txt = $this->uniconv->latinArrToStr($this->uniconv->uniArrToLatinArr($ordarr));
-        } else {
-            $bidi = new Bidi($txt, null, $ordarr, $forcertl);
-            $txt = $this->uniconv->toUTF16BE($bidi->getString());
-        }
-        $txt = $this->encypt->escapeString($txt);
-        
-        $fontsize = $this->font->getCurrentFont()['usize']?$this->font->getCurrentFont()['usize']:1;
-        $spacewidth = -1000 * $spacewidth / $fontsize;
-        $txt = str_replace(chr(0).chr(32), ') '.sprintf('%F', $spacewidth).' (', $txt);
-        return $this->getOutTextShowing($txt, 'TJ');
-    }
-
 
     /**
      * Returns a text oject by wrapping the $raw input.
@@ -230,6 +312,19 @@ abstract class Text
      */
     protected function getOutTextObject($raw = '')
     {
-        return 'BT '.$raw.' BE';
+        return 'BT '.$raw.' BE'."\r";
+    }
+
+    /**
+     * Replace characters for langiages like Thai.
+     *
+     * @param string $str  String to process.
+     *
+     * @return string
+     */
+    protected function replaceUnicodeChars($str)
+    {
+        // @TODO
+        return $str;
     }
 }

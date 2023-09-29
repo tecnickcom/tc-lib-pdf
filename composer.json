@@ -25,7 +25,7 @@
     "tecnickcom/tc-lib-barcode": "^1.17",
     "tecnickcom/tc-lib-color": "^1.14",
     "tecnickcom/tc-lib-pdf-image": "^1.4",
-    "tecnickcom/tc-lib-pdf-font": "^1.14",
+    "tecnickcom/tc-lib-pdf-font": "^1.15",
     "tecnickcom/tc-lib-file": "^1.7",
     "tecnickcom/tc-lib-pdf-encrypt": "^1.6",
     "tecnickcom/tc-lib-unicode-data": "^1.7",

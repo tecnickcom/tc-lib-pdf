@@ -47,8 +47,7 @@ $pdf->setPDFFilename('test_index.pdf');
 // ----------
 // Insert fonts
 
-$bfont = $pdf->font->insert($pdf->pon, 'helvetica');
-$bfont = $pdf->font->insert($pdf->pon, 'times', 'BI');
+$bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '' , 12);
 
 // ----------
 // Add first page
@@ -897,10 +896,43 @@ $pdf->page->addContent($cnz);
 
 
 // ----------
+// Add page 11
 
+$page11 = $pdf->page->add();
+
+$pdf->graph->setPageWidth($page11['width']);
+$pdf->graph->setPageHeight($page11['height']);
+
+$styletxt = array(
+    'lineWidth' => 0.25,
+    'lineCap'   => 'butt',
+    'lineJoin'  => 'miter',
+    'dashArray' => array(),
+    'dashPhase' => 0,
+    'lineColor' => 'red',
+    'fillColor' => 'black',
+);
+
+$pdf->graph->add($styletxt);
+
+// Set font
+
+$bfont2 = $pdf->font->insert($pdf->pon, 'times', 'BI', 24);
+$pdf->page->addContent($bfont2['out']); 
+// alteernative to set the current font (last entry in the font stack):
+// $pdf->page->addContent($pdf->font->getOutCurrentFont());
+
+// Add text
+$txt = $pdf->getTextLine('Test PDF text with justification (stretching).', 0, ($page11['pheight'] -  $bfont2['ascent']), $page11['pwidth']);
+
+$pdf->page->addContent($txt);
+
+// ----------
 
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
+
+// ----------
 
 // Various output modes:
 

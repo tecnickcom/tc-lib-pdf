@@ -32,7 +32,7 @@ use \Com\Tecnick\Pdf\Font\Output as OutFont;
  *
  * @SuppressWarnings(PHPMD)
  */
-abstract class Output
+abstract class Output extends \Com\Tecnick\Pdf\Text
 {
     /**
      * File name of the PDF document.
