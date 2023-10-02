@@ -7,7 +7,7 @@ UPDATE: CURRENTLY ALL THE DEPENDENCY LIBRARIES ARE ALMOST COMPLETE
 BUT THE CORE LIBRARY STILL REQUIRES A SIGNIFICANT AMOUNT OF WORK TO BE COMPLETED.
 
 [![Latest Stable Version](https://poser.pugx.org/tecnickcom/tc-lib-pdf/version)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
-[![Master Build Status](https://secure.travis-ci.org/tecnickcom/tc-lib-pdf.png?branch=main)](https://travis-ci.org/tecnickcom/tc-lib-pdf?branch=main)
+![Master Build Status](https://github.com/tecnickcom/tc-lib-pdf/actions/workflows/check.yml/badge.svg)
 [![Master Coverage Status](https://coveralls.io/repos/tecnickcom/tc-lib-pdf/badge.svg?branch=main&service=github)](https://coveralls.io/github/tecnickcom/tc-lib-pdf?branch=main)
 [![License](https://poser.pugx.org/tecnickcom/tc-lib-pdf/license)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 [![Total Downloads](https://poser.pugx.org/tecnickcom/tc-lib-pdf/downloads)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
