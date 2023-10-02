@@ -1,0 +1,10 @@
+includes:
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+parameters:
+  level: 5
+  paths:
+    - src
+  scanDirectories:
+    - vendor
+  ignoreErrors:
+  reportUnmatchedIgnoredErrors: false
