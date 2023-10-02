@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tcpdf.php
  *
@@ -15,8 +16,8 @@
 
 namespace Com\Tecnick\Pdf;
 
-use \Com\Tecnick\Pdf\Exception as PdfException;
-use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -168,7 +169,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->docmodtime = $this->doctime;
         $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
         $this->fileid = md5($seedobj->encrypt('TCPDF'));
-        $this->setPDFFilename($this->fileid.'.pdf');
+        $this->setPDFFilename($this->fileid . '.pdf');
         $this->unit = $unit;
         $this->setUnicodeMode($isunicode);
         $this->subsetfont = (bool) $subsetfont;

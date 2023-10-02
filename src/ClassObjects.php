@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ClassObjects.php
  *
@@ -15,17 +16,17 @@
 
 namespace Com\Tecnick\Pdf;
 
-use \Com\Tecnick\Pdf\Exception as PdfException;
-use \Com\Tecnick\Color\Pdf as ObjColor;
-use \Com\Tecnick\Barcode\Barcode as ObjBarcode;
-use \Com\Tecnick\File\File as ObjFile;
-use \Com\Tecnick\File\Cache as ObjCache;
-use \Com\Tecnick\Unicode\Convert as ObjUniConvert;
-use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
-use \Com\Tecnick\Pdf\Page\Page as ObjPage;
-use \Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
-use \Com\Tecnick\Pdf\Font\Stack as ObjFont;
-use \Com\Tecnick\Pdf\Image\Import as ObjImage;
+use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Color\Pdf as ObjColor;
+use Com\Tecnick\Barcode\Barcode as ObjBarcode;
+use Com\Tecnick\File\File as ObjFile;
+use Com\Tecnick\File\Cache as ObjCache;
+use Com\Tecnick\Unicode\Convert as ObjUniConvert;
+use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+use Com\Tecnick\Pdf\Page\Page as ObjPage;
+use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
+use Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\ClassObjects
@@ -117,16 +118,16 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function initClassObjects()
     {
-        $this->color = new ObjColor;
-        $this->barcode = new ObjBarcode;
-        $this->file = new ObjFile;
-        $this->cache = new ObjCache;
-        $this->uniconv = new ObjUniConvert;
-        
+        $this->color = new ObjColor();
+        $this->barcode = new ObjBarcode();
+        $this->file = new ObjFile();
+        $this->cache = new ObjCache();
+        $this->uniconv = new ObjUniConvert();
+
         if ($this->encrypt === null) {
             $this->encrypt = new ObjEncrypt();
         }
-        
+
         $this->page = new ObjPage(
             $this->unit,
             $this->color,
@@ -154,7 +155,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
             $this->pdfa,
             $this->compress
         );
-        
+
         $this->image = new ObjImage(
             $this->kunit,
             $this->encrypt,

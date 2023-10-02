@@ -114,8 +114,8 @@ all: help
 
 # Full build and test sequence
 .PHONY: buildall
-buildall: deps 
-	cd vendor/tecnickcom/tc-lib-pdf-font/ && make buildall 
+buildall: deps
+	cd vendor/tecnickcom/tc-lib-pdf-font/ && make buildall
 	$(MAKE) codefix qa bz2 rpm deb
 
 # Package the library in a compressed bz2 archive
@@ -209,7 +209,7 @@ endif
 # Test source code for coding standard violations
 .PHONY: lint
 lint:
-	./vendor/bin/phpcs --ignore="./vendor/" --standard=psr2 src test
+	./vendor/bin/phpcs --ignore="./vendor/" --standard=psr12 src test
 	./vendor/bin/phpmd src text unusedcode,naming,design --exclude vendor
 	./vendor/bin/phpmd test text unusedcode,naming,design
 
