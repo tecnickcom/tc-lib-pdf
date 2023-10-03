@@ -933,17 +933,18 @@ $txt = $pdf->getTextLine(
 $pdf->page->addContent($txt);
 
 // // get the coordinates of the box containing the last added text string.
-// $bbox = $pdf->getLastTextBBox();
-// // set link
-// $aoid = $pdf->setAnnotation(
-//     $bbox['llx'],
-//     $bbox['lly'],
-//     $bbox['urx'] - $bbox['llx'],
-//     $bbox['lly'] - $bbox['ury'],
-//     'https://tcpdf.org',
-//     array('subtype'=>'Link')
-// );
-// $pdf->page->addAnnotRef($aoid);
+$bbox = $pdf->getLastTextBBox();
+
+// set link
+$aoid = $pdf->setAnnotation(
+    $bbox['x'],
+    $bbox['y'],
+    $bbox['width'],
+    $bbox['height'],
+    'https://tcpdf.org',
+    array('subtype'=>'Link')
+);
+$pdf->page->addAnnotRef($aoid);
 
 // ----------
 

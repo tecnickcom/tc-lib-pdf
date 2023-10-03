@@ -36,15 +36,15 @@ abstract class Text
 {
     
     /**
-     * Last text bounding box [llx, lly, urx, ury].
+     * Last text bounding box [x, y, width, height].
      *
      * @var array
      */
     protected $lasttxtbbox = array(
-        'llx'=>0,
-        'lly'=>0,
-        'urx'=>0,
-        'ury'=>0
+        'x'=>0,
+        'y'=>0,
+        'width'=>0,
+        'height'=>0
     );
 
     /**
@@ -82,10 +82,10 @@ abstract class Text
         $width = $width>0?$width:0;
         $curfont = $this->font->getCurrentFont();
         $this->lasttxtbbox = array(
-            'llx' => $posx,
-            'lly' => ($posy + $this->userToPointsUnit($curfont['descent'])),
-            'urx' => ($posx + $width),
-            'ury' => ($posy - $this->userToPointsUnit($curfont['ascent']))
+            'x' => $posx,
+            'y' => ($posy - $this->pointsToUserUnit($curfont['ascent'])),
+            'width' => $width,
+            'height' => ($this->pointsToUserUnit($curfont['ascent'] - $curfont['descent']))
         );
         $out = $this->getJustifiedString($txt, $width, $forcertl);
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
@@ -98,8 +98,6 @@ abstract class Text
         $out = $this->getOutTextStateOperator($out, 'TL', $this->userToPointsUnit($leading));
         $out = $this->getOutTextStateOperator($out, 'Ts', $this->userToPointsUnit($rise));
         $out = $this->getOutTextObject($out);
-        //var_dump($out); //DEBUG
-        //var_dump($this->lasttxtbbox);
         return $out;
     }
 
@@ -142,7 +140,7 @@ abstract class Text
             if ($width > 0) {
                 return $this->getOutTextStateOperator($txt, 'Tw', $spacewidth * $this->kunit);
             }
-            $this->lasttxtbbox['urx'] += $this->pointsToUserUnit($dim['totwidth']);
+            $this->lasttxtbbox['width'] = $this->pointsToUserUnit($dim['totwidth']);
             return $txt;
         }
         if ($this->font->isCurrentByteFont()) {
@@ -154,7 +152,7 @@ abstract class Text
         }
         $txt = $this->encrypt->escapeString($txt);
         if ($width <= 0) {
-            $this->lasttxtbbox['urx'] += $this->pointsToUserUnit($dim['totwidth']);
+            $this->lasttxtbbox['width'] = $this->pointsToUserUnit($dim['totwidth']);
             return $this->getOutTextShowing($txt, 'Tj');
         }
         $fontsize = $this->font->getCurrentFont()['size']?$this->font->getCurrentFont()['size']:1;

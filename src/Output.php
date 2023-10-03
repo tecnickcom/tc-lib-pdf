@@ -818,12 +818,12 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
                 $annot = $this->annotation[$oid];
                 $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
                 $out .= $this->getAnnotationRadiobuttonGroups($annot);
-                $orx = $this->userToPointsUnit($annot['x']);
-                $ory = $page['height'] - $this->userToPointsUnit(($annot['y'] + $annot['h']));
-                $width = $this->userToPointsUnit($annot['w']);
-                $height = $this->userToPointsUnit($annot['h']);
+                $orx = ($annot['x'] * $this->kunit);
+                $ory = ($page['pheight'] - (($annot['y'] + $annot['h']) * $this->kunit));
+                $width = ($annot['w'] * $this->kunit);
+                $height = ($annot['h'] * $this->kunit);
                 $rect = sprintf('%F %F %F %F', $orx, $ory, $orx+$width, $ory+$height);
-                $out .= $oid.' 0 R'."\n"
+                $out .= $oid.' 0 obj'."\n"
                     .'<<'
                     .' /Type /Annot'
                     .' /Subtype /'.$annot['opt']['subtype']
@@ -856,7 +856,6 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
                 }
             }
         }
-        //var_dump($out); exit; //DEBUG
         return $out;
     }
 
