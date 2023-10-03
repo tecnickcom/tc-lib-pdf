@@ -588,10 +588,10 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             }
             $out .= sprintf(
                 ' /BBox [%F %F %F %F]',
-                ($data['x'] * $this->kunit),
-                (-$data['y'] * $this->kunit),
-                (($data['w'] + $data['x']) * $this->kunit),
-                (($data['h'] - $data['y']) * $this->kunit)
+                $this->userToPointsUnit($data['x']),
+                $this->userToPointsUnit(-$data['y']),
+                $this->userToPointsUnit(($data['w'] + $data['x'])),
+                $this->userToPointsUnit(($data['h'] - $data['y']))
             );
             $out .= ' /Matrix [1 0 0 1 0 0]'
                 .' /Resources <<'
@@ -691,8 +691,8 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
         foreach ($this->dests as $name => $dst) {
             $page = $this->page->getPage($dst['p']);
             $poid = $page['n'];
-            $pgx = ($dst['x'] * $this->page->getKUnit());
-            $pgy = ($page['pheight'] - ($dst['y'] * $this->page->getKUnit()));
+            $pgx = $this->userToPointsUnit($dst['x']);
+            $pgy = ($page['pheight'] - $this->userToPointsUnit($dst['y']));
             $out .= ' /'.$name.' '.sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
         }
         $out .= ' >>'."\n"
@@ -815,13 +815,13 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
         $pages = $this->page->getPages();
         foreach ($pages as $num => $page) {
             foreach ($page['annotrefs'] as $key => $oid) {
-                $annot = $this->pageAnnots[$oid];
+                $annot = $this->annotation[$oid];
                 $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
                 $out .= $this->getAnnotationRadiobuttonGroups($annot);
-                $orx = $annot['x'] * $this->kunit;
-                $ory = $page['height'] - (($annot['y'] + $annot['h']) * $this->kunit);
-                $width = $annot['w'] * $this->kunit;
-                $height = $annot['h'] * $this->kunit;
+                $orx = $this->userToPointsUnit($annot['x']);
+                $ory = $page['height'] - $this->userToPointsUnit(($annot['y'] + $annot['h']));
+                $width = $this->userToPointsUnit($annot['w']);
+                $height = $this->userToPointsUnit($annot['h']);
                 $rect = sprintf('%F %F %F %F', $orx, $ory, $orx+$width, $ory+$height);
                 $out .= $oid.' 0 R'."\n"
                     .'<<'
@@ -837,7 +837,7 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
                     $out .= ' /Contents '.$this->getOutTextString($annot['txt'], $oid, true);
                 }
                 $out .= ' /P '.$page['n'].' 0 R'
-                    .' /NM '.$this->encrypt->escapeDataString(sprintf('%04u-%04u', $n, $key), $oid)
+                    .' /NM '.$this->encrypt->escapeDataString(sprintf('%04u-%04u', $page['num'], $key), $oid)
                     .' /M '.$this->getOutDateTimeString($this->docmodtime, $oid)
                     .$this->getOutAnnotationFlags($annot)
                     .$this->getAnnotationAppearanceStream($annot, $width, $height)
@@ -848,14 +848,15 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
                 //$out .= ' /StructParent ';
                 //$out .= ' /OC ';
                 $out .= $this->getOutAnnotationMarkups($annot, $oid)
-                    .$this->getOutAnnotationOptSubtype($annot, $pagenum, $oid, $key)
+                    .$this->getOutAnnotationOptSubtype($annot, $num, $oid, $key)
                     .' >>'."\n"
                     .'endobj'."\n";
-                if ($formfield && !isset($this->radiobuttonGroups[$n][$annot['txt']])) {
+                if ($formfield && !isset($this->radiobuttonGroups[$annot['txt']])) {
                     $this->objid['form'][] = $oid;
                 }
             }
         }
+        //var_dump($out); exit; //DEBUG
         return $out;
     }
 
@@ -869,17 +870,17 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
     protected function getAnnotationRadiobuttonGroups($annot)
     {
         $out = '';
-        if (empty($this->radiobuttonGroups[$n][$annot['txt']])
-            || !is_array($this->radiobuttonGroups[$n][$annot['txt']])) {
+        if (empty($this->radiobuttonGroups[$annot['txt']])
+            || !is_array($this->radiobuttonGroups[$annot['txt']])) {
             return $out;
         }
-        $oid = $this->radiobuttonGroups[$n][$annot['txt']]['n'];
+        $oid = $this->radiobuttonGroups[$annot['txt']]['n'];
         $out = $oid.' 0 obj'."\n"
             .'<<'
             .' /Type /Annot'
             .' /Subtype /Widget'
             .' /Rect [0 0 0 0]';
-        if ($this->radiobuttonGroups[$n][$annot['txt']]['#readonly#']) {
+        if ($this->radiobuttonGroups[$annot['txt']]['#readonly#']) {
             // read only
             $out .= ' /F 68 /Ff 49153';
         } else {
@@ -891,7 +892,7 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
         }
         $out .= ' /FT /Btn /Kids [';
         $defval = '';
-        foreach ($this->radiobuttonGroups[$n][$annot['txt']] as $key => $data) {
+        foreach ($this->radiobuttonGroups[$annot['txt']] as $key => $data) {
             if (isset($data['kid'])) {
                 $out .= ' '.$data['kid'].' 0 R';
                 if ($data['def'] !== 'Off') {
@@ -907,7 +908,7 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             .'endobj'."\n";
         $this->objid['form'][] = $oid;
         // store object id to be used on Parent entry of Kids
-        $this->radiobuttonGroups[$n][$annot['txt']] = $oid;
+        $this->radiobuttonGroups[$annot['txt']] = $oid;
         return $out;
     }
 
@@ -1329,7 +1330,7 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             // internal link ID
             $l = $this->links[$annot['txt']];
             $page = $this->page->getPage($l['p']);
-            $y = ($page['height'] - ($l['y'] * $this->kunit));
+            $y = ($page['height'] - $this->userToPointsUnit($l['y']));
             $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
         }
         $hmodes = array('N', 'I', 'O', 'P');
@@ -1368,7 +1369,7 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
         if (isset($annot['opt']['cl']) && is_array($annot['opt']['cl'])) {
             $out .= ' /CL [';
             foreach ($annot['opt']['cl'] as $cl) {
-                $out .= sprintf('%F ', $cl * $this->kunit);
+                $out .= sprintf('%F ', $this->userToPointsUnit($cl));
             }
             $out .= ']';
         }
@@ -1377,10 +1378,10 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             $out .= ' /IT /'.$annot['opt']['it'];
         }
         if (isset($annot['opt']['rd']) && is_array($annot['opt']['rd'])) {
-            $l = $annot['opt']['rd'][0] * $this->kunit;
-            $r = $annot['opt']['rd'][1] * $this->kunit;
-            $t = $annot['opt']['rd'][2] * $this->kunit;
-            $b = $annot['opt']['rd'][3] * $this->kunit;
+            $l = $this->userToPointsUnit($annot['opt']['rd'][0]);
+            $r = $this->userToPointsUnit($annot['opt']['rd'][1]);
+            $t = $this->userToPointsUnit($annot['opt']['rd'][2]);
+            $b = $this->userToPointsUnit($annot['opt']['rd'][3]);
             $out .= ' /RD ['.sprintf('%F %F %F %F', $l, $r, $t, $b).']';
         }
         $lineendings = array(
@@ -1580,23 +1581,23 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
      */
     protected function getOutAnnotationOptSubtypeFileattachment($annot, $key)
     {
-        $out = '';
         if (($this->pdfa == 1 ) || ($this->pdfa == 2) || !isset($annot['opt']['fs'])) {
             // embedded files are not allowed in PDF/A mode version 1 and 2
-            return $out;
+            return '';
         }
         $filename = basename($annot['opt']['fs']);
-        if (isset($this->embeddedfiles[$filename]['f'])) {
-            $out .= ' /FS '.$this->embeddedfiles[$filename]['f'].' 0 R';
-            $iconsapp = array('Graph', 'Paperclip', 'PushPin', 'Tag');
-            if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
-                $out .= ' /Name /'.$annot['opt']['name'];
-            } else {
-                $out .= ' /Name /PushPin';
-            }
-            // index (zero-based) of the annotation in the Annots array of this page
-            $this->embeddedfiles[$filename]['a'] = $key;
+        if (!isset($this->embeddedfiles[$filename]['f'])) {
+            return '';
         }
+        $out = ' /FS '.$this->embeddedfiles[$filename]['f'].' 0 R';
+        $iconsapp = array('Graph', 'Paperclip', 'PushPin', 'Tag');
+        if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+            $out .= ' /Name /'.$annot['opt']['name'];
+        } else {
+            $out .= ' /Name /PushPin';
+        }
+        // index (zero-based) of the annotation in the Annots array of this page
+        $this->embeddedfiles[$filename]['a'] = $key;
         return $out;
     }
 
@@ -1611,19 +1612,20 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
     {
         $out = '';
         if (empty($annot['opt']['fs'])) {
-            return $out;
+            return '';
         }
         $filename = basename($annot['opt']['fs']);
-        if (isset($this->embeddedfiles[$filename]['f'])) {
-            // ... TO BE COMPLETED ...
-            // /R /C /B /E /CO /CP
-            $out .= ' /Sound '.$this->embeddedfiles[$filename]['f'].' 0 R';
-            $iconsapp = array('Speaker', 'Mic');
-            if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
-                $out .= ' /Name /'.$annot['opt']['name'];
-            } else {
-                $out .= ' /Name /Speaker';
-            }
+        if (!isset($this->embeddedfiles[$filename]['f'])) {
+            return '';
+        }
+        // ... TO BE COMPLETED ...
+        // /R /C /B /E /CO /CP
+        $out = ' /Sound '.$this->embeddedfiles[$filename]['f'].' 0 R';
+        $iconsapp = array('Speaker', 'Mic');
+        if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+            $out .= ' /Name /'.$annot['opt']['name'];
+        } else {
+            $out .= ' /Name /Speaker';
         }
         return $out;
     }
@@ -1726,9 +1728,9 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             $out .= '>>';
         }
         // --- Entries for field dictionaries ---
-        if (isset($this->radiobuttonGroups[$n][$annot['txt']])) {
+        if (isset($this->radiobuttonGroups[$annot['txt']])) {
             // set parent
-            $out .= ' /Parent '.$this->radiobuttonGroups[$n][$annot['txt']].' 0 R';
+            $out .= ' /Parent '.$this->radiobuttonGroups[$annot['txt']].' 0 R';
         }
         if (isset($annot['opt']['t']) && is_string($annot['opt']['t'])) {
             $out .= ' /T '.$this->encrypt->escapeDataString($annot['opt']['t'], $oid);

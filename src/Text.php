@@ -51,8 +51,8 @@ abstract class Text
      * Returns the PDF code to render a line of text.
      *
      * @param string  $txt          Text string to be processed.
-     * @param float   $xpos         X position relative to the start of the current line.
-     * @param float   $ypos         Y position relative to the start of the current line.
+     * @param float   $posx         X position relative to the start of the current line.
+     * @param float   $posy         Y position relative to the start of the current line.
      * @param float   $width        Desired string width to force justification via word spacing (0 = automatic).
      * @param float   $strokewidth  Stroke width.
      * @param float   $wordspacing  Word spacing (use it only when width == 0).
@@ -67,8 +67,8 @@ abstract class Text
      */
     public function getTextLine(
         $txt,
-        $xpos = 0,
-        $ypos = 0,
+        $posx = 0,
+        $posy = 0,
         $width = 0,
         $strokewidth = 0,
         $wordspacing = 0,
@@ -82,22 +82,25 @@ abstract class Text
         $width = $width>0?$width:0;
         $curfont = $this->font->getCurrentFont();
         $this->lasttxtbbox = array(
-            'llx' => $xpos,
-            'lly' => ($ypos + $curfont['descent']),
-            'urx' => ($xpos + $width),
-            'ury' => ($ypos - $curfont['ascent'])
+            'llx' => $posx,
+            'lly' => ($posy + $this->userToPointsUnit($curfont['descent'])),
+            'urx' => ($posx + $width),
+            'ury' => ($posy - $this->userToPointsUnit($curfont['ascent']))
         );
         $out = $this->getJustifiedString($txt, $width, $forcertl);
-        $out = $this->getOutTextPosXY($out, $xpos, $ypos, 'Td');
+        $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
         $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
-        $out = $this->getOutTextStateOperator($out, 'w', $strokewidth);
+        $out = $this->getOutTextStateOperator($out, 'w', $this->userToPointsUnit($strokewidth));
         $out = $this->getOutTextStateOperator($out, 'Tr', $trmode);
-        $out = $this->getOutTextStateOperator($out, 'Tw', $wordspacing);
+        $out = $this->getOutTextStateOperator($out, 'Tw', $this->userToPointsUnit($wordspacing));
         $out = $this->getOutTextStateOperator($out, 'Tc', $curfont['spacing']);
         $out = $this->getOutTextStateOperator($out, 'Tz', $curfont['stretching']);
-        $out = $this->getOutTextStateOperator($out, 'TL', $leading);
-        $out = $this->getOutTextStateOperator($out, 'Ts', $rise);
-        return $this->getOutTextObject($out);
+        $out = $this->getOutTextStateOperator($out, 'TL', $this->userToPointsUnit($leading));
+        $out = $this->getOutTextStateOperator($out, 'Ts', $this->userToPointsUnit($rise));
+        $out = $this->getOutTextObject($out);
+        //var_dump($out); //DEBUG
+        //var_dump($this->lasttxtbbox);
+        return $out;
     }
 
     /**
@@ -113,7 +116,7 @@ abstract class Text
      * Returns the string to be used as input for getOutTextShowing().
      *
      * @param string  $txt       Text string to be processed.
-     * @param float   $width     Desired string width (0 = automatic).
+     * @param float   $width     Desired string width in points (0 = automatic).
      * @param boolean $forcertl  If true forces the RTL mode in the Unicode BIDI algorithm.
      *
      * @return string
@@ -131,6 +134,7 @@ abstract class Text
         // converts an UTF-8 string to an array of UTF-8 codepoints (integer values)
         $ordarr = $this->uniconv->strToOrdArr($txt);
         $dim = $this->font->getOrdArrDims($ordarr);
+        $width *= $this->kunit;
         $spacewidth = (($width - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces']?$dim['spaces']:1));
         if (!$this->isunicode) {
             $txt = $this->encrypt->escapeString($txt);
@@ -138,7 +142,7 @@ abstract class Text
             if ($width > 0) {
                 return $this->getOutTextStateOperator($txt, 'Tw', $spacewidth * $this->kunit);
             }
-            $this->lasttxtbbox['urx'] += $dim['totwidth'];
+            $this->lasttxtbbox['urx'] += $this->pointsToUserUnit($dim['totwidth']);
             return $txt;
         }
         if ($this->font->isCurrentByteFont()) {
@@ -150,7 +154,7 @@ abstract class Text
         }
         $txt = $this->encrypt->escapeString($txt);
         if ($width <= 0) {
-            $this->lasttxtbbox['urx'] += $dim['totwidth'];
+            $this->lasttxtbbox['urx'] += $this->pointsToUserUnit($dim['totwidth']);
             return $this->getOutTextShowing($txt, 'Tj');
         }
         $fontsize = $this->font->getCurrentFont()['size']?$this->font->getCurrentFont()['size']:1;
@@ -163,19 +167,22 @@ abstract class Text
      * Get the PDF code for the specified Text Positioning Operator mode.
      *
      * @param string $raw   Raw PDf data to be wrapped by this command.
-     * @param float  $xpos  X position relative to the start of the current line.
-     * @param float  $ypos  Y position relative to the start of the current line.
+     * @param float  $posx  X position relative to the start of the current line.
+     * @param float  $posy  Y position relative to the start of the current line.
      * @param string $mode  Text state parameter to apply (one of: Td, TD, T*).
      *
      * @return string
      */
-    protected function getOutTextPosXY($raw, $xpos = 0, $ypos = 0, $mode = 'Td')
+    protected function getOutTextPosXY($raw, $posx = 0, $posy = 0, $mode = 'Td')
     {
+        
+        $posx *= $this->kunit;
+        $posy = $this->page->getPage()['pheight'] - ($posy * $this->kunit);
         switch ($mode) {
-            case 'Td': // Move to the start of the next line, offset from the start of the current line by (xpos, ypos).
-                return sprintf('%F %F Td '.$raw, $xpos, $ypos);
-            case 'TD': // Same as: -xpos TL xpos ypos Td
-                return sprintf('%F %F TD '.$raw, $xpos, $ypos);
+            case 'Td': // Move to the start of the next line, offset from the start of the current line by (posx, posy).
+                return sprintf('%F %F Td '.$raw, $posx, $posy);
+            case 'TD': // Same as: -posx TL posx posy Td
+                return sprintf('%F %F TD '.$raw, $posx, $posy);
             case 'T*': // Move to the start of the next line.
                 return sprintf('T* '.$raw);
         }

@@ -923,9 +923,27 @@ $pdf->page->addContent($bfont2['out']);
 // $pdf->page->addContent($pdf->font->getOutCurrentFont());
 
 // Add text
-$txt = $pdf->getTextLine('Test PDF text with justification (stretching).', 0, ($page11['pheight'] -  $bfont2['ascent']), $page11['pwidth']);
+$txt = $pdf->getTextLine(
+    'Test PDF text with justification (stretching).', 
+    0, 
+    $pdf->pointsToUserUnit($bfont2['ascent']), 
+    $page11['width']
+);
 
 $pdf->page->addContent($txt);
+
+// // get the coordinates of the box containing the last added text string.
+// $bbox = $pdf->getLastTextBBox();
+// // set link
+// $aoid = $pdf->setAnnotation(
+//     $bbox['llx'],
+//     $bbox['lly'],
+//     $bbox['urx'] - $bbox['llx'],
+//     $bbox['lly'] - $bbox['ury'],
+//     'https://tcpdf.org',
+//     array('subtype'=>'Link')
+// );
+// $pdf->page->addAnnotRef($aoid);
 
 // ----------
 

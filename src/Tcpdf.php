@@ -139,6 +139,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected $embeddedfiles = array();
 
     /**
+     * Annotations indexed bu object IDs.
+     *
+     * @var array
+     */
+    protected $annotation = array();
+
+    /**
      * Array containing the regular expression used to identify withespaces or word separators.
      *
      * @var array
@@ -354,5 +361,79 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
         $out .= $this->graph->getStopTransform();
         return $out;
+    }
+
+    /**
+     * Convert the input points value to the user units.
+     *
+     * @param float  $val  Value in internal points unit.
+     *
+     * @return float Value in user units.
+     */
+    public function pointsToUserUnit($val)
+    {
+        return ((float) $val / $this->kunit);
+    }
+
+    /**
+     * Convert the input value in user unit to internal points.
+     *
+     * @param float  $val  Value in user unit.
+     *
+     * @return float Value in internal points.
+     */
+    public function userToPointsUnit($val)
+    {
+        return ((float) $val * $this->kunit);
+    }
+
+    /**
+     * Add an annotation and returns the object id.
+     *
+     * @param float  $posx    Abscissa of upper-left corner.
+     * @param float  $posy    Ordinate of upper-left corner.
+     * @param float  $width   Width.
+     * @param float  $height  Height.
+     * @param string $txt     Annotation text or alternate content.
+     * @param array  $opt     Array of options (see section 8.4 of PDF reference 1.7).
+     * @param int    $spaces  Number of spaces on the text to link.
+     *
+     * @return int Object ID.
+     */
+    public function setAnnotation($posx, $posy, $width, $height, $txt, $opt = array('Subtype'=>'Text'))
+    {
+        $oid = ++$this->pon;
+        $this->annotation[$oid] = array(
+            'n' => $oid,
+            'x' => $posx,
+            'y' => $posy,
+            'w' => $width,
+            'h' => $height,
+            'txt' => $txt,
+            'opt' => $opt
+        );
+        switch (strtolower($opt['subtype'])) {
+            case 'fileattachment':
+            case 'sound':
+                $filekey = basename($opt['fs']);
+                if (isset($opt['fs']) && empty($this->embeddedfiles[$filekey])) {
+                    $this->embeddedfiles[$filekey] = array(
+                        'f' => ++$this->pon,
+                        'n' => ++$this->pon,
+                        'file' => $opt['fs']
+                    );
+                }
+        }
+        // Add widgets annotation's icons
+        if (isset($opt['mk']['i'])) {
+            $pdf->image->add($opt['mk']['i']);
+        }
+        if (isset($opt['mk']['ri'])) {
+            $pdf->image->add($opt['mk']['ri']);
+        }
+        if (isset($opt['mk']['ix'])) {
+            $pdf->image->add($opt['mk']['ix']);
+        }
+        return $oid;
     }
 }
