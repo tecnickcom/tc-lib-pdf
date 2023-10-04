@@ -926,7 +926,7 @@ $pdf->page->addContent($bfont2['out']);
 $txt = $pdf->getTextLine(
     'Test PDF text with justification (stretching).', 
     0, 
-    $pdf->pointsToUserUnit($bfont2['ascent']), 
+    $pdf->toUnit($bfont2['ascent']),
     $page11['width']
 );
 

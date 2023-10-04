@@ -588,10 +588,10 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             }
             $out .= sprintf(
                 ' /BBox [%F %F %F %F]',
-                $this->userToPointsUnit($data['x']),
-                $this->userToPointsUnit(-$data['y']),
-                $this->userToPointsUnit(($data['w'] + $data['x'])),
-                $this->userToPointsUnit(($data['h'] - $data['y']))
+                $this->toPoints($data['x']),
+                $this->toPoints(-$data['y']),
+                $this->toPoints(($data['w'] + $data['x'])),
+                $this->toPoints(($data['h'] - $data['y']))
             );
             $out .= ' /Matrix [1 0 0 1 0 0]'
                 .' /Resources <<'
@@ -691,8 +691,8 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
         foreach ($this->dests as $name => $dst) {
             $page = $this->page->getPage($dst['p']);
             $poid = $page['n'];
-            $pgx = $this->userToPointsUnit($dst['x']);
-            $pgy = ($page['pheight'] - $this->userToPointsUnit($dst['y']));
+            $pgx = $this->toPoints($dst['x']);
+            $pgy = $this->toYPoints($dst['y'], $page['pheight']);
             $out .= ' /'.$name.' '.sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
         }
         $out .= ' >>'."\n"
@@ -818,10 +818,10 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
                 $annot = $this->annotation[$oid];
                 $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
                 $out .= $this->getAnnotationRadiobuttonGroups($annot);
-                $orx = ($annot['x'] * $this->kunit);
-                $ory = ($page['pheight'] - (($annot['y'] + $annot['h']) * $this->kunit));
-                $width = ($annot['w'] * $this->kunit);
-                $height = ($annot['h'] * $this->kunit);
+                $orx = $this->toPoints($annot['x']);
+                $ory = $this->toYPoints(($annot['y'] + $annot['h']), $page['pheight']);
+                $width = $this->toPoints($annot['w']);
+                $height = $this->toPoints($annot['h']);
                 $rect = sprintf('%F %F %F %F', $orx, $ory, $orx+$width, $ory+$height);
                 $out .= $oid.' 0 obj'."\n"
                     .'<<'
@@ -1329,7 +1329,7 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             // internal link ID
             $l = $this->links[$annot['txt']];
             $page = $this->page->getPage($l['p']);
-            $y = ($page['height'] - $this->userToPointsUnit($l['y']));
+            $y = $this->toYPoints($l['y'], $page['height']);
             $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
         }
         $hmodes = array('N', 'I', 'O', 'P');
@@ -1368,7 +1368,7 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
         if (isset($annot['opt']['cl']) && is_array($annot['opt']['cl'])) {
             $out .= ' /CL [';
             foreach ($annot['opt']['cl'] as $cl) {
-                $out .= sprintf('%F ', $this->userToPointsUnit($cl));
+                $out .= sprintf('%F ', $this->toPoints($cl));
             }
             $out .= ']';
         }
@@ -1377,10 +1377,10 @@ abstract class Output extends \Com\Tecnick\Pdf\Text
             $out .= ' /IT /'.$annot['opt']['it'];
         }
         if (isset($annot['opt']['rd']) && is_array($annot['opt']['rd'])) {
-            $l = $this->userToPointsUnit($annot['opt']['rd'][0]);
-            $r = $this->userToPointsUnit($annot['opt']['rd'][1]);
-            $t = $this->userToPointsUnit($annot['opt']['rd'][2]);
-            $b = $this->userToPointsUnit($annot['opt']['rd'][3]);
+            $l = $this->toPoints($annot['opt']['rd'][0]);
+            $r = $this->toPoints($annot['opt']['rd'][1]);
+            $t = $this->toPoints($annot['opt']['rd'][2]);
+            $b = $this->toPoints($annot['opt']['rd'][3]);
             $out .= ' /RD ['.sprintf('%F %F %F %F', $l, $r, $t, $b).']';
         }
         $lineendings = array(

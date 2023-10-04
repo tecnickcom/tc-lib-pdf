@@ -364,27 +364,58 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
-     * Convert the input points value to the user units.
+     * Convert user units to internal points unit.
      *
-     * @param float  $val  Value in internal points unit.
+     * @param float $usr Value to convert.
      *
-     * @return float Value in user units.
+     * @return float
      */
-    public function pointsToUserUnit($val)
+    public function toPoints($usr)
     {
-        return ((float) $val / $this->kunit);
+        return ((float) $usr * $this->kunit);
     }
 
     /**
-     * Convert the input value in user unit to internal points.
+     * Convert internal points to user unit.
      *
-     * @param float  $val  Value in user unit.
+     * @param float $pnt Value to convert in user units.
      *
-     * @return float Value in internal points.
+     * @return float
      */
-    public function userToPointsUnit($val)
+    public function toUnit($pnt)
     {
-        return ((float) $val * $this->kunit);
+        return ((float) $pnt / $this->kunit);
+    }
+
+    /**
+     * Convert vertical user value to internal points unit.
+     * Note: the internal Y points coordinate starts at the bottom left of the page.
+     *
+     * @param float  $usr    Value to convert.
+     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
+     *
+     * @return float
+     */
+    public function toYPoints($usr, $pageh = -1)
+    {
+        $pageh = $pageh>=0?$pageh:$this->page->getPage()['pheight'];
+        return ($pageh - $this->toPoints($usr));
+    }
+
+
+    /**
+     * Convert vertical internal points value to user unit.
+     * Note: the internal Y points coordinate starts at the bottom left of the page.
+     *
+     * @param float  $usr    Value to convert.
+     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
+     *
+     * @return float
+     */
+    public function toYUnit($pnt, $pageh = -1)
+    {
+        $pageh = $pageh>=0?$pageh:$this->page->getPage()['pheight'];
+        return ($pageh - $this->toUnit($pnt));
     }
 
     /**

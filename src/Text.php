@@ -83,20 +83,20 @@ abstract class Text
         $curfont = $this->font->getCurrentFont();
         $this->lasttxtbbox = array(
             'x' => $posx,
-            'y' => ($posy - $this->pointsToUserUnit($curfont['ascent'])),
+            'y' => ($posy - $this->toUnit($curfont['ascent'])),
             'width' => $width,
-            'height' => ($this->pointsToUserUnit($curfont['ascent'] - $curfont['descent']))
+            'height' => $this->toUnit($curfont['ascent'] - $curfont['descent'])
         );
         $out = $this->getJustifiedString($txt, $width, $forcertl);
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
         $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
-        $out = $this->getOutTextStateOperator($out, 'w', $this->userToPointsUnit($strokewidth));
+        $out = $this->getOutTextStateOperator($out, 'w', $this->toPoints($strokewidth));
         $out = $this->getOutTextStateOperator($out, 'Tr', $trmode);
-        $out = $this->getOutTextStateOperator($out, 'Tw', $this->userToPointsUnit($wordspacing));
+        $out = $this->getOutTextStateOperator($out, 'Tw', $this->toPoints($wordspacing));
         $out = $this->getOutTextStateOperator($out, 'Tc', $curfont['spacing']);
         $out = $this->getOutTextStateOperator($out, 'Tz', $curfont['stretching']);
-        $out = $this->getOutTextStateOperator($out, 'TL', $this->userToPointsUnit($leading));
-        $out = $this->getOutTextStateOperator($out, 'Ts', $this->userToPointsUnit($rise));
+        $out = $this->getOutTextStateOperator($out, 'TL', $this->toPoints($leading));
+        $out = $this->getOutTextStateOperator($out, 'Ts', $this->toPoints($rise));
         $out = $this->getOutTextObject($out);
         return $out;
     }
@@ -132,15 +132,15 @@ abstract class Text
         // converts an UTF-8 string to an array of UTF-8 codepoints (integer values)
         $ordarr = $this->uniconv->strToOrdArr($txt);
         $dim = $this->font->getOrdArrDims($ordarr);
-        $width *= $this->kunit;
-        $spacewidth = (($width - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces']?$dim['spaces']:1));
+        $pwidth = $this->toPoints($width);
+        $spacewidth = (($pwidth - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces']?$dim['spaces']:1));
         if (!$this->isunicode) {
             $txt = $this->encrypt->escapeString($txt);
             $txt = $this->getOutTextShowing($txt, 'Tj');
-            if ($width > 0) {
-                return $this->getOutTextStateOperator($txt, 'Tw', $spacewidth * $this->kunit);
+            if ($pwidth > 0) {
+                return $this->getOutTextStateOperator($txt, 'Tw', $this->toPoints($spacewidth));
             }
-            $this->lasttxtbbox['width'] = $this->pointsToUserUnit($dim['totwidth']);
+            $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
             return $txt;
         }
         if ($this->font->isCurrentByteFont()) {
@@ -151,8 +151,8 @@ abstract class Text
             $txt = $this->uniconv->toUTF16BE($unistr);
         }
         $txt = $this->encrypt->escapeString($txt);
-        if ($width <= 0) {
-            $this->lasttxtbbox['width'] = $this->pointsToUserUnit($dim['totwidth']);
+        if ($pwidth <= 0) {
+            $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
             return $this->getOutTextShowing($txt, 'Tj');
         }
         $fontsize = $this->font->getCurrentFont()['size']?$this->font->getCurrentFont()['size']:1;
@@ -174,13 +174,13 @@ abstract class Text
     protected function getOutTextPosXY($raw, $posx = 0, $posy = 0, $mode = 'Td')
     {
         
-        $posx *= $this->kunit;
-        $posy = $this->page->getPage()['pheight'] - ($posy * $this->kunit);
+        $pntx = $this->toPoints($posx);
+        $pnty = $this->toYPoints($posy);
         switch ($mode) {
             case 'Td': // Move to the start of the next line, offset from the start of the current line by (posx, posy).
-                return sprintf('%F %F Td '.$raw, $posx, $posy);
+                return sprintf('%F %F Td '.$raw, $pntx, $pnty);
             case 'TD': // Same as: -posx TL posx posy Td
-                return sprintf('%F %F TD '.$raw, $posx, $posy);
+                return sprintf('%F %F TD '.$raw, $pntx, $pnty);
             case 'T*': // Move to the start of the next line.
                 return sprintf('T* '.$raw);
         }
@@ -220,7 +220,7 @@ abstract class Text
      *
      * @param string     $raw    Raw PDf data to be wrapped by this command.
      * @param string     $param  Text state parameter to apply (one of: Tc, Tw, Tz, TL, Tf, Tr, Ts, w)
-     * @param int|float  $value  Value to apply.
+     * @param int|float  $value  Raw value to apply in internal units.
      *
      * @return string
      */
@@ -231,17 +231,17 @@ abstract class Text
                 if ($value == 0) {
                     break;
                 }
-                return sprintf('%F Tc '.$raw.' 0 Tc', ($value * $this->kunit));
+                return sprintf('%F Tc '.$raw.' 0 Tc', $value);
             case 'Tw': // word spacing
                 if ($value == 0) {
                     break;
                 }
-                return sprintf('%F Tw '.$raw.' 0 Tw', ($value * $this->kunit));
+                return sprintf('%F Tw '.$raw.' 0 Tw', $value);
             case 'Tz': // horizontal scaling
                 if ($value == 1) {
                     break;
                 }
-                return sprintf('%F Tz '.$raw.' 100 Tz', ($value * 100));
+                return sprintf('%F Tz '.$raw.' 100 Tz', $value);
             case 'TL': // text leading
                 if ($value == 0) {
                     break;
@@ -258,7 +258,7 @@ abstract class Text
                 }
                 return sprintf('%F Ts '.$raw.' 0 Ts', $value);
             case 'w': // stroke width
-                return sprintf('%F w '.$raw, ($value > 0 ? ($value * $this->kunit) : 0));
+                return sprintf('%F w '.$raw, ($value > 0 ? $value : 0));
         }
         return $raw;
     }
