@@ -29,14 +29,12 @@ use \Com\Tecnick\Unicode\Bidi;
  * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
- *
- * @SuppressWarnings(PHPMD)
  */
-abstract class Text
+abstract class Text extends \Com\Tecnick\Pdf\Cell
 {
     
     /**
-     * Last text bounding box [x, y, width, height].
+     * Last text bounding box [x, y, width, height] in user units.
      *
      * @var array
      */
