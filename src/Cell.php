@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Text.php
  *
@@ -39,7 +40,7 @@ abstract class Cell
         'margin'  => array('T' => 0, 'R' => 0, 'B' => 0, 'L' => 0),
         'padding' => array('T' => 0, 'R' => 0, 'B' => 0, 'L' => 0)
     );
-    
+
     /**
      * Set the default cell margin in user units.
      *
@@ -119,7 +120,7 @@ abstract class Cell
             case 'T': // Top
                 return ($pnty - $cell['padding']['T']);
             case 'C': // Center
-                return ($pnty - (($pheight - $curfont['ascent'] - $curfont['descent'])/2));
+                return ($pnty - (($pheight - $curfont['ascent'] - $curfont['descent']) / 2));
             case 'B': // Bottom
                 return ($pnty - $pheight + $cell['padding']['B'] + $curfont['ascent'] + $curfont['descent']);
         }
@@ -146,7 +147,7 @@ abstract class Cell
             case 'T': // Top
                 return ($pnty + $cell['padding']['T']);
             case 'C': // Center
-                return ($pnty + (($pheight - $curfont['ascent'] - $curfont['descent'])/2));
+                return ($pnty + (($pheight - $curfont['ascent'] - $curfont['descent']) / 2));
             case 'B': // Bottom
                 return ($pnty + $pheight - $cell['padding']['B'] - $curfont['ascent'] - $curfont['descent']);
         }
