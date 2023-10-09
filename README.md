@@ -3,14 +3,15 @@
 
 # UNDER DEVELOPMENT (NOT READY)
 
-UPDATE: CURRENTLY ALL THE DEPENDENCY LIBRARIES ARE ALMOST COMPLETE
-BUT THE CORE LIBRARY STILL REQUIRES A SIGNIFICANT AMOUNT OF WORK TO BE COMPLETED.
+UPDATE: CURRENTLY ALL THE DEPENDENCY LIBRARIES COMPLETE.
+THE CORE LIBRARY CONTAINS PRIMITIVE METHODS TO GENERATE A PDF DOC.
+MISSING: advanced text methods, html and css parsing.
 
 [![Latest Stable Version](https://poser.pugx.org/tecnickcom/tc-lib-pdf/version)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
-[![Master Build Status](https://secure.travis-ci.org/tecnickcom/tc-lib-pdf.png?branch=main)](https://travis-ci.org/tecnickcom/tc-lib-pdf?branch=main)
-[![Master Coverage Status](https://coveralls.io/repos/tecnickcom/tc-lib-pdf/badge.svg?branch=main&service=github)](https://coveralls.io/github/tecnickcom/tc-lib-pdf?branch=main)
+![Build](https://github.com/tecnickcom/tc-lib-pdf/actions/workflows/check.yml/badge.svg)
+[![Coverage](https://coveralls.io/repos/tecnickcom/tc-lib-pdf/badge.svg?branch=main&service=github)](https://coveralls.io/github/tecnickcom/tc-lib-pdf?branch=main)
 [![License](https://poser.pugx.org/tecnickcom/tc-lib-pdf/license)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
-[![Total Downloads](https://poser.pugx.org/tecnickcom/tc-lib-pdf/downloads)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
+[![Downloads](https://poser.pugx.org/tecnickcom/tc-lib-pdf/downloads)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 
 [![Donate via PayPal](https://img.shields.io/badge/donate-paypal-87ceeb.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&currency_code=GBP&business=paypal@tecnick.com&item_name=donation%20for%20tc-lib-pdf%20project)
 *Please consider supporting this project by making a donation via [PayPal](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&currency_code=GBP&business=paypal@tecnick.com&item_name=donation%20for%20tc-lib-pdf%20project)*

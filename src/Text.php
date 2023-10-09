@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Text.php
  *
@@ -15,7 +16,7 @@
 
 namespace Com\Tecnick\Pdf;
 
-use \Com\Tecnick\Unicode\Bidi;
+use Com\Tecnick\Unicode\Bidi;
 
 /**
  * Com\Tecnick\Pdf\Text
@@ -29,22 +30,19 @@ use \Com\Tecnick\Unicode\Bidi;
  * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
- *
- * @SuppressWarnings(PHPMD)
  */
-abstract class Text
+abstract class Text extends \Com\Tecnick\Pdf\Cell
 {
-    
     /**
-     * Last text bounding box [x, y, width, height].
+     * Last text bounding box [x, y, width, height] in user units.
      *
      * @var array
      */
     protected $lasttxtbbox = array(
-        'x'=>0,
-        'y'=>0,
-        'width'=>0,
-        'height'=>0
+        'x' => 0,
+        'y' => 0,
+        'width' => 0,
+        'height' => 0
     );
 
     /**
@@ -79,7 +77,7 @@ abstract class Text
         $clip = false,
         $forcertl = false
     ) {
-        $width = $width>0?$width:0;
+        $width = $width > 0 ? $width : 0;
         $curfont = $this->font->getCurrentFont();
         $this->lasttxtbbox = array(
             'x' => $posx,
@@ -133,7 +131,7 @@ abstract class Text
         $ordarr = $this->uniconv->strToOrdArr($txt);
         $dim = $this->font->getOrdArrDims($ordarr);
         $pwidth = $this->toPoints($width);
-        $spacewidth = (($pwidth - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces']?$dim['spaces']:1));
+        $spacewidth = (($pwidth - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces'] ? $dim['spaces'] : 1));
         if (!$this->isunicode) {
             $txt = $this->encrypt->escapeString($txt);
             $txt = $this->getOutTextShowing($txt, 'Tj');
@@ -155,9 +153,9 @@ abstract class Text
             $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
             return $this->getOutTextShowing($txt, 'Tj');
         }
-        $fontsize = $this->font->getCurrentFont()['size']?$this->font->getCurrentFont()['size']:1;
+        $fontsize = $this->font->getCurrentFont()['size'] ? $this->font->getCurrentFont()['size'] : 1;
         $spacewidth = -1000 * $spacewidth / $fontsize;
-        $txt = str_replace(chr(0).chr(32), ') '.sprintf('%F', $spacewidth).' (', $txt);
+        $txt = str_replace(chr(0) . chr(32), ') ' . sprintf('%F', $spacewidth) . ' (', $txt);
         return $this->getOutTextShowing($txt, 'TJ');
     }
 
@@ -173,16 +171,16 @@ abstract class Text
      */
     protected function getOutTextPosXY($raw, $posx = 0, $posy = 0, $mode = 'Td')
     {
-        
+
         $pntx = $this->toPoints($posx);
         $pnty = $this->toYPoints($posy);
         switch ($mode) {
             case 'Td': // Move to the start of the next line, offset from the start of the current line by (posx, posy).
-                return sprintf('%F %F Td '.$raw, $pntx, $pnty);
+                return sprintf('%F %F Td ' . $raw, $pntx, $pnty);
             case 'TD': // Same as: -posx TL posx posy Td
-                return sprintf('%F %F TD '.$raw, $pntx, $pnty);
+                return sprintf('%F %F TD ' . $raw, $pntx, $pnty);
             case 'T*': // Move to the start of the next line.
-                return sprintf('T* '.$raw);
+                return sprintf('T* ' . $raw);
         }
         return '';
     }
@@ -212,7 +210,7 @@ abstract class Text
         // 101 = Fill text and add to path for clipping.
         // 110 = Stroke text and add to path for clipping.
         // 111 = Fill, then stroke text and add to path for clipping.
-        return ($mode -1);
+        return ($mode - 1);
     }
 
     /**
@@ -231,34 +229,34 @@ abstract class Text
                 if ($value == 0) {
                     break;
                 }
-                return sprintf('%F Tc '.$raw.' 0 Tc', $value);
+                return sprintf('%F Tc ' . $raw . ' 0 Tc', $value);
             case 'Tw': // word spacing
                 if ($value == 0) {
                     break;
                 }
-                return sprintf('%F Tw '.$raw.' 0 Tw', $value);
+                return sprintf('%F Tw ' . $raw . ' 0 Tw', $value);
             case 'Tz': // horizontal scaling
                 if ($value == 1) {
                     break;
                 }
-                return sprintf('%F Tz '.$raw.' 100 Tz', $value);
+                return sprintf('%F Tz ' . $raw . ' 100 Tz', $value);
             case 'TL': // text leading
                 if ($value == 0) {
                     break;
                 }
-                return sprintf('%F TL '.$raw.' 0 TL', $value);
+                return sprintf('%F TL ' . $raw . ' 0 TL', $value);
             case 'Tr': // text rendering
                 if (($value < 0) || ($value > 7)) {
                     break;
                 }
-                return sprintf('%d Tr '.$raw, $value);
+                return sprintf('%d Tr ' . $raw, $value);
             case 'Ts': // text rise
                 if ($value == 0) {
                     break;
                 }
-                return sprintf('%F Ts '.$raw.' 0 Ts', $value);
+                return sprintf('%F Ts ' . $raw . ' 0 Ts', $value);
             case 'w': // stroke width
-                return sprintf('%F w '.$raw, ($value > 0 ? $value : 0));
+                return sprintf('%F w ' . $raw, ($value > 0 ? $value : 0));
         }
         return $raw;
     }
@@ -277,7 +275,7 @@ abstract class Text
             return '';
         }
         return sprintf(
-            '%F %F %F %F %F %F Tm '.$raw,
+            '%F %F %F %F %F %F Tm ' . $raw,
             $matrix[0],
             $matrix[1],
             $matrix[2],
@@ -299,11 +297,11 @@ abstract class Text
     {
         switch ($mode) {
             case 'Tj': // Show a text string.
-                return '('.$str.') Tj';
+                return '(' . $str . ') Tj';
             case 'TJ': // Show one or more text strings, allowing individual glyph positioning.
-                return '[('.$str.')] TJ';
+                return '[(' . $str . ')] TJ';
             case '\'': // Move to the next line and show a text string. Same as: T* $str Tj
-                return '('.$str.') \'';
+                return '(' . $str . ') \'';
         }
         return '';
     }
@@ -317,7 +315,7 @@ abstract class Text
      */
     protected function getOutTextObject($raw = '')
     {
-        return 'BT '.$raw.' BE'."\r";
+        return 'BT ' . $raw . ' BE' . "\r";
     }
 
     /**

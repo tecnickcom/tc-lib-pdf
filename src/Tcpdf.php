@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tcpdf.php
  *
@@ -15,8 +16,8 @@
 
 namespace Com\Tecnick\Pdf;
 
-use \Com\Tecnick\Pdf\Exception as PdfException;
-use \Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -175,7 +176,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->docmodtime = $this->doctime;
         $seedobj = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
         $this->fileid = md5($seedobj->encrypt('TCPDF'));
-        $this->setPDFFilename($this->fileid.'.pdf');
+        $this->setPDFFilename($this->fileid . '.pdf');
         $this->unit = $unit;
         $this->setUnicodeMode($isunicode);
         $this->subsetfont = (bool) $subsetfont;
@@ -398,7 +399,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function toYPoints($usr, $pageh = -1)
     {
-        $pageh = $pageh>=0?$pageh:$this->page->getPage()['pheight'];
+        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
         return ($pageh - $this->toPoints($usr));
     }
 
@@ -414,7 +415,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function toYUnit($pnt, $pageh = -1)
     {
-        $pageh = $pageh>=0?$pageh:$this->page->getPage()['pheight'];
+        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
         return ($pageh - $this->toUnit($pnt));
     }
 
@@ -431,7 +432,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * @return int Object ID.
      */
-    public function setAnnotation($posx, $posy, $width, $height, $txt, $opt = array('Subtype'=>'Text'))
+    public function setAnnotation($posx, $posy, $width, $height, $txt, $opt = array('Subtype' => 'Text'))
     {
         $oid = ++$this->pon;
         $this->annotation[$oid] = array(

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * MetaInfo.php
  *
@@ -35,7 +36,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      *
      * @var string
      */
-    protected $version = '8.0.27';
+    protected $version = '8.0.28';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -260,7 +261,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         if ($this->isunicode) {
             $str = $this->uniconv->toUTF16BE($str);
             if ($bom) {
-                $str = "\xFE\xFF".$str; // Byte Order Mark (BOM)
+                $str = "\xFE\xFF" . $str; // Byte Order Mark (BOM)
             }
         }
         return $this->encrypt->escapeDataString($str, $oid);
@@ -275,7 +276,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      */
     protected function getFormattedDate($time)
     {
-        return substr_replace(date('YmdHisO', intval($time)), '\'', (0 - 2), 0).'\'';
+        return substr_replace(date('YmdHisO', intval($time)), '\'', (0 - 2), 0) . '\'';
     }
 
     /**
@@ -298,10 +299,10 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
     protected function getProducer()
     {
         return "\x54\x43\x50\x44\x46\x20"
-        .$this->version
-        ."\x20\x28\x68\x74\x74\x70\x73\x3a\x2f\x2f\x74\x63\x70\x64\x66\x2e\x6f\x72\x67\x29";
+        . $this->version
+        . "\x20\x28\x68\x74\x74\x70\x73\x3a\x2f\x2f\x74\x63\x70\x64\x66\x2e\x6f\x72\x67\x29";
     }
-    
+
     /**
      * Returns a formatted date for meta information
      *
@@ -315,7 +316,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         if (empty($time)) {
             $time = $this->doctime;
         }
-        return $this->encrypt->escapeDataString('D:'.$this->getFormattedDate($time), $oid);
+        return $this->encrypt->escapeDataString('D:' . $this->getFormattedDate($time), $oid);
     }
 
     /**
@@ -328,19 +329,19 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
     {
         $oid = ++$this->pon;
         $this->objid['info'] = $oid;
-        $out = $oid.' 0 obj'."\n"
-        .'<<'
-        .' /Creator '.$this->getOutTextString($this->creator, $oid, true)
-        .' /Author '.$this->getOutTextString($this->author, $oid, true)
-        .' /Subject '.$this->getOutTextString($this->subject, $oid, true)
-        .' /Title '.$this->getOutTextString($this->title, $oid, true)
-        .' /Keywords '.$this->getOutTextString($this->keywords, $oid, true)
-        .' /Producer '.$this->getOutTextString($this->getProducer(), $oid, true)
-        .' /CreationDate '.$this->getOutDateTimeString($this->doctime, $oid)
-        .' /ModDate '.$this->getOutDateTimeString($this->docmodtime, $oid)
-        .' /Trapped /False'
-        .' >>'."\n"
-        .'endobj'."\n";
+        $out = $oid . ' 0 obj' . "\n"
+        . '<<'
+        . ' /Creator ' . $this->getOutTextString($this->creator, $oid, true)
+        . ' /Author ' . $this->getOutTextString($this->author, $oid, true)
+        . ' /Subject ' . $this->getOutTextString($this->subject, $oid, true)
+        . ' /Title ' . $this->getOutTextString($this->title, $oid, true)
+        . ' /Keywords ' . $this->getOutTextString($this->keywords, $oid, true)
+        . ' /Producer ' . $this->getOutTextString($this->getProducer(), $oid, true)
+        . ' /CreationDate ' . $this->getOutDateTimeString($this->doctime, $oid)
+        . ' /ModDate ' . $this->getOutDateTimeString($this->docmodtime, $oid)
+        . ' /Trapped /False'
+        . ' >>' . "\n"
+        . 'endobj' . "\n";
         return $out;
     }
 
@@ -391,12 +392,12 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      */
     protected function getOutXMP()
     {
-        $uuid = 'uuid:'.substr($this->fileid, 0, 8)
-        .'-'.substr($this->fileid, 8, 4)
-        .'-'.substr($this->fileid, 12, 4)
-        .'-'.substr($this->fileid, 16, 4)
-        .'-'.substr($this->fileid, 20, 12);
-        
+        $uuid = 'uuid:' . substr($this->fileid, 0, 8)
+        . '-' . substr($this->fileid, 8, 4)
+        . '-' . substr($this->fileid, 12, 4)
+        . '-' . substr($this->fileid, 16, 4)
+        . '-' . substr($this->fileid, 20, 12);
+
         // @codingStandardsIgnoreStart
         $xmp = '<?xpacket begin="'.$this->uniconv->chr(0xfeff).'" id="W5M0MpCehiHzreSzNTczkc9d"?>'."\n"
         .'<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 4.2.1-c043 52.372728, 2009/01/18-15:08:04">'."\n"
@@ -509,15 +510,15 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
 
         $oid = ++$this->pon;
         $this->objid['xmp'] = $oid;
-        $out = $oid.' 0 obj'."\n"
-        .'<<'
-        .' /Type /Metadata'
-        .' /Subtype /XML'
-        .' /Length '.strlen($xmp)
-        .' >> stream'."\n"
-        .$xmp."\n"
-        .'endstream'."\n"
-        .'endobj'."\n";
+        $out = $oid . ' 0 obj' . "\n"
+        . '<<'
+        . ' /Type /Metadata'
+        . ' /Subtype /XML'
+        . ' /Length ' . strlen($xmp)
+        . ' >> stream' . "\n"
+        . $xmp . "\n"
+        . 'endstream' . "\n"
+        . 'endobj' . "\n";
 
         return $out;
     }
@@ -561,7 +562,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
                 $box = $this->page->$box[$val];
             }
         }
-        return ' /'.$name.' /'.$box;
+        return ' /' . $name . ' /' . $box;
     }
 
     /**
@@ -582,7 +583,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
                 $mode = $valid[$name];
             }
         }
-        return ' /PrintScaling /'.$mode;
+        return ' /PrintScaling /' . $mode;
     }
 
     /**
@@ -604,7 +605,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
                 $mode = $valid[$name];
             }
         }
-        return ' /Duplex /'.$mode;
+        return ' /Duplex /' . $mode;
     }
 
     /**
@@ -617,7 +618,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
     protected function getBooleanMode($name)
     {
         if (isset($this->viewerpref[$name])) {
-            return ' /'.$name.' '.var_export((bool)$this->viewerpref[$name], true);
+            return ' /' . $name . ' ' . var_export((bool)$this->viewerpref[$name], true);
         }
         return '';
     }
@@ -643,7 +644,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         $out .= $this->getBooleanMode('CenterWindow');
         $out .= $this->getBooleanMode('DisplayDocTitle');
         if (isset($vpr['NonFullScreenPageMode'])) {
-            $out .= ' /NonFullScreenPageMode /'.$this->page->getDisplay($vpr['NonFullScreenPageMode']);
+            $out .= ' /NonFullScreenPageMode /' . $this->page->getDisplay($vpr['NonFullScreenPageMode']);
         }
         $out .= $this->getPageBoxName('ViewArea');
         $out .= $this->getPageBoxName('ViewClip');
@@ -655,12 +656,12 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
         if (isset($vpr['PrintPageRange'])) {
             $PrintPageRangeNum = '';
             foreach ($vpr['PrintPageRange'] as $pnum) {
-                $PrintPageRangeNum .= ' '.($pnum - 1).'';
+                $PrintPageRangeNum .= ' ' . ($pnum - 1) . '';
             }
-            $out .= ' /PrintPageRange ['.$PrintPageRangeNum.' ]';
+            $out .= ' /PrintPageRange [' . $PrintPageRangeNum . ' ]';
         }
         if (isset($vpr['NumCopies'])) {
-            $out .= ' /NumCopies '.intval($vpr['NumCopies']);
+            $out .= ' /NumCopies ' . intval($vpr['NumCopies']);
         }
         $out .= ' >>';
         return $out;
