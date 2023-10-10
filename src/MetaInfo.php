@@ -16,6 +16,8 @@
 
 namespace Com\Tecnick\Pdf;
 
+use Com\Tecnick\Pdf\Exception as PdfException;
+
 /**
  * Com\Tecnick\Pdf\MetaInfo
  *
@@ -29,105 +31,8 @@ namespace Com\Tecnick\Pdf;
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  */
-abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
+abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
 {
-    /**
-     * TCPDF version.
-     *
-     * @var string
-     */
-    protected $version = '8.0.28';
-
-    /**
-     * Time is seconds since EPOCH when the document was created.
-     *
-     * @var int
-     */
-    protected $doctime = 0;
-
-    /**
-     *  Time is seconds since EPOCH when the document was modified.
-     *
-     * @var int
-     */
-    protected $docmodtime = 0;
-
-    /**
-     * The name of the application that generates the PDF.
-     *
-     * If the document was converted to PDF from another format,
-     * the name of the conforming product that created the original document from which it was converted.
-     *
-     * @var string
-     */
-    protected $creator = 'TCPDF';
-
-    /**
-     * The name of the person who created the document.
-     *
-     * @var string
-     */
-    protected $author = 'TCPDF';
-
-    /**
-     * Subject of the document.
-     *
-     * @var string
-     */
-    protected $subject = '-';
-
-    /**
-     * Title of the document.
-     *
-     * @var string
-     */
-    protected $title = 'PDF Document';
-
-    /**
-     * Space-separated list of keywords associated with the document.
-     *
-     * @var string
-     */
-    protected $keywords = 'TCPDF';
-
-    /**
-     * Additional XMP data to be appended just before the end of "x:xmpmeta" tag.
-     *
-     * @var string
-     */
-    protected $custom_xmp = '';
-
-    /**
-     * Additional XMP RDF data to be appended just before the end of "rdf:RDF" tag.
-     *
-     * @var string
-     */
-    protected $custom_xmp_rdf = '';
-
-    /**
-     * Set this to TRUE to add the default sRGB ICC color profile
-     *
-     * @var bool
-     */
-    protected $sRGB = false;
-
-    /**
-     * Viewer preferences dictionary controlling the way the document is to be presented on the screen or in print.
-     * (Section 8.1 of PDF reference, "Viewer Preferences").
-     *
-     * @var array
-     */
-    protected $viewerpref = array();
-
-    /**
-     * Boolean flag to set the default document language direction.
-     *    False = LTR = Left-To-Right.
-     *    True = RTL = Right-To-Left.
-     *
-     * @val bool
-     */
-    protected $rtl = false;
-
     /**
      * Valid document zoom modes
      *
@@ -243,7 +148,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Output
      */
     public function setSRGB($enabled)
     {
-        $this->srgb = (bool) $enabled;
+        $this->sRGB = (bool) $enabled;
         return $this;
     }
 

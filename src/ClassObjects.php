@@ -41,78 +41,8 @@ use Com\Tecnick\Pdf\Image\Import as ObjImage;
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  */
-abstract class ClassObjects extends \Com\Tecnick\Pdf\MetaInfo
+abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
 {
-    /**
-     * Encrypt object
-     *
-     * @var \Com\Tecnick\Pdf\Encrypt\Encrypt
-     */
-    public $encrypt;
-
-    /**
-     * Color object
-     *
-     * @var \Com\Tecnick\Color\Pdf
-     */
-    public $color;
-
-    /**
-     * Barcode object
-     *
-     * @var \Com\Tecnick\Barcode\Barcode
-     */
-    public $barcode;
-
-    /**
-     * File object
-     *
-     * @var \Com\Tecnick\File\File
-     */
-    public $file;
-
-    /**
-     * Cache object
-     *
-     * @var \Com\Tecnick\File\Cache
-     */
-    public $cache;
-
-    /**
-     * Unicode Convert object
-     *
-     * @var \Com\Tecnick\Unicode\Convert
-     */
-    public $uniconv;
-
-    /**
-     * Page object
-     *
-     * @var \Com\Tecnick\Pdf\Page\Page
-     */
-    public $page;
-
-    /**
-     * Graph object
-     *
-     * @var \Com\Tecnick\Pdf\Graph\Draw
-     */
-    public $graph;
-
-    /**
-     * Font object
-     *
-     * @var \Com\Tecnick\Pdf\Font\Stack
-     */
-    public $font;
-
-    /**
-     * Image Import object
-     *
-     * @var \Com\Tecnick\Pdf\Image\Import
-     */
-    public $image;
-
     /**
      * Initialize class objects
      */

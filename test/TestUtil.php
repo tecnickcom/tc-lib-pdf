@@ -34,7 +34,8 @@ class TestUtil extends TestCase
     public function bcAssertEqualsWithDelta($expected, $actual, $delta = 0.01, $message = '')
     {
         if (\is_callable([self::class, 'assertEqualsWithDelta'])) {
-            return parent::assertEqualsWithDelta($expected, $actual, $delta, $message);
+            parent::assertEqualsWithDelta($expected, $actual, $delta, $message);
+            return;
         }
         return $this->assertEquals($expected, $actual, $message, $delta);
     }
@@ -42,7 +43,8 @@ class TestUtil extends TestCase
     public function bcExpectException($exception)
     {
         if (\is_callable([self::class, 'expectException'])) {
-            return parent::expectException($exception);
+            parent::expectException($exception);
+            return;
         }
         return parent::setExpectedException($exception);
     }
@@ -50,7 +52,8 @@ class TestUtil extends TestCase
     public function bcAssertIsResource($res)
     {
         if (\is_callable([self::class, 'assertIsResource'])) {
-            return parent::assertIsResource($res);
+            parent::assertIsResource($res);
+            return;
         }
         return parent::assertInternalType('resource', $res);
     }
@@ -58,7 +61,8 @@ class TestUtil extends TestCase
     public function bcAssertMatchesRegularExpression($pattern, $string, $message = '')
     {
         if (\is_callable([self::class, 'assertMatchesRegularExpression'])) {
-            return parent::assertMatchesRegularExpression($pattern, $string, $message);
+            parent::assertMatchesRegularExpression($pattern, $string, $message);
+            return;
         }
         return parent::assertRegExp($pattern, $string, $message);
     }

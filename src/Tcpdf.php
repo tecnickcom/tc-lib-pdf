@@ -31,128 +31,12 @@ use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
  * @copyright   2002-2017 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
+ *
+ *
+ * @SuppressWarnings(PHPMD.DepthOfInheritance)
  */
 class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 {
-    /**
-     * Document ID.
-     *
-     * @var string
-     */
-    protected $fileid;
-
-    /**
-     * Unit of measure.
-     *
-     * @var string
-     */
-    protected $unit = 'mm';
-
-    /**
-     * Unit of measure conversion ratio.
-     *
-     * @var float
-     */
-    protected $kunit = 1.0;
-
-    /**
-     * Version of the PDF/A mode or 0 otherwise.
-     *
-     * @var int
-     */
-    protected $pdfa = 0;
-
-    /**
-     * Enable stream compression.
-     *
-     * @var int
-     */
-    protected $compress = true;
-
-    /**
-     * True if we are in PDF/X mode.
-     *
-     * @var bool
-     */
-    protected $pdfx = false;
-
-    /**
-     * True if the document is signed.
-     *
-     * @var bool
-     */
-    protected $sign = false;
-
-    /**
-     * True if the signature approval is enabled (for incremental updates).
-     *
-     * @var bool
-     */
-    protected $sigapp = false;
-
-    /**
-     * True to subset the fonts.
-     *
-     * @var boolean
-     */
-    protected $subsetfont = false;
-
-    /**
-     * True for Unicode font mode.
-     *
-     * @var boolean
-     */
-    protected $isunicode = true;
-
-    /**
-     * Document encoding.
-     *
-     * @var string
-     */
-    protected $encoding = 'UTF-8';
-
-    /**
-     * Current PDF object number.
-     *
-     * @var int
-     */
-    public $pon = 0;
-
-    /**
-     * PDF version.
-     *
-     * @var string
-     */
-    protected $pdfver = '1.7';
-
-    /**
-     * Defines the way the document is to be displayed by the viewer.
-     *
-     * @var string
-     */
-    protected $display = array('zoom' => 'default', 'layout' => 'SinglePage', 'mode' => 'UseNone');
-
-    /**
-     * Embedded files data.
-     *
-     * @var array
-     */
-    protected $embeddedfiles = array();
-
-    /**
-     * Annotations indexed bu object IDs.
-     *
-     * @var array
-     */
-    protected $annotation = array();
-
-    /**
-     * Array containing the regular expression used to identify withespaces or word separators.
-     *
-     * @var array
-     */
-    protected $spaceregexp = array('r' => '/[^\S\xa0]/', 'p' => '[^\S\xa0]', 'm' => '');
-
     /**
      * Initialize a new PDF object.
      *
@@ -365,61 +249,6 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
-     * Convert user units to internal points unit.
-     *
-     * @param float $usr Value to convert.
-     *
-     * @return float
-     */
-    public function toPoints($usr)
-    {
-        return ((float) $usr * $this->kunit);
-    }
-
-    /**
-     * Convert internal points to user unit.
-     *
-     * @param float $pnt Value to convert in user units.
-     *
-     * @return float
-     */
-    public function toUnit($pnt)
-    {
-        return ((float) $pnt / $this->kunit);
-    }
-
-    /**
-     * Convert vertical user value to internal points unit.
-     * Note: the internal Y points coordinate starts at the bottom left of the page.
-     *
-     * @param float  $usr    Value to convert.
-     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
-     *
-     * @return float
-     */
-    public function toYPoints($usr, $pageh = -1)
-    {
-        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
-        return ($pageh - $this->toPoints($usr));
-    }
-
-
-    /**
-     * Convert vertical internal points value to user unit.
-     * Note: the internal Y points coordinate starts at the bottom left of the page.
-     *
-     * @param float  $usr    Value to convert.
-     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
-     *
-     * @return float
-     */
-    public function toYUnit($pnt, $pageh = -1)
-    {
-        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
-        return ($pageh - $this->toUnit($pnt));
-    }
-
-    /**
      * Add an annotation and returns the object id.
      *
      * @param float  $posx    Abscissa of upper-left corner.
@@ -458,13 +287,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
         // Add widgets annotation's icons
         if (isset($opt['mk']['i'])) {
-            $pdf->image->add($opt['mk']['i']);
+            $this->image->add($opt['mk']['i']);
         }
         if (isset($opt['mk']['ri'])) {
-            $pdf->image->add($opt['mk']['ri']);
+            $this->image->add($opt['mk']['ri']);
         }
         if (isset($opt['mk']['ix'])) {
-            $pdf->image->add($opt['mk']['ix']);
+            $this->image->add($opt['mk']['ix']);
         }
         return $oid;
     }

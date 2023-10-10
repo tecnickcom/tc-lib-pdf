@@ -267,4 +267,4 @@ uninstall:
 
 # set the version
 version:
-	sed -i -e "s/protected \$$version = '.*';/protected \$$version = '${VERSION}';/g" src/MetaInfo.php
+	sed -i -e "s/protected \$$version = '.*';/protected \$$version = '${VERSION}';/g" src/Output.php
