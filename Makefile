@@ -4,7 +4,7 @@
 # @category    Library
 # @package     Pdf
 # @author      Nicola Asuni <info@tecnick.com>
-# @copyright   2015-2020 Nicola Asuni - Tecnick.com LTD
+# @copyright   2015-2023 Nicola Asuni - Tecnick.com LTD
 # @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
 # @link        https://github.com/tecnickcom/tc-lib-pdf
 #
