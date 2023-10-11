@@ -231,7 +231,7 @@ abstract class Base
     /**
      * Enable stream compression.
      *
-     * @var int
+     * @var bool
      */
     protected $compress = true;
 
@@ -294,7 +294,7 @@ abstract class Base
     /**
      * Defines the way the document is to be displayed by the viewer.
      *
-     * @var string
+     * @var array
      */
     protected $display = array('zoom' => 'default', 'layout' => 'SinglePage', 'mode' => 'UseNone');
 

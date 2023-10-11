@@ -84,7 +84,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * Convert vertical internal points value to user unit.
      * Note: the internal Y points coordinate starts at the bottom left of the page.
      *
-     * @param float  $usr    Value to convert.
+     * @param float  $pnt    Value to convert.
      * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
      *
      * @return float
@@ -230,7 +230,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param array  $styles Array of styles - one style entry for each side (T,R,B,L) and/or one global "all" entry.
      * @param array  $cell   Optional cell parameters for padding, margin etc.
      *
-     * @return float
+     * @return array
      */
     protected function adjustMinCellPadding(array $styles = array(), array $cell = array())
     {

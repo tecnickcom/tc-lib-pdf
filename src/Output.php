@@ -158,8 +158,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF Trailer section.
      *
-     * @param array $offset Ordered offset array for each PDF object
-     *
      * @return string
      */
     protected function getOutPDFTrailer()
@@ -498,7 +496,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * @param int $height annotation height
      * @param string $stream appearance stream
      *
-     * @return int
+     * @return string
      */
     protected function getOutAPXObjects($width = 0, $height = 0, $stream = '')
     {
@@ -804,7 +802,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     . ' /NM ' . $this->encrypt->escapeDataString(sprintf('%04u-%04u', $page['num'], $key), $oid)
                     . ' /M ' . $this->getOutDateTimeString($this->docmodtime, $oid)
                     . $this->getOutAnnotationFlags($annot)
-                    . $this->getAnnotationAppearanceStream($annot, $width, $height)
+                    . $this->getAnnotationAppearanceStream($annot, (int)$width, (int)$height)
                     . $this->getAnnotationBorder($annot);
                 if (!empty($annot['opt']['c']) && is_array($annot['opt']['c'])) {
                     $out .= ' /C ' . $this->getColorStringFromArray($annot['opt']['c']);
@@ -1878,7 +1876,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutJavascript()
     {
         if (($this->pdfa > 0) || (empty($this->javascript) && empty($this->jsobjects))) {
-            return;
+            return '';
         }
         if (strpos($this->javascript, 'this.addField') > 0) {
             if (!$this->userrights['enabled']) {
@@ -1929,7 +1927,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function sortBookmarks()
     {
         $outline_p = array();
-        $outline_y = array();
+        $outline_k = array();
         foreach ($this->outlines as $key => $row) {
             $outline_p[$key] = $row['p'];
             $outline_k[$key] = $key;
@@ -1998,11 +1996,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
         $numbookmarks = is_countable($this->outlines) ? count($this->outlines) : 0;
         if ($numbookmarks <= 0) {
-            return;
+            return '';
         }
         $root_oid = $this->processPrevNextBookmarks();
         $first_oid = $this->pon + 1;
         $nltags = '/<br[\s]?\/>|<\/(blockquote|dd|dl|div|dt|h1|h2|h3|h4|h5|h6|hr|li|ol|p|pre|ul|tcpdf|table|tr|td)>/si';
+        $out = '';
         foreach ($this->outlines as $i => $o) {
             // covert HTML title to string
             $title = preg_replace($nltags, "\n", $o['t']);
@@ -2119,6 +2118,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (empty($this->signature)) {
             return '';
         }
+        $out = '';
         foreach ($this->signature['appearance']['empty'] as $key => $esa) {
             $page = $this->page->getPage($esa['page']);
             $signame = $esa['name'] . sprintf(' [%03d]', ($key + 1));
@@ -2236,7 +2236,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutSignature()
     {
         if ((!$this->sign) || empty($this->signature['cert_type'])) {
-            return;
+            return '';
         }
         // widget annotation for signature
         $soid = $this->objid['signature'];

@@ -1,0 +1,10 @@
+parameters:
+  level: 5
+  paths:
+    - src
+    - test
+  scanDirectories:
+    - vendor
+  ignoreErrors:
+  reportUnmatchedIgnoredErrors: false
+  treatPhpDocTypesAsCertain: false

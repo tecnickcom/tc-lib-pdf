@@ -37,7 +37,8 @@ class TestUtil extends TestCase
             parent::assertEqualsWithDelta($expected, $actual, $delta, $message);
             return;
         }
-        return $this->assertEquals($expected, $actual, $message, $delta);
+        /* @phpstan-ignore-next-line */
+        $this->assertEquals($expected, $actual, $message, $delta);
     }
 
     public function bcExpectException($exception)
@@ -46,7 +47,8 @@ class TestUtil extends TestCase
             parent::expectException($exception);
             return;
         }
-        return parent::setExpectedException($exception);
+        /* @phpstan-ignore-next-line */
+        parent::setExpectedException($exception);
     }
 
     public function bcAssertIsResource($res)
@@ -55,7 +57,8 @@ class TestUtil extends TestCase
             parent::assertIsResource($res);
             return;
         }
-        return parent::assertInternalType('resource', $res);
+        /* @phpstan-ignore-next-line */
+        parent::assertInternalType('resource', $res);
     }
 
     public function bcAssertMatchesRegularExpression($pattern, $string, $message = '')
@@ -64,6 +67,7 @@ class TestUtil extends TestCase
             parent::assertMatchesRegularExpression($pattern, $string, $message);
             return;
         }
-        return parent::assertRegExp($pattern, $string, $message);
+        /* @phpstan-ignore-next-line */
+        parent::assertRegExp($pattern, $string, $message);
     }
 }

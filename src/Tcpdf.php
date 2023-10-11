@@ -16,8 +16,9 @@
 
 namespace Com\Tecnick\Pdf;
 
-use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+use Com\Tecnick\Barcode\Exception as BarcodeException;
+use Com\Tecnick\Pdf\Exception as PdfException;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -104,7 +105,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     protected function setDecimalSeparator()
     {
         // check for locale-related bug
-        if (1.1 == 1) {
+        if (1.1 == 1) { /* @phpstan-ignore-line */
             throw new PdfException('Don\'t alter the locale before including class file');
         }
         // check for decimal separator
@@ -116,7 +117,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     /**
      * Set the decimal separator.
      *
-     * @param bool $unicode True when using Unicode mode.
+     * @param bool $isunicode True when using Unicode mode.
      */
     protected function setUnicodeMode($isunicode)
     {
@@ -257,7 +258,6 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param float  $height  Height.
      * @param string $txt     Annotation text or alternate content.
      * @param array  $opt     Array of options (see section 8.4 of PDF reference 1.7).
-     * @param int    $spaces  Number of spaces on the text to link.
      *
      * @return int Object ID.
      */
