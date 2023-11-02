@@ -50,7 +50,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @param string  $txt          Text string to be processed.
      * @param float   $posx         X position relative to the start of the current line.
-     * @param float   $posy         Y position relative to the start of the current line.
+     * @param float   $posy         Y position relative to the start of the current line (font baseline).
      * @param float   $width        Desired string width to force justification via word spacing (0 = automatic).
      * @param float   $strokewidth  Stroke width.
      * @param float   $wordspacing  Word spacing (use it only when width == 0).
@@ -83,7 +83,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             'x' => $posx,
             'y' => ($posy - $this->toUnit($curfont['ascent'])),
             'width' => $width,
-            'height' => $this->toUnit($curfont['ascent'] - $curfont['descent'])
+            'height' => $this->toUnit($curfont['height'])
         );
         $out = $this->getJustifiedString($txt, $width, $forcertl);
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
@@ -319,7 +319,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Replace characters for langiages like Thai.
+     * Replace characters for languages like Thai.
      *
      * @param string $str  String to process.
      *

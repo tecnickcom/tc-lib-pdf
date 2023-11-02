@@ -42,60 +42,6 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     );
 
     /**
-     * Convert user units to internal points unit.
-     *
-     * @param float $usr Value to convert.
-     *
-     * @return float
-     */
-    public function toPoints($usr)
-    {
-        return ((float) $usr * $this->kunit);
-    }
-
-    /**
-     * Convert internal points to user unit.
-     *
-     * @param float $pnt Value to convert in user units.
-     *
-     * @return float
-     */
-    public function toUnit($pnt)
-    {
-        return ((float) $pnt / $this->kunit);
-    }
-
-    /**
-     * Convert vertical user value to internal points unit.
-     * Note: the internal Y points coordinate starts at the bottom left of the page.
-     *
-     * @param float  $usr    Value to convert.
-     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
-     *
-     * @return float
-     */
-    public function toYPoints($usr, $pageh = -1)
-    {
-        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
-        return ($pageh - $this->toPoints($usr));
-    }
-
-    /**
-     * Convert vertical internal points value to user unit.
-     * Note: the internal Y points coordinate starts at the bottom left of the page.
-     *
-     * @param float  $pnt    Value to convert.
-     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
-     *
-     * @return float
-     */
-    public function toYUnit($pnt, $pageh = -1)
-    {
-        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
-        return ($pageh - $this->toUnit($pnt));
-    }
-
-    /**
      * Set the default cell margin in user units.
      *
      * @param float $top    Top.
@@ -128,90 +74,9 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
-     * Returns the cell top-left Y coordinate.
+     * Returns the minimum cell height in points for the current font.
      *
-     * @param float  $pnty     Y coordinate in internal points.
-     * @param float  $pheight  Cell height in internal points.
-     * @param string $align    Cell vertical alignment: T=top; C=center; B=bottom.
-     * @param array  $cell     Optional cell parameters for padding, margin etc.
-     *
-     * @return float
-     */
-    protected function cellVertAlign($pnty, $pheight, $align = 'T', array $cell = array())
-    {
-        if (empty($cell)) {
-            $cell = $this->defcell;
-        }
-        // cell vertical alignment
-        switch ($align) {
-            case 'T': // Top
-                return ($pnty - $cell['margin']['T']);
-            case 'C': // Center
-                return ($pnty + (($cell['margin']['T'] + $pheight + $cell['margin']['B']) / 2));
-            case 'B': // Bottom
-                return ($pnty + $cell['margin']['B'] + $pheight);
-        }
-        return $pnty;
-    }
-
-    /**
-     * Returns the top-left Y coordinate for the text inside the cell.
-     *
-     * @param float  $pnty    Y coordinate in internal points.
-     * @param float  $pheight Cell height in internal points.
-     * @param string $align   Text vertical alignment inside the cell: T=top; C=center; B=bottom.
-     * @param array  $cell    Optional cell parameters for padding, margin etc.
-     *
-     * @return float
-     */
-    protected function cellTextVertAlign($pnty, $pheight, $align = 'T', array $cell = array())
-    {
-        if (empty($cell)) {
-            $cell = $this->defcell;
-        }
-        $curfont = $this->font->getCurrentFont();
-        switch ($align) {
-            case 'T': // Top
-                return ($pnty - $cell['padding']['T']);
-            case 'C': // Center
-                return ($pnty - (($pheight - $curfont['ascent'] - $curfont['descent']) / 2));
-            case 'B': // Bottom
-                return ($pnty - $pheight + $cell['padding']['B'] + $curfont['ascent'] + $curfont['descent']);
-        }
-        return $pnty;
-    }
-
-    /**
-     * Returns the top-left Y coordinate for the cell containing the text.
-     *
-     * @param float  $pnty    Y coordinate in internal points of the text.
-     * @param float  $pheight Cell height in internal points.
-     * @param string $align   Text vertical alignment inside the cell: T=top; C=center; B=bottom.
-     * @param array  $cell    Optional cell parameters for padding, margin etc.
-     *
-     * @return float
-     */
-    protected function textCellVertAlign($pnty, $pheight, $align = 'T', array $cell = array())
-    {
-        if (empty($cell)) {
-            $cell = $this->defcell;
-        }
-        $curfont = $this->font->getCurrentFont();
-        switch ($align) {
-            case 'T': // Top
-                return ($pnty + $cell['padding']['T']);
-            case 'C': // Center
-                return ($pnty + (($pheight - $curfont['ascent'] - $curfont['descent']) / 2));
-            case 'B': // Bottom
-                return ($pnty + $pheight - $cell['padding']['B'] - $curfont['ascent'] - $curfont['descent']);
-        }
-        return $pnty;
-    }
-
-    /**
-     * Returns the cell minimum height in points for the current font.
-     *
-     * @param array  $cell  Optional cell parameters for padding, margin etc.
+     * @param array  $cell  Optional to overwrite cell parameters for padding, margin etc.
      *
      * @return float
      */
@@ -221,14 +86,14 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
         $curfont = $this->font->getCurrentFont();
-        return($curfont['ascent'] + $curfont['descent'] + $cell['padding']['T'] + $cell['padding']['B']);
+        return($curfont['height'] + $cell['padding']['T'] + $cell['padding']['B']);
     }
 
     /**
      * Increase the cell padding to account for the border tickness.
      *
-     * @param array  $styles Array of styles - one style entry for each side (T,R,B,L) and/or one global "all" entry.
-     * @param array  $cell   Optional cell parameters for padding, margin etc.
+     * @param array  $styles Optional to overwrite the styles (see: getCurrentStyleArray).
+     * @param array  $cell   Optional to overwrite cell parameters for padding, margin etc.
      *
      * @return array
      */
@@ -256,5 +121,97 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         $cell['padding']['B'] = max($cell['padding']['B'], $minB);
         $cell['padding']['L'] = max($cell['padding']['L'], $minL);
         return $cell;
+    }
+
+    /**
+     * Returns the cell top-left Y coordinate to account for margins.
+     *
+     * @param float  $pnty     Starting top Y coordinate in internal points.
+     * @param float  $pheight  Cell height in internal points.
+     * @param string $align    Cell vertical alignment: T=top; C=center; B=bottom.
+     * @param array  $cell     Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float
+     */
+    protected function cellVPos($pnty, $pheight, $align = 'T', array $cell = array())
+    {
+        if (empty($cell)) {
+            $cell = $this->defcell;
+        }
+        // cell vertical alignment
+        switch ($align) {
+            case 'T': // Top
+                return ($pnty - $cell['margin']['T']);
+            case 'C': // Center
+                return ($pnty + (($cell['margin']['T'] + $pheight + $cell['margin']['B']) / 2));
+            case 'B': // Bottom
+                return ($pnty + $cell['margin']['B'] + $pheight);
+        }
+        return $pnty;
+    }
+
+    /**
+     * Returns the vertical distance between the cell top-left corner and the text baseline.
+     *
+     * @param float  $pheight Cell height in internal points.
+     * @param string $align   Text vertical alignment inside the cell:
+     *                        T=top; C=center; B=bottom; A=ascent; L=baseline; D=descent.
+     * @param array  $cell    Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float
+     */
+    protected function cellTextAlignment($pheight, $align = 'C', array $cell = array())
+    {
+        if (empty($cell)) {
+            $cell = $this->defcell;
+        }
+        $curfont = $this->font->getCurrentFont();
+        switch ($align) {
+            default:
+            case 'C': // Center
+                return ($curfont['midpoint'] + ($pheight / 2));
+            case 'T': // Top
+                return ($curfont['ascent'] + $cell['padding']['T']);
+            case 'B': // Bottom
+                return ($curfont['descent'] - $cell['padding']['B'] + $pheight);
+            case 'L': // Center on font Baseline
+                return ($pheight / 2);
+            case 'A': // Center on font Ascent
+                return ($curfont['ascent'] + ($pheight / 2));
+            case 'D': // Center on font Descent
+                return ($curfont['descent'] + ($pheight / 2));
+        }
+    }
+
+    /**
+     * Returns the top-left Y coordinate of the cell wrapping the text.
+     *
+     * @param float  $txty    Text baseline top Y coordinate in internal points.
+     * @param float  $pheight Cell height in internal points.
+     * @param string $align   Text vertical alignment inside the cell:
+     *                        T=top; C=center; B=bottom; A=ascent; L=baseline; D=descent.
+     * @param array  $cell    Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float
+     */
+    protected function cellVPosFromText($txty, $pheight, $align = 'C', array $cell = array())
+    {
+        return ($txty + $this->cellTextAlignment($pheight, $align, $cell));
+    }
+
+    /**
+     * Returns the baseline Y coordinate of the text inside the cell.
+     *
+     * @param float  $pnty    Cell top Y coordinate in internal points.
+     * @param float  $pheight Cell height in internal points.
+     * @param string $align   Text vertical alignment inside the cell:
+     *                        T=top; C=center; B=bottom; A=ascent; L=baseline; D=descent.
+     * @param array  $cell    Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float
+     */
+    protected function textVPosFromCell($pnty, $pheight, $align = 'C', array $cell = array())
+    {
+        return ($pnty - $this->cellTextAlignment($pheight, $align, $cell));
     }
 }

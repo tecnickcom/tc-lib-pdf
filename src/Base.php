@@ -409,4 +409,58 @@ abstract class Base
      * @var array
      */
     protected $xobjects = array();
+
+    /**
+     * Convert user units to internal points unit.
+     *
+     * @param float $usr Value to convert.
+     *
+     * @return float
+     */
+    public function toPoints($usr)
+    {
+        return ((float) $usr * $this->kunit);
+    }
+
+    /**
+     * Convert internal points to user unit.
+     *
+     * @param float $pnt Value to convert in user units.
+     *
+     * @return float
+     */
+    public function toUnit($pnt)
+    {
+        return ((float) $pnt / $this->kunit);
+    }
+
+    /**
+     * Convert vertical user value to internal points unit.
+     * Note: the internal Y points coordinate starts at the bottom left of the page.
+     *
+     * @param float  $usr    Value to convert.
+     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
+     *
+     * @return float
+     */
+    public function toYPoints($usr, $pageh = -1)
+    {
+        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
+        return ($pageh - $this->toPoints($usr));
+    }
+
+    /**
+     * Convert vertical internal points value to user unit.
+     * Note: the internal Y points coordinate starts at the bottom left of the page.
+     *
+     * @param float  $pnt    Value to convert.
+     * @param float  $pageh  Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
+     *
+     * @return float
+     */
+    public function toYUnit($pnt, $pageh = -1)
+    {
+        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
+        return ($pageh - $this->toUnit($pnt));
+    }
 }
