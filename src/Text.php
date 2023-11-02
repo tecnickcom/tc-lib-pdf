@@ -108,7 +108,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param array   $ordarr  Array of UTF-8 codepoints (integer values).
      * @param array   $dim     Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth)
      */
-    public function prepareText(&$txt, array &$ordarr, array &$dim)
+    protected function prepareText(&$txt, array &$ordarr, array &$dim)
     {
         if (empty($txt)) {
             return;
