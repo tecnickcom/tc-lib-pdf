@@ -77,6 +77,86 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $clip = false,
         $forcertl = false
     ) {
+        if (empty($txt)) {
+            return '';
+        }
+        $ordarr = array();
+        $dim = array();
+        $this->prepareText($txt, $ordarr, $dim);
+        return $this->outTextLine(
+            $txt,
+            $ordarr,
+            $dim,
+            $posx,
+            $posy,
+            $width,
+            $strokewidth,
+            $wordspacing,
+            $leading,
+            $rise,
+            $fill,
+            $stroke,
+            $clip,
+            $forcertl
+        );
+    }
+
+    /**
+     * Cleanup the input text, convert it to UTF-8 array and get the dimensions.
+     *
+     * @param string  $txt     Clean text string to be processed.
+     * @param array   $ordarr  Array of UTF-8 codepoints (integer values).
+     * @param array   $dim     Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth)
+     */
+    public function prepareText(&$txt, array &$ordarr, array &$dim)
+    {
+        if (empty($txt)) {
+            return;
+        }
+        $txt = $this->cleanupText($txt);
+        $ordarr = $this->uniconv->strToOrdArr($txt);
+        $dim = $this->font->getOrdArrDims($ordarr);
+    }
+
+    /**
+     * Returns the PDF code to render a line of text.
+     *
+     * @param string  $txt          Clean text string to be processed.
+     * @param array   $ordarr       Array of UTF-8 codepoints (integer values).
+     * @param array   $dim          Array of dimensions.
+     * @param float   $posx         X position relative to the start of the current line.
+     * @param float   $posy         Y position relative to the start of the current line (font baseline).
+     * @param float   $width        Desired string width to force justification via word spacing (0 = automatic).
+     * @param float   $strokewidth  Stroke width.
+     * @param float   $wordspacing  Word spacing (use it only when width == 0).
+     * @param float   $leading      Leading.
+     * @param float   $rise         Text rise.
+     * @param boolean $fill         If true fills the text.
+     * @param boolean $stroke       If true stroke the text.
+     * @param boolean $clip         If true activate clipping mode.
+     * @param boolean $forcertl     If true forces the RTL mode in the Unicode BIDI algorithm.
+     *
+     * @return string
+     */
+    protected function outTextLine(
+        $txt,
+        array $ordarr,
+        array $dim,
+        $posx = 0,
+        $posy = 0,
+        $width = 0,
+        $strokewidth = 0,
+        $wordspacing = 0,
+        $leading = 0,
+        $rise = 0,
+        $fill = true,
+        $stroke = false,
+        $clip = false,
+        $forcertl = false
+    ) {
+        if (empty($txt) || empty($ordarr) || empty($dim)) {
+            return '';
+        }
         $width = $width > 0 ? $width : 0;
         $curfont = $this->font->getCurrentFont();
         $this->lasttxtbbox = array(
@@ -85,7 +165,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             'width' => $width,
             'height' => $this->toUnit($curfont['height'])
         );
-        $out = $this->getJustifiedString($txt, $width, $forcertl);
+        $out = $this->getJustifiedString($txt, $ordarr, $dim, $width, $forcertl);
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
         $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
         $out = $this->getOutTextStateOperator($out, 'w', $this->toPoints($strokewidth));
@@ -99,6 +179,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         return $out;
     }
 
+
     /**
      * Returns the last text bounding box [llx, lly, urx, ury].
      * @return array
@@ -109,27 +190,38 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Returns the string to be used as input for getOutTextShowing().
+     * Remove special chacters from the text string:
+     *     - 'CARRIAGE RETURN' (U+000D)
+     *     - 'NO-BREAK SPACE' (U+00A0)
+     *     - 'SHY' (U+00AD) SOFT HYPHEN
      *
-     * @param string  $txt       Text string to be processed.
-     * @param float   $width     Desired string width in points (0 = automatic).
-     * @param boolean $forcertl  If true forces the RTL mode in the Unicode BIDI algorithm.
+     * @param string  $txt  Text string to be processed.
      *
      * @return string
      */
-    protected function getJustifiedString($txt, $width = 0, $forcertl = false)
+    protected function cleanupText($txt)
     {
-        if (empty($txt)) {
-            return '';
-        }
         $txt = str_replace("\r", ' ', $txt);
         // replace 'NO-BREAK SPACE' (U+00A0) character with a simple space
         $txt = str_replace($this->uniconv->chr(0x00A0), ' ', $txt);
         // remove 'SHY' (U+00AD) SOFT HYPHEN used for hyphenation
         $txt = str_replace($this->uniconv->chr(0x00AD), '', $txt);
-        // converts an UTF-8 string to an array of UTF-8 codepoints (integer values)
-        $ordarr = $this->uniconv->strToOrdArr($txt);
-        $dim = $this->font->getOrdArrDims($ordarr);
+        return $txt;
+    }
+
+    /**
+     * Returns the string to be used as input for getOutTextShowing().
+     *
+     * @param string  $txt       Clean text string to be processed.
+     * @param array   $ordarr    Array of UTF-8 codepoints (integer values).
+     * @param array   $dim       Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth).
+     * @param float   $width     Desired string width in points (0 = automatic).
+     * @param boolean $forcertl  If true forces the RTL mode in the Unicode BIDI algorithm.
+     *
+     * @return string
+     */
+    protected function getJustifiedString($txt, array $ordarr, array $dim, $width = 0, $forcertl = false)
+    {
         $pwidth = $this->toPoints($width);
         $spacewidth = (($pwidth - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces'] ? $dim['spaces'] : 1));
         if (!$this->isunicode) {

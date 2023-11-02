@@ -121,7 +121,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @return float
      */
-    protected function textCellMinHeight($align = 'C', array $cell = array())
+    protected function cellMinHeight($align = 'C', array $cell = array())
     {
         if (empty($cell)) {
             $cell = $this->defcell;
@@ -141,6 +141,21 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         }
     }
 
+    /**
+     * Returns the minimum cell width in points for the current text
+     *
+     * @param float  $txtwidth Text width in internal points.
+     * @param array  $cell     Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float
+     */
+    protected function cellMinWidth($txtwidth, array $cell = array())
+    {
+        if (empty($cell)) {
+            $cell = $this->defcell;
+        }
+        return ($cell['padding']['L'] + $txtwidth + $cell['padding']['R']);
+    }
 
     /**
      * Returns the cell top-left Y coordinate to account for margins.
