@@ -614,16 +614,16 @@ $colregspot = $pdf->graph->getColorRegistrationBar(
     10,
     true,
     [
-        ['black'], 
-        ['red'], 
-        ['green'], 
-        ['blue'], 
+        ['black'],
+        ['red'],
+        ['green'],
+        ['blue'],
         ['Custom Dark Green'],
-        ['Custom Light Yellow'], 
+        ['Custom Light Yellow'],
         ['Custom Black'],
-        ['Custom Red'], 
-        ['Custom Green'], 
-        ['Custom Blue'], 
+        ['Custom Red'],
+        ['Custom Green'],
+        ['Custom Blue'],
         ['Custom Yellow'],
     ]
 );
@@ -637,17 +637,17 @@ $colreg2 = $pdf->graph->getColorRegistrationBar(90, 70, 40, 40, true);
 $pdf->page->addContent($colreg2);
 
 $barcols = [
-        ['black'],
-        ['white'],
-        ['red'], 
-        ['green'],
-        ['blue'], 
-        ['cyan'],
-        ['magenta'], 
-        ['yellow'],
-        ['gray'],
-        ['black'],
-    ];
+    ['black'],
+    ['white'],
+    ['red'],
+    ['green'],
+    ['blue'],
+    ['cyan'],
+    ['magenta'],
+    ['yellow'],
+    ['gray'],
+    ['black'],
+];
 
 $colreg3 = $pdf->graph->getColorRegistrationBar(50, 115, 80, 5, true, $barcols);
 $pdf->page->addContent($colreg3);
