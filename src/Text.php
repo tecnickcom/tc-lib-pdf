@@ -422,4 +422,38 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // @TODO
         return $str;
     }
+
+    /**
+     * Returns an array of hyphenation patterns.
+     *
+     * @param string $file TEX file containing hypenation patterns.
+     *                     TEX patterns can be downloaded from
+     *                     https://www.ctan.org/tex-archive/language/hyph-utf8/tex/generic/hyph-utf8/patterns/tex
+     *                     See https://www.ctan.org/tex-archive/language/hyph-utf8/ for more information.
+     *
+     * @return array
+     */
+    public function loadTexHyphenPatterns($file)
+    {
+        $pattern = array();
+        $data = $this->file->fileGetContents($file);
+        // remove comments
+        $data = preg_replace('/\%[^\n]*/', '', $data);
+        // extract the patterns part
+        preg_match('/\\\\patterns\{([^\}]*)\}/i', $data, $matches);
+        $data = trim(substr($matches[0], 10, -1));
+        // extract each pattern
+        $list = preg_split('/[\s]+/', $data);
+        // map patterns
+        $pattern = array();
+        foreach ($list as $val) {
+            if (empty($val)) {
+                continue;
+            }
+            $val = str_replace('\'', '\\\'', trim($val));
+            $key = preg_replace('/[0-9]+/', '', $val);
+            $pattern[$key] = $val;
+        }
+        return $pattern;
+    }
 }
