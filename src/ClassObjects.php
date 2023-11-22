@@ -3,66 +3,62 @@
 /**
  * ClassObjects.php
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
 
 namespace Com\Tecnick\Pdf;
 
-use Com\Tecnick\Pdf\Exception as PdfException;
-use Com\Tecnick\Color\Pdf as ObjColor;
 use Com\Tecnick\Barcode\Barcode as ObjBarcode;
-use Com\Tecnick\File\File as ObjFile;
+use Com\Tecnick\Color\Pdf as ObjColor;
 use Com\Tecnick\File\Cache as ObjCache;
-use Com\Tecnick\Unicode\Convert as ObjUniConvert;
+use Com\Tecnick\File\File as ObjFile;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
-use Com\Tecnick\Pdf\Page\Page as ObjPage;
-use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
 use Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
 use Com\Tecnick\Pdf\Image\Import as ObjImage;
+use Com\Tecnick\Pdf\Page\Page as ObjPage;
+use Com\Tecnick\Unicode\Convert as ObjUniConvert;
 
 /**
  * Com\Tecnick\Pdf\ClassObjects
  *
  * External class objects PDF class
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  */
 abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
 {
     /**
      * Initialize class objects
      */
-    protected function initClassObjects()
+    protected function initClassObjects(): void
     {
         $this->color = new ObjColor();
         $this->barcode = new ObjBarcode();
         $this->file = new ObjFile();
         $this->cache = new ObjCache();
         $this->uniconv = new ObjUniConvert();
-
-        if ($this->encrypt === null) {
-            $this->encrypt = new ObjEncrypt();
-        }
+        $this->encrypt = new ObjEncrypt();
 
         $this->page = new ObjPage(
             $this->unit,
             $this->color,
             $this->encrypt,
-            (bool)$this->pdfa,
+            (bool) $this->pdfa,
             $this->compress,
             $this->sigapp
         );
@@ -74,7 +70,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
             0, // $this->graph->setPageHeight($pageh)
             $this->color,
             $this->encrypt,
-            (bool)$this->pdfa,
+            (bool) $this->pdfa,
             $this->compress
         );
 
@@ -82,13 +78,13 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
             $this->kunit,
             $this->subsetfont,
             $this->isunicode,
-            (bool)$this->pdfa
+            (bool) $this->pdfa
         );
 
         $this->image = new ObjImage(
             $this->kunit,
             $this->encrypt,
-            (bool)$this->pdfa,
+            (bool) $this->pdfa,
             $this->compress
         );
     }
@@ -96,11 +92,11 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
     /**
      * Enable or disable the the Signature Approval
      *
-     * @param boolean $enabled It true enable the Signature Approval
+     * @param bool $enabled It true enable the Signature Approval
      */
-    protected function enableSignatureApproval($enabled = true)
+    protected function enableSignatureApproval(bool $enabled = true): static
     {
-        $this->sigapp = (bool) $enabled;
+        $this->sigapp = $enabled;
         $this->page->enableSignatureApproval($this->sigapp);
         return $this;
     }

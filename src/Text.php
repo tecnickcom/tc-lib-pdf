@@ -3,19 +3,20 @@
 /**
  * Text.php
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
 
 namespace Com\Tecnick\Pdf;
 
+use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Unicode\Bidi;
 
 /**
@@ -23,65 +24,71 @@ use Com\Tecnick\Unicode\Bidi;
  *
  * Text PDF data
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * @phpstan-type TextBBox array{
+ *          'x': float,
+ *          'y': float,
+ *          'width': float,
+ *          'height': float,
+ *      }
  */
 abstract class Text extends \Com\Tecnick\Pdf\Cell
 {
     /**
      * Last text bounding box [x, y, width, height] in user units.
      *
-     * @var array
+     * @var TextBBox
      */
-    protected $lasttxtbbox = array(
+    protected $lasttxtbbox = [
         'x' => 0,
         'y' => 0,
         'width' => 0,
-        'height' => 0
-    );
+        'height' => 0,
+    ];
 
     /**
      * Returns the PDF code to render a line of text.
      *
-     * @param string  $txt          Text string to be processed.
-     * @param float   $posx         X position relative to the start of the current line.
-     * @param float   $posy         Y position relative to the start of the current line (font baseline).
-     * @param float   $width        Desired string width to force justification via word spacing (0 = automatic).
-     * @param float   $strokewidth  Stroke width.
-     * @param float   $wordspacing  Word spacing (use it only when width == 0).
-     * @param float   $leading      Leading.
-     * @param float   $rise         Text rise.
-     * @param boolean $fill         If true fills the text.
-     * @param boolean $stroke       If true stroke the text.
-     * @param boolean $clip         If true activate clipping mode.
-     * @param boolean $forcertl     If true forces the RTL mode in the Unicode BIDI algorithm.
-     *
-     * @return string
+     * @param string $txt         Text string to be processed.
+     * @param float  $posx        X position relative to the start of the current line.
+     * @param float  $posy        Y position relative to the start of the current line (font baseline).
+     * @param float  $width       Desired string width to force justification via word spacing (0 = automatic).
+     * @param float  $strokewidth Stroke width.
+     * @param float  $wordspacing Word spacing (use it only when width == 0).
+     * @param float  $leading     Leading.
+     * @param float  $rise        Text rise.
+     * @param bool   $fill        If true fills the text.
+     * @param bool   $stroke      If true stroke the text.
+     * @param bool   $clip        If true activate clipping mode.
+     * @param string $forcedir    If 'R' forces RTL, if 'L' forces LTR
      */
     public function getTextLine(
-        $txt,
-        $posx = 0,
-        $posy = 0,
-        $width = 0,
-        $strokewidth = 0,
-        $wordspacing = 0,
-        $leading = 0,
-        $rise = 0,
-        $fill = true,
-        $stroke = false,
-        $clip = false,
-        $forcertl = false
-    ) {
-        if (empty($txt)) {
+        string $txt,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $strokewidth = 0,
+        float $wordspacing = 0,
+        float $leading = 0,
+        float $rise = 0,
+        bool $fill = true,
+        bool $stroke = false,
+        bool $clip = false,
+        string $forcedir = '',
+    ): string {
+        if ($txt === '') {
             return '';
         }
-        $ordarr = array();
-        $dim = array();
+
+        $ordarr = [];
+        $dim = [];
         $this->prepareText($txt, $ordarr, $dim);
         return $this->outTextLine(
             $txt,
@@ -97,22 +104,26 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $fill,
             $stroke,
             $clip,
-            $forcertl
+            $forcedir
         );
     }
 
     /**
      * Cleanup the input text, convert it to UTF-8 array and get the dimensions.
      *
-     * @param string  $txt     Clean text string to be processed.
-     * @param array   $ordarr  Array of UTF-8 codepoints (integer values).
-     * @param array   $dim     Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth)
+     * @param string $txt    Clean text string to be processed.
+     * @param array  $ordarr Array of UTF-8 codepoints (integer values).
+     * @param array  $dim    Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth)
      */
-    protected function prepareText(&$txt, array &$ordarr, array &$dim)
-    {
-        if (empty($txt)) {
+    protected function prepareText(
+        string &$txt,
+        array &$ordarr,
+        array &$dim
+    ): void {
+        if ($txt === '') {
             return;
         }
+
         $txt = $this->cleanupText($txt);
         $ordarr = $this->uniconv->strToOrdArr($txt);
         $dim = $this->font->getOrdArrDims($ordarr);
@@ -121,52 +132,52 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Returns the PDF code to render a line of text.
      *
-     * @param string  $txt          Clean text string to be processed.
-     * @param array   $ordarr       Array of UTF-8 codepoints (integer values).
-     * @param array   $dim          Array of dimensions.
-     * @param float   $posx         X position relative to the start of the current line.
-     * @param float   $posy         Y position relative to the start of the current line (font baseline).
-     * @param float   $width        Desired string width to force justification via word spacing (0 = automatic).
-     * @param float   $strokewidth  Stroke width.
-     * @param float   $wordspacing  Word spacing (use it only when width == 0).
-     * @param float   $leading      Leading.
-     * @param float   $rise         Text rise.
-     * @param boolean $fill         If true fills the text.
-     * @param boolean $stroke       If true stroke the text.
-     * @param boolean $clip         If true activate clipping mode.
-     * @param boolean $forcertl     If true forces the RTL mode in the Unicode BIDI algorithm.
-     *
-     * @return string
+     * @param string $txt         Clean text string to be processed.
+     * @param array  $ordarr      Array of UTF-8 codepoints (integer values).
+     * @param array  $dim         Array of dimensions.
+     * @param float  $posx        X position relative to the start of the current line.
+     * @param float  $posy        Y position relative to the start of the current line (font baseline).
+     * @param float  $width       Desired string width to force justification via word spacing (0 = automatic).
+     * @param float  $strokewidth Stroke width.
+     * @param float  $wordspacing Word spacing (use it only when width == 0).
+     * @param float  $leading     Leading.
+     * @param float  $rise        Text rise.
+     * @param bool   $fill        If true fills the text.
+     * @param bool   $stroke      If true stroke the text.
+     * @param bool   $clip        If true activate clipping mode.
+     * @param string $forcedir    If 'R' forces RTL, if 'L' forces LTR
      */
     protected function outTextLine(
-        $txt,
+        string $txt,
         array $ordarr,
         array $dim,
-        $posx = 0,
-        $posy = 0,
-        $width = 0,
-        $strokewidth = 0,
-        $wordspacing = 0,
-        $leading = 0,
-        $rise = 0,
-        $fill = true,
-        $stroke = false,
-        $clip = false,
-        $forcertl = false
-    ) {
-        if (empty($txt) || empty($ordarr) || empty($dim)) {
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $strokewidth = 0,
+        float $wordspacing = 0,
+        float $leading = 0,
+        float $rise = 0,
+        bool $fill = true,
+        bool $stroke = false,
+        bool $clip = false,
+        string $forcedir = '',
+    ): string {
+        if ($txt === '' || $ordarr === [] || $dim === []) {
             return '';
         }
+
         $width = $width > 0 ? $width : 0;
         $curfont = $this->font->getCurrentFont();
-        $this->lasttxtbbox = array(
+        $this->lasttxtbbox = [
             'x' => $posx,
             'y' => ($posy - $this->toUnit($curfont['ascent'])),
             'width' => $width,
-            'height' => $this->toUnit($curfont['height'])
-        );
-        $out = $this->getJustifiedString($txt, $ordarr, $dim, $width, $forcertl);
+            'height' => $this->toUnit($curfont['height']),
+        ];
+        $out = $this->getJustifiedString($txt, $ordarr, $dim, $width, $forcedir);
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
+
         $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
         $out = $this->getOutTextStateOperator($out, 'w', $this->toPoints($strokewidth));
         $out = $this->getOutTextStateOperator($out, 'Tr', $trmode);
@@ -175,16 +186,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out = $this->getOutTextStateOperator($out, 'Tz', $curfont['stretching']);
         $out = $this->getOutTextStateOperator($out, 'TL', $this->toPoints($leading));
         $out = $this->getOutTextStateOperator($out, 'Ts', $this->toPoints($rise));
-        $out = $this->getOutTextObject($out);
-        return $out;
+        return $this->getOutTextObject($out);
     }
-
 
     /**
      * Returns the last text bounding box [llx, lly, urx, ury].
-     * @return array
+     *
+     * @return TextBBox  Array of bounding box values.
      */
-    public function getLastTextBBox()
+    public function getLastTextBBox(): array
     {
         return $this->lasttxtbbox;
     }
@@ -195,11 +205,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *     - 'NO-BREAK SPACE' (U+00A0)
      *     - 'SHY' (U+00AD) SOFT HYPHEN
      *
-     * @param string  $txt  Text string to be processed.
-     *
-     * @return string
+     * @param string $txt Text string to be processed.
      */
-    protected function cleanupText($txt)
+    protected function cleanupText(string $txt): string
     {
         $txt = str_replace("\r", ' ', $txt);
         // replace 'NO-BREAK SPACE' (U+00A0) character with a simple space
@@ -212,40 +220,47 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Returns the string to be used as input for getOutTextShowing().
      *
-     * @param string  $txt       Clean text string to be processed.
-     * @param array   $ordarr    Array of UTF-8 codepoints (integer values).
-     * @param array   $dim       Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth).
-     * @param float   $width     Desired string width in points (0 = automatic).
-     * @param boolean $forcertl  If true forces the RTL mode in the Unicode BIDI algorithm.
-     *
-     * @return string
+     * @param string $txt      Clean text string to be processed.
+     * @param array  $ordarr   Array of UTF-8 codepoints (integer values).
+     * @param array  $dim      Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth).
+     * @param float  $width    Desired string width in points (0 = automatic).
+     * @param string $forcedir If 'R' forces RTL, if 'L' forces LTR
      */
-    protected function getJustifiedString($txt, array $ordarr, array $dim, $width = 0, $forcertl = false)
-    {
+    protected function getJustifiedString(
+        string $txt,
+        array $ordarr,
+        array $dim,
+        float $width = 0,
+        string $forcedir = ''
+    ): string {
         $pwidth = $this->toPoints($width);
-        $spacewidth = (($pwidth - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces'] ? $dim['spaces'] : 1));
-        if (!$this->isunicode) {
+        $spacewidth = (($pwidth - $dim['totwidth'] + $dim['totspacewidth']) / ($dim['spaces'] ?: 1));
+        if (! $this->isunicode) {
             $txt = $this->encrypt->escapeString($txt);
             $txt = $this->getOutTextShowing($txt, 'Tj');
             if ($pwidth > 0) {
                 return $this->getOutTextStateOperator($txt, 'Tw', $this->toPoints($spacewidth));
             }
+
             $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
             return $txt;
         }
+
         if ($this->font->isCurrentByteFont()) {
             $txt = $this->uniconv->latinArrToStr($this->uniconv->uniArrToLatinArr($ordarr));
         } else {
-            $bidi = new Bidi($txt, null, $ordarr, $forcertl);
+            $bidi = new Bidi($txt, null, $ordarr, $forcedir);
             $unistr = $this->replaceUnicodeChars($bidi->getString());
             $txt = $this->uniconv->toUTF16BE($unistr);
         }
+
         $txt = $this->encrypt->escapeString($txt);
         if ($pwidth <= 0) {
             $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
             return $this->getOutTextShowing($txt, 'Tj');
         }
-        $fontsize = $this->font->getCurrentFont()['size'] ? $this->font->getCurrentFont()['size'] : 1;
+
+        $fontsize = $this->font->getCurrentFont()['size'] ?: 1;
         $spacewidth = -1000 * $spacewidth / $fontsize;
         $txt = str_replace(chr(0) . chr(32), ') ' . sprintf('%F', $spacewidth) . ' (', $txt);
         return $this->getOutTextShowing($txt, 'TJ');
@@ -254,118 +269,118 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Get the PDF code for the specified Text Positioning Operator mode.
      *
-     * @param string $raw   Raw PDf data to be wrapped by this command.
-     * @param float  $posx  X position relative to the start of the current line.
-     * @param float  $posy  Y position relative to the start of the current line.
-     * @param string $mode  Text state parameter to apply (one of: Td, TD, T*).
-     *
-     * @return string
+     * @param string $raw  Raw PDf data to be wrapped by this command.
+     * @param float  $posx X position relative to the start of the current line.
+     * @param float  $posy Y position relative to the start of the current line.
+     * @param string $mode Text state parameter to apply (one of: Td, TD, T*).
      */
-    protected function getOutTextPosXY($raw, $posx = 0, $posy = 0, $mode = 'Td')
-    {
-
+    protected function getOutTextPosXY(
+        string $raw,
+        float $posx = 0,
+        float $posy = 0,
+        string $mode = 'Td'
+    ): string {
         $pntx = $this->toPoints($posx);
         $pnty = $this->toYPoints($posy);
-        switch ($mode) {
-            case 'Td': // Move to the start of the next line, offset from the start of the current line by (posx, posy).
-                return sprintf('%F %F Td ' . $raw, $pntx, $pnty);
-            case 'TD': // Same as: -posx TL posx posy Td
-                return sprintf('%F %F TD ' . $raw, $pntx, $pnty);
-            case 'T*': // Move to the start of the next line.
-                return sprintf('T* ' . $raw);
-        }
-        return '';
+        return match ($mode) {
+            'Td' => sprintf('%F %F Td ' . $raw, $pntx, $pnty),
+            'TD' => sprintf('%F %F TD ' . $raw, $pntx, $pnty),
+            'T*' => 'T* ' . $raw,
+            default => '',
+        };
     }
 
     /**
      * Get the text rendering mode.
      *
-     * @param boolean $fill   If true fills the text.
-     * @param boolean $stroke If true stroke the text.
-     * @param boolean $clip   If true activate clipping mode.
+     * @param bool $fill   If true fills the text.
+     * @param bool $stroke If true stroke the text.
+     * @param bool $clip   If true activate clipping mode.
      *
      * @return int Text rendering mode as in PDF 32000-1:2008 - 9.3.6 Text Rendering Mode.
      */
-    protected function getTextRenderingMode($fill = true, $stroke = false, $clip = false)
-    {
-
-        $mode = ((int)$clip << 2) + ((int)$stroke << 1) + ((int)$fill);
-        switch ($mode) {
-            case 0: // 000 = Neither fill nor stroke text (invisible).
-                return 3;
-            case 4: // 100 = Add text to path for clipping.
-                return 7;
-        }
-        // 001 = Fill text.
-        // 010 = Stroke text.
-        // 011 = Fill, then stroke text.
-        // 101 = Fill text and add to path for clipping.
-        // 110 = Stroke text and add to path for clipping.
-        // 111 = Fill, then stroke text and add to path for clipping.
-        return ($mode - 1);
+    protected function getTextRenderingMode(
+        bool $fill = true,
+        bool $stroke = false,
+        bool $clip = false
+    ): int {
+        $mode = ((int) $clip << 2) + ((int) $stroke << 1) + ((int) $fill);
+        return match ($mode) {
+            0 => 3,
+            4 => 7,
+            default => $mode - 1,
+        };
     }
 
     /**
      * Get the PDF code for the specified Text State Operator.
      *
-     * @param string     $raw    Raw PDf data to be wrapped by this command.
-     * @param string     $param  Text state parameter to apply (one of: Tc, Tw, Tz, TL, Tf, Tr, Ts, w)
-     * @param int|float  $value  Raw value to apply in internal units.
-     *
-     * @return string
+     * @param string    $raw   Raw PDf data to be wrapped by this command.
+     * @param string    $param Text state parameter to apply (one of: Tc, Tw, Tz, TL, Tf, Tr, Ts, w)
+     * @param int|float $value Raw value to apply in internal units.
      */
-    protected function getOutTextStateOperator($raw, $param, $value = 0)
-    {
+    protected function getOutTextStateOperator(
+        string $raw,
+        string $param,
+        int|float $value = 0
+    ): string {
         switch ($param) {
             case 'Tc': // character spacing
                 if ($value == 0) {
                     break;
                 }
+
                 return sprintf('%F Tc ' . $raw . ' 0 Tc', $value);
             case 'Tw': // word spacing
                 if ($value == 0) {
                     break;
                 }
+
                 return sprintf('%F Tw ' . $raw . ' 0 Tw', $value);
             case 'Tz': // horizontal scaling
                 if ($value == 1) {
                     break;
                 }
+
                 return sprintf('%F Tz ' . $raw . ' 100 Tz', $value);
             case 'TL': // text leading
                 if ($value == 0) {
                     break;
                 }
+
                 return sprintf('%F TL ' . $raw . ' 0 TL', $value);
             case 'Tr': // text rendering
                 if (($value < 0) || ($value > 7)) {
                     break;
                 }
+
                 return sprintf('%d Tr ' . $raw, $value);
             case 'Ts': // text rise
                 if ($value == 0) {
                     break;
                 }
+
                 return sprintf('%F Ts ' . $raw . ' 0 Ts', $value);
             case 'w': // stroke width
                 return sprintf('%F w ' . $raw, ($value > 0 ? $value : 0));
         }
+
         return $raw;
     }
 
     /**
      * Get the PDF code for the Text Positioning Operator Matrix.
      *
-     * @param string $raw    Raw PDf data to be wrapped by this command.
-     * @param array  $matrix Positioning matrix. Values (a,b,c,d,e,f) where the matrix is: [[a b 0][c d 0][e f 1]].
-     *
-     * @return string
+     * @param string $raw Raw PDf data to be wrapped by this command.
      */
-    protected function getOutTextPosMatrix($raw, $matrix = array(1,0,0,1,0,0))
-    {
+    protected function getOutTextPosMatrix(
+        string $raw,
+        array $matrix = [1, 0, 0, 1, 0, 0]
+    ): string {
         if (count($matrix) != 6) {
             return '';
         }
+
         return sprintf(
             '%F %F %F %F %F %F Tm ' . $raw,
             $matrix[0],
@@ -382,30 +397,23 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @param string $str  String to show.
      * @param string $mode Text-showing operator to apply (one of: Tj, TJ, ').
-     *
-     * @return string
      */
-    protected function getOutTextShowing($str, $mode = 'Tj')
+    protected function getOutTextShowing(string $str, string $mode = 'Tj'): string
     {
-        switch ($mode) {
-            case 'Tj': // Show a text string.
-                return '(' . $str . ') Tj';
-            case 'TJ': // Show one or more text strings, allowing individual glyph positioning.
-                return '[(' . $str . ')] TJ';
-            case '\'': // Move to the next line and show a text string. Same as: T* $str Tj
-                return '(' . $str . ') \'';
-        }
-        return '';
+        return match ($mode) {
+            'Tj' => '(' . $str . ') Tj',
+            'TJ' => '[(' . $str . ')] TJ',
+            "'" => '(' . $str . ") '",
+            default => '',
+        };
     }
 
     /**
      * Returns a text oject by wrapping the $raw input.
      *
-     * @param string $raw  Raw PDf data to be wrapped by this command.
-     *
-     * @return string
+     * @param string $raw Raw PDf data to be wrapped by this command.
      */
-    protected function getOutTextObject($raw = '')
+    protected function getOutTextObject(string $raw = ''): string
     {
         return 'BT ' . $raw . ' BE' . "\r";
     }
@@ -413,11 +421,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Replace characters for languages like Thai.
      *
-     * @param string $str  String to process.
-     *
-     * @return string
+     * @param string $str String to process.
      */
-    protected function replaceUnicodeChars($str)
+    protected function replaceUnicodeChars(string $str): string
     {
         // @TODO
         return $str;
@@ -431,29 +437,39 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *                     https://www.ctan.org/tex-archive/language/hyph-utf8/tex/generic/hyph-utf8/patterns/tex
      *                     See https://www.ctan.org/tex-archive/language/hyph-utf8/ for more information.
      *
-     * @return array
+     * @return array<string,string> Array of hyphenation patterns.
      */
-    public function loadTexHyphenPatterns($file)
+    public function loadTexHyphenPatterns(string $file): array
     {
-        $pattern = array();
+        $pattern = [];
         $data = $this->file->fileGetContents($file);
         // remove comments
         $data = preg_replace('/\%[^\n]*/', '', $data);
+        if ($data === null) {
+            throw new PdfException('Unable to load hyphenation patterns from file: ' . $file);
+        }
+
         // extract the patterns part
         preg_match('/\\\\patterns\{([^\}]*)\}/i', $data, $matches);
         $data = trim(substr($matches[0], 10, -1));
         // extract each pattern
         $list = preg_split('/[\s]+/', $data);
+        if ($list === false) {
+            throw new PdfException('Invalid hyphenation patterns from file: ' . $file);
+        }
+
         // map patterns
-        $pattern = array();
+        $pattern = [];
         foreach ($list as $val) {
-            if (empty($val)) {
+            if ($val === '') {
                 continue;
             }
-            $val = str_replace('\'', '\\\'', trim($val));
-            $key = preg_replace('/[0-9]+/', '', $val);
+
+            $val = str_replace("'", '\\\'', trim($val));
+            $key = preg_replace('/\d+/', '', $val);
             $pattern[$key] = $val;
         }
+
         return $pattern;
     }
 }

@@ -16,12 +16,8 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require ('../vendor/autoload.php');
+require(__DIR__ . '/../vendor/autoload.php');
 
-use \Com\Tecnick\Color\Model\Cmyk as ColorCMYK;
-use \Com\Tecnick\Color\Model\Gray as ColorGray;
-use \Com\Tecnick\Color\Model\Hsl as ColorHSL;
-use \Com\Tecnick\Color\Model\Rgb as ColorRGB;
 
 define('OUTPUT_FILE', '../target/test.pdf');
 
@@ -35,13 +31,13 @@ define('K_PATH_FONTS', '../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/'
 $pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, '');
 
 // ----------
-// Set Metadata
+
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('John Doe');
 $pdf->setSubject('tc-lib-pdf example');
 $pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF','tc-lib-pdf','example');
+$pdf->setKeywords('TCPDF');
 
 
 $page05 = $pdf->page->add();
@@ -72,4 +68,4 @@ $doc = $pdf->getOutPDFString();
 // Save the PDF document as a file
 file_put_contents(OUTPUT_FILE, $doc);
 
-echo 'OK: '.OUTPUT_FILE;
+echo 'OK: ' . OUTPUT_FILE;

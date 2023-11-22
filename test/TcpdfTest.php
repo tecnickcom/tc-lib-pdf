@@ -16,8 +16,6 @@
 
 namespace Test;
 
-use PHPUnit\Framework\TestCase;
-
 /**
  * Tcpdf Pdf class test
  *
@@ -31,12 +29,12 @@ use PHPUnit\Framework\TestCase;
  */
 class TcpdfTest extends TestUtil
 {
-    protected function getTestObject()
+    protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
-    public function testDummy()
+    public function testDummy(): void
     {
         $this->assertEquals(1, 1);
     }
