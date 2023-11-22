@@ -1,6 +1,5 @@
 **/*.bak
 **/*.tmp
-**/*.tmp.php
 **/.#*
 **/.DS_Store
 **/._*
@@ -8,10 +7,14 @@
 **/.vagrant
 **/auth.json
 **/nbproject
+**/temp.php
+**/test.php
 .phpdoc
 .phpunit.cache
 .phpunit.result.cache
 composer.lock
+ecs.php
 phpunit.xml
+rector.php
 target
 vendor
