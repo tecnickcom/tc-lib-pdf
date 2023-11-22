@@ -1016,8 +1016,9 @@ $pdf->graph->add($styletxt);
 
 
 $bfont2 = $pdf->font->insert($pdf->pon, 'times', 'BI', 24);
+
 $pdf->page->addContent($bfont2['out']);
-// alteernative to set the current font (last entry in the font stack):
+// alternative to set the current font (last entry in the font stack):
 // $pdf->page->addContent($pdf->font->getOutCurrentFont());
 
 // Add text
