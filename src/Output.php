@@ -359,6 +359,32 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'y'?: float,
  *     }
  *
+ * @phpstan-type Signature array {
+ *     'appearance'?: array{
+ *  'empty'?: array{
+ *      'objid'?; int,
+ *      'name'?: string,
+ *      'page'?: int,
+ *      'rect'?: string,
+ *  },
+ *  'name'?: string,
+ *  'page'?: int,
+ *  'rect'?: string,
+ *     }
+ *     'approval'?: string,
+ *     'cert_type'?: string,
+ *     'extracerts'?: string,
+ *     'info'?: array{
+ *  'ContactInfo'?: string,
+ *  'Location'?: string,
+ *  'Name'?: string,
+ *  'Reason'?: string,
+ *     }
+ *     'password'?: string,
+ *     'privkey'?: string,
+ *     'signcert'?: string,
+ * }
+ *
  * @SuppressWarnings(PHPMD)
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo

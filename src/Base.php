@@ -68,10 +68,9 @@ use Com\Tecnick\Unicode\Convert;
  *      }
  *
  * @phpstan-import-type Outlines from Output
- *
  * @phpstan-import-type Annot from Output
- *
  * @phpstan-import-type XOBject from Output
+ * @phpstan-import-type Signature from Output
  *
  * @SuppressWarnings(PHPMD)
  */
@@ -352,13 +351,15 @@ abstract class Base
      */
     protected string $jstree = '';
 
-    /**
-     * Embedded files Object IDs by name.
-     */
-    protected array $efnames = [];
+    // /**
+    //  * Embedded files Object IDs by name.
+    //  */
+    // protected array $efnames = [];
 
     /**
      * Signature Data.
+     *
+     * @var array<int, Signature>
      */
     protected array $signature = [];
 
