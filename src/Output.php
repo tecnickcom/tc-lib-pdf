@@ -494,7 +494,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @param string $data Raw PDF data
      *
-     * @return array - Ordered offset array for each PDF object
+     * @return array<int> - Ordered offset array for each PDF object
      */
     protected function getPDFObjectOffsets(string $data): array
     {
@@ -511,7 +511,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF XREF section.
      *
-     * @param array $offset Ordered offset array for each PDF object
+     * @param array<int> $offset Ordered offset array for each PDF object
      */
     protected function getOutPDFXref(array $offset): string
     {
