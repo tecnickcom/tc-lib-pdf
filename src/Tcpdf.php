@@ -304,7 +304,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
                     throw new PdfException('Missing file attachment');
                 }
                 $filekey = basename((string) $opt['fs']);
-                if (isset($opt['fs']) && empty($this->embeddedfiles[$filekey])) {
+                if (
+                    ! empty($opt['fs'])
+                    && is_string($opt['fs'])
+                    && empty($this->embeddedfiles[$filekey])
+                ) {
                     $this->embeddedfiles[$filekey] = [
                         'f' => ++$this->pon,
                         'n' => ++$this->pon,

@@ -324,8 +324,6 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'opt': AnnotOpts,
  *    }
  *
- *    @phpstan-type Annots array<int, Annot>
- *
  * @SuppressWarnings(PHPMD)
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo

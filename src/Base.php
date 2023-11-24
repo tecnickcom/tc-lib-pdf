@@ -60,6 +60,15 @@ use Com\Tecnick\Unicode\Convert;
  *        'NumCopies'?: int,
  *    }
  *
+ * @phpstan-import-type Annot from Output
+ *
+ * @phpstan-type EmbeddedFile array{
+ *          'a'?: int,
+ *          'f': int,
+ *          'file': string,
+ *          'n': int,
+ *      }
+ *
  * @SuppressWarnings(PHPMD)
  */
 abstract class Base
@@ -271,11 +280,15 @@ abstract class Base
 
     /**
      * Embedded files data.
+     *
+     * @var array<string, EmbeddedFile>
      */
     protected array $embeddedfiles = [];
 
     /**
      * Annotations indexed bu object IDs.
+     *
+     * @var array<int, Annot>
      */
     protected array $annotation = [];
 
