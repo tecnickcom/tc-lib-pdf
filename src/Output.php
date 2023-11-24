@@ -1212,7 +1212,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Radio buttons.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getAnnotationRadiobuttonGroups(array $annot): string
     {
@@ -1269,7 +1269,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Appearance Stream.
      *
-     * @param array $annot  Array containing page annotations.
+     * @param TAnnot $annot  Array containing page annotations.
      * @param int   $width  Annotation width.
      * @param int   $height Annotation height.
      */
@@ -1317,7 +1317,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Borders.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getAnnotationBorder(array $annot): string
     {
@@ -1390,7 +1390,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Makups.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      * @param int   $oid   Annotation Object ID.
      */
     protected function getOutAnnotationMarkups(
@@ -1448,7 +1448,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Flags.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationFlags(array $annot): string
     {
@@ -1520,7 +1520,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.
      *
-     * @param array $annot   Array containing page annotations.
+     * @param TAnnot $annot   Array containing page annotations.
      * @param int   $pagenum Page number.
      * @param int   $oid     Annotation Object ID.
      * @param int   $key     Annotation index in the current page.
@@ -1561,7 +1561,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.text.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeText(array $annot): string
     {
@@ -1611,7 +1611,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.link.
      *
-     * @param array $annot   Array containing page annotations.
+     * @param TAnnot $annot   Array containing page annotations.
      * @param int   $pagenum Page number.
      * @param int   $oid     Annotation Object ID.
      */
@@ -1692,7 +1692,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.freetext.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeFreetext(array $annot): string
     {
@@ -1757,7 +1757,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.line.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeLine(array $annot): string
     {
@@ -1768,7 +1768,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.square.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSquare(array $annot): string
     {
@@ -1779,7 +1779,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.circle.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeCircle(array $annot): string
     {
@@ -1790,7 +1790,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.polygon.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePolygon(array $annot): string
     {
@@ -1801,7 +1801,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.polyline.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePolyline(array $annot): string
     {
@@ -1812,7 +1812,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.highlight.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeHighlight(array $annot): string
     {
@@ -1823,7 +1823,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeUnderline(array $annot): string
     {
@@ -1834,7 +1834,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.squiggly.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSquiggly(array $annot): string
     {
@@ -1845,7 +1845,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.strikeout.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeStrikeout(array $annot): string
     {
@@ -1856,7 +1856,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.stamp.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeStamp(array $annot): string
     {
@@ -1867,7 +1867,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.caret.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeCaret(array $annot): string
     {
@@ -1878,7 +1878,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.ink.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeInk(array $annot): string
     {
@@ -1889,7 +1889,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.popup.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePopup(array $annot): string
     {
@@ -1900,7 +1900,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.fileattachment.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      * @param int   $key   Annotation index in the current page.
      */
     protected function getOutAnnotationOptSubtypeFileattachment(
@@ -1933,7 +1933,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.sound.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSound(array $annot): string
     {
@@ -1963,7 +1963,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.movie.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeMovie(array $annot): string
     {
@@ -1974,7 +1974,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.widget.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      * @param int   $oid   Annotation Object ID.
      */
     protected function getOutAnnotationOptSubtypeWidget(
@@ -2205,7 +2205,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.screen.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeScreen(array $annot): string
     {
@@ -2216,7 +2216,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.printermark.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePrintermark(array $annot): string
     {
@@ -2227,7 +2227,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.redact.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeRedact(array $annot): string
     {
@@ -2238,7 +2238,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.trapnet.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeTrapnet(array $annot): string
     {
@@ -2249,7 +2249,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.watermark.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeWatermark(array $annot): string
     {
@@ -2260,7 +2260,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.3d.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtype3D(array $annot): string
     {
