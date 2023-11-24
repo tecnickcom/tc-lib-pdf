@@ -3,13 +3,13 @@
 /**
  * Output.php
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
@@ -24,13 +24,309 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *
  * Output PDF data
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
+ *
+ *    @phpstan-type FourFloat array{
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *    }
+ *
+ *    @phpstan-type AnnotQuadPoint array{
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *    }
+ *
+ *    @phpstan-type AnnotBorderStyle array{
+ *        'type'?: string,
+ *        'w'?: int,
+ *        's'?: string,
+ *        'd'?: array<int>,
+ *    }
+ *
+ *    @phpstan-type AnnotBorderEffect array{
+ *        's'?: string,
+ *        'i'?: float,
+ *    }
+ *
+ *    @phpstan-type AnnotMeasure array{
+ *        'type'?: string,
+ *        'subtype'?: string,
+ *    }
+ *
+ *    @phpstan-type AnnotMarkup array{
+ *        't'?: string,
+ *        'popup'?: array,
+ *        'ca'?: float,
+ *        'rc'?: string,
+ *        'creationdate'?: string,
+ *        'irt'?: array,
+ *        'subj'?: string,
+ *        'rt'?: string,
+ *        'it'?: string,
+ *        'exdata'?: array{
+ *      'type'?: string,
+ *      'subtype': string,
+ *        },
+ *    }
+ *
+ *    @phpstan-type AnnotStates array{
+ *        'marked'?: string,
+ *        'review'?: string,
+ *    }
+ *
+ *    @phpstan-type AnnotText array{
+ *        'subtype': string,
+ *        'open'?: bool,
+ *        'name'?: string,
+ *        'state'?: string,
+ *        'statemodel': string,
+ *    }
+ *
+ *    @phpstan-type AnnotLink array{
+ *        'subtype': string,
+ *        'a'?: array,
+ *        'dest'?: string|array,
+ *        'h'?: string,
+ *        'pa'?: array,
+ *        'quadpoints'?: array<int, AnnotQuadPoint>,
+ *        'bs'?: AnnotBorderStyle,
+ *    }
+ *
+ *    @phpstan-type AnnotFreeText array{
+ *        'subtype': string,
+ *        'da': string,
+ *        'q'?: int,
+ *        'rc'?: string,
+ *        'ds'?: string,
+ *        'cl'?: array<float>,
+ *        'it'?: string,
+ *        'be'?: AnnotBorderEffect,
+ *        'rd'?: FourFloat,
+ *        'bs'?: AnnotBorderStyle,
+ *        'le'?: string,
+ *    }
+ *
+ *    @phpstan-type AnnotLine array{
+ *        'subtype': string,
+ *        'l': FourFloat,
+ *        'bs'?: AnnotBorderStyle,
+ *        'le'?: array{string, string},
+ *        'ic'?: FourFloat,
+ *        'll'?: float,
+ *        'lle'?: float,
+ *        'cap'?: bool,
+ *        'it'?: string,
+ *        'llo'?: float,
+ *        'cp'?: string,
+ *        'measure'?: AnnotMeasure,
+ *        'co'?: array{float, float},
+ *    }
+ *
+ *    @phpstan-type AnnotSquare array{
+ *        'subtype': string,
+ *        'bs'?: AnnotBorderStyle,
+ *        'ic'?: FourFloat,
+ *        'be'?: AnnotBorderEffect,
+ *        'rd'?: FourFloat,
+ *    }
+ *
+ *    @phpstan-type AnnotCircle AnnotSquare
+ *
+ *    @phpstan-type AnnotPolygon array{
+ *        'subtype': string,
+ *        'vertices'?: array<float>,
+ *        'le'?: array{string, string},
+ *        'bs'?: AnnotBorderStyle,
+ *        'ic'?: FourFloat,
+ *        'be'?: AnnotBorderEffect,
+ *        'it'?: string,
+ *        'measure'?: AnnotMeasure,
+ *    }
+ *
+ *    @phpstan-type AnnotPolyline AnnotPolygon
+ *
+ *    @phpstan-type AnnotTextMarkup array{
+ *        'subtype': string,
+ *        'quadpoints': array<int, AnnotQuadPoint>,
+ *    }
+ *
+ *    @phpstan-type AnnotCaret array{
+ *        'subtype': string,
+ *        'rd'?: FourFloat,
+ *        'sy'?: string,
+ *    }
+ *
+ *    @phpstan-type AnnotRubberStamp array{
+ *        'subtype': string,
+ *        'name'?: string,
+ *    }
+ *
+ *    @phpstan-type AnnotInk array{
+ *        'subtype': string,
+ *        'inklist'?: array<int, array<float>>,
+ *        'bs'?: AnnotBorderStyle,
+ *    }
+ *
+ *    @phpstan-type AnnotPopup array{
+ *        'subtype': string,
+ *        'parent'?: array,
+ *        'open'?: bool,
+ *    }
+ *
+ *    @phpstan-type AnnotFileAttachment array{
+ *        'subtype': string,
+ *        'fs'?: string,
+ *        'name'?: string,
+ *    }
+ *
+ *    @phpstan-type AnnotSound array{
+ *        'subtype': string,
+ *        'sound': string,
+ *        'name'?: string,
+ *    }
+ *
+ *    @phpstan-type AnnotMovieDict array{
+ *        'f': string,
+ *        'aspect'?: array{float, float},
+ *        'rotate'?: int,
+ *        'poster'?: bool|string,
+ *    }
+ *
+ *    @phpstan-type AnnotMovieActDict array{
+ *        'start'?: int|string|array{int|string, int},
+ *        'duration'?: int|string|array{int|string, int},
+ *        'rate'?: float,
+ *        'volume'?: float,
+ *        'showcontrols'?: bool,
+ *        'mode'?: string,
+ *        'synchronous'?: bool,
+ *        'fwscale'?: array{int, int},
+ *        'fwposition'?: array{float, float},
+ *    }
+ *
+ *    @phpstan-type AnnotMovie array{
+ *        'subtype': string,
+ *        't'?: string,
+ *        'movie'?: AnnotMovieDict,
+ *        'a'?: bool|AnnotMovieActDict,
+ *    }
+ *
+ *    @phpstan-type AnnotIconFitDict array{
+ *        'sw'?: string,
+ *        's'?: string,
+ *        'a'?: array{float, float},
+ *        'fb'?: bool,
+ *    }
+ *
+ *    @phpstan-type AnnotMKDict array{
+ *        'r'?: int,
+ *        'bc'?: FourFloat,
+ *        'bg'?: array{float},
+ *        'ca'?: string,
+ *        'rc'?: string,
+ *        'ac'?: string,
+ *        'i'?: string,
+ *        'ri'?: string,
+ *        'ix'?: string,
+ *        'if'?: AnnotIconFitDict,
+ *        'tp'?: int,
+ *    }
+ *
+ *    @phpstan-type AnnotActionDict array{
+ *        'type'?: string,
+ *        's'?: string,
+ *        'next'?: array<int, array>,
+ *    }
+ *
+ *    @phpstan-type AnnotAdditionalActionDict array{
+ *        'e'?: AnnotActionDict,
+ *        'x'?: AnnotActionDict,
+ *        'd'?: AnnotActionDict,
+ *        'u'?: AnnotActionDict,
+ *        'fo'?: AnnotActionDict,
+ *        'bi'?: AnnotActionDict,
+ *        'po'?: AnnotActionDict,
+ *        'pc'?: AnnotActionDict,
+ *        'pv'?: AnnotActionDict,
+ *        'pi'?: AnnotActionDict,
+ *    }
+ *
+ *    @phpstan-type AnnotScreen array{
+ *        'subtype': string,
+ *        't'?: string,
+ *        'mk'?: AnnotMKDict,
+ *        'a'?: AnnotActionDict,
+ *        'aa'?: AnnotAdditionalActionDict,
+ *    }
+ *
+ *    @phpstan-type AnnotWidget array{
+ *        'subtype': string,
+ *        'h'?: string,
+ *        'mk'?: AnnotMKDict,
+ *        'a'?: AnnotActionDict,
+ *        'aa'?: AnnotAdditionalActionDict,
+ *        'bs'?: AnnotBorderStyle,
+ *        'parent'?: array,
+ *    }
+ *
+ *    @phpstan-type AnnotFixedPrintDict array{
+ *        'type': string,
+ *        'matrix'?: array{float, float, float, float, float, float},
+ *        'h'?: float,
+ *        'v'?: float,
+ *    }
+ *
+ *    @phpstan-type AnnotWatermark array{
+ *        'subtype': string,
+ *        'fixedprint'?: AnnotFixedPrintDict,
+ *    }
+ *
+ *    @phpstan-type AnnotRedact array{
+ *        'subtype': string,
+ *        'quadpoints'?: array<int, AnnotQuadPoint>,
+ *        'ic'?: FourFloat,
+ *        'ro'?: string,
+ *        'overlaytext'?: string,
+ *        'repeat'?: bool,
+ *        'da'?: string,
+ *        'q'?: int,
+ *    }
+ *
+ *    @phpstan-type AnnotOptsA AnnotText|AnnotLink|AnnotFreeText|AnnotLine|AnnotSquare
+ *
+ *    @phpstan-type AnnotOptsB AnnotCircle|AnnotPolygon|AnnotPolyline|AnnotTextMarkup|AnnotCaret
+ *
+ *    @phpstan-type AnnotOptsC AnnotRubberStamp|AnnotInk|AnnotPopup|AnnotFileAttachment|AnnotSound
+ *
+ *    @phpstan-type AnnotOptsD AnnotMovie|AnnotScreen|AnnotWidget|AnnotWatermark|AnnotRedact
+ *
+ *    @phpstan-type AnnotOpts AnnotOptsA|AnnotOptsB|AnnotOptsC|AnnotOptsD
+ *
+ *    @phpstan-type Annot array{
+ *        'n': float,
+ *        'x': float,
+ *        'y': float,
+ *        'w': float,
+ *        'h': float,
+ *        'txt': string,
+ *        'opt': AnnotOpts,
+ *    }
+ *
+ *    @phpstan-type Annots array<int, Annot>
  *
  * @SuppressWarnings(PHPMD)
  */
@@ -492,8 +788,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF Annotation code for Apearance Stream XObjects entry.
      *
-     * @param int $width annotation width
-     * @param int $height annotation height
+     * @param int    $width  annotation width
+     * @param int    $height annotation height
      * @param string $stream appearance stream
      */
     protected function getOutAPXObjects(
@@ -843,7 +1139,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Radio buttons.
      *
-     * @param array $annot   Array containing page annotations.
+     * @param array $annot Array containing page annotations.
      */
     protected function getAnnotationRadiobuttonGroups(array $annot): string
     {
@@ -901,8 +1197,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the Annotation code for Appearance Stream.
      *
      * @param array $annot  Array containing page annotations.
-     * @param int $width     Annotation width.
-     * @param int $height    Annotation height.
+     * @param int   $width  Annotation width.
+     * @param int   $height Annotation height.
      */
     protected function getAnnotationAppearanceStream(
         array $annot,
@@ -948,7 +1244,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Borders.
      *
-     * @param array $annot  Array containing page annotations.
+     * @param array $annot Array containing page annotations.
      */
     protected function getAnnotationBorder(array $annot): string
     {
@@ -1159,31 +1455,32 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutAnnotationOptSubtype(array $annot, int $pagenum, int $oid, int $key): string
     {
         return match (strtolower($annot['opt']['subtype'])) {
-            'text' => $this->getOutAnnotationOptSubtypeText($annot),
-            'link' => $this->getOutAnnotationOptSubtypeLink($annot, $pagenum, $oid),
-            'freetext' => $this->getOutAnnotationOptSubtypeFreetext($annot),
-            'line' => $this->getOutAnnotationOptSubtypeLine($annot),
-            'square' => $this->getOutAnnotationOptSubtypeSquare($annot),
+            '3d' => $this->getOutAnnotationOptSubtype3D($annot),
+            'caret' => $this->getOutAnnotationOptSubtypeCaret($annot),
             'circle' => $this->getOutAnnotationOptSubtypeCircle($annot),
+            'fileattachment' => $this->getOutAnnotationOptSubtypeFileattachment($annot, $key),
+            'freetext' => $this->getOutAnnotationOptSubtypeFreetext($annot),
+            'highlight' => $this->getOutAnnotationOptSubtypeHighlight($annot),
+            'ink' => $this->getOutAnnotationOptSubtypeInk($annot),
+            'line' => $this->getOutAnnotationOptSubtypeLine($annot),
+            'link' => $this->getOutAnnotationOptSubtypeLink($annot, $pagenum, $oid),
+            'movie' => $this->getOutAnnotationOptSubtypeMovie($annot),
             'polygon' => $this->getOutAnnotationOptSubtypePolygon($annot),
             'polyline' => $this->getOutAnnotationOptSubtypePolyline($annot),
-            'highlight' => $this->getOutAnnotationOptSubtypeHighlight($annot),
-            'underline' => $this->getOutAnnotationOptSubtypeUnderline($annot),
-            'squiggly' => $this->getOutAnnotationOptSubtypeSquiggly($annot),
-            'strikeout' => $this->getOutAnnotationOptSubtypeStrikeout($annot),
-            'stamp' => $this->getOutAnnotationOptSubtypeStamp($annot),
-            'caret' => $this->getOutAnnotationOptSubtypeCaret($annot),
-            'ink' => $this->getOutAnnotationOptSubtypeInk($annot),
             'popup' => $this->getOutAnnotationOptSubtypePopup($annot),
-            'fileattachment' => $this->getOutAnnotationOptSubtypeFileattachment($annot, $key),
-            'sound' => $this->getOutAnnotationOptSubtypeSound($annot),
-            'movie' => $this->getOutAnnotationOptSubtypeMovie($annot),
-            'widget' => $this->getOutAnnotationOptSubtypeWidget($annot, $oid),
-            'screen' => $this->getOutAnnotationOptSubtypeScreen($annot),
             'printermark' => $this->getOutAnnotationOptSubtypePrintermark($annot),
+            'redact' => $this->getOutAnnotationOptSubtypeRedact($annot),
+            'screen' => $this->getOutAnnotationOptSubtypeScreen($annot),
+            'sound' => $this->getOutAnnotationOptSubtypeSound($annot),
+            'square' => $this->getOutAnnotationOptSubtypeSquare($annot),
+            'squiggly' => $this->getOutAnnotationOptSubtypeSquiggly($annot),
+            'stamp' => $this->getOutAnnotationOptSubtypeStamp($annot),
+            'strikeout' => $this->getOutAnnotationOptSubtypeStrikeout($annot),
+            'text' => $this->getOutAnnotationOptSubtypeText($annot),
             'trapnet' => $this->getOutAnnotationOptSubtypeTrapnet($annot),
+            'underline' => $this->getOutAnnotationOptSubtypeUnderline($annot),
             'watermark' => $this->getOutAnnotationOptSubtypeWatermark($annot),
-            '3d' => $this->getOutAnnotationOptSubtype3D($annot),
+            'widget' => $this->getOutAnnotationOptSubtypeWidget($annot, $oid),
             default => '',
         };
     }
@@ -1197,7 +1494,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         $out = '';
         if (isset($annot['opt']['open'])) {
-            $out .= ' /Open ' . (strtolower($annot['opt']['open']) == 'true' ? 'true' : 'false');
+            $out .= ' /Open ' . ($annot['opt']['open'] === true ? 'true' : 'false');
         }
 
         $iconsapp = ['Comment', 'Help', 'Insert', 'Key', 'NewParagraph', 'Note', 'Paragraph'];
@@ -1855,6 +2152,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
+     * Returns the output code associated with the annotation opt.subtype.redact.
+     *
+     * @param array $annot Array containing page annotations.
+     */
+    protected function getOutAnnotationOptSubtypeRedact(array $annot): string
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
      * Returns the output code associated with the annotation opt.subtype.trapnet.
      *
      * @param array $annot Array containing page annotations.
@@ -2493,8 +2801,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         header('Pragma: public');
         header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
         header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header('Content-Disposition: inline; filename="' . $this->encpdffilename . '"; filename*=UTF-8\'\''
-        . $this->encpdffilename);
+        header(
+            'Content-Disposition: inline; filename="' . $this->encpdffilename . '"; filename*=UTF-8\'\''
+            . $this->encpdffilename
+        );
         if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
             // the content length may vary if the server is using compression
             header('Content-Length: ' . strlen($rawpdf));
@@ -2538,8 +2848,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // use the Content-Disposition header to supply a recommended filename
-        header('Content-Disposition: attachment; filename="' . $this->encpdffilename . '";'
-        . " filename*=UTF-8''" . $this->encpdffilename);
+        header(
+            'Content-Disposition: attachment; filename="' . $this->encpdffilename . '";'
+            . " filename*=UTF-8''" . $this->encpdffilename
+        );
         header('Content-Transfer-Encoding: binary');
         if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
             // the content length may vary if the server is using compression
@@ -2552,8 +2864,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Save the PDF document to a local file.
      *
-     * @param string $path    Path to the output file.
-     * @param string $rawpdf  Raw PDF data string from getOutPDFString().
+     * @param string $path   Path to the output file.
+     * @param string $rawpdf Raw PDF data string from getOutPDFString().
      */
     public function savePDF(
         string $path = '',
@@ -2578,8 +2890,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     public function getMIMEAttachmentPDF(string $rawpdf = ''): string
     {
-        return 'Content-Type: application/pdf;
- name="' . $this->encpdffilename . '"' . "\r\n"
+        return 'Content-Type: application/pdf;' . "\r\n"
+        . ' name="' . $this->encpdffilename . '"' . "\r\n"
         . 'Content-Transfer-Encoding: base64' . "\r\n"
         . 'Content-Disposition: attachment;' . "\r\n"
         . ' filename="' . $this->encpdffilename . '"' . "\r\n\r\n"

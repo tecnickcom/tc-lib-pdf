@@ -40,6 +40,26 @@ use Com\Tecnick\Unicode\Convert;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @phpstan-type ViewerPref array{
+ *        'HideToolbar'?: bool,
+ *        'HideMenubar'?: bool,
+ *        'HideWindowUI'?: bool,
+ *        'FitWindow'?: bool,
+ *        'CenterWindow'?: bool,
+ *        'DisplayDocTitle'?: bool,
+ *        'NonFullScreenPageMode'?: string,
+ *        'Direction'?: string,
+ *        'ViewArea'?: string,
+ *        'ViewClip'?: string,
+ *        'PrintArea'?: string,
+ *        'PrintClip'?: string,
+ *        'PrintScaling'?: string,
+ *        'Duplex'?: string,
+ *        'PickTrayByPDFSize'?: bool,
+ *        'PrintPageRange'?: array<int>,
+ *        'NumCopies'?: int,
+ *    }
+ *
  * @SuppressWarnings(PHPMD)
  */
 abstract class Base
@@ -154,9 +174,9 @@ abstract class Base
 
     /**
      * Viewer preferences dictionary controlling the way the document is to be presented on the screen or in print.
-     * (Section 8.1 of PDF reference, "Viewer Preferences").
+     * (PDF reference, "Viewer Preferences").
      *
-     * @var array Viewer Preferences
+     * @var ViewerPref
      */
     protected array $viewerpref = [];
 
