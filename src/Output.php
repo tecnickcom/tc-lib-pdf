@@ -321,7 +321,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    @phpstan-type TAnnotOpts TAnnotOptsA|TAnnotOptsB|TAnnotOptsC|TAnnotOptsD|TAnnotOptsE
  *
  *    @phpstan-type TAnnot array{
- *        'n': float,
+ *        'n': int,
  *        'x': float,
  *        'y': float,
  *        'w': float,
@@ -405,21 +405,21 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
-    protected $pdflayer;
+    protected array $pdflayer;
 
-    protected $l;
+    protected array $lang;
 
-    protected $annotation_fonts;
+    protected array $annotation_fonts;
 
-    protected $dests;
+    protected array $dests;
 
-    protected $radiobuttonGroups;
+    protected array $radiobuttonGroups;
 
-    protected $links;
+    protected array $links;
 
-    protected $javascript;
+    protected string $javascript;
 
-    protected $jsobjects;
+    protected array $jsobjects;
 
     /**
      * Returns the RAW PDF string.
@@ -736,8 +736,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         //$out .= ' /StructTreeRoot <<>>';
         //$out .= ' /MarkInfo <<>>';
 
-        if (! empty($this->l['a_meta_language'])) {
-            $out .= ' /Lang ' . $this->getOutTextString($this->l['a_meta_language'], $oid, true);
+        if (! empty($this->lang['a_meta_language'])) {
+            $out .= ' /Lang ' . $this->getOutTextString($this->lang['a_meta_language'], $oid, true);
         }
 
         //$out .= ' /SpiderInfo <<>>';
@@ -961,7 +961,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
 
                 foreach ($data['xobjects'] as $sub_id => $sub_objid) {
-                    $out .= ' /' . $sub_id . ' ' . $sub_objid['n'] . ' 0 R';
+                    $out .= ' /' . $sub_id . ' ' . $sub_objid . ' 0 R';
                 }
 
                 $out .= ' >>';
