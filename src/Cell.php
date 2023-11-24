@@ -28,26 +28,30 @@ namespace Com\Tecnick\Pdf;
  * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Style
+ *
+ * @phpstan-type TCellDef array{
+ *        'margin': array{
+ *            'T': float,
+ *            'R': float,
+ *            'B': float,
+ *            'L': float,
+ *        },
+ *        'padding': array{
+ *            'T': float,
+ *            'R': float,
+ *            'B': float,
+ *            'L': float,
+ *        },
+ *    }
  */
 abstract class Cell extends \Com\Tecnick\Pdf\Base
 {
     /**
      * Default values for cell.
      *
-     * @var array{
-     *        'margin': array{
-     *            'T': float,
-     *            'R': float,
-     *            'B': float,
-     *            'L': float,
-     *        },
-     *            'padding': array{
-     *            'T': float,
-     *            'R': float,
-     *            'B': float,
-     *            'L': float,
-     *        },
-     *    }
+     * @var TCellDef
      */
     protected $defcell = [
         'margin' => [
@@ -107,16 +111,16 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Increase the cell padding to account for the border tickness.
      *
-     * @param array $styles Optional to overwrite the styles (see: getCurrentStyleArray).
-     * @param array $cell   Optional to overwrite cell parameters for padding, margin etc.
+     * @param array<int, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
+     * @param ?TCellDef                $cell   Optional to overwrite cell parameters for padding, margin etc.
      *
-     * @return array -
+     * @return TCellDef
      */
     protected function adjustMinCellPadding(
         array $styles = [],
-        array $cell = []
+        ?array $cell = null
     ): array {
-        if ($cell === []) {
+        if ($cell === null) {
             $cell = $this->defcell;
         }
 
@@ -133,11 +137,17 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $minR = $minT;
             $minB = $minT;
             $minL = $minT;
-        } elseif (count($styles) == 4) {
-            $minT = $this->toPoints($styles[0]['lineWidth']);
-            $minR = $this->toPoints($styles[1]['lineWidth']);
-            $minB = $this->toPoints($styles[2]['lineWidth']);
-            $minL = $this->toPoints($styles[3]['lineWidth']);
+        } elseif (
+            (count($styles) == 4)
+            && isset($styles[0]['lineWidth'])
+            && isset($styles[1]['lineWidth'])
+            && isset($styles[2]['lineWidth'])
+            && isset($styles[3]['lineWidth'])
+        ) {
+            $minT = $this->toPoints((float) $styles[0]['lineWidth']);
+            $minR = $this->toPoints((float) $styles[1]['lineWidth']);
+            $minB = $this->toPoints((float) $styles[2]['lineWidth']);
+            $minL = $this->toPoints((float) $styles[3]['lineWidth']);
         } else {
             return $cell;
         }
@@ -152,18 +162,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the minimum cell height in points for the current font.
      *
-     * @param string $align Text vertical alignment inside the cell:
-     *                      - T=top; - C=center; - B=bottom; -
-     *                      A=center-on-font-ascent; -
-     *                      L=center-on-font-baseline; -
-     *                      D=center-on-font-descent.
-     * @param array  $cell  Optional to overwrite cell parameters for padding, margin etc.
+     * @param string    $align Text vertical alignment inside the cell:
+     *                         - T=top; - C=center; - B=bottom; -
+     *                         A=center-on-font-ascent; -
+     *                         L=center-on-font-baseline; -
+     *                         D=center-on-font-descent.
+     * @param ?TCellDef $cell  Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellMinHeight(
         string $align = 'C',
-        array $cell = []
+        ?array $cell = null
     ): float {
-        if ($cell === []) {
+        if ($cell === null) {
             $cell = $this->defcell;
         }
 
@@ -189,16 +199,16 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the minimum cell width in points for the current text
      *
-     * @param float  $txtwidth Text width in internal points.
-     * @param string $align    Cell horizontal alignment: L=left; C=center; R=right.
-     * @param array  $cell     Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $txtwidth Text width in internal points.
+     * @param string    $align    Cell horizontal alignment: L=left; C=center; R=right.
+     * @param ?TCellDef $cell     Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellMinWidth(
         float $txtwidth,
         string $align = 'L',
-        array $cell = []
+        ?array $cell = null
     ): float {
-        if ($cell === []) {
+        if ($cell === null) {
             $cell = $this->defcell;
         }
 
@@ -215,18 +225,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the adjusted cell top Y coordinate to account for margins.
      *
-     * @param float  $pnty    Starting top Y coordinate in internal points.
-     * @param float  $pheight Cell height in internal points.
-     * @param string $align   Cell vertical alignment: T=top; C=center; B=bottom.
-     * @param array  $cell    Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $pnty    Starting top Y coordinate in internal points.
+     * @param float     $pheight Cell height in internal points.
+     * @param string    $align   Cell vertical alignment: T=top; C=center; B=bottom.
+     * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellVPos(
         float $pnty,
         float $pheight,
         string $align = 'T',
-        array $cell = []
+        ?array $cell = null
     ): float {
-        if ($cell === []) {
+        if ($cell === null) {
             $cell = $this->defcell;
         }
 
@@ -241,18 +251,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the adjusted cell left X coordinate to account for margins.
      *
-     * @param float  $pntx   Starting top Y coordinate in internal points.
-     * @param float  $pwidth Cell width in internal points.
-     * @param string $align  Cell horizontal alignment: L=left; C=center; R=right.
-     * @param array  $cell   Optional to overwrite cell parameters for padding, margin etc.
+     * @param float    $pntx   Starting top Y coordinate in internal points.
+     * @param float    $pwidth Cell width in internal points.
+     * @param string   $align  Cell horizontal alignment: L=left; C=center; R=right.
+     * @param TCellDef $cell   Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellHPos(
         float $pntx,
         float $pwidth,
         string $align = 'L',
-        array $cell = []
+        ?array $cell = null
     ): float {
-        if ($cell === []) {
+        if ($cell === null) {
             $cell = $this->defcell;
         }
 
@@ -267,22 +277,20 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the vertical distance between the cell top side and the text baseline.
      *
-     * @param float  $pheight Cell height in internal points.
-     * @param string $align   Text vertical alignment inside the cell:
-     *                        - T=top;
-     *                        - C=center;
-     *                        - B=bottom;
-     *                        - A=center-on-font-ascent;
-     *                        - L=center-on-font-baseline;
-     *                        - D=center-on-font-descent.
-     * @param array  $cell    Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $pheight Cell height in internal points.
+     * @param string    $align   Text vertical alignment inside the cell:
+     *                           - T=top; - C=center; - B=bottom; -
+     *                           A=center-on-font-ascent; -
+     *                           L=center-on-font-baseline; -
+     *                           D=center-on-font-descent.
+     * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellTextVAlign(
         float $pheight,
         string $align = 'C',
-        array $cell = []
+        ?array $cell = null
     ): float {
-        if ($cell === []) {
+        if ($cell === null) {
             $cell = $this->defcell;
         }
 
@@ -307,18 +315,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the horizontal distance between the cell left side and the text left side.
      *
-     * @param float  $pwidth    Cell width in internal points.
-     * @param float  $txtpwidth Text width in internal points.
-     * @param string $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
-     * @param array  $cell      Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $pwidth    Cell width in internal points.
+     * @param float     $txtpwidth Text width in internal points.
+     * @param string    $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
+     * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellTextHAlign(
         float $pwidth,
         float $txtpwidth,
         string $align = 'L',
-        array $cell = []
+        ?array $cell = null
     ): float {
-        if ($cell === []) {
+        if ($cell === null) {
             $cell = $this->defcell;
         }
 
@@ -336,22 +344,20 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the top Y coordinate of the cell wrapping the text.
      *
-     * @param float  $txty    Text baseline top Y coordinate in internal points.
-     * @param float  $pheight Cell height in internal points.
-     * @param string $align   Text vertical alignment inside the cell:
-     *                        - T=top;
-     *                        - C=center;
-     *                        - B=bottom;
-     *                        - A=center-on-font-ascent;
-     *                        - L=center-on-font-baseline;
-     *                        - D=center-on-font-descent.
-     * @param array  $cell    Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $txty    Text baseline top Y coordinate in internal points.
+     * @param float     $pheight Cell height in internal points.
+     * @param string    $align   Text vertical alignment inside the cell:
+     *                           - T=top; - C=center; - B=bottom; -
+     *                           A=center-on-font-ascent; -
+     *                           L=center-on-font-baseline; -
+     *                           D=center-on-font-descent.
+     * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellVPosFromText(
         float $txty,
         float $pheight,
         string $align = 'C',
-        array $cell = []
+        ?array $cell = null
     ): float {
         return ($txty + $this->cellTextVAlign($pheight, $align, $cell));
     }
@@ -359,18 +365,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the left X coordinate of the cell wrapping the text.
      *
-     * @param float  $txtx      Text left X coordinate in internal points.
-     * @param float  $pwidth    Cell width in internal points.
-     * @param float  $txtpwidth Text width in internal points.
-     * @param string $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
-     * @param array  $cell      Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $txtx      Text left X coordinate in internal points.
+     * @param float     $pwidth    Cell width in internal points.
+     * @param float     $txtpwidth Text width in internal points.
+     * @param string    $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
+     * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellHPosFromText(
         float $txtx,
         float $pwidth,
         float $txtpwidth,
         string $align = 'L',
-        array $cell = []
+        ?array $cell = null
     ): float {
         return ($txtx - $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell));
     }
@@ -378,22 +384,20 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the baseline Y coordinate of the text inside the cell.
      *
-     * @param float  $pnty    Cell top Y coordinate in internal points.
-     * @param float  $pheight Cell height in internal points.
-     * @param string $align   Text vertical alignment inside the cell:
-     *                        - T=top;
-     *                        - C=center;
-     *                        - B=bottom;
-     *                        - A=center-on-font-ascent;
-     *                        - L=center-on-font-baseline;
-     *                        - D=center-on-font-descent.
-     * @param array  $cell    Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $pnty    Cell top Y coordinate in internal points.
+     * @param float     $pheight Cell height in internal points.
+     * @param string    $align   Text vertical alignment inside the cell:
+     *                           - T=top; - C=center; - B=bottom; -
+     *                           A=center-on-font-ascent; -
+     *                           L=center-on-font-baseline; -
+     *                           D=center-on-font-descent.
+     * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function textVPosFromCell(
         float $pnty,
         float $pheight,
         string $align = 'C',
-        array $cell = []
+        ?array $cell = null
     ): float {
         return ($pnty - $this->cellTextVAlign($pheight, $align, $cell));
     }
@@ -401,18 +405,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the left X coordinate of the text inside the cell.
      *
-     * @param float  $txtx      Text left X coordinate in internal points.
-     * @param float  $pwidth    Cell width in internal points.
-     * @param float  $txtpwidth Text width in internal points.
-     * @param string $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
-     * @param array  $cell      Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $txtx      Text left X coordinate in internal points.
+     * @param float     $pwidth    Cell width in internal points.
+     * @param float     $txtpwidth Text width in internal points.
+     * @param string    $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
+     * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function textHPosFromCell(
         float $txtx,
         float $pwidth,
         float $txtpwidth,
         string $align = 'L',
-        array $cell = []
+        ?array $cell = null
     ): float {
         return ($txtx + $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell));
     }
