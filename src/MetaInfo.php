@@ -31,7 +31,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- * @phpstan-import-type ViewerPref from Base
+ * @phpstan-import-type TViewerPref from Base
  */
 abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
 {
@@ -442,7 +442,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
      * Set the viewer preferences dictionary
      * controlling the way the document is to be presented on the screen or in print.
      *
-     * @param ViewerPref $pref Array of options (see PDF reference "Viewer Preferences").
+     * @param TViewerPref $pref Array of options (see PDF reference "Viewer Preferences").
      */
     public function setViewerPreferences(array $pref): static
     {

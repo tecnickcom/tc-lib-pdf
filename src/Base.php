@@ -40,7 +40,7 @@ use Com\Tecnick\Unicode\Convert;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- * @phpstan-type ViewerPref array{
+ * @phpstan-type TViewerPref array{
  *        'HideToolbar'?: bool,
  *        'HideMenubar'?: bool,
  *        'HideWindowUI'?: bool,
@@ -60,17 +60,18 @@ use Com\Tecnick\Unicode\Convert;
  *        'NumCopies'?: int,
  *    }
  *
- * @phpstan-type EmbeddedFile array{
+ * @phpstan-type TEmbeddedFile array{
  *          'a'?: int,
  *          'f': int,
  *          'file': string,
  *          'n': int,
  *      }
  *
- * @phpstan-import-type Outlines from Output
- * @phpstan-import-type Annot from Output
- * @phpstan-import-type XOBject from Output
- * @phpstan-import-type Signature from Output
+ * @phpstan-import-type TOutline from Output
+ * @phpstan-import-type TAnnot from Output
+ * @phpstan-import-type TXOBject from Output
+ * @phpstan-import-type TSignature from Output
+ * @phpstan-import-type TUserRights from Output
  *
  * @SuppressWarnings(PHPMD)
  */
@@ -188,7 +189,7 @@ abstract class Base
      * Viewer preferences dictionary controlling the way the document is to be presented on the screen or in print.
      * (PDF reference, "Viewer Preferences").
      *
-     * @var ViewerPref
+     * @var TViewerPref
      */
     protected array $viewerpref = [];
 
@@ -284,14 +285,14 @@ abstract class Base
     /**
      * Embedded files data.
      *
-     * @var array<string, EmbeddedFile>
+     * @var array<string, TEmbeddedFile>
      */
     protected array $embeddedfiles = [];
 
     /**
      * Annotations indexed bu object IDs.
      *
-     * @var array<int, Annot>
+     * @var array<int, TAnnot>
      */
     protected array $annotation = [];
 
@@ -330,14 +331,14 @@ abstract class Base
     /**
      * Store XObject.
      *
-     * @var array<string, XOBject>
+     * @var array<string, TXOBject>
      */
     protected array $xobject = [];
 
     /**
      * Outlines Data.
      *
-     * @var array<int, Outlines>
+     * @var array<int, TOutline>
      */
     protected array $outlines = [];
 
@@ -359,7 +360,7 @@ abstract class Base
     /**
      * Signature Data.
      *
-     * @var array<int, Signature>
+     * @var array<int, TSignature>
      */
     protected array $signature = [];
 
@@ -379,11 +380,23 @@ abstract class Base
 
     /**
      * User rights Data.
+     *
+     * @var TUserRights
      */
-    protected array $userrights = [];
+    protected array $userrights = [
+        'annots' => '',
+        'document' => '',
+        'ef' => '',
+        'enabled' => false,
+        'form' => '',
+        'formex' => '',
+        'signature' => '',
+    ];
 
     /**
      * XObjects data.
+     *
+     * @var array<string, TXOBject>
      */
     protected array $xobjects = [];
 

@@ -35,7 +35,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base
  *
- * @phpstan-import-type AnnotOpts from Output
+ * @phpstan-import-type TAnnotOpts from Output
  *
  * @SuppressWarnings(PHPMD.DepthOfInheritance)
  */
@@ -273,7 +273,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param float     $width  Width.
      * @param float     $height Height.
      * @param string    $txt    Annotation text or alternate content.
-     * @param AnnotOpts $opt    Array of options (Annotation Types) - all lowercase.
+     * @param TAnnotOpts $opt    Array of options (Annotation Types) - all lowercase.
      *
      * @return int Object ID.
      */

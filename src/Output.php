@@ -32,14 +32,14 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- *    @phpstan-type FourFloat array{
+ *    @phpstan-type TFourFloat array{
  *        float,
  *        float,
  *        float,
  *        float,
  *    }
  *
- *    @phpstan-type AnnotQuadPoint array{
+ *    @phpstan-type TAnnotQuadPoint array{
  *        float,
  *        float,
  *        float,
@@ -50,30 +50,30 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        float,
  *    }
  *
- *    @phpstan-type AnnotBorderStyle array{
+ *    @phpstan-type TAnnotBorderStyle array{
  *        'type'?: string,
  *        'w'?: int,
  *        's'?: string,
  *        'd'?: array<int>,
  *    }
  *
- *    @phpstan-type AnnotBorderEffect array{
+ *    @phpstan-type TAnnotBorderEffect array{
  *        's'?: string,
  *        'i'?: float,
  *    }
  *
- *    @phpstan-type AnnotMeasure array{
+ *    @phpstan-type TAnnotMeasure array{
  *        'type'?: string,
  *        'subtype'?: string,
  *    }
  *
- *    @phpstan-type AnnotMarkup array{
+ *    @phpstan-type TAnnotMarkup array{
  *        't'?: string,
- *        'popup'?: array,
+ *        'popup'?: array<mixed>,
  *        'ca'?: float,
  *        'rc'?: string,
  *        'creationdate'?: string,
- *        'irt'?: array,
+ *        'irt'?: array<mixed>,
  *        'subj'?: string,
  *        'rt'?: string,
  *        'it'?: string,
@@ -83,12 +83,12 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        },
  *    }
  *
- *    @phpstan-type AnnotStates array{
+ *    @phpstan-type TAnnotStates array{
  *        'marked'?: string,
  *        'review'?: string,
  *    }
  *
- *    @phpstan-type AnnotText array{
+ *    @phpstan-type TAnnotText array{
  *        'subtype': string,
  *        'open'?: bool,
  *        'name'?: string,
@@ -96,17 +96,23 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'statemodel': string,
  *    }
  *
- *    @phpstan-type AnnotLink array{
- *        'subtype': string,
- *        'a'?: array,
- *        'dest'?: string|array,
- *        'h'?: string,
- *        'pa'?: array,
- *        'quadpoints'?: array<int, AnnotQuadPoint>,
- *        'bs'?: AnnotBorderStyle,
+ *    @phpstan-type TUriAction array{
+ *       's': string,
+ *       'uri': string,
+ *       'ismap'?: bool,
  *    }
  *
- *    @phpstan-type AnnotFreeText array{
+ *    @phpstan-type TAnnotLink array{
+ *        'subtype': string,
+ *        'a'?: TAnnotActionDict,
+ *        'dest'?: string|array<mixed>,
+ *        'h'?: string,
+ *        'pa'?: TUriAction,
+ *        'quadpoints'?: array<int, TAnnotQuadPoint>,
+ *        'bs'?: TAnnotBorderStyle,
+ *    }
+ *
+ *    @phpstan-type TAnnotFreeText array{
  *        'subtype': string,
  *        'da': string,
  *        'q'?: int,
@@ -114,99 +120,99 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'ds'?: string,
  *        'cl'?: array<float>,
  *        'it'?: string,
- *        'be'?: AnnotBorderEffect,
- *        'rd'?: FourFloat,
- *        'bs'?: AnnotBorderStyle,
+ *        'be'?: TAnnotBorderEffect,
+ *        'rd'?: TFourFloat,
+ *        'bs'?: TAnnotBorderStyle,
  *        'le'?: string,
  *    }
  *
- *    @phpstan-type AnnotLine array{
+ *    @phpstan-type TAnnotLine array{
  *        'subtype': string,
- *        'l': FourFloat,
- *        'bs'?: AnnotBorderStyle,
+ *        'l': TFourFloat,
+ *        'bs'?: TAnnotBorderStyle,
  *        'le'?: array{string, string},
- *        'ic'?: FourFloat,
+ *        'ic'?: TFourFloat,
  *        'll'?: float,
  *        'lle'?: float,
  *        'cap'?: bool,
  *        'it'?: string,
  *        'llo'?: float,
  *        'cp'?: string,
- *        'measure'?: AnnotMeasure,
+ *        'measure'?: TAnnotMeasure,
  *        'co'?: array{float, float},
  *    }
  *
- *    @phpstan-type AnnotSquare array{
+ *    @phpstan-type TAnnotSquare array{
  *        'subtype': string,
- *        'bs'?: AnnotBorderStyle,
- *        'ic'?: FourFloat,
- *        'be'?: AnnotBorderEffect,
- *        'rd'?: FourFloat,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'ic'?: TFourFloat,
+ *        'be'?: TAnnotBorderEffect,
+ *        'rd'?: TFourFloat,
  *    }
  *
- *    @phpstan-type AnnotCircle AnnotSquare
+ *    @phpstan-type TAnnotCircle TAnnotSquare
  *
- *    @phpstan-type AnnotPolygon array{
+ *    @phpstan-type TAnnotPolygon array{
  *        'subtype': string,
  *        'vertices'?: array<float>,
  *        'le'?: array{string, string},
- *        'bs'?: AnnotBorderStyle,
- *        'ic'?: FourFloat,
- *        'be'?: AnnotBorderEffect,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'ic'?: TFourFloat,
+ *        'be'?: TAnnotBorderEffect,
  *        'it'?: string,
- *        'measure'?: AnnotMeasure,
+ *        'measure'?: TAnnotMeasure,
  *    }
  *
- *    @phpstan-type AnnotPolyline AnnotPolygon
+ *    @phpstan-type TAnnotPolyline TAnnotPolygon
  *
- *    @phpstan-type AnnotTextMarkup array{
+ *    @phpstan-type TAnnotTextMarkup array{
  *        'subtype': string,
- *        'quadpoints': array<int, AnnotQuadPoint>,
+ *        'quadpoints': array<int, TAnnotQuadPoint>,
  *    }
  *
- *    @phpstan-type AnnotCaret array{
+ *    @phpstan-type TAnnotCaret array{
  *        'subtype': string,
- *        'rd'?: FourFloat,
+ *        'rd'?: TFourFloat,
  *        'sy'?: string,
  *    }
  *
- *    @phpstan-type AnnotRubberStamp array{
+ *    @phpstan-type TAnnotRubberStamp array{
  *        'subtype': string,
  *        'name'?: string,
  *    }
  *
- *    @phpstan-type AnnotInk array{
+ *    @phpstan-type TAnnotInk array{
  *        'subtype': string,
  *        'inklist'?: array<int, array<float>>,
- *        'bs'?: AnnotBorderStyle,
+ *        'bs'?: TAnnotBorderStyle,
  *    }
  *
- *    @phpstan-type AnnotPopup array{
+ *    @phpstan-type TAnnotPopup array{
  *        'subtype': string,
- *        'parent'?: array,
+ *        'parent'?: array<mixed>,
  *        'open'?: bool,
  *    }
  *
- *    @phpstan-type AnnotFileAttachment array{
+ *    @phpstan-type TAnnotFileAttachment array{
  *        'subtype': string,
  *        'fs'?: string,
  *        'name'?: string,
  *    }
  *
- *    @phpstan-type AnnotSound array{
+ *    @phpstan-type TAnnotSound array{
  *        'subtype': string,
  *        'sound': string,
  *        'name'?: string,
  *    }
  *
- *    @phpstan-type AnnotMovieDict array{
+ *    @phpstan-type TAnnotMovieDict array{
  *        'f': string,
  *        'aspect'?: array{float, float},
  *        'rotate'?: int,
  *        'poster'?: bool|string,
  *    }
  *
- *    @phpstan-type AnnotMovieActDict array{
+ *    @phpstan-type TAnnotMovieActDict array{
  *        'start'?: int|string|array{int|string, int},
  *        'duration'?: int|string|array{int|string, int},
  *        'rate'?: float,
@@ -218,23 +224,23 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'fwposition'?: array{float, float},
  *    }
  *
- *    @phpstan-type AnnotMovie array{
+ *    @phpstan-type TAnnotMovie array{
  *        'subtype': string,
  *        't'?: string,
- *        'movie'?: AnnotMovieDict,
- *        'a'?: bool|AnnotMovieActDict,
+ *        'movie'?: TAnnotMovieDict,
+ *        'a'?: bool|TAnnotMovieActDict,
  *    }
  *
- *    @phpstan-type AnnotIconFitDict array{
+ *    @phpstan-type TAnnotIconFitDict array{
  *        'sw'?: string,
  *        's'?: string,
  *        'a'?: array{float, float},
  *        'fb'?: bool,
  *    }
  *
- *    @phpstan-type AnnotMKDict array{
+ *    @phpstan-type TAnnotMKDict array{
  *        'r'?: int,
- *        'bc'?: FourFloat,
+ *        'bc'?: TFourFloat,
  *        'bg'?: array{float},
  *        'ca'?: string,
  *        'rc'?: string,
@@ -242,63 +248,63 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'i'?: string,
  *        'ri'?: string,
  *        'ix'?: string,
- *        'if'?: AnnotIconFitDict,
+ *        'if'?: TAnnotIconFitDict,
  *        'tp'?: int,
  *    }
  *
- *    @phpstan-type AnnotActionDict array{
+ *    @phpstan-type TAnnotActionDict array{
  *        'type'?: string,
  *        's'?: string,
- *        'next'?: array<int, array>,
+ *        'next'?: array<int, array<mixed>>,
  *    }
  *
- *    @phpstan-type AnnotAdditionalActionDict array{
- *        'e'?: AnnotActionDict,
- *        'x'?: AnnotActionDict,
- *        'd'?: AnnotActionDict,
- *        'u'?: AnnotActionDict,
- *        'fo'?: AnnotActionDict,
- *        'bi'?: AnnotActionDict,
- *        'po'?: AnnotActionDict,
- *        'pc'?: AnnotActionDict,
- *        'pv'?: AnnotActionDict,
- *        'pi'?: AnnotActionDict,
+ *    @phpstan-type TAnnotAdditionalActionDict array{
+ *        'e'?: TAnnotActionDict,
+ *        'x'?: TAnnotActionDict,
+ *        'd'?: TAnnotActionDict,
+ *        'u'?: TAnnotActionDict,
+ *        'fo'?: TAnnotActionDict,
+ *        'bi'?: TAnnotActionDict,
+ *        'po'?: TAnnotActionDict,
+ *        'pc'?: TAnnotActionDict,
+ *        'pv'?: TAnnotActionDict,
+ *        'pi'?: TAnnotActionDict,
  *    }
  *
- *    @phpstan-type AnnotScreen array{
+ *    @phpstan-type TAnnotScreen array{
  *        'subtype': string,
  *        't'?: string,
- *        'mk'?: AnnotMKDict,
- *        'a'?: AnnotActionDict,
- *        'aa'?: AnnotAdditionalActionDict,
+ *        'mk'?: TAnnotMKDict,
+ *        'a'?: TAnnotActionDict,
+ *        'aa'?: TAnnotAdditionalActionDict,
  *    }
  *
- *    @phpstan-type AnnotWidget array{
+ *    @phpstan-type TAnnotWidget array{
  *        'subtype': string,
  *        'h'?: string,
- *        'mk'?: AnnotMKDict,
- *        'a'?: AnnotActionDict,
- *        'aa'?: AnnotAdditionalActionDict,
- *        'bs'?: AnnotBorderStyle,
- *        'parent'?: array,
+ *        'mk'?: TAnnotMKDict,
+ *        'a'?: TAnnotActionDict,
+ *        'aa'?: TAnnotAdditionalActionDict,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'parent'?: array<mixed>,
  *    }
  *
- *    @phpstan-type AnnotFixedPrintDict array{
+ *    @phpstan-type TAnnotFixedPrintDict array{
  *        'type': string,
  *        'matrix'?: array{float, float, float, float, float, float},
  *        'h'?: float,
  *        'v'?: float,
  *    }
  *
- *    @phpstan-type AnnotWatermark array{
+ *    @phpstan-type TAnnotWatermark array{
  *        'subtype': string,
- *        'fixedprint'?: AnnotFixedPrintDict,
+ *        'fixedprint'?: TAnnotFixedPrintDict,
  *    }
  *
- *    @phpstan-type AnnotRedact array{
+ *    @phpstan-type TAnnotRedact array{
  *        'subtype': string,
- *        'quadpoints'?: array<int, AnnotQuadPoint>,
- *        'ic'?: FourFloat,
+ *        'quadpoints'?: array<int, TAnnotQuadPoint>,
+ *        'ic'?: TFourFloat,
  *        'ro'?: string,
  *        'overlaytext'?: string,
  *        'repeat'?: bool,
@@ -306,25 +312,25 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'q'?: int,
  *    }
  *
- *    @phpstan-type AnnotOptsA AnnotText|AnnotLink|AnnotFreeText
- *    @phpstan-type AnnotOptsB AnnotLine|AnnotSquare|AnnotCircle|AnnotPolygon|AnnotPolyline
- *    @phpstan-type AnnotOptsC AnnotTextMarkup|AnnotCaret|AnnotRubberStamp|AnnotInk|AnnotPopup
- *    @phpstan-type AnnotOptsD AnnotFileAttachment|AnnotSound|AnnotMovie
- *    @phpstan-type AnnotOptsE AnnotScreen|AnnotWidget|AnnotWatermark|AnnotRedact
+ *    @phpstan-type TAnnotOptsA TAnnotText|TAnnotLink|TAnnotFreeText
+ *    @phpstan-type TAnnotOptsB TAnnotLine|TAnnotSquare|TAnnotCircle|TAnnotPolygon|TAnnotPolyline
+ *    @phpstan-type TAnnotOptsC TAnnotTextMarkup|TAnnotCaret|TAnnotRubberStamp|TAnnotInk|TAnnotPopup
+ *    @phpstan-type TAnnotOptsD TAnnotFileAttachment|TAnnotSound|TAnnotMovie
+ *    @phpstan-type TAnnotOptsE TAnnotScreen|TAnnotWidget|TAnnotWatermark|TAnnotRedact
  *
- *    @phpstan-type AnnotOpts AnnotOptsA|AnnotOptsB|AnnotOptsC|AnnotOptsD|AnnotOptsE
+ *    @phpstan-type TAnnotOpts TAnnotOptsA|TAnnotOptsB|TAnnotOptsC|TAnnotOptsD|TAnnotOptsE
  *
- *    @phpstan-type Annot array{
+ *    @phpstan-type TAnnot array{
  *        'n': float,
  *        'x': float,
  *        'y': float,
  *        'w': float,
  *        'h': float,
  *        'txt': string,
- *        'opt': AnnotOpts,
+ *        'opt': TAnnotOpts,
  *    }
  *
- *    @phpstan-type XOBject array{
+ *    @phpstan-type TXOBject array{
  *         'extgstates'?: \Com\Tecnick\Pdf\Graph\Draw,
  *         'fonts'?: \Com\Tecnick\Pdf\Font\Stack,
  *         'gradients'?: \Com\Tecnick\Pdf\Graph\Draw,
@@ -344,7 +350,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'y'?: float,
  *     }
  *
- * @phpstan-type Outlines array {
+ * @phpstan-type TOutline array{
  *         'c'?: array<float>,
  *         'first'?: int,
  *         'last'?: int,
@@ -354,36 +360,46 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'prev'?: int,
  *         's'?: string,
  *         't'?: string,
- *         'u'?: AnnotActionDict,
+ *         'u'?: TAnnotActionDict,
  *         'x'?: float,
  *         'y'?: float,
  *     }
  *
- * @phpstan-type Signature array {
- *     'appearance'?: array{
- *  'empty'?: array{
- *      'objid'?; int,
- *      'name'?: string,
- *      'page'?: int,
- *      'rect'?: string,
- *  },
- *  'name'?: string,
- *  'page'?: int,
- *  'rect'?: string,
- *     }
- *     'approval'?: string,
- *     'cert_type'?: string,
- *     'extracerts'?: string,
- *     'info'?: array{
- *  'ContactInfo'?: string,
- *  'Location'?: string,
- *  'Name'?: string,
- *  'Reason'?: string,
- *     }
- *     'password'?: string,
- *     'privkey'?: string,
- *     'signcert'?: string,
- * }
+ *    @phpstan-type TSignature array{
+ *        'appearance'?: array{
+ *            'empty'?: array{
+ *                'objid'?: int,
+ *                'name'?: string,
+ *                'page'?: int,
+ *                'rect'?: string,
+ *            },
+ *            'name'?: string,
+ *            'page'?: int,
+ *            'rect'?: string,
+ *        },
+ *        'approval'?: string,
+ *        'cert_type'?: string,
+ *        'extracerts'?: string,
+ *        'info'?: array{
+ *        'ContactInfo'?: string,
+ *        'Location'?: string,
+ *        'Name'?: string,
+ *        'Reason'?: string,
+ *        },
+ *        'password'?: string,
+ *        'privkey'?: string,
+ *        'signcert'?: string,
+ *    }
+ *
+ * @phpstan-type TUserRights array{
+ *        'annots': string,
+ *        'document': string,
+ *        'ef': string,
+ *        'enabled': bool,
+ *        'form': string,
+ *        'formex': string,
+ *        'signature': string,
+ *    }
  *
  * @SuppressWarnings(PHPMD)
  */
