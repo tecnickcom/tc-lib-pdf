@@ -306,15 +306,13 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'q'?: int,
  *    }
  *
- *    @phpstan-type AnnotOptsA AnnotText|AnnotLink|AnnotFreeText|AnnotLine|AnnotSquare
+ *    @phpstan-type AnnotOptsA AnnotText|AnnotLink|AnnotFreeText
+ *    @phpstan-type AnnotOptsB AnnotLine|AnnotSquare|AnnotCircle|AnnotPolygon|AnnotPolyline
+ *    @phpstan-type AnnotOptsC AnnotTextMarkup|AnnotCaret|AnnotRubberStamp|AnnotInk|AnnotPopup
+ *    @phpstan-type AnnotOptsD AnnotFileAttachment|AnnotSound|AnnotMovie
+ *    @phpstan-type AnnotOptsE AnnotScreen|AnnotWidget|AnnotWatermark|AnnotRedact
  *
- *    @phpstan-type AnnotOptsB AnnotCircle|AnnotPolygon|AnnotPolyline|AnnotTextMarkup|AnnotCaret
- *
- *    @phpstan-type AnnotOptsC AnnotRubberStamp|AnnotInk|AnnotPopup|AnnotFileAttachment|AnnotSound
- *
- *    @phpstan-type AnnotOptsD AnnotMovie|AnnotScreen|AnnotWidget|AnnotWatermark|AnnotRedact
- *
- *    @phpstan-type AnnotOpts AnnotOptsA|AnnotOptsB|AnnotOptsC|AnnotOptsD
+ *    @phpstan-type AnnotOpts AnnotOptsA|AnnotOptsB|AnnotOptsC|AnnotOptsD|AnnotOptsE
  *
  *    @phpstan-type Annot array{
  *        'n': float,
