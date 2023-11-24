@@ -60,14 +60,18 @@ use Com\Tecnick\Unicode\Convert;
  *        'NumCopies'?: int,
  *    }
  *
- * @phpstan-import-type Annot from Output
- *
  * @phpstan-type EmbeddedFile array{
  *          'a'?: int,
  *          'f': int,
  *          'file': string,
  *          'n': int,
  *      }
+ *
+ * @phpstan-import-type Outlines from Output
+ *
+ * @phpstan-import-type Annot from Output
+ *
+ * @phpstan-import-type XOBject from Output
  *
  * @SuppressWarnings(PHPMD)
  */
@@ -319,16 +323,22 @@ abstract class Base
 
     /**
      * Array containing the ID of some named PDF objects.
+     *
+     * @var array<string, int>
      */
     protected array $objid = [];
 
     /**
      * Store XObject.
+     *
+     * @var array<string, XOBject>
      */
     protected array $xobject = [];
 
     /**
      * Outlines Data.
+     *
+     * @var array<int, Outlines>
      */
     protected array $outlines = [];
 

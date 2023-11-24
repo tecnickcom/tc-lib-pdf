@@ -324,6 +324,41 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'opt': AnnotOpts,
  *    }
  *
+ *    @phpstan-type XOBject array{
+ *         'extgstates'?: \Com\Tecnick\Pdf\Graph\Draw,
+ *         'fonts'?: \Com\Tecnick\Pdf\Font\Stack,
+ *         'gradients'?: \Com\Tecnick\Pdf\Graph\Draw,
+ *         'group'?: array{
+ *             'CS'?: string,
+ *             'I'?: bool,
+ *             'K'?: bool,
+ *         },
+ *         'h'?: float,
+ *         'images'?: array<int>,
+ *         'n'?: int,
+ *         'outdata'?: string,
+ *         'spot_colors'?: \Com\Tecnick\Color\Pdf,
+ *         'w'?: float,
+ *         'x'?: float,
+ *         'xobjects'?: array<int, int>,
+ *         'y'?: float,
+ *     }
+ *
+ * @phpstan-type Outlines array {
+ *         'c'?: array<float>,
+ *         'first'?: int,
+ *         'last'?: int,
+ *         'next'?: int,
+ *         'p'?: int,
+ *         'parent'?: int,
+ *         'prev'?: int,
+ *         's'?: string,
+ *         't'?: string,
+ *         'u'?: AnnotActionDict,
+ *         'x'?: float,
+ *         'y'?: float,
+ *     }
+ *
  * @SuppressWarnings(PHPMD)
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
