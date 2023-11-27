@@ -1183,7 +1183,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $width = $this->toPoints($annot['w']);
                 $height = $this->toPoints($annot['h']);
                 $rect = sprintf('%F %F %F %F', $orx, $ory, $orx + $width, $ory + $height);
-                $out .= $oid . ' 0 obj' . "\n"
+                $out .= ((int) $oid) . ' 0 obj' . "\n"
                     . '<<'
                     . ' /Type /Annot'
                     . ' /Subtype /' . $annot['opt']['subtype']
