@@ -3,13 +3,13 @@
 /**
  * Output.php
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
@@ -24,33 +24,485 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *
  * Output PDF data
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2023 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2023 Nicola Asuni - Tecnick.com LTD
+ * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * @phpstan-type TFourFloat array{
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *    }
+ *
+ * @phpstan-type TAnnotQuadPoint array{
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *    }
+ *
+ * @phpstan-type TAnnotBorderStyle array{
+ *        'type': string,
+ *        'w': int,
+ *        's': string,
+ *        'd': array<int>,
+ *    }
+ *
+ * @phpstan-type TAnnotBorderEffect array{
+ *        's'?: string,
+ *        'i'?: float,
+ *    }
+ *
+ * @phpstan-type TAnnotMeasure array{
+ *        'type'?: string,
+ *        'subtype'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotMarkup array{
+ *        't'?: string,
+ *        'popup'?: array<mixed>,
+ *        'ca'?: float,
+ *        'rc'?: string,
+ *        'creationdate'?: string,
+ *        'irt'?: array<mixed>,
+ *        'subj'?: string,
+ *        'rt'?: string,
+ *        'it'?: string,
+ *        'exdata'?: array{
+ *      'type'?: string,
+ *      'subtype': string,
+ *        },
+ *    }
+ *
+ * @phpstan-type TAnnotStates array{
+ *        'marked'?: string,
+ *        'review'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotText array{
+ *        'subtype': string,
+ *        'open'?: bool,
+ *        'name'?: string,
+ *        'state'?: string,
+ *        'statemodel'?: string,
+ *    }
+ *
+ * @phpstan-type TUriAction array{
+ *       's': string,
+ *       'uri': string,
+ *       'ismap'?: bool,
+ *    }
+ *
+ * @phpstan-type TAnnotLink array{
+ *        'subtype': string,
+ *        'a'?: TAnnotActionDict,
+ *        'dest'?: string|array<mixed>,
+ *        'h'?: string,
+ *        'pa'?: TUriAction,
+ *        'quadpoints'?: array<int, TAnnotQuadPoint>,
+ *        'bs'?: TAnnotBorderStyle,
+ *    }
+ *
+ * @phpstan-type TAnnotFreeText array{
+ *        'subtype': string,
+ *        'da': string,
+ *        'q'?: int,
+ *        'rc'?: string,
+ *        'ds'?: string,
+ *        'cl'?: array<float>,
+ *        'it'?: string,
+ *        'be'?: TAnnotBorderEffect,
+ *        'rd'?: TFourFloat,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'le'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotLine array{
+ *        'subtype': string,
+ *        'l': TFourFloat,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'le'?: array{string, string},
+ *        'ic'?: TFourFloat,
+ *        'll'?: float,
+ *        'lle'?: float,
+ *        'cap'?: bool,
+ *        'it'?: string,
+ *        'llo'?: float,
+ *        'cp'?: string,
+ *        'measure'?: TAnnotMeasure,
+ *        'co'?: array{float, float},
+ *    }
+ *
+ * @phpstan-type TAnnotSquare array{
+ *        'subtype': string,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'ic'?: TFourFloat,
+ *        'be'?: TAnnotBorderEffect,
+ *        'rd'?: TFourFloat,
+ *    }
+ *
+ * @phpstan-type TAnnotCircle TAnnotSquare
+ *
+ * @phpstan-type TAnnotPolygon array{
+ *        'subtype': string,
+ *        'vertices'?: array<float>,
+ *        'le'?: array{string, string},
+ *        'bs'?: TAnnotBorderStyle,
+ *        'ic'?: TFourFloat,
+ *        'be'?: TAnnotBorderEffect,
+ *        'it'?: string,
+ *        'measure'?: TAnnotMeasure,
+ *    }
+ *
+ * @phpstan-type TAnnotPolyline TAnnotPolygon
+ *
+ * @phpstan-type TAnnotTextMarkup array{
+ *        'subtype': string,
+ *        'quadpoints': array<int, TAnnotQuadPoint>,
+ *    }
+ *
+ * @phpstan-type TAnnotCaret array{
+ *        'subtype': string,
+ *        'rd'?: TFourFloat,
+ *        'sy'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotRubberStamp array{
+ *        'subtype': string,
+ *        'name'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotInk array{
+ *        'subtype': string,
+ *        'inklist'?: array<int, array<float>>,
+ *        'bs'?: TAnnotBorderStyle,
+ *    }
+ *
+ * @phpstan-type TAnnotPopup array{
+ *        'subtype': string,
+ *        'parent'?: array<mixed>,
+ *        'open'?: bool,
+ *    }
+ *
+ * @phpstan-type TAnnotFileAttachment array{
+ *        'subtype': string,
+ *        'fs'?: string,
+ *        'name'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotSound array{
+ *        'subtype': string,
+ *        'sound': string,
+ *        'name'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotMovieDict array{
+ *        'f': string,
+ *        'aspect'?: array{float, float},
+ *        'rotate'?: int,
+ *        'poster'?: bool|string,
+ *    }
+ *
+ * @phpstan-type TAnnotMovieActDict array{
+ *        'start'?: int|string|array{int|string, int},
+ *        'duration'?: int|string|array{int|string, int},
+ *        'rate'?: float,
+ *        'volume'?: float,
+ *        'showcontrols'?: bool,
+ *        'mode'?: string,
+ *        'synchronous'?: bool,
+ *        'fwscale'?: array{int, int},
+ *        'fwposition'?: array{float, float},
+ *    }
+ *
+ * @phpstan-type TAnnotMovie array{
+ *        'subtype': string,
+ *        't'?: string,
+ *        'movie'?: TAnnotMovieDict,
+ *        'a'?: bool|TAnnotMovieActDict,
+ *    }
+ *
+ * @phpstan-type TAnnotIconFitDict array{
+ *        'sw'?: string,
+ *        's'?: string,
+ *        'a'?: array{float, float},
+ *        'fb'?: bool,
+ *    }
+ *
+ * @phpstan-type TAnnotMKDict array{
+ *        'r'?: int,
+ *        'bc'?: TFourFloat,
+ *        'bg'?: array{float},
+ *        'ca'?: string,
+ *        'rc'?: string,
+ *        'ac'?: string,
+ *        'i'?: string,
+ *        'ri'?: string,
+ *        'ix'?: string,
+ *        'if'?: TAnnotIconFitDict,
+ *        'tp'?: int,
+ *    }
+ *
+ * @phpstan-type TAnnotActionDict array{
+ *        'type'?: string,
+ *        's'?: string,
+ *        'next'?: array<int, array<mixed>>,
+ *    }
+ *
+ * @phpstan-type TAnnotAdditionalActionDict array{
+ *        'e'?: TAnnotActionDict,
+ *        'x'?: TAnnotActionDict,
+ *        'd'?: TAnnotActionDict,
+ *        'u'?: TAnnotActionDict,
+ *        'fo'?: TAnnotActionDict,
+ *        'bi'?: TAnnotActionDict,
+ *        'po'?: TAnnotActionDict,
+ *        'pc'?: TAnnotActionDict,
+ *        'pv'?: TAnnotActionDict,
+ *        'pi'?: TAnnotActionDict,
+ *    }
+ *
+ * @phpstan-type TAnnotScreen array{
+ *        'subtype': string,
+ *        't'?: string,
+ *        'mk'?: TAnnotMKDict,
+ *        'a'?: TAnnotActionDict,
+ *        'aa'?: TAnnotAdditionalActionDict,
+ *    }
+ *
+ * @phpstan-type TAnnotWidget array{
+ *        'subtype': string,
+ *        'h'?: string,
+ *        'mk'?: TAnnotMKDict,
+ *        'a'?: TAnnotActionDict,
+ *        'aa'?: TAnnotAdditionalActionDict,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'parent'?: array<mixed>,
+ *    }
+ *
+ * @phpstan-type TAnnotFixedPrintDict array{
+ *        'type': string,
+ *        'matrix'?: array{float, float, float, float, float, float},
+ *        'h'?: float,
+ *        'v'?: float,
+ *    }
+ *
+ * @phpstan-type TAnnotWatermark array{
+ *        'subtype': string,
+ *        'fixedprint'?: TAnnotFixedPrintDict,
+ *    }
+ *
+ * @phpstan-type TAnnotRedact array{
+ *        'subtype': string,
+ *        'quadpoints'?: array<int, TAnnotQuadPoint>,
+ *        'ic'?: TFourFloat,
+ *        'ro'?: string,
+ *        'overlaytext'?: string,
+ *        'repeat'?: bool,
+ *        'da'?: string,
+ *        'q'?: int,
+ *    }
+ *
+ * @phpstan-type TAnnotOptsA TAnnotText|TAnnotLink|TAnnotFreeText
+ * @phpstan-type TAnnotOptsB TAnnotLine|TAnnotSquare|TAnnotCircle|TAnnotPolygon|TAnnotPolyline
+ * @phpstan-type TAnnotOptsC TAnnotTextMarkup|TAnnotCaret|TAnnotRubberStamp|TAnnotInk|TAnnotPopup
+ * @phpstan-type TAnnotOptsD TAnnotFileAttachment|TAnnotSound|TAnnotMovie
+ * @phpstan-type TAnnotOptsE TAnnotScreen|TAnnotWidget|TAnnotWatermark|TAnnotRedact
+ *
+ * @phpstan-type TAnnotOpts TAnnotOptsA|TAnnotOptsB|TAnnotOptsC|TAnnotOptsD|TAnnotOptsE
+ *
+ * @phpstan-type TAnnot array{
+ *        'n': int,
+ *        'x': float,
+ *        'y': float,
+ *        'w': float,
+ *        'h': float,
+ *        'txt': string,
+ *        'opt': TAnnotOpts,
+ *    }
+ *
+ * @phpstan-type TXOBject array{
+ *         'extgstates'?: \Com\Tecnick\Pdf\Graph\Draw,
+ *         'fonts'?: \Com\Tecnick\Pdf\Font\Stack,
+ *         'gradients'?: \Com\Tecnick\Pdf\Graph\Draw,
+ *         'group'?: array{
+ *             'CS'?: string,
+ *             'I'?: bool,
+ *             'K'?: bool,
+ *         },
+ *         'h': float,
+ *         'images'?: array<int>,
+ *         'n': int,
+ *         'outdata'?: string,
+ *         'spot_colors'?: \Com\Tecnick\Color\Pdf,
+ *         'w': float,
+ *         'x': float,
+ *         'xobjects'?: array<int, int>,
+ *         'y': float,
+ *     }
+ *
+ * @phpstan-type TOutline array{
+ *         'c': array<float>,
+ *         'first': int,
+ *         'l': int,
+ *         'last': int,
+ *         'next': int,
+ *         'p': int,
+ *         'parent': int,
+ *         'prev': int,
+ *         's': string,
+ *         't': string,
+ *         'u': int,
+ *         'x': float,
+ *         'y': float,
+ *     }
+ *
+ * @phpstan-type TSignature array{
+ *        'appearance': array{
+ *            'empty': array<int, array{
+ *                'objid': int,
+ *                'name': string,
+ *                'page': int,
+ *                'rect': string,
+ *            }>,
+ *            'name': string,
+ *            'page': int,
+ *            'rect': string,
+ *        },
+ *        'approval': string,
+ *        'cert_type': int,
+ *        'extracerts': string,
+ *        'info': array{
+ *            'ContactInfo': string,
+ *            'Location': string,
+ *            'Name': string,
+ *            'Reason': string,
+ *        },
+ *        'password': string,
+ *        'privkey': string,
+ *        'signcert': string,
+ *    }
+ *
+ * @phpstan-type TUserRights array{
+ *        'annots': string,
+ *        'document': string,
+ *        'ef': string,
+ *        'enabled': bool,
+ *        'form': string,
+ *        'formex': string,
+ *        'signature': string,
+ *    }
+ *
+ * @phpstan-type TEmbeddedFile array{
+ *        'a': int,
+ *        'f': int,
+ *        'file': string,
+ *        'n': int,
+ *    }
+ *
+ * @phpstan-type TObjID array{
+ *        'catalog': int,
+ *        'dests': int,
+ *        'form': array<int>,
+ *        'info': int,
+ *        'pages': int,
+ *        'resdic': int,
+ *        'signature': int,
+ *        'srgbicc': int,
+ *        'xmp': int,
+ *    }
  *
  * @SuppressWarnings(PHPMD)
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
-    protected $pdflayer;
+    /**
+     * PDF layers.
+     *
+     * @var array<int, array{
+     *         'layer': string,
+     *         'lock': bool,
+     *         'name': string,
+     *         'objid': int,
+     *         'print': bool,
+     *         'view': bool,
+     *     }>
+     */
+    protected array $pdflayer = [];
 
-    protected $l;
+    /**
+     * Language array.
+     *
+     * @var array<string, string>
+     */
+    protected array $lang = [];
 
-    protected $annotation_fonts;
+    /**
+     * Fonts used in annotations.
+     *
+     * @var array<string, int>
+     */
+    protected array $annotation_fonts = [];
 
-    protected $dests;
+    /**
+     * Destinations.
+     *
+     * @var array<string, array{
+     *          'f': bool,
+     *          'p': int,
+     *          'x': float,
+     *          'y': float,
+     *      }>
+     */
+    protected array $dests = [];
 
-    protected $radiobuttonGroups;
+    /**
+     * Radio Button Groups.
+     *
+     * @var array<string, array{
+     *         'n': int,
+     *         '#readonly#': bool,
+     *         'kid'?: int,
+     *         'def': string,
+     *      }>
+     */
+    protected array $radiobuttonGroups = [];
 
-    protected $links;
+    /**
+     * Links.
+     *
+     * @var array<int, array{
+     *          'f': bool,
+     *          'p': int,
+     *          'y': float,
+     *      }>
+     */
+    protected array $links = [];
 
-    protected $javascript;
+    /**
+     * Javascript block to add.
+     */
+    protected string $javascript = '';
 
-    protected $jsobjects;
+    /**
+     * Javascript objects.
+     *
+     * @var array<int, array{
+     *          'n': int,
+     *          'js': string,
+     *          'onload': bool,
+     *      }>
+     */
+    protected array $jsobjects = [];
 
     /**
      * Returns the RAW PDF string.
@@ -125,7 +577,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @param string $data Raw PDF data
      *
-     * @return array - Ordered offset array for each PDF object
+     * @return array<int> - Ordered offset array for each PDF object
      */
     protected function getPDFObjectOffsets(string $data): array
     {
@@ -142,7 +594,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF XREF section.
      *
-     * @param array $offset Ordered offset array for each PDF object
+     * @param array<int> $offset Ordered offset array for each PDF object
      */
     protected function getOutPDFXref(array $offset): string
     {
@@ -367,8 +819,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         //$out .= ' /StructTreeRoot <<>>';
         //$out .= ' /MarkInfo <<>>';
 
-        if (! empty($this->l['a_meta_language'])) {
-            $out .= ' /Lang ' . $this->getOutTextString($this->l['a_meta_language'], $oid, true);
+        if (! empty($this->lang['a_meta_language'])) {
+            $out .= ' /Lang ' . $this->getOutTextString($this->lang['a_meta_language'], $oid, true);
         }
 
         //$out .= ' /SpiderInfo <<>>';
@@ -379,12 +831,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         // AcroForm
         if (
             ! empty($this->objid['form'])
-            || ($this->sign && isset($this->signature['cert_type']))
+            || ($this->sign && ($this->signature['cert_type'] >= 0))
             || ! empty($this->signature['appearance']['empty'])
         ) {
             $out .= ' /AcroForm <<';
             $objrefs = '';
-            if ($this->sign && isset($this->signature['cert_type'])) {
+            if ($this->sign && ($this->signature['cert_type'] >= 0)) {
                 // set reference for signature object
                 $objrefs .= $this->objid['signature'] . ' 0 R';
             }
@@ -409,7 +861,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' /NeedAppearances false';
             }
 
-            if ($this->sign && isset($this->signature['cert_type'])) {
+            if ($this->sign && ($this->signature['cert_type'] >= 0)) {
                 if ($this->signature['cert_type'] > 0) {
                     $out .= ' /SigFlags 3';
                 } else {
@@ -436,7 +888,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             // signatures
             if (
-                $this->sign && isset($this->signature['cert_type'])
+                $this->sign && ($this->signature['cert_type'] >= 0)
                 && (empty($this->signature['approval']) || ($this->signature['approval'] != 'A'))
             ) {
                 $out .= ' /Perms << ';
@@ -492,8 +944,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF Annotation code for Apearance Stream XObjects entry.
      *
-     * @param int $width annotation width
-     * @param int $height annotation height
+     * @param int    $width  annotation width
+     * @param int    $height annotation height
      * @param string $stream appearance stream
      */
     protected function getOutAPXObjects(
@@ -506,6 +958,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = $oid . ' 0 obj' . "\n";
         $this->xobjects['AX' . $oid] = [
             'n' => $oid,
+            'h' => 0,
+            'w' => 0,
+            'x' => 0,
+            'y' => 0,
         ];
         $out .= '<< /Type /XObject /Subtype /Form /FormType 1';
         if ($this->compress) {
@@ -587,12 +1043,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             // images or nested xobjects
             if (! empty($data['images']) || ! empty($data['xobjects'])) {
                 $out .= ' /XObject <<';
-                foreach ($data['images'] as $imgid) {
-                    $out .= ' /I' . $imgid . ' ' . $this->xobject['I' . $imgid]['n'] . ' 0 R';
+
+                if (! empty($data['images'])) {
+                    foreach ($data['images'] as $imgid) {
+                        $out .= ' /I' . $imgid . ' ' . $this->xobject['I' . $imgid]['n'] . ' 0 R';
+                    }
                 }
 
-                foreach ($data['xobjects'] as $sub_id => $sub_objid) {
-                    $out .= ' /' . $sub_id . ' ' . $sub_objid['n'] . ' 0 R';
+                if (! empty($data['xobjects'])) {
+                    foreach ($data['xobjects'] as $sub_id => $sub_objid) {
+                        $out .= ' /' . $sub_id . ' ' . $sub_objid . ' 0 R';
+                    }
                 }
 
                 $out .= ' >>';
@@ -788,13 +1249,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             foreach ($page['annotrefs'] as $key => $oid) {
                 $annot = $this->annotation[$oid];
                 $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
-                $out .= $this->getAnnotationRadiobuttonGroups($annot);
+                $out .= $this->getAnnotationRadiobuttonGroups($annot); // @phpstan-ignore-line
                 $orx = $this->toPoints($annot['x']);
                 $ory = $this->toYPoints(($annot['y'] + $annot['h']), $page['pheight']);
                 $width = $this->toPoints($annot['w']);
                 $height = $this->toPoints($annot['h']);
                 $rect = sprintf('%F %F %F %F', $orx, $ory, $orx + $width, $ory + $height);
-                $out .= $oid . ' 0 obj' . "\n"
+                $out .= ((int) $oid) . ' 0 obj' . "\n" // @phpstan-ignore-line
                     . '<<'
                     . ' /Type /Annot'
                     . ' /Subtype /' . $annot['opt']['subtype']
@@ -802,7 +1263,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $ft = ['Btn', 'Tx', 'Ch', 'Sig'];
                 $formfield = (! empty($annot['opt']['ft']) && in_array($annot['opt']['ft'], $ft));
                 if ($formfield) {
-                    $out .= ' /FT /' . $annot['opt']['ft'];
+                    $out .= ' /FT /' . $annot['opt']['ft']; // @phpstan-ignore-line
                 }
 
                 if ($annot['opt']['subtype'] !== 'Link') {
@@ -812,17 +1273,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' /P ' . $page['n'] . ' 0 R'
                     . ' /NM ' . $this->encrypt->escapeDataString(sprintf('%04u-%04u', $page['num'], $key), $oid)
                     . ' /M ' . $this->getOutDateTimeString($this->docmodtime, $oid)
-                    . $this->getOutAnnotationFlags($annot)
-                    . $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height)
-                    . $this->getAnnotationBorder($annot);
+                    . $this->getOutAnnotationFlags($annot) // @phpstan-ignore-line
+                    . $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height) // @phpstan-ignore-line
+                    . $this->getAnnotationBorder($annot); // @phpstan-ignore-line
                 if (! empty($annot['opt']['c']) && is_array($annot['opt']['c'])) {
                     $out .= ' /C ' . static::getColorStringFromArray($annot['opt']['c']);
                 }
 
                 //$out .= ' /StructParent ';
                 //$out .= ' /OC ';
-                $out .= $this->getOutAnnotationMarkups($annot, $oid)
-                    . $this->getOutAnnotationOptSubtype($annot, $num, $oid, $key)
+
+                $out .= $this->getOutAnnotationMarkups($annot, $oid) // @phpstan-ignore-line
+                    . $this->getOutAnnotationOptSubtype($annot, $num, $oid, $key) // @phpstan-ignore-line
                     . ' >>' . "\n"
                     . 'endobj' . "\n";
                 if (! $formfield) {
@@ -843,7 +1305,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Radio buttons.
      *
-     * @param array $annot   Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getAnnotationRadiobuttonGroups(array $annot): string
     {
@@ -893,16 +1355,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . 'endobj' . "\n";
         $this->objid['form'][] = $oid;
         // store object id to be used on Parent entry of Kids
-        $this->radiobuttonGroups[$annot['txt']] = $oid;
+        $this->radiobuttonGroups[$annot['txt']]['n'] = $oid;
         return $out;
     }
 
     /**
      * Returns the Annotation code for Appearance Stream.
      *
-     * @param array $annot  Array containing page annotations.
-     * @param int $width     Annotation width.
-     * @param int $height    Annotation height.
+     * @param TAnnot $annot  Array containing page annotations.
+     * @param int    $width  Annotation width.
+     * @param int    $height Annotation height.
      */
     protected function getAnnotationAppearanceStream(
         array $annot,
@@ -948,23 +1410,32 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Borders.
      *
-     * @param array $annot  Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getAnnotationBorder(array $annot): string
     {
         $out = '';
-        if (! empty($annot['opt']['bs']) && (is_array($annot['opt']['bs']))) {
+        if (
+            ! empty($annot['opt']['bs'])
+            && (is_array($annot['opt']['bs']))
+        ) {
             $out .= ' /BS << /Type /Border';
             if (isset($annot['opt']['bs']['w'])) {
                 $out .= ' /W ' . (int) $annot['opt']['bs']['w'];
             }
 
             $bstyles = ['S', 'D', 'B', 'I', 'U'];
-            if (! empty($annot['opt']['bs']['s']) && in_array($annot['opt']['bs']['s'], $bstyles)) {
+            if (
+                ! empty($annot['opt']['bs']['s'])
+                && in_array($annot['opt']['bs']['s'], $bstyles)
+            ) {
                 $out .= ' /S /' . $annot['opt']['bs']['s'];
             }
 
-            if (isset($annot['opt']['bs']['d']) && (is_array($annot['opt']['bs']['d']))) {
+            if (
+                isset($annot['opt']['bs']['d'])
+                && (is_array($annot['opt']['bs']['d']))
+            ) {
                 $out .= ' /D [';
                 foreach ($annot['opt']['bs']['d'] as $cord) {
                     $out .= ' ' . (int) $cord;
@@ -976,11 +1447,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' >>';
         } else {
             $out .= ' /Border [';
-            if (isset($annot['opt']['border']) && (count($annot['opt']['border']) >= 3)) {
+            if (
+                isset($annot['opt']['border'])
+                && (count($annot['opt']['border']) >= 3)
+            ) {
                 $out .= (int) $annot['opt']['border'][0]
                     . ' ' . (int) $annot['opt']['border'][1]
                     . ' ' . (int) $annot['opt']['border'][2];
-                if (isset($annot['opt']['border'][3]) && is_array($annot['opt']['border'][3])) {
+                if (
+                    isset($annot['opt']['border'][3])
+                    && is_array($annot['opt']['border'][3])
+                ) {
                     $out .= ' [';
                     foreach ($annot['opt']['border'][3] as $dash) {
                         $out .= ' ' . (int) $dash;
@@ -998,8 +1475,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (isset($annot['opt']['be']) && (is_array($annot['opt']['be']))) {
             $out .= ' /BE <<';
             $bstyles = ['S', 'C'];
-            if (! empty($annot['opt']['be']['s']) && in_array($annot['opt']['be']['s'], $bstyles)) {
-                $out .= ' /S /' . $annot['opt']['bs']['s'];
+            if (
+                ! empty($annot['opt']['be']['s'])
+                && in_array($annot['opt']['be']['s'], $bstyles)
+            ) {
+                $out .= ' /S /' . $annot['opt']['be']['s'];
             } else {
                 $out .= ' /S /S';
             }
@@ -1021,8 +1501,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Makups.
      *
-     * @param array $annot Array containing page annotations.
-     * @param int   $oid   Annotation Object ID.
+     * @param TAnnot $annot Array containing page annotations.
+     * @param int    $oid   Annotation Object ID.
      */
     protected function getOutAnnotationMarkups(
         array $annot,
@@ -1079,7 +1559,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation code for Flags.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationFlags(array $annot): string
     {
@@ -1099,7 +1579,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation Flags code.
      *
-     * @param int|array $flags Annotation flags.
+     * @param int|array<string> $flags Annotation flags.
      */
     protected function getAnnotationFlagsCode(int|array $flags): int
     {
@@ -1151,39 +1631,40 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.
      *
-     * @param array $annot   Array containing page annotations.
-     * @param int   $pagenum Page number.
-     * @param int   $oid     Annotation Object ID.
-     * @param int   $key     Annotation index in the current page.
+     * @param TAnnot $annot   Array containing page annotations.
+     * @param int    $pagenum Page number.
+     * @param int    $oid     Annotation Object ID.
+     * @param int    $key     Annotation index in the current page.
      */
     protected function getOutAnnotationOptSubtype(array $annot, int $pagenum, int $oid, int $key): string
     {
         return match (strtolower($annot['opt']['subtype'])) {
-            'text' => $this->getOutAnnotationOptSubtypeText($annot),
-            'link' => $this->getOutAnnotationOptSubtypeLink($annot, $pagenum, $oid),
-            'freetext' => $this->getOutAnnotationOptSubtypeFreetext($annot),
-            'line' => $this->getOutAnnotationOptSubtypeLine($annot),
-            'square' => $this->getOutAnnotationOptSubtypeSquare($annot),
+            '3d' => $this->getOutAnnotationOptSubtype3D($annot),
+            'caret' => $this->getOutAnnotationOptSubtypeCaret($annot),
             'circle' => $this->getOutAnnotationOptSubtypeCircle($annot),
+            'fileattachment' => $this->getOutAnnotationOptSubtypeFileattachment($annot, $key),
+            'freetext' => $this->getOutAnnotationOptSubtypeFreetext($annot),
+            'highlight' => $this->getOutAnnotationOptSubtypeHighlight($annot),
+            'ink' => $this->getOutAnnotationOptSubtypeInk($annot),
+            'line' => $this->getOutAnnotationOptSubtypeLine($annot),
+            'link' => $this->getOutAnnotationOptSubtypeLink($annot, $pagenum, $oid),
+            'movie' => $this->getOutAnnotationOptSubtypeMovie($annot),
             'polygon' => $this->getOutAnnotationOptSubtypePolygon($annot),
             'polyline' => $this->getOutAnnotationOptSubtypePolyline($annot),
-            'highlight' => $this->getOutAnnotationOptSubtypeHighlight($annot),
-            'underline' => $this->getOutAnnotationOptSubtypeUnderline($annot),
-            'squiggly' => $this->getOutAnnotationOptSubtypeSquiggly($annot),
-            'strikeout' => $this->getOutAnnotationOptSubtypeStrikeout($annot),
-            'stamp' => $this->getOutAnnotationOptSubtypeStamp($annot),
-            'caret' => $this->getOutAnnotationOptSubtypeCaret($annot),
-            'ink' => $this->getOutAnnotationOptSubtypeInk($annot),
             'popup' => $this->getOutAnnotationOptSubtypePopup($annot),
-            'fileattachment' => $this->getOutAnnotationOptSubtypeFileattachment($annot, $key),
-            'sound' => $this->getOutAnnotationOptSubtypeSound($annot),
-            'movie' => $this->getOutAnnotationOptSubtypeMovie($annot),
-            'widget' => $this->getOutAnnotationOptSubtypeWidget($annot, $oid),
-            'screen' => $this->getOutAnnotationOptSubtypeScreen($annot),
             'printermark' => $this->getOutAnnotationOptSubtypePrintermark($annot),
+            'redact' => $this->getOutAnnotationOptSubtypeRedact($annot),
+            'screen' => $this->getOutAnnotationOptSubtypeScreen($annot),
+            'sound' => $this->getOutAnnotationOptSubtypeSound($annot),
+            'square' => $this->getOutAnnotationOptSubtypeSquare($annot),
+            'squiggly' => $this->getOutAnnotationOptSubtypeSquiggly($annot),
+            'stamp' => $this->getOutAnnotationOptSubtypeStamp($annot),
+            'strikeout' => $this->getOutAnnotationOptSubtypeStrikeout($annot),
+            'text' => $this->getOutAnnotationOptSubtypeText($annot),
             'trapnet' => $this->getOutAnnotationOptSubtypeTrapnet($annot),
+            'underline' => $this->getOutAnnotationOptSubtypeUnderline($annot),
             'watermark' => $this->getOutAnnotationOptSubtypeWatermark($annot),
-            '3d' => $this->getOutAnnotationOptSubtype3D($annot),
+            'widget' => $this->getOutAnnotationOptSubtypeWidget($annot, $oid),
             default => '',
         };
     }
@@ -1191,30 +1672,35 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.text.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeText(array $annot): string
     {
         $out = '';
         if (isset($annot['opt']['open'])) {
-            $out .= ' /Open ' . (strtolower($annot['opt']['open']) == 'true' ? 'true' : 'false');
+            $out .= ' /Open ' . ($annot['opt']['open'] === true ? 'true' : 'false');
         }
 
         $iconsapp = ['Comment', 'Help', 'Insert', 'Key', 'NewParagraph', 'Note', 'Paragraph'];
-        if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+        if (
+            isset($annot['opt']['name'])
+            && in_array($annot['opt']['name'], $iconsapp)
+        ) {
             $out .= ' /Name /' . $annot['opt']['name'];
         } else {
             $out .= ' /Name /Note';
         }
 
-        $hasStateModel = isset($annot['opt']['statemodel']);
-        $hasState = isset($annot['opt']['state']);
-        $statemodels = ['Marked', 'Review'];
-        if (! $hasStateModel && ! $hasState) {
+        if (! isset($annot['opt']['state']) && ! isset($annot['opt']['statemodel'])) {
             return $out;
         }
 
-        if ($hasStateModel && in_array($annot['opt']['statemodel'], $statemodels)) {
+        $statemodels = ['Marked', 'Review'];
+
+        if (
+            isset($annot['opt']['statemodel'])
+            && in_array($annot['opt']['statemodel'], $statemodels)
+        ) {
             $out .= ' /StateModel /' . $annot['opt']['statemodel'];
         } else {
             $annot['opt']['statemodel'] = 'Marked';
@@ -1227,7 +1713,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $states = ['Accepted', 'Rejected', 'Cancelled', 'Completed', 'None'];
         }
 
-        if ($hasState && in_array($annot['opt']['state'], $states)) {
+        if (
+            isset($annot['opt']['state'])
+            && in_array($annot['opt']['state'], $states)
+        ) {
             $out .= ' /State /' . $annot['opt']['state'];
         } elseif ($annot['opt']['statemodel'] == 'Marked') {
             $out .= ' /State /Unmarked';
@@ -1241,9 +1730,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.link.
      *
-     * @param array $annot   Array containing page annotations.
-     * @param int   $pagenum Page number.
-     * @param int   $oid     Annotation Object ID.
+     * @param TAnnot $annot   Array containing page annotations.
+     * @param int    $pagenum Page number.
+     * @param int    $oid     Annotation Object ID.
      */
     protected function getOutAnnotationOptSubtypeLink(
         array $annot,
@@ -1322,7 +1811,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.freetext.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeFreetext(array $annot): string
     {
@@ -1331,7 +1820,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /DA (' . $annot['opt']['da'] . ')';
         }
 
-        if (isset($annot['opt']['q']) && ($annot['opt']['q'] >= 0) && ($annot['opt']['q'] <= 2)) {
+        if (
+            isset($annot['opt']['q'])
+            && is_numeric($annot['opt']['q'])
+            && ($annot['opt']['q'] >= 0)
+            && ($annot['opt']['q'] <= 2)
+        ) {
             $out .= ' /Q ' . (int) $annot['opt']['q'];
         }
 
@@ -1387,7 +1881,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.line.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeLine(array $annot): string
     {
@@ -1398,7 +1892,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.square.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSquare(array $annot): string
     {
@@ -1409,7 +1903,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.circle.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeCircle(array $annot): string
     {
@@ -1420,7 +1914,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.polygon.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePolygon(array $annot): string
     {
@@ -1431,7 +1925,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.polyline.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePolyline(array $annot): string
     {
@@ -1442,7 +1936,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.highlight.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeHighlight(array $annot): string
     {
@@ -1453,7 +1947,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeUnderline(array $annot): string
     {
@@ -1464,7 +1958,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.squiggly.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSquiggly(array $annot): string
     {
@@ -1475,7 +1969,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.strikeout.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeStrikeout(array $annot): string
     {
@@ -1486,7 +1980,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.stamp.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeStamp(array $annot): string
     {
@@ -1497,7 +1991,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.caret.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeCaret(array $annot): string
     {
@@ -1508,7 +2002,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.ink.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeInk(array $annot): string
     {
@@ -1519,7 +2013,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.popup.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePopup(array $annot): string
     {
@@ -1530,8 +2024,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.fileattachment.
      *
-     * @param array $annot Array containing page annotations.
-     * @param int   $key   Annotation index in the current page.
+     * @param TAnnot $annot Array containing page annotations.
+     * @param int    $key Annotation index in the current page.
      */
     protected function getOutAnnotationOptSubtypeFileattachment(
         array $annot,
@@ -1563,7 +2057,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.sound.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSound(array $annot): string
     {
@@ -1593,7 +2087,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.movie.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeMovie(array $annot): string
     {
@@ -1604,8 +2098,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.widget.
      *
-     * @param array $annot Array containing page annotations.
-     * @param int   $oid   Annotation Object ID.
+     * @param TAnnot $annot Array containing page annotations.
+     * @param int    $oid   Annotation Object ID.
      */
     protected function getOutAnnotationOptSubtypeWidget(
         array $annot,
@@ -1707,8 +2201,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // --- Entries for field dictionaries ---
-        if (isset($this->radiobuttonGroups[$annot['txt']])) {
-            $out .= ' /Parent ' . $this->radiobuttonGroups[$annot['txt']] . ' 0 R';
+        if (isset($this->radiobuttonGroups[$annot['txt']]['n'])) {
+            $out .= ' /Parent ' . $this->radiobuttonGroups[$annot['txt']]['n'] . ' 0 R';
         }
 
         if (isset($annot['opt']['t']) && is_string($annot['opt']['t'])) {
@@ -1798,7 +2292,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /DA (' . $annot['opt']['da'] . ')';
         }
 
-        if (isset($annot['opt']['q']) && ($annot['opt']['q'] >= 0) && ($annot['opt']['q'] <= 2)) {
+        if (
+            isset($annot['opt']['q'])
+            && is_numeric($annot['opt']['q'])
+            && ($annot['opt']['q'] >= 0)
+            && ($annot['opt']['q'] <= 2)
+        ) {
             $out .= ' /Q ' . (int) $annot['opt']['q'];
         }
 
@@ -1835,7 +2334,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.screen.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeScreen(array $annot): string
     {
@@ -1846,7 +2345,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.printermark.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePrintermark(array $annot): string
     {
@@ -1855,9 +2354,20 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
+     * Returns the output code associated with the annotation opt.subtype.redact.
+     *
+     * @param TAnnot $annot Array containing page annotations.
+     */
+    protected function getOutAnnotationOptSubtypeRedact(array $annot): string
+    {
+        // @TODO
+        return '';
+    }
+
+    /**
      * Returns the output code associated with the annotation opt.subtype.trapnet.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeTrapnet(array $annot): string
     {
@@ -1868,7 +2378,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.watermark.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeWatermark(array $annot): string
     {
@@ -1879,7 +2389,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.3d.
      *
-     * @param array $annot Array containing page annotations.
+     * @param TAnnot $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtype3D(array $annot): string
     {
@@ -2340,6 +2850,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutSignatureDocMDP(): string
     {
+        if (empty($this->signature['cert_type'])) {
+            return '';
+        }
+
         return ' /TransformMethod /DocMDP /TransformParams << /Type /TransformParams /P '
             . $this->signature['cert_type']
             . ' /V /1.2 >>';
@@ -2493,8 +3007,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         header('Pragma: public');
         header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
         header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header('Content-Disposition: inline; filename="' . $this->encpdffilename . '"; filename*=UTF-8\'\''
-        . $this->encpdffilename);
+        header(
+            'Content-Disposition: inline; filename="' . $this->encpdffilename . '"; filename*=UTF-8\'\''
+            . $this->encpdffilename
+        );
         if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
             // the content length may vary if the server is using compression
             header('Content-Length: ' . strlen($rawpdf));
@@ -2538,8 +3054,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // use the Content-Disposition header to supply a recommended filename
-        header('Content-Disposition: attachment; filename="' . $this->encpdffilename . '";'
-        . " filename*=UTF-8''" . $this->encpdffilename);
+        header(
+            'Content-Disposition: attachment; filename="' . $this->encpdffilename . '";'
+            . " filename*=UTF-8''" . $this->encpdffilename
+        );
         header('Content-Transfer-Encoding: binary');
         if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
             // the content length may vary if the server is using compression
@@ -2552,8 +3070,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Save the PDF document to a local file.
      *
-     * @param string $path    Path to the output file.
-     * @param string $rawpdf  Raw PDF data string from getOutPDFString().
+     * @param string $path   Path to the output file.
+     * @param string $rawpdf Raw PDF data string from getOutPDFString().
      */
     public function savePDF(
         string $path = '',
@@ -2578,8 +3096,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     public function getMIMEAttachmentPDF(string $rawpdf = ''): string
     {
-        return 'Content-Type: application/pdf;
- name="' . $this->encpdffilename . '"' . "\r\n"
+        return 'Content-Type: application/pdf;' . "\r\n"
+        . ' name="' . $this->encpdffilename . '"' . "\r\n"
         . 'Content-Transfer-Encoding: base64' . "\r\n"
         . 'Content-Disposition: attachment;' . "\r\n"
         . ' filename="' . $this->encpdffilename . '"' . "\r\n\r\n"

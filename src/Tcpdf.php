@@ -33,6 +33,10 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base
+ *
+ * @phpstan-import-type TAnnotOpts from Output
+ *
  * @SuppressWarnings(PHPMD.DepthOfInheritance)
  */
 class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
@@ -40,11 +44,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     /**
      * Initialize a new PDF object.
      *
-     * @param string     $unit       Unit of measure ('pt', 'mm', 'cm', 'in').
-     * @param bool       $isunicode  True if the document is in Unicode mode.
-     * @param bool       $subsetfont If true subset the embedded fonts to remove the unused characters.
-     * @param bool       $compress   Set to false to disable stream compression.
-     * @param string     $mode       PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx" or empty.
+     * @param string      $unit       Unit of measure ('pt', 'mm', 'cm', 'in').
+     * @param bool        $isunicode  True if the document is in Unicode mode.
+     * @param bool        $subsetfont If true subset the embedded fonts to remove the unused characters.
+     * @param bool        $compress   Set to false to disable stream compression.
+     * @param string      $mode       PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx" or empty.
      * @param ?ObjEncrypt $objEncrypt Encryption object.
      */
     public function __construct(
@@ -180,30 +184,30 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * Defines the way the document is to be displayed by the viewer.
      *
      * @param int|string $zoom   The zoom to use.
-     * It can be one of the following string values or a number indicating the
+     *                           It can be one of the following string values or a number indicating the
      *                           zooming factor to use.
-     * * fullpage: displays the entire page on screen * fullwidth: uses
+     *                           * fullpage: displays the entire page on screen * fullwidth: uses
      *                           maximum width of window
-     * * real: uses real size (equivalent to 100% zoom) * default: uses
+     *                           * real: uses real size (equivalent to 100% zoom) * default: uses
      *                           viewer default mode
      * @param string     $layout The page layout. Possible values are:
      *                           * SinglePage Display one page at a time
      *                           * OneColumn Display the pages in one column
      *                           * TwoColumnLeft Display the pages in two columns,
-     *                             with  odd-numbered pages on the left
+     *                           with  odd-numbered pages on the left
      *                           * TwoColumnRight Display the pages in
-     *                             two columns, with odd-numbered pages
-     *                             on the right
+     *                           two columns, with odd-numbered pages
+     *                           on the right
      *                           * TwoPageLeft Display the pages two at a time,
-     *                             with odd-numbered pages on the left
+     *                           with odd-numbered pages on the left
      *                           * TwoPageRight Display the pages two at a time,
-     *                             with odd-numbered pages on the right
+     *                           with odd-numbered pages on the right
      * @param string     $mode   A name object specifying how the document should be displayed when opened:
      *                           * UseNone Neither document outline nor thumbnail images visible
      *                           * UseOutlines Document outline visible
      *                           * UseThumbs Thumbnail images visible
      *                           * FullScreen Full screen, with no menu bar, window controls,
-     *                             or any other window visible
+     *                           or any other window visible
      *                           * UseOC (PDF 1.5) Optional content group panel visible
      *                           * UseAttachments (PDF 1.6) Attachments panel visible
      */
@@ -235,6 +239,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *                                           (top, right, bottom, left) in user units. A
      *                                           negative value indicates the multiplication
      *                                           factor for each row or column.
+     * @param StyleDataOpt              $style   Array of style options.
      *
      * @throws BarcodeException in case of error
      */
@@ -263,12 +268,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     /**
      * Add an annotation and returns the object id.
      *
-     * @param float  $posx   Abscissa of upper-left corner.
-     * @param float  $posy   Ordinate of upper-left corner.
-     * @param float  $width  Width.
-     * @param float  $height Height.
-     * @param string $txt    Annotation text or alternate content.
-     * @param array  $opt    Array of options (see section 8.4 of PDF reference 1.7).
+     * @param float      $posx   Abscissa of upper-left corner.
+     * @param float      $posy   Ordinate of upper-left corner.
+     * @param float      $width  Width.
+     * @param float      $height Height.
+     * @param string     $txt    Annotation text or alternate content.
+     * @param TAnnotOpts $opt    Array of options (Annotation Types) - all lowercase.
      *
      * @return int Object ID.
      */
@@ -279,7 +284,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         float $height,
         string $txt,
         array $opt = [
-            'Subtype' => 'Text',
+            'subtype' => 'text',
         ]
     ): int {
         $oid = ++$this->pon;
@@ -295,9 +300,17 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         switch (strtolower($opt['subtype'])) {
             case 'fileattachment':
             case 'sound':
+                if (empty($opt['fs'])) {
+                    throw new PdfException('Missing file attachment');
+                }
                 $filekey = basename((string) $opt['fs']);
-                if (isset($opt['fs']) && empty($this->embeddedfiles[$filekey])) {
+                if (
+                    ! empty($opt['fs'])
+                    && is_string($opt['fs'])
+                    && empty($this->embeddedfiles[$filekey])
+                ) {
                     $this->embeddedfiles[$filekey] = [
+                        'a' => 0,
                         'f' => ++$this->pon,
                         'n' => ++$this->pon,
                         'file' => $opt['fs'],

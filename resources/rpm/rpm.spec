@@ -26,7 +26,7 @@ Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.0.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 2.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 2.0.7
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 2.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 2.0.8
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 2.0.9
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 2.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 2.0.7
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 2.0.0

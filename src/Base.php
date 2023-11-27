@@ -40,6 +40,34 @@ use Com\Tecnick\Unicode\Convert;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @phpstan-type TViewerPref array{
+ *        'HideToolbar'?: bool,
+ *        'HideMenubar'?: bool,
+ *        'HideWindowUI'?: bool,
+ *        'FitWindow'?: bool,
+ *        'CenterWindow'?: bool,
+ *        'DisplayDocTitle'?: bool,
+ *        'NonFullScreenPageMode'?: string,
+ *        'Direction'?: string,
+ *        'ViewArea'?: string,
+ *        'ViewClip'?: string,
+ *        'PrintArea'?: string,
+ *        'PrintClip'?: string,
+ *        'PrintScaling'?: string,
+ *        'Duplex'?: string,
+ *        'PickTrayByPDFSize'?: bool,
+ *        'PrintPageRange'?: array<int>,
+ *        'NumCopies'?: int,
+ *    }
+ *
+ * @phpstan-import-type TEmbeddedFile from Output
+ * @phpstan-import-type TOutline from Output
+ * @phpstan-import-type TAnnot from Output
+ * @phpstan-import-type TXOBject from Output
+ * @phpstan-import-type TSignature from Output
+ * @phpstan-import-type TUserRights from Output
+ * @phpstan-import-type TObjID from Output
+ *
  * @SuppressWarnings(PHPMD)
  */
 abstract class Base
@@ -97,7 +125,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.28';
+    protected string $version = '8.0.49';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -154,9 +182,9 @@ abstract class Base
 
     /**
      * Viewer preferences dictionary controlling the way the document is to be presented on the screen or in print.
-     * (Section 8.1 of PDF reference, "Viewer Preferences").
+     * (PDF reference, "Viewer Preferences").
      *
-     * @var array Viewer Preferences
+     * @var TViewerPref
      */
     protected array $viewerpref = [];
 
@@ -251,11 +279,15 @@ abstract class Base
 
     /**
      * Embedded files data.
+     *
+     * @var array<string, TEmbeddedFile>
      */
     protected array $embeddedfiles = [];
 
     /**
      * Annotations indexed bu object IDs.
+     *
+     * @var array<int, TAnnot>
      */
     protected array $annotation = [];
 
@@ -286,16 +318,32 @@ abstract class Base
 
     /**
      * Array containing the ID of some named PDF objects.
+     *
+     * @var TObjID
      */
-    protected array $objid = [];
+    protected array $objid = [
+        'catalog' => 0,
+        'dests' => 0,
+        'form' => [],
+        'info' => 0,
+        'pages' => 0,
+        'resdic' => 0,
+        'signature' => 0,
+        'srgbicc' => 0,
+        'xmp' => 0,
+    ];
 
     /**
      * Store XObject.
+     *
+     * @var array<string, TXOBject>
      */
     protected array $xobject = [];
 
     /**
      * Outlines Data.
+     *
+     * @var array<int, TOutline>
      */
     protected array $outlines = [];
 
@@ -309,15 +357,36 @@ abstract class Base
      */
     protected string $jstree = '';
 
-    /**
-     * Embedded files Object IDs by name.
-     */
-    protected array $efnames = [];
+    // /**
+    //  * Embedded files Object IDs by name.
+    //  */
+    // protected array $efnames = [];
 
     /**
      * Signature Data.
+     *
+     * @var TSignature
      */
-    protected array $signature = [];
+    protected array $signature = [
+        'appearance' => [
+            'empty' => [],
+            'name' => '',
+            'page' => 0,
+            'rect' => '',
+        ],
+        'approval' => '',
+        'cert_type' => -1,
+        'extracerts' => '',
+        'info' => [
+            'ContactInfo' => '',
+            'Location' => '',
+            'Name' => '',
+            'Reason' => '',
+        ],
+        'password' => '',
+        'privkey' => '',
+        'signcert' => '',
+    ];
 
     /**
      * ByteRange placemark used during digital signature process.
@@ -335,11 +404,23 @@ abstract class Base
 
     /**
      * User rights Data.
+     *
+     * @var TUserRights
      */
-    protected array $userrights = [];
+    protected array $userrights = [
+        'annots' => '',
+        'document' => '',
+        'ef' => '',
+        'enabled' => false,
+        'form' => '',
+        'formex' => '',
+        'signature' => '',
+    ];
 
     /**
      * XObjects data.
+     *
+     * @var array<string, TXOBject>
      */
     protected array $xobjects = [];
 

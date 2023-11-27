@@ -32,6 +32,8 @@ use Com\Tecnick\Unicode\Bidi;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
+ *
  * @phpstan-type TextBBox array{
  *          'x': float,
  *          'y': float,
@@ -111,9 +113,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Cleanup the input text, convert it to UTF-8 array and get the dimensions.
      *
-     * @param string $txt    Clean text string to be processed.
-     * @param array  $ordarr Array of UTF-8 codepoints (integer values).
-     * @param array  $dim    Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth)
+     * @param string          $txt    Clean text string to be processed.
+     * @param array<int, int> $ordarr Array of UTF-8 codepoints (integer values).
+     * @param TTextDims       $dim    Array of dimensions
      */
     protected function prepareText(
         string &$txt,
@@ -132,20 +134,20 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Returns the PDF code to render a line of text.
      *
-     * @param string $txt         Clean text string to be processed.
-     * @param array  $ordarr      Array of UTF-8 codepoints (integer values).
-     * @param array  $dim         Array of dimensions.
-     * @param float  $posx        X position relative to the start of the current line.
-     * @param float  $posy        Y position relative to the start of the current line (font baseline).
-     * @param float  $width       Desired string width to force justification via word spacing (0 = automatic).
-     * @param float  $strokewidth Stroke width.
-     * @param float  $wordspacing Word spacing (use it only when width == 0).
-     * @param float  $leading     Leading.
-     * @param float  $rise        Text rise.
-     * @param bool   $fill        If true fills the text.
-     * @param bool   $stroke      If true stroke the text.
-     * @param bool   $clip        If true activate clipping mode.
-     * @param string $forcedir    If 'R' forces RTL, if 'L' forces LTR
+     * @param string          $txt         Clean text string to be processed.
+     * @param array<int, int> $ordarr      Array of UTF-8 codepoints (integer values).
+     * @param TTextDims       $dim         Array of dimensions.
+     * @param float           $posx        X position relative to the start of the current line.
+     * @param float           $posy        Y position relative to the start of the current line (font baseline).
+     * @param float           $width       Desired string width to force justification via word spacing (0 = automatic).
+     * @param float           $strokewidth Stroke width.
+     * @param float           $wordspacing Word spacing (use it only when width == 0).
+     * @param float           $leading     Leading.
+     * @param float           $rise        Text rise.
+     * @param bool            $fill        If true fills the text.
+     * @param bool            $stroke      If true stroke the text.
+     * @param bool            $clip        If true activate clipping mode.
+     * @param string          $forcedir    If 'R' forces RTL, if 'L' forces LTR
      */
     protected function outTextLine(
         string $txt,
@@ -220,11 +222,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Returns the string to be used as input for getOutTextShowing().
      *
-     * @param string $txt      Clean text string to be processed.
-     * @param array  $ordarr   Array of UTF-8 codepoints (integer values).
-     * @param array  $dim      Array of dimensions (width, height, ascent, descent, leading, totwidth, totspacewidth).
-     * @param float  $width    Desired string width in points (0 = automatic).
-     * @param string $forcedir If 'R' forces RTL, if 'L' forces LTR
+     * @param string          $txt      Clean text string to be processed.
+     * @param array<int, int> $ordarr   Array of UTF-8 codepoints (integer values).
+     * @param TTextDims       $dim      Array of dimensions
+     * @param float           $width    Desired string width in points (0 = automatic).
+     * @param string          $forcedir If 'R' forces RTL, if 'L' forces LTR
      */
     protected function getJustifiedString(
         string $txt,
@@ -371,7 +373,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Get the PDF code for the Text Positioning Operator Matrix.
      *
-     * @param string $raw Raw PDf data to be wrapped by this command.
+     * @param string                                          $raw    Raw PDf data to be wrapped by this command.
+     * @param array{float, float, float, float, float, float} $matrix Text Positioning Operator Matrix.
      */
     protected function getOutTextPosMatrix(
         string $raw,
@@ -437,7 +440,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *                     https://www.ctan.org/tex-archive/language/hyph-utf8/tex/generic/hyph-utf8/patterns/tex
      *                     See https://www.ctan.org/tex-archive/language/hyph-utf8/ for more information.
      *
-     * @return array<string,string> Array of hyphenation patterns.
+     * @return array<string, string> Array of hyphenation patterns.
      */
     public function loadTexHyphenPatterns(string $file): array
     {

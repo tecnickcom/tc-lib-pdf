@@ -29,8 +29,8 @@ jobs:
                 coverage-extension: [pcov]
         steps:
             - uses: actions/checkout@v4
-            - name: Install pdfinfo
-              run: sudo apt-get install -y poppler-utils
+            #- name: Install pdfinfo
+            #  run: sudo apt-get install -y poppler-utils
             - name: Use php ${{ matrix.php-version }}
               uses: shivammathur/setup-php@v2
               with:
