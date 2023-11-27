@@ -437,21 +437,21 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *         'view': bool,
      *     }>
      */
-    protected array $pdflayer;
+    protected array $pdflayer = [];
 
     /**
      * Language array.
      *
      * @var array<string, string>
      */
-    protected array $lang;
+    protected array $lang = [];
 
     /**
      * Fonts used in annotations.
      *
      * @var array<string, int>
      */
-    protected array $annotation_fonts;
+    protected array $annotation_fonts = [];
 
     /**
      * Destinations.
@@ -463,7 +463,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *          'y': float,
      *      }>
      */
-    protected array $dests;
+    protected array $dests = [];
 
     /**
      * Radio Button Groups.
@@ -475,7 +475,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *         'def': string,
      *      }>
      */
-    protected array $radiobuttonGroups;
+    protected array $radiobuttonGroups = [];
 
     /**
      * Links.
@@ -486,9 +486,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *          'y': float,
      *      }>
      */
-    protected array $links;
+    protected array $links = [];
 
-    protected string $javascript;
+    /**
+     * Javascript block to add.
+     */
+    protected string $javascript = '';
 
     protected array $jsobjects;
 
@@ -1343,7 +1346,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . 'endobj' . "\n";
         $this->objid['form'][] = $oid;
         // store object id to be used on Parent entry of Kids
-        $this->radiobuttonGroups[$annot['txt']] = $oid;
+        $this->radiobuttonGroups[$annot['txt']]['n'] = $oid;
         return $out;
     }
 
