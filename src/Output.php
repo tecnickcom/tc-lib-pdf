@@ -493,7 +493,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected string $javascript = '';
 
-    protected array $jsobjects;
+    /**
+     * Javascript objects.
+     *
+     * @var array<int, array{
+     *          'n': int,
+     *          'js': string,
+     *          'onload': bool,
+     *      }>
+     */
+    protected array $jsobjects = [];
 
     /**
      * Returns the RAW PDF string.
