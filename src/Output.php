@@ -465,6 +465,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected array $dests;
 
+    /**
+     * Radio Button Groups.
+     *
+     * @var array<string, array{
+     *         'n': int,
+     *         '#readonly#': bool,
+     *         'kid'?: int,
+     *         'def': string,
+     *      }>
+     */
     protected array $radiobuttonGroups;
 
     protected array $links;
@@ -2170,8 +2180,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // --- Entries for field dictionaries ---
-        if (isset($this->radiobuttonGroups[$annot['txt']])) {
-            $out .= ' /Parent ' . $this->radiobuttonGroups[$annot['txt']] . ' 0 R';
+        if (isset($this->radiobuttonGroups[$annot['txt']]['n'])) {
+            $out .= ' /Parent ' . $this->radiobuttonGroups[$annot['txt']]['n'] . ' 0 R';
         }
 
         if (isset($annot['opt']['t']) && is_string($annot['opt']['t'])) {
