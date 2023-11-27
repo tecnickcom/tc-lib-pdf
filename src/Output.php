@@ -32,14 +32,14 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- *    @phpstan-type TFourFloat array{
+ * @phpstan-type TFourFloat array{
  *        float,
  *        float,
  *        float,
  *        float,
  *    }
  *
- *    @phpstan-type TAnnotQuadPoint array{
+ * @phpstan-type TAnnotQuadPoint array{
  *        float,
  *        float,
  *        float,
@@ -50,24 +50,24 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        float,
  *    }
  *
- *    @phpstan-type TAnnotBorderStyle array{
+ * @phpstan-type TAnnotBorderStyle array{
  *        'type': string,
  *        'w': int,
  *        's': string,
  *        'd': array<int>,
  *    }
  *
- *    @phpstan-type TAnnotBorderEffect array{
+ * @phpstan-type TAnnotBorderEffect array{
  *        's'?: string,
  *        'i'?: float,
  *    }
  *
- *    @phpstan-type TAnnotMeasure array{
+ * @phpstan-type TAnnotMeasure array{
  *        'type'?: string,
  *        'subtype'?: string,
  *    }
  *
- *    @phpstan-type TAnnotMarkup array{
+ * @phpstan-type TAnnotMarkup array{
  *        't'?: string,
  *        'popup'?: array<mixed>,
  *        'ca'?: float,
@@ -83,26 +83,26 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        },
  *    }
  *
- *    @phpstan-type TAnnotStates array{
+ * @phpstan-type TAnnotStates array{
  *        'marked'?: string,
  *        'review'?: string,
  *    }
  *
- *    @phpstan-type TAnnotText array{
+ * @phpstan-type TAnnotText array{
  *        'subtype': string,
  *        'open'?: bool,
  *        'name'?: string,
  *        'state'?: string,
- *        'statemodel': string,
+ *        'statemodel'?: string,
  *    }
  *
- *    @phpstan-type TUriAction array{
+ * @phpstan-type TUriAction array{
  *       's': string,
  *       'uri': string,
  *       'ismap'?: bool,
  *    }
  *
- *    @phpstan-type TAnnotLink array{
+ * @phpstan-type TAnnotLink array{
  *        'subtype': string,
  *        'a'?: TAnnotActionDict,
  *        'dest'?: string|array<mixed>,
@@ -112,7 +112,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'bs'?: TAnnotBorderStyle,
  *    }
  *
- *    @phpstan-type TAnnotFreeText array{
+ * @phpstan-type TAnnotFreeText array{
  *        'subtype': string,
  *        'da': string,
  *        'q'?: int,
@@ -126,7 +126,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'le'?: string,
  *    }
  *
- *    @phpstan-type TAnnotLine array{
+ * @phpstan-type TAnnotLine array{
  *        'subtype': string,
  *        'l': TFourFloat,
  *        'bs'?: TAnnotBorderStyle,
@@ -142,7 +142,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'co'?: array{float, float},
  *    }
  *
- *    @phpstan-type TAnnotSquare array{
+ * @phpstan-type TAnnotSquare array{
  *        'subtype': string,
  *        'bs'?: TAnnotBorderStyle,
  *        'ic'?: TFourFloat,
@@ -150,9 +150,9 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'rd'?: TFourFloat,
  *    }
  *
- *    @phpstan-type TAnnotCircle TAnnotSquare
+ * @phpstan-type TAnnotCircle TAnnotSquare
  *
- *    @phpstan-type TAnnotPolygon array{
+ * @phpstan-type TAnnotPolygon array{
  *        'subtype': string,
  *        'vertices'?: array<float>,
  *        'le'?: array{string, string},
@@ -163,56 +163,56 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'measure'?: TAnnotMeasure,
  *    }
  *
- *    @phpstan-type TAnnotPolyline TAnnotPolygon
+ * @phpstan-type TAnnotPolyline TAnnotPolygon
  *
- *    @phpstan-type TAnnotTextMarkup array{
+ * @phpstan-type TAnnotTextMarkup array{
  *        'subtype': string,
  *        'quadpoints': array<int, TAnnotQuadPoint>,
  *    }
  *
- *    @phpstan-type TAnnotCaret array{
+ * @phpstan-type TAnnotCaret array{
  *        'subtype': string,
  *        'rd'?: TFourFloat,
  *        'sy'?: string,
  *    }
  *
- *    @phpstan-type TAnnotRubberStamp array{
+ * @phpstan-type TAnnotRubberStamp array{
  *        'subtype': string,
  *        'name'?: string,
  *    }
  *
- *    @phpstan-type TAnnotInk array{
+ * @phpstan-type TAnnotInk array{
  *        'subtype': string,
  *        'inklist'?: array<int, array<float>>,
  *        'bs'?: TAnnotBorderStyle,
  *    }
  *
- *    @phpstan-type TAnnotPopup array{
+ * @phpstan-type TAnnotPopup array{
  *        'subtype': string,
  *        'parent'?: array<mixed>,
  *        'open'?: bool,
  *    }
  *
- *    @phpstan-type TAnnotFileAttachment array{
+ * @phpstan-type TAnnotFileAttachment array{
  *        'subtype': string,
  *        'fs'?: string,
  *        'name'?: string,
  *    }
  *
- *    @phpstan-type TAnnotSound array{
+ * @phpstan-type TAnnotSound array{
  *        'subtype': string,
  *        'sound': string,
  *        'name'?: string,
  *    }
  *
- *    @phpstan-type TAnnotMovieDict array{
+ * @phpstan-type TAnnotMovieDict array{
  *        'f': string,
  *        'aspect'?: array{float, float},
  *        'rotate'?: int,
  *        'poster'?: bool|string,
  *    }
  *
- *    @phpstan-type TAnnotMovieActDict array{
+ * @phpstan-type TAnnotMovieActDict array{
  *        'start'?: int|string|array{int|string, int},
  *        'duration'?: int|string|array{int|string, int},
  *        'rate'?: float,
@@ -224,21 +224,21 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'fwposition'?: array{float, float},
  *    }
  *
- *    @phpstan-type TAnnotMovie array{
+ * @phpstan-type TAnnotMovie array{
  *        'subtype': string,
  *        't'?: string,
  *        'movie'?: TAnnotMovieDict,
  *        'a'?: bool|TAnnotMovieActDict,
  *    }
  *
- *    @phpstan-type TAnnotIconFitDict array{
+ * @phpstan-type TAnnotIconFitDict array{
  *        'sw'?: string,
  *        's'?: string,
  *        'a'?: array{float, float},
  *        'fb'?: bool,
  *    }
  *
- *    @phpstan-type TAnnotMKDict array{
+ * @phpstan-type TAnnotMKDict array{
  *        'r'?: int,
  *        'bc'?: TFourFloat,
  *        'bg'?: array{float},
@@ -252,13 +252,13 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'tp'?: int,
  *    }
  *
- *    @phpstan-type TAnnotActionDict array{
+ * @phpstan-type TAnnotActionDict array{
  *        'type'?: string,
  *        's'?: string,
  *        'next'?: array<int, array<mixed>>,
  *    }
  *
- *    @phpstan-type TAnnotAdditionalActionDict array{
+ * @phpstan-type TAnnotAdditionalActionDict array{
  *        'e'?: TAnnotActionDict,
  *        'x'?: TAnnotActionDict,
  *        'd'?: TAnnotActionDict,
@@ -271,7 +271,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'pi'?: TAnnotActionDict,
  *    }
  *
- *    @phpstan-type TAnnotScreen array{
+ * @phpstan-type TAnnotScreen array{
  *        'subtype': string,
  *        't'?: string,
  *        'mk'?: TAnnotMKDict,
@@ -279,7 +279,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'aa'?: TAnnotAdditionalActionDict,
  *    }
  *
- *    @phpstan-type TAnnotWidget array{
+ * @phpstan-type TAnnotWidget array{
  *        'subtype': string,
  *        'h'?: string,
  *        'mk'?: TAnnotMKDict,
@@ -289,19 +289,19 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'parent'?: array<mixed>,
  *    }
  *
- *    @phpstan-type TAnnotFixedPrintDict array{
+ * @phpstan-type TAnnotFixedPrintDict array{
  *        'type': string,
  *        'matrix'?: array{float, float, float, float, float, float},
  *        'h'?: float,
  *        'v'?: float,
  *    }
  *
- *    @phpstan-type TAnnotWatermark array{
+ * @phpstan-type TAnnotWatermark array{
  *        'subtype': string,
  *        'fixedprint'?: TAnnotFixedPrintDict,
  *    }
  *
- *    @phpstan-type TAnnotRedact array{
+ * @phpstan-type TAnnotRedact array{
  *        'subtype': string,
  *        'quadpoints'?: array<int, TAnnotQuadPoint>,
  *        'ic'?: TFourFloat,
@@ -312,15 +312,15 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'q'?: int,
  *    }
  *
- *    @phpstan-type TAnnotOptsA TAnnotText|TAnnotLink|TAnnotFreeText
- *    @phpstan-type TAnnotOptsB TAnnotLine|TAnnotSquare|TAnnotCircle|TAnnotPolygon|TAnnotPolyline
- *    @phpstan-type TAnnotOptsC TAnnotTextMarkup|TAnnotCaret|TAnnotRubberStamp|TAnnotInk|TAnnotPopup
- *    @phpstan-type TAnnotOptsD TAnnotFileAttachment|TAnnotSound|TAnnotMovie
- *    @phpstan-type TAnnotOptsE TAnnotScreen|TAnnotWidget|TAnnotWatermark|TAnnotRedact
+ * @phpstan-type TAnnotOptsA TAnnotText|TAnnotLink|TAnnotFreeText
+ * @phpstan-type TAnnotOptsB TAnnotLine|TAnnotSquare|TAnnotCircle|TAnnotPolygon|TAnnotPolyline
+ * @phpstan-type TAnnotOptsC TAnnotTextMarkup|TAnnotCaret|TAnnotRubberStamp|TAnnotInk|TAnnotPopup
+ * @phpstan-type TAnnotOptsD TAnnotFileAttachment|TAnnotSound|TAnnotMovie
+ * @phpstan-type TAnnotOptsE TAnnotScreen|TAnnotWidget|TAnnotWatermark|TAnnotRedact
  *
- *    @phpstan-type TAnnotOpts TAnnotOptsA|TAnnotOptsB|TAnnotOptsC|TAnnotOptsD|TAnnotOptsE
+ * @phpstan-type TAnnotOpts TAnnotOptsA|TAnnotOptsB|TAnnotOptsC|TAnnotOptsD|TAnnotOptsE
  *
- *    @phpstan-type TAnnot array{
+ * @phpstan-type TAnnot array{
  *        'n': int,
  *        'x': float,
  *        'y': float,
@@ -330,7 +330,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'opt': TAnnotOpts,
  *    }
  *
- *    @phpstan-type TXOBject array{
+ * @phpstan-type TXOBject array{
  *         'extgstates'?: \Com\Tecnick\Pdf\Graph\Draw,
  *         'fonts'?: \Com\Tecnick\Pdf\Font\Stack,
  *         'gradients'?: \Com\Tecnick\Pdf\Graph\Draw,
@@ -350,7 +350,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'y'?: float,
  *     }
  *
- *     @phpstan-type TOutline array{
+ * @phpstan-type TOutline array{
  *         'c': array<float>,
  *         'first': int,
  *         'l': int,
@@ -366,7 +366,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'y': float,
  *     }
  *
- *     @phpstan-type TSignature array{
+ * @phpstan-type TSignature array{
  *        'appearance': array{
  *            'empty': array<int, array{
  *                'objid': int,
@@ -392,7 +392,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'signcert': string,
  *    }
  *
- *    @phpstan-type TUserRights array{
+ * @phpstan-type TUserRights array{
  *        'annots': string,
  *        'document': string,
  *        'ef': string,
@@ -402,14 +402,14 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'signature': string,
  *    }
  *
- *    @phpstan-type TEmbeddedFile array{
+ * @phpstan-type TEmbeddedFile array{
  *        'a': int,
  *        'f': int,
  *        'file': string,
  *        'n': int,
  *    }
  *
- *    @phpstan-type TObjID array{
+ * @phpstan-type TObjID array{
  *        'catalog': int,
  *        'dests': int,
  *        'form': array<int>,
@@ -1176,9 +1176,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         foreach ($pages as $num => $page) {
             foreach ($page['annotrefs'] as $key => $oid) {
                 $annot = $this->annotation[$oid];
-                if (empty($annot)) {
-                    continue;
-                }
                 $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
                 $out .= $this->getAnnotationRadiobuttonGroups($annot);
                 $orx = $this->toPoints($annot['x']);
@@ -1293,8 +1290,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the Annotation code for Appearance Stream.
      *
      * @param TAnnot $annot  Array containing page annotations.
-     * @param int   $width  Annotation width.
-     * @param int   $height Annotation height.
+     * @param int    $width  Annotation width.
+     * @param int    $height Annotation height.
      */
     protected function getAnnotationAppearanceStream(
         array $annot,
@@ -1432,7 +1429,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the Annotation code for Makups.
      *
      * @param TAnnot $annot Array containing page annotations.
-     * @param int   $oid   Annotation Object ID.
+     * @param int    $oid   Annotation Object ID.
      */
     protected function getOutAnnotationMarkups(
         array $annot,
@@ -1562,9 +1559,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the output code associated with the annotation opt.subtype.
      *
      * @param TAnnot $annot   Array containing page annotations.
-     * @param int   $pagenum Page number.
-     * @param int   $oid     Annotation Object ID.
-     * @param int   $key     Annotation index in the current page.
+     * @param int    $pagenum Page number.
+     * @param int    $oid     Annotation Object ID.
+     * @param int    $key     Annotation index in the current page.
      */
     protected function getOutAnnotationOptSubtype(array $annot, int $pagenum, int $oid, int $key): string
     {
@@ -1602,7 +1599,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.text.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotText,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeText(array $annot): string
     {
@@ -1612,20 +1617,25 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $iconsapp = ['Comment', 'Help', 'Insert', 'Key', 'NewParagraph', 'Note', 'Paragraph'];
-        if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+        if (
+            isset($annot['opt']['name'])
+            && in_array($annot['opt']['name'], $iconsapp)
+        ) {
             $out .= ' /Name /' . $annot['opt']['name'];
         } else {
             $out .= ' /Name /Note';
         }
 
-        $hasStateModel = isset($annot['opt']['statemodel']);
-        $hasState = isset($annot['opt']['state']);
-        $statemodels = ['Marked', 'Review'];
-        if (! $hasStateModel && ! $hasState) {
+        if (! isset($annot['opt']['state']) && ! isset($annot['opt']['statemodel'])) {
             return $out;
         }
 
-        if ($hasStateModel && in_array($annot['opt']['statemodel'], $statemodels)) {
+        $statemodels = ['Marked', 'Review'];
+
+        if (
+            isset($annot['opt']['statemodel'])
+            && in_array($annot['opt']['statemodel'], $statemodels)
+        ) {
             $out .= ' /StateModel /' . $annot['opt']['statemodel'];
         } else {
             $annot['opt']['statemodel'] = 'Marked';
@@ -1638,7 +1648,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $states = ['Accepted', 'Rejected', 'Cancelled', 'Completed', 'None'];
         }
 
-        if ($hasState && in_array($annot['opt']['state'], $states)) {
+        if (
+            isset($annot['opt']['state'])
+            && in_array($annot['opt']['state'], $states)
+        ) {
             $out .= ' /State /' . $annot['opt']['state'];
         } elseif ($annot['opt']['statemodel'] == 'Marked') {
             $out .= ' /State /Unmarked';
@@ -1652,9 +1665,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.link.
      *
-     * @param TAnnot $annot   Array containing page annotations.
-     * @param int   $pagenum Page number.
-     * @param int   $oid     Annotation Object ID.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotLink,
+     *    } $annot   Array containing page annotations.
+     * @param int    $pagenum Page number.
+     * @param int    $oid     Annotation Object ID.
      */
     protected function getOutAnnotationOptSubtypeLink(
         array $annot,
@@ -1733,7 +1754,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.freetext.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotFreeText,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeFreetext(array $annot): string
     {
@@ -1803,7 +1832,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.line.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotLine,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeLine(array $annot): string
     {
@@ -1814,7 +1851,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.square.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotSquare,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSquare(array $annot): string
     {
@@ -1825,7 +1870,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.circle.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotCircle,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeCircle(array $annot): string
     {
@@ -1836,7 +1889,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.polygon.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotPolygon,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePolygon(array $annot): string
     {
@@ -1847,7 +1908,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.polyline.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotPolyline,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePolyline(array $annot): string
     {
@@ -1858,7 +1927,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.highlight.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeHighlight(array $annot): string
     {
@@ -1869,7 +1945,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeUnderline(array $annot): string
     {
@@ -1880,7 +1963,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.squiggly.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSquiggly(array $annot): string
     {
@@ -1891,7 +1981,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.strikeout.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeStrikeout(array $annot): string
     {
@@ -1902,7 +1999,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.stamp.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotRubberStamp,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeStamp(array $annot): string
     {
@@ -1913,7 +2018,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.caret.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotCaret,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeCaret(array $annot): string
     {
@@ -1924,7 +2037,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.ink.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotInk,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeInk(array $annot): string
     {
@@ -1935,7 +2056,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.popup.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotPopup,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePopup(array $annot): string
     {
@@ -1946,8 +2075,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.fileattachment.
      *
-     * @param TAnnot $annot Array containing page annotations.
-     * @param int   $key   Annotation index in the current page.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotFileAttachment,
+     *    } $annot Array containing page annotations.
+     * @param int    $key Annotation index in the current page.
      */
     protected function getOutAnnotationOptSubtypeFileattachment(
         array $annot,
@@ -1979,7 +2116,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.sound.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotSound,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeSound(array $annot): string
     {
@@ -2009,7 +2154,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.movie.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotMovie,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeMovie(array $annot): string
     {
@@ -2021,7 +2174,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the output code associated with the annotation opt.subtype.widget.
      *
      * @param TAnnot $annot Array containing page annotations.
-     * @param int   $oid   Annotation Object ID.
+     * @param int    $oid   Annotation Object ID.
      */
     protected function getOutAnnotationOptSubtypeWidget(
         array $annot,
@@ -2256,7 +2409,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.screen.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotScreen,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeScreen(array $annot): string
     {
@@ -2267,7 +2428,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.printermark.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypePrintermark(array $annot): string
     {
@@ -2278,7 +2446,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.redact.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotRedact,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeRedact(array $annot): string
     {
@@ -2289,7 +2465,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.trapnet.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeTrapnet(array $annot): string
     {
@@ -2300,7 +2483,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.watermark.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *        'opt': TAnnotWatermark,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtypeWatermark(array $annot): string
     {
@@ -2311,7 +2502,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the output code associated with the annotation opt.subtype.3d.
      *
-     * @param TAnnot $annot Array containing page annotations.
+     * @param array{
+     *        'n': int,
+     *        'x': float,
+     *        'y': float,
+     *        'w': float,
+     *        'h': float,
+     *        'txt': string,
+     *    } $annot Array containing page annotations.
      */
     protected function getOutAnnotationOptSubtype3D(array $annot): string
     {
