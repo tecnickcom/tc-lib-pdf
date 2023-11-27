@@ -51,10 +51,10 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    }
  *
  *    @phpstan-type TAnnotBorderStyle array{
- *        'type'?: string,
- *        'w'?: int,
- *        's'?: string,
- *        'd'?: array<int>,
+ *        'type': string,
+ *        'w': int,
+ *        's': string,
+ *        'd': array<int>,
  *    }
  *
  *    @phpstan-type TAnnotBorderEffect array{
