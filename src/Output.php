@@ -477,6 +477,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected array $radiobuttonGroups;
 
+    /**
+     * Links.
+     *
+     * @var array<int, array{
+     *          'f': bool,
+     *          'p': int,
+     *          'y': float,
+     *      }>
+     */
     protected array $links;
 
     protected string $javascript;
