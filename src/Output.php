@@ -412,7 +412,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    @phpstan-type TObjID array{
  *        'catalog': int,
  *        'dests': int,
- *        'form': array<int>
+ *        'form': array<int>,
  *        'info': int,
  *        'pages': int,
  *        'resdic': int,
