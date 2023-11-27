@@ -1476,7 +1476,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the Annotation Flags code.
      *
-     * @param int|array $flags Annotation flags.
+     * @param int|array<string> $flags Annotation flags.
      */
     protected function getAnnotationFlagsCode(int|array $flags): int
     {
