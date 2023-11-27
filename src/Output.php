@@ -339,15 +339,15 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *             'I'?: bool,
  *             'K'?: bool,
  *         },
- *         'h'?: float,
+ *         'h': float,
  *         'images'?: array<int>,
  *         'n': int,
  *         'outdata'?: string,
  *         'spot_colors'?: \Com\Tecnick\Color\Pdf,
- *         'w'?: float,
- *         'x'?: float,
+ *         'w': float,
+ *         'x': float,
  *         'xobjects'?: array<int, int>,
- *         'y'?: float,
+ *         'y': float,
  *     }
  *
  * @phpstan-type TOutline array{
@@ -895,6 +895,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = $oid . ' 0 obj' . "\n";
         $this->xobjects['AX' . $oid] = [
             'n' => $oid,
+            'h' => 0,
+            'w' => 0,
+            'x' => 0,
+            'y' => 0,
         ];
         $out .= '<< /Type /XObject /Subtype /Form /FormType 1';
         if ($this->compress) {
@@ -976,12 +980,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             // images or nested xobjects
             if (! empty($data['images']) || ! empty($data['xobjects'])) {
                 $out .= ' /XObject <<';
-                foreach ($data['images'] as $imgid) {
-                    $out .= ' /I' . $imgid . ' ' . $this->xobject['I' . $imgid]['n'] . ' 0 R';
+
+                if (! empty($data['images'])) {
+                    foreach ($data['images'] as $imgid) {
+                        $out .= ' /I' . $imgid . ' ' . $this->xobject['I' . $imgid]['n'] . ' 0 R';
+                    }
                 }
 
-                foreach ($data['xobjects'] as $sub_id => $sub_objid) {
-                    $out .= ' /' . $sub_id . ' ' . $sub_objid . ' 0 R';
+                if (! empty($data['xobjects'])) {
+                    foreach ($data['xobjects'] as $sub_id => $sub_objid) {
+                        $out .= ' /' . $sub_id . ' ' . $sub_objid . ' 0 R';
+                    }
                 }
 
                 $out .= ' >>';
