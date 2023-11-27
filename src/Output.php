@@ -425,6 +425,17 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
+    /**
+     * PDF layers.
+     * @var array<int, array{
+     *         'layer': string,
+     *         'lock': bool,
+     *         'name': string,
+     *         'objid': int,
+     *         'print': bool,
+     *         'view': bool,
+     *     }>
+     */
     protected array $pdflayer;
 
     protected array $lang;
