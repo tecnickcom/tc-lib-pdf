@@ -1330,18 +1330,27 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getAnnotationBorder(array $annot): string
     {
         $out = '';
-        if (! empty($annot['opt']['bs']) && (is_array($annot['opt']['bs']))) {
+        if (
+            ! empty($annot['opt']['bs'])
+            && (is_array($annot['opt']['bs']))
+        ) {
             $out .= ' /BS << /Type /Border';
             if (isset($annot['opt']['bs']['w'])) {
                 $out .= ' /W ' . (int) $annot['opt']['bs']['w'];
             }
 
             $bstyles = ['S', 'D', 'B', 'I', 'U'];
-            if (! empty($annot['opt']['bs']['s']) && in_array($annot['opt']['bs']['s'], $bstyles)) {
+            if (
+                ! empty($annot['opt']['bs']['s'])
+                && in_array($annot['opt']['bs']['s'], $bstyles)
+            ) {
                 $out .= ' /S /' . $annot['opt']['bs']['s'];
             }
 
-            if (isset($annot['opt']['bs']['d']) && (is_array($annot['opt']['bs']['d']))) {
+            if (
+                isset($annot['opt']['bs']['d'])
+                && (is_array($annot['opt']['bs']['d']))
+            ) {
                 $out .= ' /D [';
                 foreach ($annot['opt']['bs']['d'] as $cord) {
                     $out .= ' ' . (int) $cord;
@@ -1353,11 +1362,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' >>';
         } else {
             $out .= ' /Border [';
-            if (isset($annot['opt']['border']) && (count($annot['opt']['border']) >= 3)) {
+            if (
+                isset($annot['opt']['border'])
+                && (count($annot['opt']['border']) >= 3)
+            ) {
                 $out .= (int) $annot['opt']['border'][0]
                     . ' ' . (int) $annot['opt']['border'][1]
                     . ' ' . (int) $annot['opt']['border'][2];
-                if (isset($annot['opt']['border'][3]) && is_array($annot['opt']['border'][3])) {
+                if (
+                    isset($annot['opt']['border'][3])
+                    && is_array($annot['opt']['border'][3])
+                ) {
                     $out .= ' [';
                     foreach ($annot['opt']['border'][3] as $dash) {
                         $out .= ' ' . (int) $dash;
@@ -1375,8 +1390,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (isset($annot['opt']['be']) && (is_array($annot['opt']['be']))) {
             $out .= ' /BE <<';
             $bstyles = ['S', 'C'];
-            if (! empty($annot['opt']['be']['s']) && in_array($annot['opt']['be']['s'], $bstyles)) {
-                $out .= ' /S /' . $annot['opt']['bs']['s'];
+            if (
+                ! empty($annot['opt']['be']['s'])
+                && in_array($annot['opt']['be']['s'], $bstyles)
+            ) {
+                $out .= ' /S /' . $annot['opt']['be']['s'];
             } else {
                 $out .= ' /S /S';
             }
