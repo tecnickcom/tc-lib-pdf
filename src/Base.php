@@ -60,13 +60,7 @@ use Com\Tecnick\Unicode\Convert;
  *        'NumCopies'?: int,
  *    }
  *
- * @phpstan-type TEmbeddedFile array{
- *          'a'?: int,
- *          'f': int,
- *          'file': string,
- *          'n': int,
- *      }
- *
+ * @phpstan-import-type TEmbeddedFile from Output
  * @phpstan-import-type TOutline from Output
  * @phpstan-import-type TAnnot from Output
  * @phpstan-import-type TXOBject from Output
@@ -360,9 +354,28 @@ abstract class Base
     /**
      * Signature Data.
      *
-     * @var array<int, TSignature>
+     * @var TSignature
      */
-    protected array $signature = [];
+    protected array $signature = [
+        'appearance' => [
+            'empty' => [],
+            'name' => '',
+            'page' => 0,
+            'rect' => '',
+        ],
+        'approval' => '',
+        'cert_type' => -1,
+        'extracerts' => '',
+        'info' => [
+            'ContactInfo' => '',
+            'Location' => '',
+            'Name' => '',
+            'Reason' => '',
+        ],
+        'password' => '',
+        'privkey' => '',
+        'signcert' => '',
+    ];
 
     /**
      * ByteRange placemark used during digital signature process.

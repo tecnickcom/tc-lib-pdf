@@ -341,7 +341,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         },
  *         'h'?: float,
  *         'images'?: array<int>,
- *         'n'?: int,
+ *         'n': int,
  *         'outdata'?: string,
  *         'spot_colors'?: \Com\Tecnick\Color\Pdf,
  *         'w'?: float,
@@ -350,48 +350,49 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'y'?: float,
  *     }
  *
- * @phpstan-type TOutline array{
- *         'c'?: array<float>,
- *         'first'?: int,
- *         'last'?: int,
- *         'next'?: int,
- *         'p'?: int,
- *         'parent'?: int,
- *         'prev'?: int,
- *         's'?: string,
- *         't'?: string,
- *         'u'?: TAnnotActionDict,
- *         'x'?: float,
- *         'y'?: float,
+ *     @phpstan-type TOutline array{
+ *         'c': array<float>,
+ *         'first': int,
+ *         'l': int,
+ *         'last': int,
+ *         'next': int,
+ *         'p': int,
+ *         'parent': int,
+ *         'prev': int,
+ *         's': string,
+ *         't': string,
+ *         'u': int,
+ *         'x': float,
+ *         'y': float,
  *     }
  *
- *    @phpstan-type TSignature array{
- *        'appearance'?: array{
- *            'empty'?: array{
- *                'objid'?: int,
- *                'name'?: string,
- *                'page'?: int,
- *                'rect'?: string,
- *            },
- *            'name'?: string,
- *            'page'?: int,
- *            'rect'?: string,
+ *     @phpstan-type TSignature array{
+ *        'appearance': array{
+ *            'empty': array<int, array{
+ *                'objid': int,
+ *                'name': string,
+ *                'page': int,
+ *                'rect': string,
+ *            }>,
+ *            'name': string,
+ *            'page': int,
+ *            'rect': string,
  *        },
- *        'approval'?: string,
- *        'cert_type'?: string,
- *        'extracerts'?: string,
- *        'info'?: array{
- *        'ContactInfo'?: string,
- *        'Location'?: string,
- *        'Name'?: string,
- *        'Reason'?: string,
+ *        'approval': string,
+ *        'cert_type': int,
+ *        'extracerts': string,
+ *        'info': array{
+ *            'ContactInfo': string,
+ *            'Location': string,
+ *            'Name': string,
+ *            'Reason': string,
  *        },
- *        'password'?: string,
- *        'privkey'?: string,
- *        'signcert'?: string,
+ *        'password': string,
+ *        'privkey': string,
+ *        'signcert': string,
  *    }
  *
- * @phpstan-type TUserRights array{
+ *    @phpstan-type TUserRights array{
  *        'annots': string,
  *        'document': string,
  *        'ef': string,
@@ -400,6 +401,13 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'formex': string,
  *        'signature': string,
  *    }
+ *
+ *    @phpstan-type TEmbeddedFile array{
+ *          'a': int,
+ *          'f': int,
+ *          'file': string,
+ *          'n': int,
+ *      }
  *
  * @SuppressWarnings(PHPMD)
  */
@@ -748,12 +756,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         // AcroForm
         if (
             ! empty($this->objid['form'])
-            || ($this->sign && isset($this->signature['cert_type']))
+            || ($this->sign && ($this->signature['cert_type'] >= 0))
             || ! empty($this->signature['appearance']['empty'])
         ) {
             $out .= ' /AcroForm <<';
             $objrefs = '';
-            if ($this->sign && isset($this->signature['cert_type'])) {
+            if ($this->sign && ($this->signature['cert_type'] >= 0)) {
                 // set reference for signature object
                 $objrefs .= $this->objid['signature'] . ' 0 R';
             }
@@ -778,7 +786,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' /NeedAppearances false';
             }
 
-            if ($this->sign && isset($this->signature['cert_type'])) {
+            if ($this->sign && ($this->signature['cert_type'] >= 0)) {
                 if ($this->signature['cert_type'] > 0) {
                     $out .= ' /SigFlags 3';
                 } else {
@@ -805,7 +813,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             // signatures
             if (
-                $this->sign && isset($this->signature['cert_type'])
+                $this->sign && ($this->signature['cert_type'] >= 0)
                 && (empty($this->signature['approval']) || ($this->signature['approval'] != 'A'))
             ) {
                 $out .= ' /Perms << ';
@@ -1701,7 +1709,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /DA (' . $annot['opt']['da'] . ')';
         }
 
-        if (isset($annot['opt']['q']) && ($annot['opt']['q'] >= 0) && ($annot['opt']['q'] <= 2)) {
+        if (
+            isset($annot['opt']['q'])
+            && is_numeric($annot['opt']['q'])
+            && ($annot['opt']['q'] >= 0)
+            && ($annot['opt']['q'] <= 2)
+        ) {
             $out .= ' /Q ' . (int) $annot['opt']['q'];
         }
 
@@ -2168,7 +2181,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /DA (' . $annot['opt']['da'] . ')';
         }
 
-        if (isset($annot['opt']['q']) && ($annot['opt']['q'] >= 0) && ($annot['opt']['q'] <= 2)) {
+        if (
+            isset($annot['opt']['q'])
+            && is_numeric($annot['opt']['q'])
+            && ($annot['opt']['q'] >= 0)
+            && ($annot['opt']['q'] <= 2)
+        ) {
             $out .= ' /Q ' . (int) $annot['opt']['q'];
         }
 
@@ -2721,6 +2739,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutSignatureDocMDP(): string
     {
+        if (empty($this->signature['cert_type'])) {
+            return '';
+        }
+
         return ' /TransformMethod /DocMDP /TransformParams << /Type /TransformParams /P '
             . $this->signature['cert_type']
             . ' /V /1.2 >>';

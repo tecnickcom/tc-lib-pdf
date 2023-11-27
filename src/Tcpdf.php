@@ -268,11 +268,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     /**
      * Add an annotation and returns the object id.
      *
-     * @param float     $posx   Abscissa of upper-left corner.
-     * @param float     $posy   Ordinate of upper-left corner.
-     * @param float     $width  Width.
-     * @param float     $height Height.
-     * @param string    $txt    Annotation text or alternate content.
+     * @param float      $posx   Abscissa of upper-left corner.
+     * @param float      $posy   Ordinate of upper-left corner.
+     * @param float      $width  Width.
+     * @param float      $height Height.
+     * @param string     $txt    Annotation text or alternate content.
      * @param TAnnotOpts $opt    Array of options (Annotation Types) - all lowercase.
      *
      * @return int Object ID.
@@ -310,6 +310,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
                     && empty($this->embeddedfiles[$filekey])
                 ) {
                     $this->embeddedfiles[$filekey] = [
+                        'a' => 0,
                         'f' => ++$this->pon,
                         'n' => ++$this->pon,
                         'file' => $opt['fs'],
