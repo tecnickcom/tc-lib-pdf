@@ -66,6 +66,7 @@ use Com\Tecnick\Unicode\Convert;
  * @phpstan-import-type TXOBject from Output
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TUserRights from Output
+ * @phpstan-import-type TObjID from Output
  *
  * @SuppressWarnings(PHPMD)
  */
@@ -318,9 +319,19 @@ abstract class Base
     /**
      * Array containing the ID of some named PDF objects.
      *
-     * @var array<string, int>
+     * @var TObjID
      */
-    protected array $objid = [];
+    protected array $objid = [
+        'catalog' => 0,
+        'dests' => 0,
+        'form' => [],
+        'info' => 0,
+        'pages' => 0,
+        'resdic' => 0,
+        'signature' => 0,
+        'srgbicc' => 0,
+        'xmp' => 0,
+    ];
 
     /**
      * Store XObject.

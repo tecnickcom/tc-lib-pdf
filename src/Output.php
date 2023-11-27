@@ -403,11 +403,23 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    }
  *
  *    @phpstan-type TEmbeddedFile array{
- *          'a': int,
- *          'f': int,
- *          'file': string,
- *          'n': int,
- *      }
+ *        'a': int,
+ *        'f': int,
+ *        'file': string,
+ *        'n': int,
+ *    }
+ *
+ *    @phpstan-type TObjID array{
+ *        'catalog': int,
+ *        'dests': int,
+ *        'form': array<int>
+ *        'info': int,
+ *        'pages': int,
+ *        'resdic': int,
+ *        'signature': int,
+ *        'srgbicc': int,
+ *        'xmp': int,
+ *    }
  *
  * @SuppressWarnings(PHPMD)
  */
