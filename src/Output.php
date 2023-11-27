@@ -427,6 +427,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
     /**
      * PDF layers.
+     *
      * @var array<int, array{
      *         'layer': string,
      *         'lock': bool,
@@ -438,10 +439,30 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected array $pdflayer;
 
+    /**
+     * Language array.
+     *
+     * @var array<string, string>
+     */
     protected array $lang;
 
+    /**
+     * Fonts used in annotations.
+     *
+     * @var array<string, int>
+     */
     protected array $annotation_fonts;
 
+    /**
+     * Destinations.
+     *
+     * @var array<string, array{
+     *          'f': bool,
+     *          'p': int,
+     *          'x': float,
+     *          'y': float,
+     *      }>
+     */
     protected array $dests;
 
     protected array $radiobuttonGroups;
