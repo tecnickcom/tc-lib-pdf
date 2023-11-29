@@ -51,7 +51,7 @@ $pdf->graph->setPageHeight($page05['height']);
 $cnz = $pdf->graph->getStartTransform();
 $cnz .= $pdf->graph->getStarPolygon(50, 50, 40, 10, 3, 0, 'CNZ');
 $clipimg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
-$cnz .= $pdf->image->getSetImage($clipimg, 10, 10, 80, 80, $page05['height']);
+$cnz .= $pdf->image->getSetImage($clipimg, 10, 10, 80, 80, (int)$page05['height']);
 $cnz .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($cnz);
 
