@@ -53,51 +53,51 @@ $page01 = $pdf->page->add();
 // Add Images
 
 $iid01 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
-$iid01_out = $pdf->image->getSetImage($iid01, 0, 0, 40, 20, $page01['height']);
+$iid01_out = $pdf->image->getSetImage($iid01, 0, 0, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid01_out);
 
 $iid02 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.jpg');
-$iid02_out = $pdf->image->getSetImage($iid02, 40, 0, 40, 20, $page01['height']);
+$iid02_out = $pdf->image->getSetImage($iid02, 40, 0, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid02_out);
 
 $iid03 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.png');
-$iid03_out = $pdf->image->getSetImage($iid03, 80, 0, 40, 20, $page01['height']);
+$iid03_out = $pdf->image->getSetImage($iid03, 80, 0, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid03_out);
 
 $iid04 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX16.png');
-$iid04_out = $pdf->image->getSetImage($iid04, 120, 0, 40, 20, $page01['height']);
+$iid04_out = $pdf->image->getSetImage($iid04, 120, 0, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid04_out);
 
 $iid05 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEX256.png');
-$iid05_out = $pdf->image->getSetImage($iid05, 160, 0, 40, 20, $page01['height']);
+$iid05_out = $pdf->image->getSetImage($iid05, 160, 0, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid05_out);
 
 $iid06 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_INDEXALPHA.png');
-$iid06_out = $pdf->image->getSetImage($iid06, 0, 20, 40, 20, $page01['height']);
+$iid06_out = $pdf->image->getSetImage($iid06, 0, 20, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid06_out);
 
 $iid07 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.jpg');
-$iid07_out = $pdf->image->getSetImage($iid07, 40, 20, 40, 20, $page01['height']);
+$iid07_out = $pdf->image->getSetImage($iid07, 40, 20, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid07_out);
 
 $iid08 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.png');
-$iid08_out = $pdf->image->getSetImage($iid08, 80, 20, 40, 20, $page01['height']);
+$iid08_out = $pdf->image->getSetImage($iid08, 80, 20, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid08_out);
 
 $iid09 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBALPHA.png');
-$iid09_out = $pdf->image->getSetImage($iid09, 120, 20, 40, 20, $page01['height']);
+$iid09_out = $pdf->image->getSetImage($iid09, 120, 20, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid09_out);
 
 $iid10 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
-$iid10_out = $pdf->image->getSetImage($iid10, 160, 20, 40, 20, $page01['height']);
+$iid10_out = $pdf->image->getSetImage($iid10, 160, 20, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid10_out);
 
 $iid11 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.png');
-$iid11_out = $pdf->image->getSetImage($iid11, 0, 40, 40, 20, $page01['height']);
+$iid11_out = $pdf->image->getSetImage($iid11, 0, 40, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid11_out);
 
 $iid12 = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBINT.png');
-$iid12_out = $pdf->image->getSetImage($iid12, 40, 40, 40, 20, $page01['height']);
+$iid12_out = $pdf->image->getSetImage($iid12, 40, 40, 40, 20, (int)$page01['height']);
 $pdf->page->addContent($iid12_out);
 
 // ----------
@@ -988,7 +988,7 @@ $pdf->graph->setPageHeight($page10['height']);
 $cnz = $pdf->graph->getStartTransform();
 $cnz .= $pdf->graph->getStarPolygon(50, 50, 40, 10, 3, 0, 'CNZ');
 $clipimg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
-$cnz .= $pdf->image->getSetImage($clipimg, 10, 10, 80, 80, $page10['height']);
+$cnz .= $pdf->image->getSetImage($clipimg, 10, 10, 80, 80, (int)$page10['height']);
 $cnz .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($cnz);
 
