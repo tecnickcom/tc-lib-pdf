@@ -27,7 +27,7 @@
     "tecnickcom/tc-lib-pdf-image": "^2.0",
     "tecnickcom/tc-lib-pdf-font": "^2.0",
     "tecnickcom/tc-lib-file": "^2.0",
-    "tecnickcom/tc-lib-pdf-encrypt": "^2.0",
+    "tecnickcom/tc-lib-pdf-encrypt": "^2.1",
     "tecnickcom/tc-lib-unicode-data": "^2.0",
     "tecnickcom/tc-lib-unicode": "^2.0",
     "tecnickcom/tc-lib-pdf-page": "^4.0",
