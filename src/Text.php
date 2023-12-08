@@ -181,13 +181,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
 
         $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
-        $out = $this->getOutTextStateOperator($out, 'w', $this->toPoints($strokewidth));
-        $out = $this->getOutTextStateOperator($out, 'Tr', $trmode);
-        $out = $this->getOutTextStateOperator($out, 'Tw', $this->toPoints($wordspacing));
-        $out = $this->getOutTextStateOperator($out, 'Tc', $curfont['spacing']);
-        $out = $this->getOutTextStateOperator($out, 'Tz', $curfont['stretching']);
-        $out = $this->getOutTextStateOperator($out, 'TL', $this->toPoints($leading));
-        $out = $this->getOutTextStateOperator($out, 'Ts', $this->toPoints($rise));
+        $out = $this->getOutTextStateOperatorw($out, $this->toPoints($strokewidth));
+        $out = $this->getOutTextStateOperatorTr($out, $trmode);
+        $out = $this->getOutTextStateOperatorTw($out, $this->toPoints($wordspacing));
+        $out = $this->getOutTextStateOperatorTc($out, $curfont['spacing']);
+        $out = $this->getOutTextStateOperatorTz($out, $curfont['stretching']);
+        $out = $this->getOutTextStateOperatorTL($out, $this->toPoints($leading));
+        $out = $this->getOutTextStateOperatorTs($out, $this->toPoints($rise));
         return $this->getOutTextObject($out);
     }
 
@@ -241,7 +241,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $txt = $this->encrypt->escapeString($txt);
             $txt = $this->getOutTextShowing($txt, 'Tj');
             if ($pwidth > 0) {
-                return $this->getOutTextStateOperator($txt, 'Tw', $this->toPoints($spacewidth));
+                return $this->getOutTextStateOperatorTw($txt, $this->toPoints($spacewidth));
             }
 
             $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
@@ -315,59 +315,118 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Get the PDF code for the specified Text State Operator.
+     * Get the PDF code for the Tc (character spacing) Text State Operator.
      *
      * @param string    $raw   Raw PDf data to be wrapped by this command.
-     * @param string    $param Text state parameter to apply (one of: Tc, Tw, Tz, TL, Tf, Tr, Ts, w)
      * @param int|float $value Raw value to apply in internal units.
      */
-    protected function getOutTextStateOperator(
+    protected function getOutTextStateOperatorTc(
         string $raw,
-        string $param,
         int|float $value = 0
     ): string {
-        switch ($param) {
-            case 'Tc': // character spacing
-                if ($value == 0) {
-                    break;
-                }
-
-                return sprintf('%F Tc ' . $raw . ' 0 Tc', $value);
-            case 'Tw': // word spacing
-                if ($value == 0) {
-                    break;
-                }
-
-                return sprintf('%F Tw ' . $raw . ' 0 Tw', $value);
-            case 'Tz': // horizontal scaling
-                if ($value == 1) {
-                    break;
-                }
-
-                return sprintf('%F Tz ' . $raw . ' 100 Tz', $value);
-            case 'TL': // text leading
-                if ($value == 0) {
-                    break;
-                }
-
-                return sprintf('%F TL ' . $raw . ' 0 TL', $value);
-            case 'Tr': // text rendering
-                if (($value < 0) || ($value > 7)) {
-                    break;
-                }
-
-                return sprintf('%d Tr ' . $raw, $value);
-            case 'Ts': // text rise
-                if ($value == 0) {
-                    break;
-                }
-
-                return sprintf('%F Ts ' . $raw . ' 0 Ts', $value);
-            case 'w': // stroke width
-                return sprintf('%F w ' . $raw, ($value > 0 ? $value : 0));
+        if ($value == 0) {
+            return $raw;
         }
 
-        return $raw;
+        return sprintf('%F Tc ' . $raw . ' 0 Tc', $value);
+    }
+
+    /**
+     * Get the PDF code for the Tw (word spacing) Text State Operator.
+     *
+     * @param string    $raw   Raw PDf data to be wrapped by this command.
+     * @param int|float $value Raw value to apply in internal units.
+     */
+    protected function getOutTextStateOperatorTw(
+        string $raw,
+        int|float $value = 0
+    ): string {
+        if ($value == 0) {
+            return $raw;
+        }
+
+        return sprintf('%F Tw ' . $raw . ' 0 Tw', $value);
+    }
+
+    /**
+     * Get the PDF code for the Tz (horizontal scaling) Text State Operator.
+     *
+     * @param string    $raw   Raw PDf data to be wrapped by this command.
+     * @param int|float $value Raw value to apply in internal units.
+     */
+    protected function getOutTextStateOperatorTz(
+        string $raw,
+        int|float $value = 0
+    ): string {
+        if ($value == 1) {
+            return $raw;
+        }
+
+        return sprintf('%F Tz ' . $raw . ' 100 Tz', $value);
+    }
+
+    /**
+     * Get the PDF code for the TL (text leading) Text State Operator.
+     *
+     * @param string    $raw   Raw PDf data to be wrapped by this command.
+     * @param int|float $value Raw value to apply in internal units.
+     */
+    protected function getOutTextStateOperatorTL(
+        string $raw,
+        int|float $value = 0
+    ): string {
+        if ($value == 0) {
+            return $raw;
+        }
+
+        return sprintf('%F TL ' . $raw . ' 0 TL', $value);
+    }
+
+    /**
+     * Get the PDF code for the Tr (text rendering) Text State Operator.
+     *
+     * @param string    $raw   Raw PDf data to be wrapped by this command.
+     * @param int|float $value Raw value to apply in internal units.
+     */
+    protected function getOutTextStateOperatorTr(
+        string $raw,
+        int|float $value = 0
+    ): string {
+        if (($value < 0) || ($value > 7)) {
+            return $raw;
+        }
+
+        return sprintf('%d Tr ' . $raw, $value);
+    }
+
+    /**
+     * Get the PDF code for the Ts (text rise) Text State Operator.
+     *
+     * @param string    $raw   Raw PDf data to be wrapped by this command.
+     * @param int|float $value Raw value to apply in internal units.
+     */
+    protected function getOutTextStateOperatorTs(
+        string $raw,
+        int|float $value = 0
+    ): string {
+        if ($value == 0) {
+            return $raw;
+        }
+
+        return sprintf('%F Ts ' . $raw . ' 0 Ts', $value);
+    }
+
+    /**
+     * Get the PDF code for the w (stroke width) Text State Operator.
+     *
+     * @param string    $raw   Raw PDf data to be wrapped by this command.
+     * @param int|float $value Raw value to apply in internal units.
+     */
+    protected function getOutTextStateOperatorw(
+        string $raw,
+        int|float $value = 0
+    ): string {
+        return sprintf('%F w ' . $raw, ($value > 0 ? $value : 0));
     }
 
     /**
