@@ -3,7 +3,7 @@ Upstream-Name: ~#PROJECT#~
 Source: https://github.com/~#VENDOR#~/~#PROJECT#~
 
 Files: *
-Copyright: Copyright 2001-2023 Nicola Asuni <info@tecnick.com>
+Copyright: Copyright 2001-2024 Nicola Asuni <info@tecnick.com>
 License: LGPL-3
 
 License: LGPL-3
