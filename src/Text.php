@@ -40,6 +40,14 @@ use Com\Tecnick\Unicode\Bidi;
  *          'width': float,
  *          'height': float,
  *      }
+ *
+ * @phpstan-type TextShadow array{
+ *          'xoffset': float,
+ *          'yoffset': float,
+ *          'opacity': float,
+ *          'mode': string,
+ *          'color': string,
+ *      }
  */
 abstract class Text extends \Com\Tecnick\Pdf\Cell
 {
@@ -58,18 +66,19 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Returns the PDF code to render a line of text.
      *
-     * @param string $txt         Text string to be processed.
-     * @param float  $posx        X position relative to the start of the current line.
-     * @param float  $posy        Y position relative to the start of the current line (font baseline).
-     * @param float  $width       Desired string width to force justification via word spacing (0 = automatic).
-     * @param float  $strokewidth Stroke width.
-     * @param float  $wordspacing Word spacing (use it only when width == 0).
-     * @param float  $leading     Leading.
-     * @param float  $rise        Text rise.
-     * @param bool   $fill        If true fills the text.
-     * @param bool   $stroke      If true stroke the text.
-     * @param bool   $clip        If true activate clipping mode.
-     * @param string $forcedir    If 'R' forces RTL, if 'L' forces LTR
+     * @param string      $txt         Text string to be processed.
+     * @param float       $posx        X position relative to the start of the current line.
+     * @param float       $posy        Y position relative to the start of the current line (font baseline).
+     * @param float       $width       Desired string width to force justification via word spacing (0 = automatic).
+     * @param float       $strokewidth Stroke width.
+     * @param float       $wordspacing Word spacing (use it only when width == 0).
+     * @param float       $leading     Leading.
+     * @param float       $rise        Text rise.
+     * @param bool        $fill        If true fills the text.
+     * @param bool        $stroke      If true stroke the text.
+     * @param bool        $clip        If true activate clipping mode.
+     * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR
+     * @param ?TextShadow $shadow      Text shadow parameters.
      */
     public function getTextLine(
         string $txt,
@@ -84,6 +93,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $stroke = false,
         bool $clip = false,
         string $forcedir = '',
+        ?array $shadow = null,
     ): string {
         if ($txt === '') {
             return '';
@@ -92,7 +102,41 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $ordarr = [];
         $dim = [];
         $this->prepareText($txt, $ordarr, $dim);
-        return $this->outTextLine(
+
+        $out = '';
+
+        if (!empty($shadow)) {
+            if ($shadow['xoffset'] < 0) {
+                $posx += $shadow['xoffset'];
+            }
+
+            if ($shadow['yoffset'] < 0) {
+                $posy += $shadow['yoffset'];
+            }
+
+            $out .= $this->graph->getStartTransform();
+            $out .= $this->color->getPdfColor($shadow['color'], false);
+            $out .= $this->graph->getAlpha($shadow['opacity'], $shadow['mode']);
+            $out .= $this->outTextLine(
+                $txt,
+                $ordarr,
+                $dim,
+                $posx + $shadow['xoffset'],
+                $posy + $shadow['yoffset'],
+                $width,
+                0,
+                $wordspacing,
+                $leading,
+                $rise,
+                true,
+                false,
+                false,
+                $forcedir
+            );
+            $out .= $this->graph->getStopTransform();
+        }
+
+        return $out . $this->outTextLine(
             $txt,
             $ordarr,
             $dim,

@@ -1031,9 +1031,37 @@ $txt = $pdf->getTextLine(
 
 $pdf->page->addContent($txt);
 
-// // get the coordinates of the box containing the last added text string.
 $bbox = $pdf->getLastTextBBox();
 
+// Add text
+$txt2 = $pdf->getTextLine(
+    'Link to https://tcpdf.org',
+    15,
+    ($bbox['y'] + $bbox['height'] + $pdf->toUnit($bfont2['ascent'])),
+    0,
+    0,
+    0,
+    0,
+    0,
+    true,
+    false,
+    false,
+    '',
+    [
+        'xoffset' => 0.5,
+        'yoffset' => 0.5,
+        'opacity' => 0.5,
+        'mode' => 'Normal',
+        'color' => 'red',
+    ],
+);
+
+$pdf->page->addContent($txt2);
+
+
+
+// get the coordinates of the box containing the last added text string.
+$bbox = $pdf->getLastTextBBox();
 
 $aoid = $pdf->setAnnotation(
     $bbox['x'],
