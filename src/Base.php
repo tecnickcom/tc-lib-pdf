@@ -467,6 +467,6 @@ abstract class Base
     public function toYUnit(float $pnt, float $pageh = -1): float
     {
         $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
-        return ($pageh - $this->toUnit($pnt));
+        return $this->toUnit($pageh - $pnt);
     }
 }

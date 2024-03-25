@@ -22,13 +22,20 @@ require(__DIR__ . '/../vendor/autoload.php');
 define('OUTPUT_FILE', '../target/example.pdf');
 
 // define fonts directory
-define('K_PATH_FONTS', '../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/');
+define('K_PATH_FONTS', '../vendor/tecnickcom/tc-lib-pdf-font/target/fonts');
 
 // autoloader when using RPM or DEB package installation
 //require ('/usr/share/php/Com/Tecnick/Pdf/autoload.php');
 
 // main TCPDF object
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '');
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    'mm', // string $unit = 'mm',
+    true, // bool $isunicode = true,
+    false, // bool $subsetfont = false,
+    true, // bool $compress = true,
+    '', // string $mode = '',
+    null, // ?ObjEncrypt $objEncrypt = null,
+);
 
 // ----------
 
@@ -1058,8 +1065,6 @@ $txt2 = $pdf->getTextLine(
 
 $pdf->page->addContent($txt2);
 
-
-
 // get the coordinates of the box containing the last added text string.
 $bbox = $pdf->getLastTextBBox();
 
@@ -1074,6 +1079,104 @@ $aoid = $pdf->setAnnotation(
     ]
 );
 $pdf->page->addAnnotRef($aoid);
+
+// -----------------------------------------------
+
+// add a text column with automatic line breaking
+
+$bfont3 = $pdf->font->insert($pdf->pon, 'courier', '', 14);
+$pdf->page->addContent($bfont3['out']);
+
+$txt3 = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'."\n".'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.';
+
+// single block of text 
+$txtbox = $pdf->getTextCol(
+    $txt3,
+    20, // float $posx = 0,
+    30, // float $posy = 0,
+    150, // float $width = 0,
+    15, // float $offset = 0,
+    1, // float $linespace = 0,
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $justify = false,
+    false, // bool $justifylast = false,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
+$pdf->page->addContent($txtbox);
+
+
+$bfont4 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 14);
+$pdf->page->addContent($bfont4['out']);
+
+// block of text between two page regions
+$pdf->addTextCol(
+    $txt3,
+    20, // float $posx = 0,
+    275, // float $posy = 0,
+    150, // float $width = 0,
+    15, // float $offset = 0,
+    1, // float $linespace = 0,
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $justify = false,
+    false, // bool $justifylast = false,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
+
+// Text cell
+$style_cell = [
+    'all' => [
+        'lineWidth' => 0.5,
+        'lineCap' => 'butt',
+        'lineJoin' => 'miter',
+        'miterLimit' => 0.5,
+        'dashArray' => [],
+        'dashPhase' => 0,
+        'lineColor' => 'red',
+        'fillColor' => 'yellow',
+    ],
+];
+
+$bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
+$pdf->page->addContent($bfont4['out']);
+
+$pdf->setDefaultCellPadding(1,1,1,1);
+$txtcell = $pdf->getTextCell(
+    'Lorem ipsum dolor sit amet', // string $txt,
+    20, // float $posx = 0,
+    60, // float $posy = 0,
+    0, // float $width = 0,
+    0, // float $height = 0,
+    'C', // string $valign = 'C',
+    'C', // string $halign = 'C',
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    false, // bool $justify = false,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    '', // string $forcedir = '',
+    null // ?array $shadow = null,
+);
+$pdf->page->addContent($txtcell);
+
 
 // ----------
 

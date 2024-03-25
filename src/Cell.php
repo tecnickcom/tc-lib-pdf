@@ -163,10 +163,12 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * Returns the minimum cell height in points for the current font.
      *
      * @param string    $align Text vertical alignment inside the cell:
-     *                         - T=top; - C=center; - B=bottom; -
-     *                         A=center-on-font-ascent; -
-     *                         L=center-on-font-baseline; -
-     *                         D=center-on-font-descent.
+     *                          - T=top;
+     *                          - C=center;
+     *                          - B=bottom;
+     *                          - A=center-on-font-ascent;
+     *                          - L=center-on-font-baseline;
+     *                          - D=center-on-font-descent.
      * @param ?TCellDef $cell  Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellMinHeight(
@@ -279,10 +281,12 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @param float     $pheight Cell height in internal points.
      * @param string    $align   Text vertical alignment inside the cell:
-     *                           - T=top; - C=center; - B=bottom; -
-     *                           A=center-on-font-ascent; -
-     *                           L=center-on-font-baseline; -
-     *                           D=center-on-font-descent.
+     *                           - T=top;
+     *                           - C=center;
+     *                           - B=bottom;
+     *                           - A=center-on-font-ascent;
+     *                           - L=center-on-font-baseline;
+     *                           - D=center-on-font-descent.
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellTextVAlign(
@@ -317,7 +321,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @param float     $pwidth    Cell width in internal points.
      * @param float     $txtpwidth Text width in internal points.
-     * @param string    $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
+     * @param string    $align     Text horizontal alignment inside the cell: L=left; C=center; R=right.
      * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellTextHAlign(
@@ -342,15 +346,17 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
-     * Returns the top Y coordinate of the cell wrapping the text.
+     * Returns the baseline Y coordinate of the cell wrapping the text.
      *
      * @param float     $txty    Text baseline top Y coordinate in internal points.
      * @param float     $pheight Cell height in internal points.
      * @param string    $align   Text vertical alignment inside the cell:
-     *                           - T=top; - C=center; - B=bottom; -
-     *                           A=center-on-font-ascent; -
-     *                           L=center-on-font-baseline; -
-     *                           D=center-on-font-descent.
+     *                           - T=top;
+     *                           - C=center;
+     *                           - B=bottom;
+     *                           - A=center-on-font-ascent;
+     *                           - L=center-on-font-baseline;
+     *                           - D=center-on-font-descent.
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellVPosFromText(
@@ -368,7 +374,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param float     $txtx      Text left X coordinate in internal points.
      * @param float     $pwidth    Cell width in internal points.
      * @param float     $txtpwidth Text width in internal points.
-     * @param string    $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
+     * @param string    $align     Text horizontal alignment inside the cell: L=left; C=center; R=right.
      * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellHPosFromText(
@@ -387,10 +393,12 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param float     $pnty    Cell top Y coordinate in internal points.
      * @param float     $pheight Cell height in internal points.
      * @param string    $align   Text vertical alignment inside the cell:
-     *                           - T=top; - C=center; - B=bottom; -
-     *                           A=center-on-font-ascent; -
-     *                           L=center-on-font-baseline; -
-     *                           D=center-on-font-descent.
+     *                           - T=top;
+     *                           - C=center;
+     *                           - B=bottom;
+     *                           - A=center-on-font-ascent;
+     *                           - L=center-on-font-baseline;
+     *                           - D=center-on-font-descent.
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function textVPosFromCell(
@@ -405,19 +413,30 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the left X coordinate of the text inside the cell.
      *
-     * @param float     $txtx      Text left X coordinate in internal points.
+     * @param float     $pntx      Cell left X coordinate in internal points.
      * @param float     $pwidth    Cell width in internal points.
      * @param float     $txtpwidth Text width in internal points.
-     * @param string    $align     Text vertical alignment inside the cell: L=left; C=center; R=right.
+     * @param string    $align     Text horizontal alignment inside the cell: L=left; C=center; R=right.
      * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function textHPosFromCell(
-        float $txtx,
+        float $pntx,
         float $pwidth,
         float $txtpwidth,
         string $align = 'L',
         ?array $cell = null
     ): float {
-        return ($txtx + $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell));
+        return ($pntx + $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell));
+    }
+
+    /**
+     * Sets the page context by adding the previous page font and graphic settings.
+     *
+     * @return void
+     */
+    protected function setPageContext(): void
+    {
+        $this->page->addContent($this->font->getOutCurrentFont());
+        $this->page->addContent($this->graph->getStyle());
     }
 }

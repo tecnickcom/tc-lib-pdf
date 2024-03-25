@@ -134,7 +134,7 @@ Start a development server (requires PHP 8.0+) using the command:
 make server
 ```
 
-and point your browser to <http://localhost:8000/index.php>
+and point your browser to <http://localhost:8971/index.php>
 
 
 ## Installation

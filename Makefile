@@ -69,7 +69,7 @@ PATHDEBPKG=$(TARGETDIR)/DEB
 PATHBZ2PKG=$(TARGETDIR)/BZ2
 
 # Default port number for the example server
-PORT?=8000
+PORT?=8971
 
 # PHP binary
 PHP=$(shell which php)
@@ -247,7 +247,7 @@ rpm:
 # Start the development server
 .PHONY: server
 server:
-	$(PHP) -t example -S localhost:$(PORT)
+	$(PHP) -t examples -S localhost:$(PORT)
 
 # Tag this GIT version
 .PHONY: tag
