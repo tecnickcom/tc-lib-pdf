@@ -53,7 +53,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @var TCellDef
      */
-    protected $defcell = [
+    protected const ZEROCELL = [
         'margin' => [
             'T' => 0,
             'R' => 0,
@@ -67,6 +67,13 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             'L' => 0,
         ],
     ];
+
+    /**
+     * Default values for cell.
+     *
+     * @var TCellDef
+     */
+    protected $defcell = self::ZEROCELL;
 
     /**
      * Set the default cell margin in user units.
@@ -214,8 +221,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        if ($align == 'J') {
-            $align = $this->rtl ? 'R' : 'L';
+        switch ($align) {
+            case '':
+            case 'J': // Justify
+                $align = $this->rtl ? 'R' : 'L';
         }
 
         switch ($align) {
@@ -272,8 +281,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        if ($align == 'J') {
-            $align = $this->rtl ? 'R' : 'L';
+        switch ($align) {
+            case '':
+            case 'J': // Justify
+                $align = $this->rtl ? 'R' : 'L';
         }
 
         return match ($align) {
@@ -342,8 +353,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        if ($align == 'J') {
-            $align = $this->rtl ? 'R' : 'L';
+        switch ($align) {
+            case '':
+            case 'J': // Justify
+                $align = $this->rtl ? 'R' : 'L';
         }
 
         switch ($align) {

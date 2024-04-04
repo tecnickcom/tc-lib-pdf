@@ -141,21 +141,20 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $pntx = $this->toPoints($posx);
         $pnty = $this->toYPoints($posy);
 
-        $cell_pntx = $this->cellHPos($pntx, $cell_pwidth, 'L', $cell);
         $cell_pnty = $this->cellVPos($pnty, $cell_pheight, 'T', $cell);
+        $txt_pnty = $this->textVPosFromCell(
+            $cell_pnty,
+            $cell_pheight,
+            $valign,
+            $cell
+        );
 
+        $cell_pntx = $this->cellHPos($pntx, $cell_pwidth, 'L', $cell);
         $txt_pntx = $this->textHPosFromCell(
             $cell_pntx,
             $cell_pwidth,
             $txt_pwidth,
             $halign,
-            $cell
-        );
-
-        $txt_pnty = $this->textVPosFromCell(
-            $cell_pnty,
-            $cell_pheight,
-            $valign,
             $cell
         );
 
@@ -224,8 +223,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
-     * @param bool        $justifylast If true justify the last line.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
+     * @param bool        $last        If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -243,8 +242,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        bool $justify = false,
-        bool $justifylast = false,
+        string $halign = '',
+        bool $last = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -305,8 +304,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $wordspacing,
                 $leading,
                 $rise,
-                $justify,
-                $justifylast,
+                $halign,
+                $last,
                 $fill,
                 $stroke,
                 $clip,
@@ -339,8 +338,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
-     * @param bool        $justifylast If true justify the last line.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
+     * @param bool        $last        If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -360,8 +359,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        bool $justify = false,
-        bool $justifylast = false,
+        string $halign = '',
+        bool $last = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -399,8 +398,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $wordspacing,
             $leading,
             $rise,
-            $justify,
-            $justifylast,
+            $halign,
+            $last,
             $fill,
             $stroke,
             $clip,
@@ -423,8 +422,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
-     * @param bool        $justifylast If true justify the last line.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
+     * @param bool        $last        If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -445,8 +444,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        bool $justify = false,
-        bool $justifylast = false,
+        string $halign = '',
+        bool $last = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -454,6 +453,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     ): string {
         if ($ordarr === [] || $lines === []) {
             return '';
+        }
+
+        if ($halign == '') {
+            $halign = $this->rtl ? 'R' : 'L';
         }
 
         $num_lines = count($lines);
@@ -475,16 +478,27 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 'split' => [],
             ];
 
+            $cell_width = ($width - $offset);
+            $txt_posx = $this->toUnit(
+                    $this->textHPosFromCell(
+                    $this->toPoints($line_posx),
+                    $this->toPoints($cell_width),
+                    $line_dim['totwidth'],
+                    $halign,
+                    static::ZEROCELL,
+                )
+            );
+
             $jwidth = 0;
-            if ($justify && ($data['septype'] != 'B') && (($i < $lastline) || $justifylast)) {
-                $jwidth = ($width - $offset);
+            if (($halign == 'J') && ($data['septype'] != 'B') && (($i < $lastline) || !$last)) {
+                $jwidth = $cell_width;
             }
 
             $out .= $this->getOutTextLine(
                 $line_txt,
                 $line_ordarr,
                 $line_dim,
-                $line_posx,
+                $txt_posx,
                 $line_posy,
                 $jwidth,
                 $strokewidth,
