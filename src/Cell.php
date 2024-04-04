@@ -53,7 +53,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @const TCellDef
      */
-    protected const ZEROCELL = [
+    public const ZEROCELL = [
         'margin' => [
             'T' => 0,
             'R' => 0,

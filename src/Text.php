@@ -97,6 +97,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
+     * @param bool        $drawcell    If true draw the cell border.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
      * @param ?TextShadow $shadow      Text shadow parameters.
      */
@@ -120,6 +121,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
+        bool $drawcell = true,
         string $forcedir = '',
         ?array $shadow = null,
     ): string {
@@ -200,6 +202,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $clip,
             $shadow,
         );
+
+        if (!$drawcell) {
+            return $txt_out;
+        }
 
         $cell_out = $this->drawCell(
             $cell_pntx,
@@ -325,88 +331,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $offset = 0;
             $line_posy = ($this->lasttxtbbox['y'] + $this->lasttxtbbox['height'] + $fontascent + $linespace);
         }
-    }
-
-    /**
-     * Returns the PDF code to render a text in a given column with automatic line breaks.
-     *
-     * @param string      $txt         Text string to be processed.
-     * @param float       $posx        Abscissa of upper-left corner.
-     * @param float       $posy        Ordinate of upper-left corner.
-     * @param float       $width       Width.
-     * @param float       $offset      Horizontal offset to apply to the line start.
-     * @param float       $linespace   Additional space to add between lines.
-     * @param float       $strokewidth Stroke width.
-     * @param float       $wordspacing Word spacing (use it only when justify == false).
-     * @param float       $leading     Leading.
-     * @param float       $rise        Text rise.
-     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
-     * @param bool        $jlast       If true does not justify the last line when $halign == J.
-     * @param bool        $fill        If true fills the text.
-     * @param bool        $stroke      If true stroke the text.
-     * @param bool        $clip        If true activate clipping mode.
-     * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
-     * @param ?TextShadow $shadow      Text shadow parameters.
-     *
-     * @return string PDF code to render the text.
-     */
-    public function getTextCol(
-        string $txt,
-        float $posx = 0,
-        float $posy = 0,
-        float $width = 0,
-        float $offset = 0,
-        float $linespace = 0,
-        float $strokewidth = 0,
-        float $wordspacing = 0,
-        float $leading = 0,
-        float $rise = 0,
-        string $halign = '',
-        bool $jlast = true,
-        bool $fill = true,
-        bool $stroke = false,
-        bool $clip = false,
-        string $forcedir = '',
-        ?array $shadow = null,
-    ): string {
-        if ($txt === '') {
-            return '';
-        }
-
-        $ordarr = [];
-        $dim = [];
-        $this->prepareText($txt, $ordarr, $dim, $forcedir);
-
-        $curfont = $this->font->getCurrentFont();
-        $fontascent = $this->toUnit($curfont['ascent']);
-
-        if ($width <= 0) {
-            $region = $this->page->getRegion();
-            $width = $region['RW'];
-        }
-
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints($offset));
-
-        return $this->outTextLines(
-            $ordarr,
-            $lines,
-            $posx,
-            $posy,
-            $width,
-            $offset,
-            $fontascent,
-            $linespace,
-            $strokewidth,
-            $wordspacing,
-            $leading,
-            $rise,
-            $halign,
-            $jlast,
-            $fill,
-            $stroke,
-            $clip,
-            $shadow,
-        );
     }
 
     /**
