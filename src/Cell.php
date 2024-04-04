@@ -167,8 +167,9 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
-     * Returns the minimum cell height in points for the current font.
+     * Returns the minimum cell height in points for the current text height.
      *
+     * @param float     $pheight Text height in internal points.
      * @param string    $align Text vertical alignment inside the cell:
      *                          - T=top;
      *                          - C=center;
@@ -179,6 +180,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param ?TCellDef $cell  Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellMinHeight(
+        float $pheight = 0,
         string $align = 'C',
         ?array $cell = null
     ): float {
@@ -187,21 +189,28 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         }
 
         $curfont = $this->font->getCurrentFont();
+
+        if ($pheight == 0) {
+            $pheight = $curfont['height'];
+        }
+
         switch ($align) {
             default:
             case 'C': // Center
-                return ($curfont['height'] + (2 * max($cell['padding']['T'], $cell['padding']['B'])));
+                return ($pheight + (2 * max($cell['padding']['T'], $cell['padding']['B'])));
             case 'T': // Top
             case 'B': // Bottom
-                return ($curfont['height'] + $cell['padding']['T'] + $cell['padding']['B']);
+                return ($pheight + $cell['padding']['T'] + $cell['padding']['B']);
             case 'L': // Center on font Baseline
-                return (2 * max(
+                return ($pheight - $curfont['height'] + (2 * max(
                     ($cell['padding']['T'] + $curfont['ascent']),
                     ($cell['padding']['B'] - $curfont['descent'])
-                ));
+                )));
             case 'A': // Center on font Ascent
             case 'D': // Center on font Descent
-                return (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B'])));
+                return ($pheight
+                    - $curfont['height']
+                    + (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B']))));
         }
     }
 
@@ -296,9 +305,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
-     * Returns the vertical distance between the cell top side and the text baseline.
+     * Returns the vertical distance between the cell top side and the text.
      *
-     * @param float     $pheight Cell height in internal points.
+     * @param float     $cellpheight Cell height in internal points.
+     * @param float     $txtpheight  Text height in internal points.
      * @param string    $align   Text vertical alignment inside the cell:
      *                           - T=top;
      *                           - C=center;
@@ -309,7 +319,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellTextVAlign(
-        float $pheight,
+        float $cellpheight,
+        float $txtpheight = 0,
         string $align = 'C',
         ?array $cell = null
     ): float {
@@ -318,20 +329,25 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         }
 
         $curfont = $this->font->getCurrentFont();
+
+        if ($txtpheight == 0) {
+            $txtpheight = $curfont['height'];
+        }
+
         switch ($align) {
             default:
             case 'C': // Center
-                return (($pheight / 2) + $curfont['midpoint']);
+                return (($cellpheight - $txtpheight) / 2);
             case 'T': // Top
-                return ($cell['padding']['T'] + $curfont['ascent']);
+                return ($cell['padding']['T']);
             case 'B': // Bottom
-                return ($pheight - $cell['padding']['B'] + $curfont['descent']);
+                return (($cellpheight - $txtpheight) - $cell['padding']['B']);
             case 'L': // Center on font Baseline
-                return ($pheight / 2);
+                return ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['ascent']);
             case 'A': // Center on font Ascent
-                return (($pheight / 2) + $curfont['ascent']);
+                return (($cellpheight - $txtpheight + $curfont['height']) / 2);
             case 'D': // Center on font Descent
-                return (($pheight / 2) + $curfont['descent']);
+                return ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['height']);
         }
     }
 
@@ -371,10 +387,11 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
-     * Returns the baseline Y coordinate of the cell wrapping the text.
+     * Returns the top Y coordinate of the cell wrapping the text.
      *
      * @param float     $txty    Text baseline top Y coordinate in internal points.
-     * @param float     $pheight Cell height in internal points.
+     * @param float     $cellpheight Cell height in internal points.
+     * @param float     $txtpheight  Text height in internal points.
      * @param string    $align   Text vertical alignment inside the cell:
      *                           - T=top;
      *                           - C=center;
@@ -386,11 +403,12 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      */
     protected function cellVPosFromText(
         float $txty,
-        float $pheight,
+        float $cellpheight,
+        float $txtpheight = 0,
         string $align = 'C',
         ?array $cell = null
     ): float {
-        return ($txty + $this->cellTextVAlign($pheight, $align, $cell));
+        return ($txty + $this->cellTextVAlign($cellpheight, $txtpheight, $align, $cell));
     }
 
     /**
@@ -413,10 +431,11 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
-     * Returns the baseline Y coordinate of the text inside the cell.
+     * Returns the top Y coordinate of the text inside the cell.
      *
      * @param float     $pnty    Cell top Y coordinate in internal points.
-     * @param float     $pheight Cell height in internal points.
+     * @param float     $cellpheight Cell height in internal points.
+     * @param float     $txtpheight  Text height in internal points.
      * @param string    $align   Text vertical alignment inside the cell:
      *                           - T=top;
      *                           - C=center;
@@ -428,11 +447,12 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      */
     protected function textVPosFromCell(
         float $pnty,
-        float $pheight,
+        float $cellpheight,
+        float $txtpheight = 0,
         string $align = 'C',
         ?array $cell = null
     ): float {
-        return ($pnty - $this->cellTextVAlign($pheight, $align, $cell));
+        return ($pnty - $this->cellTextVAlign($cellpheight, $txtpheight, $align, $cell));
     }
 
     /**
@@ -452,6 +472,45 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         ?array $cell = null
     ): float {
         return ($pntx + $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell));
+    }
+
+    /**
+     * Calculates the maximum width available for a cell that fits the current region width.
+     *
+     * @param float     $pntx      Cell left X coordinate in internal points.
+     * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float
+     */
+    protected function cellMaxWidth(
+        float $pntx = 0,
+        ?array $cell = null
+    ): float {
+        if ($cell === null) {
+            $cell = $this->defcell;
+        }
+
+        $region = $this->page->getRegion();
+        return ($this->toPoints($region['RW']) - $pntx - $cell['margin']['L'] - $cell['margin']['R']);
+    }
+
+    /**
+     * Calculates the maximum width available for text within a cell.
+     *
+     * @param float     $pwidth    Cell width in internal points.
+     * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float The maximum width available for text within the cell.
+     */
+    protected function textMaxWidth(
+        float $pwidth,
+        ?array $cell = null
+    ): float {
+        if ($cell === null) {
+            $cell = $this->defcell;
+        }
+
+        return ($pwidth - $cell['padding']['L'] - $cell['padding']['R']);
     }
 
     /**

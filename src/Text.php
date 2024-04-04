@@ -83,6 +83,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $posy        Ordinate of upper-left corner.
      * @param float       $width       Width.
      * @param float       $height      Height.
+     * @param float       $offset      Horizontal offset to apply to the line start.
+     * @param float       $linespace   Additional space to add between lines.
      * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
@@ -91,6 +93,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -103,6 +106,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $posy = 0,
         float $width = 0,
         float $height = 0,
+        float $offset = 0,
+        float $linespace = 0,
         string $valign = 'C',
         string $halign = 'C',
         ?array $cell = null,
@@ -111,6 +116,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
+        bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -128,26 +134,42 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $cell = $this->adjustMinCellPadding($styles, $cell);
 
-        $cell_pheight = $this->toPoints($height);
-        if ($height <= 0) {
-            $cell_pheight = $this->cellMinHeight($valign, $cell);
-        }
+        $pntx = $this->toPoints($posx);
 
         $cell_pwidth = $this->toPoints($width);
         if ($width <= 0) {
-            $cell_pwidth = $this->cellMinWidth($txt_pwidth, $halign, $cell);
+            $cell_pwidth = min(
+                $this->cellMaxWidth($pntx, $cell),
+                $this->cellMinWidth($txt_pwidth, $halign, $cell),
+            );
         }
 
-        $pntx = $this->toPoints($posx);
-        $pnty = $this->toYPoints($posy);
+        $txt_pwidth = $this->textMaxWidth($cell_pwidth, $cell);
+        $line_width = $this->toUnit($txt_pwidth);
 
+        $curfont = $this->font->getCurrentFont();
+        $fontascent = $this->toUnit($curfont['ascent']);
+
+        $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
+        $numlines = count($lines);
+        $txt_pheight = (($numlines * $curfont['height']) + (($numlines - 1) * $linespace));
+
+        $cell_pheight = $this->toPoints($height);
+        if ($height <= 0) {
+            $cell_pheight = $this->cellMinHeight($txt_pheight, $valign, $cell);
+        }
+
+        $pnty = $this->toYPoints($posy);
         $cell_pnty = $this->cellVPos($pnty, $cell_pheight, 'T', $cell);
+
         $txt_pnty = $this->textVPosFromCell(
             $cell_pnty,
             $cell_pheight,
+            $txt_pheight,
             $valign,
             $cell
         );
+
 
         $cell_pntx = $this->cellHPos($pntx, $cell_pwidth, 'L', $cell);
         $txt_pntx = $this->textHPosFromCell(
@@ -158,23 +180,21 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell
         );
 
-        $line_width = 0;
-        if ($halign == 'J') {
-            $halign = $this->rtl ? 'R' : 'L';
-            $line_width = $this->toUnit($cell_pwidth - $cell['padding']['L'] - $cell['padding']['R']);
-        }
-
-        $txt_out = $this->getOutTextLine(
-            $txt,
+        $txt_out = $this->outTextLines(
             $ordarr,
-            $dim,
+            $lines,
             $this->toUnit($txt_pntx),
             $this->toYUnit($txt_pnty),
             $line_width,
+            $offset,
+            $fontascent,
+            $linespace,
             $strokewidth,
             $wordspacing,
             $leading,
             $rise,
+            $halign,
+            $jlast,
             $fill,
             $stroke,
             $clip,
@@ -360,7 +380,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $curfont = $this->font->getCurrentFont();
         $fontascent = $this->toUnit($curfont['ascent']);
 
-        if ($width == 0) {
+        if ($width <= 0) {
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }

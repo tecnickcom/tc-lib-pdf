@@ -1153,14 +1153,41 @@ $style_cell = [
 $bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
 $pdf->page->addContent($bfont4['out']);
 
-$pdf->setDefaultCellPadding(1,1,1,1);
+$pdf->setDefaultCellPadding(2,2,2,2);
 
-$txtcell = $pdf->getTextCell(
-    'Lorem ipsum dolor sit amet', // string $txt,
+$txtcell1 = $pdf->getTextCell(
+    'CELL', // string $txt,
     20, // float $posx = 0,
-    60, // float $posy = 0,
-    70, // float $width = 0,
+    50, // float $posy = 0,
+    0, // float $width = 0,
     0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
+    'C', // string $valign = 'C',
+    'C', // string $halign = 'C',
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    '', // string $forcedir = '',
+    null // ?array $shadow = null,
+);
+$pdf->page->addContent($txtcell1);
+
+$txtcell2 = $pdf->getTextCell(
+    $txt3, // string $txt,
+    20, // float $posx = 0,
+    70, // float $posy = 0,
+    150, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
     'C', // string $valign = 'C',
     'J', // string $halign = 'C',
     null, // ?array $cell = null,
@@ -1169,13 +1196,14 @@ $txtcell = $pdf->getTextCell(
     0, // float $wordspacing = 0,
     0, // float $leading = 0,
     0, // float $rise = 0,
+    true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
     false, // bool $clip = false,
     '', // string $forcedir = '',
     null // ?array $shadow = null,
 );
-$pdf->page->addContent($txtcell);
+$pdf->page->addContent($txtcell2);
 
 
 // ----------
