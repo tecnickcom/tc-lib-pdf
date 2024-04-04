@@ -84,14 +84,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $width       Width.
      * @param float       $height      Height.
      * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
-     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
      * @param array<int, StyleDataOpt> $styles Cell border styles (see: getCurrentStyleArray).
      * @param float       $strokewidth Stroke width.
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -112,7 +111,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        bool $justify = false,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -139,7 +137,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         if ($width <= 0) {
             $cell_pwidth = $this->cellMinWidth($txt_pwidth, $halign, $cell);
         }
-
+        
         $pntx = $this->toPoints($posx);
         $pnty = $this->toYPoints($posy);
 
@@ -161,13 +159,19 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell
         );
 
+        $line_width = 0;
+        if ($halign == 'J') {
+            $halign = $this->rtl ? 'R' : 'L';
+            $line_width = $this->toUnit($cell_pwidth - $cell['padding']['L'] - $cell['padding']['R']);
+        }
+
         $txt_out = $this->getOutTextLine(
             $txt,
             $ordarr,
             $dim,
             $this->toUnit($txt_pntx),
             $this->toYUnit($txt_pnty),
-            ($justify ? $this->toUnit($txt_pwidth) : 0),
+            $line_width,
             $strokewidth,
             $wordspacing,
             $leading,

@@ -1154,21 +1154,21 @@ $bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
 $pdf->page->addContent($bfont4['out']);
 
 $pdf->setDefaultCellPadding(1,1,1,1);
+
 $txtcell = $pdf->getTextCell(
     'Lorem ipsum dolor sit amet', // string $txt,
     20, // float $posx = 0,
     60, // float $posy = 0,
-    0, // float $width = 0,
+    70, // float $width = 0,
     0, // float $height = 0,
     'C', // string $valign = 'C',
-    'C', // string $halign = 'C',
+    'J', // string $halign = 'C',
     null, // ?array $cell = null,
     $style_cell, // array $styles = [],
     0, // float $strokewidth = 0,
     0, // float $wordspacing = 0,
     0, // float $leading = 0,
     0, // float $rise = 0,
-    false, // bool $justify = false,
     true, // bool $fill = true,
     false, // bool $stroke = false,
     false, // bool $clip = false,

@@ -202,7 +202,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * Returns the minimum cell width in points for the current text
      *
      * @param float     $txtwidth Text width in internal points.
-     * @param string    $align    Cell horizontal alignment: L=left; C=center; R=right.
+     * @param string    $align    Cell horizontal alignment: L=left; C=center; R=right; J=Justify.
      * @param ?TCellDef $cell     Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellMinWidth(
@@ -212,6 +212,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     ): float {
         if ($cell === null) {
             $cell = $this->defcell;
+        }
+
+        if ($align == 'J') {
+            $align = $this->rtl ? 'R' : 'L';
         }
 
         switch ($align) {
@@ -255,7 +259,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @param float    $pntx   Starting top Y coordinate in internal points.
      * @param float    $pwidth Cell width in internal points.
-     * @param string   $align  Cell horizontal alignment: L=left; C=center; R=right.
+     * @param string   $align  Cell horizontal alignment: L=left; C=center; R=right; J=Justify.
      * @param TCellDef $cell   Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellHPos(
@@ -266,6 +270,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     ): float {
         if ($cell === null) {
             $cell = $this->defcell;
+        }
+
+        if ($align == 'J') {
+            $align = $this->rtl ? 'R' : 'L';
         }
 
         return match ($align) {
@@ -321,7 +329,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @param float     $pwidth    Cell width in internal points.
      * @param float     $txtpwidth Text width in internal points.
-     * @param string    $align     Text horizontal alignment inside the cell: L=left; C=center; R=right.
+     * @param string    $align     Text horizontal alignment inside the cell: L=left; C=center; R=right; J=Justify.
      * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellTextHAlign(
@@ -332,6 +340,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     ): float {
         if ($cell === null) {
             $cell = $this->defcell;
+        }
+
+        if ($align == 'J') {
+            $align = $this->rtl ? 'R' : 'L';
         }
 
         switch ($align) {
