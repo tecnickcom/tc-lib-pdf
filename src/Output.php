@@ -518,7 +518,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . 'startxref' . "\n"
             . $startxref . "\n"
             . '%%EOF' . "\n";
-        return $out . $this->signDocument($out);
+        return $this->signDocument($out);
     }
 
     /**
@@ -2694,9 +2694,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function signDocument(string $pdfdoc): string
     {
-        $out = '';
         if (! $this->sign) {
-            return $out;
+            return $pdfdoc;
         }
 
         // remove last newline
@@ -2777,8 +2776,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $signature = current($signature);
         $signature = str_pad($signature, $this::SIGMAXLEN, '0');
         // Add signature to the document
-        $out = substr($pdfdoc, 0, $byte_range[1]) . '<' . $signature . '>' . substr($pdfdoc, $byte_range[1]);
-        return $out;
+        return substr($pdfdoc, 0, $byte_range[1]) . '<' . $signature . '>' . substr($pdfdoc, $byte_range[1]);
     }
 
     /**
