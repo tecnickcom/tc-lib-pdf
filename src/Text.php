@@ -76,7 +76,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     ];
 
     /**
-     * Returns the PDF code to render a single text line inside a rectangular cell.
+     * Returns the PDF code to render a text block inside a rectangular cell.
      *
      * @param string      $txt         Text string to be processed.
      * @param float       $posx        Abscissa of upper-left corner.
