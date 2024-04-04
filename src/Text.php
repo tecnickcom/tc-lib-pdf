@@ -137,7 +137,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         if ($width <= 0) {
             $cell_pwidth = $this->cellMinWidth($txt_pwidth, $halign, $cell);
         }
-        
+
         $pntx = $this->toPoints($posx);
         $pnty = $this->toYPoints($posy);
 
@@ -480,7 +480,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
             $cell_width = ($width - $offset);
             $txt_posx = $this->toUnit(
-                    $this->textHPosFromCell(
+                $this->textHPosFromCell(
                     $this->toPoints($line_posx),
                     $this->toPoints($cell_width),
                     $line_dim['totwidth'],
