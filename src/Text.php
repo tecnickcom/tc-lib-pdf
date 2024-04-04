@@ -224,7 +224,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
-     * @param bool        $last        If true does not justify the last line when $halign == J.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -243,7 +243,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $leading = 0,
         float $rise = 0,
         string $halign = '',
-        bool $last = true,
+        bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -305,7 +305,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $leading,
                 $rise,
                 $halign,
-                $last,
+                $jlast,
                 $fill,
                 $stroke,
                 $clip,
@@ -339,7 +339,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
-     * @param bool        $last        If true does not justify the last line when $halign == J.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -360,7 +360,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $leading = 0,
         float $rise = 0,
         string $halign = '',
-        bool $last = true,
+        bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -399,7 +399,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $leading,
             $rise,
             $halign,
-            $last,
+            $jlast,
             $fill,
             $stroke,
             $clip,
@@ -423,7 +423,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
-     * @param bool        $last        If true does not justify the last line when $halign == J.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -445,7 +445,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $leading = 0,
         float $rise = 0,
         string $halign = '',
-        bool $last = true,
+        bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -490,7 +490,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             );
 
             $jwidth = 0;
-            if (($halign == 'J') && ($data['septype'] != 'B') && (($i < $lastline) || !$last)) {
+            if (($halign == 'J') && ($data['septype'] != 'B') && (($i < $lastline) || !$jlast)) {
                 $jwidth = $cell_width;
             }
 
