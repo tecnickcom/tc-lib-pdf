@@ -181,31 +181,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $shadow,
         );
 
-        $cell_out =  $this->graph->getStartTransform();
-
-        $cell_mode = empty($styles['all']['fillColor']) ? 's' : 'b';
-
-        if (count($styles) <= 1) {
-            $cell_out .= $this->graph->getBasicRect(
-                $this->toUnit($cell_pntx),
-                $this->toYUnit($cell_pnty),
-                $this->toUnit($cell_pwidth),
-                $this->toUnit($cell_pheight),
-                $cell_mode,
-                (empty($styles['all']) ? [] : $styles['all']),
-            );
-        } else {
-            $cell_out .= $this->graph->getRect(
-                $this->toUnit($cell_pntx),
-                $this->toYUnit($cell_pnty),
-                $this->toUnit($cell_pwidth),
-                $this->toUnit($cell_pheight),
-                $cell_mode,
-                $styles,
-            );
-        }
-
-        $cell_out .= $this->graph->getStopTransform();
+        $cell_out = $this->drawCell(
+            $cell_pntx,
+            $cell_pnty,
+            $cell_pwidth,
+            $cell_pheight,
+            $styles,
+        );
 
         return $cell_out . $txt_out;
     }

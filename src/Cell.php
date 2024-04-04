@@ -464,4 +464,51 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         $this->page->addContent($this->font->getOutCurrentFont());
         $this->page->addContent($this->graph->getStyle());
     }
+
+    /**
+     * Returns the PDF code to draw the text cell border and background.
+     *
+     * @param float     $pntx     Cell left X coordinate in internal points.
+     * @param float     $pnty     Cell top Y coordinate in internal points.
+     * @param float     $pwidth   Cell width in internal points.
+     * @param float     $pheight  Cell height in internal points.
+     * @param array<int, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
+     *
+     * @return string
+     */
+    protected function drawCell(
+        float $pntx,
+        float $pnty,
+        float $pwidth,
+        float $pheight,
+        array $styles = []
+    ) {
+        $mode = empty($styles['all']['fillColor']) ? 's' : 'b';
+
+        $out = $this->graph->getStartTransform();
+
+        if (count($styles) <= 1) {
+            $out .= $this->graph->getBasicRect(
+                $this->toUnit($pntx),
+                $this->toYUnit($pnty),
+                $this->toUnit($pwidth),
+                $this->toUnit($pheight),
+                $mode,
+                (empty($styles['all']) ? [] : $styles['all']),
+            );
+        } else {
+            $out .= $this->graph->getRect(
+                $this->toUnit($pntx),
+                $this->toYUnit($pnty),
+                $this->toUnit($pwidth),
+                $this->toUnit($pheight),
+                $mode,
+                $styles,
+            );
+        }
+
+        $out .= $this->graph->getStopTransform();
+
+        return $out;
+    }
 }
