@@ -76,25 +76,28 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     ];
 
     /**
-     * Returns the PDF code to render a single text line inside a rectangular cell.
+     * Returns the PDF code to render a text block inside a rectangular cell.
      *
      * @param string      $txt         Text string to be processed.
      * @param float       $posx        Abscissa of upper-left corner.
      * @param float       $posy        Ordinate of upper-left corner.
      * @param float       $width       Width.
      * @param float       $height      Height.
+     * @param float       $offset      Horizontal offset to apply to the line start.
+     * @param float       $linespace   Additional space to add between lines.
      * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
-     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
      * @param array<int, StyleDataOpt> $styles Cell border styles (see: getCurrentStyleArray).
      * @param float       $strokewidth Stroke width.
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
+     * @param bool        $drawcell    If true draw the cell border.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
      * @param ?TextShadow $shadow      Text shadow parameters.
      */
@@ -104,6 +107,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $posy = 0,
         float $width = 0,
         float $height = 0,
+        float $offset = 0,
+        float $linespace = 0,
         string $valign = 'C',
         string $halign = 'C',
         ?array $cell = null,
@@ -112,10 +117,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        bool $justify = false,
+        bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
+        bool $drawcell = true,
         string $forcedir = '',
         ?array $shadow = null,
     ): string {
@@ -130,22 +136,44 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $cell = $this->adjustMinCellPadding($styles, $cell);
 
-        $cell_pheight = $this->toPoints($height);
-        if ($height <= 0) {
-            $cell_pheight = $this->cellMinHeight($valign, $cell);
-        }
+        $pntx = $this->toPoints($posx);
 
         $cell_pwidth = $this->toPoints($width);
         if ($width <= 0) {
-            $cell_pwidth = $this->cellMinWidth($txt_pwidth, $halign, $cell);
+            $cell_pwidth = min(
+                $this->cellMaxWidth($pntx, $cell),
+                $this->cellMinWidth($txt_pwidth, $halign, $cell),
+            );
         }
 
-        $pntx = $this->toPoints($posx);
-        $pnty = $this->toYPoints($posy);
+        $txt_pwidth = $this->textMaxWidth($cell_pwidth, $cell);
+        $line_width = $this->toUnit($txt_pwidth);
 
-        $cell_pntx = $this->cellHPos($pntx, $cell_pwidth, 'L', $cell);
+        $curfont = $this->font->getCurrentFont();
+        $fontascent = $this->toUnit($curfont['ascent']);
+
+        $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
+        $numlines = count($lines);
+        $txt_pheight = (($numlines * $curfont['height']) + (($numlines - 1) * $linespace));
+
+        $cell_pheight = $this->toPoints($height);
+        if ($height <= 0) {
+            $cell_pheight = $this->cellMinHeight($txt_pheight, $valign, $cell);
+        }
+
+        $pnty = $this->toYPoints($posy);
         $cell_pnty = $this->cellVPos($pnty, $cell_pheight, 'T', $cell);
 
+        $txt_pnty = $this->textVPosFromCell(
+            $cell_pnty,
+            $cell_pheight,
+            $txt_pheight,
+            $valign,
+            $cell
+        );
+
+
+        $cell_pntx = $this->cellHPos($pntx, $cell_pwidth, 'L', $cell);
         $txt_pntx = $this->textHPosFromCell(
             $cell_pntx,
             $cell_pwidth,
@@ -154,55 +182,38 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell
         );
 
-        $txt_pnty = $this->textVPosFromCell(
-            $cell_pnty,
-            $cell_pheight,
-            $valign,
-            $cell
-        );
-
-        $txt_out = $this->getOutTextLine(
-            $txt,
+        $txt_out = $this->outTextLines(
             $ordarr,
-            $dim,
+            $lines,
             $this->toUnit($txt_pntx),
             $this->toYUnit($txt_pnty),
-            ($justify ? $this->toUnit($txt_pwidth) : 0),
+            $line_width,
+            $offset,
+            $fontascent,
+            $linespace,
             $strokewidth,
             $wordspacing,
             $leading,
             $rise,
+            $halign,
+            $jlast,
             $fill,
             $stroke,
             $clip,
             $shadow,
         );
 
-        $cell_out =  $this->graph->getStartTransform();
-
-        $cell_mode = empty($styles['all']['fillColor']) ? 's' : 'b';
-
-        if (count($styles) <= 1) {
-            $cell_out .= $this->graph->getBasicRect(
-                $this->toUnit($cell_pntx),
-                $this->toYUnit($cell_pnty),
-                $this->toUnit($cell_pwidth),
-                $this->toUnit($cell_pheight),
-                $cell_mode,
-                (empty($styles['all']) ? [] : $styles['all']),
-            );
-        } else {
-            $cell_out .= $this->graph->getRect(
-                $this->toUnit($cell_pntx),
-                $this->toYUnit($cell_pnty),
-                $this->toUnit($cell_pwidth),
-                $this->toUnit($cell_pheight),
-                $cell_mode,
-                $styles,
-            );
+        if (!$drawcell) {
+            return $txt_out;
         }
 
-        $cell_out .= $this->graph->getStopTransform();
+        $cell_out = $this->drawCell(
+            $cell_pntx,
+            $cell_pnty,
+            $cell_pwidth,
+            $cell_pheight,
+            $styles,
+        );
 
         return $cell_out . $txt_out;
     }
@@ -220,8 +231,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
-     * @param bool        $justifylast If true justify the last line.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -239,8 +250,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        bool $justify = false,
-        bool $justifylast = false,
+        string $halign = '',
+        bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -274,9 +285,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             }
 
             $line_posx = ($posx + $region['RX']);
+            $maxwidth = ($region['RW'] - $line_posx);
 
-            if (($width == 0) || ($width > $region['RW'])) {
-                $width = $region['RW'];
+            if (($width == 0) || ($width > $maxwidth)) {
+                $width = $maxwidth;
             }
 
             $region_max_lines = (int)((($region['RH'] - $line_posy) + $linespace) / ($fontheight + $linespace));
@@ -301,8 +313,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $wordspacing,
                 $leading,
                 $rise,
-                $justify,
-                $justifylast,
+                $halign,
+                $jlast,
                 $fill,
                 $stroke,
                 $clip,
@@ -323,88 +335,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Returns the PDF code to render a text in a given column with automatic line breaks.
-     *
-     * @param string      $txt         Text string to be processed.
-     * @param float       $posx        Abscissa of upper-left corner.
-     * @param float       $posy        Ordinate of upper-left corner.
-     * @param float       $width       Width.
-     * @param float       $offset      Horizontal offset to apply to the line start.
-     * @param float       $linespace   Additional space to add between lines.
-     * @param float       $strokewidth Stroke width.
-     * @param float       $wordspacing Word spacing (use it only when justify == false).
-     * @param float       $leading     Leading.
-     * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
-     * @param bool        $justifylast If true justify the last line.
-     * @param bool        $fill        If true fills the text.
-     * @param bool        $stroke      If true stroke the text.
-     * @param bool        $clip        If true activate clipping mode.
-     * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
-     * @param ?TextShadow $shadow      Text shadow parameters.
-     *
-     * @return string PDF code to render the text.
-     */
-    public function getTextCol(
-        string $txt,
-        float $posx = 0,
-        float $posy = 0,
-        float $width = 0,
-        float $offset = 0,
-        float $linespace = 0,
-        float $strokewidth = 0,
-        float $wordspacing = 0,
-        float $leading = 0,
-        float $rise = 0,
-        bool $justify = false,
-        bool $justifylast = false,
-        bool $fill = true,
-        bool $stroke = false,
-        bool $clip = false,
-        string $forcedir = '',
-        ?array $shadow = null,
-    ): string {
-        if ($txt === '') {
-            return '';
-        }
-
-        $ordarr = [];
-        $dim = [];
-        $this->prepareText($txt, $ordarr, $dim, $forcedir);
-
-        $curfont = $this->font->getCurrentFont();
-        $fontascent = $this->toUnit($curfont['ascent']);
-
-        if ($width == 0) {
-            $region = $this->page->getRegion();
-            $width = $region['RW'];
-        }
-
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints($offset));
-
-        return $this->outTextLines(
-            $ordarr,
-            $lines,
-            $posx,
-            $posy,
-            $width,
-            $offset,
-            $fontascent,
-            $linespace,
-            $strokewidth,
-            $wordspacing,
-            $leading,
-            $rise,
-            $justify,
-            $justifylast,
-            $fill,
-            $stroke,
-            $clip,
-            $shadow,
-        );
-    }
-
-    /**
      * Returns the PDF code to render a contiguous text block with automatic line breaks.
      *
      * @param array<int, int> $ordarr  Array of UTF-8 codepoints (integer values).
@@ -419,8 +349,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param bool        $justify     If true justify te text via word spacing.
-     * @param bool        $justifylast If true justify the last line.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
@@ -441,8 +371,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        bool $justify = false,
-        bool $justifylast = false,
+        string $halign = '',
+        bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
@@ -450,6 +380,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     ): string {
         if ($ordarr === [] || $lines === []) {
             return '';
+        }
+
+        if ($halign == '') {
+            $halign = $this->rtl ? 'R' : 'L';
         }
 
         $num_lines = count($lines);
@@ -471,16 +405,27 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 'split' => [],
             ];
 
+            $cell_width = ($width - $offset);
+            $txt_posx = $this->toUnit(
+                $this->textHPosFromCell(
+                    $this->toPoints($line_posx),
+                    $this->toPoints($cell_width),
+                    $line_dim['totwidth'],
+                    $halign,
+                    static::ZEROCELL,
+                )
+            );
+
             $jwidth = 0;
-            if ($justify && ($data['septype'] != 'B') && (($i < $lastline) || $justifylast)) {
-                $jwidth = ($width - $offset);
+            if (($halign == 'J') && ($data['septype'] != 'B') && (($i < $lastline) || !$jlast)) {
+                $jwidth = $cell_width;
             }
 
             $out .= $this->getOutTextLine(
                 $line_txt,
                 $line_ordarr,
                 $line_dim,
-                $line_posx,
+                $txt_posx,
                 $line_posy,
                 $jwidth,
                 $strokewidth,
