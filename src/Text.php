@@ -285,9 +285,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             }
 
             $line_posx = ($posx + $region['RX']);
+            $maxwidth = ($region['RW'] - $line_posx);
 
-            if (($width == 0) || ($width > $region['RW'])) {
-                $width = $region['RW'];
+            if (($width == 0) || ($width > $maxwidth)) {
+                $width = $maxwidth;
             }
 
             $region_max_lines = (int)((($region['RH'] - $line_posy) + $linespace) / ($fontheight + $linespace));
