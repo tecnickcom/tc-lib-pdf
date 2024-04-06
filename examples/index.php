@@ -1116,30 +1116,10 @@ $txtbox = $pdf->getTextCell(
 );
 $pdf->page->addContent($txtbox);
 
-
-$bfont4 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 14);
+$bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
 $pdf->page->addContent($bfont4['out']);
 
-// block of text between two page regions
-$pdf->addTextCol(
-    $txt3,
-    20, // float $posx = 0,
-    275, // float $posy = 0,
-    150, // float $width = 0,
-    15, // float $offset = 0,
-    1, // float $linespace = 0,
-    0, // float $strokewidth = 0,
-    0, // float $wordspacing = 0,
-    0, // float $leading = 0,
-    0, // float $rise = 0,
-    'J', // bool $halign = '',
-    true, // bool $jlast = true,
-    true, // bool $fill = true,
-    false, // bool $stroke = false,
-    false, // bool $clip = false,
-    '', // string $forcedir = '',
-    null, // ?array $shadow = null,
-);
+$pdf->setDefaultCellPadding(2,2,2,2);
 
 // Text cell
 $style_cell = [
@@ -1155,15 +1135,10 @@ $style_cell = [
     ],
 ];
 
-$bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
-$pdf->page->addContent($bfont4['out']);
-
-$pdf->setDefaultCellPadding(2,2,2,2);
-
 $txtcell1 = $pdf->getTextCell(
     'CELL', // string $txt,
     20, // float $posx = 0,
-    50, // float $posy = 0,
+    100, // float $posy = 0,
     0, // float $width = 0,
     0, // float $height = 0,
     0, // float $offset = 0,
@@ -1186,10 +1161,11 @@ $txtcell1 = $pdf->getTextCell(
 );
 $pdf->page->addContent($txtcell1);
 
+
 $txtcell2 = $pdf->getTextCell(
     $txt3, // string $txt,
     20, // float $posx = 0,
-    70, // float $posy = 0,
+    120, // float $posy = 0,
     150, // float $width = 0,
     0, // float $height = 0,
     0, // float $offset = 0,
@@ -1211,6 +1187,36 @@ $txtcell2 = $pdf->getTextCell(
     null // ?array $shadow = null,
 );
 $pdf->page->addContent($txtcell2);
+
+
+$bfont4 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 14);
+$pdf->page->addContent($bfont4['out']);
+
+// block of text between two page regions
+$pdf->addTextCell(
+    $txt3, // string $txt,
+    20, // float $posx = 0,
+    275, // float $posy = 0,
+    150, // float $width = 0,
+    0, // float $height = 0,
+    15, // float $offset = 0,
+    1, // float $linespace = 0,
+    'T', // string $valign = 'T',
+    'J', // string $halign = '',
+    $pdf->ZEROCELL, // ?array $cell = null,
+    [], // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    false, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
 
 
 // ----------
