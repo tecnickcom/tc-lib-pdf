@@ -154,7 +154,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
         $numlines = count($lines);
-        $txt_pheight = (($numlines * $curfont['height']) + (($numlines - 1) * $linespace));
+        $txt_pheight = (($numlines * $curfont['height']) + (($numlines - 1) * $this->toPoints($linespace)));
 
         $cell_pheight = $this->toPoints($height);
         if ($height <= 0) {
@@ -162,7 +162,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         $pnty = $this->toYPoints($posy);
-        $cell_pnty = $this->cellVPos($pnty, $cell_pheight, 'T', $cell);
+        $cell_pnty = ($pnty - $cell['margin']['T']);
 
         $txt_pnty = $this->textVPosFromCell(
             $cell_pnty,
@@ -219,42 +219,53 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Add a text column with automatic line, page and region breaks.
+     * Adds a text block inside a rectangular cell.
+     * Accounts for automatic line, page and region breaks.
      *
      * @param string      $txt         Text string to be processed.
-     * @param float       $posx        Abscissa of upper-left corner.
-     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $posx        Abscissa of upper-left corner relative to the region origin X coordinate.
+     * @param float       $posy        Ordinate of upper-left corner relative to the region origin Y coordinate.
      * @param float       $width       Width.
+     * @param float       $height      Height.
      * @param float       $offset      Horizontal offset to apply to the line start.
      * @param float       $linespace   Additional space to add between lines.
+     * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
+     * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     * @param array<int, StyleDataOpt> $styles Cell border styles (see: getCurrentStyleArray).
      * @param float       $strokewidth Stroke width.
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
      * @param float       $rise        Text rise.
-     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
      * @param bool        $clip        If true activate clipping mode.
+     * @param bool        $drawcell    If true draw the cell border.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
      * @param ?TextShadow $shadow      Text shadow parameters.
      */
-    public function addTextCol(
+    public function addTextCell(
         string $txt,
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
+        float $height = 0,
         float $offset = 0,
         float $linespace = 0,
+        string $valign = 'T',
+        string $halign = '',
+        ?array $cell = null,
+        array $styles = [],
         float $strokewidth = 0,
         float $wordspacing = 0,
         float $leading = 0,
         float $rise = 0,
-        string $halign = '',
         bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
         bool $clip = false,
+        bool $drawcell = true,
         string $forcedir = '',
         ?array $shadow = null,
     ): void {
@@ -262,50 +273,104 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return;
         }
 
+        if ($halign == '') {
+            $halign = $this->rtl ? 'R' : 'L';
+        }
+
+        $cstyles = $styles;
+        if ($cstyles === []) {
+            $cstyles = ['all' => $this->graph->getCurrentStyleArray()];
+        }
+        if ($drawcell && (count($cstyles) == 1) and (!empty($cstyles['all']))) {
+            $cstyles[0] = $cstyles['all'];
+            $cstyles[1] = $cstyles['all'];
+            $cstyles[2] = $cstyles['all'];
+            $cstyles[3] = $cstyles['all'];
+        }
+
         $ordarr = [];
         $dim = [];
         $this->prepareText($txt, $ordarr, $dim, $forcedir);
+        $txt_pwidth = $dim['totwidth'];
 
         $curfont = $this->font->getCurrentFont();
         $fontascent = $this->toUnit($curfont['ascent']);
         $fontheight = $this->toUnit($curfont['height']);
 
-        $region = $this->page->getRegion();
-        $line_posy = ($posy + $region['RY']);
+        $ocell = $this->adjustMinCellPadding($cstyles, $cell);
+        $cell = $ocell;
+
+        $cell_pntw = $this->toPoints($width);
+        $cell_pnth = $this->toPoints($height);
 
         $region_max_lines  = 1;
+        $num_blocks = 0;
 
         // loop through the regions to fit all available text
         while ($region_max_lines > 0) {
-            if ($this->page->isYOutRegion($line_posy, $fontheight)) {
-                $this->page->getNextRegion();
-                $this->setPageContext();
-                $region = $this->page->getRegion();
-                $line_posy = $region['RY'];
+            $region = $this->page->getRegion();
+            $rposy = ($posy + $region['RY']);
+            $cell_pnty = ($this->toYPoints($rposy) - $cell['margin']['T']);
+            $cell_posy = $this->toYUnit($cell_pnty);
+
+            $rposx = ($posx + $region['RX']);
+            $rpntx = $this->toPoints($rposx);
+
+            $cell_pwidth = $cell_pntw;
+            if ($width <= 0) {
+                $cell_pwidth = min(
+                    $this->cellMaxWidth($rpntx, $cell),
+                    $this->cellMinWidth($txt_pwidth, $halign, $cell),
+                );
             }
 
-            $line_posx = ($posx + $region['RX']);
-            $maxwidth = ($region['RW'] - $line_posx);
+            $txt_pwidth = $this->textMaxWidth($cell_pwidth, $cell);
+            $line_width = $this->toUnit($txt_pwidth);
 
-            if (($width == 0) || ($width > $maxwidth)) {
-                $width = $maxwidth;
-            }
+            $cell_pntx = ($rpntx + $cell['margin']['L']);
+            $txt_pntx = $this->textHPosFromCell(
+                $cell_pntx,
+                $cell_pwidth,
+                $txt_pwidth,
+                $halign,
+                $cell
+            );
+            $line_posx = $this->toUnit($txt_pntx);
 
-            $region_max_lines = (int)((($region['RH'] - $line_posy) + $linespace) / ($fontheight + $linespace));
-            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints($offset));
-            $num_lines = count($lines);
+            $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
+            $numlines = count($lines);
+
+            $vspace = $this->textMaxHeight($region['RH'] + $cell['margin']['B'] + $cell['padding']['B'] - $cell_posy);
+            $region_max_lines = (int)(($vspace + $linespace) / ($fontheight + $linespace));
+            $lastblock = ($numlines <= $region_max_lines);
 
             $rlines = $lines;
-            if ($num_lines > $region_max_lines) {
+            if ($numlines > $region_max_lines) {
                 $rlines = array_slice($lines, 0, $region_max_lines);
             }
+
+            $txt_pheight = (($numlines * $curfont['height']) + (($numlines - 1) * $this->toPoints($linespace)));
+
+            $cell_pheight = $cell_pnth;
+            if ($height <= 0) {
+                $cell_pheight = $this->cellMinHeight($txt_pheight, $valign, $cell);
+            }
+
+            $txt_pnty = $this->textVPosFromCell(
+                $cell_pnty,
+                $cell_pheight,
+                $txt_pheight,
+                $valign,
+                $cell
+            );
+            $line_posy = $this->toYUnit($txt_pnty);
 
             $out = $this->outTextLines(
                 $ordarr,
                 $rlines,
                 $line_posx,
                 $line_posy,
-                $width,
+                $line_width,
                 $offset,
                 $fontascent,
                 $linespace,
@@ -314,23 +379,51 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $leading,
                 $rise,
                 $halign,
-                $jlast,
+                ($lastblock and $jlast),
                 $fill,
                 $stroke,
                 $clip,
                 $shadow,
             );
 
+            if ($drawcell) {
+                $styles = $cstyles;
+                if ($num_blocks > 0) {
+                    $styles[0]['lineWidth'] = 0;
+                    empty($styles[0]['fillColor']) ? null : ($styles[0]['lineColor'] = $styles[0]['fillColor']);
+                    if (!$lastblock) {
+                        $styles[2]['lineWidth'] = 0;
+                        empty($styles[2]['fillColor']) ? null : ($styles[2]['lineColor'] = $styles[2]['fillColor']);
+                    }
+                }
+
+                $out = $this->drawCell(
+                    $cell_pntx,
+                    $cell_pnty,
+                    $cell_pwidth,
+                    $cell_pheight,
+                    $styles,
+                ) . $out;
+            }
+
             $this->page->addContent($out);
 
-            if ($num_lines <= $region_max_lines) {
+            if ($lastblock) {
                 return;
             }
 
             $ordarr = array_slice($ordarr, $lines[$region_max_lines]['pos']);
             $dim = $this->font->getOrdArrDims($ordarr);
+            $posy = 0;
             $offset = 0;
-            $line_posy = ($this->lasttxtbbox['y'] + $this->lasttxtbbox['height'] + $fontascent + $linespace);
+            $num_blocks++;
+
+            $cell = $ocell;
+            $cell['margin']['T'] = 0;
+            $cell['margin']['B'] = 0;
+
+            $this->page->getNextRegion();
+            $this->setPageContext();
         }
     }
 

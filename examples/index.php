@@ -153,6 +153,7 @@ $style4 = [
         'lineColor' => 'black',
         'fillColor' => 'aliceblue',
     ],
+    // TOP
     0 => [
         'lineWidth' => 0.25,
         'lineCap' => 'butt',
@@ -162,6 +163,7 @@ $style4 = [
         'lineColor' => 'red',
         'fillColor' => 'powderblue',
     ],
+    // RIGHT
     1 => [
         'lineWidth' => 0.25,
         'lineCap' => 'butt',
@@ -171,6 +173,7 @@ $style4 = [
         'lineColor' => 'green',
         'fillColor' => 'powderblue',
     ],
+    // BOTTOM
     2 => [
         'lineWidth' => 0.50,
         'lineCap' => 'round',
@@ -180,6 +183,7 @@ $style4 = [
         'lineColor' => 'blue',
         'fillColor' => 'powderblue',
     ],
+    // LEFT
     3 => [
         'lineWidth' => 0.75,
         'lineCap' => 'square',
@@ -1116,54 +1120,29 @@ $txtbox = $pdf->getTextCell(
 );
 $pdf->page->addContent($txtbox);
 
-
-$bfont4 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 14);
-$pdf->page->addContent($bfont4['out']);
-
-// block of text between two page regions
-$pdf->addTextCol(
-    $txt3,
-    20, // float $posx = 0,
-    275, // float $posy = 0,
-    150, // float $width = 0,
-    15, // float $offset = 0,
-    1, // float $linespace = 0,
-    0, // float $strokewidth = 0,
-    0, // float $wordspacing = 0,
-    0, // float $leading = 0,
-    0, // float $rise = 0,
-    'J', // bool $halign = '',
-    true, // bool $jlast = true,
-    true, // bool $fill = true,
-    false, // bool $stroke = false,
-    false, // bool $clip = false,
-    '', // string $forcedir = '',
-    null, // ?array $shadow = null,
-);
-
-// Text cell
-$style_cell = [
-    'all' => [
-        'lineWidth' => 0.5,
-        'lineCap' => 'butt',
-        'lineJoin' => 'miter',
-        'miterLimit' => 0.5,
-        'dashArray' => [],
-        'dashPhase' => 0,
-        'lineColor' => 'red',
-        'fillColor' => 'yellow',
-    ],
-];
-
 $bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
 $pdf->page->addContent($bfont4['out']);
 
 $pdf->setDefaultCellPadding(2,2,2,2);
 
+// Text cell
+$style_cell = [
+    'all' => [
+        'lineWidth' => 1,
+        'lineCap' => 'round',
+        'lineJoin' => 'round',
+        'miterLimit' => 1,
+        'dashArray' => [],
+        'dashPhase' => 0,
+        'lineColor' => 'green',
+        'fillColor' => 'yellow',
+    ],
+];
+
 $txtcell1 = $pdf->getTextCell(
     'CELL', // string $txt,
     20, // float $posx = 0,
-    50, // float $posy = 0,
+    100, // float $posy = 0,
     0, // float $width = 0,
     0, // float $height = 0,
     0, // float $offset = 0,
@@ -1186,10 +1165,11 @@ $txtcell1 = $pdf->getTextCell(
 );
 $pdf->page->addContent($txtcell1);
 
+
 $txtcell2 = $pdf->getTextCell(
     $txt3, // string $txt,
     20, // float $posx = 0,
-    70, // float $posy = 0,
+    120, // float $posy = 0,
     150, // float $width = 0,
     0, // float $height = 0,
     0, // float $offset = 0,
@@ -1211,6 +1191,80 @@ $txtcell2 = $pdf->getTextCell(
     null // ?array $shadow = null,
 );
 $pdf->page->addContent($txtcell2);
+
+
+$bfont4 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 14);
+$pdf->page->addContent($bfont4['out']);
+
+$pdf->setDefaultCellPadding(2,2,2,2);
+
+$style_cell_b = [
+    'all' => [
+        'lineWidth' => 0.5,
+        'lineCap' => 'round',
+        'lineJoin' => 'round',
+        'miterLimit' => 0.5,
+        'dashArray' => [0,1],
+        'dashPhase' => 2,
+        'lineColor' => 'red',
+    ],
+];
+
+// block of text between two page regions
+$pdf->addTextCell(
+    $txt3, // string $txt,
+    20, // float $posx = 0,
+    165, // float $posy = 0,
+    150, // float $width = 0,
+    0, // float $height = 0,
+    15, // float $offset = 0,
+    1, // float $linespace = 0,
+    'T', // string $valign = 'T',
+    'J', // string $halign = '',
+    null, // ?array $cell = null,
+    $style_cell_b, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
+
+$txt4 = 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?';
+
+$txt5 = 'At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.';
+
+// block of text between two page regions
+$pdf->addTextCell(
+    $txt3 . "\n" . $txt4 . "\n" . $txt5, // string $txt,
+    20, // float $posx = 0,
+    265, // float $posy = 0,
+    120, // float $width = 0,
+    0, // float $height = 0,
+    15, // float $offset = 0,
+    1, // float $linespace = 0,
+    'T', // string $valign = 'T',
+    'J', // string $halign = '',
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
 
 
 // ----------
