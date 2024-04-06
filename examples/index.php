@@ -1232,7 +1232,7 @@ $pdf->addTextCell(
     'T', // string $valign = 'T',
     'J', // string $halign = '',
     $pdf->ZEROCELL, // ?array $cell = null,
-    [], // array $styles = [],
+    $style_cell, // array $styles = [],
     0, // float $strokewidth = 0,
     0, // float $wordspacing = 0,
     0, // float $leading = 0,
