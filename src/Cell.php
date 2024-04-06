@@ -118,7 +118,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Increase the cell padding to account for the border tickness.
      *
-     * @param array<int, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
+     * @param array<int|string, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
      * @param ?TCellDef                $cell   Optional to overwrite cell parameters for padding, margin etc.
      *
      * @return TCellDef
@@ -140,7 +140,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         $minB = 0;
         $minL = 0;
         if (! empty($styles['all']['lineWidth'])) {
-            $minT = $this->toPoints($styles['all']['lineWidth']);
+            $minT = $this->toPoints((float) $styles['all']['lineWidth']);
             $minR = $minT;
             $minB = $minT;
             $minL = $minT;
@@ -568,7 +568,6 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     protected function setPageContext(): void
     {
         $this->page->addContent($this->font->getOutCurrentFont());
-        $this->page->addContent($this->graph->getStyle());
     }
 
     /**
@@ -578,7 +577,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param float     $pnty     Cell top Y coordinate in internal points.
      * @param float     $pwidth   Cell width in internal points.
      * @param float     $pheight  Cell height in internal points.
-     * @param array<int, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
+     * @param array<int|string, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
      *
      * @return string
      */

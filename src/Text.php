@@ -277,6 +277,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $halign = $this->rtl ? 'R' : 'L';
         }
 
+        $cstyles = $styles;
+        if ($cstyles === []) {
+            $cstyles = ['all' => $this->graph->getCurrentStyleArray()];
+        }
+        if ($drawcell && (count($cstyles) == 1) and (!empty($cstyles['all']))) {
+            $cstyles[0] = $cstyles['all'];
+            $cstyles[1] = $cstyles['all'];
+            $cstyles[2] = $cstyles['all'];
+            $cstyles[3] = $cstyles['all'];
+        }
+
         $ordarr = [];
         $dim = [];
         $this->prepareText($txt, $ordarr, $dim, $forcedir);
@@ -286,13 +297,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $fontascent = $this->toUnit($curfont['ascent']);
         $fontheight = $this->toUnit($curfont['height']);
 
-        $ocell = $this->adjustMinCellPadding($styles, $cell);
+        $ocell = $this->adjustMinCellPadding($cstyles, $cell);
         $cell = $ocell;
 
         $cell_pntw = $this->toPoints($width);
         $cell_pnth = $this->toPoints($height);
 
         $region_max_lines  = 1;
+        $num_blocks = 0;
 
         // loop through the regions to fit all available text
         while ($region_max_lines > 0) {
@@ -375,7 +387,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             );
 
             if ($drawcell) {
-                // @TODO adjust borders and padding
+                $styles = $cstyles;
+                if ($num_blocks > 0) {
+                    $styles[0]['lineWidth'] = 0;
+                    empty($styles[0]['fillColor']) ? null : ($styles[0]['lineColor'] = $styles[0]['fillColor']);
+                    if (!$lastblock) {
+                        $styles[2]['lineWidth'] = 0;
+                        empty($styles[2]['fillColor']) ? null : ($styles[2]['lineColor'] = $styles[2]['fillColor']);
+                    }
+                }
+
                 $out = $this->drawCell(
                     $cell_pntx,
                     $cell_pnty,
@@ -395,8 +416,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $dim = $this->font->getOrdArrDims($ordarr);
             $posy = 0;
             $offset = 0;
+            $num_blocks++;
 
             $cell = $ocell;
+            $cell['margin']['T'] = 0;
+            $cell['margin']['B'] = 0;
 
             $this->page->getNextRegion();
             $this->setPageContext();
