@@ -1130,7 +1130,7 @@ $style_cell = [
         'miterLimit' => 0.5,
         'dashArray' => [],
         'dashPhase' => 0,
-        'lineColor' => 'red',
+        'lineColor' => 'green',
         'fillColor' => 'yellow',
     ],
 ];
@@ -1192,11 +1192,13 @@ $pdf->page->addContent($txtcell2);
 $bfont4 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 14);
 $pdf->page->addContent($bfont4['out']);
 
+$pdf->setDefaultCellPadding(2,2,2,2);
+
 // block of text between two page regions
 $pdf->addTextCell(
     $txt3, // string $txt,
     20, // float $posx = 0,
-    275, // float $posy = 0,
+    165, // float $posy = 0,
     150, // float $width = 0,
     0, // float $height = 0,
     15, // float $offset = 0,
@@ -1213,7 +1215,33 @@ $pdf->addTextCell(
     true, // bool $fill = true,
     false, // bool $stroke = false,
     false, // bool $clip = false,
-    false, // bool $drawcell = true,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
+
+// block of text between two page regions
+$pdf->addTextCell(
+    $txt3, // string $txt,
+    20, // float $posx = 0,
+    265, // float $posy = 0,
+    150, // float $width = 0,
+    0, // float $height = 0,
+    15, // float $offset = 0,
+    1, // float $linespace = 0,
+    'T', // string $valign = 'T',
+    'J', // string $halign = '',
+    $pdf->ZEROCELL, // ?array $cell = null,
+    [], // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
     '', // string $forcedir = '',
     null, // ?array $shadow = null,
 );

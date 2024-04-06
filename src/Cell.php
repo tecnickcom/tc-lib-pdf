@@ -514,6 +514,53 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
+     * Calculates the maximum height available for text within a cell.
+     *
+     * @param float     $pheight Available vertical space in internal points.
+     * @param string    $align   Text vertical alignment inside the cell:
+     *                           - T=top;
+     *                           - C=center;
+     *                           - B=bottom;
+     *                           - A=center-on-font-ascent;
+     *                           - L=center-on-font-baseline;
+     *                           - D=center-on-font-descent.
+     * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @return float The maximum width available for text within the cell.
+     */
+    protected function textMaxHeight(
+        float $pheight,
+        string $align = 'T',
+        ?array $cell = null
+    ): float {
+        if ($cell === null) {
+            $cell = $this->defcell;
+        }
+
+        $curfont = $this->font->getCurrentFont();
+        $cph = ($pheight - $cell['margin']['T'] - $cell['margin']['B']);
+
+        switch ($align) {
+            default:
+            case 'C': // Center
+                return ($cph - (2 * max($cell['padding']['T'], $cell['padding']['B'])));
+            case 'T': // Top
+            case 'B': // Bottom
+                return ($cph - $cell['padding']['T'] - $cell['padding']['B']);
+            case 'L': // Center on font Baseline
+                return ($cph + $curfont['height'] - (2 * max(
+                    ($cell['padding']['T'] + $curfont['ascent']),
+                    ($cell['padding']['B'] - $curfont['descent'])
+                )));
+            case 'A': // Center on font Ascent
+            case 'D': // Center on font Descent
+                return ($cph
+                    + $curfont['height']
+                    - (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B']))));
+        }
+    }
+
+    /**
      * Sets the page context by adding the previous page font and graphic settings.
      *
      * @return void
