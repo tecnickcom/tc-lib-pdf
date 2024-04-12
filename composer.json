@@ -22,7 +22,7 @@
     "php": ">=8.0",
     "ext-date": "*",
     "ext-pcre": "*",
-    "tecnickcom/tc-lib-barcode": "^2.1",
+    "tecnickcom/tc-lib-barcode": "^2.2",
     "tecnickcom/tc-lib-color": "^2.0",
     "tecnickcom/tc-lib-pdf-image": "^2.0",
     "tecnickcom/tc-lib-pdf-font": "^2.2",

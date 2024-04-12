@@ -11,6 +11,9 @@
 # This file is part of tc-lib-pdf software library.
 # ----------------------------------------------------------------------------------------------------------------------
 
+SHELL=/bin/bash
+.SHELLFLAGS=-o pipefail -c
+
 # Project owner
 OWNER=tecnickcom
 
@@ -111,6 +114,10 @@ help:
 # alias for help target
 .PHONY: all
 all: help
+
+# Full build and test sequence
+.PHONY: x
+x: buildall
 
 # Full build and test sequence
 .PHONY: buildall
