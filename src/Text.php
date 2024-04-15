@@ -213,6 +213,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell_pwidth,
             $cell_pheight,
             $styles,
+            $cell,
         );
 
         return $cell_out . $txt_out;
@@ -403,6 +404,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     $cell_pwidth,
                     $cell_pheight,
                     $styles,
+                    $cell,
                 ) . $out;
             }
 

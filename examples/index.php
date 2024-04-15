@@ -1140,7 +1140,7 @@ $style_cell = [
 ];
 
 $txtcell1 = $pdf->getTextCell(
-    'CELL', // string $txt,
+    'DEFAULT', // string $txt,
     20, // float $posx = 0,
     100, // float $posy = 0,
     0, // float $width = 0,
@@ -1165,6 +1165,62 @@ $txtcell1 = $pdf->getTextCell(
 );
 $pdf->page->addContent($txtcell1);
 
+$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_EXTERNAL);
+$txtcell2 = $pdf->getTextCell(
+    'EXTERNAL', // string $txt,
+    49, // float $posx = 0,
+    100, // float $posy = 0,
+    0, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
+    'C', // string $valign = 'C',
+    'C', // string $halign = 'C',
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null // ?array $shadow = null,
+);
+$pdf->page->addContent($txtcell2);
+
+$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_INTERNAL);
+$txtcell2 = $pdf->getTextCell(
+    'INTERNAL', // string $txt,
+    80, // float $posx = 0,
+    100, // float $posy = 0,
+    0, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
+    'C', // string $valign = 'C',
+    'C', // string $halign = 'C',
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null // ?array $shadow = null,
+);
+$pdf->page->addContent($txtcell2);
+
+
+$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
 
 $txtcell2 = $pdf->getTextCell(
     $txt3, // string $txt,

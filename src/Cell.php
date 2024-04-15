@@ -44,10 +44,29 @@ namespace Com\Tecnick\Pdf;
  *            'B': float,
  *            'L': float,
  *        },
+ *       'borderpos': float,
  *    }
  */
 abstract class Cell extends \Com\Tecnick\Pdf\Base
 {
+    /**
+     * The default relative position of the cell origin when
+     * the border is centered on the cell edge.
+     */
+    public const BORDERPOS_DEFAULT = 0;
+
+    /**
+     * The relative position of the cell origin when
+     * the border is external to the cell edge.
+     */
+    public const BORDERPOS_EXTERNAL = -0.5; //-1/2
+
+    /**
+     * The relative position of the cell origin when
+     * the border is internal to the cell edge.
+     */
+    public const BORDERPOS_INTERNAL = 0.5; // 1/2
+
     /**
      * Default values for cell.
      *
@@ -66,6 +85,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             'B' => 0,
             'L' => 0,
         ],
+        'borderpos' => self::BORDERPOS_DEFAULT,
     ];
 
     /**
@@ -116,6 +136,28 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
+     * Sets the default cell border position.
+     *
+     * @param float $borderpos The border position to set:
+     *                       BORDERPOS_DEFAULT
+     *                       BORDERPOS_EXTERNAL
+     *                       BORDERPOS_INTERNAL
+     */
+    public function setDefaultCellBorderPos(float $borderpos): void
+    {
+        if (
+            ($borderpos == self::BORDERPOS_DEFAULT)
+            || ($borderpos == self::BORDERPOS_EXTERNAL)
+            || ($borderpos == self::BORDERPOS_INTERNAL)
+        ) {
+            $this->defcell['borderpos'] = $borderpos;
+            return;
+        }
+
+        $this->defcell['borderpos'] = self::BORDERPOS_DEFAULT;
+    }
+
+    /**
      * Increase the cell padding to account for the border tickness.
      *
      * @param array<int|string, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
@@ -135,12 +177,14 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $styles = $this->graph->getCurrentStyleArray();
         }
 
+        $border_ratio = round(self::BORDERPOS_INTERNAL + $cell['borderpos'], 1);
+
         $minT = 0;
         $minR = 0;
         $minB = 0;
         $minL = 0;
         if (! empty($styles['all']['lineWidth'])) {
-            $minT = $this->toPoints((float) $styles['all']['lineWidth']);
+            $minT = $this->toPoints((float) $styles['all']['lineWidth'] * $border_ratio);
             $minR = $minT;
             $minB = $minT;
             $minL = $minT;
@@ -151,10 +195,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             && isset($styles[2]['lineWidth'])
             && isset($styles[3]['lineWidth'])
         ) {
-            $minT = $this->toPoints((float) $styles[0]['lineWidth']);
-            $minR = $this->toPoints((float) $styles[1]['lineWidth']);
-            $minB = $this->toPoints((float) $styles[2]['lineWidth']);
-            $minL = $this->toPoints((float) $styles[3]['lineWidth']);
+            $minT = $this->toPoints((float) $styles[0]['lineWidth'] * $border_ratio);
+            $minR = $this->toPoints((float) $styles[1]['lineWidth'] * $border_ratio);
+            $minB = $this->toPoints((float) $styles[2]['lineWidth'] * $border_ratio);
+            $minL = $this->toPoints((float) $styles[3]['lineWidth'] * $border_ratio);
         } else {
             return $cell;
         }
@@ -240,9 +284,9 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             default:
             case 'L': // Left
             case 'R': // Right
-                return ($txtwidth + $cell['padding']['L'] + $cell['padding']['R']);
+                return ceil($txtwidth + $cell['padding']['L'] + $cell['padding']['R']);
             case 'C': // Center
-                return ($txtwidth + (2 * max($cell['padding']['L'], $cell['padding']['R'])));
+                return ceil($txtwidth + (2 * max($cell['padding']['L'], $cell['padding']['R'])));
         }
     }
 
@@ -578,6 +622,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param float     $pwidth   Cell width in internal points.
      * @param float     $pheight  Cell height in internal points.
      * @param array<int|string, StyleDataOpt> $styles Optional to overwrite the styles (see: getCurrentStyleArray).
+     * @param ?TCellDef $cell     Optional to overwrite cell parameters for padding, margin etc.
      *
      * @return string
      */
@@ -586,34 +631,92 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         float $pnty,
         float $pwidth,
         float $pheight,
-        array $styles = []
+        array $styles = [],
+        ?array $cell = null
     ) {
-        $mode = empty($styles['all']['fillColor']) ? 's' : 'b';
+
+        $drawfill = (!empty($styles['all']['fillColor']));
+        $drawborder = (
+            !empty($styles['all']['lineWidth'])
+            || !empty($styles[0]['lineWidth'])
+            || !empty($styles[1]['lineWidth'])
+            || !empty($styles[2]['lineWidth'])
+            || !empty($styles[3]['lineWidth'])
+        );
+
+        if (!$drawfill && !$drawborder) {
+            return '';
+        }
+
+        if ($cell === null) {
+            $cell = $this->defcell;
+        }
+
+        $styleall = (empty($styles['all']) ? [] : $styles['all']);
 
         $out = $this->graph->getStartTransform();
+        $stoptr = $this->graph->getStopTransform();
 
-        if (count($styles) <= 1) {
+        if (
+            $drawfill
+            && $drawborder
+            && ($cell['borderpos'] == self::BORDERPOS_DEFAULT)
+            && (count($styles) <= 1)
+        ) {
+            // single default border style for all sides
             $out .= $this->graph->getBasicRect(
                 $this->toUnit($pntx),
                 $this->toYUnit($pnty),
                 $this->toUnit($pwidth),
                 $this->toUnit($pheight),
-                $mode,
-                (empty($styles['all']) ? [] : $styles['all']),
+                'b', // close, fill, and then stroke the path
+                $styleall,
             );
-        } else {
-            $out .= $this->graph->getRect(
+
+            return $out . $stoptr;
+        }
+
+        if ($drawfill) {
+            $out .= $this->graph->getBasicRect(
                 $this->toUnit($pntx),
                 $this->toYUnit($pnty),
                 $this->toUnit($pwidth),
                 $this->toUnit($pheight),
-                $mode,
-                $styles,
+                'f', // fill the path
+                $styleall,
             );
         }
 
-        $out .= $this->graph->getStopTransform();
+        if (!$drawborder) {
+            return $out . $stoptr;
+        }
 
-        return $out;
+        $adj = (isset($styles['all']['lineWidth'])
+            ? $this->toPoints((float) $styles['all']['lineWidth'] * $cell['borderpos'])
+            : 0);
+        $adjx = (isset($styles['3']['lineWidth'])
+            ? $this->toPoints((float) $styles['3']['lineWidth'] * $cell['borderpos'])
+            : $adj);
+        $adjy = isset($styles['0']['lineWidth'])
+            ? $this->toPoints((float) $styles['0']['lineWidth'] * $cell['borderpos'])
+            : $adj;
+        $adjw = $adjx + (isset($styles['1']['lineWidth'])
+            ? $this->toPoints((float) $styles['1']['lineWidth'] * $cell['borderpos'])
+            : $adj);
+        $adjh = $adjy + (isset($styles['2']['lineWidth'])
+            ? $this->toPoints((float) $styles['2']['lineWidth'] * $cell['borderpos'])
+            : $adj);
+
+        // different border styles for each side
+        $out .= $this->graph->getRect(
+            $this->toUnit($pntx + $adjx),
+            $this->toYUnit($pnty - $adjy),
+            $this->toUnit($pwidth - $adjw),
+            $this->toUnit($pheight - $adjh),
+            's', // close and stroke the path
+            $styles,
+        );
+
+        return $out . $stoptr;
     }
 }
