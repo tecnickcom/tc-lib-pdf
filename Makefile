@@ -279,4 +279,4 @@ uninstall:
 
 # set the version
 version:
-	sed -i -e "s/protected \$$version = '.*';/protected \$$version = '${VERSION}';/g" src/Output.php
+	sed -i -e "s/protected string \$$version = '.*';/protected string \$$version = '${VERSION}';/g" src/Base.php
