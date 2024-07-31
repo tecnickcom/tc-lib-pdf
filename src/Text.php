@@ -18,6 +18,7 @@ namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Unicode\Bidi;
+use Com\Tecnick\Unicode\Data\Type as UnicodeType;
 
 /**
  * Com\Tecnick\Pdf\Text
@@ -63,6 +64,49 @@ use Com\Tecnick\Unicode\Bidi;
  */
 abstract class Text extends \Com\Tecnick\Pdf\Cell
 {
+    /**
+     * The Unicode character used for hyphenation.
+     * (45) '-'
+     *  Type: 'ES' (European Number Separator)
+     */
+    protected const ORD_HYPHEN = 0x002D;
+
+    /*
+    * The Unicode character used for non-breaking space.
+    * (160) 'NO-BREAK SPACE'
+    * Type: 'CS' (Common Separator)
+    */
+    protected const ORD_NO_BREAK_SPACE = 0x00A0;
+
+    /*
+    * The Unicode character used for soft hyphen.
+    * (173) 'SHY' (SOFT HYPHEN)
+    * Type: 'BN' (Boundary Neutral)
+    */
+    protected const ORD_SOFT_HYPHEN = 0x00AD;
+
+    /*
+    * The Unicode character used for zero width space.
+    * (8203) 'ZERO WIDTH SPACE'
+    * Type: 'BN' (Boundary Neutral)
+    */
+    protected const ORD_ZERO_WIDTH_SPACE = 0x200B;
+
+    /**
+     * The array of hyphenation patterns used for text processing.
+     *
+     * @var array<string, string> Array of hyphenation patterns.
+     */
+    protected $hyphen_patterns = [];
+
+    /**
+     * If true, ZERO-WIDTH-SPACE characters are automatically added
+     * to the text to allow line breaking after some non-letter characters.
+     *
+     * @var bool
+     */
+    protected $autozerowidthbreaks = false;
+
     /**
      * Last text bounding box [x, y, width, height] in user units.
      *
@@ -490,6 +534,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out = '';
         foreach ($lines as $i => $data) {
             $line_ordarr = array_slice($ordarr, $data['pos'], $data['chars']);
+            $line_ordarr = $this->removeOrdArrSoftHyphens($line_ordarr);
             $line_txt = implode('', $this->uniconv->ordArrToChrArr($line_ordarr));
             $line_dim = [
                 'chars' => $data['chars'],
@@ -712,6 +757,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $ordarr = $this->replaceUnicodeChars($bidi->getOrdArray());
         }
 
+        if (!empty($this->hyphen_patterns)) {
+            $ordarr = $this->hyphenateTextOrdArr($this->hyphen_patterns, $ordarr);
+        }
+
+        if ($this->autozerowidthbreaks) {
+            $ordarr = $this->addOrdArrBreakPoints($ordarr);
+        }
+
         $dim = $this->font->getOrdArrDims($ordarr);
     }
 
@@ -739,7 +792,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $line_width = ($pwidth - $poffset);
 
         if ($dim['totwidth'] <= $line_width) {
-            // single line
+            // the input text fits in a single line
             return [[
                 'pos' => 0,
                 'chars' => $dim['chars'],
@@ -759,32 +812,49 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $prev_totspacewidth = 0;
         $prev_words = 0;
         $num_words = count($dim['split']);
+        $soft_hyphen_width = $this->font->getCharWidth(static::ORD_HYPHEN);
 
         for ($word = 0; $word < $num_words; $word++) {
-            $data = $dim['split'][$word];
+            $data = $dim['split'][$word]; // current word data
             $curwidth = ($data['totwidth'] - $prev_totwidth);
-            if (($data['septype'] == 'B') || ($curwidth >= $line_width)) {
-                if (($word > 0) && ($curwidth >= $line_width)) {
+            $overline = ($curwidth > $line_width);
+
+            if (($data['septype'] == 'B') || $overline) {
+                // the current word is a line break or does not fit in the current line
+                if ($overline && ($word > 0)) {
+                    // the current word does not fit in the current line
                     $data = $dim['split'][($word - 1)];
                     --$word;
                 }
 
                 $posend = $data['pos'];
+                $totwidth = $data['totwidth'];
+                $totspacewidth = $data['totspacewidth'];
+                $spaces = $data['spaces'];
+                $septype = $data['septype'];
+
+                $sepend = 0;
+                $sepwidth = 0;
+                if ($data['ord'] == static::ORD_SOFT_HYPHEN) {
+                    $sepend = 1;
+                    $sepwidth = $soft_hyphen_width;
+                }
+
                 $lines[] = [
                     'pos' => $posstart,
-                    'chars' => ($posend - $posstart),
-                    'spaces' => ($data['spaces'] - $prev_spaces),
-                    'septype' => $data['septype'],
-                    'totwidth' => ($data['totwidth'] - $prev_totwidth),
-                    'totspacewidth' => ($data['totspacewidth'] - $prev_totspacewidth),
+                    'chars' => ($posend - $posstart) + $sepend,
+                    'spaces' => ($spaces - $prev_spaces),
+                    'septype' => $septype,
+                    'totwidth' => ($totwidth - $prev_totwidth) + $sepwidth,
+                    'totspacewidth' => ($totspacewidth - $prev_totspacewidth),
                     'words' => ($word - $prev_words),
                 ];
 
                 $chrwidth = $this->font->getCharWidth($data['ord']);
-                $prev_totwidth = $data['totwidth'] + $chrwidth;
-                $prev_totspacewidth = $data['totspacewidth'];
-                $prev_spaces = $data['spaces'];
-                if ($data['septype'] == 'WS') {
+                $prev_totwidth = $totwidth + $chrwidth;
+                $prev_totspacewidth = $totspacewidth;
+                $prev_spaces = $spaces;
+                if ($septype == 'WS') {
                     ++$prev_spaces;
                     $prev_totspacewidth += $chrwidth;
                 }
@@ -889,10 +959,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected function cleanupText(string $txt): string
     {
         $txt = str_replace("\r", ' ', $txt);
-        // replace 'NO-BREAK SPACE' (U+00A0) character with a simple space
-        $txt = str_replace($this->uniconv->chr(0x00A0), ' ', $txt);
-        // remove 'SHY' (U+00AD) SOFT HYPHEN used for hyphenation
-        $txt = str_replace($this->uniconv->chr(0x00AD), '', $txt);
+        $txt = str_replace($this->uniconv->chr(self::ORD_NO_BREAK_SPACE), ' ', $txt);
+        $txt = str_replace($this->uniconv->chr(self::ORD_SOFT_HYPHEN), '', $txt);
         return $txt;
     }
 
@@ -1210,5 +1278,193 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return $pattern;
+    }
+
+    /**
+     * Sets the hyphen patterns for text.
+     *
+     * @param array<string, string> $patterns Array of hyphenation patterns.
+     *
+     * @return void
+     *
+     * @see loadTexHyphenPatterns()
+     */
+    public function setTexHyphenPatterns(array $patterns): void
+    {
+        $this->hyphen_patterns = $patterns;
+    }
+
+    /**
+     * Removes soft hyphens from an array of Unicode code points.
+     *
+     * @param array<int, int> $ordarr The array of Unicode code points.
+     *
+     * @return array<int, int> The filtered array with soft hyphens removed.
+     */
+    protected function removeOrdArrSoftHyphens(array $ordarr): array
+    {
+        $keeplast = ((count($ordarr) > 0) && ($ordarr[(count($ordarr) - 1)] == self::ORD_SOFT_HYPHEN));
+        $retarr = array_filter(
+            $ordarr,
+            fn($ord) => (
+                ($ord != self::ORD_SOFT_HYPHEN)
+                && ($ord != self::ORD_ZERO_WIDTH_SPACE)
+            )
+        );
+        if ($keeplast) {
+            $retarr[] = self::ORD_SOFT_HYPHEN;
+        }
+        return $retarr;
+    }
+
+    /**
+     * Hyphenate a text array of UTF-8 codepoints by adding SOFT-HYPHEN (U+00AD) characters.
+     *
+     * @param array<string, string> $phyphens An array of hyphenation patterns.
+     * @param array<int, int> $ordarr  Array of UTF-8 codepoints (integer values).
+     *
+     * @return array<int, int> The modified array with SOFT-HYPHEN (U+00AD) characters.
+     */
+    protected function hyphenateTextOrdArr(array $phyphens, array $ordarr): array
+    {
+        $txtarr = [];
+        $word = [];
+
+        foreach ($ordarr as $ord) {
+            $unitype = UnicodeType::UNI[$ord];
+            switch ($unitype) {
+                case 'L':
+                    $word[] = $ord;
+                    break;
+                default:
+                    if (count($word) > 0) {
+                        $txtarr = array_merge($txtarr, $this->hyphenateWordOrdArr($phyphens, $word));
+                        $word = [];
+                    }
+                    $txtarr[] = $ord;
+                    break;
+            }
+        }
+
+        return $txtarr;
+    }
+
+    /**
+    * Enable or disable automatic line breaking points after some non-letter character types.
+    *
+    * @param bool $enabled
+    */
+    public function enableZeroWidthBreakPoints(bool $enabled): void
+    {
+        $this->autozerowidthbreaks = $enabled;
+    }
+
+    /**
+     * Add artificial line breaking points to an array of UTF-8 codepoints.
+     * This method adds ZERO-WIDTH-SPACE (U+200B) characters after certain Unicode types.
+     *
+     * @param array<int, int> $ordarr  Array of UTF-8 codepoints (integer values).
+     *
+     * @return array<int, int> The modified array with SOFT-HYPHEN (U+00AD) characters.
+     */
+    protected function addOrdArrBreakPoints(array $ordarr): array
+    {
+        $txtarr = [];
+        foreach ($ordarr as $ord) {
+            switch (UnicodeType::UNI[$ord]) {
+                case 'ES':
+                case 'ET':
+                case 'CS':
+                case 'BN':
+                case 'ON':
+                    $txtarr[] = $ord;
+                    $txtarr[] = self::ORD_ZERO_WIDTH_SPACE;
+                    break;
+                default:
+                    $txtarr[] = $ord;
+                    break;
+            }
+        }
+
+        return $txtarr;
+    }
+
+
+    /**
+     * Hyphenate a word array of UTF-8 codepoints by adding SOFT-HYPHEN (U+00AD) characters.
+     *
+     * @param array<string, string> $phyphens An array of hyphenation patterns.
+     * @param array<int, int> $ordarr  Array of UTF-8 codepoints (integer values).
+     * @param int $leftmin  Minimum number of characters before the hyphen.
+     * @param int $rightmin Minimum number of characters after the hyphen.
+     * @param int $charmin  Minimum number of characters to consider for hyphenation.
+     * @param int $charmax  Maximum number of characters to consider for hyphenation.
+     *
+     * @return array<int, int> The modified array with SOFT-HYPHEN (U+00AD) characters.
+     */
+    protected function hyphenateWordOrdArr(
+        array $phyphens,
+        array $ordarr,
+        $leftmin = 1,
+        $rightmin = 2,
+        $charmin = 1,
+        $charmax = 8,
+    ): array {
+        $numchars = count($ordarr);
+        if (empty($phyphens) || ($numchars < $charmin)) {
+            return $ordarr;
+        }
+
+        $hyphenpos = []; // hyphens positions
+
+        $pad = array(46); // 46 = Period, dot or full stop
+        $tmpword = array_merge($pad, $ordarr, $pad);
+        $tmpnumchars = $numchars + 2;
+        $maxpos = $tmpnumchars - 1;
+
+        for ($pos = 0; $pos < $maxpos; ++$pos) {
+            $imax = min(($tmpnumchars - $pos), $charmax);
+            for ($i = 1; $i <= $imax; ++$i) {
+                $subword = mb_strtolower(
+                    $this->uniconv->getSubUniArrStr(
+                        $this->uniconv->ordArrToChrArr($tmpword),
+                        $pos,
+                        ($pos + $i)
+                    )
+                );
+                if (isset($phyphens[$subword])) {
+                    $pattern = $this->uniconv->strToOrdArr($phyphens[$subword]);
+                    $pattern_length = count($pattern);
+                    $digits = 1;
+                    for ($j = 0; $j < $pattern_length; ++$j) {
+                        // check if $pattern[$j] is a number = hyphenation level
+                        // (only numbers from 1 to 5 are valid)
+                        if (($pattern[$j] >= 48) and ($pattern[$j] <= 57)) {
+                            $zero = ($j == 0) ? ($pos - 1) : ($pos + $j - $digits);
+                            // get hyphenation level
+                            $level = ($pattern[$j] - 48);
+                            // if two levels from two different patterns match at the same point,
+                            // the higher one is selected.
+                            if (!isset($hyphenpos[$zero]) or ($hyphenpos[$zero] < $level)) {
+                                $hyphenpos[$zero] = $level;
+                            }
+                            ++$digits;
+                        }
+                    }
+                }
+            }
+        }
+
+        $inserted = 0;
+        $maxpos = $numchars - $rightmin;
+        for ($i = $leftmin; $i <= $maxpos; ++$i) {
+            // only odd levels indicate allowed hyphenation points
+            if (isset($hyphenpos[$i]) && (($hyphenpos[$i] % 2) != 0)) {
+                array_splice($ordarr, $i + $inserted, 0, self::ORD_SOFT_HYPHEN);
+                ++$inserted;
+            }
+        }
+
+        return $ordarr;
     }
 }

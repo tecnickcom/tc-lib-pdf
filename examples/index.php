@@ -1296,6 +1296,65 @@ $txt4 = 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusant
 
 $txt5 = 'At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.';
 
+$pdf->enableZeroWidthBreakPoints(true);
+$pdf->addTextCell(
+    "TEST-TEXT-ENABLE-AUTO-BREAK-POINTS", // string $txt,
+    20, // float $posx = 0,
+    233, // float $posy = 0,
+    85, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
+    'C', // string $valign = 'T',
+    'L', // string $halign = '',
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
+
+$pdf->enableZeroWidthBreakPoints(false);
+$pdf->addTextCell(
+    "TEST-TEXT-DISABLE-AUTO-BREAK-POINTS", // string $txt,
+    20, // float $posx = 0,
+    252, // float $posy = 0,
+    85, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
+    'C', // string $valign = 'T',
+    'L', // string $halign = '',
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null, // ?array $shadow = null,
+);
+
+// Hyphenation example
+// TEX hyphenation patterns can be downloaded from:
+// https://www.ctan.org/tex-archive/language/hyph-utf8/tex/generic/hyph-utf8/patterns/tex
+//
+//$hyphen_patterns = $pdf->loadTexHyphenPatterns('../../RESOURCES/hyph-la-x-classic.tex');
+//$pdf->setTexHyphenPatterns($hyphen_patterns);
+
 // block of text between two page regions
 $pdf->addTextCell(
     $txt3 . "\n" . $txt4 . "\n" . $txt5, // string $txt,
@@ -1321,7 +1380,6 @@ $pdf->addTextCell(
     '', // string $forcedir = '',
     null, // ?array $shadow = null,
 );
-
 
 // ----------
 
