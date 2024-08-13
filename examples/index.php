@@ -1382,6 +1382,49 @@ $pdf->addTextCell(
 );
 
 // ----------
+// Page signature
+
+$pageC01 = $pdf->page->add();
+
+/*
+NOTES:
+ - To create self-signed signature:
+   openssl req -x509 -nodes -days 365000 -newkey rsa:1024 -keyout tcpdf.crt -out tcpdf.crt
+ - To export crt to p12:
+   openssl pkcs12 -export -in tcpdf.crt -out tcpdf.p12
+ - To convert pfx certificate to pem:
+   openssl pkcs12 -in tcpdf.pfx -out tcpdf.crt -nodes
+*/
+
+// set certificate file
+$cert = 'file://data/cert/tcpdf.crt';
+
+$sigdata = [
+    // 'appearance' => [
+    //     'empty' => [],
+    //     'name' => '',
+    //     'page' => 0,
+    //     'rect' => '',
+    // ],
+    // 'approval' => '',
+    'cert_type' => 2,
+    // 'extracerts' => null,
+    'info' => [
+        'ContactInfo' => 'http://www.tcpdf.org',
+        'Location' => 'Office',
+        'Name' => 'tc-lib-pdf',
+        'Reason' => 'PDF signature test',
+    ],
+    'password' => 'tcpdfdemo',
+    'privkey' => $cert,
+    'signcert' => $cert,
+];
+
+$pdf->setSignature($sigdata);
+$pdf->setSignatureAppearance(30, 30, 15, 15, -1, 'test');
+$pdf->addEmptySignatureAppearance(30, 60, 15, 15, -1, 'test');
+
+// ----------
 
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();

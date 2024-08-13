@@ -380,7 +380,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        },
  *        'approval': string,
  *        'cert_type': int,
- *        'extracerts': string,
+ *        'extracerts': ?string,
  *        'info': array{
  *            'ContactInfo': string,
  *            'Location': string,
@@ -390,6 +390,14 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'password': string,
  *        'privkey': string,
  *        'signcert': string,
+ *    }
+ *
+ * @phpstan-type TSignTimeStamp array{
+ *        'enabled': bool,
+ *        'host': string,
+ *        'username': string,
+ *        'password': string,
+ *        'cert': string,
  *    }
  *
  * @phpstan-type TUserRights array{
@@ -2729,26 +2737,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             throw new PdfException('Unable to create temporary signature file');
         }
 
-        if (empty($this->signature['extracerts'])) {
-            openssl_pkcs7_sign(
-                $tempdoc,
-                $tempsign,
-                $this->signature['signcert'],
-                [$this->signature['privkey'], $this->signature['password']],
-                [],
-                PKCS7_BINARY | PKCS7_DETACHED
-            );
-        } else {
-            openssl_pkcs7_sign(
-                $tempdoc,
-                $tempsign,
-                $this->signature['signcert'],
-                [$this->signature['privkey'], $this->signature['password']],
-                [],
-                PKCS7_BINARY | PKCS7_DETACHED,
-                $this->signature['extracerts']
-            );
-        }
+        openssl_pkcs7_sign(
+            $tempdoc,
+            $tempsign,
+            $this->signature['signcert'],
+            [$this->signature['privkey'], $this->signature['password']],
+            [],
+            PKCS7_BINARY | PKCS7_DETACHED,
+            $this->signature['extracerts']
+        );
 
         // read signature
         $signature = $this->file->getFileData($tempsign);
@@ -2787,6 +2784,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function applySignatureTimestamp(string $signature): string
     {
+        if (!$this->sigtimestamp['enabled']) {
+            return $signature;
+        }
+
+        // @TODO: Add TSA timestamp to the signature
         return $signature;
     }
 

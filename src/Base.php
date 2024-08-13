@@ -65,6 +65,7 @@ use Com\Tecnick\Unicode\Convert;
  * @phpstan-import-type TAnnot from Output
  * @phpstan-import-type TXOBject from Output
  * @phpstan-import-type TSignature from Output
+ * @phpstan-import-type TSignTimeStamp from Output
  * @phpstan-import-type TUserRights from Output
  * @phpstan-import-type TObjID from Output
  *
@@ -125,7 +126,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.62';
+    protected string $version = '8.0.63';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -376,7 +377,7 @@ abstract class Base
         ],
         'approval' => '',
         'cert_type' => -1,
-        'extracerts' => '',
+        'extracerts' => null,
         'info' => [
             'ContactInfo' => '',
             'Location' => '',
@@ -386,6 +387,19 @@ abstract class Base
         'password' => '',
         'privkey' => '',
         'signcert' => '',
+    ];
+
+    /**
+     * Signature Timestamp Data.
+     *
+     * @var TSignTimeStamp
+     */
+    protected array $sigtimestamp = [
+        'enabled' => false,
+        'host' => '',
+        'username' => '',
+        'password' => '',
+        'cert' => '',
     ];
 
     /**
@@ -408,13 +422,13 @@ abstract class Base
      * @var TUserRights
      */
     protected array $userrights = [
-        'annots' => '',
-        'document' => '',
-        'ef' => '',
+        'annots' => '/Create/Delete/Modify/Copy/Import/Export',
+        'document' => '/FullSave',
+        'ef' => '/Create/Delete/Modify/Import',
         'enabled' => false,
-        'form' => '',
-        'formex' => '',
-        'signature' => '',
+        'form' => '/Add/Delete/FillIn/Import/Export/SubmitStandalone/SpawnTemplate',
+        'formex' => '', // 'BarcodePlaintext',
+        'signature' => '/Modify',
     ];
 
     /**
