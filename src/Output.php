@@ -660,12 +660,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $icc = $this->encrypt->encryptString($icc, $oid);
-        return $out . ('<< /N 3 /Filter /FlateDecode /Length ' . strlen($icc)
+        return $out . '<< /N 3 /Filter /FlateDecode /Length ' . strlen($icc)
             . ' >>'
             . ' stream' . "\n"
             . $icc . "\n"
             . 'endstream' . "\n"
-            . 'endobj' . "\n");
+            . 'endobj' . "\n";
     }
 
     /**
@@ -982,7 +982,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $stream = $this->encrypt->encryptString($stream, $oid);
         $rect = sprintf('%F %F', $width, $height);
-        return $out . (' /BBox [0 0 ' . $rect . ']'
+        return $out . ' /BBox [0 0 ' . $rect . ']'
             . ' /Matrix [1 0 0 1 0 0]'
             . ' /Resources 2 0 R'
             . ' /Length ' . strlen($stream)
@@ -990,7 +990,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' stream' . "\n"
             . $stream . "\n"
             . 'endstream' . "\n"
-            . 'endobj' . "\n");
+            . 'endobj' . "\n";
     }
 
     /**
@@ -1140,8 +1140,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /' . $name . ' ' . sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
         }
 
-        return $out . (' >>' . "\n"
-            . 'endobj' . "\n");
+        return $out . ' >>' . "\n"
+            . 'endobj' . "\n";
     }
 
     /**
@@ -2654,18 +2654,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
 
             $out .= ' /Count 0 >>' . "\n"
-                . 'endobj';
+                . 'endobj' . "\n";
         }
 
         //Outline root
         $this->outlinerootoid = ++$this->pon;
-        return $out . ($this->outlinerootoid . ' 0 obj' . "\n"
+        return $out . $this->outlinerootoid . ' 0 obj' . "\n"
             . '<<'
             . ' /Type /Outlines'
             . ' /First ' . $first_oid . ' 0 R'
             . ' /Last ' . ($first_oid + $root_oid) . ' 0 R'
             . ' >>' . "\n"
-            . 'endobj');
+            . 'endobj' . "\n";
     }
 
     /**
@@ -2692,7 +2692,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' /T ' . $this->getOutTextString($signame, $esa['objid'], true)
                 . ' /Ff 0'
                 . ' >>'
-                . "\n" . 'endobj';
+                . "\n" . 'endobj' . "\n";
         }
 
         return $out;
@@ -2820,7 +2820,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' /Ff 0'
             . ' /V ' . $oid . ' 0 R'
             . ' >>' . "\n"
-            . 'endobj';
+            . 'endobj' . "\n";
         $out .= $oid . ' 0 obj' . "\n";
         $out .= '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '
             . $this::BYTERANGE
@@ -2842,10 +2842,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out .= $this->getOutSignatureInfo($oid);
-        return $out . (' /M '
+        return $out . ' /M '
             . $this->getOutDateTimeString($this->docmodtime, $oid)
             . ' >>' . "\n"
-            . 'endobj');
+            . 'endobj' . "\n";
     }
 
     /**
