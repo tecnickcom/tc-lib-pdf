@@ -1255,6 +1255,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $pages = $this->page->getPages();
         foreach ($pages as $num => $page) {
             foreach ($page['annotrefs'] as $key => $oid) {
+                if (empty($this->annotation[$oid])) {
+                    continue;
+                }
                 $annot = $this->annotation[$oid];
                 $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
                 $out .= $this->getAnnotationRadiobuttonGroups($annot); // @phpstan-ignore-line

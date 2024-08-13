@@ -1421,8 +1421,14 @@ $sigdata = [
 ];
 
 $pdf->setSignature($sigdata);
-$pdf->setSignatureAppearance(30, 30, 15, 15, -1, 'test');
-$pdf->addEmptySignatureAppearance(30, 60, 15, 15, -1, 'test');
+
+$sigimg = $pdf->image->add('./images/tcpdf_signature.png');
+$sigimg_out = $pdf->image->getSetImage($sigimg, 30, 30, 20, 20, $pageC01['height']);
+$pdf->page->addContent($sigimg_out);
+
+$pdf->setSignatureAppearance(30, 30, 20, 20, -1, 'test');
+
+$pdf->addEmptySignatureAppearance(30, 60, 20, 20, -1, 'test');
 
 // ----------
 

@@ -429,6 +429,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->objid['signature'] = $this->pon; // Signature widget annotation object id.
         ++$this->pon; // Signature appearance object id ($this->objid['signature'] + 1).
 
+        $this->setSignAnnotRefs();
+
         $this->sign = true;
     }
 
@@ -512,6 +514,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->signature['appearance']['page'] = $data['page'];
         $this->signature['appearance']['name'] = $data['name'];
         $this->signature['appearance']['rect'] = $data['rect'];
+        $this->setSignAnnotRefs();
     }
 
     /**
@@ -540,5 +543,25 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'page' => $data['page'],
             'rect' => $data['rect'],
         ];
+        $this->setSignAnnotRefs();
+    }
+
+    protected function setSignAnnotRefs(): void
+    {
+        if (empty($this->objid['signature'])) {
+            return;
+        }
+
+        if (!empty($this->signature['appearance']['page'])) {
+            $this->page->addAnnotRef($this->objid['signature'], $this->signature['appearance']['page']);
+        }
+
+        if (empty($this->signature['appearance']['empty'])) {
+            return;
+        }
+
+        foreach ($this->signature['appearance']['empty'] as $esa) {
+            $this->page->addAnnotRef($esa['objid'], $esa['page']);
+        }
     }
 }
