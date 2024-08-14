@@ -1001,6 +1001,7 @@ $cnz .= $pdf->graph->getStarPolygon(50, 50, 40, 10, 3, 0, 'CNZ');
 $clipimg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
 $cnz .= $pdf->image->getSetImage($clipimg, 10, 10, 80, 80, $page10['height']);
 $cnz .= $pdf->graph->getStopTransform();
+
 $pdf->page->addContent($cnz);
 
 
@@ -1380,6 +1381,7 @@ $pdf->addTextCell(
     '', // string $forcedir = '',
     null, // ?array $shadow = null,
 );
+
 
 // ----------
 // Page signature

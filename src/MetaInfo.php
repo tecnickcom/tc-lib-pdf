@@ -493,7 +493,6 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
      */
     protected function getDuplexMode(): string
     {
-        $mode = 'none';
         if (isset($this->viewerpref['Duplex'])) {
             $name = strtolower($this->viewerpref['Duplex']);
             $valid = [
@@ -502,11 +501,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
                 'duplexfliplongedge' => 'DuplexFlipLongEdge',
             ];
             if (isset($valid[$name])) {
-                $mode = $valid[$name];
+                return ' /Duplex /' . $valid[$name];
             }
         }
 
-        return ' /Duplex /' . $mode;
+        return '';
     }
 
     /**

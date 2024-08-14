@@ -1220,7 +1220,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function getOutTextObject(string $raw = ''): string
     {
-        return 'BT ' . $raw . ' BE' . "\r";
+        return 'BT ' . $raw . ' ET' . "\r";
     }
 
     /**
