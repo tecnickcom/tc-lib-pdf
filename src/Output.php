@@ -2857,9 +2857,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
-        return ' /TransformMethod /DocMDP /TransformParams << /Type /TransformParams /P '
-            . $this->signature['cert_type']
-            . ' /V /1.2 >>';
+        return ' /TransformMethod /DocMDP '
+            . '/TransformParams <<'
+            . ' /Type /TransformParams'
+            . ' /P ' . $this->signature['cert_type']
+            . ' /V /1.2'
+            . ' >>';
     }
 
     /**
