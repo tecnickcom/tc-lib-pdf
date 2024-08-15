@@ -174,7 +174,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         }
 
         if ($styles === []) {
-            $styles = $this->dep->graph->getCurrentStyleArray();
+            $styles = $this->graph->getCurrentStyleArray();
         }
 
         $border_ratio = round(self::BORDERPOS_INTERNAL + $cell['borderpos'], 1);
@@ -232,7 +232,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        $curfont = $this->dep->font->getCurrentFont();
+        $curfont = $this->font->getCurrentFont();
 
         if ($pheight == 0) {
             $pheight = $curfont['height'];
@@ -372,7 +372,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        $curfont = $this->dep->font->getCurrentFont();
+        $curfont = $this->font->getCurrentFont();
 
         if ($txtpheight == 0) {
             $txtpheight = $curfont['height'];
@@ -534,7 +534,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        $region = $this->dep->page->getRegion();
+        $region = $this->page->getRegion();
         return ($this->toPoints($region['RW']) - $pntx - $cell['margin']['L'] - $cell['margin']['R']);
     }
 
@@ -581,7 +581,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        $curfont = $this->dep->font->getCurrentFont();
+        $curfont = $this->font->getCurrentFont();
         $cph = ($pheight - $cell['margin']['T'] - $cell['margin']['B']);
 
         switch ($align) {
@@ -611,7 +611,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      */
     protected function setPageContext(): void
     {
-        $this->dep->page->addContent($this->dep->font->getOutCurrentFont());
+        $this->page->addContent($this->font->getOutCurrentFont());
     }
 
     /**
@@ -654,8 +654,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
 
         $styleall = (empty($styles['all']) ? [] : $styles['all']);
 
-        $out = $this->dep->graph->getStartTransform();
-        $stoptr = $this->dep->graph->getStopTransform();
+        $out = $this->graph->getStartTransform();
+        $stoptr = $this->graph->getStopTransform();
 
         if (
             $drawfill
@@ -664,7 +664,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             && (count($styles) <= 1)
         ) {
             // single default border style for all sides
-            $out .= $this->dep->graph->getBasicRect(
+            $out .= $this->graph->getBasicRect(
                 $this->toUnit($pntx),
                 $this->toYUnit($pnty),
                 $this->toUnit($pwidth),
@@ -677,7 +677,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         }
 
         if ($drawfill) {
-            $out .= $this->dep->graph->getBasicRect(
+            $out .= $this->graph->getBasicRect(
                 $this->toUnit($pntx),
                 $this->toYUnit($pnty),
                 $this->toUnit($pwidth),
@@ -708,7 +708,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             : $adj);
 
         // different border styles for each side
-        $out .= $this->dep->graph->getRect(
+        $out .= $this->graph->getRect(
             $this->toUnit($pntx + $adjx),
             $this->toYUnit($pnty - $adjy),
             $this->toUnit($pwidth - $adjw),

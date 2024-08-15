@@ -165,13 +165,13 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
         bool $bom = false
     ): string {
         if ($this->isunicode) {
-            $str = $this->dep->uniconv->toUTF16BE($str);
+            $str = $this->uniconv->toUTF16BE($str);
             if ($bom) {
                 $str = "\xFE\xFF" . $str; // Byte Order Mark (BOM)
             }
         }
 
-        return $this->dep->encrypt->escapeDataString($str, $oid);
+        return $this->encrypt->escapeDataString($str, $oid);
     }
 
     /**
@@ -223,7 +223,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
             $time = $this->doctime;
         }
 
-        return $this->dep->encrypt->escapeDataString('D:' . $this->getFormattedDate($time), $oid);
+        return $this->encrypt->escapeDataString('D:' . $this->getFormattedDate($time), $oid);
     }
 
     /**
@@ -304,7 +304,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
         . '-' . substr($this->fileid, 20, 12);
 
         // @codingStandardsIgnoreStart
-        $xmp = '<?xpacket begin="' . $this->dep->uniconv->chr(0xfeff) . '" id="W5M0MpCehiHzreSzNTczkc9d"?>' . "\n"
+        $xmp = '<?xpacket begin="' . $this->uniconv->chr(0xfeff) . '" id="W5M0MpCehiHzreSzNTczkc9d"?>' . "\n"
         . '<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 4.2.1-c043 52.372728, 2009/01/18-15:08:04">' . "\n"
         . "\t" . '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">' . "\n"
         . "\t\t" . '<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">' . "\n"
@@ -460,8 +460,8 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
         $box = 'CropBox';
         if (isset($this->viewerpref[$name])) {
             $val = $this->viewerpref[$name];
-            if (isset($this->dep->page->$box[$val])) {
-                $box = $this->dep->page->$box[$val];
+            if (isset($this->page->$box[$val])) {
+                $box = $this->page->$box[$val];
             }
         }
 
@@ -542,7 +542,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
         $out .= $this->getBooleanMode('CenterWindow');
         $out .= $this->getBooleanMode('DisplayDocTitle');
         if (isset($vpr['NonFullScreenPageMode'])) {
-            $out .= ' /NonFullScreenPageMode /' . $this->dep->page->getDisplay($vpr['NonFullScreenPageMode']);
+            $out .= ' /NonFullScreenPageMode /' . $this->page->getDisplay($vpr['NonFullScreenPageMode']);
         }
 
         $out .= $this->getPageBoxName('ViewArea');

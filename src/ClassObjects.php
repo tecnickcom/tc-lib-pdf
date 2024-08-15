@@ -41,63 +41,8 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  */
-class ClassObjects
+abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
 {
-   /**
-    * Encrypt object.
-    */
-    public ObjEncrypt $encrypt;
-
-   /**
-    * Color object.
-    */
-    public ObjColor $color;
-
-   /**
-    * Barcode object.
-    */
-    public ObjBarcode $barcode;
-
-   /**
-    * File object.
-    */
-    public ObjFile $file;
-
-   /**
-    * Cache object.
-    */
-    public ObjCache $cache;
-
-   /**
-    * Unicode Convert object.
-    */
-    public ObjUniConvert $uniconv;
-
-   /**
-    * Page object.
-    */
-    public ObjPage $page;
-
-   /**
-    * Graph object.
-    */
-    public ObjGraph $graph;
-
-   /**
-    * Font object.
-    */
-    public ObjFont $font;
-
-   /**
-    * Image Import object.
-    */
-    public ObjImage $image;
-
-    /**
-     * Unit of measure conversion ratio.
-     */
-    protected float $kunit = 1.0;
-
    /**
     * Initialize dependencies class objects.
     *
@@ -109,13 +54,7 @@ class ClassObjects
     * @param bool        $pdfa       True if PDF/A Mode.
     * @param ?ObjEncrypt $objEncrypt Encryption object.
     */
-    public function __construct(
-        string $unit = 'mm',
-        bool $isunicode = true,
-        bool $subsetfont = false,
-        bool $compress = true,
-        bool $sigapp = false,
-        bool $pdfa = false,
+    public function initClassObjects(
         ?ObjEncrypt $objEncrypt = null
     ) {
         if ($objEncrypt instanceof ObjEncrypt) {
@@ -131,38 +70,38 @@ class ClassObjects
         $this->uniconv = new ObjUniConvert();
 
         $this->page = new ObjPage(
-            $unit,
+            $this->unit,
             $this->color,
             $this->encrypt,
-            $pdfa,
-            $compress,
-            $sigapp,
+            (bool) $this->pdfa,
+            $this->compress,
+            $this->sigapp,
         );
 
-        $kunit = $this->page->getKUnit();
+        $this->kunit = $this->page->getKUnit();
 
         $this->graph = new ObjGraph(
-            $kunit,
-            0, // $this->dep->graph->setPageWidth($pagew)
-            0, // $this->dep->graph->setPageHeight($pageh)
+            $this->kunit,
+            0, // $this->graph->setPageWidth($pagew)
+            0, // $this->graph->setPageHeight($pageh)
             $this->color,
             $this->encrypt,
-            $pdfa,
-            $compress,
+            (bool) $this->pdfa,
+            $this->compress,
         );
 
         $this->font = new ObjFont(
-            $kunit,
-            $subsetfont,
-            $isunicode,
-            $pdfa,
+            $this->kunit,
+            $this->subsetfont,
+            $this->isunicode,
+            (bool) $this->pdfa,
         );
 
         $this->image = new ObjImage(
-            $kunit,
+            $this->kunit,
             $this->encrypt,
-            $pdfa,
-            $compress,
+            (bool) $this->pdfa,
+            $this->compress,
         );
     }
 }

@@ -16,7 +16,16 @@
 
 namespace Com\Tecnick\Pdf;
 
-use Com\Tecnick\Pdf\ClassObjects;
+use Com\Tecnick\Barcode\Barcode as ObjBarcode;
+use Com\Tecnick\Color\Pdf as ObjColor;
+use Com\Tecnick\File\Cache as ObjCache;
+use Com\Tecnick\File\File as ObjFile;
+use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+use Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
+use Com\Tecnick\Pdf\Image\Import as ObjImage;
+use Com\Tecnick\Pdf\Page\Page as ObjPage;
+use Com\Tecnick\Unicode\Convert as ObjUniConvert;
 
 /**
  * Com\Tecnick\Pdf\Base
@@ -73,10 +82,55 @@ use Com\Tecnick\Pdf\ClassObjects;
  */
 abstract class Base
 {
-    /**
-    * Class object that includes depdendencies.
+   /**
+    * Encrypt object.
     */
-    public ClassObjects $dep;
+    public ObjEncrypt $encrypt;
+
+   /**
+    * Color object.
+    */
+    public ObjColor $color;
+
+   /**
+    * Barcode object.
+    */
+    public ObjBarcode $barcode;
+
+   /**
+    * File object.
+    */
+    public ObjFile $file;
+
+   /**
+    * Cache object.
+    */
+    public ObjCache $cache;
+
+   /**
+    * Unicode Convert object.
+    */
+    public ObjUniConvert $uniconv;
+
+   /**
+    * Page object.
+    */
+    public ObjPage $page;
+
+   /**
+    * Graph object.
+    */
+    public ObjGraph $graph;
+
+   /**
+    * Font object.
+    */
+    public ObjFont $font;
+
+   /**
+    * Image Import object.
+    */
+    public ObjImage $image;
 
     /**
      * TCPDF version.
@@ -437,11 +491,11 @@ abstract class Base
      * Note: the internal Y points coordinate starts at the bottom left of the page.
      *
      * @param float $usr   Value to convert.
-     * @param float $pageh Optional page height in internal points ($pageh:$this->dep->page->getPage()['pheight']).
+     * @param float $pageh Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
      */
     public function toYPoints(float $usr, float $pageh = -1): float
     {
-        $pageh = $pageh >= 0 ? $pageh : $this->dep->page->getPage()['pheight'];
+        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
         return ($pageh - $this->toPoints($usr));
     }
 
@@ -450,11 +504,11 @@ abstract class Base
      * Note: the internal Y points coordinate starts at the bottom left of the page.
      *
      * @param float $pnt   Value to convert.
-     * @param float $pageh Optional page height in internal points ($pageh:$this->dep->page->getPage()['pheight']).
+     * @param float $pageh Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
      */
     public function toYUnit(float $pnt, float $pageh = -1): float
     {
-        $pageh = $pageh >= 0 ? $pageh : $this->dep->page->getPage()['pheight'];
+        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
         return $this->toUnit($pageh - $pnt);
     }
 }
