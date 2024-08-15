@@ -37,12 +37,9 @@ use Com\Tecnick\Unicode\Data\Type as UnicodeType;
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  *
- * @phpstan-type TextBBox array{
- *          'x': float,
- *          'y': float,
- *          'width': float,
- *          'height': float,
- *      }
+ *
+ * @phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TStackBBox from \Com\Tecnick\Pdf\Base
  *
  * @phpstan-type TextShadow array{
  *          'xoffset': float,
@@ -106,18 +103,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @var bool
      */
     protected $autozerowidthbreaks = false;
-
-    /**
-     * Last text bounding box [x, y, width, height] in user units.
-     *
-     * @var TextBBox
-     */
-    protected $lasttxtbbox = [
-        'x' => 0,
-        'y' => 0,
-        'width' => 0,
-        'height' => 0,
-    ];
 
     /**
      * Returns the PDF code to render a text block inside a rectangular cell.
@@ -580,7 +565,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
             $offset = 0;
             $line_posx = $posx;
-            $line_posy = ($this->lasttxtbbox['y'] + $this->lasttxtbbox['height'] + $fontascent + $linespace);
+            $bbox = $this->getLastBBox();
+            $line_posy = ($bbox['y'] + $bbox['h'] + $fontascent + $linespace);
         }
 
         return $out;
@@ -918,11 +904,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $width = $width > 0 ? $width : 0;
         $curfont = $this->font->getCurrentFont();
-        $this->lasttxtbbox = [
+        $this->bbox[] = [
             'x' => $posx,
             'y' => ($posy - $this->toUnit($curfont['ascent'])),
-            'width' => $width,
-            'height' => $this->toUnit($curfont['height']),
+            'w' => $width,
+            'h' => $this->toUnit($curfont['height']),
         ];
         $out = $this->getJustifiedString($txt, $ordarr, $dim, $width);
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
@@ -941,11 +927,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     /**
      * Returns the last text bounding box [llx, lly, urx, ury].
      *
-     * @return TextBBox  Array of bounding box values.
+     * @return TBBox  Array of bounding box values.
      */
-    public function getLastTextBBox(): array
+    public function getLastBBox(): array
     {
-        return $this->lasttxtbbox;
+        return $this->bbox[array_key_last($this->bbox)];
     }
 
     /**
@@ -980,6 +966,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     ): string {
         $pwidth = $this->toPoints($width);
 
+        $this->bbox[] = $this->getLastBBox();
+        $bboxid = array_key_last($this->bbox);
+
         if ((!$this->isunicode) || $this->font->isCurrentByteFont()) {
             if ($this->isunicode) {
                 $txt = $this->uniconv->latinArrToStr($this->uniconv->uniArrToLatinArr($ordarr));
@@ -990,7 +979,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $spacewidth = (($pwidth - $dim['totwidth']) / ($dim['spaces'] ?: 1));
                 return $this->getOutTextStateOperatorTw($txt, $spacewidth);
             }
-            $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
+            $this->bbox[$bboxid]['w'] = $this->toUnit($dim['totwidth']);
             return $txt;
         }
 
@@ -999,7 +988,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $txt = $this->encrypt->escapeString($txt);
 
         if ($pwidth <= 0) {
-            $this->lasttxtbbox['width'] = $this->toUnit($dim['totwidth']);
+            $this->bbox[$bboxid]['w'] = $this->toUnit($dim['totwidth']);
             return $this->getOutTextShowing($txt, 'Tj');
         }
 

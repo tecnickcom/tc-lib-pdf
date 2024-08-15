@@ -60,6 +60,15 @@ use Com\Tecnick\Unicode\Convert;
  *        'NumCopies'?: int,
  *    }
  *
+ * @phpstan-type TBBox array{
+ *          'x': float,
+ *          'y': float,
+ *          'w': float,
+ *          'h': float,
+ *      }
+ *
+ * @phpstan-type TStackBBox array<int, TBBox>
+ *
  * @phpstan-import-type TEmbeddedFile from Output
  * @phpstan-import-type TOutline from Output
  * @phpstan-import-type TAnnot from Output
@@ -126,7 +135,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.66';
+    protected string $version = '8.0.67';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -342,6 +351,13 @@ abstract class Base
     protected array $xobject = [];
 
     /**
+     * Current XOBject template ID.
+     *
+     * @var string
+     */
+    protected string $xobjtemplid = '';
+
+    /**
      * Outlines Data.
      *
      * @var array<int, TOutline>
@@ -437,6 +453,18 @@ abstract class Base
      * @var array<string, TXOBject>
      */
     protected array $xobjects = [];
+
+    /**
+     * Stack of bounding boxes [x, y, width, height] in user units.
+     *
+     * @var TStackBBox
+     */
+    protected $bbox = [[
+        'x' => 0,
+        'y' => 0,
+        'w' => 0,
+        'h' => 0,
+    ]];
 
     /**
      * Convert user units to internal points unit.

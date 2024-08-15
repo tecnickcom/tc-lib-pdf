@@ -43,50 +43,74 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
 abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
 {
     /**
-     * Initialize class objects
+     * Initialize class objects.
      */
     protected function initClassObjects(): void
     {
-        $this->color = new ObjColor();
-        $this->barcode = new ObjBarcode();
-        $this->file = new ObjFile();
-        $this->cache = new ObjCache();
-        $this->uniconv = new ObjUniConvert();
-        $this->encrypt = new ObjEncrypt();
+        $cobjs = $this->newClassObjects();
+        $this->color = $cobjs['color'];
+        $this->barcode = $cobjs['barcode'];
+        $this->file = $cobjs['file'];
+        $this->cache = $cobjs['cache'];
+        $this->uniconv = $cobjs['uniconv'];
+        $this->encrypt = $cobjs['encrypt'];
+        $this->page = $cobjs['page'];
+        $this->kunit = $cobjs['kunit'];
+        $this->graph = $cobjs['graph'];
+        $this->font = $cobjs['ont'];
+        $this->image = $cobjs['image'];
+    }
 
-        $this->page = new ObjPage(
+    /**
+     * Returns an array of class objects.
+     */
+    protected function newClassObjects(): array
+    {
+        $cobjs = [];
+
+        $cobjs['color'] = new ObjColor();
+        $cobjs['barcode'] = new ObjBarcode();
+        $cobjs['file'] = new ObjFile();
+        $cobjs['cache'] = new ObjCache();
+        $cobjs['uniconv'] = new ObjUniConvert();
+        $cobjs['encrypt'] = new ObjEncrypt();
+
+        $cobjs['page'] = new ObjPage(
             $this->unit,
-            $this->color,
-            $this->encrypt,
+            $cobjs['color'],
+            $cobjs['encrypt'],
             (bool) $this->pdfa,
             $this->compress,
             $this->sigapp
         );
-        $this->kunit = $this->page->getKUnit();
 
-        $this->graph = new ObjGraph(
-            $this->kunit,
+        $cobjs['kunit'] = $cobjs['page']->getKUnit();
+
+        $cobjs['graph'] = new ObjGraph(
+            $cobjs['kunit'],
             0, // $this->graph->setPageWidth($pagew)
             0, // $this->graph->setPageHeight($pageh)
-            $this->color,
-            $this->encrypt,
+            $cobjs['color'],
+            $cobjs['encrypt'],
             (bool) $this->pdfa,
             $this->compress
         );
 
-        $this->font = new ObjFont(
-            $this->kunit,
+        $cobjs['ont'] = new ObjFont(
+            $cobjs['kunit'],
             $this->subsetfont,
             $this->isunicode,
             (bool) $this->pdfa
         );
 
-        $this->image = new ObjImage(
-            $this->kunit,
-            $this->encrypt,
+        $cobjs['image'] = new ObjImage(
+            $cobjs['kunit'],
+            $cobjs['encrypt'],
             (bool) $this->pdfa,
             $this->compress
         );
+
+        return $cobjs;
     }
 
     /**

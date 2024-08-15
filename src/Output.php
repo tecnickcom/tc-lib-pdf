@@ -330,24 +330,27 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'opt': TAnnotOpts,
  *    }
  *
+ * @phpstan-type TTransparencyGroup array{
+ *         'CS'?: string,
+ *         'I'?: bool,
+ *         'K'?: bool,
+ *     }
+ *
  * @phpstan-type TXOBject array{
  *         'extgstates'?: \Com\Tecnick\Pdf\Graph\Draw,
  *         'fonts'?: \Com\Tecnick\Pdf\Font\Stack,
  *         'gradients'?: \Com\Tecnick\Pdf\Graph\Draw,
- *         'group'?: array{
- *             'CS'?: string,
- *             'I'?: bool,
- *             'K'?: bool,
- *         },
- *         'h': float,
- *         'images'?: array<int>,
- *         'n': int,
- *         'outdata'?: string,
  *         'spot_colors'?: \Com\Tecnick\Color\Pdf,
- *         'w': float,
- *         'x': float,
+ *         'annotations'?: array<int, TAnnot>,
+ *         'images'?: array<int>,
  *         'xobjects'?: array<int, int>,
+ *         'group'?: TTransparencyGroup,
+ *         'outdata'?: string,
+ *         'n': int,
+ *         'x': float,
  *         'y': float,
+ *         'w': float,
+ *         'h': float,
  *     }
  *
  * @phpstan-type TOutline array{
@@ -2835,7 +2838,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             // optional digest data (values must be calculated and replaced later)
             //$out .= ' /Data ********** 0 R'
-            //    .' /DigestMethod/MD5'
+            //    .' /DigestMethod /MD5'
             //    .' /DigestLocation[********** 34]'
             //    .' /DigestValue<********************************>';
             $out .= ' >> ]'; // end of reference
