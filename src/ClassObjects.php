@@ -39,89 +39,130 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @copyright 2002-2024 Nicola Asuni - Tecnick.com LTD
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
+ *
  */
-abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
+class ClassObjects
 {
-    /**
-     * Initialize class objects.
-     */
-    protected function initClassObjects(): void
-    {
-        $cobjs = $this->newClassObjects();
-        $this->color = $cobjs['color'];
-        $this->barcode = $cobjs['barcode'];
-        $this->file = $cobjs['file'];
-        $this->cache = $cobjs['cache'];
-        $this->uniconv = $cobjs['uniconv'];
-        $this->encrypt = $cobjs['encrypt'];
-        $this->page = $cobjs['page'];
-        $this->kunit = $cobjs['kunit'];
-        $this->graph = $cobjs['graph'];
-        $this->font = $cobjs['ont'];
-        $this->image = $cobjs['image'];
-    }
+   /**
+    * Encrypt object.
+    */
+    public ObjEncrypt $encrypt;
+
+   /**
+    * Color object.
+    */
+    public ObjColor $color;
+
+   /**
+    * Barcode object.
+    */
+    public ObjBarcode $barcode;
+
+   /**
+    * File object.
+    */
+    public ObjFile $file;
+
+   /**
+    * Cache object.
+    */
+    public ObjCache $cache;
+
+   /**
+    * Unicode Convert object.
+    */
+    public ObjUniConvert $uniconv;
+
+   /**
+    * Page object.
+    */
+    public ObjPage $page;
+
+   /**
+    * Graph object.
+    */
+    public ObjGraph $graph;
+
+   /**
+    * Font object.
+    */
+    public ObjFont $font;
+
+   /**
+    * Image Import object.
+    */
+    public ObjImage $image;
 
     /**
-     * Returns an array of class objects.
+     * Unit of measure conversion ratio.
      */
-    protected function newClassObjects(): array
-    {
-        $cobjs = [];
+    protected float $kunit = 1.0;
 
-        $cobjs['color'] = new ObjColor();
-        $cobjs['barcode'] = new ObjBarcode();
-        $cobjs['file'] = new ObjFile();
-        $cobjs['cache'] = new ObjCache();
-        $cobjs['uniconv'] = new ObjUniConvert();
-        $cobjs['encrypt'] = new ObjEncrypt();
+   /**
+    * Initialize dependencies class objects.
+    *
+    * @param string      $unit       Unit of measure ('pt', 'mm', 'cm', 'in').
+    * @param bool        $isunicode  True if the document is in Unicode mode.
+    * @param bool        $subsetfont If true subset the embedded fonts to remove the unused characters.
+    * @param bool        $compress   Set to false to disable stream compression.
+    * @param bool        $sigapp     Enable signature approval (for incremental updates).
+    * @param bool        $pdfa       True if PDF/A Mode.
+    * @param ?ObjEncrypt $objEncrypt Encryption object.
+    */
+    public function __construct(
+        string $unit = 'mm',
+        bool $isunicode = true,
+        bool $subsetfont = false,
+        bool $compress = true,
+        bool $sigapp = false,
+        bool $pdfa = false,
+        ?ObjEncrypt $objEncrypt = null
+    ) {
+        if ($objEncrypt instanceof ObjEncrypt) {
+            $this->encrypt = $objEncrypt;
+        } else {
+            $this->encrypt = new ObjEncrypt();
+        }
 
-        $cobjs['page'] = new ObjPage(
-            $this->unit,
-            $cobjs['color'],
-            $cobjs['encrypt'],
-            (bool) $this->pdfa,
-            $this->compress,
-            $this->sigapp
+        $this->color = new ObjColor();
+        $this->barcode = new ObjBarcode();
+        $this->file = new ObjFile();
+        $this->cache = new ObjCache();
+        $this->uniconv = new ObjUniConvert();
+
+        $this->page = new ObjPage(
+            $unit,
+            $this->color,
+            $this->encrypt,
+            $pdfa,
+            $compress,
+            $sigapp,
         );
 
-        $cobjs['kunit'] = $cobjs['page']->getKUnit();
+        $kunit = $this->page->getKUnit();
 
-        $cobjs['graph'] = new ObjGraph(
-            $cobjs['kunit'],
-            0, // $this->graph->setPageWidth($pagew)
-            0, // $this->graph->setPageHeight($pageh)
-            $cobjs['color'],
-            $cobjs['encrypt'],
-            (bool) $this->pdfa,
-            $this->compress
+        $this->graph = new ObjGraph(
+            $kunit,
+            0, // $this->dep->graph->setPageWidth($pagew)
+            0, // $this->dep->graph->setPageHeight($pageh)
+            $this->color,
+            $this->encrypt,
+            $pdfa,
+            $compress,
         );
 
-        $cobjs['ont'] = new ObjFont(
-            $cobjs['kunit'],
-            $this->subsetfont,
-            $this->isunicode,
-            (bool) $this->pdfa
+        $this->font = new ObjFont(
+            $kunit,
+            $subsetfont,
+            $isunicode,
+            $pdfa,
         );
 
-        $cobjs['image'] = new ObjImage(
-            $cobjs['kunit'],
-            $cobjs['encrypt'],
-            (bool) $this->pdfa,
-            $this->compress
+        $this->image = new ObjImage(
+            $kunit,
+            $this->encrypt,
+            $pdfa,
+            $compress,
         );
-
-        return $cobjs;
-    }
-
-    /**
-     * Enable or disable the the Signature Approval
-     *
-     * @param bool $enabled It true enable the Signature Approval
-     */
-    protected function enableSignatureApproval(bool $enabled = true): static
-    {
-        $this->sigapp = $enabled;
-        $this->page->enableSignatureApproval($this->sigapp);
-        return $this;
     }
 }

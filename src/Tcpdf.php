@@ -45,7 +45,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @SuppressWarnings(PHPMD.DepthOfInheritance)
  */
-class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
+class Tcpdf extends \Com\Tecnick\Pdf\Output
 {
     /**
      * Initialize a new PDF object.
@@ -77,10 +77,18 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->setPDFMode($mode);
         $this->setCompressMode($compress);
         $this->setPDFVersion();
-        $this->initClassObjects();
-        if ($objEncrypt instanceof \Com\Tecnick\Pdf\Encrypt\Encrypt) {
-            $this->encrypt = $objEncrypt;
-        }
+
+        $this->dep = new ClassObjects(
+            $this->unit,
+            $this->isunicode,
+            $this->subsetfont,
+            $this->compress,
+            $this->sigapp,
+            (bool) $this->pdfa,
+            $objEncrypt,
+        );
+
+        $this->kunit = $this->dep->page->getKUnit();
     }
 
     /**
@@ -223,8 +231,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         string $mode = 'UseNone'
     ): static {
         $this->display['zoom'] = (is_numeric($zoom) || in_array($zoom, $this::VALIDZOOM)) ? $zoom : 'default';
-        $this->display['layout'] = $this->page->getLayout($layout);
-        $this->display['page'] = $this->page->getDisplay($mode);
+        $this->display['layout'] = $this->dep->page->getLayout($layout);
+        $this->display['page'] = $this->dep->page->getDisplay($mode);
         return $this;
     }
 
@@ -259,16 +267,16 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         array $padding = [0, 0, 0, 0],
         array $style = []
     ): string {
-        $model = $this->barcode->getBarcodeObj($type, $code, $width, $height, 'black', $padding);
+        $model = $this->dep->barcode->getBarcodeObj($type, $code, $width, $height, 'black', $padding);
         $bars = $model->getBarsArrayXYWH();
         $out = '';
-        $out .= $this->graph->getStartTransform();
-        $out .= $this->graph->getStyleCmd($style);
+        $out .= $this->dep->graph->getStartTransform();
+        $out .= $this->dep->graph->getStyleCmd($style);
         foreach ($bars as $bar) {
-            $out .= $this->graph->getBasicRect(($posx + $bar[0]), ($posy + $bar[1]), $bar[2], $bar[3], 'f');
+            $out .= $this->dep->graph->getBasicRect(($posx + $bar[0]), ($posy + $bar[1]), $bar[2], $bar[3], 'f');
         }
 
-        return $out . $this->graph->getStopTransform();
+        return $out . $this->dep->graph->getStopTransform();
     }
 
     /**
@@ -296,6 +304,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         if (!empty($this->xobjtemplid)) {
             // Store annotationparameters for later use on a XObject template.
             $this->xobject[$this->xobjtemplid]['annotations'][] = [
+                'n' => 0,
                 'x' => $posx,
                 'y' => $posy,
                 'w' => $width,
@@ -340,15 +349,15 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 
         // Add widgets annotation's icons
         if (isset($opt['mk']['i'])) {
-            $this->image->add($opt['mk']['i']);
+            $this->dep->image->add($opt['mk']['i']);
         }
 
         if (isset($opt['mk']['ri'])) {
-            $this->image->add($opt['mk']['ri']);
+            $this->dep->image->add($opt['mk']['ri']);
         }
 
         if (isset($opt['mk']['ix'])) {
-            $this->image->add($opt['mk']['ix']);
+            $this->dep->image->add($opt['mk']['ix']);
         }
 
         return $oid;
@@ -450,6 +459,19 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->sign = true;
     }
 
+
+    /**
+     * Enable or disable the the Signature Approval
+     *
+     * @param bool $enabled It true enable the Signature Approval
+     */
+    protected function enableSignatureApproval(bool $enabled = true): static
+    {
+        $this->sigapp = $enabled;
+        $this->dep->page->enableSignatureApproval($this->sigapp);
+        return $this;
+    }
+
     /**
      * Set the signature timestamp.
      *
@@ -495,11 +517,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): array {
         $sigapp = [];
 
-        $sigapp['page'] = ($page < 1) ? $this->page->getPage()['pid'] : $page;
+        $sigapp['page'] = ($page < 1) ? $this->dep->page->getPage()['pid'] : $page;
         $sigapp['name'] = (empty($name)) ? 'Signature' : $name;
 
         $pntx = $this->toPoints($posx);
-        $pnty = $this->toYUnit(($posy + $heigth), $this->page->getPage($sigapp['page'])['pheight']);
+        $pnty = $this->toYUnit(($posy + $heigth), $this->dep->page->getPage($sigapp['page'])['pheight']);
         $pntw = $this->toPoints($width);
         $pnth = $this->toPoints($heigth);
 
@@ -572,7 +594,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         if (!empty($this->signature['appearance']['page'])) {
-            $this->page->addAnnotRef($this->objid['signature'], $this->signature['appearance']['page']);
+            $this->dep->page->addAnnotRef($this->objid['signature'], $this->signature['appearance']['page']);
         }
 
         if (empty($this->signature['appearance']['empty'])) {
@@ -580,197 +602,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         foreach ($this->signature['appearance']['empty'] as $esa) {
-            $this->page->addAnnotRef($esa['objid'], $esa['page']);
+            $this->dep->page->addAnnotRef($esa['objid'], $esa['page']);
         }
-    }
-
-    /*
-     * Create a new XObject template and return the object id.
-     *
-     * An XObject Template is a PDF block that is a self-contained description
-     * of any sequence of graphics objects (including path objects, text objects,
-     * and sampled images). An XObject Template may be painted multiple times,
-     * either on several pages or at several locations on the same page and
-     * produces the same results each time, subject only to the graphics state
-     * at the time it is invoked.
-     *
-     * @param float $width  Width of the XObject.
-     * @param float $heigth Height of the XObject.
-     * @param ?TTransparencyGroup $group Optional group attributes.
-     *
-     * @return string Object ID.
-     */
-    public function newXObjectTemplate(
-        float $width = 0,
-        float $heigth = 0,
-        ?array $group = null,
-    ): string {
-        $oid = ++$this->pon;
-        $tid = 'XT' . $oid;
-        $this->xobjtemplid = $tid;
-
-        $region = $this->page->getRegion();
-
-        if (empty($width) || $width < 0) {
-            $width = $region['RW'];
-        }
-
-        if (empty($heigth) || $heigth < 0) {
-            $heigth = $region['RH'];
-        }
-
-        $this->xobject[$tid] = [
-            'extgstates' => [],
-            'fonts' => [],
-            'gradients' => [],
-            'spot_colors' => [],
-            'images' => [],
-            'xobjects' => [],
-            'annotations' => [],
-            'group' => $group,
-            'outdata' => '',
-            'n' => $oid,
-            'x' => 0,
-            'y' => 0,
-            'w' => $width,
-            'h' => $heigth,
-        ];
-
-        return $tid;
-    }
-
-    /**
-     * Exit from the XObject template mode.
-     *
-     * See: newXObjectTemplate.
-     */
-    public function exitXObjectTemplate(): void
-    {
-        $this->xobjtemplid = '';
-    }
-
-    /**
-     * Add raw PDF content to the active XObject template.
-     *
-     * See: newXObjectTemplate.
-     *
-     * @param string $raw Raw content to add.
-     */
-    public function addXobjectTemplateContent(string $raw): void
-    {
-        if (empty($this->xobjtemplid)) {
-            throw new PdfException('No XObject template active');
-        }
-
-        $this->xobject[$this->xobjtemplid]['outdata'] .= $raw;
-    }
-
-    /**
-     * Returns the PDF code to render the specified XObject template.
-     *
-     * See: newXObjectTemplate.
-     *
-     * @param string      $oid         The XObject Template ID as returned by the newXObjectTemplate method.
-     * @param float       $posx        Abscissa of upper-left corner.
-     * @param float       $posy        Ordinate of upper-left corner.
-     * @param float       $width       Width.
-     * @param float       $height      Height.
-     * @param string      $valign      Vertical alignment inside the specified box: T=top; C=center; B=bottom.
-     * @param string      $halign      Horizontal alignment inside the specified box: L=left; C=center; R=right.
-     *
-     * @return string The PDF code to render the specified XObject template.
-     */
-    public function getXObjectTemplate(
-        string $oid,
-        float $posx = 0,
-        float $posy = 0,
-        float $width = 0,
-        float $height = 0,
-        string $valign = 'T',
-        string $halign = 'L',
-    ): string {
-        $this->xobjtemplid = '';
-
-        if (empty($this->xobject[$oid])) {
-            return '';
-        }
-
-        $tpl = $this->xobject[$oid];
-        $region = $this->page->getRegion();
-
-        if (empty($width) || $width < 0) {
-            $width = min($tpl['w'], $region['RW']);
-        }
-
-        if (empty($height) || $height < 0) {
-            $height = min($tpl['h'], $region['RH']);
-        }
-
-        $tplx = $this->cellHPos($posx, $width, $halign, $this->defcell);
-        $tply = $this->cellVPos($posy, $height, $valign, $this->defcell);
-
-        $this->bbox[] = [
-            'x' => $tplx,
-            'y' => $tply,
-            'w' => $width,
-            'h' => $height,
-        ];
-
-        $out = $this->graph->getStartTransform();
-        $ctm = [
-            0 => ($width / $tpl['w']),
-            1 => 0,
-            2 => 0,
-            3 => ($height / $tpl['h']),
-            4 => $this->toPoints($tplx),
-            5 => $this->toYPoints($tply + $height),
-        ];
-        $out .= $this->graph->getTransformation($ctm);
-        $out .= '/' . $oid . ' Do' . "\n";
-        $out .= $this->graph->getStopTransform();
-
-        if (!empty($tpl['annotations'])) {
-            foreach ($tpl['annotations'] as $annot) {
-                // transform original coordinates
-                $clt = $this->graph->getCtmProduct(
-                    $ctm,
-                    array(
-                        1,
-                        0,
-                        0,
-                        1,
-                        $this->toPoints($annot['x']),
-                        $this->toPoints(-$annot['y']),
-                    ),
-                );
-                $anx = $this->toUnit($clt[4]);
-                $any = $this->toYUnit($clt[5] + $this->toUnit($height));
-
-                $crb = $this->graph->getCtmProduct(
-                    $ctm,
-                    array(
-                        1,
-                        0,
-                        0,
-                        1,
-                        $this->toPoints(($annot['x'] + $annot['w'])),
-                        $this->toPoints((-$annot['y'] - $annot['h'])),
-                    ),
-                );
-                $anw = $this->toUnit($crb[4]) - $anx;
-                $anh = $this->toYUnit($crb[5] + $this->toUnit($height)) - $any;
-
-                $out .= $this->setAnnotation(
-                    $anx,
-                    $any,
-                    $anw,
-                    $anh,
-                    $annot['txt'],
-                    $annot['opt']
-                );
-            }
-        }
-
-        return $out;
     }
 }

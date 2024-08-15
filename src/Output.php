@@ -546,23 +546,23 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutPDFBody(): string
     {
-        $out = $this->page->getPdfPages($this->pon);
-        $this->objid['pages'] = $this->page->getRootObjID();
-        $out .= $this->graph->getOutExtGState($this->pon);
-        $this->pon = $this->graph->getObjectNumber();
+        $out = $this->dep->page->getPdfPages($this->pon);
+        $this->objid['pages'] = $this->dep->page->getRootObjID();
+        $out .= $this->dep->graph->getOutExtGState($this->pon);
+        $this->pon = $this->dep->graph->getObjectNumber();
         $out .= $this->getOutOCG();
         $output = new OutFont(
-            $this->font->getFonts(),
+            $this->dep->font->getFonts(),
             $this->pon,
-            $this->encrypt
+            $this->dep->encrypt,
         );
         $out .= $output->getFontsBlock();
         $this->pon = $output->getObjectNumber();
-        $out .= $this->image->getOutImagesBlock($this->pon);
-        $this->pon = $this->image->getObjectNumber();
-        $out .= $this->color->getPdfSpotObjects($this->pon);
-        $out .= $this->graph->getOutGradientShaders($this->pon);
-        $this->pon = $this->graph->getObjectNumber();
+        $out .= $this->dep->image->getOutImagesBlock($this->pon);
+        $this->pon = $this->dep->image->getObjectNumber();
+        $out .= $this->dep->color->getPdfSpotObjects($this->pon);
+        $out .= $this->dep->graph->getOutGradientShaders($this->pon);
+        $this->pon = $this->dep->graph->getObjectNumber();
         $out .= $this->getOutXObjects();
         $out .= $this->getOutResourcesDict();
         $out .= $this->getOutDestinations();
@@ -570,9 +570,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->getOutAnnotations();
         $out .= $this->getOutJavascript();
         $out .= $this->getOutBookmarks();
-        $enc = $this->encrypt->getEncryptionData();
+        $enc = $this->dep->encrypt->getEncryptionData();
         if ($enc['encrypted']) {
-            $out .= $this->encrypt->getPdfEncryptionObj($this->pon);
+            $out .= $this->dep->encrypt->getPdfEncryptionObj($this->pon);
         }
 
         $out .= $this->getOutSignatureFields();
@@ -636,7 +636,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' /Size ' . ($this->pon + 1)
             . ' /Root ' . $this->objid['catalog'] . ' 0 R'
             . ' /Info ' . $this->objid['info'] . ' 0 R';
-        $enc = $this->encrypt->getEncryptionData();
+        $enc = $this->dep->encrypt->getEncryptionData();
         if (! empty($enc['objid'])) {
             $out .= ' /Encrypt ' . $enc['objid'] . ' 0 R';
         }
@@ -662,7 +662,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             throw new PdfException('Unable to read sRGB.icc.z file');
         }
 
-        $icc = $this->encrypt->encryptString($icc, $oid);
+        $icc = $this->dep->encrypt->encryptString($icc, $oid);
         return $out . '<< /N 3 /Filter /FlateDecode /Length ' . strlen($icc)
             . ' >>'
             . ' stream' . "\n"
@@ -812,7 +812,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         //$out .= ' /Threads []';
 
-        $firstpage = $this->page->getPage(0);
+        $firstpage = $this->dep->page->getPage(0);
         $fpo = $firstpage['n'];
         if ($this->display['zoom'] == 'fullpage') {
             $out .= ' /OpenAction [' . $fpo . ' 0 R /Fit]';
@@ -885,13 +885,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             if (! empty($this->annotation_fonts)) {
                 $out .= ' /DR << /Font <<';
                 foreach ($this->annotation_fonts as $fontkey => $fontid) {
-                    $out .= ' /F' . $fontid . ' ' . $this->font->getFont($fontkey)['n'] . ' 0 R';
+                    $out .= ' /F' . $fontid . ' ' . $this->dep->font->getFont($fontkey)['n'] . ' 0 R';
                 }
 
                 $out .= ' >> >>';
             }
 
-            $font = $this->font->getFont('helvetica');
+            $font = $this->dep->font->getFont('helvetica');
             $out .= ' /DA (/F' . $font['i'] . ' 0 Tf 0 g)';
             $out .= ' /Q ' . (($this->rtl) ? '2' : '0');
             //$out .= ' /XFA ';
@@ -983,7 +983,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /Filter /FlateDecode';
         }
 
-        $stream = $this->encrypt->encryptString($stream, $oid);
+        $stream = $this->dep->encrypt->encryptString($stream, $oid);
         $rect = sprintf('%F %F', $width, $height);
         return $out . ' /BBox [0 0 ' . $rect . ']'
             . ' /Matrix [1 0 0 1 0 0]'
@@ -1091,7 +1091,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' >>';
             }
 
-            $stream = $this->encrypt->encryptString($stream, $data['n']);
+            $stream = $this->dep->encrypt->encryptString($stream, $data['n']);
             $out .= ' /Length ' . strlen($stream)
                 . ' >>'
                 . ' stream' . "\n"
@@ -1108,16 +1108,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutResourcesDict(): string
     {
-        $this->objid['resdic'] = $this->page->getResourceDictObjID();
+        $this->objid['resdic'] = $this->dep->page->getResourceDictObjID();
         return $this->objid['resdic'] . ' 0 obj' . "\n"
             . '<<'
             . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
             . $this->getOutFontDic()
             . $this->getXObjectDic()
             . $this->getLayerDic()
-            . $this->graph->getOutExtGStateResources()
-            . $this->graph->getOutGradientResources()
-            . $this->color->getPdfSpotResources()
+            . $this->dep->graph->getOutExtGStateResources()
+            . $this->dep->graph->getOutGradientResources()
+            . $this->dep->color->getPdfSpotResources()
             . ' >>' . "\n"
             . 'endobj' . "\n";
     }
@@ -1136,7 +1136,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = $oid . ' 0 obj' . "\n"
             . '<< ';
         foreach ($this->dests as $name => $dst) {
-            $page = $this->page->getPage($dst['p']);
+            $page = $this->dep->page->getPage($dst['p']);
             $poid = $page['n'];
             $pgx = $this->toPoints($dst['x']);
             $pgy = $this->toYPoints($dst['y'], $page['pheight']);
@@ -1161,7 +1161,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         reset($this->embeddedfiles);
         foreach ($this->embeddedfiles as $name => $data) {
             try {
-                $content = $this->file->fileGetContents($data['file']);
+                $content = $this->dep->file->fileGetContents($data['file']);
             } catch (Exception) {
                 continue; // silently skip the file
             }
@@ -1194,7 +1194,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $filter = ' /Filter /FlateDecode';
             }
 
-            $stream = $this->encrypt->encryptString($content, $data['n']);
+            $stream = $this->dep->encrypt->encryptString($content, $data['n']);
             $out .= "\n"
                 . $data['n'] . ' 0 obj' . "\n"
                 . '<<'
@@ -1255,7 +1255,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutAnnotations(): string
     {
         $out = '';
-        $pages = $this->page->getPages();
+        $pages = $this->dep->page->getPages();
         foreach ($pages as $num => $page) {
             foreach ($page['annotrefs'] as $key => $oid) {
                 if (empty($this->annotation[$oid])) {
@@ -1285,7 +1285,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
 
                 $out .= ' /P ' . $page['n'] . ' 0 R'
-                    . ' /NM ' . $this->encrypt->escapeDataString(sprintf('%04u-%04u', $page['num'], $key), $oid)
+                    . ' /NM ' . $this->dep->encrypt->escapeDataString(sprintf('%04u-%04u', $page['num'], $key), $oid)
                     . ' /M ' . $this->getOutDateTimeString($this->docmodtime, $oid)
                     . $this->getOutAnnotationFlags($annot) // @phpstan-ignore-line
                     . $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height) // @phpstan-ignore-line
@@ -1344,9 +1344,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /F 4 /Ff 49152'; // default print for PDF/A
         }
 
-        $out .= ' /T ' . $this->encrypt->escapeDataString($annot['txt'], $oid);
+        $out .= ' /T ' . $this->dep->encrypt->escapeDataString($annot['txt'], $oid);
         if (! empty($annot['opt']['tu']) && is_string($annot['opt']['tu'])) {
-            $out .= ' /TU ' . $this->encrypt->escapeDataString($annot['opt']['tu'], $oid);
+            $out .= ' /TU ' . $this->dep->encrypt->escapeDataString($annot['opt']['tu'], $oid);
         }
 
         $out .= ' /FT /Btn /Kids [';
@@ -1757,7 +1757,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (! empty($annot['txt']) && is_string($annot['txt'])) {
             switch ($annot['txt'][0]) {
                 case '#': // internal destination
-                    $out .= ' /A << /S /GoTo /D /' . $this->encrypt->encodeNameObject(substr($annot['txt'], 1)) . '>>';
+                    $out .= ' /A << /S /GoTo /D /'
+                    . $this->dep->encrypt->encodeNameObject(substr($annot['txt'], 1)) . '>>';
                     break;
                 case '%': // embedded PDF file
                     $filename = basename(substr($annot['txt'], 1));
@@ -1790,13 +1791,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         }
 
                         $out .= ' /A << /S /GoToR /D ' . $dest
-                            . ' /F ' . $this->encrypt->escapeDataString($this->unhtmlentities($parsedUrl['path']), $oid)
+                            . ' /F '
+                            . $this->dep->encrypt->escapeDataString($this->unhtmlentities($parsedUrl['path']), $oid)
                             . ' /NewWindow true'
                             . ' >>';
                     } else {
                         // external URI link
                         $out .= ' /A << /S /URI /URI '
-                            . $this->encrypt->escapeDataString($this->unhtmlentities($annot['txt']), $oid)
+                            . $this->dep->encrypt->escapeDataString($this->unhtmlentities($annot['txt']), $oid)
                             . ' >>';
                     }
 
@@ -1805,7 +1807,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         } elseif (! empty($this->links[$annot['txt']])) {
             // internal link ID
             $l = $this->links[$annot['txt']];
-            $page = $this->page->getPage($l['p']);
+            $page = $this->dep->page->getPage($l['p']);
             $y = $this->toYPoints($l['y'], $page['height']);
             $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
         }
@@ -2152,21 +2154,21 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
 
             if (isset($annot['opt']['mk']['i'])) {
-                $info = $this->image->getImageDataByKey($this->image->getKey($annot['opt']['mk']['i']));
+                $info = $this->dep->image->getImageDataByKey($this->dep->image->getKey($annot['opt']['mk']['i']));
                 if (! empty($info['obj'])) {
                     $out .= ' /I ' . $info['obj'] . ' 0 R';
                 }
             }
 
             if (isset($annot['opt']['mk']['ri'])) {
-                $info = $this->image->getImageDataByKey($this->image->getKey($annot['opt']['mk']['ri']));
+                $info = $this->dep->image->getImageDataByKey($this->dep->image->getKey($annot['opt']['mk']['ri']));
                 if (! empty($info['obj'])) {
                     $out .= ' /RI ' . $info['obj'] . ' 0 R';
                 }
             }
 
             if (isset($annot['opt']['mk']['ix'])) {
-                $info = $this->image->getImageDataByKey($this->image->getKey($annot['opt']['mk']['ix']));
+                $info = $this->dep->image->getImageDataByKey($this->dep->image->getKey($annot['opt']['mk']['ix']));
                 if (! empty($info['obj'])) {
                     $out .= ' /IX ' . $info['obj'] . ' 0 R';
                 }
@@ -2220,15 +2222,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         if (isset($annot['opt']['t']) && is_string($annot['opt']['t'])) {
-            $out .= ' /T ' . $this->encrypt->escapeDataString($annot['opt']['t'], $oid);
+            $out .= ' /T ' . $this->dep->encrypt->escapeDataString($annot['opt']['t'], $oid);
         }
 
         if (isset($annot['opt']['tu']) && is_string($annot['opt']['tu'])) {
-            $out .= ' /TU ' . $this->encrypt->escapeDataString($annot['opt']['tu'], $oid);
+            $out .= ' /TU ' . $this->dep->encrypt->escapeDataString($annot['opt']['tu'], $oid);
         }
 
         if (isset($annot['opt']['tm']) && is_string($annot['opt']['tm'])) {
-            $out .= ' /TM ' . $this->encrypt->escapeDataString($annot['opt']['tm'], $oid);
+            $out .= ' /TM ' . $this->dep->encrypt->escapeDataString($annot['opt']['tm'], $oid);
         }
 
         if (isset($annot['opt']['ff'])) {
@@ -2594,7 +2596,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     switch ($outline['u'][0]) {
                         case '#':
                             // internal destination
-                            $out .= ' /Dest /' . $this->encrypt->encodeNameObject(substr($outline['u'], 1));
+                            $out .= ' /Dest /' . $this->dep->encrypt->encodeNameObject(substr($outline['u'], 1));
                             break;
                         case '%':
                             // embedded PDF file
@@ -2617,20 +2619,20 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         default:
                             // external URI link
                             $out .= ' /A << /S /URI /URI '
-                                . $this->encrypt->escapeDataString($this->unhtmlentities($outline['u']), $oid)
+                                . $this->dep->encrypt->escapeDataString($this->unhtmlentities($outline['u']), $oid)
                                 . ' >>';
                             break;
                     }
                 } elseif (isset($this->links[$outline['u']])) {
                     // internal link ID
                     $l = $this->links[$outline['u']];
-                    $page = $this->page->getPage($l['p']);
+                    $page = $this->dep->page->getPage($l['p']);
                     $y = ($page['height'] - ($l['y'] * $this->kunit));
                     $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                 }
             } else {
                 // link to a page
-                $page = $this->page->getPage($outline['p']);
+                $page = $this->dep->page->getPage($outline['p']);
                 $x = ($outline['x'] * $this->kunit);
                 $y = ($page['height'] - ($outline['y'] * $this->kunit));
                 $out .= ' ' . sprintf('/Dest [%u 0 R /XYZ %F %F null]', $page['n'], $x, $y);
@@ -2682,7 +2684,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out = '';
         foreach ($this->signature['appearance']['empty'] as $key => $esa) {
-            $page = $this->page->getPage($esa['page']);
+            $page = $this->dep->page->getPage($esa['page']);
             $signame = $esa['name'] . sprintf(' [%03d]', ($key + 1));
             $out .= $esa['objid'] . ' 0 obj' . "\n"
                 . '<<'
@@ -2728,17 +2730,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $byterange .= str_repeat(' ', ($byterange_strlen - strlen($byterange)));
         $pdfdoc = str_replace($this::BYTERANGE, $byterange, $pdfdoc);
         // write the document to a temporary folder
-        $tempdoc = $this->cache->getNewFileName('doc', $this->fileid);
+        $tempdoc = $this->dep->cache->getNewFileName('doc', $this->fileid);
         if ($tempdoc === false) {
             throw new PdfException('Unable to create temporary document file for signature');
         }
 
-        $f = $this->file->fopenLocal($tempdoc, 'wb');
+        $f = $this->dep->file->fopenLocal($tempdoc, 'wb');
         $pdfdoc_length = strlen($pdfdoc);
         fwrite($f, $pdfdoc, $pdfdoc_length);
         fclose($f);
         // get digital signature via openssl library
-        $tempsign = $this->cache->getNewFileName('sig', $this->fileid);
+        $tempsign = $this->dep->cache->getNewFileName('sig', $this->fileid);
         if ($tempsign === false) {
             throw new PdfException('Unable to create temporary signature file');
         }
@@ -2754,7 +2756,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         );
 
         // read signature
-        $signature = $this->file->getFileData($tempsign);
+        $signature = $this->dep->file->getFileData($tempsign);
         if ($signature === false) {
             throw new PdfException('Unable to read signature file');
         }
@@ -2810,7 +2812,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         // widget annotation for signature
         $soid = $this->objid['signature'];
         $oid = $soid + 1;
-        $page = $this->page->getPage($this->signature['appearance']['page']);
+        $page = $this->dep->page->getPage($this->signature['appearance']['page']);
         $out = $soid . ' 0 obj' . "\n"
             . '<<'
             . ' /Type /Annot'
@@ -2933,7 +2935,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutFontDic(): string
     {
-        $fonts = $this->font->getFonts();
+        $fonts = $this->dep->font->getFonts();
         if ($fonts === []) {
             return '';
         }
@@ -2956,7 +2958,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /' . $id . ' ' . $oid['n'] . ' 0 R';
         }
 
-        $out .= $this->image->getXobjectDict();
+        $out .= $this->dep->image->getXobjectDict();
         return $out . ' >>';
     }
 
@@ -3087,7 +3089,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         string $rawpdf = ''
     ): void {
         $filepath = implode('/', [realpath($path), $this->pdffilename]);
-        $fhd = $this->file->fopenLocal($filepath, 'wb');
+        $fhd = $this->dep->file->fopenLocal($filepath, 'wb');
         if (! $fhd) {
             throw new PdfException('Unable to create output file: ' . $filepath);
         }
