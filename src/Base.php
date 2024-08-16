@@ -75,7 +75,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @phpstan-import-type TOutline from Output
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TSignTimeStamp from Output
- * @phpstan-import-type TTransparencyGroup from Output
+ * @phpstan-import-type TGTransparency from Output
  * @phpstan-import-type TUserRights from Output
  * @phpstan-import-type TXOBject from Output
  *

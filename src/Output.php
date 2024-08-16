@@ -334,22 +334,22 @@ use Com\Tecnick\Pdf\Image\Import as ObjImage;
  *        'opt': TAnnotOpts,
  *    }
  *
- * @phpstan-type TTransparencyGroup array{
+ * @phpstan-type TGTransparency array{
  *         'CS': string,
  *         'I': bool,
  *         'K': bool,
  *     }
  *
  * @phpstan-type TXOBject array{
- *         'colorspace'?: array<string, int>,
- *         'extgstate'?: array<string, int>,
- *         'font'?: array<string, int>,
- *         'image'?: array<string, int>,
- *         'pattern'?: array<string, int>,
- *         'shading'?: array<string, int>,
- *         'xobject'?: array<string, int>,
+ *         'colorspace'?: array<string>,
+ *         'extgstate'?: array<string>,
+ *         'font'?: array<string>,
+ *         'image'?: array<string>,
+ *         'pattern'?: array<string>,
+ *         'shading'?: array<string>,
+ *         'xobject'?: array<string>,
  *         'annotations'?: array<int, TAnnot>,
- *         'transpgroup'?: ?TTransparencyGroup,
+ *         'transparency'?: ?TGTransparency,
  *         'id': string,
  *         'outdata': string,
  *         'n': int,
@@ -557,13 +557,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->graph->getOutExtGState($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutOCG();
-        $output = new OutFont(
+        $outfont = new OutFont(
             $this->font->getFonts(),
             $this->pon,
             $this->encrypt,
         );
-        $out .= $output->getFontsBlock();
-        $this->pon = $output->getObjectNumber();
+        $out .= $outfont->getFontsBlock();
+        $this->pon = $outfont->getObjectNumber();
         $out .= $this->image->getOutImagesBlock($this->pon);
         $this->pon = $this->image->getObjectNumber();
         $out .= $this->color->getPdfSpotObjects($this->pon);
@@ -1043,24 +1043,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             if (empty($this->pdfa) || ($this->pdfa > 1)) {
                 if (!empty($data['extgstate'])) {
                     $out .= ' /ExtGState <<';
-                    foreach ($data['extgstate'] as $name => $oid) {
-                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    foreach ($data['extgstate'] as $objref) {
+                        $out .= $objref;
                     }
                     $out .= ' >>';
                 }
 
                 if (!empty($data['pattern'])) {
                     $out .= ' /Pattern <<';
-                    foreach ($data['pattern'] as $name => $oid) {
-                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    foreach ($data['pattern'] as $objref) {
+                        $out .= $objref;
                     }
                     $out .= ' >>';
                 }
 
                 if (!empty($data['shading'])) {
                     $out .= ' /Shading <<';
-                    foreach ($data['shading'] as $name => $oid) {
-                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    foreach ($data['shading'] as $objref) {
+                        $out .= $objref;
                     }
                     $out .= ' >>';
                 }
@@ -1068,16 +1068,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             if (! empty($data['colorspace'])) {
                 $out .= ' /ColorSpace <<';
-                foreach ($data['colorspace'] as $name => $oid) {
-                    $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                foreach ($data['colorspace'] as $objref) {
+                    $out .= $objref;
                 }
                 $out .= ' >>';
             }
 
             if (! empty($data['font'])) {
                 $out .= ' /Font <<';
-                foreach ($data['font'] as $name => $oid) {
-                    $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                foreach ($data['font'] as $objref) {
+                    $out .= $objref;
                 }
                 $out .= ' >>';
             }
@@ -1085,14 +1085,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             if (! empty($data['image']) || ! empty($data['xobject'])) {
                 $out .= ' /XObject <<';
                 if (! empty($data['image'])) {
-                    foreach ($data['image'] as $name => $oid) {
-                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    foreach ($data['image'] as $objref) {
+                        $out .= $objref;
                     }
                 }
 
                 if (! empty($data['xobject'])) {
-                    foreach ($data['xobject'] as $name => $oid) {
-                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    foreach ($data['xobject'] as $objref) {
+                        $out .= $objref;
                     }
                 }
                 $out .= ' >>';
@@ -1100,13 +1100,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             $out .= ' >>'; // end of /Resources.
 
-            if (! empty($data['transpgroup'])) {
+            if (! empty($data['transparency'])) {
                 // set transparency group
                 $out .= ' /Group << /Type /Group /S /Transparency';
-                if (!empty($data['transpgroup'])) {
-                    $out .= ' /CS /' . $data['transpgroup']['CS'];
-                    $out .= ' /I /' . (($data['transpgroup']['I'] === true) ? 'true' : 'false');
-                    $out .= ' /K /' . (($data['transpgroup']['K'] === true) ? 'true' : 'false');
+                if (!empty($data['transparency'])) {
+                    $out .= ' /CS /' . $data['transparency']['CS'];
+                    $out .= ' /I /' . (($data['transparency']['I'] === true) ? 'true' : 'false');
+                    $out .= ' /K /' . (($data['transparency']['K'] === true) ? 'true' : 'false');
                 }
                 $out .= ' >>';
             }

@@ -43,7 +43,7 @@ use Com\Tecnick\Pdf\Image\Import as ObjImage;
  * @phpstan-import-type TAnnotOpts from Output
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TSignTimeStamp from Output
- * @phpstan-import-type TTransparencyGroup from Output
+ * @phpstan-import-type TGTransparency from Output
  * @phpstan-import-type TUserRights from Output
  * @phpstan-import-type TXOBject from Output
  *
@@ -611,7 +611,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * @param float $width  Width of the XObject.
      * @param float $heigth Height of the XObject.
-     * @param ?TTransparencyGroup $transpgroup Optional group attributes.
+     * @param ?TGTransparency $transpgroup Optional group attributes.
      *
      * @return TXOBject XObject template object.
      */
