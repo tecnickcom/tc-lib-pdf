@@ -18,6 +18,10 @@ namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Font\Output as OutFont;
+use Com\Tecnick\Color\Pdf as ObjColor;
+use Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
+use Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Output
@@ -331,19 +335,20 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    }
  *
  * @phpstan-type TTransparencyGroup array{
- *         'CS'?: string,
- *         'I'?: bool,
- *         'K'?: bool,
+ *         'CS': string,
+ *         'I': bool,
+ *         'K': bool,
  *     }
  *
  * @phpstan-type TXOBject array{
- *         'graph'?: \Com\Tecnick\Pdf\Graph\Draw,
- *         'fonts'?: \Com\Tecnick\Pdf\Font\Stack,
- *         'spot_colors'?: \Com\Tecnick\Color\Pdf,
- *         'images'?: array<int>,
+ *         'graph'?: ObjGraph,
+ *         'font'?: ObjFont,
+ *         'color'?: ObjColor,
+ *         'image'?: ObjImage,
+ *         'transpgroup'?: ?TTransparencyGroup,
  *         'annotations'?: array<int, TAnnot>,
- *         'xobjects'?: array<int, int>,
- *         'group'?: TTransparencyGroup,
+ *         'xobjects'?: array<string, int>,
+ *         'id': string,
  *         'outdata': string,
  *         'n': int,
  *         'x': float,
@@ -966,7 +971,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $stream = trim($stream);
         $oid = ++$this->pon;
         $out = $oid . ' 0 obj' . "\n";
-        $this->xobjects['AX' . $oid] = [
+        $tid = 'AX' . $oid;
+        $this->xobjects[$tid] = [
+            'id' => $tid,
             'n' => $oid,
             'x' => 0,
             'w' => 0,
@@ -1029,17 +1036,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $this->toPoints(($data['h'] - $data['y']))
             );
             $out .= ' /Matrix [1 0 0 1 0 0] /Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
-            
+
+
+            /* @TODO
             if (! empty($data['fonts'])) {
-                $fonts = $data['fonts']->getFonts();
                 $out = ' /Font <<';
-                foreach ($fonts as $font) {
-                    $out .= ' /F' . $font['i'] . ' ' . $font['n'] . ' 0 R';
+                foreach ($data['fonts'] as $fontkey => $fontid) {
+
+                    $out .= ' /F'.$fontid.' '.$this->font->getFonts()[$fontkey]['n'].' 0 R';
                 }
 
                 $out .= ' >>';
             }
-
             if (! empty($data['graph'])) {
                 $out .= $data['graph']->getOutExtGStateResources();
                 $out .= $data['graph']->getOutGradientResources();
@@ -1067,25 +1075,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
                 $out .= ' >>';
             }
+            */
 
             $out .= ' >>';
-            if (! empty($data['group'])) {
+            if (! empty($data['transpgroup'])) {
                 // set transparency group
                 $out .= ' /Group << /Type /Group /S /Transparency';
-                if (is_array($data['group'])) {
-                    if (! empty($data['group']['CS'])) {
-                        $out .= ' /CS /' . $data['group']['CS'];
-                    }
-
-                    if (isset($data['group']['I'])) {
-                        $out .= ' /I /' . ($data['group']['I'] === true ? 'true' : 'false');
-                    }
-
-                    if (isset($data['group']['K'])) {
-                        $out .= ' /K /' . ($data['group']['K'] === true ? 'true' : 'false');
-                    }
+                if (!empty($data['transpgroup'])) {
+                    $out .= ' /CS /' . $data['transpgroup']['CS'];
+                    $out .= ' /I /' . (($data['transpgroup']['I'] === true) ? 'true' : 'false');
+                    $out .= ' /K /' . (($data['transpgroup']['K'] === true) ? 'true' : 'false');
                 }
-
                 $out .= ' >>';
             }
 

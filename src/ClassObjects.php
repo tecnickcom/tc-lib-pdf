@@ -46,17 +46,11 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
    /**
     * Initialize dependencies class objects.
     *
-    * @param string      $unit       Unit of measure ('pt', 'mm', 'cm', 'in').
-    * @param bool        $isunicode  True if the document is in Unicode mode.
-    * @param bool        $subsetfont If true subset the embedded fonts to remove the unused characters.
-    * @param bool        $compress   Set to false to disable stream compression.
-    * @param bool        $sigapp     Enable signature approval (for incremental updates).
-    * @param bool        $pdfa       True if PDF/A Mode.
     * @param ?ObjEncrypt $objEncrypt Encryption object.
     */
     public function initClassObjects(
         ?ObjEncrypt $objEncrypt = null
-    ) {
+    ): void {
         if ($objEncrypt instanceof ObjEncrypt) {
             $this->encrypt = $objEncrypt;
         } else {

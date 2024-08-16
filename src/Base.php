@@ -69,14 +69,15 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *
  * @phpstan-type TStackBBox array<int, TBBox>
  *
- * @phpstan-import-type TEmbeddedFile from Output
- * @phpstan-import-type TOutline from Output
  * @phpstan-import-type TAnnot from Output
- * @phpstan-import-type TXOBject from Output
+ * @phpstan-import-type TEmbeddedFile from Output
+ * @phpstan-import-type TObjID from Output
+ * @phpstan-import-type TOutline from Output
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TSignTimeStamp from Output
+ * @phpstan-import-type TTransparencyGroup from Output
  * @phpstan-import-type TUserRights from Output
- * @phpstan-import-type TObjID from Output
+ * @phpstan-import-type TXOBject from Output
  *
  * @SuppressWarnings(PHPMD)
  */
@@ -355,7 +356,7 @@ abstract class Base
      *
      * @var string
      */
-    protected string $xobjtemplid = '';
+    protected string $xobjtid = '';
 
     /**
      * Outlines Data.

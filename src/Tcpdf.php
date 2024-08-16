@@ -19,6 +19,10 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Barcode\Exception as BarcodeException;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Color\Pdf as ObjColor;
+use Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
+use Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -290,9 +294,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'subtype' => 'text',
         ]
     ): int {
-        if (!empty($this->xobjtemplid)) {
+        if (!empty($this->xobjtid)) {
             // Store annotationparameters for later use on a XObject template.
-            $this->xobject[$this->xobjtemplid]['annotations'][] = [
+            $this->xobject[$this->xobjtid]['annotations'][] = [
                 'n' => 0,
                 'x' => $posx,
                 'y' => $posy,
@@ -595,7 +599,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
     }
 
-    /*
+    /**
      * Create a new XObject template and return the object id.
      *
      * An XObject Template is a PDF block that is a self-contained description
@@ -607,18 +611,18 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * @param float $width  Width of the XObject.
      * @param float $heigth Height of the XObject.
-     * @param ?TTransparencyGroup $group Optional group attributes.
+     * @param ?TTransparencyGroup $transpgroup Optional group attributes.
      *
-     * @return string Object ID.
+     * @return TXOBject XObject template object.
      */
     public function newXObjectTemplate(
         float $width = 0,
         float $heigth = 0,
-        ?array $group = null,
-    ): string {
+        ?array $transpgroup = null,
+    ): array {
         $oid = ++$this->pon;
         $tid = 'XT' . $oid;
-        $this->xobjtemplid = $tid;
+        $this->xobjtid = $tid;
 
         $region = $this->page->getRegion();
 
@@ -631,13 +635,32 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         $this->xobject[$tid] = [
-            'graph' => [],
-            'fonts' => [],
-            'spot_colors' => [],
-            'images' => [],
+            'graph' => new ObjGraph(
+                $this->kunit,
+                $width,
+                $heigth,
+                $this->color,
+                $this->encrypt,
+                (bool) $this->pdfa,
+                $this->compress,
+            ),
+            'font' => new ObjFont(
+                $this->kunit,
+                $this->subsetfont,
+                $this->isunicode,
+                (bool) $this->pdfa,
+            ),
+            'color' => new ObjColor(),
+            'image' => new ObjImage(
+                $this->kunit,
+                $this->encrypt,
+                (bool) $this->pdfa,
+                $this->compress,
+            ),
+            'transpgroup' => $transpgroup,
             'annotations' => [],
             'xobjects' => [],
-            'group' => $group,
+            'id' => $tid,
             'outdata' => '',
             'n' => $oid,
             'x' => 0,
@@ -646,7 +669,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'h' => $heigth,
         ];
 
-        return $tid;
+        return $this->xobject[$tid];
     }
 
     /**
@@ -656,23 +679,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function exitXObjectTemplate(): void
     {
-        $this->xobjtemplid = '';
-    }
-
-    /**
-     * Add raw PDF content to the active XObject template.
-     *
-     * See: newXObjectTemplate.
-     *
-     * @param string $raw Raw content to add.
-     */
-    public function addXobjectTemplateRawContent(string $raw): void
-    {
-        if (empty($this->xobjtemplid)) {
-            throw new PdfException('No XObject template active');
-        }
-
-        $this->xobject[$this->xobjtemplid]['outdata'] .= $raw;
+        $this->xobjtid = '';
     }
 
     /**
@@ -680,7 +687,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * See: newXObjectTemplate.
      *
-     * @param string      $oid         The XObject Template ID as returned by the newXObjectTemplate method.
+     * @param TXOBject    $xobj        The XObject Template object as returned by the newXObjectTemplate method.
      * @param float       $posx        Abscissa of upper-left corner.
      * @param float       $posy        Ordinate of upper-left corner.
      * @param float       $width       Width.
@@ -691,7 +698,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @return string The PDF code to render the specified XObject template.
      */
     public function getXObjectTemplate(
-        string $oid,
+        array $xobj,
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
@@ -699,21 +706,15 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         string $valign = 'T',
         string $halign = 'L',
     ): string {
-        $this->xobjtemplid = '';
-
-        if (empty($this->xobject[$oid])) {
-            return '';
-        }
-
-        $tpl = $this->xobject[$oid];
+        $this->xobjtid = '';
         $region = $this->page->getRegion();
 
         if (empty($width) || $width < 0) {
-            $width = min($tpl['w'], $region['RW']);
+            $width = min($xobj['w'], $region['RW']);
         }
 
         if (empty($height) || $height < 0) {
-            $height = min($tpl['h'], $region['RH']);
+            $height = min($xobj['h'], $region['RH']);
         }
 
         $tplx = $this->cellHPos($posx, $width, $halign, $this->defcell);
@@ -728,19 +729,19 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 
         $out = $this->graph->getStartTransform();
         $ctm = [
-            0 => ($width / $tpl['w']),
+            0 => ($width / $xobj['w']),
             1 => 0,
             2 => 0,
-            3 => ($height / $tpl['h']),
+            3 => ($height / $xobj['h']),
             4 => $this->toPoints($tplx),
             5 => $this->toYPoints($tply + $height),
         ];
         $out .= $this->graph->getTransformation($ctm);
-        $out .= '/' . $oid . ' Do' . "\n";
+        $out .= '/' . $xobj['id'] . ' Do' . "\n";
         $out .= $this->graph->getStopTransform();
 
-        if (!empty($tpl['annotations'])) {
-            foreach ($tpl['annotations'] as $annot) {
+        if (!empty($xobj['annotations'])) {
+            foreach ($xobj['annotations'] as $annot) {
                 // transform original coordinates
                 $clt = $this->graph->getCtmProduct(
                     $ctm,
