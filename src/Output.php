@@ -341,13 +341,15 @@ use Com\Tecnick\Pdf\Image\Import as ObjImage;
  *     }
  *
  * @phpstan-type TXOBject array{
- *         'graph'?: ObjGraph,
- *         'font'?: ObjFont,
- *         'color'?: ObjColor,
- *         'image'?: ObjImage,
- *         'transpgroup'?: ?TTransparencyGroup,
+ *         'colorspace'?: array<string, int>,
+ *         'extgstate'?: array<string, int>,
+ *         'font'?: array<string, int>,
+ *         'image'?: array<string, int>,
+ *         'pattern'?: array<string, int>,
+ *         'shading'?: array<string, int>,
+ *         'xobject'?: array<string, int>,
  *         'annotations'?: array<int, TAnnot>,
- *         'xobjects'?: array<string, int>,
+ *         'transpgroup'?: ?TTransparencyGroup,
  *         'id': string,
  *         'outdata': string,
  *         'n': int,
@@ -1035,49 +1037,69 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $this->toPoints(($data['w'] + $data['x'])),
                 $this->toPoints(($data['h'] - $data['y']))
             );
-            $out .= ' /Matrix [1 0 0 1 0 0] /Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
+            $out .= ' /Matrix [1 0 0 1 0 0] /Resources <<'
+            . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
 
-
-            /* @TODO
-            if (! empty($data['fonts'])) {
-                $out = ' /Font <<';
-                foreach ($data['fonts'] as $fontkey => $fontid) {
-
-                    $out .= ' /F'.$fontid.' '.$this->font->getFonts()[$fontkey]['n'].' 0 R';
+            if (empty($this->pdfa) || ($this->pdfa > 1)) {
+                if (!empty($data['extgstate'])) {
+                    $out .= ' /ExtGState <<';
+                    foreach ($data['extgstate'] as $name => $oid) {
+                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    }
+                    $out .= ' >>';
                 }
 
+                if (!empty($data['pattern'])) {
+                    $out .= ' /Pattern <<';
+                    foreach ($data['pattern'] as $name => $oid) {
+                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    }
+                    $out .= ' >>';
+                }
+
+                if (!empty($data['shading'])) {
+                    $out .= ' /Shading <<';
+                    foreach ($data['shading'] as $name => $oid) {
+                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                    }
+                    $out .= ' >>';
+                }
+            }
+
+            if (! empty($data['colorspace'])) {
+                $out .= ' /ColorSpace <<';
+                foreach ($data['colorspace'] as $name => $oid) {
+                    $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                }
                 $out .= ' >>';
             }
-            if (! empty($data['graph'])) {
-                $out .= $data['graph']->getOutExtGStateResources();
-                $out .= $data['graph']->getOutGradientResources();
+
+            if (! empty($data['font'])) {
+                $out .= ' /Font <<';
+                foreach ($data['font'] as $name => $oid) {
+                    $out .= ' /' . $name . ' ' . $oid . ' 0 R';
+                }
+                $out .= ' >>';
             }
 
-            if (! empty($data['spot_colors'])) {
-                $out .= $data['spot_colors']->getPdfSpotResources();
-            }
-
-            // images or nested xobjects
-            if (! empty($data['images']) || ! empty($data['xobjects'])) {
+            if (! empty($data['image']) || ! empty($data['xobject'])) {
                 $out .= ' /XObject <<';
-
-                if (! empty($data['images'])) {
-                    foreach ($data['images'] as $imgid) {
-                        $out .= ' /I' . $imgid . ' ' . $this->xobject['I' . $imgid]['n'] . ' 0 R';
+                if (! empty($data['image'])) {
+                    foreach ($data['image'] as $name => $oid) {
+                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
                     }
                 }
 
-                if (! empty($data['xobjects'])) {
-                    foreach ($data['xobjects'] as $sub_id => $sub_objid) {
-                        $out .= ' /' . $sub_id . ' ' . $sub_objid . ' 0 R';
+                if (! empty($data['xobject'])) {
+                    foreach ($data['xobject'] as $name => $oid) {
+                        $out .= ' /' . $name . ' ' . $oid . ' 0 R';
                     }
                 }
-
                 $out .= ' >>';
             }
-            */
 
-            $out .= ' >>';
+            $out .= ' >>'; // end of /Resources.
+
             if (! empty($data['transpgroup'])) {
                 // set transparency group
                 $out .= ' /Group << /Type /Group /S /Transparency';

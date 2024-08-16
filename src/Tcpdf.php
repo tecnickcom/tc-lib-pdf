@@ -635,38 +635,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         $this->xobject[$tid] = [
-            'graph' => new ObjGraph(
-                $this->kunit,
-                $width,
-                $heigth,
-                $this->color,
-                $this->encrypt,
-                (bool) $this->pdfa,
-                $this->compress,
-            ),
-            'font' => new ObjFont(
-                $this->kunit,
-                $this->subsetfont,
-                $this->isunicode,
-                (bool) $this->pdfa,
-            ),
-            'color' => new ObjColor(),
-            'image' => new ObjImage(
-                $this->kunit,
-                $this->encrypt,
-                (bool) $this->pdfa,
-                $this->compress,
-            ),
-            'transpgroup' => $transpgroup,
-            'annotations' => [],
-            'xobjects' => [],
             'id' => $tid,
-            'outdata' => '',
             'n' => $oid,
             'x' => 0,
             'y' => 0,
             'w' => $width,
             'h' => $heigth,
+            'outdata' => '',
+            'transpgroup' => $transpgroup,
         ];
 
         return $this->xobject[$tid];
