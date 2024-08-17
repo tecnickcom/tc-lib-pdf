@@ -136,7 +136,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.68';
+    protected string $version = '8.0.69';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -343,13 +343,6 @@ abstract class Base
         'srgbicc' => 0,
         'xmp' => 0,
     ];
-
-    /**
-     * Store XObject.
-     *
-     * @var array<string, TXOBject>
-     */
-    protected array $xobject = [];
 
     /**
      * Current XOBject template ID.

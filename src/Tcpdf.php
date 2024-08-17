@@ -296,7 +296,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): int {
         if (!empty($this->xobjtid)) {
             // Store annotationparameters for later use on a XObject template.
-            $this->xobject[$this->xobjtid]['annotations'][] = [
+            $this->xobjects[$this->xobjtid]['annotations'][] = [
                 'n' => 0,
                 'x' => $posx,
                 'y' => $posy,
@@ -613,13 +613,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param float $heigth Height of the XObject.
      * @param ?TGTransparency $transpgroup Optional group attributes.
      *
-     * @return TXOBject XObject template object.
+     * @return string XObject template object ID.
      */
     public function newXObjectTemplate(
         float $width = 0,
         float $heigth = 0,
         ?array $transpgroup = null,
-    ): array {
+    ): string {
         $oid = ++$this->pon;
         $tid = 'XT' . $oid;
         $this->xobjtid = $tid;
@@ -634,7 +634,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             $heigth = $region['RH'];
         }
 
-        $this->xobject[$tid] = [
+        $this->xobjects[$tid] = [
+            'spot_colors' => [],
+            'extgstate' => [],
+            'gradient' => [],
+            'font' => [],
+            'image' => [],
+            'xobject' => [],
+            'annotations' => [],
             'id' => $tid,
             'n' => $oid,
             'x' => 0,
@@ -642,10 +649,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'w' => $width,
             'h' => $heigth,
             'outdata' => '',
-            'transpgroup' => $transpgroup,
+            'transparency' => $transpgroup,
         ];
 
-        return $this->xobject[$tid];
+        return $tid;
     }
 
     /**
@@ -663,7 +670,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * See: newXObjectTemplate.
      *
-     * @param TXOBject    $xobj        The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string      $tid         The XObject Template object as returned by the newXObjectTemplate method.
      * @param float       $posx        Abscissa of upper-left corner.
      * @param float       $posy        Ordinate of upper-left corner.
      * @param float       $width       Width.
@@ -674,7 +681,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @return string The PDF code to render the specified XObject template.
      */
     public function getXObjectTemplate(
-        array $xobj,
+        string $tid,
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
@@ -684,6 +691,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): string {
         $this->xobjtid = '';
         $region = $this->page->getRegion();
+
+        if (empty($this->xobjects[$tid])) {
+            return '';
+        }
+
+        $xobj = $this->xobjects[$tid];
 
         if (empty($width) || $width < 0) {
             $width = min($xobj['w'], $region['RW']);
@@ -759,5 +772,82 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         return $out;
+    }
+
+    /**
+     * Add the specified raw PDF content to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $data  The raw PDF content data to add.
+     */
+    public function addXObjectContent(string $tid, string $data): void
+    {
+        $this->xobjects[$tid]['outdata'] .= $data;
+    }
+
+    /**
+     * Add the specified XObject ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $key  The XObject key to add.
+     */
+    public function addXObjectXObjectID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['xobject'][] = $key;
+    }
+
+    /**
+     * Add the specified Image ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  TheImage key to add.
+     */
+    public function addXObjectImageID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['image'][] = $key;
+    }
+
+    /**
+     * Add the specified Font ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $key  The Font key to add.
+     */
+    public function addXObjectFontID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['font'][] = $key;
+    }
+
+    /**
+     * Add the specified Gradient ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  The Gradient key to add.
+     */
+    public function addXObjectGradientID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['gradient'][] = $key;
+    }
+
+    /**
+     * Add the specified ExtGState ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  The ExtGState key to add.
+     */
+    public function addXObjectExtGStateID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['extgstate'][] = $key;
+    }
+
+    /**
+     * Add the specified SpotColor ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $key  The SpotColor key to add.
+     */
+    public function addXObjectSpotColorID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['spot_colors'][] = $key;
     }
 }
