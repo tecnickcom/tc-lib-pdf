@@ -1436,16 +1436,16 @@ $pdf->addEmptySignatureAppearance(30, 60, 20, 20, -1, 'test');
 
 // ----------
 
-// XOBject template
+// XOBject template (@TODO: fix the implementation)
 
 $pageC02 = $pdf->page->add();
 
-$tid = $pdf->newXObjectTemplate(60, 60, []);
+$tid = $pdf->newXObjectTemplate(80, 80, []);
 
 $xcnz = $pdf->graph->getStartTransform();
-$xcnz .= $pdf->graph->getStarPolygon(0, 0, 40, 10, 3, 0, 'CNZ');
-$timg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
-$xcnz .= $pdf->image->getSetImage($timg, 0, 0, 50, 50, $pageC02['height']);
+$xcnz = $pdf->graph->getStarPolygon(50, 50, 40, 10, 3, 0, 'CNZ');
+$timg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_GRAY.png');
+$xcnz .= $pdf->image->getSetImage($timg, 10, 10, 80, 80, $pageC02['height']);
 $xcnz .= $pdf->graph->getStopTransform();
 
 $pdf->addXObjectImageID($tid, $timg);
@@ -1455,10 +1455,10 @@ $pdf->exitXObjectTemplate();
 
 $tmpl = $pdf->getXObjectTemplate(
     $tid,
-    15,
-    50,
-    20,
-    20,
+    0,
+    0,
+    80,
+    80,
     'T',
     'L',
 );
