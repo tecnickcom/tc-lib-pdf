@@ -18,6 +18,10 @@ namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Font\Output as OutFont;
+use Com\Tecnick\Color\Pdf as ObjColor;
+use Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
+use Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Output
@@ -330,24 +334,29 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'opt': TAnnotOpts,
  *    }
  *
+ * @phpstan-type TGTransparency array{
+ *         'CS': string,
+ *         'I': bool,
+ *         'K': bool,
+ *     }
+ *
  * @phpstan-type TXOBject array{
- *         'extgstates'?: \Com\Tecnick\Pdf\Graph\Draw,
- *         'fonts'?: \Com\Tecnick\Pdf\Font\Stack,
- *         'gradients'?: \Com\Tecnick\Pdf\Graph\Draw,
- *         'group'?: array{
- *             'CS'?: string,
- *             'I'?: bool,
- *             'K'?: bool,
- *         },
- *         'h': float,
- *         'images'?: array<int>,
+ *         'colorspace'?: array<string>,
+ *         'extgstate'?: array<string>,
+ *         'font'?: array<string>,
+ *         'image'?: array<string>,
+ *         'pattern'?: array<string>,
+ *         'shading'?: array<string>,
+ *         'xobject'?: array<string>,
+ *         'annotations'?: array<int, TAnnot>,
+ *         'transparency'?: ?TGTransparency,
+ *         'id': string,
+ *         'outdata': string,
  *         'n': int,
- *         'outdata'?: string,
- *         'spot_colors'?: \Com\Tecnick\Color\Pdf,
- *         'w': float,
  *         'x': float,
- *         'xobjects'?: array<int, int>,
  *         'y': float,
+ *         'w': float,
+ *         'h': float,
  *     }
  *
  * @phpstan-type TOutline array{
@@ -548,13 +557,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->graph->getOutExtGState($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutOCG();
-        $output = new OutFont(
+        $outfont = new OutFont(
             $this->font->getFonts(),
             $this->pon,
-            $this->encrypt
+            $this->encrypt,
         );
-        $out .= $output->getFontsBlock();
-        $this->pon = $output->getObjectNumber();
+        $out .= $outfont->getFontsBlock();
+        $this->pon = $outfont->getObjectNumber();
         $out .= $this->image->getOutImagesBlock($this->pon);
         $this->pon = $this->image->getObjectNumber();
         $out .= $this->color->getPdfSpotObjects($this->pon);
@@ -964,12 +973,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $stream = trim($stream);
         $oid = ++$this->pon;
         $out = $oid . ' 0 obj' . "\n";
-        $this->xobjects['AX' . $oid] = [
+        $tid = 'AX' . $oid;
+        $this->xobjects[$tid] = [
+            'id' => $tid,
             'n' => $oid,
-            'h' => 0,
-            'w' => 0,
             'x' => 0,
+            'w' => 0,
             'y' => 0,
+            'h' => 0,
+            'outdata' => '',
         ];
         $out .= '<< /Type /XObject /Subtype /Form /FormType 1';
         if ($this->compress) {
@@ -1025,66 +1037,77 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $this->toPoints(($data['w'] + $data['x'])),
                 $this->toPoints(($data['h'] - $data['y']))
             );
-            $out .= ' /Matrix [1 0 0 1 0 0] /Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
-            if (! empty($data['fonts'])) {
-                $fonts = $data['fonts']->getFonts();
-                $out = ' /Font <<';
-                foreach ($fonts as $font) {
-                    $out .= ' /F' . $font['i'] . ' ' . $font['n'] . ' 0 R';
+            $out .= ' /Matrix [1 0 0 1 0 0] /Resources <<'
+            . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
+
+            if (empty($this->pdfa) || ($this->pdfa > 1)) {
+                if (!empty($data['extgstate'])) {
+                    $out .= ' /ExtGState <<';
+                    foreach ($data['extgstate'] as $objdic) {
+                        $out .= $objdic;
+                    }
+                    $out .= ' >>';
                 }
 
+                if (!empty($data['pattern'])) {
+                    $out .= ' /Pattern <<';
+                    foreach ($data['pattern'] as $objdic) {
+                        $out .= $objdic;
+                    }
+                    $out .= ' >>';
+                }
+
+                if (!empty($data['shading'])) {
+                    $out .= ' /Shading <<';
+                    foreach ($data['shading'] as $objdic) {
+                        $out .= $objdic;
+                    }
+                    $out .= ' >>';
+                }
+            }
+
+            if (! empty($data['colorspace'])) {
+                $out .= ' /ColorSpace <<';
+                foreach ($data['colorspace'] as $objdic) {
+                    $out .= $objdic;
+                }
                 $out .= ' >>';
             }
 
-            if (! empty($data['extgstates'])) {
-                $out .= $data['extgstates']->getOutExtGStateResources();
+            if (! empty($data['font'])) {
+                $out .= ' /Font <<';
+                foreach ($data['font'] as $objdic) {
+                    $out .= $objdic;
+                }
+                $out .= ' >>';
             }
 
-            if (! empty($data['gradients'])) {
-                $out .= $data['gradients']->getOutGradientResources();
-            }
-
-            if (! empty($data['spot_colors'])) {
-                $out .= $data['spot_colors']->getPdfSpotResources();
-            }
-
-            // images or nested xobjects
-            if (! empty($data['images']) || ! empty($data['xobjects'])) {
+            if (! empty($data['image']) || ! empty($data['xobject'])) {
                 $out .= ' /XObject <<';
-
-                if (! empty($data['images'])) {
-                    foreach ($data['images'] as $imgid) {
-                        $out .= ' /I' . $imgid . ' ' . $this->xobject['I' . $imgid]['n'] . ' 0 R';
+                if (! empty($data['image'])) {
+                    foreach ($data['image'] as $objdic) {
+                        $out .= $objdic;
                     }
                 }
 
-                if (! empty($data['xobjects'])) {
-                    foreach ($data['xobjects'] as $sub_id => $sub_objid) {
-                        $out .= ' /' . $sub_id . ' ' . $sub_objid . ' 0 R';
+                if (! empty($data['xobject'])) {
+                    foreach ($data['xobject'] as $objdic) {
+                        $out .= $objdic;
                     }
                 }
-
                 $out .= ' >>';
             }
 
-            $out .= ' >>';
-            if (! empty($data['group'])) {
+            $out .= ' >>'; // end of /Resources.
+
+            if (! empty($data['transparency'])) {
                 // set transparency group
                 $out .= ' /Group << /Type /Group /S /Transparency';
-                if (is_array($data['group'])) {
-                    if (! empty($data['group']['CS'])) {
-                        $out .= ' /CS /' . $data['group']['CS'];
-                    }
-
-                    if (isset($data['group']['I'])) {
-                        $out .= ' /I /' . ($data['group']['I'] === true ? 'true' : 'false');
-                    }
-
-                    if (isset($data['group']['K'])) {
-                        $out .= ' /K /' . ($data['group']['K'] === true ? 'true' : 'false');
-                    }
+                if (!empty($data['transparency'])) {
+                    $out .= ' /CS /' . $data['transparency']['CS'];
+                    $out .= ' /I /' . (($data['transparency']['I'] === true) ? 'true' : 'false');
+                    $out .= ' /K /' . (($data['transparency']['K'] === true) ? 'true' : 'false');
                 }
-
                 $out .= ' >>';
             }
 
@@ -1754,7 +1777,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (! empty($annot['txt']) && is_string($annot['txt'])) {
             switch ($annot['txt'][0]) {
                 case '#': // internal destination
-                    $out .= ' /A << /S /GoTo /D /' . $this->encrypt->encodeNameObject(substr($annot['txt'], 1)) . '>>';
+                    $out .= ' /A << /S /GoTo /D /'
+                    . $this->encrypt->encodeNameObject(substr($annot['txt'], 1)) . '>>';
                     break;
                 case '%': // embedded PDF file
                     $filename = basename(substr($annot['txt'], 1));
@@ -1787,7 +1811,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         }
 
                         $out .= ' /A << /S /GoToR /D ' . $dest
-                            . ' /F ' . $this->encrypt->escapeDataString($this->unhtmlentities($parsedUrl['path']), $oid)
+                            . ' /F '
+                            . $this->encrypt->escapeDataString($this->unhtmlentities($parsedUrl['path']), $oid)
                             . ' /NewWindow true'
                             . ' >>';
                     } else {
@@ -2835,7 +2860,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             // optional digest data (values must be calculated and replaced later)
             //$out .= ' /Data ********** 0 R'
-            //    .' /DigestMethod/MD5'
+            //    .' /DigestMethod /MD5'
             //    .' /DigestLocation[********** 34]'
             //    .' /DigestValue<********************************>';
             $out .= ' >> ]'; // end of reference

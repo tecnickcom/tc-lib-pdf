@@ -1026,7 +1026,6 @@ $styletxt = [
 $pdf->graph->add($styletxt);
 
 
-
 $bfont2 = $pdf->font->insert($pdf->pon, 'times', 'BI', 24);
 
 $pdf->page->addContent($bfont2['out']);
@@ -1043,13 +1042,13 @@ $txt = $pdf->getTextLine(
 
 $pdf->page->addContent($txt);
 
-$bbox = $pdf->getLastTextBBox();
+$bbox = $pdf->getLastBBox();
 
 // Add text
 $txt2 = $pdf->getTextLine(
     'Link to https://tcpdf.org',
     15,
-    ($bbox['y'] + $bbox['height'] + $pdf->toUnit($bfont2['ascent'])),
+    ($bbox['y'] + $bbox['h'] + $pdf->toUnit($bfont2['ascent'])),
     0,
     0,
     0,
@@ -1071,13 +1070,13 @@ $txt2 = $pdf->getTextLine(
 $pdf->page->addContent($txt2);
 
 // get the coordinates of the box containing the last added text string.
-$bbox = $pdf->getLastTextBBox();
+$bbox = $pdf->getLastBBox();
 
 $aoid = $pdf->setAnnotation(
     $bbox['x'],
     $bbox['y'],
-    $bbox['width'],
-    $bbox['height'],
+    $bbox['w'],
+    $bbox['h'],
     'https://tcpdf.org',
     [
         'subtype' => 'Link',

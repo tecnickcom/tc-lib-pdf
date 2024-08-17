@@ -19,6 +19,10 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Barcode\Exception as BarcodeException;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Color\Pdf as ObjColor;
+use Com\Tecnick\Pdf\Font\Stack as ObjFont;
+use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
+use Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -39,7 +43,9 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TAnnotOpts from Output
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TSignTimeStamp from Output
+ * @phpstan-import-type TGTransparency from Output
  * @phpstan-import-type TUserRights from Output
+ * @phpstan-import-type TXOBject from Output
  *
  * @SuppressWarnings(PHPMD.DepthOfInheritance)
  */
@@ -75,10 +81,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->setPDFMode($mode);
         $this->setCompressMode($compress);
         $this->setPDFVersion();
-        $this->initClassObjects();
-        if ($objEncrypt instanceof \Com\Tecnick\Pdf\Encrypt\Encrypt) {
-            $this->encrypt = $objEncrypt;
-        }
+        $this->initClassObjects($objEncrypt);
     }
 
     /**
@@ -291,6 +294,21 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'subtype' => 'text',
         ]
     ): int {
+        if (!empty($this->xobjtid)) {
+            // Store annotationparameters for later use on a XObject template.
+            $this->xobject[$this->xobjtid]['annotations'][] = [
+                'n' => 0,
+                'x' => $posx,
+                'y' => $posy,
+                'w' => $width,
+                'h' => $height,
+                'txt' => $txt,
+                'opt' => $opt,
+            ];
+
+            return 0;
+        }
+
         $oid = ++$this->pon;
         $this->annotation[$oid] = [
             'n' => $oid,
@@ -434,6 +452,19 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->sign = true;
     }
 
+
+    /**
+     * Enable or disable the the Signature Approval
+     *
+     * @param bool $enabled It true enable the Signature Approval
+     */
+    protected function enableSignatureApproval(bool $enabled = true): static
+    {
+        $this->sigapp = $enabled;
+        $this->page->enableSignatureApproval($this->sigapp);
+        return $this;
+    }
+
     /**
      * Set the signature timestamp.
      *
@@ -464,18 +495,18 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param string $name Name of the signature.
      *
      * @return array{
-     *         'name': string,
-     *         'page': int,
-     *         'rect': string,
-     * } Array defining page and rectangle coordinates of signature appearance.
+     *           'name': string,
+     *           'page': int,
+     *           'rect': string,
+     *         } Array defining page and rectangle coordinates of signature appearance.
      */
     protected function getSignatureAppearanceArray(
-        $posx = 0,
-        $posy = 0,
-        $width = 0,
-        $heigth = 0,
-        $page = -1,
-        $name = ''
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $heigth = 0,
+        int $page = -1,
+        string $name = ''
     ): array {
         $sigapp = [];
 
@@ -493,7 +524,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
-     * Set the digital signature appearance (a cliccable rectangle area to get signature properties)
+     * Set the digital signature appearance (a cliccable rectangle area to get signature properties).
      *
      * @param float $posx Abscissa of the upper-left corner.
      * @param float $posy Ordinate of the upper-left corner.
@@ -503,12 +534,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param string $name Name of the signature.
      */
     public function setSignatureAppearance(
-        $posx = 0,
-        $posy = 0,
-        $width = 0,
-        $heigth = 0,
-        $page = -1,
-        $name = ''
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $heigth = 0,
+        int $page = -1,
+        string $name = ''
     ): void {
         $data = $this->getSignatureAppearanceArray($posx, $posy, $width, $heigth, $page, $name);
         $this->signature['appearance']['page'] = $data['page'];
@@ -518,7 +549,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
-     * Add an empty digital signature appearance (a cliccable rectangle area to get signature properties)
+     * Add an empty digital signature appearance (a cliccable rectangle area to get signature properties).
      *
      * @param float $posx Abscissa of the upper-left corner.
      * @param float $posy Ordinate of the upper-left corner.
@@ -528,12 +559,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param string $name Name of the signature.
      */
     public function addEmptySignatureAppearance(
-        $posx = 0,
-        $posy = 0,
-        $width = 0,
-        $heigth = 0,
-        $page = -1,
-        $name = ''
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $heigth = 0,
+        int $page = -1,
+        string $name = ''
     ): void {
         ++$this->pon;
         $data = $this->getSignatureAppearanceArray($posx, $posy, $width, $heigth, $page, $name);
@@ -546,6 +577,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->setSignAnnotRefs();
     }
 
+    /*
+    * Set the signature annotation references.
+    */
     protected function setSignAnnotRefs(): void
     {
         if (empty($this->objid['signature'])) {
@@ -563,5 +597,167 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         foreach ($this->signature['appearance']['empty'] as $esa) {
             $this->page->addAnnotRef($esa['objid'], $esa['page']);
         }
+    }
+
+    /**
+     * Create a new XObject template and return the object id.
+     *
+     * An XObject Template is a PDF block that is a self-contained description
+     * of any sequence of graphics objects (including path objects, text objects,
+     * and sampled images). An XObject Template may be painted multiple times,
+     * either on several pages or at several locations on the same page and
+     * produces the same results each time, subject only to the graphics state
+     * at the time it is invoked.
+     *
+     * @param float $width  Width of the XObject.
+     * @param float $heigth Height of the XObject.
+     * @param ?TGTransparency $transpgroup Optional group attributes.
+     *
+     * @return TXOBject XObject template object.
+     */
+    public function newXObjectTemplate(
+        float $width = 0,
+        float $heigth = 0,
+        ?array $transpgroup = null,
+    ): array {
+        $oid = ++$this->pon;
+        $tid = 'XT' . $oid;
+        $this->xobjtid = $tid;
+
+        $region = $this->page->getRegion();
+
+        if (empty($width) || $width < 0) {
+            $width = $region['RW'];
+        }
+
+        if (empty($heigth) || $heigth < 0) {
+            $heigth = $region['RH'];
+        }
+
+        $this->xobject[$tid] = [
+            'id' => $tid,
+            'n' => $oid,
+            'x' => 0,
+            'y' => 0,
+            'w' => $width,
+            'h' => $heigth,
+            'outdata' => '',
+            'transpgroup' => $transpgroup,
+        ];
+
+        return $this->xobject[$tid];
+    }
+
+    /**
+     * Exit from the XObject template mode.
+     *
+     * See: newXObjectTemplate.
+     */
+    public function exitXObjectTemplate(): void
+    {
+        $this->xobjtid = '';
+    }
+
+    /**
+     * Returns the PDF code to render the specified XObject template.
+     *
+     * See: newXObjectTemplate.
+     *
+     * @param TXOBject    $xobj        The XObject Template object as returned by the newXObjectTemplate method.
+     * @param float       $posx        Abscissa of upper-left corner.
+     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $width       Width.
+     * @param float       $height      Height.
+     * @param string      $valign      Vertical alignment inside the specified box: T=top; C=center; B=bottom.
+     * @param string      $halign      Horizontal alignment inside the specified box: L=left; C=center; R=right.
+     *
+     * @return string The PDF code to render the specified XObject template.
+     */
+    public function getXObjectTemplate(
+        array $xobj,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        string $valign = 'T',
+        string $halign = 'L',
+    ): string {
+        $this->xobjtid = '';
+        $region = $this->page->getRegion();
+
+        if (empty($width) || $width < 0) {
+            $width = min($xobj['w'], $region['RW']);
+        }
+
+        if (empty($height) || $height < 0) {
+            $height = min($xobj['h'], $region['RH']);
+        }
+
+        $tplx = $this->cellHPos($posx, $width, $halign, $this->defcell);
+        $tply = $this->cellVPos($posy, $height, $valign, $this->defcell);
+
+        $this->bbox[] = [
+            'x' => $tplx,
+            'y' => $tply,
+            'w' => $width,
+            'h' => $height,
+        ];
+
+        $out = $this->graph->getStartTransform();
+        $ctm = [
+            0 => ($width / $xobj['w']),
+            1 => 0,
+            2 => 0,
+            3 => ($height / $xobj['h']),
+            4 => $this->toPoints($tplx),
+            5 => $this->toYPoints($tply + $height),
+        ];
+        $out .= $this->graph->getTransformation($ctm);
+        $out .= '/' . $xobj['id'] . ' Do' . "\n";
+        $out .= $this->graph->getStopTransform();
+
+        if (!empty($xobj['annotations'])) {
+            foreach ($xobj['annotations'] as $annot) {
+                // transform original coordinates
+                $clt = $this->graph->getCtmProduct(
+                    $ctm,
+                    array(
+                        1,
+                        0,
+                        0,
+                        1,
+                        $this->toPoints($annot['x']),
+                        $this->toPoints(-$annot['y']),
+                    ),
+                );
+                $anx = $this->toUnit($clt[4]);
+                $any = $this->toYUnit($clt[5] + $this->toUnit($height));
+
+                $crb = $this->graph->getCtmProduct(
+                    $ctm,
+                    array(
+                        1,
+                        0,
+                        0,
+                        1,
+                        $this->toPoints(($annot['x'] + $annot['w'])),
+                        $this->toPoints((-$annot['y'] - $annot['h'])),
+                    ),
+                );
+                $anw = $this->toUnit($crb[4]) - $anx;
+                $anh = $this->toYUnit($crb[5] + $this->toUnit($height)) - $any;
+
+                $out .= $this->setAnnotation(
+                    $anx,
+                    $any,
+                    $anw,
+                    $anh,
+                    $annot['txt'],
+                    $annot['opt']
+                );
+            }
+        }
+
+        return $out;
     }
 }
