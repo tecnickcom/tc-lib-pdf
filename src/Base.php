@@ -345,13 +345,6 @@ abstract class Base
     ];
 
     /**
-     * Store XObject.
-     *
-     * @var array<string, TXOBject>
-     */
-    protected array $xobject = [];
-
-    /**
      * Current XOBject template ID.
      *
      * @var string

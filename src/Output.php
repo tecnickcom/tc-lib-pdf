@@ -1020,7 +1020,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutXObjects(): string
     {
         $out = '';
-        foreach ($this->xobject as $data) {
+        foreach ($this->xobjects as $data) {
             if (empty($data['outdata'])) {
                 continue;
             }
@@ -1061,7 +1061,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= $this->image->getXobjectDictByKeys($data['image']);
                 if (! empty($data['xobject'])) {
                     foreach ($data['xobject'] as $xid) {
-                        $out .= ' /' . $xid . ' ' . $this->xobject[$xid]['n'] . ' 0 R';
+                        $out .= ' /' . $xid . ' ' . $this->xobjects[$xid]['n'] . ' 0 R';
                     }
                 }
                 $out .= ' >>';
@@ -2926,7 +2926,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         $out = ' /XObject <<';
 
-        foreach ($this->xobject as $id => $oid) {
+        foreach ($this->xobjects as $id => $oid) {
             $out .= ' /' . $id . ' ' . $oid['n'] . ' 0 R';
         }
 

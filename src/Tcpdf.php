@@ -296,7 +296,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): int {
         if (!empty($this->xobjtid)) {
             // Store annotationparameters for later use on a XObject template.
-            $this->xobject[$this->xobjtid]['annotations'][] = [
+            $this->xobjects[$this->xobjtid]['annotations'][] = [
                 'n' => 0,
                 'x' => $posx,
                 'y' => $posy,
@@ -634,7 +634,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             $heigth = $region['RH'];
         }
 
-        $this->xobject[$tid] = [
+        $this->xobjects[$tid] = [
             'spot_colors' => [],
             'extgstate' => [],
             'gradient' => [],
@@ -692,11 +692,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->xobjtid = '';
         $region = $this->page->getRegion();
 
-        if (empty($this->xobject[$tid])) {
+        if (empty($this->xobjects[$tid])) {
             return '';
         }
 
-        $xobj = $this->xobject[$tid];
+        $xobj = $this->xobjects[$tid];
 
         if (empty($width) || $width < 0) {
             $width = min($xobj['w'], $region['RW']);
