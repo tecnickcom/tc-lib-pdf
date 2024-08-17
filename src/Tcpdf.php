@@ -613,13 +613,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param float $heigth Height of the XObject.
      * @param ?TGTransparency $transpgroup Optional group attributes.
      *
-     * @return TXOBject XObject template object.
+     * @return string XObject template object ID.
      */
     public function newXObjectTemplate(
         float $width = 0,
         float $heigth = 0,
         ?array $transpgroup = null,
-    ): array {
+    ): string {
         $oid = ++$this->pon;
         $tid = 'XT' . $oid;
         $this->xobjtid = $tid;
@@ -635,6 +635,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         $this->xobject[$tid] = [
+            'spot_colors' => [],
+            'extgstate' => [],
+            'gradient' => [],
+            'font' => [],
+            'image' => [],
+            'xobject' => [],
+            'annotations' => [],
             'id' => $tid,
             'n' => $oid,
             'x' => 0,
@@ -645,7 +652,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'transpgroup' => $transpgroup,
         ];
 
-        return $this->xobject[$tid];
+        return $tid;
     }
 
     /**
@@ -663,7 +670,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * See: newXObjectTemplate.
      *
-     * @param TXOBject    $xobj        The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string      $tid         The XObject Template object as returned by the newXObjectTemplate method.
      * @param float       $posx        Abscissa of upper-left corner.
      * @param float       $posy        Ordinate of upper-left corner.
      * @param float       $width       Width.
@@ -674,7 +681,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @return string The PDF code to render the specified XObject template.
      */
     public function getXObjectTemplate(
-        array $xobj,
+        string $tid,
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
@@ -684,6 +691,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): string {
         $this->xobjtid = '';
         $region = $this->page->getRegion();
+
+        if (empty($this->xobject[$tid])) {
+            return '';
+        }
+
+        $xobj = $this->xobject[$tid];
 
         if (empty($width) || $width < 0) {
             $width = min($xobj['w'], $region['RW']);

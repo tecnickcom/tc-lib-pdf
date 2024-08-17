@@ -52,6 +52,7 @@ $pdf->setPDFFilename('test_index.pdf');
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
+
 // ----------
 // Add first page
 

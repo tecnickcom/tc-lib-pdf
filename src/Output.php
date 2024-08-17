@@ -18,10 +18,6 @@ namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Font\Output as OutFont;
-use Com\Tecnick\Color\Pdf as ObjColor;
-use Com\Tecnick\Pdf\Font\Stack as ObjFont;
-use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
-use Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Output
@@ -341,14 +337,13 @@ use Com\Tecnick\Pdf\Image\Import as ObjImage;
  *     }
  *
  * @phpstan-type TXOBject array{
- *         'colorspace'?: array<string>,
- *         'extgstate'?: array<string>,
- *         'font'?: array<string>,
- *         'image'?: array<string>,
- *         'pattern'?: array<string>,
- *         'shading'?: array<string>,
- *         'xobject'?: array<string>,
- *         'annotations'?: array<int, TAnnot>,
+ *         'spot_colors': array<string>,
+ *         'extgstate': array<int>,
+ *         'gradient': array<int>,
+ *         'font': array<string>,
+ *         'image': array<int>,
+ *         'xobject': array<string>,
+ *         'annotations': array<int, TAnnot>,
  *         'transparency'?: ?TGTransparency,
  *         'id': string,
  *         'outdata': string,
@@ -442,6 +437,13 @@ use Com\Tecnick\Pdf\Image\Import as ObjImage;
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
+    /**
+     * Object to export fornt data.
+     *
+     * @var OutFont
+     */
+    protected OutFont $outfont;
+
     /**
      * PDF layers.
      *
@@ -557,13 +559,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->graph->getOutExtGState($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutOCG();
-        $outfont = new OutFont(
+        $this->outfont = new OutFont(
             $this->font->getFonts(),
             $this->pon,
             $this->encrypt,
         );
-        $out .= $outfont->getFontsBlock();
-        $this->pon = $outfont->getObjectNumber();
+        $out .= $this->outfont->getFontsBlock();
+        $this->pon = $this->outfont->getObjectNumber();
         $out .= $this->image->getOutImagesBlock($this->pon);
         $this->pon = $this->image->getObjectNumber();
         $out .= $this->color->getPdfSpotObjects($this->pon);
@@ -975,6 +977,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = $oid . ' 0 obj' . "\n";
         $tid = 'AX' . $oid;
         $this->xobjects[$tid] = [
+            'spot_colors' => [],
+            'extgstate' => [],
+            'gradient' => [],
+            'font' => [],
+            'image' => [],
+            'xobject' => [],
+            'annotations' => [],
             'id' => $tid,
             'n' => $oid,
             'x' => 0,
@@ -1037,62 +1046,22 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $this->toPoints(($data['w'] + $data['x'])),
                 $this->toPoints(($data['h'] - $data['y']))
             );
-            $out .= ' /Matrix [1 0 0 1 0 0] /Resources <<'
+
+            $out .= ' /Matrix [1 0 0 1 0 0]'
+            . ' /Resources <<'
             . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
 
-            if (empty($this->pdfa) || ($this->pdfa > 1)) {
-                if (!empty($data['extgstate'])) {
-                    $out .= ' /ExtGState <<';
-                    foreach ($data['extgstate'] as $objdic) {
-                        $out .= $objdic;
-                    }
-                    $out .= ' >>';
-                }
-
-                if (!empty($data['pattern'])) {
-                    $out .= ' /Pattern <<';
-                    foreach ($data['pattern'] as $objdic) {
-                        $out .= $objdic;
-                    }
-                    $out .= ' >>';
-                }
-
-                if (!empty($data['shading'])) {
-                    $out .= ' /Shading <<';
-                    foreach ($data['shading'] as $objdic) {
-                        $out .= $objdic;
-                    }
-                    $out .= ' >>';
-                }
-            }
-
-            if (! empty($data['colorspace'])) {
-                $out .= ' /ColorSpace <<';
-                foreach ($data['colorspace'] as $objdic) {
-                    $out .= $objdic;
-                }
-                $out .= ' >>';
-            }
-
-            if (! empty($data['font'])) {
-                $out .= ' /Font <<';
-                foreach ($data['font'] as $objdic) {
-                    $out .= $objdic;
-                }
-                $out .= ' >>';
-            }
+            $out .= $this->graph->getOutExtGStateResourcesByKeys($data['extgstate']);
+            $out .= $this->graph->getOutGradientResourcesByKeys($data['gradient']);
+            $out .= $this->color->getPdfSpotResourcesByKeys($data['spot_colors']);
+            $out .= $this->outfont->getOutFontDictByKeys($data['font']);
 
             if (! empty($data['image']) || ! empty($data['xobject'])) {
                 $out .= ' /XObject <<';
-                if (! empty($data['image'])) {
-                    foreach ($data['image'] as $objdic) {
-                        $out .= $objdic;
-                    }
-                }
-
+                $out .= $this->image->getXobjectDictByKeys($data['image']);
                 if (! empty($data['xobject'])) {
-                    foreach ($data['xobject'] as $objdic) {
-                        $out .= $objdic;
+                    foreach ($data['xobject'] as $xid) {
+                        $out .= ' /' . $xid . ' ' . $this->xobject[$xid]['n'] . ' 0 R';
                     }
                 }
                 $out .= ' >>';
@@ -1132,9 +1101,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         return $this->objid['resdic'] . ' 0 obj' . "\n"
             . '<<'
             . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
-            . $this->getOutFontDic()
-            . $this->getXObjectDic()
-            . $this->getLayerDic()
+            . $this->outfont->getOutFontDict()
+            . $this->getXObjectDict()
+            . $this->getLayerDict()
             . $this->graph->getOutExtGStateResources()
             . $this->graph->getOutGradientResources()
             . $this->color->getPdfSpotResources()
@@ -2951,47 +2920,32 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
-     * Get the PDF output string for Font resources dictionary.
-     */
-    protected function getOutFontDic(): string
-    {
-        $fonts = $this->font->getFonts();
-        if ($fonts === []) {
-            return '';
-        }
-
-        $out = ' /Font <<';
-        foreach ($fonts as $font) {
-            $out .= ' /F' . $font['i'] . ' ' . $font['n'] . ' 0 R';
-        }
-
-        return $out . ' >>';
-    }
-
-    /**
      * Get the PDF output string for XObject resources dictionary.
      */
-    protected function getXObjectDic(): string
+    protected function getXObjectDict(): string
     {
         $out = ' /XObject <<';
+
         foreach ($this->xobject as $id => $oid) {
             $out .= ' /' . $id . ' ' . $oid['n'] . ' 0 R';
         }
 
         $out .= $this->image->getXobjectDict();
+
         return $out . ' >>';
     }
 
     /**
      * Get the PDF output string for Layer resources dictionary.
      */
-    protected function getLayerDic(): string
+    protected function getLayerDict(): string
     {
         if (empty($this->pdflayer)) {
             return '';
         }
 
         $out = ' /Properties <<';
+
         foreach ($this->pdflayer as $layer) {
             $out .= ' /' . $layer['layer'] . ' ' . $layer['objid'] . ' 0 R';
         }
