@@ -1043,24 +1043,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             if (empty($this->pdfa) || ($this->pdfa > 1)) {
                 if (!empty($data['extgstate'])) {
                     $out .= ' /ExtGState <<';
-                    foreach ($data['extgstate'] as $objref) {
-                        $out .= $objref;
+                    foreach ($data['extgstate'] as $objdic) {
+                        $out .= $objdic;
                     }
                     $out .= ' >>';
                 }
 
                 if (!empty($data['pattern'])) {
                     $out .= ' /Pattern <<';
-                    foreach ($data['pattern'] as $objref) {
-                        $out .= $objref;
+                    foreach ($data['pattern'] as $objdic) {
+                        $out .= $objdic;
                     }
                     $out .= ' >>';
                 }
 
                 if (!empty($data['shading'])) {
                     $out .= ' /Shading <<';
-                    foreach ($data['shading'] as $objref) {
-                        $out .= $objref;
+                    foreach ($data['shading'] as $objdic) {
+                        $out .= $objdic;
                     }
                     $out .= ' >>';
                 }
@@ -1068,16 +1068,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             if (! empty($data['colorspace'])) {
                 $out .= ' /ColorSpace <<';
-                foreach ($data['colorspace'] as $objref) {
-                    $out .= $objref;
+                foreach ($data['colorspace'] as $objdic) {
+                    $out .= $objdic;
                 }
                 $out .= ' >>';
             }
 
             if (! empty($data['font'])) {
                 $out .= ' /Font <<';
-                foreach ($data['font'] as $objref) {
-                    $out .= $objref;
+                foreach ($data['font'] as $objdic) {
+                    $out .= $objdic;
                 }
                 $out .= ' >>';
             }
@@ -1085,14 +1085,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             if (! empty($data['image']) || ! empty($data['xobject'])) {
                 $out .= ' /XObject <<';
                 if (! empty($data['image'])) {
-                    foreach ($data['image'] as $objref) {
-                        $out .= $objref;
+                    foreach ($data['image'] as $objdic) {
+                        $out .= $objdic;
                     }
                 }
 
                 if (! empty($data['xobject'])) {
-                    foreach ($data['xobject'] as $objref) {
-                        $out .= $objref;
+                    foreach ($data['xobject'] as $objdic) {
+                        $out .= $objdic;
                     }
                 }
                 $out .= ' >>';
