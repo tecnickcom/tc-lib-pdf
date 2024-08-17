@@ -773,4 +773,70 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 
         return $out;
     }
+
+    /**
+     * Add the specified XObject ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string     $key  The XObject key to add.
+     */
+    public function addXObjectXObjectID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['xobject'][] = $key;
+    }
+
+    /**
+     * Add the specified Image ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  TheImage key to add.
+     */
+    public function addXObjectImageID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['image'][] = $key;
+    }
+
+    /**
+     * Add the specified Font ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string     $key  The Font key to add.
+     */
+    public function addXObjectFontID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['font'][] = $key;
+    }
+
+    /**
+     * Add the specified Gradient ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  The Gradient key to add.
+     */
+    public function addXObjectGradientID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['gradient'][] = $key;
+    }
+
+    /**
+     * Add the specified ExtGState ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  The ExtGState key to add.
+     */
+    public function addXObjectExtGStateID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['extgstate'][] = $key;
+    }
+
+    /**
+     * Add the specified SpotColor ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $key  The SpotColor key to add.
+     */
+    public function addXObjectSpotColorID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['spot_colors'][] = $key;
+    }
 }
