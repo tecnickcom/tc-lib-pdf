@@ -649,7 +649,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'w' => $width,
             'h' => $heigth,
             'outdata' => '',
-            'transpgroup' => $transpgroup,
+            'transparency' => $transpgroup,
         ];
 
         return $tid;
@@ -775,10 +775,21 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
+     * Add the specified raw PDF content to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $data  The raw PDF content data to add.
+     */
+    public function addXObjectContent(string $tid, string $data): void
+    {
+        $this->xobjects[$tid]['outdata'] .= $data;
+    }
+
+    /**
      * Add the specified XObject ID to the XObject template.
      *
      * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
-     * @param string     $key  The XObject key to add.
+     * @param string  $key  The XObject key to add.
      */
     public function addXObjectXObjectID(string $tid, string $key): void
     {
@@ -800,7 +811,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * Add the specified Font ID to the XObject template.
      *
      * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
-     * @param string     $key  The Font key to add.
+     * @param string  $key  The Font key to add.
      */
     public function addXObjectFontID(string $tid, string $key): void
     {

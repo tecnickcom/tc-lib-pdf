@@ -1384,6 +1384,7 @@ $pdf->addTextCell(
 
 
 // ----------
+
 // Page signature
 
 $pageC01 = $pdf->page->add();
@@ -1432,8 +1433,43 @@ $pdf->setSignatureAppearance(30, 30, 20, 20, -1, 'test');
 
 $pdf->addEmptySignatureAppearance(30, 60, 20, 20, -1, 'test');
 
+
 // ----------
 
+// XOBject template
+
+$pageC02 = $pdf->page->add();
+
+$tid = $pdf->newXObjectTemplate(60, 60, []);
+
+$xcnz = $pdf->graph->getStartTransform();
+$xcnz .= $pdf->graph->getStarPolygon(0, 0, 40, 10, 3, 0, 'CNZ');
+$timg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_CMYK.jpg');
+$xcnz .= $pdf->image->getSetImage($timg, 0, 0, 50, 50, $pageC02['height']);
+$xcnz .= $pdf->graph->getStopTransform();
+
+$pdf->addXObjectImageID($tid, $timg);
+$pdf->addXObjectContent($tid, $xcnz);
+
+$pdf->exitXObjectTemplate();
+
+$tmpl = $pdf->getXObjectTemplate(
+    $tid,
+    15,
+    50,
+    20,
+    20,
+    'T',
+    'L',
+);
+
+$pdf->page->addContent($tmpl);
+
+// ----------
+
+// =============================================================
+
+// ----------
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 

@@ -1025,7 +1025,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 continue;
             }
 
-            $out .= ' ' . $data['n'] . ' 0 R' . "\n"
+            $out .= $data['n'] . ' 0 obj' . "\n"
                 . '<<'
                 . ' /Type /XObject'
                 . ' /Subtype /Form'
@@ -1069,7 +1069,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             $out .= ' >>'; // end of /Resources.
 
-            if (! empty($data['transparency'])) {
+            if (isset($data['transparency'])) {
                 // set transparency group
                 $out .= ' /Group << /Type /Group /S /Transparency';
                 if (!empty($data['transparency'])) {
