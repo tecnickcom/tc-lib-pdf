@@ -947,6 +947,8 @@ $pdf->page->addContent($t8);
 
 $page09 = $pdf->page->add();
 
+$dest_barcode_page = $pdf->setNamedDestination('barcode');
+
 $pdf->graph->setPageWidth($page09['width']);
 $pdf->graph->setPageHeight($page09['height']);
 
@@ -1011,6 +1013,9 @@ $pdf->page->addContent($cnz);
 
 $page11 = $pdf->page->add();
 
+// Add an internal link to this page
+$page11_link = $pdf->addInternalLink();
+
 $pdf->graph->setPageWidth($page11['width']);
 $pdf->graph->setPageHeight($page11['height']);
 
@@ -1067,23 +1072,19 @@ $txt2 = $pdf->getTextLine(
         'color' => 'red',
     ],
 );
-
 $pdf->page->addContent($txt2);
 
 // get the coordinates of the box containing the last added text string.
 $bbox = $pdf->getLastBBox();
 
-$aoid = $pdf->setAnnotation(
+$aoid1 = $pdf->setLink(
     $bbox['x'],
     $bbox['y'],
     $bbox['w'],
     $bbox['h'],
     'https://tcpdf.org',
-    [
-        'subtype' => 'Link',
-    ]
 );
-$pdf->page->addAnnotRef($aoid);
+$pdf->page->addAnnotRef($aoid1);
 
 // -----------------------------------------------
 
@@ -1446,7 +1447,7 @@ $tid = $pdf->newXObjectTemplate(80, 80, []);
 $timg = $pdf->image->add('../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGB.png');
 $pdf->addXObjectImageID($tid, $timg);
 
-$xcnz .= $pdf->image->getSetImage($timg, 10, 10, 80, 80, 80);
+$xcnz = $pdf->image->getSetImage($timg, 10, 10, 80, 80, 80);
 $pdf->addXObjectContent($tid, $xcnz);
 
 $pdf->exitXObjectTemplate();
@@ -1464,6 +1465,61 @@ $tmpl .= $pdf->getXObjectTemplate($tid, 40, 40, 60, 60, 'T', 'L');
 $pdf->page->addContent($tmpl);
 
 // ----------
+
+// Layers
+
+$pageV01 = $pdf->page->add();
+
+$pdf->page->addContent($bfont4['out']);
+
+$txtV1 = 'LAYERS: You can limit the visibility of PDF objects to screen or printer by using the newLayer() method.
+Check the print preview of this document to display the alternative text.';
+$txtboxV1 = $pdf->getTextCell($txtV1, 15, 15, 150, valign: 'T', halign: 'L');
+$pdf->page->addContent($txtboxV1);
+
+$lyr01 = $pdf->newLayer('screen', [], false, true, false);
+$pdf->page->addContent($lyr01);
+$txtV2 = 'This line is for display on screen only.';
+$txtboxV2 = $pdf->getTextCell($txtV2, 15, 45, 150, valign: 'T', halign: 'L');
+$pdf->page->addContent($txtboxV2);
+$pdf->page->addContent($pdf->closeLayer());
+
+
+$lyr02 = $pdf->newLayer('print', [], true, false, false);
+$pdf->page->addContent($lyr02);
+$txtV3 = 'This line is for print only.';
+$txtboxV3 = $pdf->getTextCell($txtV3, 15, 55, 150, valign: 'T', halign: 'L');
+$pdf->page->addContent($txtboxV3);
+$pdf->page->addContent($pdf->closeLayer());
+
+// Links
+
+$txtlnk1 = $pdf->getTextCell("Link to page 11", 15, 70, 150, valign: 'T', halign: 'L');
+$pdf->page->addContent($txtlnk1);
+$bbox = $pdf->getLastBBox();
+$lnk1 = $pdf->setLink(
+    $bbox['x'],
+    $bbox['y'],
+    $bbox['w'],
+    $bbox['h'],
+    $page11_link,
+);
+$pdf->page->addAnnotRef($lnk1);
+
+$txtlnk2 = $pdf->getTextCell("Link dest to barcode page", 15, 80, 150, valign: 'T', halign: 'L');
+$pdf->page->addContent($txtlnk2);
+$bbox = $pdf->getLastBBox();
+$lnk2 = $pdf->setLink(
+    $bbox['x'],
+    $bbox['y'],
+    $bbox['w'],
+    $bbox['h'],
+    $dest_barcode_page,
+);
+$pdf->page->addAnnotRef($lnk2);
+
+// ----------
+
 
 // =============================================================
 

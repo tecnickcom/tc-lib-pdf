@@ -357,6 +357,85 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
+     * Creates a link in the specified area.
+     * A link annotation represents either a hypertext link to a destination elsewhere in the document.
+     *
+     * @param float      $posx   Abscissa of upper-left corner.
+     * @param float      $posy   Ordinate of upper-left corner.
+     * @param float      $width  Width.
+     * @param float      $height Height.
+     * @param string     $link   URL to open when the link is clicked or an identifier returned by setInternalLink().
+     *                           A single character prefix may be used to specify the link action:
+     *                           - '#' = internal destination
+     *                           - '%' = embedded PDF file
+     *                           - '*' = embedded generic file
+     *
+     * @return int Object ID (Add to a page via: $pdf->page->addAnnotRef($aoid);).
+     */
+    public function setLink(
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        string $link,
+    ): int {
+        return $this->setAnnotation(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $link,
+            ['subtype' => 'Link']
+        );
+    }
+
+    /**
+     * Defines the page and vertical position an internal link points to.
+     *
+     * @param int $page Page number.
+     * @param float $posy Vertical position.
+     *
+     * @return string Internal link identifier to be used with setLink().
+     *
+     */
+    public function addInternalLink(int $page = 0, float $posy = 0): string
+    {
+        $lnkid = '@' . (count($this->links) + 1);
+        $this->links[$lnkid] = [
+            'p' => ($page < 1) ? $this->page->getPage()['pid'] : $page,
+            'y' => $posy,
+        ];
+        return $lnkid;
+    }
+
+    /**
+     * Add a named destination.
+     *
+     * @param string $name Named destination (must be unique).
+     * @param int    $page Page number.
+     * @param float  $posx Abscissa of upper-left corner.
+     * @param float  $posy Ordinate of upper-left corner.
+     *
+     * @return string Destination name.
+     */
+    public function setNamedDestination(
+        string $name,
+        int $page = 0,
+        float $posx = 0,
+        float $posy = 0,
+    ): string {
+        $ename = $this->encrypt->encodeNameObject($name);
+        $this->dests[$ename] = [
+            'p' => ($page < 1) ? $this->page->getPage()['pid'] : $page,
+            'x' => $posx,
+            'y' => $posy,
+        ];
+        return '#' . $ename;
+    }
+
+    // ===| SIGNATURE |=====================================================
+
+    /**
      * Set User's Rights for the PDF Reader.
      * WARNING: This is experimental and currently doesn't work because requires a private key.
      * Check the PDF Reference 8.7.1 Transform Methods,
@@ -598,6 +677,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             $this->page->addAnnotRef($esa['objid'], $esa['page']);
         }
     }
+
+    // ===| XOBJECT |=======================================================
 
     /**
      * Create a new XObject template and return the object id.
@@ -850,5 +931,57 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     public function addXObjectSpotColorID(string $tid, string $key): void
     {
         $this->xobjects[$tid]['spot_colors'][] = $key;
+    }
+
+    // ===| LAYERS |========================================================
+
+    /**
+     * Creates and return a new PDF Layer.
+     *
+     * @param string $name Layer name (only a-z letters and numbers). Leave empty for automatic name.
+     * @param array{'view'?: bool, 'design'?: bool} $intent intended use of the graphics in the layer.
+     * @param bool $print Set the printability of the layer.
+     * @param bool $view Set the visibility of the layer.
+     * @param bool $lock Set the lock state of the layer.
+     *
+     * @return string
+     */
+    public function newLayer(
+        string $name = '',
+        array $intent = [],
+        bool $print = true,
+        bool $view = true,
+        bool $lock = true,
+    ): string {
+        $layer = sprintf('LYR%03d', (count($this->pdflayer) + 1));
+        $name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $name);
+        if (empty($name)) {
+            $name = $layer;
+        }
+
+        $intarr = [];
+        if (!empty($intent['view'])) {
+            $intarr[] = '/View';
+        }
+        if (!empty($intent['design'])) {
+            $intarr[] = '/Design';
+        }
+
+        $this->pdflayer[] = array(
+            'layer' => $layer,
+            'name' => $name,
+            'intent' => implode(' ', $intarr),
+            'print' => $print,
+            'view' => $view,
+            'lock' => $lock,
+            'objid' => 0,
+        );
+
+        return ' /OC /' . $layer . ' BDC' . "\n";
+    }
+
+    public function closeLayer(): string
+    {
+        return 'EMC' . "\n";
     }
 }

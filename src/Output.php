@@ -365,7 +365,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'prev': int,
  *         's': string,
  *         't': string,
- *         'u': int,
+ *         'u': string,
  *         'x': float,
  *         'y': float,
  *     }
@@ -449,11 +449,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @var array<int, array{
      *         'layer': string,
-     *         'lock': bool,
      *         'name': string,
-     *         'objid': int,
+     *         'intent': string,
      *         'print': bool,
      *         'view': bool,
+     *         'lock': bool,
+     *         'objid': int,
      *     }>
      */
     protected array $pdflayer = [];
@@ -476,13 +477,22 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Destinations.
      *
      * @var array<string, array{
-     *          'f': bool,
      *          'p': int,
      *          'x': float,
      *          'y': float,
      *      }>
      */
     protected array $dests = [];
+
+    /**
+     * Links.
+     *
+     * @var array<string, array{
+     *          'p': int,
+     *          'y': float,
+     *      }>
+     */
+    protected array $links = [];
 
     /**
      * Radio Button Groups.
@@ -495,17 +505,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *      }>
      */
     protected array $radiobuttonGroups = [];
-
-    /**
-     * Links.
-     *
-     * @var array<int, array{
-     *          'f': bool,
-     *          'p': int,
-     *          'y': float,
-     *      }>
-     */
-    protected array $links = [];
 
     /**
      * Javascript block to add.
@@ -945,15 +944,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $oid = ++$this->pon;
             $this->pdflayer[$key]['objid'] = $oid;
             $out .= $oid . ' 0 obj' . "\n";
-            $out .= '<<  /Type /OCG /Name ' . $this->getOutTextString($layer['name'], $oid, true)
-                . ' /Usage <<';
-            if (isset($layer['print']) && ($layer['print'] !== null)) {
-                $out .= ' /Print <</PrintState /' . $this->getOnOff($layer['print']) . '>>';
+
+            $out .= '<< /Type /OCG'
+                . ' /Name ' . $this->getOutTextString($layer['name'], $oid, true);
+
+            if (!empty($layer['intent'])) {
+                $out .= ' /Intent [' . $layer['intent'] . ']';
             }
 
-            $out .= ' /View <</ViewState /' . $this->getOnOff($layer['view']) . '>>'
-                . ' >>'
-                . ' >>' . "\n"
+            $out .= ' /Usage <<';
+            if (isset($layer['print']) && ($layer['print'] !== null)) {
+                $out .= ' /Print << /PrintState /' . $this->getOnOff($layer['print']) . ' >>';
+            }
+            $out .= ' /View << /ViewState /' . $this->getOnOff($layer['view']) . ' >>';
+            // Other (not-implemented) possible /Usage entries:
+            //   CreatorInfo, Language, Export, Zoom, User, PageElement.
+            $out .= ' >>'; // close /Usage
+
+            $out .= ' >>' . "\n"
                 . 'endobj' . "\n";
         }
 
@@ -1743,11 +1751,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         int $oid
     ): string {
         $out = '';
-        if (! empty($annot['txt']) && is_string($annot['txt'])) {
+        if (! empty($annot['txt'])) {
             switch ($annot['txt'][0]) {
                 case '#': // internal destination
                     $out .= ' /A << /S /GoTo /D /'
                     . $this->encrypt->encodeNameObject(substr($annot['txt'], 1)) . '>>';
+                    break;
+                case '@': // internal link ID
+                        $l = $this->links[$annot['txt']];
+                        $page = $this->page->getPage($l['p']);
+                        $y = $this->toYPoints($l['y'], $page['pheight']);
+                        $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                     break;
                 case '%': // embedded PDF file
                     $filename = basename(substr($annot['txt'], 1));
@@ -1790,15 +1804,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                             . $this->encrypt->escapeDataString($this->unhtmlentities($annot['txt']), $oid)
                             . ' >>';
                     }
-
                     break;
             }
-        } elseif (! empty($this->links[$annot['txt']])) {
-            // internal link ID
-            $l = $this->links[$annot['txt']];
-            $page = $this->page->getPage($l['p']);
-            $y = $this->toYPoints($l['y'], $page['height']);
-            $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
         }
 
         $hmodes = ['N', 'I', 'O', 'P'];
@@ -2581,49 +2588,48 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             if (! empty($outline['u'])) {
                 // link
-                if (is_string($outline['u'])) {
-                    switch ($outline['u'][0]) {
-                        case '#':
-                            // internal destination
-                            $out .= ' /Dest /' . $this->encrypt->encodeNameObject(substr($outline['u'], 1));
-                            break;
-                        case '%':
-                            // embedded PDF file
-                            $filename = basename(substr($outline['u'], 1));
-                            $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P '
-                                . ($outline['p'] - 1)
-                                . ' /A ' . $this->embeddedfiles[$filename]['a'] . ' >>'
-                                . ' >>';
-                            break;
-                        case '*':
-                            // embedded generic file
-                            $filename = basename(substr($outline['u'], 1));
-                            $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;'
-                            . 'for (var i in MyData) if (MyData[i].path=="'
-                            . $filename . '")'
-                            . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                            $out .= ' /A <</S /JavaScript /JS '
-                            . $this->getOutTextString($jsa, $oid, true) . '>>';
-                            break;
-                        default:
-                            // external URI link
-                            $out .= ' /A << /S /URI /URI '
-                                . $this->encrypt->escapeDataString($this->unhtmlentities($outline['u']), $oid)
-                                . ' >>';
-                            break;
-                    }
-                } elseif (isset($this->links[$outline['u']])) {
-                    // internal link ID
-                    $l = $this->links[$outline['u']];
-                    $page = $this->page->getPage($l['p']);
-                    $y = ($page['height'] - ($l['y'] * $this->kunit));
-                    $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
+                switch ($outline['u'][0]) {
+                    case '#':
+                        // internal destination
+                        $out .= ' /Dest /' . $this->encrypt->encodeNameObject(substr($outline['u'], 1));
+                        break;
+                    case '@':
+                            // internal link ID
+                            $l = $this->links[$outline['u']];
+                            $page = $this->page->getPage($l['p']);
+                            $y = $this->toYPoints($l['y'], $page['pheight']);
+                            $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
+                        break;
+                    case '%':
+                        // embedded PDF file
+                        $filename = basename(substr($outline['u'], 1));
+                        $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P '
+                            . ($outline['p'] - 1)
+                            . ' /A ' . $this->embeddedfiles[$filename]['a'] . ' >>'
+                            . ' >>';
+                        break;
+                    case '*':
+                        // embedded generic file
+                        $filename = basename(substr($outline['u'], 1));
+                        $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;'
+                        . 'for (var i in MyData) if (MyData[i].path=="'
+                        . $filename . '")'
+                        . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
+                        $out .= ' /A <</S /JavaScript /JS '
+                        . $this->getOutTextString($jsa, $oid, true) . '>>';
+                        break;
+                    default:
+                        // external URI link
+                        $out .= ' /A << /S /URI /URI '
+                            . $this->encrypt->escapeDataString($this->unhtmlentities($outline['u']), $oid)
+                            . ' >>';
+                        break;
                 }
             } else {
                 // link to a page
                 $page = $this->page->getPage($outline['p']);
-                $x = ($outline['x'] * $this->kunit);
-                $y = ($page['height'] - ($outline['y'] * $this->kunit));
+                $x = $this->toPoints($outline['x']);
+                $y = $this->toYPoints($outline['y'], $page['pheight']);
                 $out .= ' ' . sprintf('/Dest [%u 0 R /XYZ %F %F null]', $page['n'], $x, $y);
             }
 
