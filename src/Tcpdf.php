@@ -19,10 +19,6 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Barcode\Exception as BarcodeException;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
-use Com\Tecnick\Color\Pdf as ObjColor;
-use Com\Tecnick\Pdf\Font\Stack as ObjFont;
-use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
-use Com\Tecnick\Pdf\Image\Import as ObjImage;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -407,7 +403,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     {
         $lnkid = '@' . (count($this->links) + 1);
         $this->links[$lnkid] = [
-            'p' => ($page < 0) ? $this->page->getPage()['pid'] : $page,
+            'p' => ($page < 0) ? $this->page->getPageID() : $page,
             'y' => $posy,
         ];
         return $lnkid;
@@ -431,7 +427,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): string {
         $ename = $this->encrypt->encodeNameObject($name);
         $this->dests[$ename] = [
-            'p' => ($page < 0) ? $this->page->getPage()['pid'] : $page,
+            'p' => ($page < 0) ? $this->page->getPageID() : $page,
             'x' => $posx,
             'y' => $posy,
         ];
@@ -478,7 +474,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             't' => $name,
             'u' => $link,
             'l' => (($level < 0) ? 0 : ($level > $maxlevel ? $maxlevel : $level)),
-            'p' => (($page < 0) ? $this->page->getPage()['pid'] : $page),
+            'p' => (($page < 0) ? $this->page->getPageID() : $page),
             'x' => $posx,
             'y' => $posy,
             's' => strtoupper($fstyle),
@@ -647,7 +643,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): array {
         $sigapp = [];
 
-        $sigapp['page'] = ($page < 0) ? $this->page->getPage()['pid'] : $page;
+        $sigapp['page'] = ($page < 0) ? $this->page->getPageID() : $page;
         $sigapp['name'] = (empty($name)) ? 'Signature' : $name;
 
         $pntx = $this->toPoints($posx);
@@ -1041,5 +1037,183 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     public function closeLayer(): string
     {
         return 'EMC' . "\n";
+    }
+
+    // ===| TOC |===========================================================
+
+    /**
+     * Add a Table of Contents (TOC) to the document.
+     * The bookmars are created via the setBookmark() method.
+     *
+     * @param int   $page  Page number.
+     * @param float $posx  Abscissa of the upper-left corner.
+     * @param float $posy  Ordinate of the upper-left corner.
+     * @param float $width Width of the signature area.
+     * @param bool  $rtl   Right-To-Left - If true prints the TOC in RTL mode.
+     * @param StyleDataOpt $linestyle Line style for the space filler.
+     *
+     * @return void
+     */
+    public function addTOC(
+        int $page = -1,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        bool $rtl = false,
+        array $linestyle = [
+            'lineWidth' => 0.3,
+            'lineCap' => 'butt',
+            'lineJoin' => 'miter',
+            'dashArray' => [1,1],
+            'dashPhase' => 0,
+            'lineColor' => 'gray',
+            'fillColor' => '',
+        ],
+    ): void {
+        if (empty($width) || $width < 0) {
+            $width = $this->page->getRegion()['RW'];
+        }
+
+        $curfont = $this->font->getCurrentFont();
+
+        // width to accomodate the number (max 9 digits space).
+        $chrw = $this->toUnit($curfont['cw'][48] ?? $curfont['dw']); // 48 ASCII = '0'.
+        $indent = 2 * $chrw; // each level is indented by 2 characters.
+        $numwidth = 9 * $chrw; // maximum 9 digits to print the page number.
+        $txtwidth = ($width - $numwidth);
+
+        $cellSpaceTop = $this->toUnit(
+            $this->defcell['margin']['T'] +
+            $this->defcell['padding']['T']
+        );
+        $cellSpaceH = $chrw + $this->toUnit(
+            $this->defcell['margin']['L'] +
+            $this->defcell['margin']['L'] +
+            $this->defcell['padding']['R'] +
+            $this->defcell['padding']['R']
+        );
+
+        $aligntext = 'L';
+        $alignnum = 'R';
+        $txt_posx = $posx;
+        $num_posx = $posx + $txtwidth;
+        if ($rtl) {
+            $aligntext = 'R';
+            $alignnum = 'L';
+            $txt_posx = $posx + $numwidth;
+            $num_posx = $posx;
+        }
+
+        $pid = ($page < 0) ? $this->page->getPageID() : $page;
+
+        foreach ($this->outlines as $bmrk) {
+            $region = $this->page->getRegion($pid);
+            if ($posy > $region['RH']) {
+                $opage = $this->page->getNextRegion($pid);
+                $pid = $opage['pid'];
+                $region = $this->page->getRegion($pid);
+                $posy = 0; // $region['RY'];
+            }
+
+            $this->page->addContent($this->graph->getStartTransform(), $pid);
+
+            $font = $this->font->cloneFont(
+                $this->pon,
+                $curfont['idx'],
+                $bmrk['s'] . (($bmrk['l'] == 0) ? 'B' : ''),
+                (int) round($curfont['size'] - $bmrk['l']),
+                $curfont['spacing'],
+                $curfont['stretching'],
+            );
+            $this->page->addContent($font['out'], $pid);
+
+            if (! empty($bmrk['c'])) {
+                $col = $this->color->getPdfColor($bmrk['c']);
+                $this->page->addContent($col, $pid);
+            }
+
+            if (empty($bmrk['u'])) {
+                $bmrk['u'] = $this->addInternalLink($bmrk['p'], $bmrk['y']);
+            }
+
+            $offset = ($indent * $bmrk['l']);
+            // add bookmark text
+            $this->addTextCell(
+                $bmrk['t'],
+                $pid,
+                $txt_posx,
+                $posy,
+                $txtwidth,
+                0,
+                $offset,
+                0,
+                'T',
+                $aligntext,
+            );
+
+            $bbox = $this->getLastBBox();
+            $wtxt = $bbox['w'];
+
+            $pageid = $this->page->getPageID();
+            if ($pageid > $pid) {
+                $this->page->addContent($this->graph->getStopTransform(), $pid);
+                $lnkid = $this->setLink(
+                    $posx,
+                    $posy,
+                    $width,
+                    ($region['RH'] - $posy),
+                    $bmrk['u'],
+                );
+                $this->page->addAnnotRef($lnkid, $pid);
+                $pid = $pageid;
+                $this->page->addContent($this->graph->getStartTransform(), $pid);
+                $this->page->addContent($font['out'], $pid);
+            }
+
+            $posy = $bbox['y'] - $cellSpaceTop; // align number with the last line of the text
+
+            // add page number
+            $this->addTextCell(
+                (string) ($bmrk['p'] + 1),
+                $pid,
+                $num_posx,
+                $posy,
+                $numwidth,
+                0,
+                0,
+                0,
+                'T',
+                $alignnum,
+            );
+
+            $bbox = $this->getLastBBox();
+            $wnum = $bbox['w'];
+
+            // add line to fill the gap between text and number
+            $line_posx = ($cellSpaceH + $offset + $posx + ($rtl ? $wnum : $wtxt));
+            $line_posy = $bbox['y'] + $this->toUnit($font['ascent']);
+            $line = $this->graph->getLine(
+                $line_posx,
+                $line_posy,
+                $line_posx + ($width - $wtxt - $wnum - (2 * $cellSpaceH) - $offset),
+                $line_posy,
+                $linestyle,
+            );
+            $this->page->addContent($line, $pid);
+
+            $lnkid = $this->setLink(
+                $posx,
+                $bbox['y'],
+                $width,
+                $bbox['h'],
+                $bmrk['u'],
+            );
+            $this->page->addAnnotRef($lnkid, $pid);
+
+            $this->page->addContent($this->graph->getStopTransform(), $pid);
+
+            // Move to the next line.
+            $posy = $bbox['y'] + $bbox['h'];
+        }
     }
 }

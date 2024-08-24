@@ -1602,6 +1602,30 @@ $pdf->page->addAnnotRef($lnk2);
 
 // ----------
 
+$pageTOC = $pdf->page->add();
+$pdf->setBookmark('TOC');
+
+$pdf->page->addContent($bfont4['out']);
+
+$pdf->setDefaultCellMargin(0,0,0,0);
+$pdf->setDefaultCellPadding(1,1,1,1);
+
+$style_cell_toc = [
+    'all' => [
+        'lineWidth' => 0,
+        'lineCap' => 'round',
+        'lineJoin' => 'round',
+        'miterLimit' => 0,
+        'dashArray' => [],
+        'dashPhase' => 0,
+        'lineColor' => '',
+    ],
+];
+
+$pdf->graph->add($style_cell_toc);
+
+$pdf->addTOC(-1, 15, 15, 170, false);
+
 
 // =============================================================
 
