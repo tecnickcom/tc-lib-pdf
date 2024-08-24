@@ -125,6 +125,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
+     * @param bool        $underline   If true underline the text.
+     * @param bool        $linethrough If true line through the text.
+     * @param bool        $overline    If true overline the text.
      * @param bool        $clip        If true activate clipping mode.
      * @param bool        $drawcell    If true draw the cell border.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
@@ -149,6 +152,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
         bool $clip = false,
         bool $drawcell = true,
         string $forcedir = '',
@@ -228,6 +234,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $jlast,
             $fill,
             $stroke,
+            $underline,
+            $linethrough,
+            $overline,
             $clip,
             $shadow,
         );
@@ -253,6 +262,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Accounts for automatic line, page and region breaks.
      *
      * @param string      $txt         Text string to be processed.
+     * @param int         $pid         Page index. Omit or set it to -1 for the current page ID.
      * @param float       $posx        Abscissa of upper-left corner relative to the region origin X coordinate.
      * @param float       $posy        Ordinate of upper-left corner relative to the region origin Y coordinate.
      * @param float       $width       Width.
@@ -270,6 +280,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
+     * @param bool        $underline   If true underline the text.
+     * @param bool        $linethrough If true line through the text.
+     * @param bool        $overline    If true overline the text.
      * @param bool        $clip        If true activate clipping mode.
      * @param bool        $drawcell    If true draw the cell border.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
@@ -277,6 +290,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function addTextCell(
         string $txt,
+        int $pid = -1,
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
@@ -294,6 +308,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
         bool $clip = false,
         bool $drawcell = true,
         string $forcedir = '',
@@ -338,7 +355,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         // loop through the regions to fit all available text
         while ($region_max_lines > 0) {
-            $region = $this->page->getRegion();
+            $region = $this->page->getRegion($pid);
             $rposy = ($posy + $region['RY']);
             $cell_pnty = ($this->toYPoints($rposy) - $cell['margin']['T']);
             $cell_posy = $this->toYUnit($cell_pnty);
@@ -412,6 +429,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 ($lastblock and $jlast),
                 $fill,
                 $stroke,
+                $underline,
+                $linethrough,
+                $overline,
                 $clip,
                 $shadow,
             );
@@ -437,7 +457,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 ) . $out;
             }
 
-            $this->page->addContent($out);
+            $this->page->addContent($out, $pid);
 
             if ($lastblock) {
                 return;
@@ -453,8 +473,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell['margin']['T'] = 0;
             $cell['margin']['B'] = 0;
 
-            $this->page->getNextRegion();
-            $this->setPageContext();
+            $this->page->getNextRegion($pid);
+            $this->setPageContext($pid);
         }
     }
 
@@ -477,6 +497,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $jlast       If true does not justify the last line when $halign == J.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
+     * @param bool        $underline   If true underline the text.
+     * @param bool        $linethrough If true line through the text.
+     * @param bool        $overline    If true overline the text.
      * @param bool        $clip        If true activate clipping mode.
      * @param ?TextShadow $shadow      Text shadow parameters.
      *
@@ -499,6 +522,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $jlast = true,
         bool $fill = true,
         bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
         bool $clip = false,
         ?array $shadow = null,
     ): string {
@@ -559,6 +585,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $rise,
                 $fill,
                 $stroke,
+                $underline,
+                $linethrough,
+                $overline,
                 $clip,
                 $shadow,
             );
@@ -585,6 +614,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $rise        Text rise.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
+     * @param bool        $underline   If true underline the text.
+     * @param bool        $linethrough If true line through the text.
+     * @param bool        $overline    If true overline the text.
      * @param bool        $clip        If true activate clipping mode.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
      * @param ?TextShadow $shadow      Text shadow parameters.
@@ -600,6 +632,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $rise = 0,
         bool $fill = true,
         bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
         bool $clip = false,
         string $forcedir = '',
         ?array $shadow = null,
@@ -625,6 +660,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $rise,
             $fill,
             $stroke,
+            $underline,
+            $linethrough,
+            $overline,
             $clip,
             $shadow,
         );
@@ -645,6 +683,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float       $rise        Text rise.
      * @param bool        $fill        If true fills the text.
      * @param bool        $stroke      If true stroke the text.
+     * @param bool        $underline   If true underline the text.
+     * @param bool        $linethrough If true line through the text.
+     * @param bool        $overline    If true overline the text.
      * @param bool        $clip        If true activate clipping mode.
      * @param ?TextShadow $shadow      Text shadow parameters.
      */
@@ -661,6 +702,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $rise = 0,
         bool $fill = true,
         bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
         bool $clip = false,
         ?array $shadow = null,
     ): string {
@@ -696,6 +740,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 true,
                 false,
                 false,
+                false,
+                false,
+                false,
             );
             $out .= $this->graph->getStopTransform();
         }
@@ -713,6 +760,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $rise,
             $fill,
             $stroke,
+            $underline,
+            $linethrough,
+            $overline,
             $clip,
         );
     }
@@ -881,6 +931,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float           $rise        Text rise.
      * @param bool            $fill        If true fills the text.
      * @param bool            $stroke      If true stroke the text.
+     * @param bool            $underline   If true underline the text.
+     * @param bool            $linethrough If true line through the text.
+     * @param bool            $overline    If true overline the text.
      * @param bool            $clip        If true activate clipping mode.
      */
     protected function outTextLine(
@@ -896,6 +949,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         float $rise = 0,
         bool $fill = true,
         bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
         bool $clip = false,
     ): string {
         if ($txt === '' || $ordarr === [] || $dim === []) {
@@ -910,6 +966,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             'w' => $width,
             'h' => $this->toUnit($curfont['height']),
         ];
+
         $out = $this->getJustifiedString($txt, $ordarr, $dim, $width);
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
 
@@ -921,7 +978,57 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out = $this->getOutTextStateOperatorTz($out, $curfont['stretching']);
         $out = $this->getOutTextStateOperatorTL($out, $this->toPoints($leading));
         $out = $this->getOutTextStateOperatorTs($out, $this->toPoints($rise));
-        return $this->getOutTextObject($out);
+        $out = $this->getOutTextObject($out);
+
+        $bbox = $this->getLastBBox();
+        if ($underline) {
+            $out .= $this->getOutUTOLine(
+                $this->toPoints($bbox['x']),
+                $this->toYPoints($bbox['y'] + $bbox['h']),
+                $this->toPoints($bbox['w']),
+                $curfont['ut'],
+            );
+        }
+
+        if ($linethrough) {
+            $out .= $this->getOutUTOLine(
+                $this->toPoints($bbox['x']),
+                $this->toYPoints($bbox['y'] + ($bbox['h'] / 2)),
+                $this->toPoints($bbox['w']),
+                $curfont['ut'],
+            );
+        }
+
+        if ($overline) {
+            $out .= $this->getOutUTOLine(
+                $this->toPoints($bbox['x']),
+                $this->toYPoints($bbox['y']),
+                $this->toPoints($bbox['w']),
+                $curfont['ut'],
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * Return the raw PDF command to print a graphic line.
+     * This is used for text underline, overline and line-through.
+     *
+     * @param float $pntx X position in internal points.
+     * @param float $pnty Y position in internal points.
+     * @param float $pwidth Line width in internal points.
+     * @param float $psize Line tickness in internal points.
+     *
+     * @return string Raw PDF data.
+     */
+    protected function getOutUTOLine(
+        float $pntx,
+        float $pnty,
+        float $pwidth,
+        float $psize,
+    ): string {
+        return sprintf('%F %F %F %F re f' . "\n", $pntx, $pnty, $pwidth, $psize);
     }
 
     /**
@@ -1209,7 +1316,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function getOutTextObject(string $raw = ''): string
     {
-        return 'BT ' . $raw . ' ET' . "\r";
+        return 'BT ' . $raw . ' ET' . "\n";
     }
 
     /**
@@ -1224,6 +1331,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // @TODO
         return $ordarr;
     }
+
+    // ===| HYPENATION |====================================================
 
     /**
      * Returns an array of hyphenation patterns.
