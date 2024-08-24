@@ -516,7 +516,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\Text
     protected function getBooleanMode(string $name): string
     {
         if (isset($this->viewerpref[$name])) {
-            return ' /' . $name . ' ' . var_export((bool) $this->viewerpref[$name], true);
+            return ' /' . $name . ' ' . ($this->viewerpref[$name] === true ? 'true' : 'false');
         }
 
         return '';

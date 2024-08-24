@@ -47,6 +47,8 @@ $pdf->setTitle('Example');
 $pdf->setKeywords('TCPDF tc-lib-pdf example');
 $pdf->setPDFFilename('test_index.pdf');
 
+$pdf->setViewerPreferences(['DisplayDocTitle' => true]);
+
 // ----------
 // Insert fonts
 
