@@ -229,6 +229,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $this;
     }
 
+    // ===| BARCODE |=======================================================
+
+
     /**
      * Get a barcode PDF code.
      *
@@ -271,6 +274,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 
         return $out . $this->graph->getStopTransform();
     }
+
+    // ===| ANNOTATION |====================================================
 
     /**
      * Add an annotation and returns the object id.
@@ -364,7 +369,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param float      $posy   Ordinate of upper-left corner.
      * @param float      $width  Width.
      * @param float      $height Height.
-     * @param string     $link   URL to open when the link is clicked or an identifier returned by setInternalLink().
+     * @param string     $link   URL to open when the link is clicked or an identifier returned by addInternalLink().
      *                           A single character prefix may be used to specify the link action:
      *                           - '#' = internal destination
      *                           - '%' = embedded PDF file
@@ -398,11 +403,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @return string Internal link identifier to be used with setLink().
      *
      */
-    public function addInternalLink(int $page = 0, float $posy = 0): string
+    public function addInternalLink(int $page = -1, float $posy = 0): string
     {
         $lnkid = '@' . (count($this->links) + 1);
         $this->links[$lnkid] = [
-            'p' => ($page < 1) ? $this->page->getPage()['pid'] : $page,
+            'p' => ($page < 0) ? $this->page->getPage()['pid'] : $page,
             'y' => $posy,
         ];
         return $lnkid;
@@ -420,17 +425,70 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function setNamedDestination(
         string $name,
-        int $page = 0,
+        int $page = -1,
         float $posx = 0,
         float $posy = 0,
     ): string {
         $ename = $this->encrypt->encodeNameObject($name);
         $this->dests[$ename] = [
-            'p' => ($page < 1) ? $this->page->getPage()['pid'] : $page,
+            'p' => ($page < 0) ? $this->page->getPage()['pid'] : $page,
             'x' => $posx,
             'y' => $posy,
         ];
         return '#' . $ename;
+    }
+
+    /**
+     * Add a bookmark entry.
+     *
+     * @param string $name   Bookmark description that will be printed in the TOC.
+     * @param string $link   (Optional) URL to open when the link is clicked
+     *                       or an identifier returned by addInternalLink().
+     *                       A single character prefix may be used to specify the link action:
+     *                       - '#' = internal destination
+     *                       - '%' = embedded PDF file
+     *                       - '*' = embedded generic file
+     * @param int    $level  Bookmark level (minimum 0).
+     *
+     * @param int    $page   Page number.
+     * @param float  $posx   Abscissa of upper-left corner.
+     * @param float  $posy   Ordinate of upper-left corner.
+     * @param string $fstyle Font style.
+     *                       Possible values are (case insensitive):
+     *                       - regular (default)
+     *                       - B: bold
+     *                       - I: italic
+     *                       - U: underline
+     *                       - D: strikeout (linethrough)
+     *                       - O: overline
+     * @param string $color Color name.
+     */
+    public function setBookmark(
+        string $name,
+        string $link = '',
+        int $level = 0,
+        int $page = -1,
+        float $posx = 0,
+        float $posy = 0,
+        string $fstyle = '',
+        string $color = '',
+    ): void {
+        $maxlevel = ((count($this->outlines) > 0) ? (end($this->outlines)['l'] + 1) : 0);
+        $this->outlines[] = [
+            't' => $name,
+            'u' => $link,
+            'l' => (($level < 0) ? 0 : ($level > $maxlevel ? $maxlevel : $level)),
+            'p' => (($page < 0) ? $this->page->getPage()['pid'] : $page),
+            'x' => $posx,
+            'y' => $posy,
+            's' => strtoupper($fstyle),
+            'c' => $color,
+            'parent' => 0,
+            'first' => -1,
+            'last' => -1,
+            'next' => -1,
+            'prev' => -1,
+        ];
     }
 
     // ===| SIGNATURE |=====================================================
@@ -589,7 +647,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     ): array {
         $sigapp = [];
 
-        $sigapp['page'] = ($page < 1) ? $this->page->getPage()['pid'] : $page;
+        $sigapp['page'] = ($page < 0) ? $this->page->getPage()['pid'] : $page;
         $sigapp['name'] = (empty($name)) ? 'Signature' : $name;
 
         $pntx = $this->toPoints($posx);

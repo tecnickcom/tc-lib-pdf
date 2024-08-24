@@ -355,19 +355,19 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *     }
  *
  * @phpstan-type TOutline array{
- *         'c': array<float>,
- *         'first': int,
- *         'l': int,
- *         'last': int,
- *         'next': int,
- *         'p': int,
- *         'parent': int,
- *         'prev': int,
- *         's': string,
  *         't': string,
  *         'u': string,
+ *         'l': int,
+ *         'p': int,
  *         'x': float,
  *         'y': float,
+ *         's': string,
+ *         'c': string,
+ *         'parent': int,
+ *         'last': int,
+ *         'first': int,
+ *         'prev': int,
+ *         'next': int,
  *     }
  *
  * @phpstan-type TSignature array{
@@ -808,13 +808,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /PageLayout /' . $this->display['layout'];
         }
 
-        if (! empty($this->display['mode'])) {
-            $out .= ' /PageMode /' . $this->display['mode'];
-        }
-
         if ($this->outlines !== []) {
             $out .= ' /Outlines ' . $this->outlinerootoid . ' 0 R';
-            $out .= ' /PageMode /UseOutlines';
+            if (empty($this->display['mode'])) {
+                $this->display['mode'] = 'UseOutlines';
+            }
+        }
+
+        if (! empty($this->display['mode'])) {
+            $out .= ' /PageMode /' . $this->display['mode'];
         }
 
         //$out .= ' /Threads []';
@@ -1217,13 +1219,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *     3 DeviceRGB
      *     4 DeviceCMYK
      *
-     * @param array<int|float> $colors Array of colors.
+     * @param array<int|float> $color Array of colors.
      */
-    protected static function getColorStringFromArray(array $colors): string
+    protected static function getColorStringFromArray(array $color): string
     {
-        $col = array_values($colors);
+        $col = array_values($color);
         $out = '[';
-        match (count($colors)) {
+        match (count($color)) {
             4 => $out .= sprintf(
                 '%F %F %F %F',
                 (max(0, min(100, (float) $col[0])) / 100),
@@ -1287,8 +1289,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     . $this->getOutAnnotationFlags($annot) // @phpstan-ignore-line
                     . $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height) // @phpstan-ignore-line
                     . $this->getAnnotationBorder($annot); // @phpstan-ignore-line
-                if (! empty($annot['opt']['c']) && is_array($annot['opt']['c'])) {
-                    $out .= ' /C ' . static::getColorStringFromArray($annot['opt']['c']);
+
+                if (! empty($annot['opt']['c']) && is_string($annot['opt']['c'])) {
+                     $out .= ' /C [ ' . $this->color->getPdfRgbComponents($annot['opt']['c']) . ' ]';
                 }
 
                 //$out .= ' /StructParent ';
@@ -2516,7 +2519,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $lru[$o['l']] = $i;
             $level = $o['l'];
         }
-
         return $lru[0];
     }
 
@@ -2570,19 +2572,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . '<<'
                 . ' /Title ' . $this->getOutTextString($title, $oid, true)
                 . ' /Parent ' . ($first_oid + $outline['parent']) . ' 0 R';
-            if (isset($outline['prev'])) {
+            if ($outline['prev'] >= 0) {
                 $out .= ' /Prev ' . ($first_oid + $outline['prev']) . ' 0 R';
             }
-
-            if (isset($outline['next'])) {
+            if ($outline['next'] >= 0) {
                 $out .= ' /Next ' . ($first_oid + $outline['next']) . ' 0 R';
             }
-
-            if (isset($outline['first'])) {
+            if ($outline['first'] >= 0) {
                 $out .= ' /First ' . ($first_oid + $outline['first']) . ' 0 R';
             }
-
-            if (isset($outline['last'])) {
+            if ($outline['last'] >= 0) {
                 $out .= ' /Last ' . ($first_oid + $outline['last']) . ' 0 R';
             }
 
@@ -2647,10 +2646,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             $out .= sprintf(' /F %d', $style);
             // set bookmark color
-            if (! empty($outline['c']) && is_array($outline['c'])) {
-                $out .= ' /C [' . static::getColorStringFromArray($outline['c']) . ']';
-            } else {
+            if (empty($outline['c'])) {
                 $out .= ' /C [0.0 0.0 0.0]'; // black
+            } else {
+                 $out .= ' /C [ ' . $this->color->getPdfRgbComponents($outline['c']) . ' ]';
             }
 
             $out .= ' /Count 0 >>' . "\n"

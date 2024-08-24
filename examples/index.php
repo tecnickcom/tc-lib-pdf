@@ -57,6 +57,7 @@ $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 // Add first page
 
 $page01 = $pdf->page->add();
+$pdf->setBookmark('Images', '', 0, -1, 0, 0, 'B', 'blue');
 
 // Add Images
 
@@ -112,6 +113,7 @@ $pdf->page->addContent($iid12_out);
 // Add second page
 
 $page02 = $pdf->page->add();
+$pdf->setBookmark('Graphics', '', 0, -1, 0, 0, 'B', 'green');
 
 $style1 = [
     'lineWidth' => 0.5,
@@ -406,6 +408,7 @@ $pdf->page->addContent($arrow4);
 // Add page 2
 
 $page03 = $pdf->page->add();
+$pdf->setBookmark('Ellipse', '', 1);
 
 $pdf->graph->setPageWidth($page03['width']);
 $pdf->graph->setPageHeight($page03['height']);
@@ -439,6 +442,7 @@ $pdf->page->addContent($arc6);
 // Add page 4
 
 $page04 = $pdf->page->add();
+$pdf->setBookmark('Pie Chart', '', 1);
 
 $pdf->graph->setPageWidth($page04['width']);
 $pdf->graph->setPageHeight($page04['height']);
@@ -461,6 +465,7 @@ $pdf->page->addContent($pie3);
 // Add page 5
 
 $page05 = $pdf->page->add();
+$pdf->setBookmark('Crop Marks and Color Maps', '', 1);
 
 $pdf->graph->setPageWidth($page05['width']);
 $pdf->graph->setPageHeight($page05['height']);
@@ -672,6 +677,7 @@ $pdf->page->addContent($colreg4);
 // Add page 6
 
 $page06 = $pdf->page->add();
+$pdf->setBookmark('Color Gradients', '', 1);
 
 $pdf->graph->setPageWidth($page06['width']);
 $pdf->graph->setPageHeight($page06['height']);
@@ -732,6 +738,7 @@ $pdf->page->addContent($coonspatchmesh2);
 // Add page 7
 
 $page07 = $pdf->page->add();
+$pdf->setBookmark('Color gradient mesh', '', 1);
 
 $pdf->graph->setPageWidth($page07['width']);
 $pdf->graph->setPageHeight($page07['height']);
@@ -819,6 +826,7 @@ $pdf->page->addContent($coonspatchmesh3);
 // Add page 8
 
 $page08 = $pdf->page->add();
+$pdf->setBookmark('Transformations', '', 1);
 
 $pdf->graph->setPageWidth($page08['width']);
 $pdf->graph->setPageHeight($page08['height']);
@@ -946,6 +954,7 @@ $pdf->page->addContent($t8);
 // Add page 9
 
 $page09 = $pdf->page->add();
+$pdf->setBookmark('Barcodes', '', 0, -1, 0, 0, 'B', '');
 
 $dest_barcode_page = $pdf->setNamedDestination('barcode');
 
@@ -993,6 +1002,7 @@ $pdf->page->addContent($barcode2);
 // Add page 10
 
 $page10 = $pdf->page->add();
+$pdf->setBookmark('Image Clipping', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->graph->setPageWidth($page10['width']);
 $pdf->graph->setPageHeight($page10['height']);
@@ -1012,6 +1022,7 @@ $pdf->page->addContent($cnz);
 // Add page 11
 
 $page11 = $pdf->page->add();
+$pdf->setBookmark('Text', '', 0, -1, 0, 0, 'B', '');
 
 // Add an internal link to this page
 $page11_link = $pdf->addInternalLink();
@@ -1063,6 +1074,9 @@ $txt2 = $pdf->getTextLine(
     true,
     false,
     false,
+    false,
+    false,
+    false,
     '',
     [
         'xoffset' => 0.5,
@@ -1095,6 +1109,9 @@ $pdf->page->addContent($bfont3['out']);
 
 $txt3 = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'."\n".'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.';
 
+$col = $pdf->color->getPdfColor('blue');
+$pdf->page->addContent($col);
+
 // single block of text 
 $txtbox = $pdf->getTextCell(
     $txt3, // string $txt,
@@ -1115,12 +1132,18 @@ $txtbox = $pdf->getTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     false, // bool $drawcell = true,
     '', // string $forcedir = '',
     null // ?array $shadow = null,
 );
 $pdf->page->addContent($txtbox);
+
+$col = $pdf->color->getPdfColor('black');
+$pdf->page->addContent($col);
 
 $bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
 $pdf->page->addContent($bfont4['out']);
@@ -1160,6 +1183,9 @@ $txtcell1 = $pdf->getTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
@@ -1187,6 +1213,9 @@ $txtcell2 = $pdf->getTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
@@ -1214,6 +1243,9 @@ $txtcell2 = $pdf->getTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
@@ -1243,6 +1275,9 @@ $txtcell2 = $pdf->getTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
@@ -1271,6 +1306,7 @@ $style_cell_b = [
 // block of text between two page regions
 $pdf->addTextCell(
     $txt3, // string $txt,
+    -1, // int $pid = -1,
     20, // float $posx = 0,
     165, // float $posy = 0,
     150, // float $width = 0,
@@ -1288,6 +1324,9 @@ $pdf->addTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
@@ -1301,6 +1340,7 @@ $txt5 = 'At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditi
 $pdf->enableZeroWidthBreakPoints(true);
 $pdf->addTextCell(
     "TEST-TEXT-ENABLE-AUTO-BREAK-POINTS", // string $txt,
+    -1, // int $pid = -1,
     20, // float $posx = 0,
     233, // float $posy = 0,
     85, // float $width = 0,
@@ -1318,6 +1358,9 @@ $pdf->addTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
@@ -1327,6 +1370,7 @@ $pdf->addTextCell(
 $pdf->enableZeroWidthBreakPoints(false);
 $pdf->addTextCell(
     "TEST-TEXT-DISABLE-AUTO-BREAK-POINTS", // string $txt,
+    -1, // int $pid = -1,
     20, // float $posx = 0,
     252, // float $posy = 0,
     85, // float $width = 0,
@@ -1344,6 +1388,9 @@ $pdf->addTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
@@ -1360,6 +1407,7 @@ $pdf->addTextCell(
 // block of text between two page regions
 $pdf->addTextCell(
     $txt3 . "\n" . $txt4 . "\n" . $txt5, // string $txt,
+    -1, // int $pid = -1,
     20, // float $posx = 0,
     265, // float $posy = 0,
     120, // float $width = 0,
@@ -1377,18 +1425,50 @@ $pdf->addTextCell(
     true, // bool $jlast = true,
     true, // bool $fill = true,
     false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
     false, // bool $clip = false,
     true, // bool $drawcell = true,
     '', // string $forcedir = '',
     null, // ?array $shadow = null,
 );
 
+$pdf->addTextCell(
+    'overline, linethrough and underline', // string $txt,
+    -1, // int $pid = -1,
+    15, // float $posx = 0,
+    50, // float $posy = 0,
+    180, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    1, // float $linespace = 0,
+    'T', // string $valign = 'C',
+    'L', // string $halign = 'C',
+    null, // ?array $cell = null,
+    [], // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    true, //bool $underline = false,
+    true, //bool $linethrough = false,
+    true, //bool $overline = false,
+    false, // bool $clip = false,
+    false, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null // ?array $shadow = null,
+);
 
 // ----------
 
 // Page signature
 
 $pageC01 = $pdf->page->add();
+$pdf->setBookmark('Signature', '', 0, -1, 0, 0, 'B', 'red');
 
 /*
 NOTES:
@@ -1440,6 +1520,7 @@ $pdf->addEmptySignatureAppearance(30, 60, 20, 20, -1, 'test');
 // XOBject template
 
 $pageC02 = $pdf->page->add();
+$pdf->setBookmark('XOBject Template', '', 0, -1, 0, 0, 'B', '');
 
 $tid = $pdf->newXObjectTemplate(80, 80, []);
 
@@ -1469,6 +1550,7 @@ $pdf->page->addContent($tmpl);
 // Layers
 
 $pageV01 = $pdf->page->add();
+$pdf->setBookmark('Layers', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->page->addContent($bfont4['out']);
 
