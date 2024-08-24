@@ -1082,9 +1082,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $numwidth = 9 * $chrw; // maximum 9 digits to print the page number.
         $txtwidth = ($width - $numwidth);
 
-        $cellSpaceTop = $this->toUnit(
+        $cellSpaceT = $this->toUnit(
             $this->defcell['margin']['T'] +
             $this->defcell['padding']['T']
+        );
+        $cellSpaceB = $this->toUnit(
+            $this->defcell['margin']['B'] +
+            $this->defcell['padding']['B']
         );
         $cellSpaceH = $chrw + $this->toUnit(
             $this->defcell['margin']['L'] +
@@ -1107,16 +1111,6 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $pid = ($page < 0) ? $this->page->getPageID() : $page;
 
         foreach ($this->outlines as $bmrk) {
-            $region = $this->page->getRegion($pid);
-            if ($posy > $region['RH']) {
-                $opage = $this->page->getNextRegion($pid);
-                $pid = $opage['pid'];
-                $region = $this->page->getRegion($pid);
-                $posy = 0; // $region['RY'];
-            }
-
-            $this->page->addContent($this->graph->getStartTransform(), $pid);
-
             $font = $this->font->cloneFont(
                 $this->pon,
                 $curfont['idx'],
@@ -1125,6 +1119,17 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
                 $curfont['spacing'],
                 $curfont['stretching'],
             );
+
+            $region = $this->page->getRegion($pid);
+
+            if (($posy + $cellSpaceT + $cellSpaceB + $font['height']) > $region['RH']) {
+                $opage = $this->page->getNextRegion($pid);
+                $pid = $opage['pid'];
+                $region = $this->page->getRegion($pid);
+                $posy = 0; // $region['RY'];
+            }
+
+            $this->page->addContent($this->graph->getStartTransform(), $pid);
             $this->page->addContent($font['out'], $pid);
 
             if (! empty($bmrk['c'])) {
@@ -1170,7 +1175,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
                 $this->page->addContent($font['out'], $pid);
             }
 
-            $posy = $bbox['y'] - $cellSpaceTop; // align number with the last line of the text
+            $posy = $bbox['y'] - $cellSpaceT; // align number with the last line of the text
 
             // add page number
             $this->addTextCell(
@@ -1213,7 +1218,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             $this->page->addContent($this->graph->getStopTransform(), $pid);
 
             // Move to the next line.
-            $posy = $bbox['y'] + $bbox['h'];
+            $posy = $bbox['y'] + $bbox['h'] + $cellSpaceB;
         }
     }
 }

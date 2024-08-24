@@ -1624,7 +1624,7 @@ $style_cell_toc = [
 
 $pdf->graph->add($style_cell_toc);
 
-$pdf->addTOC(-1, 15, 15, 170, false);
+$pdf->addTOC(-1, 15, 30, 170, false);
 
 
 // =============================================================
