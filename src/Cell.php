@@ -607,11 +607,13 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Sets the page context by adding the previous page font and graphic settings.
      *
+     * @param int  $pid Page index. Omit or set it to -1 for the current page ID.
+     *
      * @return void
      */
-    protected function setPageContext(): void
+    protected function setPageContext(int $pid = -1): void
     {
-        $this->page->addContent($this->font->getOutCurrentFont());
+        $this->page->addContent($this->font->getOutCurrentFont(), $pid);
     }
 
     /**
