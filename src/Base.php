@@ -40,6 +40,10 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @phpstan-import-type PageInputData from \Com\Tecnick\Pdf\Page\Box
+ * @phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
+ * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
+ *
  * @phpstan-type TViewerPref array{
  *        'HideToolbar'?: bool,
  *        'HideMenubar'?: bool,
@@ -66,6 +70,22 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *          'w': float,
  *          'h': float,
  *      }
+ *
+ * @phpstan-type TCellDef array{
+ *        'margin': array{
+ *            'T': float,
+ *            'R': float,
+ *            'B': float,
+ *            'L': float,
+ *        },
+ *        'padding': array{
+ *            'T': float,
+ *            'R': float,
+ *            'B': float,
+ *            'L': float,
+ *        },
+ *       'borderpos': float,
+ *    }
  *
  * @phpstan-type TStackBBox array<int, TBBox>
  *
@@ -136,7 +156,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.74';
+    protected string $version = '8.0.75';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -453,12 +473,71 @@ abstract class Base
      *
      * @var TStackBBox
      */
-    protected $bbox = [[
+    protected array $bbox = [[
         'x' => 0,
         'y' => 0,
         'w' => 0,
         'h' => 0,
     ]];
+
+    /**
+     * Set to true to enable the default page footer.
+     *
+     * @var bool
+     */
+    protected bool $defPageContentEnabled = false;
+
+    /**
+     * Default font for defautl page content.
+     *
+     * @var ?TFontMetric
+     */
+    protected ?array $defaultfont = null;
+    /**
+     * The default relative position of the cell origin when
+     * the border is centered on the cell edge.
+     */
+    public const BORDERPOS_DEFAULT = 0;
+
+    /**
+     * The relative position of the cell origin when
+     * the border is external to the cell edge.
+     */
+    public const BORDERPOS_EXTERNAL = -0.5; //-1/2
+
+    /**
+     * The relative position of the cell origin when
+     * the border is internal to the cell edge.
+     */
+    public const BORDERPOS_INTERNAL = 0.5; // 1/2
+
+    /**
+     * Default values for cell.
+     *
+     * @const TCellDef
+     */
+    public const ZEROCELL = [
+        'margin' => [
+            'T' => 0,
+            'R' => 0,
+            'B' => 0,
+            'L' => 0,
+        ],
+        'padding' => [
+            'T' => 0,
+            'R' => 0,
+            'B' => 0,
+            'L' => 0,
+        ],
+        'borderpos' => self::BORDERPOS_DEFAULT,
+    ];
+
+    /**
+     * Default values for cell.
+     *
+     * @var TCellDef
+     */
+    protected $defcell = self::ZEROCELL;
 
     /**
      * Convert user units to internal points unit.
@@ -504,5 +583,17 @@ abstract class Base
     {
         $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
         return $this->toUnit($pageh - $pnt);
+    }
+
+    /**
+     * Enable or disable the default page content.
+     *
+     * @param bool $enable Enable or disable the default page content.
+     *
+     * @return void
+     */
+    public function enableDefaultPageContent(bool $enable = true): void
+    {
+        $this->defPageContentEnabled = $enable;
     }
 }

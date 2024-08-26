@@ -49,6 +49,8 @@ $pdf->setPDFFilename('test_index.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
+$pdf->enableDefaultPageContent();
+
 // ----------
 // Insert fonts
 
@@ -58,7 +60,7 @@ $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 // ----------
 // Add first page
 
-$page01 = $pdf->page->add();
+$page01 = $pdf->addPage();
 $pdf->setBookmark('Images', '', 0, -1, 0, 0, 'B', 'blue');
 
 // Add Images
@@ -114,7 +116,7 @@ $pdf->page->addContent($iid12_out);
 // ----------
 // Add second page
 
-$page02 = $pdf->page->add();
+$page02 = $pdf->addPage();
 $pdf->setBookmark('Graphics', '', 0, -1, 0, 0, 'B', 'green');
 
 $style1 = [
@@ -409,7 +411,7 @@ $pdf->page->addContent($arrow4);
 // ----------
 // Add page 2
 
-$page03 = $pdf->page->add();
+$page03 = $pdf->addPage();
 $pdf->setBookmark('Ellipse', '', 1);
 
 $pdf->graph->setPageWidth($page03['width']);
@@ -443,7 +445,7 @@ $pdf->page->addContent($arc6);
 // ----------
 // Add page 4
 
-$page04 = $pdf->page->add();
+$page04 = $pdf->addPage();
 $pdf->setBookmark('Pie Chart', '', 1);
 
 $pdf->graph->setPageWidth($page04['width']);
@@ -466,7 +468,7 @@ $pdf->page->addContent($pie3);
 // ----------
 // Add page 5
 
-$page05 = $pdf->page->add();
+$page05 = $pdf->addPage();
 $pdf->setBookmark('Crop Marks and Color Maps', '', 1);
 
 $pdf->graph->setPageWidth($page05['width']);
@@ -678,7 +680,7 @@ $pdf->page->addContent($colreg4);
 // ----------
 // Add page 6
 
-$page06 = $pdf->page->add();
+$page06 = $pdf->addPage();
 $pdf->setBookmark('Color Gradients', '', 1);
 
 $pdf->graph->setPageWidth($page06['width']);
@@ -739,7 +741,7 @@ $pdf->page->addContent($coonspatchmesh2);
 // ----------
 // Add page 7
 
-$page07 = $pdf->page->add();
+$page07 = $pdf->addPage();
 $pdf->setBookmark('Color gradient mesh', '', 1);
 
 $pdf->graph->setPageWidth($page07['width']);
@@ -827,7 +829,7 @@ $pdf->page->addContent($coonspatchmesh3);
 // ----------
 // Add page 8
 
-$page08 = $pdf->page->add();
+$page08 = $pdf->addPage();
 $pdf->setBookmark('Transformations', '', 1);
 
 $pdf->graph->setPageWidth($page08['width']);
@@ -955,7 +957,7 @@ $pdf->page->addContent($t8);
 // ----------
 // Add page 9
 
-$page09 = $pdf->page->add();
+$page09 = $pdf->addPage();
 $pdf->setBookmark('Barcodes', '', 0, -1, 0, 0, 'B', '');
 
 $dest_barcode_page = $pdf->setNamedDestination('barcode');
@@ -1003,7 +1005,7 @@ $pdf->page->addContent($barcode2);
 // ----------
 // Add page 10
 
-$page10 = $pdf->page->add();
+$page10 = $pdf->addPage();
 $pdf->setBookmark('Image Clipping', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->graph->setPageWidth($page10['width']);
@@ -1023,7 +1025,7 @@ $pdf->page->addContent($cnz);
 // ----------
 // Add page 11
 
-$page11 = $pdf->page->add();
+$page11 = $pdf->addPage();
 $pdf->setBookmark('Text', '', 0, -1, 0, 0, 'B', '');
 
 // Add an internal link to this page
@@ -1469,7 +1471,7 @@ $pdf->addTextCell(
 
 // Page signature
 
-$pageC01 = $pdf->page->add();
+$pageC01 = $pdf->addPage();
 $pdf->setBookmark('Signature', '', 0, -1, 0, 0, 'B', 'red');
 
 /*
@@ -1521,7 +1523,7 @@ $pdf->addEmptySignatureAppearance(30, 60, 20, 20, -1, 'test');
 
 // XOBject template
 
-$pageC02 = $pdf->page->add();
+$pageC02 = $pdf->addPage();
 $pdf->setBookmark('XOBject Template', '', 0, -1, 0, 0, 'B', '');
 
 $tid = $pdf->newXObjectTemplate(80, 80, []);
@@ -1551,7 +1553,7 @@ $pdf->page->addContent($tmpl);
 
 // Layers
 
-$pageV01 = $pdf->page->add();
+$pageV01 = $pdf->addPage();
 $pdf->setBookmark('Layers', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->page->addContent($bfont4['out']);
@@ -1604,7 +1606,7 @@ $pdf->page->addAnnotRef($lnk2);
 
 // ----------
 
-$pageTOC = $pdf->page->add();
+$pageTOC = $pdf->addPage();
 $pdf->setBookmark('TOC');
 
 $pdf->page->addContent($bfont4['out']);

@@ -30,71 +30,11 @@ namespace Com\Tecnick\Pdf;
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Style
+ * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Base
  *
- * @phpstan-type TCellDef array{
- *        'margin': array{
- *            'T': float,
- *            'R': float,
- *            'B': float,
- *            'L': float,
- *        },
- *        'padding': array{
- *            'T': float,
- *            'R': float,
- *            'B': float,
- *            'L': float,
- *        },
- *       'borderpos': float,
- *    }
  */
 abstract class Cell extends \Com\Tecnick\Pdf\Base
 {
-    /**
-     * The default relative position of the cell origin when
-     * the border is centered on the cell edge.
-     */
-    public const BORDERPOS_DEFAULT = 0;
-
-    /**
-     * The relative position of the cell origin when
-     * the border is external to the cell edge.
-     */
-    public const BORDERPOS_EXTERNAL = -0.5; //-1/2
-
-    /**
-     * The relative position of the cell origin when
-     * the border is internal to the cell edge.
-     */
-    public const BORDERPOS_INTERNAL = 0.5; // 1/2
-
-    /**
-     * Default values for cell.
-     *
-     * @const TCellDef
-     */
-    public const ZEROCELL = [
-        'margin' => [
-            'T' => 0,
-            'R' => 0,
-            'B' => 0,
-            'L' => 0,
-        ],
-        'padding' => [
-            'T' => 0,
-            'R' => 0,
-            'B' => 0,
-            'L' => 0,
-        ],
-        'borderpos' => self::BORDERPOS_DEFAULT,
-    ];
-
-    /**
-     * Default values for cell.
-     *
-     * @var TCellDef
-     */
-    protected $defcell = self::ZEROCELL;
-
     /**
      * Set the default cell margin in user units.
      *
@@ -602,18 +542,6 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
                     + $curfont['height']
                     - (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B']))));
         }
-    }
-
-    /**
-     * Sets the page context by adding the previous page font and graphic settings.
-     *
-     * @param int  $pid Page index. Omit or set it to -1 for the current page ID.
-     *
-     * @return void
-     */
-    protected function setPageContext(int $pid = -1): void
-    {
-        $this->page->addContent($this->font->getOutCurrentFont(), $pid);
     }
 
     /**

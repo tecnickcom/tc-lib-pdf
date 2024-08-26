@@ -37,6 +37,10 @@ use Com\Tecnick\Unicode\Data\Type as UnicodeType;
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  *
+ * @phpstan-import-type PageInputData from \Com\Tecnick\Pdf\Page\Box
+ * @phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
+ * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
+ *
  *
  * @phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TStackBBox from \Com\Tecnick\Pdf\Base
@@ -1564,5 +1568,78 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return $ordarr;
+    }
+
+    // ===| PAGE |==========================================================
+
+    /**
+     * Add a new page (wrapper function for $this->page->add()).
+     *
+     * @param PageInputData $data Page data.
+     * @return PageData Page data with additional Page ID property 'pid'.
+     */
+    public function addPage(array $data = []): array
+    {
+        $ret = $this->page->add($data);
+        $this->setPageContext($ret['pid']);
+        return $ret;
+    }
+
+    /**
+     * Sets the page context by adding the previous page font and graphic settings.
+     *
+     * @param int  $pid Page index. Omit or set it to -1 for the current page ID.
+     *
+     * @return void
+     */
+    protected function setPageContext(int $pid = -1): void
+    {
+        $this->page->addContent($this->font->getOutCurrentFont(), $pid);
+        if ($this->defPageContentEnabled) {
+            $this->page->addContent($this->defaultPageContent($pid), $pid);
+        }
+    }
+
+    /**
+     * Sets the page common content like Header and Footer.
+     * Override this method to add custom content to all pages.
+     *
+     * @param int $pid Page index. Omit or set it to -1 for the current page ID.
+     *
+     * @return string PDF output code.
+     */
+    public function defaultPageContent(int $pid = -1): string
+    {
+        if ($pid < 0) {
+            $pid = $this->page->getPageId();
+        }
+
+        if ($this->defaultfont === null) {
+            $this->defaultfont = $this->font->insert($this->pon, 'helvetica', '', 10);
+        }
+
+        $region = $this->page->getRegion($pid);
+
+        // print page number in the footer
+        $out = $this->graph->getStartTransform();
+        $out .= $this->defaultfont['out'];
+        $out .= $this->color->getPdfColor('black');
+        $prevcell = $this->defcell;
+        $this->defcell = $this::ZEROCELL;
+
+        $out .= $this->getTextCell(
+            (string) ($pid + 1),
+            $this->toUnit($this->defaultfont['dw']),
+            $region['RH'] - (2 * $this->toUnit($this->defaultfont['height'])),
+            $region['RW'] - (2 * $this->toUnit($this->defaultfont['dw'])),
+            0,
+            0,
+            0,
+            'T',
+            ($this->rtl ? 'L' : 'R'),
+        );
+        $out .= $this->graph->getStopTransform();
+        $this->defcell = $prevcell;
+        return $out;
     }
 }

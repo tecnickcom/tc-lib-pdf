@@ -35,6 +35,8 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base
  * @phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
+ * @phpstan-import-type PageInputData from \Com\Tecnick\Pdf\Page\Box
+ * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
  *
  * @phpstan-import-type TAnnotOpts from Output
  * @phpstan-import-type TSignature from Output
@@ -1124,6 +1126,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 
             if (($posy + $cellSpaceT + $cellSpaceB + $font['height']) > $region['RH']) {
                 $opage = $this->page->getNextRegion($pid);
+                $this->setPageContext($pid);
                 $pid = $opage['pid'];
                 $region = $this->page->getRegion($pid);
                 $posy = 0; // $region['RY'];
