@@ -1125,9 +1125,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             $region = $this->page->getRegion($pid);
 
             if (($posy + $cellSpaceT + $cellSpaceB + $font['height']) > $region['RH']) {
-                $opage = $this->page->getNextRegion($pid);
-                $this->setPageContext($pid);
-                $pid = $opage['pid'];
+                $this->page->getNextRegion($pid);
+                $curpid = $this->page->getPageId();
+                if ($curpid > $pid) {
+                    $pid = $curpid;
+                    $this->setPageContext($pid);
+                }
                 $region = $this->page->getRegion($pid);
                 $posy = 0; // $region['RY'];
             }

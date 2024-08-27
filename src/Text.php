@@ -324,6 +324,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return;
         }
 
+        if ($pid < 0) {
+            $pid = $this->page->getPageId();
+        }
+
         if ($halign == '') {
             $halign = $this->rtl ? 'R' : 'L';
         }
@@ -478,7 +482,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell['margin']['B'] = 0;
 
             $this->page->getNextRegion($pid);
-            $this->setPageContext($pid);
+            $curpid = $this->page->getPageId();
+            if ($curpid > $pid) {
+                $pid = $curpid;
+                $this->setPageContext($pid);
+            }
         }
     }
 
@@ -1618,7 +1626,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $this->defaultfont = $this->font->insert($this->pon, 'helvetica', '', 10);
         }
 
-        $region = $this->page->getRegion($pid);
+        $page = $this->page->getPage($pid);
 
         // print page number in the footer
         $out = $this->graph->getStartTransform();
@@ -1630,8 +1638,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out .= $this->getTextCell(
             (string) ($pid + 1),
             $this->toUnit($this->defaultfont['dw']),
-            $region['RH'] - (2 * $this->toUnit($this->defaultfont['height'])),
-            $region['RW'] - (2 * $this->toUnit($this->defaultfont['dw'])),
+            $page['height'] - (2 * $this->toUnit($this->defaultfont['height'])),
+            $page['width'] - (4 * $this->toUnit($this->defaultfont['dw'])),
             0,
             0,
             0,
