@@ -156,7 +156,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.77';
+    protected string $version = '8.0.78';
 
     /**
      * Time is seconds since EPOCH when the document was created.
