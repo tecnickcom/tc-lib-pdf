@@ -38,7 +38,7 @@ Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.0.13
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 5.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.2.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.1.1
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.2.0
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}
