@@ -40,6 +40,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @SuppressWarnings(PHPMD.DepthOfInheritance)
  */
 abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
 {

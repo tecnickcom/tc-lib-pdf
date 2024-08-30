@@ -901,7 +901,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
 
             $font = $this->font->getFont('helvetica');
-            $out .= ' /DA (/F' . $font['i'] . ' 0 Tf 0 g)';
+            $out .= ' /DA ' . $this->encrypt->escapeDataString('/F' . $font['i'] . ' 0 Tf 0 g', $oid);
             $out .= ' /Q ' . (($this->rtl) ? '2' : '0');
             //$out .= ' /XFA ';
             $out .= ' >>';
@@ -1657,7 +1657,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             'caret' => $this->getOutAnnotationOptSubtypeCaret($annot),
             'circle' => $this->getOutAnnotationOptSubtypeCircle($annot),
             'fileattachment' => $this->getOutAnnotationOptSubtypeFileattachment($annot, $key),
-            'freetext' => $this->getOutAnnotationOptSubtypeFreetext($annot),
+            'freetext' => $this->getOutAnnotationOptSubtypeFreetext($annot, $oid),
             'highlight' => $this->getOutAnnotationOptSubtypeHighlight($annot),
             'ink' => $this->getOutAnnotationOptSubtypeInk($annot),
             'line' => $this->getOutAnnotationOptSubtypeLine($annot),
@@ -1827,12 +1827,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the output code associated with the annotation opt.subtype.freetext.
      *
      * @param TAnnot $annot Array containing page annotations.
+     * @param int    $oid     Annotation Object ID.
      */
-    protected function getOutAnnotationOptSubtypeFreetext(array $annot): string
+    protected function getOutAnnotationOptSubtypeFreetext(array $annot, int $oid): string
     {
         $out = '';
         if (! empty($annot['opt']['da'])) {
-            $out .= ' /DA (' . $annot['opt']['da'] . ')';
+            $out .= ' /DA ' . $this->encrypt->escapeDataString($annot['opt']['da'], $oid);
         }
 
         if (
@@ -2304,7 +2305,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         if (! empty($annot['opt']['da'])) {
-            $out .= ' /DA (' . $annot['opt']['da'] . ')';
+            $out .= ' /DA ' . $this->encrypt->escapeDataString($annot['opt']['da'], $oid);
         }
 
         if (
