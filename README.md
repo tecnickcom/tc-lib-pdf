@@ -24,36 +24,39 @@
 PHP library for generating PDF documents on-the-fly.
 This is the new version of the TCPDF library that will be deprecated once all the existing features are ported.
 
+NOTE: The first complete (stable) version will be 8.1.0. As this is currently unstable, only the patch number in the version will be updated, even if breaking changes are introduced.
+
 ### Main Features:
 
-***(the features striked through are yet to be ported)***
+***(the features striked through are in progress)***
 
-* no external libraries (excluding the tc-lib-* ones) are required for the basic functions;
 * all standard page formats, custom page formats, custom margins and units of measure;
 * UTF-8 Unicode and Right-To-Left languages;
 * TrueTypeUnicode, OpenTypeUnicode v1, TrueType, OpenType v1, Type1 and CID-0 fonts;
 * font subsetting;
-* [] ~methods to publish some XHTML + CSS code, Javascript and Forms;~
+* [] ~SVG~
+* [] ~CSS~
+* [] ~HTML~
+* [] ~JavaScript~
 * images, graphic (geometric figures) and transformation methods;
 * supports JPEG, PNG and SVG images natively, all images supported by GD (GD, GD2, GD2PART, GIF, JPEG, PNG, BMP, XBM, XPM) and all images supported via ImagMagick (http://www.imagemagick.org/script/formats.php)
 * 1D and 2D barcodes via tc-lib-barcode.
 * JPEG and PNG ICC profiles, Grayscale, RGB, CMYK, Spot Pdfs and Transparencies;
-* ~automatic page header and footer management;~
+* page common content support (header/footer);
 * document encryption up to 256 bit and digital signature certifications;
-* ~transactions to UNDO commands;~
 * PDF annotations, including links, text and file attachments;
 * text rendering modes (fill, stroke and clipping);
 * multiple columns mode;
 * no-write page regions;
-* ~bookmarks, named destinations and table of content;~
+* bookmarks, named destinations and table of content;
 * text hyphenation;
 * text stretching and spacing (tracking);
 * automatic page break, line break and text alignments including justification;
 * automatic page numbering and page groups;
 * move and delete pages;
 * page compression (requires php-zlib extension);
-* [] ~XOBject Templates;~
-* [] ~Layers and object visibility.~
+* XOBject Templates;
+* Layers and object visibility.
 * PDF/A-1b support.
 
 ### Third party fonts:

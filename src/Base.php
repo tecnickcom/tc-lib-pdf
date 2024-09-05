@@ -101,6 +101,10 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *       'width': float,
  *       'height': float,
  *    },
+ *    'page': array{
+ *       'width': float,
+ *       'height': float,
+ *    },
  * }
  *
  * @phpstan-type TStackBBox array<int, TBBox>
@@ -172,7 +176,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.79';
+    protected string $version = '8.0.80';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -263,6 +267,29 @@ abstract class Base
         '%', 'ch', 'cm', 'em', 'ex',
         'in', 'mm', 'pc', 'pt', 'px',
         'rem', 'vh', 'vmax', 'vmin', 'vw',
+    ];
+
+    /**
+     * Default eference values for unit conversion.
+     *
+     * @var TRefUnitValues
+     */
+    protected const REFUNITVAL = [
+        'parent' => 1.0,
+        'font' => [
+            'rootsize' => 10.0,
+            'size' => 10.0,
+            'xheight' => 5.0,
+            'zerowidth' => 3.0,
+        ],
+        'viewport' => [
+            'width' => 1000.0,
+            'height' => 1000.0,
+        ],
+        'page' => [
+            'width' => 595.276,
+            'height' => 841.890,
+        ],
     ];
 
     /**
@@ -652,26 +679,14 @@ abstract class Base
      * This is used to convert values for SVG, CSS, HTML.
      *
      * @param string|float|int $val String containing values and unit.
-     * @param TRefUnitValues $ref Reference values in points.
+     * @param TRefUnitValues $ref Reference values in internal points.
      * @param string $defunit Default unit (can be one of the VALIDUNITS).
      *
      * @return float Internal points value.
      */
     public function getUnitValuePoints(
         string|float|int $val,
-        array $ref = [
-            'parent' => 1.0,
-            'font' => [
-                'rootsize' => 10.0,
-                'size' => 10.0,
-                'xheight' => 5.0,
-                'zerowidth' => 3.0,
-            ],
-            'viewport' => [
-                'width' => 1000.0,
-                'height' => 1000.0,
-            ],
-        ],
+        array $ref = self::REFUNITVAL,
         string $defunit = 'px',
     ): float {
         $unit = 'px';
