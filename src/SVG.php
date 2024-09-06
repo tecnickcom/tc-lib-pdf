@@ -393,7 +393,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // extract paths
         $attrd = preg_replace('/([0-9ACHLMQSTVZ])([\-\+])/si', '\\1 \\2', $attrd);
+        if (empty($attrd)) {
+            return '';
+        }
+
         $attrd = preg_replace('/(\.[0-9]+)(\.)/s', '\\1 \\2', $attrd);
+        if (empty($attrd)) {
+            return '';
+        }
+
         $paths = [];
         preg_match_all('/([ACHLMQSTVZ])[\s]*([^ACHLMQSTVZ\"]*)/si', $attrd, $paths, PREG_SET_ORDER);
 
@@ -437,7 +445,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $params = [];
             if (isset($val[2])) {
                 // get curve parameters
-                $rawparams = preg_split('/([\,\s]+)/si', trim($val[2]));
+                $rprms = preg_split('/([\,\s]+)/si', trim($val[2]));
+                if (!empty($rprms)) {
+                    $rawparams = $rprms;
+                }
                 foreach ($rawparams as $prk => $prv) {
                     $params[$prk] = $this->getUnitValuePoints($prv, self::REFUNITVAL, self::SVGUNIT);
                     if (abs($params[$prk]) < $this->svgminunitlen) {
