@@ -20,7 +20,7 @@ Requires:  php(language) >= 8.0.0
 Requires:  php-date
 Requires:  php-pcre
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.2.3
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.3.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.2.2
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0
