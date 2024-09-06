@@ -270,6 +270,24 @@ abstract class Base
     ];
 
     /**
+     * Map of relative font sizes.
+     * The key is the relative size and the value is the font size increment in points.
+     *
+     * @var array<string, float>
+     */
+    protected const FONTRELSIZE = [
+        'xx-small' => -4.0,
+        'x-small' => -3.0,
+        'smaller' => -3.0,
+        'small' => -2.0,
+        'medium' => 0.0,
+        'large' => 2.0,
+        'x-large' => 4.0,
+        'larger' => 3.0,
+        'xx-large' => 6.0,
+    ];
+
+    /**
      * Default eference values for unit conversion.
      *
      * @var TRefUnitValues
@@ -684,7 +702,7 @@ abstract class Base
      *
      * @return float Internal points value.
      */
-    public function getUnitValuePoints(
+    protected function getUnitValuePoints(
         string|float|int $val,
         array $ref = self::REFUNITVAL,
         string $defunit = 'px',
@@ -740,5 +758,27 @@ abstract class Base
             // Default to pixels.
             default => ($value * $this->pointtopixelratio),
         };
+    }
+
+    /**
+     * Converts a string containing font size value to internal points.
+     * This is used to convert values for SVG, CSS, HTML.
+     *
+     * @param string|float|int $val String containing values and unit.
+     * @param TRefUnitValues $ref Reference values in internal points.
+     * @param string $defunit Default unit (can be one of the VALIDUNITS).
+     *
+     * @return float Internal points value.
+     */
+    protected function getFontValuePoints(
+        string|float|int $val,
+        array $ref = self::REFUNITVAL,
+        string $defunit = 'pt',
+    ): float {
+        if (is_string($val) && isset(self::FONTRELSIZE[$val])) {
+            return ($ref['parent'] + self::FONTRELSIZE[$val]);
+        }
+
+        return $this->getUnitValuePoints($val, $ref, $defunit);
     }
 }
