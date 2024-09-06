@@ -74,6 +74,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
         );
 
         $this->kunit = $this->page->getKUnit();
+        $this->svgminunitlen = $this->toUnit($this::SVGMINPNTLEN);
 
         $this->graph = new ObjGraph(
             $this->kunit,

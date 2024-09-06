@@ -34,6 +34,23 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TTMatrix from \Com\Tecnick\Pdf\Graph\Base
  * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
  *
+ * @phpstan-type TSCGCoord array{
+ *    'x': float,
+ *    'y': float,
+ *    'x0': float,
+ *    'y0': float,
+ *    'xmin': float,
+ *    'xmax': float,
+ *    'ymin': float,
+ *    'ymax': float,
+ *    'xinit': float,
+ *    'yinit': float,
+ *    'xoffset': float,
+ *    'yoffset': float,
+ *    'relcoord': bool,
+ *    'firstcmd': bool,
+ * }
+ *
  * @phpstan-type TSVGStyle array{
  *    'alignment-baseline': string,
  *    'baseline-shift': string,
@@ -108,6 +125,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @var string
      */
     protected const SVGUNIT = 'px';
+
+    /**
+     * Default SVG minimum length in points.
+     *
+     * @var float
+     */
+    protected const SVGMINPNTLEN = 0.01;
+
+    protected float $svgminunitlen = 0;
 
     /**
      * Default SVG style.
@@ -353,6 +379,576 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $parts = explode(':', $name);
         return end($parts);
+    }
+
+    protected function gatSVGPath(
+        string $attrd,
+        string $mode = '',
+    ): string {
+        // set paint operator
+        $pop = $this->graph->getPathPaintOp($mode, '');
+        if (empty($pop)) {
+            return '';
+        }
+
+        // extract paths
+        $attrd = preg_replace('/([0-9ACHLMQSTVZ])([\-\+])/si', '\\1 \\2', $attrd);
+        $attrd = preg_replace('/(\.[0-9]+)(\.)/s', '\\1 \\2', $attrd);
+        $paths = [];
+        preg_match_all('/([ACHLMQSTVZ])[\s]*([^ACHLMQSTVZ\"]*)/si', $attrd, $paths, PREG_SET_ORDER);
+
+        // initialize variables
+        $out = '';
+
+        $coord = [
+            'x' => 0.0,
+            'y' => 0.0,
+            'x0' => 0.0,
+            'y0' => 0.0,
+            'xmin' => 2147483647.0,
+            'xmax' => 0.0,
+            'ymin' => 2147483647.0,
+            'ymax' => 0.0,
+            'xinit' => 0.0,
+            'yinit' => 0.0,
+            'xoffset' => 0.0,
+            'yoffset' => 0.0,
+            'relcoord' => false,
+            'firstcmd' => true,
+        ];
+
+        // draw curve pieces
+        foreach ($paths as $key => $val) {
+            // get curve type
+            $cmd = trim($val[1]);
+
+            // relative or absolute coordinates
+            $coord['relcoord'] = (strtolower($cmd) == $cmd);
+            if ($coord['relcoord']) {
+                // use relative coordinated instead of absolute
+                $coord['xoffset'] = $coord['x'];
+                $coord['yoffset'] = $coord['y'];
+            } else {
+                $coord['xoffset'] = 0;
+                $coord['yoffset'] = 0;
+            }
+
+            $params = [];
+            if (isset($val[2])) {
+                // get curve parameters
+                $rawparams = preg_split('/([\,\s]+)/si', trim($val[2]));
+                foreach ($rawparams as $prk => $prv) {
+                    $params[$prk] = $this->getUnitValuePoints($prv, self::REFUNITVAL, self::SVGUNIT);
+                    if (abs($params[$prk]) < $this->svgminunitlen) {
+                        // approximate little values to zero
+                        $params[$prk] = 0;
+                    }
+                }
+            }
+
+            // store current origin point
+            $coord['x0'] = $coord['x'];
+            $coord['y0'] = $coord['y'];
+
+            match (strtoupper($cmd)) {
+                'A' => $out .= $this->svgPathCmdA($params, $coord, $paths, $key, $rawparams),
+                'C' => $out .= $this->svgPathCmdC($params, $coord),
+                'H' => $out .= $this->svgPathCmdH($params, $coord),
+                'L' => $out .= $this->svgPathCmdL($params, $coord),
+                'M' => $out .= $this->svgPathCmdM($params, $coord),
+                'Q' => $out .= $this->svgPathCmdQ($params, $coord),
+                'S' => $out .= $this->svgPathCmdS($params, $coord, $paths, $key),
+                'T' => $out .= $this->svgPathCmdT($params, $coord, $paths, $key),
+                'V' => $out .= $this->svgPathCmdV($params, $coord),
+                'Z' => $out .= $this->svgPathCmdZ($coord),
+            };
+
+            $coord['firstcmd'] = false;
+        }
+
+        return $out . ' ' . $pop . "\n";
+    }
+
+    /**
+     * Process SCG path command 'A' (elliptical arc).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     * @param array<array<string>> $paths All paths.
+     * @param int $key Current key.
+     * @param array<float> $rawparams Raw parameters.
+     *
+     * @return string
+     */
+    protected function svgPathCmdA(array $prm, array &$crd, array $paths, int $key, array $rawparams): string
+    {
+        $out = '';
+
+        foreach ($prm as $prk => $prv) {
+            if ((($prk + 1) % 7) != 0) {
+                continue;
+            }
+
+            $crd['x0'] = $crd['x'];
+            $crd['y0'] = $crd['y'];
+            $rpx = max(abs($prm[($prk - 6)]), .000000001);
+            $rpy = max(abs($prm[($prk - 5)]), .000000001);
+            $ang = -$rawparams[($prk - 4)];
+            $angle = deg2rad($ang);
+            $laf = $rawparams[($prk - 3)]; // large-arc-flag
+            $swf = $rawparams[($prk - 2)]; // sweep-flag
+            $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
+            $crd['y'] = $prv + $crd['yoffset'];
+
+            if (
+                (abs($crd['x0'] - $crd['x']) < $this->svgminunitlen) &&
+                (abs($crd['y0'] - $crd['y']) < $this->svgminunitlen)
+            ) {
+                // endpoints are almost identical
+                $crd['xmin'] = min($crd['xmin'], $crd['x']);
+                $crd['ymin'] = min($crd['ymin'], $crd['y']);
+                $crd['xmax'] = max($crd['xmax'], $crd['x']);
+                $crd['ymax'] = max($crd['ymax'], $crd['y']);
+            } else {
+                $cos_ang = cos($angle);
+                $sin_ang = sin($angle);
+                $cra = (($crd['x0'] - $crd['x']) / 2);
+                $crb = (($crd['y0'] - $crd['y']) / 2);
+                $pxa = ($cra * $cos_ang) - ($crb * $sin_ang);
+                $pya = ($cra * $sin_ang) + ($crb * $cos_ang);
+                $rx2 = $rpx * $rpx;
+                $ry2 = $rpy * $rpy;
+                $pxa2 = $pxa * $pxa;
+                $pya2 = $pya * $pya;
+                $delta = ($pxa2 / $rx2) + ($pya2 / $ry2);
+                if ($delta > 1) {
+                    $rpx *= sqrt($delta);
+                    $rpy *= sqrt($delta);
+                    $rx2 = $rpx * $rpx;
+                    $ry2 = $rpy * $rpy;
+                }
+                $numerator = (($rx2 * $ry2) - ($rx2 * $pya2) - ($ry2 * $pxa2));
+                $root = 0;
+                if ($numerator > 0) {
+                    $root = sqrt($numerator / (($rx2 * $pya2) + ($ry2 * $pxa2)));
+                }
+                if ($laf == $swf) {
+                    $root *= -1;
+                }
+                $cax = $root * (($rpx * $pya) / $rpy);
+                $cay = -$root * (($rpy * $pxa) / $rpx);
+                // coordinates of ellipse center
+                $pcx = ($cax * $cos_ang) - ($cay * $sin_ang) + (($crd['x0'] + $crd['x']) / 2);
+                $pcy = ($cax * $sin_ang) + ($cay * $cos_ang) + (($crd['y0'] + $crd['y']) / 2);
+                // get angles
+                $angs = $this->graph->getVectorsAngle(
+                    1,
+                    0,
+                    (($pxa - $cax) / $rpx),
+                    (($cay - $pya) / $rpy),
+                );
+                $dang = $this->graph->getVectorsAngle(
+                    (($pxa - $cax) / $rpx),
+                    (($pya - $cay) / $rpy),
+                    ((-$pxa - $cax) / $rpx),
+                    ((-$pya - $cay) / $rpy),
+                );
+                if (($swf == 0) and ($dang > 0)) {
+                    $dang -= (2 * M_PI);
+                } elseif (($swf == 1) and ($dang < 0)) {
+                    $dang += (2 * M_PI);
+                }
+                $angf = $angs - $dang;
+                if ((($swf == 0) and ($angs > $angf)) or (($swf == 1) and ($angs < $angf))) {
+                    // reverse angles
+                    $tmp = $angs;
+                    $angs = $angf;
+                    $angf = $tmp;
+                }
+                $angs = round(rad2deg($angs), 6);
+                $angf = round(rad2deg($angf), 6);
+                // covent angles to positive values
+                if (($angs < 0) and ($angf < 0)) {
+                    $angs += 360;
+                    $angf += 360;
+                }
+                $pie = false;
+                if (($key == 0) and (isset($paths[($key + 1)][1])) and (trim($paths[($key + 1)][1]) == 'z')) {
+                    $pie = true;
+                }
+                // list($axmin, $aymin, $axmax, $aymax)
+                $bbox = [0.0, 0.0, 0.0, 0.0];
+                $out .= $this->graph->getRawEllipticalArc(
+                    $pcx,
+                    $pcy,
+                    $rpx,
+                    $rpy,
+                    $ang,
+                    $angs,
+                    $angf,
+                    $pie,
+                    2,
+                    false,
+                    ($swf == 0),
+                    true,
+                    $bbox,
+                );
+                $crd['xmin'] = min($crd['xmin'], $crd['x'], $bbox[0]);
+                $crd['ymin'] = min($crd['ymin'], $crd['y'], $bbox[1]);
+                $crd['xmax'] = max($crd['xmax'], $crd['x'], $bbox[2]);
+                $crd['ymax'] = max($crd['ymax'], $crd['y'], $bbox[3]);
+            }
+
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'C' (curveto).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     *
+     * @return string
+     */
+    protected function svgPathCmdC(array $prm, array &$crd): string
+    {
+        $out = '';
+
+        foreach ($prm as $prk => $prv) {
+            if ((($prk + 1) % 6) != 0) {
+                continue;
+            }
+
+            $px1 = $prm[($prk - 5)] + $crd['xoffset'];
+            $py1 = $prm[($prk - 4)] + $crd['yoffset'];
+            $px2 = $prm[($prk - 3)] + $crd['xoffset'];
+            $py2 = $prm[($prk - 2)] + $crd['yoffset'];
+            $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
+            $crd['y'] = $prv + $crd['yoffset'];
+            $out .= $this->graph->getRawCurve($px1, $py1, $px2, $py2, $crd['x'], $crd['y']);
+            $crd['xmin'] = min($crd['xmin'], $crd['x'], $px1, $px2);
+            $crd['ymin'] = min($crd['ymin'], $crd['y'], $py1, $py2);
+            $crd['xmax'] = max($crd['xmax'], $crd['x'], $px1, $px2);
+            $crd['ymax'] = max($crd['ymax'], $crd['y'], $py1, $py2);
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'H' (horizontal lineto).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     *
+     * @return string
+     */
+    protected function svgPathCmdH(array $prm, array &$crd): string
+    {
+        $out = '';
+
+        foreach ($prm as $prv) {
+            $crd['x'] = $prv + $crd['xoffset'];
+            if (
+                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+            ) {
+                $out .= $this->graph->getRawLine($crd['x'], $crd['y']);
+                $crd['x0'] = $crd['x'];
+                $crd['y0'] = $crd['y'];
+            }
+            $crd['xmin'] = min($crd['xmin'], $crd['x']);
+            $crd['xmax'] = max($crd['xmax'], $crd['x']);
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'L' (lineto).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     *
+     * @return string
+     */
+    protected function svgPathCmdL(array $prm, array &$crd): string
+    {
+        $out = '';
+
+        foreach ($prm as $prk => $prv) {
+            if (($prk % 2) == 0) {
+                $crd['x'] = $prv + $crd['xoffset'];
+                continue;
+            }
+
+            $crd['y'] = $prv + $crd['yoffset'];
+            if (
+                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+            ) {
+                $out .= $this->graph->getRawLine($crd['x'], $crd['y']);
+                $crd['x0'] = $crd['x'];
+                $crd['y0'] = $crd['y'];
+            }
+            $crd['xmin'] = min($crd['xmin'], $crd['x']);
+            $crd['ymin'] = min($crd['ymin'], $crd['y']);
+            $crd['xmax'] = max($crd['xmax'], $crd['x']);
+            $crd['ymax'] = max($crd['ymax'], $crd['y']);
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'M' (moveto)
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     *
+     * @return string
+     */
+    protected function svgPathCmdM(array $prm, array &$crd): string
+    {
+        $out = '';
+
+        foreach ($prm as $prk => $prv) {
+            if (($prk % 2) == 0) {
+                $crd['x'] = $prv + $crd['xoffset'];
+                continue;
+            }
+
+            $crd['y'] = $prv + $crd['yoffset'];
+            if (
+                $crd['firstcmd'] ||
+                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+            ) {
+                if ($prk == 1) {
+                    $out .= $this->graph->getRawPoint($crd['x'], $crd['y']);
+                    $crd['firstcmd'] = false;
+                    $crd['xinit'] = $crd['x'];
+                    $crd['yinit'] = $crd['y'];
+                } else {
+                    $out .= $this->graph->getRawLine($crd['x'], $crd['y']);
+                }
+                $crd['x0'] = $crd['x'];
+                $crd['y0'] = $crd['y'];
+            }
+            $crd['xmin'] = min($crd['xmin'], $crd['x']);
+            $crd['ymin'] = min($crd['ymin'], $crd['y']);
+            $crd['xmax'] = max($crd['xmax'], $crd['x']);
+            $crd['ymax'] = max($crd['ymax'], $crd['y']);
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'Q' (quadratic Bezier curveto).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     *
+     * @return string
+     */
+    protected function svgPathCmdQ(array $prm, array &$crd): string
+    {
+        $out = '';
+
+        foreach ($prm as $prk => $prv) {
+            if ((($prk + 1) % 4) != 0) {
+                continue;
+            }
+
+            // convert quadratic points to cubic points
+            $px1 = $prm[($prk - 3)] + $crd['xoffset'];
+            $py1 = $prm[($prk - 2)] + $crd['yoffset'];
+            $pxa = ($crd['x'] + (2 * $px1)) / 3;
+            $pya = ($crd['y'] + (2 * $py1)) / 3;
+            $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
+            $crd['y'] = $prv + $crd['yoffset'];
+            $pxb = ($crd['x'] + (2 * $px1)) / 3;
+            $pyb = ($crd['y'] + (2 * $py1)) / 3;
+            $out .= $this->graph->getRawCurve($pxa, $pya, $pxb, $pyb, $crd['x'], $crd['y']);
+            $crd['xmin'] = min($crd['xmin'], $crd['x'], $pxa, $pxb);
+            $crd['ymin'] = min($crd['ymin'], $crd['y'], $pya, $pyb);
+            $crd['xmax'] = max($crd['xmax'], $crd['x'], $pxa, $pxb);
+            $crd['ymax'] = max($crd['ymax'], $crd['y'], $pya, $pyb);
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'S' (shorthand/smooth curveto).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     * @param array<array<string>> $paths All paths.
+     * @param int $key Current key.
+     *
+     * @return string
+     */
+    protected function svgPathCmdS(array $prm, array &$crd, array $paths, int $key): string
+    {
+        $out = '';
+
+        foreach ($prm as $prk => $prv) {
+            if ((($prk + 1) % 4) != 0) {
+                continue;
+            }
+
+            if (
+                ($key > 0) &&
+                ((strtoupper($paths[($key - 1)][1]) == 'C') ||
+                (strtoupper($paths[($key - 1)][1]) == 'S'))
+            ) {
+                $px1 = (2 * $crd['x']) - $px2;
+                $py1 = (2 * $crd['y']) - $py2;
+            } else {
+                $px1 = $crd['x'];
+                $py1 = $crd['y'];
+            }
+            $px2 = $prm[($prk - 3)] + $crd['xoffset'];
+            $py2 = $prm[($prk - 2)] + $crd['yoffset'];
+            $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
+            $crd['y'] = $prv + $crd['yoffset'];
+            $out .= $this->graph->getRawCurve($px1, $py1, $px2, $py2, $crd['x'], $crd['y']);
+            $crd['xmin'] = min($crd['xmin'], $crd['x'], $px1, $px2);
+            $crd['ymin'] = min($crd['ymin'], $crd['y'], $py1, $py2);
+            $crd['xmax'] = max($crd['xmax'], $crd['x'], $px1, $px2);
+            $crd['ymax'] = max($crd['ymax'], $crd['y'], $py1, $py2);
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'T' (shorthand/smooth quadratic Bezier curveto).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     * @param array<array<string>> $paths All paths.
+     * @param int $key Current key.
+     *
+     * @return string
+     */
+    protected function svgPathCmdT(array $prm, array &$crd, array $paths, int $key): string
+    {
+        $out = '';
+
+        foreach ($prm as $prk => $prv) {
+            if (($prk % 2) == 0) {
+                continue;
+            }
+
+            if (
+                ($key > 0) &&
+                ((strtoupper($paths[($key - 1)][1]) == 'Q') ||
+                (strtoupper($paths[($key - 1)][1]) == 'T'))
+            ) {
+                $px1 = (2 * $crd['x']) - $px1;
+                $py1 = (2 * $crd['y']) - $py1;
+            } else {
+                $px1 = $crd['x'];
+                $py1 = $crd['y'];
+            }
+            // convert quadratic points to cubic points
+            $pxa = ($crd['x'] + (2 * $px1)) / 3;
+            $pya = ($crd['y'] + (2 * $py1)) / 3;
+            $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
+            $crd['y'] = $prv + $crd['yoffset'];
+            $pxb = ($crd['x'] + (2 * $px1)) / 3;
+            $pyb = ($crd['y'] + (2 * $py1)) / 3;
+            $out .= $this->graph->getRawCurve($pxa, $pya, $pxb, $pyb, $crd['x'], $crd['y']);
+            $crd['xmin'] = min($crd['xmin'], $crd['x'], $pxa, $pxb);
+            $crd['ymin'] = min($crd['ymin'], $crd['y'], $pya, $pyb);
+            $crd['xmax'] = max($crd['xmax'], $crd['x'], $pxa, $pxb);
+            $crd['ymax'] = max($crd['ymax'], $crd['y'], $pya, $pyb);
+            if ($crd['relcoord']) {
+                $crd['xoffset'] = $crd['x'];
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'V' (vertical lineto).
+     *
+     * @param array<float> $prm Parameters.
+     * @param TSCGCoord $crd Current coordinates.
+     *
+     * @return string
+     */
+    protected function svgPathCmdV(array $prm, array &$crd): string
+    {
+        $out = '';
+
+        foreach ($prm as $prv) {
+            $crd['y'] = $prv + $crd['yoffset'];
+            if (
+                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+            ) {
+                $out .= $this->graph->getRawLine($crd['x'], $crd['y']);
+                $crd['x0'] = $crd['x'];
+                $crd['y0'] = $crd['y'];
+            }
+            $crd['ymin'] = min($crd['ymin'], $crd['y']);
+            $crd['ymax'] = max($crd['ymax'], $crd['y']);
+            if ($crd['relcoord']) {
+                $crd['yoffset'] = $crd['y'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process SCG path command 'Z'.
+     *
+     * @param TSCGCoord $crd Current coordinates.
+     *
+     * @return string
+     */
+    protected function svgPathCmdZ(array &$crd): string
+    {
+        $crd['x'] = $crd['x0'] = $crd['xinit'];
+        $crd['y'] = $crd['y0'] = $crd['yinit'];
+        return "h\n";
     }
 
     /*
