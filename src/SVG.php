@@ -433,6 +433,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $coord['yoffset'] = 0;
             }
 
+            $rawparams = [];
             $params = [];
             if (isset($val[2])) {
                 // get curve parameters
@@ -450,17 +451,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $coord['x0'] = $coord['x'];
             $coord['y0'] = $coord['y'];
 
-            match (strtoupper($cmd)) {
-                'A' => $out .= $this->svgPathCmdA($params, $coord, $paths, $key, $rawparams),
-                'C' => $out .= $this->svgPathCmdC($params, $coord),
-                'H' => $out .= $this->svgPathCmdH($params, $coord),
-                'L' => $out .= $this->svgPathCmdL($params, $coord),
-                'M' => $out .= $this->svgPathCmdM($params, $coord),
-                'Q' => $out .= $this->svgPathCmdQ($params, $coord),
-                'S' => $out .= $this->svgPathCmdS($params, $coord, $paths, $key),
-                'T' => $out .= $this->svgPathCmdT($params, $coord, $paths, $key),
-                'V' => $out .= $this->svgPathCmdV($params, $coord),
-                'Z' => $out .= $this->svgPathCmdZ($coord),
+            $out .= match (strtoupper($cmd)) {
+                'A' => $this->svgPathCmdA($params, $coord, $paths, $key, $rawparams),
+                'C' => $this->svgPathCmdC($params, $coord),
+                'H' => $this->svgPathCmdH($params, $coord),
+                'L' => $this->svgPathCmdL($params, $coord),
+                'M' => $this->svgPathCmdM($params, $coord),
+                'Q' => $this->svgPathCmdQ($params, $coord),
+                'S' => $this->svgPathCmdS($params, $coord, $paths, $key),
+                'T' => $this->svgPathCmdT($params, $coord, $paths, $key),
+                'V' => $this->svgPathCmdV($params, $coord),
+                'Z' => $this->svgPathCmdZ($coord),
+                default => '',
             };
 
             $coord['firstcmd'] = false;
@@ -476,7 +478,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param TSCGCoord $crd Current coordinates.
      * @param array<array<string>> $paths All paths.
      * @param int $key Current key.
-     * @param array<float> $rawparams Raw parameters.
+     * @param array<string> $rawparams Raw parameters.
      *
      * @return string
      */
@@ -493,7 +495,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $crd['y0'] = $crd['y'];
             $rpx = max(abs($prm[($prk - 6)]), .000000001);
             $rpy = max(abs($prm[($prk - 5)]), .000000001);
-            $ang = -$rawparams[($prk - 4)];
+            $ang = -intval($rawparams[($prk - 4)]);
             $angle = deg2rad($ang);
             $laf = $rawparams[($prk - 3)]; // large-arc-flag
             $swf = $rawparams[($prk - 2)]; // sweep-flag
@@ -820,6 +822,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $out = '';
 
+        $px2 = 0.0;
+        $py2 = 0.0;
+
         foreach ($prm as $prk => $prv) {
             if ((($prk + 1) % 4) != 0) {
                 continue;
@@ -836,6 +841,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $px1 = $crd['x'];
                 $py1 = $crd['y'];
             }
+
             $px2 = $prm[($prk - 3)] + $crd['xoffset'];
             $py2 = $prm[($prk - 2)] + $crd['yoffset'];
             $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
@@ -868,6 +874,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $out = '';
 
+        $px1 = 0.0;
+        $py1 = 0.0;
+
         foreach ($prm as $prk => $prv) {
             if (($prk % 2) == 0) {
                 continue;
@@ -884,6 +893,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $px1 = $crd['x'];
                 $py1 = $crd['y'];
             }
+
             // convert quadratic points to cubic points
             $pxa = ($crd['x'] + (2 * $px1)) / 3;
             $pya = ($crd['y'] + (2 * $py1)) / 3;
