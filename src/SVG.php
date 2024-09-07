@@ -972,15 +972,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         return "h\n";
     }
 
-    /*
-    protected function applySVGStyle(
-        array $svgstyle,
-        array $ref = self::REFUNITVAL,
-        float $posx = 0.0,
-        float $posy = 0.0,
-        float $width = 1.0,
-        float $height = 1.0,
-    ): string {
-        return '';
-    }*/
+    // /**
+    //  * Returns the PDF command to apply the specified SVG style.
+    //  *
+    //  * @param TSVGStyle $svgstyle SVG style.
+    //  * @param TRefUnitValues $ref Reference values in internal points.
+    //  * @param float $posx X-coordinate.
+    //  * @param float $posy Y-coordinate.
+    //  * @param float $width Width.
+    //  * @param float $height Height.
+    //  *
+    //  * @return string
+    //  */
+    // protected function applySVGStyle(
+    //     array $svgstyle,
+    //     array $ref = self::REFUNITVAL,
+    //     float $posx = 0.0,
+    //     float $posy = 0.0,
+    //     float $width = 1.0,
+    //     float $height = 1.0,
+    // ): string {
+    //     return '';
+    // }
 }
