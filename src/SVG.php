@@ -207,6 +207,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ];
 
     /**
+     * List of possible SVG font attributes to parse.
+     *
+     * @var array<string>
+     */
+    protected const FONTATTRIBS = [
+        'font-family',
+        'font-size-adjust',
+        'font-size',
+        'font-stretch',
+        'font-style',
+        'font-variant',
+        'font-weight',
+        'letter-spacing',
+    ];
+
+    /**
      * Stack of SVG styles.
      *
      * @var array<TSVGStyle>
@@ -994,4 +1010,179 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     // ): string {
     //     return '';
     // }
+
+
+    /**
+     * Parse the SVG style font attributes.
+     *
+     * @param string $tag Font tag content.
+     * @param string $attr Attribute name.
+     * @param string $default Default value.
+     *
+     * @return string
+     */
+    protected function parseSVGAttr(string $tag, string $attr, string $default = ''): string
+    {
+        if (preg_match('/' . $attr . '[\s]*:[\s]*([^\;\"]*)/si', $tag, $regs)) {
+            return trim($regs[1]);
+        }
+        return $default;
+    }
+
+    /**
+     * Parse the SVG fotn style.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     */
+    protected function parseSVGStyleFont(array &$svgstyle): void
+    {
+        $svgstyle['font-family'] = (empty($svgstyle['font-family'])) ?
+        $this->font->getCurrentFontKey() :
+        $this->font->getFontFamilyName($svgstyle['font-family']);
+
+        if (empty($svgstyle['font'])) {
+            return;
+        }
+
+        $font = $svgstyle['font'];
+        foreach (self::FONTATTRIBS as $attr) {
+            // @phpstan-ignore-next-line
+            $svgstyle[$attr] = $this->parseSVGAttr($font, $attr, $svgstyle[$attr]);
+        }
+
+        $svgstyle['font-family'] = $this->font->getFontFamilyName($svgstyle['font-family']);
+    }
+
+    /**
+     * Returns the letter-spacing value.
+     *
+     * @param string $spacing letter-spacing value.
+     * @param float $parent font spacing (tracking) value of the parent element.
+     *
+     * @return float Quantity to increases or decreases the space between characters in a text.
+     */
+    protected function getTALetterSpacing(string $spacing, float $parent = 0): float
+    {
+        $spacing = trim($spacing);
+        switch ($spacing) {
+            case 'normal':
+                return 0;
+            case 'inherit':
+                return $parent;
+        }
+
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = $parent;
+
+        return $this->getUnitValuePoints($spacing, self::REFUNITVAL);
+    }
+
+
+    /**
+     * Returns the percentage of font stretching.
+     *
+     * @param string $stretch stretch mode
+     * @param float $parent stretch value of the parent element
+     *
+     * @return float font stretching percentage
+     */
+    protected function getTAFontStretching(string $stretch, float $parent = 100): float
+    {
+        $stretch = trim($stretch);
+        switch ($stretch) {
+            case 'ultra-condensed':
+                return 40;
+            case 'extra-condensed':
+                return 55;
+            case 'condensed':
+                return 70;
+            case 'semi-condensed':
+                return 85;
+            case 'normal':
+                return 100;
+            case 'semi-expanded':
+                return 115;
+            case 'expanded':
+                return 130;
+            case 'extra-expanded':
+                return 145;
+            case 'ultra-expanded':
+                return 160;
+            case 'wider':
+                return ($parent + 10);
+            case 'narrower':
+                return ($parent - 10);
+            case 'inherit':
+                return $parent;
+        }
+
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = $parent;
+
+        return $this->getUnitValuePoints($stretch, $ref, '%');
+    }
+
+    /**
+     * Returns the font style letter.
+     *
+     * @param string $style Font style Description.
+     *
+     * @return string Font style Letter ('I'|'').
+     */
+    protected function getTAFontStyle(string $style): string
+    {
+        $style = trim($style);
+        switch ($style) {
+            case 'italic':
+            case 'oblique':
+                return 'I';
+            case 'normal':
+                return '';
+        }
+
+        return '';
+    }
+
+    /**
+     * Returns the font weight letter.
+     *
+     * @param string $weight Font weight Description.
+     *
+     * @return string Font weight Letter('B'|'').
+     */
+    protected function getTAFontWeight(string $weight): string
+    {
+        $weight = trim($weight);
+        switch ($weight) {
+            case 'bold':
+            case 'bolder':
+                return 'B';
+            case 'normal':
+                return '';
+        }
+
+        return '';
+    }
+
+    /**
+     * Returns the font decoration letter
+     *
+     * @param string $decoration Font decoration Description.
+     *
+     * @return string Font decoration Letter('U'|'O'|'D'|'').
+     */
+    protected function getTAFontDecoration(string $decoration): string
+    {
+        $decoration = trim($decoration);
+        switch ($decoration) {
+            case 'underline':
+                return 'U';
+            case 'overline':
+                return 'O';
+            case 'line-through':
+                return 'D';
+        }
+
+        return '';
+    }
 }
