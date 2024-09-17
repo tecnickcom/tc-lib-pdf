@@ -96,6 +96,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'marker-mid': string,
  *    'marker-start': string,
  *    'mask': string,
+ *    'objstyle': string,
  *    'opacity': float,
  *    'overflow': string,
  *    'pointer-events': string,
@@ -189,6 +190,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'marker-mid' => 'none',
         'marker-start' => 'none',
         'mask' => 'none',
+        'objstyle' => '',
         'opacity' => 1.0,
         'overflow' => 'auto',
         'pointer-events' => 'visiblePainted',
@@ -1150,7 +1152,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Parse the SVG fotn style.
+     * Parse the SVG font style.
      *
      * @param TSVGStyle $svgstyle SVG style.
      * @param TSVGStyle $parent Parent SVG style.
@@ -1190,8 +1192,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $ref['parent'] = $parent['font-size-val'];
         $ref['font']['rootsize'] = $parent['font-size-val'];
         $ref['font']['size'] = $parent['font-size-val'];
-        // $ref['font']['xheight'] = $parent['font-size-val'];
-        // $ref['font']['zerowidth'] = $parent['font-size-val'];
+        $ref['font']['xheight'] = ($parent['font-size-val'] / 2);
+        $ref['font']['zerowidth'] = ($parent['font-size-val'] / 3);
         $svgstyle['font-size-val'] = $this->getFontValuePoints(
             $svgstyle['font-size'],  // @phpstan-ignore-line
             $ref,
@@ -1216,5 +1218,64 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
 
         return $fontmetric['out'];
+    }
+
+    /**
+     * Parse the SVG stroke style.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     *
+     * @return string the Raw PDF command to set the stroke.
+     */
+    protected function parseSVGStyleStroke(
+        array &$svgstyle,
+    ): string {
+        if (empty($svgstyle['stroke']) || ($svgstyle['stroke'] == 'none')) {
+            return '';
+        }
+
+        $strokestyle = $this->graph->getDefaultStyle();
+
+        $col = $this->color->getColorObj($svgstyle['stroke']);
+        if ($col == null) {
+            return '';
+        }
+
+        $out = '';
+
+        if ($svgstyle['stroke-opacity'] < 1) {
+            $out .= $this->graph->getAlpha($svgstyle['stroke-opacity']);
+        } else {
+            $rgba = $col->toRgbArray();
+            if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
+                $out .= $this->graph->getAlpha($rgba['alpha']);
+            }
+        }
+
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = 0;
+        $strokestyle['lineWidth'] = $this->getUnitValuePoints(
+            $svgstyle['stroke-width'],
+            $ref,
+        );
+
+        $strokestyle['lineCap'] = $svgstyle['stroke-linecap'];
+        $strokestyle['lineJoin'] = $svgstyle['stroke-linejoin'];
+        //  $strokestyle['miterLimit'] = (10.0 / $this->kunit),
+        $strokestyle['dashArray'] = (
+            empty($svgstyle['stroke-dasharray']) || ($svgstyle['stroke-dasharray'] == 'none')
+        ) ? [] : array_map(
+            'intval',
+            explode(' ', $svgstyle['stroke-dasharray'], 100),
+        );
+        // $strokestyle['dashPhase'] = 0,
+        $strokestyle['lineColor'] = $svgstyle['stroke'];
+        $strokestyle['fillColor'] = $svgstyle['stroke'];
+
+        $out .= $this->graph->getStyleCmd($strokestyle);
+
+        $svgstyle['objstyle'] .= 'D'; // @phpstan-ignore-line
+
+        return $out;
     }
 }
