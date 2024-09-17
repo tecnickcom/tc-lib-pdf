@@ -1141,7 +1141,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      */
-    protected function parseSVGAttr(string $tag, string $attr, string $default = ''): string
+    protected function parseCSSAttrib(string $tag, string $attr, string $default = ''): string
     {
         if (preg_match('/' . $attr . '[\s]*:[\s]*([^\;\"]*)/si', $tag, $regs)) {
             return trim($regs[1]);
@@ -1154,31 +1154,29 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param TSVGStyle $svgstyle SVG style.
      * @param TSVGStyle $parent Parent SVG style.
+     *
+     * @return string the Raw PDF command to insert the font.
      */
     protected function parseSVGStyleFont(
         array &$svgstyle,
         array $parent = self::DEFSVGSTYLE,
-    ): void {
+    ): string {
+        if (!empty($svgstyle['font'])) {
+            // get font attributes from CSS style
+            $font = $svgstyle['font'];
+            foreach (self::FONTATTRIBS as $attr) {
+                $svgstyle[$attr] = $this->parseCSSAttrib(
+                    $font, // @phpstan-ignore-line
+                    $attr,
+                    $svgstyle[$attr], // @phpstan-ignore-line
+                );
+            }
+        }
+
         $svgstyle['font-family'] = (empty($svgstyle['font-family'])) ?
-        $this->font->getCurrentFontKey() :
-        $this->font->getFontFamilyName($svgstyle['font-family']);
+        $parent['font-family'] :
+        $this->font->getFontFamilyName($svgstyle['font-family']); // @phpstan-ignore-line
 
-        if (empty($svgstyle['font'])) {
-            return;
-        }
-
-        $font = $svgstyle['font'];
-        foreach (self::FONTATTRIBS as $attr) {
-            $svgstyle[$attr] = $this->parseSVGAttr(
-                $font, // @phpstan-ignore-line
-                $attr,
-                $svgstyle[$attr], // @phpstan-ignore-line
-            );
-        }
-
-        $svgstyle['font-family'] = $this->font->getFontFamilyName(
-            $svgstyle['font-family'],
-        );
         $svgstyle['letter-spacing-val'] = $this->getTALetterSpacing(
             $svgstyle['letter-spacing'], // @phpstan-ignore-line
             $parent['letter-spacing-val'],
@@ -1209,5 +1207,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $svgstyle['font-mode'] .= $this->getTAFontDecoration(
             $svgstyle['text-decoration'], // @phpstan-ignore-line
         );
+
+        $fontmetric = $this->font->insert(
+            $this->pon,
+            $svgstyle['font-family'],
+            $svgstyle['font-mode'],
+            intval($svgstyle['font-size-val']),
+        );
+
+        return $fontmetric['out'];
     }
 }
