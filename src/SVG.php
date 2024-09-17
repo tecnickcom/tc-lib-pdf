@@ -76,16 +76,20 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'font': string,
  *    'font-family': string,
  *    'font-size': string,
+ *    'font-size-val': float,
  *    'font-size-adjust': string,
  *    'font-stretch': string,
+ *    'font-stretch-val': float,
  *    'font-style': string,
  *    'font-variant': string,
  *    'font-weight': string,
+ *    'font-mode': string,
  *    'glyph-orientation-horizontal': string,
  *    'glyph-orientation-vertical': string,
  *    'image-rendering': string,
  *    'kerning': string,
  *    'letter-spacing': string,
+ *    'letter-spacing-val': float,
  *    'lighting-color': string,
  *    'marker': string,
  *    'marker-end': string,
@@ -165,16 +169,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'font' => '',
         'font-family' => 'helvetica',
         'font-size' => 'medium',
+        'font-size-val' => 10.0,
         'font-size-adjust' => 'none',
         'font-stretch' => 'normal',
+        'font-stretch-val' => 100.0,
         'font-style' => 'normal',
         'font-variant' => 'normal',
         'font-weight' => 'normal',
+        'font-mode' => '',
         'glyph-orientation-horizontal' => '0deg',
         'glyph-orientation-vertical' => 'auto',
         'image-rendering' => 'auto',
         'kerning' => 'auto',
         'letter-spacing' => 'normal',
+        'letter-spacing-val' => 0.0,
         'lighting-color' => 'white',
         'marker' => '',
         'marker-end' => 'none',
@@ -220,6 +228,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'font-variant',
         'font-weight',
         'letter-spacing',
+        'text-decoration',
     ];
 
     /**
@@ -988,70 +997,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         return "h\n";
     }
 
-    // /**
-    //  * Returns the PDF command to apply the specified SVG style.
-    //  *
-    //  * @param TSVGStyle $svgstyle SVG style.
-    //  * @param TRefUnitValues $ref Reference values in internal points.
-    //  * @param float $posx X-coordinate.
-    //  * @param float $posy Y-coordinate.
-    //  * @param float $width Width.
-    //  * @param float $height Height.
-    //  *
-    //  * @return string
-    //  */
-    // protected function applySVGStyle(
-    //     array $svgstyle,
-    //     array $ref = self::REFUNITVAL,
-    //     float $posx = 0.0,
-    //     float $posy = 0.0,
-    //     float $width = 1.0,
-    //     float $height = 1.0,
-    // ): string {
-    //     return '';
-    // }
-
-
-    /**
-     * Parse the SVG style font attributes.
-     *
-     * @param string $tag Font tag content.
-     * @param string $attr Attribute name.
-     * @param string $default Default value.
-     *
-     * @return string
-     */
-    protected function parseSVGAttr(string $tag, string $attr, string $default = ''): string
-    {
-        if (preg_match('/' . $attr . '[\s]*:[\s]*([^\;\"]*)/si', $tag, $regs)) {
-            return trim($regs[1]);
-        }
-        return $default;
-    }
-
-    /**
-     * Parse the SVG fotn style.
-     *
-     * @param TSVGStyle $svgstyle SVG style.
-     */
-    protected function parseSVGStyleFont(array &$svgstyle): void
-    {
-        $svgstyle['font-family'] = (empty($svgstyle['font-family'])) ?
-        $this->font->getCurrentFontKey() :
-        $this->font->getFontFamilyName($svgstyle['font-family']);
-
-        if (empty($svgstyle['font'])) {
-            return;
-        }
-
-        $font = $svgstyle['font'];
-        foreach (self::FONTATTRIBS as $attr) {
-            // @phpstan-ignore-next-line
-            $svgstyle[$attr] = $this->parseSVGAttr($font, $attr, $svgstyle[$attr]);
-        }
-
-        $svgstyle['font-family'] = $this->font->getFontFamilyName($svgstyle['font-family']);
-    }
+    // ----------------------------------------
 
     /**
      * Returns the letter-spacing value.
@@ -1123,27 +1069,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Returns the font style letter.
-     *
-     * @param string $style Font style Description.
-     *
-     * @return string Font style Letter ('I'|'').
-     */
-    protected function getTAFontStyle(string $style): string
-    {
-        $style = trim($style);
-        switch ($style) {
-            case 'italic':
-            case 'oblique':
-                return 'I';
-            case 'normal':
-                return '';
-        }
-
-        return '';
-    }
-
-    /**
      * Returns the font weight letter.
      *
      * @param string $weight Font weight Description.
@@ -1157,6 +1082,27 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             case 'bold':
             case 'bolder':
                 return 'B';
+            case 'normal':
+                return '';
+        }
+
+        return '';
+    }
+
+    /**
+     * Returns the font style letter.
+     *
+     * @param string $style Font style Description.
+     *
+     * @return string Font style Letter ('I'|'').
+     */
+    protected function getTAFontStyle(string $style): string
+    {
+        $style = trim($style);
+        switch ($style) {
+            case 'italic':
+            case 'oblique':
+                return 'I';
             case 'normal':
                 return '';
         }
@@ -1184,5 +1130,84 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         return '';
+    }
+
+    /**
+     * Parse the SVG style font attributes.
+     *
+     * @param string $tag Font tag content.
+     * @param string $attr Attribute name.
+     * @param string $default Default value.
+     *
+     * @return string
+     */
+    protected function parseSVGAttr(string $tag, string $attr, string $default = ''): string
+    {
+        if (preg_match('/' . $attr . '[\s]*:[\s]*([^\;\"]*)/si', $tag, $regs)) {
+            return trim($regs[1]);
+        }
+        return $default;
+    }
+
+    /**
+     * Parse the SVG fotn style.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @param TSVGStyle $parent Parent SVG style.
+     */
+    protected function parseSVGStyleFont(
+        array &$svgstyle,
+        array $parent = self::DEFSVGSTYLE,
+    ): void {
+        $svgstyle['font-family'] = (empty($svgstyle['font-family'])) ?
+        $this->font->getCurrentFontKey() :
+        $this->font->getFontFamilyName($svgstyle['font-family']);
+
+        if (empty($svgstyle['font'])) {
+            return;
+        }
+
+        $font = $svgstyle['font'];
+        foreach (self::FONTATTRIBS as $attr) {
+            $svgstyle[$attr] = $this->parseSVGAttr(
+                $font, // @phpstan-ignore-line
+                $attr,
+                $svgstyle[$attr], // @phpstan-ignore-line
+            );
+        }
+
+        $svgstyle['font-family'] = $this->font->getFontFamilyName(
+            $svgstyle['font-family'],
+        );
+        $svgstyle['letter-spacing-val'] = $this->getTALetterSpacing(
+            $svgstyle['letter-spacing'], // @phpstan-ignore-line
+            $parent['letter-spacing-val'],
+        );
+        $svgstyle['font-stretch-val'] = $this->getTAFontStretching(
+            $svgstyle['font-stretch'], // @phpstan-ignore-line
+            $parent['font-stretch-val'],
+        );
+
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = $parent['font-size-val'];
+        $ref['font']['rootsize'] = $parent['font-size-val'];
+        $ref['font']['size'] = $parent['font-size-val'];
+        // $ref['font']['xheight'] = $parent['font-size-val'];
+        // $ref['font']['zerowidth'] = $parent['font-size-val'];
+        $svgstyle['font-size-val'] = $this->getFontValuePoints(
+            $svgstyle['font-size'],  // @phpstan-ignore-line
+            $ref,
+        );
+
+        $svgstyle['font-mode'] = '';
+        $svgstyle['font-mode'] .= $this->getTAFontWeight(
+            $svgstyle['font-weight'], // @phpstan-ignore-line
+        );
+        $svgstyle['font-mode'] .= $this->getTAFontStyle(
+            $svgstyle['font-style'], // @phpstan-ignore-line
+        );
+        $svgstyle['font-mode'] .= $this->getTAFontDecoration(
+            $svgstyle['text-decoration'], // @phpstan-ignore-line
+        );
     }
 }
