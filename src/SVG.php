@@ -472,9 +472,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $params = [];
             if (isset($val[2])) {
                 // get curve parameters
-                $rprms = preg_split('/([\,\s]+)/si', trim($val[2]));
+                $rprms = [];
+                preg_match_all('/-?\d*\.?\d+/', trim($val[2]), $rprms);
                 if (!empty($rprms)) {
-                    $rawparams = $rprms;
+                    $rawparams = $rprms[0];
                 }
                 foreach ($rawparams as $prk => $prv) {
                     $params[$prk] = $this->getUnitValuePoints($prv, self::REFUNITVAL, self::SVGUNIT);
