@@ -254,7 +254,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if (
             !preg_match_all(
-                '/(matrix|translate|scale|rotate|skewX|skewY)[\s]*\(([^\)]+)\)/si',
+                '/(matrix|translate|scale|rotate|skewX|skewY)[\s]*+\(([^\)]+)\)/si',
                 $attr,
                 $transform,
                 PREG_SET_ORDER,
@@ -430,7 +430,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $paths = [];
-        preg_match_all('/([ACHLMQSTVZ])[\s]*([^ACHLMQSTVZ\"]*)/si', $attrd, $paths, PREG_SET_ORDER);
+        preg_match_all('/([ACHLMQSTVZ])[\s]*+([^ACHLMQSTVZ\"]*+)/si', $attrd, $paths, PREG_SET_ORDER);
 
         // initialize variables
         $out = '';
@@ -473,7 +473,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (isset($val[2])) {
                 // get curve parameters
                 $rprms = [];
-                preg_match_all('/-?\d*\.?\d+/', trim($val[2]), $rprms);
+                preg_match_all('/-?\d*+\.?\d+/', trim($val[2]), $rprms);
                 if (!empty($rprms)) {
                     $rawparams = $rprms[0];
                 }
@@ -1146,7 +1146,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseCSSAttrib(string $tag, string $attr, string $default = ''): string
     {
-        if (preg_match('/' . $attr . '[\s]*:[\s]*([^\;\"]*)/si', $tag, $regs)) {
+        if (preg_match('/' . $attr . '[\s]*+:[\s]*+([^\;\"]*+)/si', $tag, $regs)) {
             return trim($regs[1]);
         }
         return $default;

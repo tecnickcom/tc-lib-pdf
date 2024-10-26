@@ -1361,13 +1361,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $pattern = [];
         $data = $this->file->fileGetContents($file);
         // remove comments
-        $data = preg_replace('/\%[^\n]*/', '', $data);
+        $data = preg_replace('/\%[^\n]*+/', '', $data);
         if ($data === null) {
             throw new PdfException('Unable to load hyphenation patterns from file: ' . $file);
         }
 
         // extract the patterns part
-        preg_match('/\\\\patterns\{([^\}]*)\}/i', $data, $matches);
+        preg_match('/\\\\patterns\{([^\}]*+)\}/i', $data, $matches);
         $data = trim(substr($matches[0], 10, -1));
         // extract each pattern
         $list = preg_split('/[\s]+/', $data);
