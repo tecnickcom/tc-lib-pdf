@@ -1,27 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit backupGlobals="false"
-	backupStaticAttributes="false"
 	bootstrap="vendor/autoload.php"
 	colors="true"
-	convertErrorsToExceptions="true"
-	convertNoticesToExceptions="true"
-	convertWarningsToExceptions="true"
+	displayDetailsOnTestsThatTriggerDeprecations="true"
+	displayDetailsOnTestsThatTriggerErrors="true"
+	displayDetailsOnTestsThatTriggerNotices="true"
+	displayDetailsOnTestsThatTriggerWarnings="true"
+	displayDetailsOnPhpunitDeprecations="true"
 	processIsolation="false"
-	stopOnFailure="false"
-	verbose="true">
+	stopOnFailure="false">
 	<testsuites>
 		<testsuite name="tc-lib-pdf Test Suite">
 			<directory>./test</directory>
 		</testsuite>
 	</testsuites>
-	<filter>
-		<whitelist>
-			<directory suffix="php">src</directory>
-		</whitelist>
-	</filter>
+	<source>
+		<include>
+			<directory suffix=".php">src</directory>
+		</include>
+	</source>
+	<coverage>
+		<report>
+			<clover outputFile="target/coverage/coverage.xml"/>
+			<html outputDirectory="target/coverage" lowUpperBound="50" highLowerBound="90"/>
+		</report>
+	</coverage>
 	<logging>
-		<log type="coverage-html" target="target/coverage"/>
-		<log type="coverage-clover" target="target/coverage/coverage.xml"/>
-		<log type="junit" target="target/logs/junit.xml"/>
+		<junit outputFile="target/logs/junit.xml"/>
 	</logging>
 </phpunit>

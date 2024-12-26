@@ -33,7 +33,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @phpstan-import-type TViewerPref from Base
  *
- * @SuppressWarnings(PHPMD.DepthOfInheritance)
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
 {
@@ -295,7 +295,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Get the PDF output string for the XMP data object
      *
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
+     * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      */
     protected function getOutXMP(): string
     {
@@ -462,7 +462,10 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
         $box = 'CropBox';
         if (isset($this->viewerpref[$name])) {
             $val = $this->viewerpref[$name];
-            if (isset($this->page->$box[$val])) {
+            if (
+                isset($this->page->$box[$val]) // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                && is_string($this->page->$box[$val])
+            ) {
                 $box = $this->page->$box[$val];
             }
         }

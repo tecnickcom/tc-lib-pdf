@@ -45,7 +45,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TUserRights from Output
  * @phpstan-import-type TXOBject from Output
  *
- * @SuppressWarnings(PHPMD.DepthOfInheritance)
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 {
@@ -344,15 +344,15 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         // Add widgets annotation's icons
-        if (isset($opt['mk']['i'])) {
+        if (isset($opt['mk']['i']) && is_string($opt['mk']['i'])) {
             $this->image->add($opt['mk']['i']);
         }
 
-        if (isset($opt['mk']['ri'])) {
+        if (isset($opt['mk']['ri']) && is_string($opt['mk']['ri'])) {
             $this->image->add($opt['mk']['ri']);
         }
 
-        if (isset($opt['mk']['ix'])) {
+        if (isset($opt['mk']['ix']) && is_string($opt['mk']['ix'])) {
             $this->image->add($opt['mk']['ix']);
         }
 

@@ -119,7 +119,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @phpstan-import-type TUserRights from Output
  * @phpstan-import-type TXOBject from Output
  *
- * @SuppressWarnings(PHPMD)
+ * @SuppressWarnings("PHPMD")
  */
 abstract class Base
 {
@@ -176,7 +176,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.83';
+    protected string $version = '8.0.84';
 
     /**
      * Time is seconds since EPOCH when the document was created.

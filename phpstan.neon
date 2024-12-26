@@ -3,7 +3,7 @@ parameters:
   paths:
     - src
     - test
-  scanDirectories:
+  excludePaths:
     - vendor
   ignoreErrors:
   reportUnmatchedIgnoredErrors: false

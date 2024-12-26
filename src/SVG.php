@@ -464,25 +464,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $coord['xoffset'] = $coord['x'];
                 $coord['yoffset'] = $coord['y'];
             } else {
-                $coord['xoffset'] = 0;
-                $coord['yoffset'] = 0;
+                $coord['xoffset'] = 0.0;
+                $coord['yoffset'] = 0.0;
             }
 
             $rawparams = [];
             $params = [];
-            if (isset($val[2])) {
-                // get curve parameters
-                $rprms = [];
-                preg_match_all('/-?\d*+\.?\d+/', trim($val[2]), $rprms);
-                if (!empty($rprms)) {
-                    $rawparams = $rprms[0];
-                }
-                foreach ($rawparams as $prk => $prv) {
-                    $params[$prk] = $this->getUnitValuePoints($prv, self::REFUNITVAL, self::SVGUNIT);
-                    if (abs($params[$prk]) < $this->svgminunitlen) {
-                        // approximate little values to zero
-                        $params[$prk] = 0;
-                    }
+
+            // get curve parameters
+            $rprms = [];
+            if (empty(preg_match_all('/-?\d*+\.?\d+/', trim($val[2]), $rprms))) {
+                return '';
+            }
+
+            $rawparams = $rprms[0];
+
+            foreach ($rawparams as $prk => $prv) {
+                $params[$prk] = $this->getUnitValuePoints($prv, self::REFUNITVAL, self::SVGUNIT);
+                if (abs($params[$prk]) < $this->svgminunitlen) {
+                    // approximate little values to zero
+                    $params[$prk] = 0;
                 }
             }
 
@@ -532,8 +533,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             $crd['x0'] = $crd['x'];
             $crd['y0'] = $crd['y'];
-            $rpx = max(abs($prm[($prk - 6)]), .000000001);
-            $rpy = max(abs($prm[($prk - 5)]), .000000001);
+            $rpx = (float) max(abs($prm[($prk - 6)]), .000000001);
+            $rpy = (float) max(abs($prm[($prk - 5)]), .000000001);
             $ang = -intval($rawparams[($prk - 4)]);
             $angle = deg2rad($ang);
             $laf = $rawparams[($prk - 3)]; // large-arc-flag
@@ -546,10 +547,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 (abs($crd['y0'] - $crd['y']) < $this->svgminunitlen)
             ) {
                 // endpoints are almost identical
-                $crd['xmin'] = min($crd['xmin'], $crd['x']);
-                $crd['ymin'] = min($crd['ymin'], $crd['y']);
-                $crd['xmax'] = max($crd['xmax'], $crd['x']);
-                $crd['ymax'] = max($crd['ymax'], $crd['y']);
+                $crd['xmin'] = (float) min($crd['xmin'], $crd['x']);
+                $crd['ymin'] = (float) min($crd['ymin'], $crd['y']);
+                $crd['xmax'] = (float) max($crd['xmax'], $crd['x']);
+                $crd['ymax'] = (float) max($crd['ymax'], $crd['y']);
             } else {
                 $cos_ang = cos($angle);
                 $sin_ang = sin($angle);
@@ -618,7 +619,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $pie = true;
                 }
                 // list($axmin, $aymin, $axmax, $aymax)
-                $bbox = [0.0, 0.0, 0.0, 0.0];
+                $bbox = [0, 0, 0, 0];
                 $out .= $this->graph->getRawEllipticalArc(
                     $pcx,
                     $pcy,
@@ -634,10 +635,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     true,
                     $bbox,
                 );
-                $crd['xmin'] = min($crd['xmin'], $crd['x'], $bbox[0]);
-                $crd['ymin'] = min($crd['ymin'], $crd['y'], $bbox[1]);
-                $crd['xmax'] = max($crd['xmax'], $crd['x'], $bbox[2]);
-                $crd['ymax'] = max($crd['ymax'], $crd['y'], $bbox[3]);
+                $crd['xmin'] = (float) min($crd['xmin'], $crd['x'], $bbox[0]);
+                $crd['ymin'] = (float) min($crd['ymin'], $crd['y'], $bbox[1]);
+                $crd['xmax'] = (float) max($crd['xmax'], $crd['x'], $bbox[2]);
+                $crd['ymax'] = (float) max($crd['ymax'], $crd['y'], $bbox[3]);
             }
 
             if ($crd['relcoord']) {
@@ -674,10 +675,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
             $crd['y'] = $prv + $crd['yoffset'];
             $out .= $this->graph->getRawCurve($px1, $py1, $px2, $py2, $crd['x'], $crd['y']);
-            $crd['xmin'] = min($crd['xmin'], $crd['x'], $px1, $px2);
-            $crd['ymin'] = min($crd['ymin'], $crd['y'], $py1, $py2);
-            $crd['xmax'] = max($crd['xmax'], $crd['x'], $px1, $px2);
-            $crd['ymax'] = max($crd['ymax'], $crd['y'], $py1, $py2);
+            $crd['xmin'] = (float) min($crd['xmin'], $crd['x'], $px1, $px2);
+            $crd['ymin'] = (float) min($crd['ymin'], $crd['y'], $py1, $py2);
+            $crd['xmax'] = (float) max($crd['xmax'], $crd['x'], $px1, $px2);
+            $crd['ymax'] = (float) max($crd['ymax'], $crd['y'], $py1, $py2);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
                 $crd['yoffset'] = $crd['y'];
