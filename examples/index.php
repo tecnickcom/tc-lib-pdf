@@ -1059,7 +1059,7 @@ $pdf->page->addContent($bfont2['out']);
 
 // Add text
 $txt = $pdf->getTextLine(
-    'Test PDF text with justification (stretching).',
+    'Test PDF text with justification (stretching) % %% %%%',
     0,
     $pdf->toUnit($bfont2['ascent']),
     $page11['width']
