@@ -1014,6 +1014,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         ];
 
         $out = $this->getJustifiedString($txt, $ordarr, $dim, $width);
+
         $out = $this->getOutTextPosXY($out, $posx, $posy, 'Td');
 
         $trmode = $this->getTextRenderingMode($fill, $stroke, $clip);
@@ -1170,8 +1171,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $pntx = $this->toPoints($posx);
         $pnty = $this->toYPoints($posy);
         return match ($mode) {
-            'Td' => sprintf('%F %F Td ' . $raw, $pntx, $pnty),
-            'TD' => sprintf('%F %F TD ' . $raw, $pntx, $pnty),
+            'Td' => sprintf('%F %F Td ' . $this->escapePerc($raw), $pntx, $pnty),
+            'TD' => sprintf('%F %F TD ' . $this->escapePerc($raw), $pntx, $pnty),
             'T*' => 'T* ' . $raw,
             default => '',
         };
@@ -1213,7 +1214,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $raw;
         }
 
-        return sprintf('%F Tc ' . $raw . ' 0 Tc', $value);
+        return sprintf('%F Tc ' . $this->escapePerc($raw) . ' 0 Tc', $value);
     }
 
     /**
@@ -1230,7 +1231,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $raw;
         }
 
-        return sprintf('%F Tw ' . $raw . ' 0 Tw', $value);
+        return sprintf('%F Tw ' . $this->escapePerc($raw) . ' 0 Tw', $value);
     }
 
     /**
@@ -1247,7 +1248,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $raw;
         }
 
-        return sprintf('%F Tz ' . $raw . ' 100 Tz', $value);
+        return sprintf('%F Tz ' . $this->escapePerc($raw) . ' 100 Tz', $value);
     }
 
     /**
@@ -1264,7 +1265,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $raw;
         }
 
-        return sprintf('%F TL ' . $raw . ' 0 TL', $value);
+        return sprintf('%F TL ' . $this->escapePerc($raw) . ' 0 TL', $value);
     }
 
     /**
@@ -1281,7 +1282,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $raw;
         }
 
-        return sprintf('%d Tr ' . $raw, $value);
+        return sprintf('%d Tr ' . $this->escapePerc($raw), $value);
     }
 
     /**
@@ -1298,7 +1299,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $raw;
         }
 
-        return sprintf('%F Ts ' . $raw . ' 0 Ts', $value);
+        return sprintf('%F Ts ' . $this->escapePerc($raw) . ' 0 Ts', $value);
     }
 
     /**
@@ -1311,13 +1312,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         string $raw,
         int|float $value = 0
     ): string {
-        return sprintf('%F w ' . $raw, ($value > 0 ? $value : 0));
+        return sprintf('%F w ' . $this->escapePerc($raw), ($value > 0 ? $value : 0));
     }
 
     /**
      * Get the PDF code for the Text Positioning Operator Matrix.
      *
-     * @param string                                          $raw    Raw PDf data to be wrapped by this command.
+     * @param string $raw    Raw PDf data to be wrapped by this command.
      * @param array{float, float, float, float, float, float} $matrix Text Positioning Operator Matrix.
      */
     protected function getOutTextPosMatrix(
@@ -1329,7 +1330,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return sprintf(
-            '%F %F %F %F %F %F Tm ' . $raw,
+            '%F %F %F %F %F %F Tm ' . $this->escapePerc($raw),
             $matrix[0],
             $matrix[1],
             $matrix[2],
@@ -1686,5 +1687,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out .= $this->graph->getStopTransform();
         $this->defcell = $prevcell;
         return $out;
+    }
+
+    /**
+     * Escape percent signs in a string for use with sprintf.
+     *
+     * @param string $str The input string to escape.
+     *
+     * @return string The escaped string with percent signs replaced by double percent signs.
+     */
+    protected function escapePerc(string $str): string
+    {
+        return str_replace('%', '%%', $str);
     }
 }
