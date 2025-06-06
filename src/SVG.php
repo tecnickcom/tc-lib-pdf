@@ -1280,4 +1280,31 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         return $out;
     }
+
+    /**
+     * Parse the SVG opacity, color and text-color styles.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     *
+     * @return string the Raw PDF command to set the stroke.
+     */
+    protected function parseSVGStyleColor(
+        array &$svgstyle,
+    ): string {
+        $out = '';
+
+        if ($svgstyle['opacity'] < 1) {
+            $out .= $this->graph->getAlpha($svgstyle['opacity']);
+        }
+
+        if (!empty($svgstyle['color'])) {
+            $this->graph->add(['fillColor' => $svgstyle['color']], true);
+        }
+
+        if (!empty($svgstyle['text-color'])) {
+            $out .= $this->color->getPdfColor($svgstyle['text-color']);
+        }
+        
+        return $out;
+    }
 }
