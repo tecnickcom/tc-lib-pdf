@@ -51,6 +51,21 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'firstcmd': bool,
  * }
  *
+ * @phpstan-type TSVGGradient array{
+ *    'xref': int,
+ *    'type': int,
+ *    'gradientUnits': string,
+ *    'mode': string,
+ *    'coords': array<float>,
+ *    'stops': array<int, array{
+ *            'color': string,
+ *            'exponent'?: float,
+ *            'opacity'?: float,
+ *            'offset'?: float,
+ *        }>,
+ *    'gradientTransform': array<float>,
+ * }
+ *
  * @phpstan-type TSVGStyle array{
  *    'alignment-baseline': string,
  *    'baseline-shift': string,
@@ -139,6 +154,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected const SVGMINPNTLEN = 0.01;
 
     protected float $svgminunitlen = 0;
+
+    /**
+     * Array of SVG gradients.
+     *
+     * @var array<TSVGGradient>
+     */
+    protected array $svggradients = [];
 
     /**
      * Default SVG style.
@@ -1306,5 +1328,400 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         return $out;
+    }
+
+    /**
+     * Parse the SVG clip style.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @param float $posx X position in user units.
+     * @param float $posy Y position in user units.
+     * @param float $width Width in user units.
+     * @param float $height Height in user units.
+     *
+     * @return string the Raw PDF command to set the stroke.
+     */
+    protected function parseSVGStyleClip(
+        array &$svgstyle,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+    ): string {
+        $regs = array();
+        if (
+            !preg_match(
+                '/rect\(([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)\)/si',
+                $svgstyle['clip'],
+                $regs
+            )
+        ) {
+            return '';
+        }
+
+        $top = $this->toUnit(
+            $regs[1]
+            ? $this->getUnitValuePoints($regs[1], self::REFUNITVAL, self::SVGUNIT)
+            : 0
+        );
+        $right = $this->toUnit(
+            $regs[2]
+            ? $this->getUnitValuePoints($regs[2], self::REFUNITVAL, self::SVGUNIT)
+            : 0
+        );
+        $bottom = $this->toUnit(
+            $regs[3]
+            ? $this->getUnitValuePoints($regs[3], self::REFUNITVAL, self::SVGUNIT)
+            : 0
+        );
+        $left = $this->toUnit(
+            $regs[4]
+            ? $this->getUnitValuePoints($regs[4], self::REFUNITVAL, self::SVGUNIT)
+            : 0
+        );
+
+        $clx = $posx + $left;
+        $cly = $posy + $top;
+        $clw = $width - $left - $right;
+        $clh = $height - $top - $bottom;
+        $eoclip = ($svgstyle['clip-rule'] == 'evenodd');
+
+        return $this->graph->getClippingRect(
+            $clx,
+            $cly,
+            $clw,
+            $clh,
+            $eoclip,
+        );
+    }
+
+    /**
+     * Parse the SVG fill style.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @param float $posx X position in user units.
+     * @param float $posy Y position in user units.
+     * @param float $width Width in user units.
+     * @param float $height Height in user units.
+     * @param string $clip_fnc Optional clipping function name.
+     * @param array<mixed> $clip_par Optional clipping function parameters.
+     *
+     * @return string the Raw PDF command.
+     */
+    protected function parseSVGStyleFill(
+        array &$svgstyle,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        string $clip_fnc = '',
+        array $clip_par = [],
+    ): string {
+        if (empty($svgstyle['fill']) || ($svgstyle['fill'] == 'none')) {
+            return '';
+        }
+
+        $regs = array();
+        if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
+            return $this->parseSVGStyleGradient(
+                intval($regs[1]),
+                $posx,
+                $posy,
+                $width,
+                $height,
+                $clip_fnc,
+                $clip_par,
+            );
+        }
+
+        $col = $this->color->getColorObj($svgstyle['fill']);
+        if ($col == null) {
+            return '';
+        }
+
+        $out = '';
+
+        if ($svgstyle['fill-opacity'] < 1) {
+            $out .= $this->graph->getAlpha($svgstyle['fill-opacity']);
+        } else {
+            $rgba = $col->toRgbArray();
+            if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
+                $out .= $this->graph->getAlpha($rgba['alpha']);
+            }
+        }
+
+        $svgstyle['objstyle'] .= ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
+
+        $out .= $col->getPdfColor();
+
+        return $out;
+    }
+
+    /**
+     * Parse the SVG fill style.
+     *
+     * @param int $xref Gradient ID.
+     * @param float $grx X position in user units.
+     * @param float $gry Y position in user units.
+     * @param float $grw Width in user units.
+     * @param float $grh Height in user units.
+     * @param string $clip_fnc Optional clipping function name.
+     * @param array<mixed> $clip_par Optional clipping function parameters.
+     *
+     * @return string the Raw PDF command.
+     */
+    protected function parseSVGStyleGradient(
+        int $xref,
+        float $grx,
+        float $gry,
+        float $grw,
+        float $grh,
+        string $clip_fnc = '',
+        array $clip_par = [],
+    ): string {
+        $gradient = $this->svggradients[$xref];
+
+        if (!empty($gradient['xref'])) {
+            // reference to another gradient definition
+            $newgradient = $this->svggradients[$gradient['xref']];
+            $newgradient['coords'] = $gradient['coords'];
+            $newgradient['mode'] = $gradient['mode'];
+            $newgradient['type'] = $gradient['type'];
+            $newgradient['gradientUnits'] = $gradient['gradientUnits'];
+            if (isset($gradient['gradientTransform'])) {
+                $newgradient['gradientTransform'] = $gradient['gradientTransform'];
+            }
+            $gradient = $newgradient;
+        }
+
+        if (!empty($clip_fnc) and method_exists($this, $clip_fnc)) {
+            $bbox = $this->$clip_fnc(...$clip_par);
+            if (
+                (!isset($gradient['type'])
+                || ($gradient['type'] != 3))
+                && is_array($bbox)
+                && (count($bbox) == 4)
+            ) {
+                $grx = is_numeric($bbox[0]) ? (float)$bbox[0] : 0.0;
+                $gry = is_numeric($bbox[1]) ? (float)$bbox[1] : 0.0;
+                $grw = is_numeric($bbox[2]) ? (float)$bbox[2] : 0.0;
+                $grh = is_numeric($bbox[3]) ? (float)$bbox[3] : 0.0;
+            }
+        }
+
+        switch ($gradient['mode']) {
+            case 'percentage':
+                foreach ($gradient['coords'] as $key => $val) {
+                    $gradient['coords'][$key] = (intval($val) / 100);
+                    if ($val < 0) {
+                        $gradient['coords'][$key] = 0;
+                    } elseif ($val > 1) {
+                        $gradient['coords'][$key] = 1;
+                    }
+                }
+                break;
+            case 'measure':
+                if (!isset($gradient['coords'][4])) {
+                    $gradient['coords'][4] = 0.5;
+                }
+                if (!empty($gradient['gradientTransform'])) {
+                    $gtm = $gradient['gradientTransform'];
+                    // apply transformation matrix
+                    $gxa = ($gtm[0] * $gradient['coords'][0]) + ($gtm[2] * $gradient['coords'][1]) + $gtm[4];
+                    $gya = ($gtm[1] * $gradient['coords'][0]) + ($gtm[3] * $gradient['coords'][1]) + $gtm[5];
+                    $gxb = ($gtm[0] * $gradient['coords'][2]) + ($gtm[2] * $gradient['coords'][3]) + $gtm[4];
+                    $gyb = ($gtm[1] * $gradient['coords'][2]) + ($gtm[3] * $gradient['coords'][3]) + $gtm[5];
+                    $grr = sqrt(pow(
+                        ($gtm[0] * $gradient['coords'][4]),
+                        2
+                    ) + pow(
+                        ($gtm[1] * $gradient['coords'][4]),
+                        2
+                    ));
+                    $gradient['coords'][0] = $gxa;
+                    $gradient['coords'][1] = $gya;
+                    $gradient['coords'][2] = $gxb;
+                    $gradient['coords'][3] = $gyb;
+                    $gradient['coords'][4] = $grr;
+                }
+                // convert SVG coordinates to user units
+                $gradient['coords'][0] = $this->toUnit(
+                    $this->getUnitValuePoints(
+                        $gradient['coords'][0],
+                        self::REFUNITVAL,
+                        self::SVGUNIT
+                    )
+                );
+                $gradient['coords'][1] = $this->toUnit(
+                    $this->getUnitValuePoints(
+                        $gradient['coords'][1],
+                        self::REFUNITVAL,
+                        self::SVGUNIT
+                    )
+                );
+                $gradient['coords'][2] = $this->toUnit(
+                    $this->getUnitValuePoints(
+                        $gradient['coords'][2],
+                        self::REFUNITVAL,
+                        self::SVGUNIT
+                    )
+                );
+                $gradient['coords'][3] = $this->toUnit(
+                    $this->getUnitValuePoints(
+                        $gradient['coords'][3],
+                        self::REFUNITVAL,
+                        self::SVGUNIT
+                    )
+                );
+                $gradient['coords'][4] = $this->toUnit(
+                    $this->getUnitValuePoints(
+                        $gradient['coords'][4],
+                        self::REFUNITVAL,
+                        self::SVGUNIT
+                    )
+                );
+                if ($grw <= $this->svgminunitlen) {
+                    $grw = $this->svgminunitlen;
+                }
+                if ($grh <= $this->svgminunitlen) {
+                    $grh = $this->svgminunitlen;
+                }
+                // shift units
+                if ($gradient['gradientUnits'] == 'objectBoundingBox') {
+                    // convert to SVG coordinate system
+                    $gradient['coords'][0] += $grx;
+                    $gradient['coords'][1] += $gry;
+                    $gradient['coords'][2] += $grx;
+                    $gradient['coords'][3] += $gry;
+                }
+                // calculate percentages
+                $gradient['coords'][0] = (($gradient['coords'][0] - $grx) / $grw);
+                $gradient['coords'][1] = (($gradient['coords'][1] - $gry) / $grh);
+                $gradient['coords'][2] = (($gradient['coords'][2] - $grx) / $grw);
+                $gradient['coords'][3] = (($gradient['coords'][3] - $gry) / $grh);
+                $gradient['coords'][4] /= $grw;
+                break;
+        }
+
+
+        if (
+            ($gradient['type'] == 2)
+            && ($gradient['coords'][0] == $gradient['coords'][2])
+            && ($gradient['coords'][1] == $gradient['coords'][3])
+        ) {
+            // single color (no shading)
+            $gradient['coords'][0] = 1;
+            $gradient['coords'][1] = 0;
+            $gradient['coords'][2] = 0.999;
+            $gradient['coords'][3] = 0;
+        }
+
+        // swap Y coordinates
+        $tmp = $gradient['coords'][1];
+        $gradient['coords'][1] = $gradient['coords'][3];
+        $gradient['coords'][3] = $tmp;
+
+        // set transformation map for gradient
+        $gry = ($this->page->getPage()['height'] - $gry);
+        if ($gradient['type'] == 3) {
+            // circular gradient
+            $gry -= ($gradient['coords'][1] * ($grw + $grh));
+            $grh = $grw = max($grw, $grh);
+        } else {
+            $gry -= $grh;
+        }
+
+        $out = "";
+
+        $out .= sprintf(
+            '%F 0 0 %F %F %F cm',
+            $this->toPoints($grw),
+            $this->toPoints($grh),
+            $this->toPoints($grx),
+            $this->toPoints($gry)
+        );
+
+        if (count($gradient['stops']) > 1) {
+            $out .= $this->graph->getGradient(
+                $gradient['type'],
+                $gradient['coords'],
+                $gradient['stops'],
+                '',
+                false,
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * Parse the SVG style clip-path.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @return string the Raw PDF command.
+     */
+    protected function parseSVGStyleClipPath(
+        array &$svgstyle,
+    ): string {
+        $out = '';
+        $regs = [];
+        if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['clip-path'], $regs)) {
+            // @TODO
+            //$clip_path = $this->svgclippaths[$regs[1]];
+            //foreach ($clip_path as $cp) {
+            //   $out .= $this->startSVGElementHandler('clip-path', $cp['name'], $cp['attribs'], $cp['tm']);
+            //}
+        }
+        return $out;
+    }
+
+    /**
+     * Parse the SVG style.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @param TSVGStyle $prevsvgstyle SVG style.
+     * @param float $posx X position in user units.
+     * @param float $posy Y position in user units.
+     * @param float $width Width in user units.
+     * @param float $height Height in user units.
+     * @param string $clip_fnc Optional clipping function name.
+     * @param array<mixed> $clip_par Optional clipping function parameters.
+     *
+     * @return string the Raw PDF command.
+     */
+    protected function parseSVGStyle(
+        array &$svgstyle,
+        array $prevsvgstyle,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        string $clip_fnc = '',
+        array $clip_par = [],
+    ): string {
+        if (empty($svgstyle['opacity'])) {
+            return '';
+        }
+
+        return $this->parseSVGStyleClipPath($svgstyle) .
+        $this->parseSVGStyleColor($svgstyle) .
+            $this->parseSVGStyleClip(
+                $svgstyle,
+                $posx,
+                $posy,
+                $width,
+                $height
+            ) .
+            $this->parseSVGStyleFill(
+                $svgstyle,
+                $posx,
+                $posy,
+                $width,
+                $height,
+                $clip_fnc,
+                $clip_par
+            ) .
+            $this->parseSVGStyleStroke($svgstyle) .
+            $this->parseSVGStyleFont($svgstyle, $prevsvgstyle);
     }
 }
