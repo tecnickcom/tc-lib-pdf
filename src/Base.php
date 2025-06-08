@@ -183,7 +183,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.1.0';
+    protected string $version = '8.1.1';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -480,11 +480,6 @@ abstract class Base
      * Javascript catalog entry.
      */
     protected string $jstree = '';
-
-    // /**
-    //  * Embedded files Object IDs by name.
-    //  */
-    // protected array $efnames = [];
 
     /**
      * Signature Data.

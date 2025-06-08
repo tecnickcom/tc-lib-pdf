@@ -789,12 +789,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         if ($this->embeddedfiles !== []) {
-            $out .= ' /EmbeddedFiles << /Names [';
+            $afnames = [];
+            $afobjs = [];
             foreach ($this->embeddedfiles as $efname => $efdata) {
-                $out .= ' ' . $this->getOutTextString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
+                $afnames[] = $this->getOutTextString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
+                $afobjs[] = $efdata['f'] . ' 0 R';
             }
-
-            $out .= ' ] >>';
+            $out .= ' /AF [ ' . implode(' ', $afobjs) . ' ]';
+            $out .= ' /EmbeddedFiles << /Names [ ' . implode(' ', $afnames) . ' ] >>';
         }
 
         $out .= ' >>';
