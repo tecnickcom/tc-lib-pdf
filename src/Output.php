@@ -417,8 +417,9 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @phpstan-type TEmbeddedFile array{
  *        'a': int,
  *        'f': int,
- *        'file': string,
  *        'n': int,
+ *        'file': string,
+ *        'content': string,
  *    }
  *
  * @phpstan-type TObjID array{
@@ -1159,10 +1160,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = '';
         reset($this->embeddedfiles);
         foreach ($this->embeddedfiles as $name => $data) {
-            try {
-                $content = $this->file->fileGetContents($data['file']);
-            } catch (Exception) {
-                continue; // silently skip the file
+            if (!empty($data['content'])) {
+                // if content is already set, use it
+                $content = $data['content'];
+            } else {
+                try {
+                    $content = $this->file->fileGetContents($data['file']);
+                } catch (Exception) {
+                    continue; // silently skip the file
+                }
             }
 
             $rawsize = strlen($content);

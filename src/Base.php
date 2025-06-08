@@ -46,48 +46,47 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
  *
  * @phpstan-type TViewerPref array{
- *        'HideToolbar'?: bool,
- *        'HideMenubar'?: bool,
- *        'HideWindowUI'?: bool,
- *        'FitWindow'?: bool,
- *        'CenterWindow'?: bool,
- *        'DisplayDocTitle'?: bool,
- *        'NonFullScreenPageMode'?: string,
- *        'Direction'?: string,
- *        'ViewArea'?: string,
- *        'ViewClip'?: string,
- *        'PrintArea'?: string,
- *        'PrintClip'?: string,
- *        'PrintScaling'?: string,
- *        'Duplex'?: string,
- *        'PickTrayByPDFSize'?: bool,
- *        'PrintPageRange'?: array<int>,
- *        'NumCopies'?: int,
- *    }
+ *     'HideToolbar'?: bool,
+ *     'HideMenubar'?: bool,
+ *     'HideWindowUI'?: bool,
+ *     'FitWindow'?: bool,
+ *     'CenterWindow'?: bool,
+ *     'DisplayDocTitle'?: bool,
+ *     'NonFullScreenPageMode'?: string,
+ *     'Direction'?: string,
+ *     'ViewArea'?: string,
+ *     'ViewClip'?: string,
+ *     'PrintArea'?: string,
+ *     'PrintClip'?: string,
+ *     'PrintScaling'?: string,
+ *     'Duplex'?: string,
+ *     'PickTrayByPDFSize'?: bool,
+ *     'PrintPageRange'?: array<int>,
+ *     'NumCopies'?: int,
+ * }
  *
  * @phpstan-type TBBox array{
- *          'x': float,
- *          'y': float,
- *          'w': float,
- *          'h': float,
- *      }
+ *     'x': float,
+ *     'y': float,
+ *     'w': float,
+ *     'h': float,
+ * }
  *
  * @phpstan-type TCellDef array{
- *        'margin': array{
- *            'T': float,
- *            'R': float,
- *            'B': float,
- *            'L': float,
- *        },
- *        'padding': array{
- *            'T': float,
- *            'R': float,
- *            'B': float,
- *            'L': float,
- *        },
- *       'borderpos': float,
- *    }
- *
+ *     'margin': array{
+ *         'T': float,
+ *         'R': float,
+ *         'B': float,
+ *         'L': float,
+ *     },
+ *     'padding': array{
+ *         'T': float,
+ *         'R': float,
+ *         'B': float,
+ *         'L': float,
+ *     },
+ *    'borderpos': float,
+ * }
  *
  * @phpstan-type TRefUnitValues array{
  *    'parent': float,
@@ -105,6 +104,14 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *       'width': float,
  *       'height': float,
  *    },
+ * }
+ *
+ * @phpstan-type TCustomXMP array{
+ *    'x:xmpmeta': string,
+ *    'x:xmpmeta.rdf:RDF': string,
+ *    'x:xmpmeta.rdf:RDF.rdf:Description': string,
+ *    'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas': string,
+ *    'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag': string,
  * }
  *
  * @phpstan-type TStackBBox array<int, TBBox>
@@ -176,7 +183,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.0.92';
+    protected string $version = '8.1.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -217,14 +224,17 @@ abstract class Base
     protected string $keywords = 'TCPDF';
 
     /**
-     * Additional XMP data to be appended just before the end of "x:xmpmeta" tag.
+     * Additional custom XMP data.
+     *
+     * @var TCustomXMP
      */
-    protected string $custom_xmp = '';
-
-    /**
-     * Additional XMP RDF data to be appended just before the end of "rdf:RDF" tag.
-     */
-    protected string $custom_xmp_rdf = '';
+    protected array $custom_xmp = [
+        'x:xmpmeta' => '',
+        'x:xmpmeta.rdf:RDF' => '',
+        'x:xmpmeta.rdf:RDF.rdf:Description' => '',
+        'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas' => '',
+        'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag' => '',
+    ];
 
     /**
      * Set this to TRUE to add the default sRGB ICC color profile

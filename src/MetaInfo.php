@@ -68,6 +68,28 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Set the value of an existing array key if it is not empty.
+     *
+     * @param string $field Field array name
+     * @param string $key Key name
+     * @param string $value Value to set
+     */
+    private function setNonEmptyArrayFieldValue(string $field, string $key, string $value): static
+    {
+        if (
+            isset($this->$field)
+            && is_array($this->$field)
+            && ($key !== '')
+            && isset($this->$field[$key])
+            && ($value !== '')
+        ) {
+            $this->$field[$key] = $value;
+        }
+
+        return $this;
+    }
+
+    /**
      * Defines the creator of the document.
      * This is typically the name of the application that generates the PDF.
      *
@@ -267,29 +289,22 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Set additional XMP data to be appended just before the end of "x:xmpmeta" tag.
+     * Set additional custom XMP data to be appended just before the end of the tag indicated by the key.
      *
      * IMPORTANT:
      * This data is added as-is without controls, so you have to validate your data before using this method.
      *
+     * @param string $key Key for the custom XMP data. Valid keys are:
+     *                    - 'x:xmpmeta'
+     *                    - 'x:xmpmeta.rdf:RDF'
+     *                    - 'x:xmpmeta.rdf:RDF.rdf:Description'
+     *                    - 'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas'
+     *                    - 'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag'
      * @param string $xmp Custom XMP data.
      */
-    public function setExtraXMP(string $xmp): static
+    public function setCustomXMP(string $key, string $xmp): static
     {
-        return $this->setNonEmptyFieldValue('custom_xmp', $xmp);
-    }
-
-    /**
-     * Set additional XMP data to be appended just before the end of "rdf:RDF" tag.
-     *
-     * IMPORTANT:
-     * This data is added as-is without controls, so you have to validate your data before using this method.
-     *
-     * @param string $xmp Custom XMP data.
-     */
-    public function setExtraXMPRDF(string $xmp): static
-    {
-        return $this->setNonEmptyFieldValue('custom_xmp_rdf', $xmp);
+        return $this->setNonEmptyArrayFieldValue('custom_xmp', $key, $xmp);
     }
 
     /**
@@ -405,12 +420,15 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
         . "\t\t\t\t\t\t\t" . '</rdf:Seq>' . "\n"
         . "\t\t\t\t\t\t" . '</pdfaSchema:property>' . "\n"
         . "\t\t\t\t\t" . '</rdf:li>' . "\n"
+        . $this->custom_xmp['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag'] . "\n"
         . "\t\t\t\t" . '</rdf:Bag>' . "\n"
+        . $this->custom_xmp['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas'] . "\n"
         . "\t\t\t" . '</pdfaExtension:schemas>' . "\n"
+        . $this->custom_xmp['x:xmpmeta.rdf:RDF.rdf:Description'] . "\n"
         . "\t\t" . '</rdf:Description>' . "\n"
-        . $this->custom_xmp_rdf . "\n"
+        . $this->custom_xmp['x:xmpmeta.rdf:RDF'] . "\n"
         . "\t" . '</rdf:RDF>' . "\n"
-        . $this->custom_xmp . "\n"
+        . $this->custom_xmp['x:xmpmeta'] . "\n"
         . '</x:xmpmeta>' . "\n"
         . '<?xpacket end="w"?>';
         // @codingStandardsIgnoreEnd
