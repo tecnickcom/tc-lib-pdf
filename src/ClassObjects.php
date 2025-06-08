@@ -64,11 +64,13 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
         $this->cache = new ObjCache();
         $this->uniconv = new ObjUniConvert();
 
+        $pdfamode = (bool) ($this->pdfa > 0);
+
         $this->page = new ObjPage(
             $this->unit,
             $this->color,
             $this->encrypt,
-            (bool) $this->pdfa,
+            $pdfamode,
             $this->compress,
             $this->sigapp,
         );
@@ -82,7 +84,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
             0, // $this->graph->setPageHeight($pageh)
             $this->color,
             $this->encrypt,
-            (bool) $this->pdfa,
+            $pdfamode,
             $this->compress,
         );
 
@@ -90,13 +92,13 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
             $this->kunit,
             $this->subsetfont,
             $this->isunicode,
-            (bool) $this->pdfa,
+            $pdfamode,
         );
 
         $this->image = new ObjImage(
             $this->kunit,
             $this->encrypt,
-            (bool) $this->pdfa,
+            $pdfamode,
             $this->compress,
         );
     }
