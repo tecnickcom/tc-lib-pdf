@@ -136,6 +136,256 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'text-color': string,
  *    'transfmatrix': TTMatrix,
  *  }
+ *
+ * @phpstan-type TSVGTextMode array{
+ *    'rtl': bool,
+ *    'invisible': bool,
+ *    'stroke': int,
+ *    'text-anchor': string,
+ * }
+ *
+ * @phpstan-type TSVGAttributes array{
+ *    'accumulate'?: string,
+ *    'additive'?: string,
+ *    'alignment-baseline'?: string,
+ *    'amplitude'?: string,
+ *    'attributeName'?: string,
+ *    'attributeType'?: string,
+ *    'azimuth'?: string,
+ *    'baseFrequency'?: string,
+ *    'baseProfile'?: string,
+ *    'baseline-shift'?: string,
+ *    'begin'?: string,
+ *    'bias'?: string,
+ *    'by'?: string,
+ *    'calcMode'?: string,
+ *    'class'?: string,
+ *    'clip'?: string,
+ *    'clip-path'?: string,
+ *    'clip-rule'?: string,
+ *    'clipPathUnits'?: string,
+ *    'closing_tag'?: bool,
+ *    'color'?: string,
+ *    'color-interpolation'?: string,
+ *    'color-interpolation-filters'?: string,
+ *    'content'?: string,
+ *    'crossorigin'?: string,
+ *    'cursor'?: string,
+ *    'cx'?: string,
+ *    'cy'?: string,
+ *    'd'?: string,
+ *    'data-*'?: string,
+ *    'decoding'?: string,
+ *    'diffuseConstant'?: string,
+ *    'direction'?: string,
+ *    'display'?: string,
+ *    'divisor'?: string,
+ *    'dominant-baseline'?: string,
+ *    'dur'?: string,
+ *    'dx'?: string,
+ *    'dy'?: string,
+ *    'edgeMode'?: string,
+ *    'elevation'?: string,
+ *    'end'?: string,
+ *    'exponent'?: string,
+ *    'fill'?: string,
+ *    'fill-opacity'?: string,
+ *    'fill-rule'?: string,
+ *    'filter'?: string,
+ *    'filterUnits'?: string,
+ *    'flood-color'?: string,
+ *    'flood-opacity'?: string,
+ *    'font-family'?: string,
+ *    'font-size'?: string,
+ *    'font-size-adjust'?: string,
+ *    'font-stretch'?: string,
+ *    'font-style'?: string,
+ *    'font-variant'?: string,
+ *    'font-weight'?: string,
+ *    'fr'?: string,
+ *    'from'?: string,
+ *    'fx'?: string,
+ *    'fy'?: string,
+ *    'glyph-orientation-horizontal'?: string,
+ *    'glyph-orientation-vertical'?: string,
+ *    'gradientTransform'?: string,
+ *    'gradientUnits'?: string,
+ *    'height'?: string,
+ *    'href'?: string,
+ *    'hreflang'?: string,
+ *    'id'?: string,
+ *    'image-rendering'?: string,
+ *    'in'?: string,
+ *    'in2'?: string,
+ *    'intercept'?: string,
+ *    'k1'?: string,
+ *    'k2'?: string,
+ *    'k3'?: string,
+ *    'k4'?: string,
+ *    'kernelMatrix'?: string,
+ *    'kernelUnitLength'?: string,
+ *    'keyPoints'?: string,
+ *    'keySplines'?: string,
+ *    'keyTimes'?: string,
+ *    'lang'?: string,
+ *    'lengthAdjust'?: string,
+ *    'letter-spacing'?: string,
+ *    'lighting-color'?: string,
+ *    'limitingConeAngle'?: string,
+ *    'local'?: string,
+ *    'marker-end'?: string,
+ *    'marker-mid'?: string,
+ *    'marker-start'?: string,
+ *    'markerHeight'?: string,
+ *    'markerUnits'?: string,
+ *    'markerWidth'?: string,
+ *    'mask'?: string,
+ *    'maskContentUnits'?: string,
+ *    'maskUnits'?: string,
+ *    'max'?: string,
+ *    'media'?: string,
+ *    'method'?: string,
+ *    'min'?: string,
+ *    'mode'?: string,
+ *    'numOctaves'?: string,
+ *    'offset'?: string,
+ *    'opacity'?: string,
+ *    'operator'?: string,
+ *    'order'?: string,
+ *    'orient'?: string,
+ *    'origin'?: string,
+ *    'overflow'?: string,
+ *    'paint-order'?: string,
+ *    'path'?: string,
+ *    'pathLength'?: string,
+ *    'patternContentUnits'?: string,
+ *    'patternTransform'?: string,
+ *    'patternUnits'?: string,
+ *    'ping'?: string,
+ *    'pointer-events'?: string,
+ *    'points'?: string,
+ *    'pointsAtX'?: string,
+ *    'pointsAtY'?: string,
+ *    'pointsAtZ'?: string,
+ *    'preserveAlpha'?: string,
+ *    'preserveAspectRatio'?: string,
+ *    'primitiveUnits'?: string,
+ *    'r'?: string,
+ *    'radius'?: string,
+ *    'refX'?: string,
+ *    'refY'?: string,
+ *    'referrerPolicy'?: string,
+ *    'rel'?: string,
+ *    'rendering-intent'?: string,
+ *    'repeatCount'?: string,
+ *    'repeatDur'?: string,
+ *    'requiredExtensions'?: string,
+ *    'requiredFeatures'?: string,
+ *    'restart'?: string,
+ *    'result'?: string,
+ *    'rotate'?: string,
+ *    'rx'?: string,
+ *    'ry'?: string,
+ *    'scale'?: string,
+ *    'seed'?: string,
+ *    'shape-rendering'?: string,
+ *    'side'?: string,
+ *    'slope'?: string,
+ *    'spacing'?: string,
+ *    'specularConstant'?: string,
+ *    'specularExponent'?: string,
+ *    'speed'?: string,
+ *    'spreadMethod'?: string,
+ *    'startOffset'?: string,
+ *    'stdDeviation'?: string,
+ *    'stitchTiles'?: string,
+ *    'stop-color'?: string,
+ *    'stop-opacity'?: string,
+ *    'stroke'?: string,
+ *    'stroke-dasharray'?: string,
+ *    'stroke-dashoffset'?: string,
+ *    'stroke-linecap'?: string,
+ *    'stroke-linejoin'?: string,
+ *    'stroke-miterlimit'?: string,
+ *    'stroke-opacity'?: string,
+ *    'stroke-width'?: string,
+ *    'style'?: string,
+ *    'surfaceScale'?: string,
+ *    'systemLanguage'?: string,
+ *    'tabindex'?: string,
+ *    'tableValues'?: string,
+ *    'target'?: string,
+ *    'targetX'?: string,
+ *    'targetY'?: string,
+ *    'text-anchor'?: string,
+ *    'text-decoration'?: string,
+ *    'text-rendering'?: string,
+ *    'textLength'?: string,
+ *    'to'?: string,
+ *    'transform'?: string,
+ *    'transform-origin'?: string,
+ *    'type'?: string,
+ *    'unicode-bidi'?: string,
+ *    'values'?: string,
+ *    'vector-effect'?: string,
+ *    'version'?: string,
+ *    'viewBox'?: string,
+ *    'visibility'?: string,
+ *    'width'?: string,
+ *    'word-spacing'?: string,
+ *    'writing-mode'?: string,
+ *    'x'?: string,
+ *    'x1'?: string,
+ *    'x2'?: string,
+ *    'xChannelSelector'?: string,
+ *    'xlink:actuate'?: string,
+ *    'xlink:arcrole'?: string,
+ *    'xlink:href Deprecated'?: string,
+ *    'xlink:href'?: string,
+ *    'xlink:role'?: string,
+ *    'xlink:show'?: string,
+ *    'xlink:title'?: string,
+ *    'xlink:type'?: string,
+ *    'xml:lang'?: string,
+ *    'xml:space'?: string,
+ *    'y'?: string,
+ *    'y1'?: string,
+ *    'y2'?: string,
+ *    'yChannelSelector'?: string,
+ *    'z'?: string,
+ *    'zoomAndPan'?: string,
+ * }
+ *
+ * @phpstan-type TSVGAttribs array{
+ *    'attribs'?: TSVGAttributes,
+ *    'child_elements'?: array<string, array{'name'?: string, 'attribs'?: TSVGAttributes}>,
+ * }
+ *
+ * @phpstan-type TSVGClipPath array{
+ *    'name': string,
+ *    'attribs': array<string, TSVGAttribs>,
+ *    'tm': array<float>,
+ * }
+ *
+ * @phpstan-type TSVGDefs array{
+ *    'name': string,
+ *    'attribs': array<string, TSVGAttribs>,
+ * }
+ *
+ * @phpstan-type TSVGObj array{
+ *    'defsmode': bool,
+ *    'clipmode': bool,
+ *    'clipid': int,
+ *    'gradientid': int,
+ *    'gradients': array<int, TSVGGradient>,
+ *    'clippaths': array<int, TSVGClipPath>,
+ *    'textmode': array<string, TSVGTextMode>,
+ *    'defs': array<string, TSVGDefs>,
+ *    'cliptm': array<float>,
+ *    'styles': array<int, TSVGStyle>,
+ *    'text': string,
+ * }
+ *
  */
 abstract class SVG extends \Com\Tecnick\Pdf\Text
 {
@@ -153,14 +403,58 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected const SVGMINPNTLEN = 0.01;
 
-    protected float $svgminunitlen = 0;
 
     /**
-     * Array of SVG gradients.
+    * Array of inheritable SVG properties.
      *
-     * @var array<TSVGGradient>
+     * @var array<string>
      */
-    protected array $svggradients = [];
+    protected const SVGINHPROP = [
+        'clip-rule',
+        'color',
+        'color-interpolation',
+        'color-interpolation-filters',
+        'color-profile',
+        'color-rendering',
+        'cursor',
+        'direction',
+        'display',
+        'fill',
+        'fill-opacity',
+        'fill-rule',
+        'font',
+        'font-family',
+        'font-size',
+        'font-size-adjust',
+        'font-stretch',
+        'font-style',
+        'font-variant',
+        'font-weight',
+        'glyph-orientation-horizontal',
+        'glyph-orientation-vertical',
+        'image-rendering',
+        'kerning',
+        'letter-spacing',
+        'marker',
+        'marker-end',
+        'marker-mid',
+        'marker-start',
+        'pointer-events',
+        'shape-rendering',
+        'stroke',
+        'stroke-dasharray',
+        'stroke-dashoffset',
+        'stroke-linecap',
+        'stroke-linejoin',
+        'stroke-miterlimit',
+        'stroke-opacity',
+        'stroke-width',
+        'text-anchor',
+        'text-rendering',
+        'visibility',
+        'word-spacing',
+        'writing-mode',
+    ];
 
     /**
      * Default SVG style.
@@ -256,11 +550,32 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ];
 
     /**
-     * Stack of SVG styles.
+     * Default SVG object.
      *
-     * @var array<TSVGStyle>
+     * @var TSVGObj
      */
-    protected array $svgstyles = [self::DEFSVGSTYLE];
+    protected const DEFSVGOBJ = [
+        'defsmode' => false,
+        'clipmode' => false,
+        'clipid' => 0,
+        'gradientid' => 0,
+        'gradients' => [],
+        'clippaths' => [],
+        'cliptm' => [],
+        'defs' => [],
+        'textmode' => [],
+        'styles' => [self::DEFSVGSTYLE],
+        'text' => '',
+    ];
+
+    protected float $svgminunitlen = 0;
+
+    /**
+     * SVG object properties.
+     *
+     * @var array<TSVGObj>
+     */
+    protected array $svgobjs = [];
 
     /**
      * Get the tranformation matrix from the SVG 'transform' attribute.
@@ -430,7 +745,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         return end($parts);
     }
 
-    protected function gatSVGPath(
+    protected function getSVGPath(
         string $attrd,
         string $mode = '',
     ): string {
@@ -1398,68 +1713,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG fill style.
      *
-     * @param TSVGStyle $svgstyle SVG style.
-     * @param float $posx X position in user units.
-     * @param float $posy Y position in user units.
-     * @param float $width Width in user units.
-     * @param float $height Height in user units.
-     * @param string $clip_fnc Optional clipping function name.
-     * @param array<mixed> $clip_par Optional clipping function parameters.
-     *
-     * @return string the Raw PDF command.
-     */
-    protected function parseSVGStyleFill(
-        array &$svgstyle,
-        float $posx,
-        float $posy,
-        float $width,
-        float $height,
-        string $clip_fnc = '',
-        array $clip_par = [],
-    ): string {
-        if (empty($svgstyle['fill']) || ($svgstyle['fill'] == 'none')) {
-            return '';
-        }
-
-        $regs = array();
-        if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
-            return $this->parseSVGStyleGradient(
-                intval($regs[1]),
-                $posx,
-                $posy,
-                $width,
-                $height,
-                $clip_fnc,
-                $clip_par,
-            );
-        }
-
-        $col = $this->color->getColorObj($svgstyle['fill']);
-        if ($col == null) {
-            return '';
-        }
-
-        $out = '';
-
-        if ($svgstyle['fill-opacity'] < 1) {
-            $out .= $this->graph->getAlpha($svgstyle['fill-opacity']);
-        } else {
-            $rgba = $col->toRgbArray();
-            if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
-                $out .= $this->graph->getAlpha($rgba['alpha']);
-            }
-        }
-
-        $svgstyle['objstyle'] .= ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
-
-        $out .= $col->getPdfColor();
-
-        return $out;
-    }
-
-    /**
-     * Parse the SVG fill style.
-     *
+     * @param array<int, TSVGGradient> $gradients Gradients.
      * @param int $xref Gradient ID.
      * @param float $grx X position in user units.
      * @param float $gry Y position in user units.
@@ -1471,6 +1725,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string the Raw PDF command.
      */
     protected function parseSVGStyleGradient(
+        array $gradients,
         int $xref,
         float $grx,
         float $gry,
@@ -1479,11 +1734,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         string $clip_fnc = '',
         array $clip_par = [],
     ): string {
-        $gradient = $this->svggradients[$xref];
-
+        $gradient = $gradients[$xref] ?? null;
+        if ($gradient === null) {
+            return '';
+        }
         if (!empty($gradient['xref'])) {
             // reference to another gradient definition
-            $newgradient = $this->svggradients[$gradient['xref']];
+            $newgradient = $gradients[$gradient['xref']];
             $newgradient['coords'] = $gradient['coords'];
             $newgradient['mode'] = $gradient['mode'];
             $newgradient['type'] = $gradient['type'];
@@ -1631,7 +1888,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $gry -= $grh;
         }
 
-        $out = "";
+        $out = '';
 
         $out .= sprintf(
             '%F 0 0 %F %F %F cm',
@@ -1655,22 +1912,90 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Parse the SVG fill style.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @param array<int, TSVGGradient> $gradients Gradients.
+     * @param float $posx X position in user units.
+     * @param float $posy Y position in user units.
+     * @param float $width Width in user units.
+     * @param float $height Height in user units.
+     * @param string $clip_fnc Optional clipping function name.
+     * @param array<mixed> $clip_par Optional clipping function parameters.
+     *
+     * @return string the Raw PDF command.
+     */
+    protected function parseSVGStyleFill(
+        array &$svgstyle,
+        array $gradients,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        string $clip_fnc = '',
+        array $clip_par = [],
+    ): string {
+        if (empty($svgstyle['fill']) || ($svgstyle['fill'] == 'none')) {
+            return '';
+        }
+
+        $regs = array();
+        if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
+            return $this->parseSVGStyleGradient(
+                $gradients,
+                intval($regs[1]),
+                $posx,
+                $posy,
+                $width,
+                $height,
+                $clip_fnc,
+                $clip_par,
+            );
+        }
+
+        $col = $this->color->getColorObj($svgstyle['fill']);
+        if ($col == null) {
+            return '';
+        }
+
+        $out = '';
+
+        if ($svgstyle['fill-opacity'] < 1) {
+            $out .= $this->graph->getAlpha($svgstyle['fill-opacity']);
+        } else {
+            $rgba = $col->toRgbArray();
+            if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
+                $out .= $this->graph->getAlpha($rgba['alpha']);
+            }
+        }
+
+        $svgstyle['objstyle'] .= ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
+
+        $out .= $col->getPdfColor();
+
+        return $out;
+    }
+
+    /**
      * Parse the SVG style clip-path.
      *
      * @param TSVGStyle $svgstyle SVG style.
+     * @param array<int, TSVGClipPath> $clippaths Clipping paths.
      * @return string the Raw PDF command.
      */
     protected function parseSVGStyleClipPath(
         array &$svgstyle,
+        array $clippaths = [],
     ): string {
         $out = '';
         $regs = [];
         if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['clip-path'], $regs)) {
-            // @TODO
-            //$clip_path = $this->svgclippaths[$regs[1]];
-            //foreach ($clip_path as $cp) {
-            //   $out .= $this->startSVGElementHandler('clip-path', $cp['name'], $cp['attribs'], $cp['tm']);
-            //}
+            $clip_path = $clippaths[$regs[1]];
+            foreach ($clip_path as $cp) {
+                $cp = $cp; // TEMP
+                // @TODO
+                // $out .= $this->startSVGElementHandler('clip-path', $cp['name'], $cp['attribs'], $cp['tm']);
+            }
         }
         return $out;
     }
@@ -1680,6 +2005,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param TSVGStyle $svgstyle SVG style.
      * @param TSVGStyle $prevsvgstyle SVG style.
+     * @param array<int, TSVGGradient> $gradients Gradients.
+     * @param array<int, TSVGClipPath> $clippaths Clipping paths.
      * @param float $posx X position in user units.
      * @param float $posy Y position in user units.
      * @param float $width Width in user units.
@@ -1692,6 +2019,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function parseSVGStyle(
         array &$svgstyle,
         array $prevsvgstyle,
+        array $gradients,
+        array $clippaths,
         float $posx,
         float $posy,
         float $width,
@@ -1703,7 +2032,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        return $this->parseSVGStyleClipPath($svgstyle) .
+        return $this->parseSVGStyleClipPath($svgstyle, $clippaths) .
         $this->parseSVGStyleColor($svgstyle) .
             $this->parseSVGStyleClip(
                 $svgstyle,
@@ -1714,6 +2043,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             ) .
             $this->parseSVGStyleFill(
                 $svgstyle,
+                $gradients,
                 $posx,
                 $posy,
                 $width,
