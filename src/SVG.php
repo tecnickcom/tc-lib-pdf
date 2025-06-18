@@ -357,19 +357,19 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * }
  *
  * @phpstan-type TSVGAttribs array{
- *    'attribs'?: TSVGAttributes,
- *    'child_elements'?: array<string, array{'name'?: string, 'attribs'?: TSVGAttributes}>,
+ *    'attr': TSVGAttributes,
+ *    'child'?: array<string, array{'name': string, 'attr': TSVGAttributes}>,
  * }
  *
  * @phpstan-type TSVGClipPath array{
  *    'name': string,
- *    'attribs': array<string, TSVGAttribs>,
- *    'tm': array<float>,
+ *    'attr': TSVGAttribs,
+ *    'tm': array<int, float>,
  * }
  *
  * @phpstan-type TSVGDefs array{
  *    'name': string,
- *    'attribs': array<string, TSVGAttribs>,
+ *    'attr': TSVGAttribs,
  * }
  *
  * @phpstan-type TSVGObj array{
@@ -377,13 +377,15 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'clipmode': bool,
  *    'clipid': int,
  *    'gradientid': int,
+ *    'tagdepth': int,
  *    'gradients': array<int, TSVGGradient>,
- *    'clippaths': array<int, TSVGClipPath>,
+ *    'clippaths': array<string, TSVGClipPath>,
  *    'textmode': array<string, TSVGTextMode>,
  *    'defs': array<string, TSVGDefs>,
  *    'cliptm': array<float>,
  *    'styles': array<int, TSVGStyle>,
  *    'text': string,
+ *    'out': string,
  * }
  *
  */
@@ -550,15 +552,41 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ];
 
     /**
-     * Default SVG object.
+     * Modes to check when processing SVG start tags.
+     *
+     * @var array<int, string>
+     */
+    protected const SVGDEFSMODESTART = [
+        'clipPath',
+        'linearGradient',
+        'radialGradient',
+        'stop',
+    ];
+
+    /**
+     * Modes to check when processing SVG end tags.
+     *
+     * @var array<int, string>
+     */
+    protected const SVGDEFSMODEEND = [
+        'defs',
+        'clipPath',
+        'linearGradient',
+        'radialGradient',
+        'stop',
+    ];
+
+    /**
+     * Default SVG object properties.
      *
      * @var TSVGObj
      */
-    protected const DEFSVGOBJ = [
+    protected const SVGDEFOBJ = [
         'defsmode' => false,
         'clipmode' => false,
         'clipid' => 0,
         'gradientid' => 0,
+        'tagdepth' => 0,
         'gradients' => [],
         'clippaths' => [],
         'cliptm' => [],
@@ -566,16 +594,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'textmode' => [],
         'styles' => [self::DEFSVGSTYLE],
         'text' => '',
+        'out' => '',
     ];
-
-    protected float $svgminunitlen = 0;
 
     /**
      * SVG object properties.
      *
-     * @var array<TSVGObj>
+     * @var array<int, TSVGObj>
      */
     protected array $svgobjs = [];
+
+    /**
+     * SVG minimum length in points.
+     *
+     * @var float
+     */
+    protected float $svgminunitlen = 0;
 
     /**
      * Get the tranformation matrix from the SVG 'transform' attribute.
@@ -1980,7 +2014,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG style clip-path.
      *
      * @param TSVGStyle $svgstyle SVG style.
-     * @param array<int, TSVGClipPath> $clippaths Clipping paths.
+     * @param array<string, TSVGClipPath> $clippaths Clipping paths.
      * @return string the Raw PDF command.
      */
     protected function parseSVGStyleClipPath(
@@ -1992,9 +2026,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['clip-path'], $regs)) {
             $clip_path = $clippaths[$regs[1]];
             foreach ($clip_path as $cp) {
-                $cp = $cp; // TEMP
-                // @TODO
-                // $out .= $this->startSVGElementHandler('clip-path', $cp['name'], $cp['attribs'], $cp['tm']);
+                $cp = $cp; // @phpstan-ignore-line
+                //@TODO $out .= $this->handlerSVGTagStart('clip-path', $cp['name'], $cp['attr'], $cp['tm']);
             }
         }
         return $out;
@@ -2003,10 +2036,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG style.
      *
-     * @param TSVGStyle $svgstyle SVG style.
-     * @param TSVGStyle $prevsvgstyle SVG style.
-     * @param array<int, TSVGGradient> $gradients Gradients.
-     * @param array<int, TSVGClipPath> $clippaths Clipping paths.
+     * @param TSVGObj $svgobj SVG object.
      * @param float $posx X position in user units.
      * @param float $posy Y position in user units.
      * @param float $width Width in user units.
@@ -2017,10 +2047,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string the Raw PDF command.
      */
     protected function parseSVGStyle(
-        array &$svgstyle,
-        array $prevsvgstyle,
-        array $gradients,
-        array $clippaths,
+        array &$svgobj,
         float $posx,
         float $posy,
         float $width,
@@ -2028,22 +2055,24 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         string $clip_fnc = '',
         array $clip_par = [],
     ): string {
-        if (empty($svgstyle['opacity'])) {
+        $sid = (int)array_key_last($svgobj['styles']);
+
+        if (empty($svgobj['styles'][$sid]['opacity'])) {
             return '';
         }
 
-        return $this->parseSVGStyleClipPath($svgstyle, $clippaths) .
-        $this->parseSVGStyleColor($svgstyle) .
+        return $this->parseSVGStyleClipPath($svgobj['styles'][$sid], $svgobj['clippaths']) .
+        $this->parseSVGStyleColor($svgobj['styles'][$sid]) .
             $this->parseSVGStyleClip(
-                $svgstyle,
+                $svgobj['styles'][$sid],
                 $posx,
                 $posy,
                 $width,
                 $height
             ) .
             $this->parseSVGStyleFill(
-                $svgstyle,
-                $gradients,
+                $svgobj['styles'][$sid],
+                $svgobj['gradients'],
                 $posx,
                 $posy,
                 $width,
@@ -2051,7 +2080,196 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $clip_fnc,
                 $clip_par
             ) .
-            $this->parseSVGStyleStroke($svgstyle) .
-            $this->parseSVGStyleFont($svgstyle, $prevsvgstyle);
+            $this->parseSVGStyleStroke($svgobj['styles'][$sid]) .
+            $this->parseSVGStyleFont($svgobj['styles'][$sid], $svgobj['styles'][($sid - 1)]);
+    }
+
+    /**
+     * Handler for the SVG character data.
+     *
+     * @param string $parser The XML parser calling the handler.
+     * @param string $data Character data.
+     *
+     * @return void
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function handlerSVGCharacter(
+        string $parser,
+        string $data,
+    ) {
+        $soid = (int)array_key_last($this->svgobjs);
+        if (($soid < 0) || !isset($this->svgobjs[$soid]['text'])) {
+            return;
+        }
+        $this->svgobjs[$soid]['text'] .= $data;
+    }
+
+    /**
+     * Handler for the end of an SVG tag.
+     *
+     * @param string $parser The XML parser calling the handler.
+     * @param string $name Name of the element for which this handler is called.
+     *
+     * @return void
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function handlerSVGTagEnd(
+        string $parser,
+        string $name,
+    ): void {
+        $name = $this->removeTagNamespace($name);
+
+        $soid = (int)array_key_last($this->svgobjs);
+        if ($soid < 0) {
+            return;
+        }
+
+        if (
+            $this->svgobjs[$soid]['defsmode']
+            && !in_array($name, self::SVGDEFSMODEEND)
+        ) {
+            if (end($this->svgobjs[$soid]['defs']) !== false) {
+                $last_svgdefs_id = (string)array_key_last($this->svgobjs[$soid]['defs']);
+                if (!empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child'])) {
+                    foreach (
+                        $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child'] as $child
+                    ) {
+                        if (
+                            isset($child['attr']['id']) &&
+                            is_scalar($child['attr']['id']) &&
+                            ($child['name'] == $name)
+                        ) {
+                            $closeKey = (string)$child['attr']['id'] . '_CLOSE';
+                            $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child'][$closeKey] = [
+                                'name' => $name,
+                                'attr' => [
+                                    'closing_tag' => true,
+                                    'content' => $this->svgobjs[$soid]['text'],
+                                ],
+                            ];
+                            return;
+                        }
+                    }
+                    if ($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['name'] == $name) {
+                        $closeKey = (string)$last_svgdefs_id . '_CLOSE';
+                        $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child'][$closeKey] = [
+                            'name' => $name,
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => $this->svgobjs[$soid]['text'],
+                            ],
+                        ];
+                        return;
+                    }
+                }
+            }
+            return;
+        }
+
+        switch ($name) {
+            case 'defs':
+                $this->svgobjs[$soid]['defsmode'] = false;
+                break;
+            case 'clipPath':
+                $this->svgobjs[$soid]['clipmode'] = false;
+                break;
+            case 'svg':
+                if (--$this->svgobjs[$soid]['tagdepth'] <= 0) {
+                    break;
+                }
+                // fall through
+            case 'g':
+                array_pop($this->svgobjs[$soid]['styles']);
+                $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+                break;
+            case 'text':
+            case 'tspan':
+                if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+                    // This implementation must be fixed to following the rule:
+                    // If the 'visibility' property is set to hidden on a 'tspan', 'tref' or 'altGlyph' element,
+                    // then the text is invisible but still takes up space in text layout calculations.
+                    break;
+                }
+
+                // @TODO
+                /*
+                // print text
+                $text = $this->svgtext;
+                //$text = $this->stringTrim($text);
+                $textlen = $this->GetStringWidth($text);
+
+                if ($this->svgtextmode['text-anchor'] != 'start') {
+                    // check if string is RTL text
+                    if ($this->svgtextmode['text-anchor'] == 'end') {
+                        if ($this->svgtextmode['rtl']) {
+                            $this->x += $textlen;
+                        } else {
+                            $this->x -= $textlen;
+                        }
+                    } elseif ($this->svgtextmode['text-anchor'] == 'middle') {
+                        if ($this->svgtextmode['rtl']) {
+                            $this->x += ($textlen / 2);
+                        } else {
+                            $this->x -= ($textlen / 2);
+                        }
+                    }
+                }
+
+                $textrendermode = $this->textrendermode;
+                $textstrokewidth = $this->textstrokewidth;
+                $this->setTextRenderingMode($this->svgtextmode['stroke'], true, false);
+
+                if ($name == 'text') {
+                    // store current coordinates
+                    $tmpx = $this->x;
+                    $tmpy = $this->y;
+                }
+
+                // print the text
+                $this->Cell($textlen, 0, $text, 0, 0, '', false, '', 0, false, 'L', 'T');
+
+                if ($name == 'text') {
+                    // restore coordinates
+                    $this->x = $tmpx;
+                    $this->y = $tmpy;
+                }
+
+                // restore previous rendering mode
+                $this->textrendermode = $textrendermode;
+                $this->textstrokewidth = $textstrokewidth;
+                $this->svgtext = '';
+                $this->StopTransform();
+
+                if (!$this->svgobjs[$soid]['defs']mode) {
+                    array_pop($this->svgstyles);
+                }
+                */
+
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Handler for the start of an SVG tag.
+     *
+     * @param string $parser The XML parser calling the handler.
+     * @param string $name Name of the element for which this handler is called.
+     * @param TSVGAttributes $attributes Associative array with the element's attributes.
+     * @param array<float> $ctm Current transformation matrix (optional).
+     *
+     * @return void
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function handlerSVGTagStart(
+        string $parser,
+        string $name,
+        array $attributes,
+        array $ctm = [],
+    ): void {
     }
 }
