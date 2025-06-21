@@ -2211,99 +2211,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        switch ($name) {
-            case 'defs':
-                $this->svgobjs[$soid]['defsmode'] = false;
-                break;
-            case 'clipPath':
-                $this->svgobjs[$soid]['clipmode'] = false;
-                break;
-            case 'svg':
-                if (--$this->svgobjs[$soid]['tagdepth'] <= 0) {
-                    break;
-                }
-                // fall through
-            case 'g':
-                array_pop($this->svgobjs[$soid]['styles']);
-                $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
-                break;
-            case 'text':
-            case 'tspan':
-                if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
-                    // This implementation must be fixed to following the rule:
-                    // If the 'visibility' property is set to hidden on a 'tspan', 'tref' or 'altGlyph' element,
-                    // then the text is invisible but still takes up space in text layout calculations.
-                    break;
-                }
-
-                // @TODO
-                /*
-                // getTextCell
-                // getTextLine
-
-
-                // print text
-                $text = $this->svgobjs[$soid]['text'];
-                //$text = $this->stringTrim($text);
-                $textlen = $this->GetStringWidth($text);
-
-                if ($this->svgobjs[$soid]['textmode']['text-anchor'] != 'start') {
-                    // check if string is RTL text
-                    if ($this->svgobjs[$soid]['textmode']['text-anchor'] == 'end') {
-                        if ($this->svgobjs[$soid]['textmode']['rtl']) {
-                            $this->x += $textlen;
-                        } else {
-                            $this->x -= $textlen;
-                        }
-                    } elseif ($this->svgobjs[$soid]['textmode']['text-anchor'] == 'middle') {
-                        if ($this->svgobjs[$soid]['textmode']['rtl']) {
-                            $this->x += ($textlen / 2);
-                        } else {
-                            $this->x -= ($textlen / 2);
-                        }
-                    }
-                }
-
-
-
-                $textrendermode = $this->textrendermode;
-                $textstrokewidth = $this->textstrokewidth;
-                $this->setTextRenderingMode($this->svgobjs[$soid]['textmode']['stroke'], true, false);
-
-                if ($name == 'text') {
-                    // store current coordinates
-                    $tmpx = $this->x;
-                    $tmpy = $this->y;
-                }
-
-
-
-                // print the text
-                $this->Cell($textlen, 0, $text, 0, 0, '', false, '', 0, false, 'L', 'T');
-
-
-
-                if ($name == 'text') {
-                    // restore coordinates
-                    $this->x = $tmpx;
-                    $this->y = $tmpy;
-                }
-
-                // restore previous rendering mode
-                $this->textrendermode = $textrendermode;
-                $this->textstrokewidth = $textstrokewidth;
-                */
-
-                $this->svgobjs[$soid]['text'] = '';
-                $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
-
-                if (!$this->svgobjs[$soid]['defsmode']) {
-                    array_pop($this->svgobjs[$soid]['styles']);
-                }
-                break;
-            default:
-                break;
-        }
+        match ($name) {
+            'defs' => $this->parseSVGTagENDdefs($soid),
+            'clipPath' => $this->parseSVGTagENDclipPath($soid),
+            'svg' => $this->parseSVGTagENDsvg($soid),
+            'g' => $this->parseSVGTagENDg($soid),
+            'text' => $this->parseSVGTagENDtext($soid),
+            'tspan' => $this->parseSVGTagENDtspan($soid),
+            default => null,
+        };
     }
 
     /**
@@ -2324,5 +2240,364 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $attributes,
         array $ctm = [],
     ): void {
+        $name = $this->removeTagNamespace($name);
+
+        $soid = (int)array_key_last($this->svgobjs);
+        if ($soid < 0) {
+            return;
+        }
+
+        //@TODO
+
+        match ($name) {
+            'defs' => $this->parseSVGTagSTARTdefs($soid),
+            'clipPath' => $this->parseSVGTagSTARTclipPath($soid),
+            'svg' => $this->parseSVGTagSTARTsvg($soid),
+            'g' => $this->parseSVGTagSTARTg($soid),
+            'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid),
+            'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid),
+            'stop' => $this->parseSVGTagSTARTstop($soid),
+            'path' => $this->parseSVGTagSTARTpath($soid),
+            'rect' => $this->parseSVGTagSTARTrect($soid),
+            'circle' => $this->parseSVGTagSTARTcircle($soid),
+            'ellipse' => $this->parseSVGTagSTARTellipse($soid),
+            'line' => $this->parseSVGTagSTARTline($soid),
+            'polyline' => $this->parseSVGTagSTARTpolyline($soid),
+            'polygon' => $this->parseSVGTagSTARTpolygon($soid),
+            'image' => $this->parseSVGTagSTARTimage($soid),
+            'text' => $this->parseSVGTagSTARTtext($soid),
+            'tspan' => $this->parseSVGTagSTARTtspan($soid),
+            'use' => $this->parseSVGTagSTARTuse($soid),
+            default => null,
+        };
+
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG End tag 'defs'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagENDdefs(int $soid): void
+    {
+        $this->svgobjs[$soid]['defsmode'] = false;
+    }
+
+    /**
+     * Parse the SVG End tag 'defs'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagENDclipPath(int $soid): void
+    {
+        $this->svgobjs[$soid]['clipmode'] = false;
+    }
+
+    /**
+     * Parse the SVG End tag 'defs'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagENDsvg(int $soid): void
+    {
+        if (--$this->svgobjs[$soid]['tagdepth'] <= 0) {
+            return;
+        }
+        $this->parseSVGTagENDg($soid);
+    }
+
+    /**
+     * Parse the SVG End tag 'defs'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagENDg(int $soid): void
+    {
+        array_pop($this->svgobjs[$soid]['styles']);
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+    }
+
+    /**
+     * Parse the SVG End tag 'defs'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagENDtspan(int $soid): void
+    {
+        $this->parseSVGTagENDtext($soid);
+    }
+
+    /**
+     * Parse the SVG End tag 'defs'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagENDtext(int $soid): void
+    {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            // This implementation must be fixed to following the rule:
+            // If the 'visibility' property is set to hidden on a 'tspan', 'tref' or 'altGlyph' element,
+            // then the text is invisible but still takes up space in text layout calculations.
+            return;
+        }
+
+        // $text = $this->svgobjs[$soid]['text'];
+
+        // @TODO getTextLine
+
+        $this->svgobjs[$soid]['text'] = '';
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+
+        if (!$this->svgobjs[$soid]['defsmode']) {
+            array_pop($this->svgobjs[$soid]['styles']);
+        }
+    }
+
+
+    /**
+     * Parse the SVG Start tag 'defs'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTdefs(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'clipPath'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTclipPath(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'svg'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTsvg(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'g'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTg(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'linearGradient'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTlinearGradient(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'radialGradient'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTradialGradient(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'stop'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTstop(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'path'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTpath(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'rect'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTrect(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'circle'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTcircle(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'ellipse'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTellipse(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'line'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTline(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'polyline'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTpolyline(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'polygon'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTpolygon(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'image'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTimage(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'text'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTtext(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'tspan'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTtspan(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
+    }
+
+    /**
+     * Parse the SVG Start tag 'use'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return void
+     */
+    protected function parseSVGTagSTARTuse(int $soid)
+    {
+        $soid = $soid; // @phpstan-ignore-line
+        //@TODO
     }
 }
