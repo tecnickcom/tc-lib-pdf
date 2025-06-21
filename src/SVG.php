@@ -612,6 +612,150 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected float $svgminunitlen = 0;
 
     /**
+     * Parse the SVG transformation 'matrix'.
+     *
+     * @param string $val Transformation matrix string to parse.
+     *
+     * @return TTMatrix Transformation matrix.
+     */
+    protected function parseSVGTMmatrix(string $val): array
+    {
+        $tmb = $this->graph::IDMATRIX;
+        $regs = [];
+        if (
+            preg_match(
+                '/([a-z0-9\-\.]+)[\,\s]+'
+                . '([a-z0-9\-\.]+)[\,\s]+'
+                . '([a-z0-9\-\.]+)[\,\s]+'
+                . '([a-z0-9\-\.]+)[\,\s]+'
+                . '([a-z0-9\-\.]+)[\,\s]+'
+                . '([a-z0-9\-\.]+)/si',
+                $val,
+                $regs,
+            )
+        ) {
+            $tmb[0] = floatval($regs[1]);
+            $tmb[1] = floatval($regs[2]);
+            $tmb[2] = floatval($regs[3]);
+            $tmb[3] = floatval($regs[4]);
+            $tmb[4] = floatval($regs[5]);
+            $tmb[5] = floatval($regs[6]);
+        }
+        return $tmb;
+    }
+
+    /**
+     * Parse the SVG transformation 'translate'.
+     *
+     * @param string $val Transformation matrix string to parse.
+     *
+     * @return TTMatrix Transformation matrix.
+     */
+    protected function parseSVGTMtranslate(string $val): array
+    {
+        $tmb = $this->graph::IDMATRIX;
+        $regs = [];
+        if (preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[4] = floatval($regs[1]);
+            $tmb[5] = floatval($regs[2]);
+            return $tmb;
+        }
+        if (preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[4] = floatval($regs[1]);
+        }
+        return $tmb;
+    }
+
+    /**
+     * Parse the SVG transformation 'scale'.
+     *
+     * @param string $val Transformation matrix string to parse.
+     *
+     * @return TTMatrix Transformation matrix.
+     */
+    protected function parseSVGTMscale(string $val): array
+    {
+        $tmb = $this->graph::IDMATRIX;
+        $regs = [];
+        if (preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[0] = floatval($regs[1]);
+            $tmb[3] = floatval($regs[2]);
+            return $tmb;
+        }
+        if (preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[0] = floatval($regs[1]);
+            $tmb[3] = $tmb[0];
+        }
+        return $tmb;
+    }
+
+    /**
+     * Parse the SVG transformation 'rotate'.
+     *
+     * @param string $val Transformation matrix string to parse.
+     *
+     * @return TTMatrix Transformation matrix.
+     */
+    protected function parseSVGTMrotate(string $val): array
+    {
+        $tmb = $this->graph::IDMATRIX;
+        $regs = [];
+        if (preg_match('/([0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $ang = deg2rad(floatval($regs[1]));
+            $trx = floatval($regs[2]);
+            $try = floatval($regs[3]);
+            $tmb[0] = cos($ang);
+            $tmb[1] = sin($ang);
+            $tmb[2] = -$tmb[1];
+            $tmb[3] = $tmb[0];
+            $tmb[4] = ($trx * (1 - $tmb[0])) - ($try * $tmb[2]);
+            $tmb[5] = ($try * (1 - $tmb[3])) - ($trx * $tmb[1]);
+            return $tmb;
+        }
+        if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+            $ang = deg2rad(floatval($regs[1]));
+            $tmb[0] = cos($ang);
+            $tmb[1] = sin($ang);
+            $tmb = [$tmb[0], $tmb[1], -$tmb[1], $tmb[0], 0, 0];
+        }
+        return $tmb;
+    }
+
+    /**
+     * Parse the SVG transformation 'skewX'.
+     *
+     * @param string $val Transformation matrix string to parse.
+     *
+     * @return TTMatrix Transformation matrix.
+     */
+    protected function parseSVGTMskewX(string $val): array
+    {
+        $tmb = $this->graph::IDMATRIX;
+        $regs = [];
+        if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[2] = tan(deg2rad(floatval($regs[1])));
+        }
+        return $tmb;
+    }
+
+    /**
+     * Parse the SVG transformation 'skewY'.
+     *
+     * @param string $val Transformation matrix string to parse.
+     *
+     * @return TTMatrix Transformation matrix.
+     */
+    protected function parseSVGTMskewY(string $val): array
+    {
+        $tmb = $this->graph::IDMATRIX;
+        $regs = [];
+        if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[1] = tan(deg2rad(floatval($regs[1])));
+        }
+        return $tmb;
+    }
+
+    /**
      * Get the tranformation matrix from the SVG 'transform' attribute.
      *
      * @param string $attr Transformation attribute.
@@ -639,84 +783,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 continue;
             }
 
-            $tmb = $this->graph::IDMATRIX;
             $val = $data[2];
-            $regs = [];
 
-            switch ($data[1]) {
-                case 'matrix':
-                    if (
-                        preg_match(
-                            '/([a-z0-9\-\.]+)[\,\s]+'
-                            . '([a-z0-9\-\.]+)[\,\s]+'
-                            . '([a-z0-9\-\.]+)[\,\s]+'
-                            . '([a-z0-9\-\.]+)[\,\s]+'
-                            . '([a-z0-9\-\.]+)[\,\s]+'
-                            . '([a-z0-9\-\.]+)/si',
-                            $val,
-                            $regs,
-                        )
-                    ) {
-                        $tmb[0] = floatval($regs[1]);
-                        $tmb[1] = floatval($regs[2]);
-                        $tmb[2] = floatval($regs[3]);
-                        $tmb[3] = floatval($regs[4]);
-                        $tmb[4] = floatval($regs[5]);
-                        $tmb[5] = floatval($regs[6]);
-                    }
-                    break;
-                case 'translate':
-                    if (preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
-                        $tmb[4] = floatval($regs[1]);
-                        $tmb[5] = floatval($regs[2]);
-                        break;
-                    }
-                    if (preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
-                        $tmb[4] = floatval($regs[1]);
-                    }
-                    break;
-                case 'scale':
-                    if (preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
-                        $tmb[0] = floatval($regs[1]);
-                        $tmb[3] = floatval($regs[2]);
-                        break;
-                    }
-                    if (preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
-                        $tmb[0] = floatval($regs[1]);
-                        $tmb[3] = $tmb[0];
-                    }
-                    break;
-                case 'rotate':
-                    if (preg_match('/([0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
-                        $ang = deg2rad(floatval($regs[1]));
-                        $trx = floatval($regs[2]);
-                        $try = floatval($regs[3]);
-                        $tmb[0] = cos($ang);
-                        $tmb[1] = sin($ang);
-                        $tmb[2] = -$tmb[1];
-                        $tmb[3] = $tmb[0];
-                        $tmb[4] = ($trx * (1 - $tmb[0])) - ($try * $tmb[2]);
-                        $tmb[5] = ($try * (1 - $tmb[3])) - ($trx * $tmb[1]);
-                        break;
-                    }
-                    if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
-                        $ang = deg2rad(floatval($regs[1]));
-                        $tmb[0] = cos($ang);
-                        $tmb[1] = sin($ang);
-                        $tmb = [$tmb[0], $tmb[1], -$tmb[1], $tmb[0], 0, 0];
-                    }
-                    break;
-                case 'skewX':
-                    if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
-                        $tmb[2] = tan(deg2rad(floatval($regs[1])));
-                    }
-                    break;
-                case 'skewY':
-                    if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
-                        $tmb[1] = tan(deg2rad(floatval($regs[1])));
-                    }
-                    break;
-            }
+            $tmb = match ($data[1]) {
+                'matrix' => $this->parseSVGTMmatrix($val),
+                'translate' => $this->parseSVGTMtranslate($val),
+                'scale' => $this->parseSVGTMscale($val),
+                'rotate' => $this->parseSVGTMrotate($val),
+                'skewX' => $this->parseSVGTMskewX($val),
+                'skewY' => $this->parseSVGTMskewY($val),
+                default => $this->graph::IDMATRIX,
+            };
 
             $tma = $this->graph->getCtmProduct($tma, $tmb);
         }
