@@ -178,24 +178,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $pheight = $curfont['height'];
         }
 
-        switch ($align) {
-            default:
-            case 'C': // Center
-                return ($pheight + (2 * max($cell['padding']['T'], $cell['padding']['B'])));
-            case 'T': // Top
-            case 'B': // Bottom
-                return ($pheight + $cell['padding']['T'] + $cell['padding']['B']);
-            case 'L': // Center on font Baseline
-                return ($pheight - $curfont['height'] + (2 * max(
-                    ($cell['padding']['T'] + $curfont['ascent']),
-                    ($cell['padding']['B'] - $curfont['descent'])
-                )));
-            case 'A': // Center on font Ascent
-            case 'D': // Center on font Descent
-                return ($pheight
-                    - $curfont['height']
-                    + (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B']))));
-        }
+        return match ($align) {
+            'T', 'B' => ($pheight + $cell['padding']['T'] + $cell['padding']['B']),
+            'L' => ($pheight - $curfont['height'] + (2 * max(
+                ($cell['padding']['T'] + $curfont['ascent']),
+                ($cell['padding']['B'] - $curfont['descent'])
+            ))),
+            'A', 'D' => ($pheight
+            - $curfont['height']
+            + (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B'])))),
+            // default on 'C' case
+            default => ($pheight + (2 * max($cell['padding']['T'], $cell['padding']['B']))),
+        };
     }
 
     /**
@@ -214,20 +208,14 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        switch ($align) {
-            case '':
-            case 'J': // Justify
-                $align = $this->rtl ? 'R' : 'L';
+        if ($align === '' || $align === 'J') { // Justify
+            $align = $this->rtl ? 'R' : 'L';
         }
 
-        switch ($align) {
-            default:
-            case 'L': // Left
-            case 'R': // Right
-                return ceil($txtwidth + $cell['padding']['L'] + $cell['padding']['R']);
-            case 'C': // Center
-                return ceil($txtwidth + (2 * max($cell['padding']['L'], $cell['padding']['R'])));
-        }
+        return match ($align) {
+            'C' => ceil($txtwidth + (2 * max($cell['padding']['L'], $cell['padding']['R']))),
+            default => ceil($txtwidth + $cell['padding']['L'] + $cell['padding']['R']),
+        };
     }
 
     /**
@@ -274,10 +262,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        switch ($align) {
-            case '':
-            case 'J': // Justify
-                $align = $this->rtl ? 'R' : 'L';
+        if ($align === '' || $align === 'J') { // Justify
+            $align = $this->rtl ? 'R' : 'L';
         }
 
         return match ($align) {
@@ -318,21 +304,15 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $txtpheight = $curfont['height'];
         }
 
-        switch ($align) {
-            default:
-            case 'C': // Center
-                return (($cellpheight - $txtpheight) / 2);
-            case 'T': // Top
-                return ($cell['padding']['T']);
-            case 'B': // Bottom
-                return (($cellpheight - $txtpheight) - $cell['padding']['B']);
-            case 'L': // Center on font Baseline
-                return ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['ascent']);
-            case 'A': // Center on font Ascent
-                return (($cellpheight - $txtpheight + $curfont['height']) / 2);
-            case 'D': // Center on font Descent
-                return ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['height']);
-        }
+        return match ($align) {
+            'T' => ($cell['padding']['T']),
+            'B' => (($cellpheight - $txtpheight) - $cell['padding']['B']),
+            'L' => ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['ascent']),
+            'A' => (($cellpheight - $txtpheight + $curfont['height']) / 2),
+            'D' => ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['height']),
+            // default on 'C' case
+            default => (($cellpheight - $txtpheight) / 2)
+        };
     }
 
     /**
@@ -353,21 +333,16 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        switch ($align) {
-            case '':
-            case 'J': // Justify
-                $align = $this->rtl ? 'R' : 'L';
+        if ($align === '' || $align === 'J') { // Justify
+            $align = $this->rtl ? 'R' : 'L';
         }
 
-        switch ($align) {
-            default:
-            case 'L': // Left
-                return ($cell['padding']['L']);
-            case 'C': // Center
-                return (($pwidth - $txtpwidth) / 2);
-            case 'R': // Right
-                return ($pwidth - $cell['padding']['R'] - $txtpwidth);
-        }
+        return match ($align) {
+            'C' => (($pwidth - $txtpwidth) / 2),
+            'R' => ($pwidth - $cell['padding']['R'] - $txtpwidth),
+            // default on 'L' case
+            default => ($cell['padding']['L']),
+        };
     }
 
     /**
@@ -524,24 +499,22 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         $curfont = $this->font->getCurrentFont();
         $cph = ($pheight - $cell['margin']['T'] - $cell['margin']['B']);
 
-        switch ($align) {
-            default:
-            case 'C': // Center
-                return ($cph - (2 * max($cell['padding']['T'], $cell['padding']['B'])));
-            case 'T': // Top
-            case 'B': // Bottom
-                return ($cph - $cell['padding']['T'] - $cell['padding']['B']);
-            case 'L': // Center on font Baseline
-                return ($cph + $curfont['height'] - (2 * max(
-                    ($cell['padding']['T'] + $curfont['ascent']),
-                    ($cell['padding']['B'] - $curfont['descent'])
-                )));
-            case 'A': // Center on font Ascent
-            case 'D': // Center on font Descent
-                return ($cph
-                    + $curfont['height']
-                    - (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B']))));
-        }
+        // Use a match expression to determine the maximum text height based on alignment.
+        return match ($align) {
+            // Top or Bottom
+            'T', 'B' => ($cph - $cell['padding']['T'] - $cell['padding']['B']),
+            // Center on font Baseline
+            'L' => ($cph + $curfont['height'] - (2 * max(
+                ($cell['padding']['T'] + $curfont['ascent']),
+                ($cell['padding']['B'] - $curfont['descent'])
+            ))),
+            // Center on font Ascent or Descent
+            'A', 'D' => ($cph
+            + $curfont['height']
+            - (2 * ($curfont['height'] + max($cell['padding']['T'], $cell['padding']['B'])))),
+            // Default to Center 'C' case
+            default => ($cph - (2 * max($cell['padding']['T'], $cell['padding']['B']))),
+        };
     }
 
     /**

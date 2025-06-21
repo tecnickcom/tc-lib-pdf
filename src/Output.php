@@ -1621,40 +1621,19 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $fval = 0;
         foreach ($flags as $flag) {
-            switch (strtolower($flag)) {
-                case 'invisible':
-                    $fval += 1 << 0;
-                    break;
-                case 'hidden':
-                    $fval += 1 << 1;
-                    break;
-                case 'print':
-                    $fval += 1 << 2;
-                    break;
-                case 'nozoom':
-                    $fval += 1 << 3;
-                    break;
-                case 'norotate':
-                    $fval += 1 << 4;
-                    break;
-                case 'noview':
-                    $fval += 1 << 5;
-                    break;
-                case 'readonly':
-                    $fval += 1 << 6;
-                    break;
-                case 'locked':
-                    $fval += 1 << 7;
-                    break;
-                case 'togglenoview':
-                    $fval += 1 << 8;
-                    break;
-                case 'lockedcontents':
-                    $fval += 1 << 9;
-                    break;
-                default:
-                    break;
-            }
+            $fval += match (strtolower($flag)) {
+                'invisible'      => 1 << 0,
+                'hidden'         => 1 << 1,
+                'print'          => 1 << 2,
+                'nozoom'         => 1 << 3,
+                'norotate'       => 1 << 4,
+                'noview'         => 1 << 5,
+                'readonly'       => 1 << 6,
+                'locked'         => 1 << 7,
+                'togglenoview'   => 1 << 8,
+                'lockedcontents' => 1 << 9,
+                default          => 0,
+            };
         }
 
         return $fval;

@@ -1385,17 +1385,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getTALetterSpacing(string $spacing, float $parent = 0): float
     {
         $spacing = trim($spacing);
-        switch ($spacing) {
-            case 'normal':
-                return 0;
-            case 'inherit':
-                return $parent;
-        }
-
-        $ref = self::REFUNITVAL;
-        $ref['parent'] = $parent;
-
-        return $this->getUnitValuePoints($spacing, self::REFUNITVAL);
+        return match ($spacing) {
+            'normal' => 0,
+            'inherit' => $parent,
+            default => $this->getUnitValuePoints($spacing, array_merge(self::REFUNITVAL, ['parent' => $parent])),
+        };
     }
 
 
@@ -1410,37 +1404,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getTAFontStretching(string $stretch, float $parent = 100): float
     {
         $stretch = trim($stretch);
-        switch ($stretch) {
-            case 'ultra-condensed':
-                return 40;
-            case 'extra-condensed':
-                return 55;
-            case 'condensed':
-                return 70;
-            case 'semi-condensed':
-                return 85;
-            case 'normal':
-                return 100;
-            case 'semi-expanded':
-                return 115;
-            case 'expanded':
-                return 130;
-            case 'extra-expanded':
-                return 145;
-            case 'ultra-expanded':
-                return 160;
-            case 'wider':
-                return ($parent + 10);
-            case 'narrower':
-                return ($parent - 10);
-            case 'inherit':
-                return $parent;
-        }
-
-        $ref = self::REFUNITVAL;
-        $ref['parent'] = $parent;
-
-        return $this->getUnitValuePoints($stretch, $ref, '%');
+        return match ($stretch) {
+            'ultra-condensed' => 40,
+            'extra-condensed' => 55,
+            'condensed' => 70,
+            'semi-condensed' => 85,
+            'normal' => 100,
+            'semi-expanded' => 115,
+            'expanded' => 130,
+            'extra-expanded' => 145,
+            'ultra-expanded' => 160,
+            'wider' => ($parent + 10),
+            'narrower' => ($parent - 10),
+            'inherit' => $parent,
+            default => $this->getUnitValuePoints($stretch, array_merge(self::REFUNITVAL, ['parent' => $parent]), '%'),
+        };
     }
 
     /**
@@ -1453,15 +1431,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getTAFontWeight(string $weight): string
     {
         $weight = trim($weight);
-        switch ($weight) {
-            case 'bold':
-            case 'bolder':
-                return 'B';
-            case 'normal':
-                return '';
-        }
-
-        return '';
+        return match ($weight) {
+            'bold', 'bolder' => 'B',
+            // default to 'normal'
+            default => '',
+        };
     }
 
     /**
@@ -1474,15 +1448,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getTAFontStyle(string $style): string
     {
         $style = trim($style);
-        switch ($style) {
-            case 'italic':
-            case 'oblique':
-                return 'I';
-            case 'normal':
-                return '';
-        }
-
-        return '';
+        return match ($style) {
+            'italic', 'oblique' => 'I',
+            // default to 'normal'
+            default => '',
+        };
     }
 
     /**
@@ -1495,16 +1465,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getTAFontDecoration(string $decoration): string
     {
         $decoration = trim($decoration);
-        switch ($decoration) {
-            case 'underline':
-                return 'U';
-            case 'overline':
-                return 'O';
-            case 'line-through':
-                return 'D';
-        }
-
-        return '';
+        return match ($decoration) {
+            'underline' => 'U',
+            'overline' => 'O',
+            'line-through' => 'D',
+            default => '',
+        };
     }
 
     /**
@@ -2027,7 +1993,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $clip_path = $clippaths[$regs[1]];
             foreach ($clip_path as $cp) {
                 $cp = $cp; // @phpstan-ignore-line
-                //@TODO $out .= $this->handlerSVGTagStart('clip-path', $cp['name'], $cp['attr'], $cp['tm']);
+                //@TODO $out .= $this->handleSVGTagStart('clip-path', $cp['name'], $cp['attr'], $cp['tm']);
             }
         }
         return $out;
@@ -2115,7 +2081,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
-    protected function handlerSVGTagEnd(
+    protected function handleSVGTagEnd(
         string $parser,
         string $name,
     ): void {
@@ -2195,21 +2161,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
                 // @TODO
                 /*
+                // getTextCell
+                // getTextLine
+
+
                 // print text
-                $text = $this->svgtext;
+                $text = $this->svgobjs[$soid]['text'];
                 //$text = $this->stringTrim($text);
                 $textlen = $this->GetStringWidth($text);
 
-                if ($this->svgtextmode['text-anchor'] != 'start') {
+                if ($this->svgobjs[$soid]['textmode']['text-anchor'] != 'start') {
                     // check if string is RTL text
-                    if ($this->svgtextmode['text-anchor'] == 'end') {
-                        if ($this->svgtextmode['rtl']) {
+                    if ($this->svgobjs[$soid]['textmode']['text-anchor'] == 'end') {
+                        if ($this->svgobjs[$soid]['textmode']['rtl']) {
                             $this->x += $textlen;
                         } else {
                             $this->x -= $textlen;
                         }
-                    } elseif ($this->svgtextmode['text-anchor'] == 'middle') {
-                        if ($this->svgtextmode['rtl']) {
+                    } elseif ($this->svgobjs[$soid]['textmode']['text-anchor'] == 'middle') {
+                        if ($this->svgobjs[$soid]['textmode']['rtl']) {
                             $this->x += ($textlen / 2);
                         } else {
                             $this->x -= ($textlen / 2);
@@ -2217,9 +2187,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     }
                 }
 
+
+
                 $textrendermode = $this->textrendermode;
                 $textstrokewidth = $this->textstrokewidth;
-                $this->setTextRenderingMode($this->svgtextmode['stroke'], true, false);
+                $this->setTextRenderingMode($this->svgobjs[$soid]['textmode']['stroke'], true, false);
 
                 if ($name == 'text') {
                     // store current coordinates
@@ -2227,8 +2199,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $tmpy = $this->y;
                 }
 
+
+
                 // print the text
                 $this->Cell($textlen, 0, $text, 0, 0, '', false, '', 0, false, 'L', 'T');
+
+
 
                 if ($name == 'text') {
                     // restore coordinates
@@ -2239,14 +2215,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 // restore previous rendering mode
                 $this->textrendermode = $textrendermode;
                 $this->textstrokewidth = $textstrokewidth;
-                $this->svgtext = '';
-                $this->StopTransform();
-
-                if (!$this->svgobjs[$soid]['defs']mode) {
-                    array_pop($this->svgstyles);
-                }
                 */
 
+                $this->svgobjs[$soid]['text'] = '';
+                $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+
+                if (!$this->svgobjs[$soid]['defsmode']) {
+                    array_pop($this->svgobjs[$soid]['styles']);
+                }
                 break;
             default:
                 break;
@@ -2265,7 +2241,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
-    protected function handlerSVGTagStart(
+    protected function handleSVGTagStart(
         string $parser,
         string $name,
         array $attributes,
