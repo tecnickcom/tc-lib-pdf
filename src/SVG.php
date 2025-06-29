@@ -378,12 +378,16 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'clipid': int,
  *    'gradientid': int,
  *    'tagdepth': int,
+ *    'x0': float,
+ *    'y0': float,
+ *    'x': float,
+ *    'y': float,
  *    'gradients': array<int, TSVGGradient>,
  *    'clippaths': array<string, TSVGClipPath>,
- *    'textmode': array<string, TSVGTextMode>,
  *    'defs': array<string, TSVGDefs>,
  *    'cliptm': array<float>,
  *    'styles': array<int, TSVGStyle>,
+ *    'textmode': TSVGTextMode,
  *    'text': string,
  *    'out': string,
  * }
@@ -587,12 +591,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'clipid' => 0,
         'gradientid' => 0,
         'tagdepth' => 0,
+        'x0' => 0.0,
+        'y0' => 0.0,
+        'x' => 0.0,
+        'y' => 0.0,
         'gradients' => [],
         'clippaths' => [],
         'cliptm' => [],
         'defs' => [],
-        'textmode' => [],
         'styles' => [self::DEFSVGSTYLE],
+        'textmode' => [
+            'rtl' => false,
+            'invisible' => false,
+            'stroke' => 0,
+            'text-anchor' => 'start',
+        ],
         'text' => '',
         'out' => '',
     ];
@@ -2348,17 +2361,43 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function parseSVGTagENDtext(int $soid): void
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
-            // This implementation must be fixed to following the rule:
+            // @TODO : This implementation must be fixed to following the rule:
             // If the 'visibility' property is set to hidden on a 'tspan', 'tref' or 'altGlyph' element,
             // then the text is invisible but still takes up space in text layout calculations.
             return;
         }
 
-        // $text = $this->svgobjs[$soid]['text'];
+        $curx = $this->svgobjs[$soid]['x'];
+        $cury = $this->svgobjs[$soid]['y'];
 
-        // @TODO getTextLine
+        $anchor = $this->svgobjs[$soid]['textmode']['text-anchor'] ?? 'start';
+        $txtanchor = match ($anchor) {
+            'end' => 'E',
+            'middle' => 'M',
+            default => 'S',
+        };
 
-        $this->svgobjs[$soid]['text'] = '';
+        $this->svgobjs[$soid]['out'] .= $this->getTextLine(
+            $this->svgobjs[$soid]['text'],
+            $curx,
+            $cury,
+            0,
+            $this->svgobjs[$soid]['textmode']['stroke'],
+            0,
+            0,
+            0,
+            true,
+            ($this->svgobjs[$soid]['textmode']['stroke'] > 0),
+            false,
+            false,
+            false,
+            false,
+            ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
+            $txtanchor,
+            null, //?array $shadow = null,
+        );
+
+        $this->svgobjs[$soid]['text'] = ''; // reset text buffer
         $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
 
         if (!$this->svgobjs[$soid]['defsmode']) {

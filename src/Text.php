@@ -662,6 +662,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $overline    If true overline the text.
      * @param bool        $clip        If true activate clipping mode.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
+     * @param string      $txtanchor   Text anchor position: 'S'=start (default), 'M'=middle, 'E'=end.
      * @param ?TextShadow $shadow      Text shadow parameters.
      */
     public function getTextLine(
@@ -680,6 +681,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $overline = false,
         bool $clip = false,
         string $forcedir = '',
+        string $txtanchor = '',
         ?array $shadow = null,
     ): string {
         if ($txt === '') {
@@ -689,6 +691,26 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
         $this->prepareText($txt, $ordarr, $dim, $forcedir);
+
+        switch ($txtanchor) {
+            case 'M':
+                if ($this->rtl || ($forcedir === 'R')) {
+                    $posx += ($dim['totwidth'] / 2);
+                    break;
+                }
+                $posx -= ($dim['totwidth'] / 2);
+                break;
+            case 'E':
+                if ($this->rtl || ($forcedir === 'R')) {
+                    $posx += $dim['totwidth'];
+                    break;
+                }
+                $posx -= $dim['totwidth'];
+                break;
+            default:
+                // do nothing
+                break;
+        }
 
         return $this->getOutTextLine(
             $txt,

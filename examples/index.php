@@ -1086,6 +1086,7 @@ $txt2 = $pdf->getTextLine(
     false,
     false,
     '',
+    'S',
     [
         'xoffset' => 0.5,
         'yoffset' => 0.5,
