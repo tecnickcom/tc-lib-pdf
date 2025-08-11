@@ -2236,58 +2236,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Handler for the start of an SVG tag.
-     *
-     * @param string $parser The XML parser calling the handler.
-     * @param string $name Name of the element for which this handler is called.
-     * @param TSVGAttributes $attributes Associative array with the element's attributes.
-     * @param array<float> $ctm Current transformation matrix (optional).
-     *
-     * @return void
-     *
-     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
-     */
-    protected function handleSVGTagStart(
-        string $parser,
-        string $name,
-        array $attributes,
-        array $ctm = [],
-    ): void {
-        $name = $this->removeTagNamespace($name);
-
-        $soid = (int)array_key_last($this->svgobjs);
-        if ($soid < 0) {
-            return;
-        }
-
-        //@TODO
-
-        match ($name) {
-            'defs' => $this->parseSVGTagSTARTdefs($soid),
-            'clipPath' => $this->parseSVGTagSTARTclipPath($soid),
-            'svg' => $this->parseSVGTagSTARTsvg($soid),
-            'g' => $this->parseSVGTagSTARTg($soid),
-            'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid),
-            'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid),
-            'stop' => $this->parseSVGTagSTARTstop($soid),
-            'path' => $this->parseSVGTagSTARTpath($soid),
-            'rect' => $this->parseSVGTagSTARTrect($soid),
-            'circle' => $this->parseSVGTagSTARTcircle($soid),
-            'ellipse' => $this->parseSVGTagSTARTellipse($soid),
-            'line' => $this->parseSVGTagSTARTline($soid),
-            'polyline' => $this->parseSVGTagSTARTpolyline($soid),
-            'polygon' => $this->parseSVGTagSTARTpolygon($soid),
-            'image' => $this->parseSVGTagSTARTimage($soid),
-            'text' => $this->parseSVGTagSTARTtext($soid),
-            'tspan' => $this->parseSVGTagSTARTtspan($soid),
-            'use' => $this->parseSVGTagSTARTuse($soid),
-            default => null,
-        };
-
-        //@TODO
-    }
-
-    /**
      * Parse the SVG End tag 'defs'.
      *
      * @param int $soid ID of the current SVG object.
@@ -2405,6 +2353,62 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
     }
 
+    /**
+     * Handler for the start of an SVG tag.
+     *
+     * @param string $parser The XML parser calling the handler.
+     * @param string $name Name of the element for which this handler is called.
+     * @param TSVGAttributes $attribs Associative array with the element's attributes.
+     * @param array<float> $ctm Current transformation matrix (optional).
+     *
+     * @return void
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function handleSVGTagStart(
+        string $parser,
+        string $name,
+        array $attribs,
+        array $ctm = [],
+    ): void {
+        $name = $this->removeTagNamespace($name);
+
+        $soid = (int)array_key_last($this->svgobjs);
+        if ($soid < 0) {
+            return;
+        }
+
+        $tmx = $ctm;
+        if (empty($tmx)) {
+            $tmx = [1,0,0,1,0,0];
+        }
+
+        //@TODO
+
+        match ($name) {
+            'defs' => $this->parseSVGTagSTARTdefs($soid),
+            'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
+            'svg' => $this->parseSVGTagSTARTsvg($soid),
+            'g' => $this->parseSVGTagSTARTg($soid),
+            'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid),
+            'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid),
+            'stop' => $this->parseSVGTagSTARTstop($soid),
+            'path' => $this->parseSVGTagSTARTpath($soid),
+            'rect' => $this->parseSVGTagSTARTrect($soid),
+            'circle' => $this->parseSVGTagSTARTcircle($soid),
+            'ellipse' => $this->parseSVGTagSTARTellipse($soid),
+            'line' => $this->parseSVGTagSTARTline($soid),
+            'polyline' => $this->parseSVGTagSTARTpolyline($soid),
+            'polygon' => $this->parseSVGTagSTARTpolygon($soid),
+            'image' => $this->parseSVGTagSTARTimage($soid),
+            'text' => $this->parseSVGTagSTARTtext($soid),
+            'tspan' => $this->parseSVGTagSTARTtspan($soid),
+            'use' => $this->parseSVGTagSTARTuse($soid),
+            default => null,
+        };
+
+        //@TODO
+    }
 
     /**
      * Parse the SVG Start tag 'defs'.
@@ -2415,20 +2419,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTdefs(int $soid)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $this->svgobjs[$soid]['defsmode'] = true;
     }
 
     /**
      * Parse the SVG Start tag 'clipPath'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param array<float> $tmx Current transformation matrix (optional).
      *
      * @return void
      */
-    protected function parseSVGTagSTARTclipPath(int $soid)
+    protected function parseSVGTagSTARTclipPath(int $soid, array $tmx = [])
     {
-        $soid = $soid; // @phpstan-ignore-line
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
+
+        $this->svgobjs[$soid]['clipmode'] = true;
+
+        $tmx = $tmx; // @phpstan-ignore-line
         //@TODO
     }
 
