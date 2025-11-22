@@ -2358,8 +2358,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param string $parser The XML parser calling the handler.
      * @param string $name Name of the element for which this handler is called.
-     * @param TSVGAttributes $attribs Associative array with the element's attributes.
-     * @param array<float> $ctm Current transformation matrix (optional).
+     * @param TSVGAttribs $attribs Associative array with the element's attributes.
+     * @param TTMatrix $ctm Current transformation matrix (optional).
      *
      * @return void
      *
@@ -2369,7 +2369,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         string $parser,
         string $name,
         array $attribs,
-        array $ctm = [],
+        array $ctm = [1,0,0,1,0,0], // identity matrix
     ): void {
         $name = $this->removeTagNamespace($name);
 
@@ -2378,12 +2378,122 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        $tmx = $ctm;
-        if (empty($tmx)) {
-            $tmx = [1,0,0,1,0,0];
+        if ($this->svgobjs[$soid]['clipmode']) {
+            $this->svgobjs[$soid]['clippaths'][] = [
+                'name' => $name,
+                'attribs' => $attribs,
+                'tm' => $this->svgobjs[$soid]['cliptm'],
+            ];
+            return;
         }
 
-        //@TODO
+        if (
+            $this->svgobjs[$soid]['defsmode']
+            && !in_array($name, ['clipPath', 'linearGradient', 'radialGradient', 'stop'])
+        ) {
+            if (!isset($this->svgobjs[$soid]['clippaths'])) {
+                $this->svgobjs[$soid]['clippaths'] = [];
+            }
+
+            if (isset($attribs['attr']['id'])) {
+                $attribs['child'] = [];
+                $this->svgobjs[$soid]['defs'][$attribs['attr']['id']] = [
+                    'name' => $name,
+                    'attr' => $attribs,
+                ];
+                return;
+            }
+
+            if (end($this->svgobjs[$soid]['defs']) !== false) {
+                $last_svgdefs_id = key($this->svgobjs[$soid]['defs']);
+                if (
+                    !empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child'])
+                    && is_array($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child'])
+                ) {
+                    $attribs['attr']['id'] = 'DF_' .
+                    (count($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child']) + 1);
+                    $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['attr']['child'][$attribs['attr']['id']] = [
+                        'name' => $name,
+                        'attr' => $attribs,
+                    ];
+                    return;
+                }
+            }
+
+            return;
+        }
+
+        $this->svgobjs[$soid]['clipmode'] = ($parser == 'clip-path');
+
+        // process style
+
+        $prev_svgstyle = $this->svgobjs[$soid]['styles'][max(0, (count($this->svgobjs[$soid]['styles']) - 1))];
+        $svgstyle = $this->svgobjs[$soid]['styles'][0]; // set default style
+
+        if (
+            $this->svgobjs[$soid]['clipmode'] &&
+            !isset($attribs['attr']['fill']) &&
+            (!isset($attribs['attr']['style']) ||
+            (!preg_match('/[;\"\s]{1}fill[\s]*:[\s]*([^;\"]*)/si', $attribs['attr']['style'], $attrval)))
+        ) {
+            // default fill attribute for clipping
+            $attribs['attr']['fill'] = 'none';
+        }
+
+        if (
+            isset($attribs['attr']['style']) &&
+            !empty($attribs['attr']['style']) &&
+            ($attribs['attr']['style'][0] != ';')
+        ) {
+            // fix style for regular expression
+            $attribs['attr']['style'] = ';' . $attribs['attr']['style'];
+        }
+
+        foreach ($prev_svgstyle as $key => $val) {
+            if (in_array($key, self::SVGINHPROP)) {
+                // inherit previous value
+                $svgstyle[$key] = $val;
+            }
+            if (!empty($attribs['attr'][$key])) {
+                // specific attribute settings
+                if ($attribs['attr'][$key] == 'inherit') {
+                    $svgstyle[$key] = $val;
+                } else {
+                    $svgstyle[$key] = $attribs['attr'][$key];
+                }
+            } elseif (!empty($attribs['attr']['style'])) {
+                // CSS style syntax
+                $attrval = [];
+                if (
+                    preg_match(
+                        '/[;\"\s]{1}' . $key . '[\s]*:[\s]*([^;\"]*)/si',
+                        $attribs['attr']['style'],
+                        $attrval
+                    )
+                    && isset($attrval[1])
+                ) {
+                    if ($attrval[1] == 'inherit') {
+                        $svgstyle[$key] = $val;
+                    } else {
+                        $svgstyle[$key] = $attrval[1];
+                    }
+                }
+            }
+        }
+
+        $tmx = $ctm;
+        if (!empty($attribs['attr']['transform'])) {
+            $tmx = $this->graph->getCtmProduct($tmx, $this->getSVGTransformMatrix($attribs['attr']['transform']));
+        }
+
+        $svgstyle['transfmatrix'] = $tmx;
+
+        $this->svgobjs[$soid]['textmode']['invisible'] = (
+            ($svgstyle['visibility'] == 'hidden') ||
+            ($svgstyle['visibility'] == 'collapse') ||
+            ($svgstyle['display'] == 'none'));
+
+        // process tags
 
         match ($name) {
             'defs' => $this->parseSVGTagSTARTdefs($soid),
@@ -2407,7 +2517,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             default => null,
         };
 
-        //@TODO
+        // process child elements
+
+        if (empty($attribs['child'])) {
+            return;
+        }
+
+        $children = $attribs['child'];
+        unset($attribs['child']);
+
+        foreach ($children as $child) {
+            if (empty($child['attr']) || !is_array($child['attr']) || !is_string($child['name'])) {
+                continue;
+            }
+            if (empty($child['attr']['closing_tag'])) {
+                $this->handleSVGTagStart('child-tag', $child['name'], $child['attr']); // @phpstan-ignore argument.type
+                continue;
+            }
+            if (isset($child['attr']['content'])) {
+                $this->svgobjs[$soid]['text'] = $child['attr']['content'];
+            }
+            $this->handleSVGTagEnd('child-tag', $child['name']);
+        }
     }
 
     /**
@@ -2438,8 +2569,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $this->svgobjs[$soid]['clipmode'] = true;
 
-        $tmx = $tmx; // @phpstan-ignore-line
-        //@TODO
+        if (empty($this->svgobjs[$soid]['clipid'])) {
+            $this->svgobjs[$soid]['clipid'] = 'CP_' . (count($this->svgobjs[$soid]['cliptm']) + 1);
+        }
+
+        $cid = $this->svgobjs[$soid]['clipid'];
+        $this->svgobjs[$soid]['clippaths'][$cid] = [];
+        $this->svgobjs[$soid]['cliptm'][$cid] = $tmx;
     }
 
     /**
