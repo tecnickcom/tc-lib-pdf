@@ -35,4 +35,5 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  */
 abstract class JavaScript extends \Com\Tecnick\Pdf\HTML
 {
+    //@TODO
 }
