@@ -2499,9 +2499,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'defs' => $this->parseSVGTagSTARTdefs($soid),
             'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
             'svg' => $this->parseSVGTagSTARTsvg($soid),
-            'g' => $this->parseSVGTagSTARTg($soid, $attribs, $svgstyle), // @phpstan-ignore-line argument.type
-            'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid),
-            'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid),
+            'g' => $this->parseSVGTagSTARTg($soid, $attribs['attr'], $svgstyle), // @phpstan-ignore-line argument.type
+            'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid, $attribs['attr']),
+            'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid, $attribs['attr']),
             'stop' => $this->parseSVGTagSTARTstop($soid),
             'path' => $this->parseSVGTagSTARTpath($soid),
             'rect' => $this->parseSVGTagSTARTrect($soid),
@@ -2595,22 +2595,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'g'.
      *
      * @param int $soid ID of the current SVG object.
-     * @param TSVGAttribs $attribs SVG attributes.
+     * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTg(int $soid, array $attribs, array $svgstyle)
+    protected function parseSVGTagSTARTg(int $soid, array $attr, array $svgstyle)
     {
         array_push($this->svgobjs[$soid]['styles'], $svgstyle);
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
-        $posx = $attribs['x'] ?? 0;
-        $posy = $attribs['y'] ?? 0;
-        $width = 1; // $attribs['width'] ?? 1;
-        $height = 1; // $attribs['height'] ?? 1;
+        $posx = isset($attr['x']) ? floatval($attr['x']) : 0.0;
+        $posy = isset($attr['y']) ? floatval($attr['y']) : 0.0;
+        $width = 1.0; // isset($attr['width']) ? floatval($attr['width']) : 1.0;
+        $height = 1.0; // isset($attr['height']) ? floatval($attr['height']) : 1.0;
         $tmx = $this->graph->getCtmProduct(
             $svgstyle['transfmatrix'],
-            [$width, 0, 0, $height, $posx, $posy]
+            [$width, 0.0, 0.0, $height, $posx, $posy]
         );
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
         $this->svgobjs[$soid]['out'] .= $this->parseSVGStyle(
@@ -2626,26 +2626,110 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'linearGradient'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTlinearGradient(int $soid)
+    protected function parseSVGTagSTARTlinearGradient(int $soid, array $attr)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        if (($this->pdfa == 1) || ($this->pdfa == 2)) {
+            return;
+        }
+
+        if (!isset($attr['id'])) {
+            $attr['id'] = 'GR_' . (count($this->svgobjs[$soid]['gradients']) + 1);
+        }
+        $gid = $attr['id'];
+        $this->svgobjs[$soid]['gradientid'] = $gid;
+        $this->svgobjs[$soid]['gradients'][$gid] = [];
+        $this->svgobjs[$soid]['gradients'][$gid]['type'] = 2;
+        $this->svgobjs[$soid]['gradients'][$gid]['stops'] = [];
+        if (isset($attr['gradientUnits'])) {
+            $this->svgobjs[$soid]['gradients'][$gid]['gradientUnits'] = $attr['gradientUnits'];
+        } else {
+            $this->svgobjs[$soid]['gradients'][$gid]['gradientUnits'] = 'objectBoundingBox';
+        }
+        // $attr['spreadMethod']
+        if (
+            ((!isset($attr['x1'])) && (!isset($attr['y1']))
+            && (!isset($attr['x2'])) && (!isset($attr['y2'])))
+            || ((isset($attr['x1']) && (substr($attr['x1'], -1) == '%'))
+            || (isset($attr['y1']) && (substr($attr['y1'], -1) == '%'))
+            || (isset($attr['x2']) && (substr($attr['x2'], -1) == '%'))
+            || (isset($attr['y2']) && (substr($attr['y2'], -1) == '%')))
+        ) {
+            $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'percentage';
+        } else {
+            $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
+        }
+        $px1 = isset($attr['x1']) ? floatval($attr['x1']) : 0.0;
+        $py1 = isset($attr['y1']) ? floatval($attr['y1']) : 0.0;
+        $px2 = isset($attr['x2']) ? floatval($attr['x2']) : 100.0;
+        $py2 = isset($attr['y2']) ? floatval($attr['y2']) : 0.0;
+        if (isset($attr['gradientTransform'])) {
+            $this->svgobjs[$soid]['gradients'][$gid]['gradientTransform'] =
+                $this->getSVGTransformMatrix($attr['gradientTransform']);
+        }
+        $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$px1, $py1, $px2, $py2];
+        if (isset($attr['xlink:href']) && !empty($attr['xlink:href'])) {
+            // gradient is defined on another place
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = substr($attr['xlink:href'], 1);
+        }
     }
 
     /**
      * Parse the SVG Start tag 'radialGradient'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTradialGradient(int $soid)
+    protected function parseSVGTagSTARTradialGradient(int $soid, array $attr)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        if (($this->pdfa == 1) || ($this->pdfa == 2)) {
+            return;
+        }
+
+        if (!isset($attr['id'])) {
+            $attr['id'] = 'GR_' . (count($this->svgobjs[$soid]['gradients']) + 1);
+        }
+        $gid = $attr['id'];
+        $this->svgobjs[$soid]['gradientid'] = $gid;
+        $this->svgobjs[$soid]['gradients'][$gid] = [];
+        $this->svgobjs[$soid]['gradients'][$gid]['type'] = 3;
+        $this->svgobjs[$soid]['gradients'][$gid]['stops'] = [];
+        if (isset($attr['gradientUnits'])) {
+            $this->svgobjs[$soid]['gradients'][$gid]['gradientUnits'] = $attr['gradientUnits'];
+        } else {
+            $this->svgobjs[$soid]['gradients'][$gid]['gradientUnits'] = 'objectBoundingBox';
+        }
+        // $attr['spreadMethod']
+        if (
+            ((!isset($attr['cx'])) && (!isset($attr['cy'])))
+            || ((isset($attr['cx']) && (substr($attr['cx'], -1) == '%'))
+            || (isset($attr['cy']) && (substr($attr['cy'], -1) == '%')))
+        ) {
+            $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'percentage';
+        } elseif (isset($attr['r']) && is_numeric($attr['r']) and ($attr['r']) <= 1) {
+            $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'ratio';
+        } else {
+            $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
+        }
+        $pcx = isset($attr['cx']) ? floatval($attr['cx']) : 0.5;
+        $pcy = isset($attr['cy']) ? floatval($attr['cy']) : 0.5;
+        $pfx = isset($attr['fx']) ? floatval($attr['fx']) : $pcx;
+        $pfy = isset($attr['fy']) ? floatval($attr['fy']) : $pcy;
+        $grr = isset($attr['r']) ? floatval($attr['r']) : 0.5;
+        if (isset($attr['gradientTransform'])) {
+            $this->svgobjs[$soid]['gradients'][$gid]['gradientTransform'] =
+                $this->getSVGTransformMatrix($attr['gradientTransform']);
+        }
+        $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$pcx, $pcy, $pfx, $pfy, $grr];
+        if (isset($attr['xlink:href']) && !empty($attr['xlink:href'])) {
+            // gradient is defined on another place
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = substr($attr['xlink:href'], 1);
+        }
     }
 
     /**
