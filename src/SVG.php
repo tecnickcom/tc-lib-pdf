@@ -2499,10 +2499,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'defs' => $this->parseSVGTagSTARTdefs($soid),
             'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
             'svg' => $this->parseSVGTagSTARTsvg($soid),
-            'g' => $this->parseSVGTagSTARTg($soid, $attribs['attr'], $svgstyle), // @phpstan-ignore-line argument.type
+            // @phpstan-ignore argument.type
+            'g' => $this->parseSVGTagSTARTg($soid, $attribs['attr'], $svgstyle),
             'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid, $attribs['attr']),
             'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid, $attribs['attr']),
-            'stop' => $this->parseSVGTagSTARTstop($soid),
+            // @phpstan-ignore argument.type
+            'stop' => $this->parseSVGTagSTARTstop($soid, $attribs['attr'], $svgstyle),
             'path' => $this->parseSVGTagSTARTpath($soid),
             'rect' => $this->parseSVGTagSTARTrect($soid),
             'circle' => $this->parseSVGTagSTARTcircle($soid),
@@ -2740,13 +2742,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'stop'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTstop(int $soid)
+    protected function parseSVGTagSTARTstop(int $soid, array $attr, array $svgstyle)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $offset = isset($attr['offset']) ? $this->toUnit($this->getUnitValuePoints($attr['offset'])) : 0.0;
+        $stop_color = isset($svgstyle['stop-color']) ? $this->color->getColorObj($svgstyle['stop-color']) : 'black';
+        $opacity = isset($svgstyle['stop-opacity']) ? min(
+            0.0,
+            max(
+                1.0,
+                floatval($svgstyle['stop-opacity'])
+            )
+        ) : 1.0;
+        $gid = $this->svgobjs[$soid]['gradientid'];
+        $this->svgobjs[$soid]['gradients'][$gid]['stops'][] = [
+            'offset' => $offset,
+            'color' => $stop_color,
+            'opacity' => $opacity,
+        ];
     }
 
     /**
