@@ -22,9 +22,9 @@
 ## Description
 
 PHP library for generating PDF documents on-the-fly.
-This is the new version of the TCPDF library that will be deprecated once all the existing features are ported.
+This is the new version of the TCPDF library. The old one will be deprecated once all of its existing features are ported.
 
-NOTE: The first complete (stable) version will be 8.1.0. As this is currently unstable, only the patch number in the version will be updated, even if breaking changes are introduced.
+NOTE: The first complete (stable) version was 8.1.0. New releases follow semantic versioning where PATCH versions are used for backward compatible bug fixes, MINOR versions are used for backward compatible feature enhancements and MAJOR versions indicate backward incompatible API changes (https://semver.org/).
 
 ### Main Features:
 
