@@ -2104,10 +2104,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGStyle(
         array &$svgobj,
-        float $posx,
-        float $posy,
-        float $width,
-        float $height,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 1,
+        float $height = 1,
         string $clip_fnc = '',
         array $clip_par = [],
     ): string {
@@ -2499,7 +2499,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'defs' => $this->parseSVGTagSTARTdefs($soid),
             'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
             'svg' => $this->parseSVGTagSTARTsvg($soid),
-            'g' => $this->parseSVGTagSTARTg($soid),
+            'g' => $this->parseSVGTagSTARTg($soid, $attribs, $svgstyle), // @phpstan-ignore-line argument.type
             'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid),
             'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid),
             'stop' => $this->parseSVGTagSTARTstop($soid),
@@ -2595,13 +2595,31 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'g'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttribs $attribs SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTg(int $soid)
+    protected function parseSVGTagSTARTg(int $soid, array $attribs, array $svgstyle)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        array_push($this->svgobjs[$soid]['styles'], $svgstyle);
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $posx = $attribs['x'] ?? 0;
+        $posy = $attribs['y'] ?? 0;
+        $width = 1; // $attribs['width'] ?? 1;
+        $height = 1; // $attribs['height'] ?? 1;
+        $tmx = $this->graph->getCtmProduct(
+            $svgstyle['transfmatrix'],
+            [$width, 0, 0, $height, $posx, $posy]
+        );
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
+        $this->svgobjs[$soid]['out'] .= $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+        );
     }
 
     /**
