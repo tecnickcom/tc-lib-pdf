@@ -2505,7 +2505,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid, $attribs['attr']),
             // @phpstan-ignore argument.type
             'stop' => $this->parseSVGTagSTARTstop($soid, $attribs['attr'], $svgstyle),
-            'path' => $this->parseSVGTagSTARTpath($soid),
+            // @phpstan-ignore argument.type
+            'path' => $this->parseSVGTagSTARTpath($soid, $attribs['attr'], $svgstyle),
             'rect' => $this->parseSVGTagSTARTrect($soid),
             'circle' => $this->parseSVGTagSTARTcircle($soid),
             'ellipse' => $this->parseSVGTagSTARTellipse($soid),
@@ -2770,13 +2771,51 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'path'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTpath(int $soid)
+    protected function parseSVGTagSTARTpath(int $soid, array $attr, array $svgstyle)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
+        if (empty($attr['d'])) {
+            return;
+        }
+
+        $ptd = trim($attr['d']);
+        $posx = isset($attr['x']) ? $this->toUnit($this->getUnitValuePoints($attr['x'])) : 0.0;
+        $posy = isset($attr['y']) ? $this->toUnit($this->getUnitValuePoints($attr['y'])) : 0.0;
+        $width = isset($attr['width']) ? $this->toUnit($this->getUnitValuePoints($attr['width'])) : 1.0;
+        $height = isset($attr['height']) ? $this->toUnit($this->getUnitValuePoints($attr['height'])) : 1.0;
+         $tmx = $this->graph->getCtmProduct(
+             $svgstyle['transfmatrix'],
+             [$width, 0.0, 0.0, $height, $posx, $posy]
+         );
+
+        if ($this->svgobjs[$soid]['clipmode']) {
+            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
+            $this->svgobjs[$soid]['out'] .= $this->getSVGPath($ptd, 'CNZ');
+            return;
+        }
+
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
+        $obstyle = $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'getSVGPath',
+            [$ptd, 'CNZ'],
+        );
+        if (!empty($obstyle)) {
+            $this->svgobjs[$soid]['out'] .= $this->getSVGPath($ptd, $obstyle);
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
     }
 
     /**
@@ -2788,6 +2827,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTrect(int $soid)
     {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
         $soid = $soid; // @phpstan-ignore-line
         //@TODO
     }
@@ -2801,6 +2843,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTcircle(int $soid)
     {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
         $soid = $soid; // @phpstan-ignore-line
         //@TODO
     }
@@ -2814,6 +2859,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTellipse(int $soid)
     {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
         $soid = $soid; // @phpstan-ignore-line
         //@TODO
     }
@@ -2827,6 +2875,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTline(int $soid)
     {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
         $soid = $soid; // @phpstan-ignore-line
         //@TODO
     }
@@ -2840,6 +2891,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTpolyline(int $soid)
     {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
         $soid = $soid; // @phpstan-ignore-line
         //@TODO
     }
@@ -2853,6 +2907,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTpolygon(int $soid)
     {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
         $soid = $soid; // @phpstan-ignore-line
         //@TODO
     }
@@ -2866,6 +2923,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTimage(int $soid)
     {
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
         $soid = $soid; // @phpstan-ignore-line
         //@TODO
     }
