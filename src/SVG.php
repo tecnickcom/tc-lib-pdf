@@ -2524,8 +2524,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'polyline' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
             'polygon' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
             'image' => $this->parseSVGTagSTARTimage($soid),
-            'text' => $this->parseSVGTagSTARTtext($soid),
-            'tspan' => $this->parseSVGTagSTARTtspan($soid),
+            'text' => $this->parseSVGTagSTARTtext($soid, $attribs['attr'], $svgstyle),
+            'tspan' => $this->parseSVGTagSTARTtspan($soid, $attribs['attr'], $svgstyle),
             'use' => $this->parseSVGTagSTARTuse($soid, $attribs, $parser),
             default => null,
         };
@@ -3328,28 +3328,90 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
     /**
      * Parse the SVG Start tag 'text'.
+     * Basic support only.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTtext(int $soid)
+    protected function parseSVGTagSTARTtext(int $soid, array $attr, array $svgstyle, bool $is_tspan = false)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        if (isset($this->svgobjs[$soid]['textmode']['text-anchor']) && !empty($this->svgobjs[$soid]['text'])) {
+            // @TODO: unsupported feature
+        }
+        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+            return;
+        }
+        array_push($this->svgobjs[$soid]['styles'], $svgstyle);
+        $posx = 0.0;
+        $posy = 0.0;
+        if (isset($attr['x'])) {
+            $posx = $this->toUnit($this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT));
+        } elseif ($is_tspan) {
+            $posx = $this->svgobjs[$soid]['x'];
+        }
+        if (isset($attr['dx'])) {
+            $posx += $this->toUnit($this->getUnitValuePoints($attr['dx'], self::REFUNITVAL, self::SVGUNIT));
+        }
+        if (isset($attr['y'])) {
+            $posy = $this->toUnit($this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT));
+        } elseif ($is_tspan) {
+            $posy = $this->svgobjs[$soid]['y'];
+        }
+        if (isset($attr['dy'])) {
+            $posy += $this->toUnit($this->getUnitValuePoints($attr['dy'], self::REFUNITVAL, self::SVGUNIT));
+        }
+        $svgstyle['text-color'] = $svgstyle['fill'];
+        $this->svgobjs[$soid]['text'] = '';
+        if (isset($svgstyle['text-anchor'])) {
+            $this->svgobjs[$soid]['textmode']['text-anchor'] = $svgstyle['text-anchor'];
+        } else {
+            $this->svgobjs[$soid]['textmode']['text-anchor'] = 'start';
+        }
+        if (isset($svgstyle['direction'])) {
+            $this->svgobjs[$soid]['textmode']['rtl'] = ($svgstyle['direction'] == 'rtl') ;
+        } else {
+            $this->svgobjs[$soid]['textmode']['rtl'] = false;
+        }
+        if (
+            isset($svgstyle['stroke'])
+            && ($svgstyle['stroke'] != 'none')
+            && isset($svgstyle['stroke-width'])
+            && ($svgstyle['stroke-width'] > 0)
+        ) {
+            $this->svgobjs[$soid]['textmode']['stroke'] = $this->toUnit(
+                $this->getUnitValuePoints($svgstyle['stroke-width'], self::REFUNITVAL, self::SVGUNIT)
+            );
+        } else {
+            $this->svgobjs[$soid]['textmode']['stroke'] = false;
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        $this->parseSVGStyle(
+            $this->svgobjs[$soid], // @phpstan-ignore-line argument.type
+            $posx,
+            $posy,
+            1,
+            1
+        );
+        $this->svgobjs[$soid]['x'] = $posx;
+        $this->svgobjs[$soid]['y'] = $posy;
     }
 
     /**
      * Parse the SVG Start tag 'tspan'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTtspan(int $soid)
+    protected function parseSVGTagSTARTtspan(int $soid, array $attr, array $svgstyle)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $this->parseSVGTagSTARTtext($soid, $attr, $svgstyle, true);
     }
 
     /**
