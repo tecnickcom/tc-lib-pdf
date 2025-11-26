@@ -2513,7 +2513,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'path' => $this->parseSVGTagSTARTpath($soid, $attribs['attr'], $svgstyle),
             'rect' => $this->parseSVGTagSTARTrect($soid, $attribs['attr'], $svgstyle),
             'circle' => $this->parseSVGTagSTARTcircle($soid, $attribs['attr'], $svgstyle),
-            'ellipse' => $this->parseSVGTagSTARTellipse($soid),
+            'ellipse' => $this->parseSVGTagSTARTellipse($soid, $attribs['attr'], $svgstyle),
             'line' => $this->parseSVGTagSTARTline($soid),
             'polyline' => $this->parseSVGTagSTARTpolyline($soid),
             'polygon' => $this->parseSVGTagSTARTpolygon($soid),
@@ -2979,16 +2979,78 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'ellipse'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTellipse(int $soid)
+    protected function parseSVGTagSTARTellipse(int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
         }
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $erx = (isset($attr['rx']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['rx'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $ery = (isset($attr['ry']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['ry'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $ecx = (isset($attr['cx']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['cx'], self::REFUNITVAL, self::SVGUNIT)
+        ) : (isset($attr['x']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0));
+        $ecy = (isset($attr['cy']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['cy'], self::REFUNITVAL, self::SVGUNIT)
+        ) : (isset($attr['y']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0));
+        $posx = ($ecx - $erx);
+        $posy = ($ecy - $ery);
+        $width = (2 * $erx);
+        $height = (2 * $ery);
+        if ($this->svgobjs[$soid]['clipmode']) {
+            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+            $this->svgobjs[$soid]['out'] .= $this->graph->getEllipse(
+                $ecx,
+                $ecy,
+                $erx,
+                $ery,
+                0,
+                0,
+                360,
+                'CNZ',
+                [],
+                8
+            );
+            return;
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        $obstyle = $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'getEllipse',
+            [$ecx, $ecy, $erx, $ery, 0, 0, 360, 'CNZ'],
+        );
+        if (!empty($obstyle)) {
+            $this->svgobjs[$soid]['out'] .= $this->graph->getEllipse(
+                $ecx,
+                $ecy,
+                $erx,
+                $ery,
+                0,
+                0,
+                360,
+                $obstyle,
+                [],
+                8
+            );
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
     }
 
     /**
