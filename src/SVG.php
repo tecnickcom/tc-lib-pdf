@@ -1062,13 +1062,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     ((-$pxa - $cax) / $rpx),
                     ((-$pya - $cay) / $rpy),
                 );
-                if (($swf == 0) and ($dang > 0)) {
+                if (($swf == 0) && ($dang > 0)) {
                     $dang -= (2 * M_PI);
-                } elseif (($swf == 1) and ($dang < 0)) {
+                } elseif (($swf == 1) && ($dang < 0)) {
                     $dang += (2 * M_PI);
                 }
                 $angf = $angs - $dang;
-                if ((($swf == 0) and ($angs > $angf)) or (($swf == 1) and ($angs < $angf))) {
+                if ((($swf == 0) && ($angs > $angf)) || (($swf == 1) && ($angs < $angf))) {
                     // reverse angles
                     $tmp = $angs;
                     $angs = $angf;
@@ -1077,12 +1077,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $angs = round(rad2deg($angs), 6);
                 $angf = round(rad2deg($angf), 6);
                 // covent angles to positive values
-                if (($angs < 0) and ($angf < 0)) {
+                if (($angs < 0) && ($angf < 0)) {
                     $angs += 360;
                     $angf += 360;
                 }
                 $pie = false;
-                if (($key == 0) and (isset($paths[($key + 1)][1])) and (trim($paths[($key + 1)][1]) == 'z')) {
+                if (($key == 0) && (isset($paths[($key + 1)][1])) && (trim($paths[($key + 1)][1]) == 'z')) {
                     $pie = true;
                 }
                 // list($axmin, $aymin, $axmax, $aymax)
@@ -2727,7 +2727,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             || (isset($attr['cy']) && (substr($attr['cy'], -1) == '%')))
         ) {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'percentage';
-        } elseif (isset($attr['r']) && is_numeric($attr['r']) and ($attr['r']) <= 1) {
+        } elseif (isset($attr['r']) && is_numeric($attr['r']) && ($attr['r']) <= 1) {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'ratio';
             $ref['parent'] = 100.0;
         } else {
