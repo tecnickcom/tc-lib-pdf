@@ -599,7 +599,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'clippaths' => [],
         'cliptm' => [],
         'defs' => [],
-        'styles' => [self::DEFSVGSTYLE],
+        'styles' => [0 => self::DEFSVGSTYLE],
         'textmode' => [
             'rtl' => false,
             'invisible' => false,
@@ -2426,9 +2426,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['clipmode'] = ($parser == 'clip-path');
 
         // process style
-
-        $prev_svgstyle = $this->svgobjs[$soid]['styles'][max(0, (count($this->svgobjs[$soid]['styles']) - 1))];
-        $svgstyle = $this->svgobjs[$soid]['styles'][0]; // set default style
+        $svgstyle = (array) $this->svgobjs[$soid]['styles'][0];
+        $prev_svgstyle = (array) $this->svgobjs[$soid]['styles'][max(0, (count($this->svgobjs[$soid]['styles']) - 1))];
 
         if (
             $this->svgobjs[$soid]['clipmode'] &&
@@ -2493,19 +2492,19 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             ($svgstyle['visibility'] == 'collapse') ||
             ($svgstyle['display'] == 'none'));
 
+        /** @var TSVGStyle $svgstyle */
+        $svgstyle = (array) $svgstyle;
+
         // process tags
 
         match ($name) {
             'defs' => $this->parseSVGTagSTARTdefs($soid),
             'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
             'svg' => $this->parseSVGTagSTARTsvg($soid),
-            // @phpstan-ignore argument.type
             'g' => $this->parseSVGTagSTARTg($soid, $attribs['attr'], $svgstyle),
             'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid, $attribs['attr']),
             'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid, $attribs['attr']),
-            // @phpstan-ignore argument.type
             'stop' => $this->parseSVGTagSTARTstop($soid, $attribs['attr'], $svgstyle),
-            // @phpstan-ignore argument.type
             'path' => $this->parseSVGTagSTARTpath($soid, $attribs['attr'], $svgstyle),
             'rect' => $this->parseSVGTagSTARTrect($soid),
             'circle' => $this->parseSVGTagSTARTcircle($soid),
