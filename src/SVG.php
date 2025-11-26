@@ -2511,7 +2511,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         match ($name) {
             'defs' => $this->parseSVGTagSTARTdefs($soid),
             'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
-            'svg' => $this->parseSVGTagSTARTsvg($soid),
+            'svg' => $this->parseSVGTagSTARTsvg($soid, $attribs['attr'], $svgstyle),
             'g' => $this->parseSVGTagSTARTg($soid, $attribs['attr'], $svgstyle),
             'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid, $attribs['attr']),
             'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid, $attribs['attr']),
@@ -2595,13 +2595,140 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'svg'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTsvg(int $soid)
+    protected function parseSVGTagSTARTsvg(int $soid, array $attr, array $svgstyle)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $this->svgobjs[$soid]['tagdepth']++;
+        if ($this->svgobjs[$soid]['tagdepth'] <= 1) {
+            // root SVG
+            return;
+        }
+        // inner SVG
+        array_push($this->svgobjs[$soid]['styles'], $svgstyle);
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $svgX = isset($attr['x']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0;
+        $svgY = isset($attr['y']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0;
+        $svgW = isset($attr['width']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['width'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0;
+        $svgH = isset($attr['height']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['height'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0;
+        // set x, y position using transform matrix
+        $tmx = $this->graph->getCtmProduct($svgstyle['transfmatrix'], [1.0, 0.0, 0.0, 1.0, $svgX, $svgY]);
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        // set clipping for width and height
+        $page = $this->page->getPage();
+        $posx = 0;
+        $posy = 0;
+        $width = empty($svgW) ? ($page['width'] - $svgX) : $svgW;
+        $height = empty($svgH) ? ($page['height'] - $svgY) : $svgH;
+        // draw clipping rect
+        $this->graph->getRawRect(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'CNZ',
+        );
+        $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+        );
+        // parse viewbox, calculate extra transformation matrix
+        if (empty($attr['viewBox'])) {
+            $this->parseSVGStyle(
+                $this->svgobjs[$soid],
+                $posx,
+                $posy,
+                $width,
+                $height,
+            );
+            return;
+        }
+        $tmp = [];
+        preg_match_all("/[0-9]+/", $attr['viewBox'], $tmp);
+        $tmp = $tmp[0];
+        if (sizeof($tmp) != 4) {
+            $this->parseSVGStyle(
+                $this->svgobjs[$soid],
+                $posx,
+                $posy,
+                $width,
+                $height,
+            );
+            return;
+        }
+        $vbx = floatval($tmp[0]);
+        $vby = floatval($tmp[1]);
+        $vbw = floatval($tmp[2]);
+        $vbh = floatval($tmp[3]);
+        // get aspect ratio
+        $tmp = [];
+        $aspectX = 'xMid';
+        $aspectY = 'YMid';
+        $fit = 'meet';
+        if (!empty($attr['preserveAspectRatio'])) {
+            if ($attr['preserveAspectRatio'] == 'none') {
+                $fit = 'none';
+            } else {
+                preg_match_all('/[a-zA-Z]+/', $attr['preserveAspectRatio'], $tmp);
+                $tmp = $tmp[0];
+                if (
+                    (sizeof($tmp) == 2)
+                    && (strlen($tmp[0]) == 8)
+                    && (in_array(
+                        $tmp[1],
+                        array('meet', 'slice', 'none')
+                    ))
+                ) {
+                    $aspectX = substr($tmp[0], 0, 4);
+                    $aspectY = substr($tmp[0], 4, 4);
+                    $fit = $tmp[1];
+                }
+            }
+        }
+        $wsr = ($svgW / $vbw);
+        $hsr = ($svgH / $vbh);
+        $asx = $asy = 0;
+        if ((($fit == 'meet') && ($hsr < $wsr)) || (($fit == 'slice') && ($hsr > $wsr))) {
+            if ($aspectX == 'xMax') {
+                $asx = (($vbw * ($wsr / $hsr)) - $vbw);
+            }
+            if ($aspectX == 'xMid') {
+                $asx = ((($vbw * ($wsr / $hsr)) - $vbw) / 2);
+            }
+            $wsr = $hsr;
+        } elseif ((($fit == 'meet') && ($hsr > $wsr)) || (($fit == 'slice') && ($hsr < $wsr))) {
+            if ($aspectY == 'YMax') {
+                $asy = (($vbh * ($hsr / $wsr)) - $vbh);
+            }
+            if ($aspectY == 'YMid') {
+                $asy = ((($vbh * ($hsr / $wsr)) - $vbh) / 2);
+            }
+            $hsr = $wsr;
+        }
+        $newtmx = [$wsr, 0.0, 0.0, $hsr, (($wsr * ($asx - $vbx)) - $svgX), (($hsr * ($asy - $vby)) - $svgY)];
+        $tmx = $this->graph->getCtmProduct($tmx, $newtmx);
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
+        $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+        );
     }
 
     /**
