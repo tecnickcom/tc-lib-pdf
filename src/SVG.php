@@ -2523,7 +2523,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'line' => $this->parseSVGTagSTARTline($soid, $attribs['attr'], $svgstyle),
             'polyline' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
             'polygon' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
-            'image' => $this->parseSVGTagSTARTimage($soid),
+            'image' => $this->parseSVGTagSTARTimage($soid, $attribs['attr'], $svgstyle),
             'text' => $this->parseSVGTagSTARTtext($soid, $attribs['attr'], $svgstyle),
             'tspan' => $this->parseSVGTagSTARTtspan($soid, $attribs['attr'], $svgstyle),
             'use' => $this->parseSVGTagSTARTuse($soid, $attribs, $parser),
@@ -2813,7 +2813,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
         }
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$px1, $py1, $px2, $py2];
-        if (isset($attr['xlink:href']) && !empty($attr['xlink:href'])) {
+        if (!empty($attr['xlink:href'])) {
             // gradient is defined on another place
             $this->svgobjs[$soid]['gradients'][$gid]['xref'] = substr($attr['xlink:href'], 1);
         }
@@ -3314,16 +3314,72 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'image'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTimage(int $soid)
+    protected function parseSVGTagSTARTimage(int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
         }
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        if ($this->svgobjs[$soid]['clipmode']) {
+            return;
+        }
+        if (empty($attr['xlink:href'])) {
+            return;
+        }
+        $img = $attr['xlink:href'];
+        $posx = (isset($attr['x']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $posy = (isset($attr['y']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $width = (isset($attr['width']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['width'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $height = (isset($attr['height']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['height'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+        );
+        if (
+            'svg' === strtolower(
+                trim(
+                    pathinfo(
+                        ($purl = parse_url($img, PHP_URL_PATH)) ? $purl : '',
+                        PATHINFO_EXTENSION
+                    ),
+                )
+            )
+        ) {
+            // @TODO
+            // $this->ImageSVG($img, $posx, $posy, $width, $height);
+            return;
+        }
+        if (preg_match('/^data:image\/[^;]+;base64,/', $img, $match) > 0) {
+            // embedded image encoded as base64
+            $img = '@' . base64_decode(substr($img, strlen($match[0])));
+        }
+        $imgid = $this->image->add($img);
+        $this->svgobjs[$soid]['out'] .= $this->image->getSetImage(
+            $imgid,
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $this->page->getPage()['pheight'],
+        );
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
     }
 
     /**
