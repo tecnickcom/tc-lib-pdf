@@ -409,6 +409,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected const SVGMINPNTLEN = 0.01;
 
+   /**
+     * Default SVG maximum value for float.
+     *
+     * @var float
+     */
+    protected const SVGMAXVAL = 2147483647.0;
 
     /**
     * Array of inheritable SVG properties.
@@ -901,9 +907,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'y' => 0.0,
             'x0' => 0.0,
             'y0' => 0.0,
-            'xmin' => 2147483647.0,
+            'xmin' => self::SVGMAXVAL,
             'xmax' => 0.0,
-            'ymin' => 2147483647.0,
+            'ymin' => self::SVGMAXVAL,
             'ymax' => 0.0,
             'xinit' => 0.0,
             'yinit' => 0.0,
@@ -2515,8 +2521,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'circle' => $this->parseSVGTagSTARTcircle($soid, $attribs['attr'], $svgstyle),
             'ellipse' => $this->parseSVGTagSTARTellipse($soid, $attribs['attr'], $svgstyle),
             'line' => $this->parseSVGTagSTARTline($soid, $attribs['attr'], $svgstyle),
-            'polyline' => $this->parseSVGTagSTARTpolyline($soid),
-            'polygon' => $this->parseSVGTagSTARTpolygon($soid),
+            'polyline' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
+            'polygon' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
             'image' => $this->parseSVGTagSTARTimage($soid),
             'text' => $this->parseSVGTagSTARTtext($soid),
             'tspan' => $this->parseSVGTagSTARTtspan($soid),
@@ -3107,35 +3113,74 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Parse the SVG Start tag 'polyline'.
-     *
-     * @param int $soid ID of the current SVG object.
-     *
-     * @return void
-     */
-    protected function parseSVGTagSTARTpolyline(int $soid)
-    {
-        if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
-            return;
-        }
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
-    }
-
-    /**
      * Parse the SVG Start tag 'polygon'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTpolygon(int $soid)
+    protected function parseSVGTagSTARTpolygon(int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
         }
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $attrpoints = (!empty($attr['points']) ? trim($attr['points']) : '0 0');
+        // note that point may use a complex syntax not covered here
+        $points = preg_split('/[\,\s]+/si', $attrpoints);
+        if (!is_array($points) || count($points) < 4) {
+            return;
+        }
+        $pset = [];
+        $xmin = self::SVGMAXVAL;
+        $xmax = 0.0;
+        $ymin = self::SVGMAXVAL;
+        $ymax = 0.0;
+        foreach ($points as $key => $val) {
+            $pset[$key] = $this->toUnit(
+                $this->getUnitValuePoints($val, self::REFUNITVAL, self::SVGUNIT)
+            );
+            if (($key % 2) == 0) {
+                // X coordinate
+                $xmin = min($xmin, $pset[$key]);
+                $xmax = max($xmax, $pset[$key]);
+            } else {
+                // Y coordinate
+                $ymin = min($ymin, $pset[$key]);
+                $ymax = max($ymax, $pset[$key]);
+            }
+        }
+        $posx = $xmin;
+        $posy = $ymin;
+        $width = ($xmax - $xmin);
+        $height = ($ymax - $ymin);
+        if ($this->svgobjs[$soid]['clipmode']) {
+            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+            $this->svgobjs[$soid]['out'] .= $this->graph->getPolygon(
+                $pset,
+                'CNZ',
+            );
+            return;
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        $obstyle = $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'getPolygon',
+            [$pset, 'CNZ']
+        );
+        if (!empty($obstyle)) {
+            $this->svgobjs[$soid]['out'] .= $this->graph->getPolygon(
+                $pset,
+                $obstyle,
+            );
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
     }
 
     /**
