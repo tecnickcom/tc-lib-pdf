@@ -2514,7 +2514,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'rect' => $this->parseSVGTagSTARTrect($soid, $attribs['attr'], $svgstyle),
             'circle' => $this->parseSVGTagSTARTcircle($soid, $attribs['attr'], $svgstyle),
             'ellipse' => $this->parseSVGTagSTARTellipse($soid, $attribs['attr'], $svgstyle),
-            'line' => $this->parseSVGTagSTARTline($soid),
+            'line' => $this->parseSVGTagSTARTline($soid, $attribs['attr'], $svgstyle),
             'polyline' => $this->parseSVGTagSTARTpolyline($soid),
             'polygon' => $this->parseSVGTagSTARTpolygon($soid),
             'image' => $this->parseSVGTagSTARTimage($soid),
@@ -3057,16 +3057,53 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'line'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTline(int $soid)
+    protected function parseSVGTagSTARTline(int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
         }
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        if ($this->svgobjs[$soid]['clipmode']) {
+            return;
+        }
+        $posx1 = (isset($attr['x1']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x1'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $posy1 = (isset($attr['y1']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y1'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $posx2 = (isset($attr['x2']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x2'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $posy2 = (isset($attr['y2']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y2'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $posx = $posx1;
+        $posy = $posy1;
+        $width = abs($posx2 - $posx1);
+        $height = abs($posy2 - $posy1);
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'getLine',
+            [$posx1, $posy1, $posx2, $posy2],
+        );
+        $this->svgobjs[$soid]['out'] .= $this->graph->getLine(
+            $posx1,
+            $posy1,
+            $posx2,
+            $posy2,
+        );
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
     }
 
     /**
