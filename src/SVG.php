@@ -2666,10 +2666,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
         }
-        $px1 = isset($attr['x1']) ? $this->toUnit($this->getUnitValuePoints($attr['x1'], $ref)) : 0.0;
-        $py1 = isset($attr['y1']) ? $this->toUnit($this->getUnitValuePoints($attr['y1'], $ref)) : 0.0;
-        $px2 = isset($attr['x2']) ? $this->toUnit($this->getUnitValuePoints($attr['x2'], $ref)) : 100.0;
-        $py2 = isset($attr['y2']) ? $this->toUnit($this->getUnitValuePoints($attr['y2'], $ref)) : 0.0;
+        $px1 = isset($attr['x1']) ? $this->toUnit($this->getUnitValuePoints($attr['x1'], $ref, self::SVGUNIT)) : 0.0;
+        $py1 = isset($attr['y1']) ? $this->toUnit($this->getUnitValuePoints($attr['y1'], $ref, self::SVGUNIT)) : 0.0;
+        $px2 = isset($attr['x2']) ? $this->toUnit($this->getUnitValuePoints($attr['x2'], $ref, self::SVGUNIT)) : 100.0;
+        $py2 = isset($attr['y2']) ? $this->toUnit($this->getUnitValuePoints($attr['y2'], $ref, self::SVGUNIT)) : 0.0;
         if (isset($attr['gradientTransform'])) {
             $this->svgobjs[$soid]['gradients'][$gid]['gradientTransform'] =
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
@@ -2722,11 +2722,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
         }
-        $pcx = isset($attr['cx']) ? $this->toUnit($this->getUnitValuePoints($attr['cx'], $ref)) : 0.5;
-        $pcy = isset($attr['cy']) ? $this->toUnit($this->getUnitValuePoints($attr['cy'], $ref)) : 0.5;
-        $pfx = isset($attr['fx']) ? $this->toUnit($this->getUnitValuePoints($attr['fx'], $ref)) : $pcx;
-        $pfy = isset($attr['fy']) ? $this->toUnit($this->getUnitValuePoints($attr['fy'], $ref)) : $pcy;
-        $grr = isset($attr['r']) ? $this->toUnit($this->getUnitValuePoints($attr['r'], $ref)) : 0.5;
+        $pcx = isset($attr['cx']) ? $this->toUnit($this->getUnitValuePoints($attr['cx'], $ref, self::SVGUNIT)) : 0.5;
+        $pcy = isset($attr['cy']) ? $this->toUnit($this->getUnitValuePoints($attr['cy'], $ref, self::SVGUNIT)) : 0.5;
+        $pfx = isset($attr['fx']) ? $this->toUnit($this->getUnitValuePoints($attr['fx'], $ref, self::SVGUNIT)) : $pcx;
+        $pfy = isset($attr['fy']) ? $this->toUnit($this->getUnitValuePoints($attr['fy'], $ref, self::SVGUNIT)) : $pcy;
+        $grr = isset($attr['r']) ? $this->toUnit($this->getUnitValuePoints($attr['r'], $ref, self::SVGUNIT)) : 0.5;
         if (isset($attr['gradientTransform'])) {
             $this->svgobjs[$soid]['gradients'][$gid]['gradientTransform'] =
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
@@ -2749,7 +2749,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTstop(int $soid, array $attr, array $svgstyle)
     {
-        $offset = isset($attr['offset']) ? $this->toUnit($this->getUnitValuePoints($attr['offset'])) : 0.0;
+        $offset = isset($attr['offset']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['offset'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0;
         $stop_color = isset($svgstyle['stop-color']) ? $this->color->getColorObj($svgstyle['stop-color']) : 'black';
         $opacity = isset($svgstyle['stop-opacity']) ? min(
             0.0,
@@ -2785,10 +2787,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $ptd = trim($attr['d']);
-        $posx = isset($attr['x']) ? $this->toUnit($this->getUnitValuePoints($attr['x'])) : 0.0;
-        $posy = isset($attr['y']) ? $this->toUnit($this->getUnitValuePoints($attr['y'])) : 0.0;
-        $width = isset($attr['width']) ? $this->toUnit($this->getUnitValuePoints($attr['width'])) : 1.0;
-        $height = isset($attr['height']) ? $this->toUnit($this->getUnitValuePoints($attr['height'])) : 1.0;
+        $posx = isset($attr['x']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0;
+        $posy = isset($attr['y']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0;
+        $width = isset($attr['width']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['width'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 1.0;
+        $height = isset($attr['height']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['height'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 1.0;
          $tmx = $this->graph->getCtmProduct(
              $svgstyle['transfmatrix'],
              [$width, 0.0, 0.0, $height, $posx, $posy]
