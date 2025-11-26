@@ -1841,8 +1841,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $gradient = $newgradient;
         }
 
-        if (!empty($clip_fnc) and method_exists($this, $clip_fnc)) {
-            $bbox = $this->$clip_fnc(...$clip_par);
+        if (!empty($clip_fnc)) {
+            $bbox = [];
+            if (method_exists($this, $clip_fnc)) {
+                $bbox = $this->$clip_fnc(...$clip_par);
+            } elseif (method_exists($this->graph, $clip_fnc)) {
+                $bbox = $this->graph->$clip_fnc(...$clip_par);
+            }
             if (
                 (!isset($gradient['type'])
                 || ($gradient['type'] != 3))
@@ -2506,7 +2511,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid, $attribs['attr']),
             'stop' => $this->parseSVGTagSTARTstop($soid, $attribs['attr'], $svgstyle),
             'path' => $this->parseSVGTagSTARTpath($soid, $attribs['attr'], $svgstyle),
-            'rect' => $this->parseSVGTagSTARTrect($soid),
+            'rect' => $this->parseSVGTagSTARTrect($soid, $attribs['attr'], $svgstyle),
             'circle' => $this->parseSVGTagSTARTcircle($soid),
             'ellipse' => $this->parseSVGTagSTARTellipse($soid),
             'line' => $this->parseSVGTagSTARTline($soid),
@@ -2799,10 +2804,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $height = isset($attr['height']) ? $this->toUnit(
             $this->getUnitValuePoints($attr['height'], self::REFUNITVAL, self::SVGUNIT)
         ) : 1.0;
-         $tmx = $this->graph->getCtmProduct(
-             $svgstyle['transfmatrix'],
-             [$width, 0.0, 0.0, $height, $posx, $posy]
-         );
+        $tmx = $this->graph->getCtmProduct(
+            $svgstyle['transfmatrix'],
+            [$width, 0.0, 0.0, $height, $posx, $posy]
+        );
 
         if ($this->svgobjs[$soid]['clipmode']) {
             $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
@@ -2831,16 +2836,72 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'rect'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTrect(int $soid)
+    protected function parseSVGTagSTARTrect(int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
         }
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $posx = (isset($attr['x']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0);
+        $posy = (isset($attr['y']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0);
+        $width = (isset($attr['width']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['width'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0);
+        $height = (isset($attr['height']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['height'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0);
+        $prx = (isset($attr['rx']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['rx'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0);
+        $pry = (isset($attr['ry']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['ry'], self::REFUNITVAL, self::SVGUNIT)
+        ) : $prx);
+        if ($this->svgobjs[$soid]['clipmode']) {
+            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+            $this->svgobjs[$soid]['out'] .= $this->graph->getRoundedRect(
+                $posx,
+                $posy,
+                $width,
+                $height,
+                $prx,
+                $pry,
+                '1111',
+                'CNZ',
+            );
+            return;
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        $obstyle = $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'getRoundedRect',
+            [$posx, $posy, $width, $height, $prx, $pry, '1111', 'CNZ'],
+        );
+        if (!empty($obstyle)) {
+            $this->svgobjs[$soid]['out'] .= $this->graph->getRoundedRect(
+                $posx,
+                $posy,
+                $width,
+                $height,
+                $prx,
+                $pry,
+                '1111',
+                $obstyle,
+            );
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
     }
 
     /**
