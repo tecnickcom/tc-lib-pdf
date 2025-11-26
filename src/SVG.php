@@ -2526,7 +2526,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'image' => $this->parseSVGTagSTARTimage($soid),
             'text' => $this->parseSVGTagSTARTtext($soid),
             'tspan' => $this->parseSVGTagSTARTtspan($soid),
-            'use' => $this->parseSVGTagSTARTuse($soid),
+            'use' => $this->parseSVGTagSTARTuse($soid, $attribs, $parser),
             default => null,
         };
 
@@ -3356,12 +3356,44 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'use'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttribs $attribs Associative array with the element's attributes.
+     * @param string $parser The XML parser calling the handler.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTuse(int $soid)
+    protected function parseSVGTagSTARTuse(int $soid, array $attribs, string $parser)
     {
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $attr = $attribs['attr'];
+        if (empty($attr['xlink:href'])) {
+            return;
+        }
+        $svgdefid = substr($attr['xlink:href'], 1);
+        if (empty($this->svgobjs[$soid]['defs'][$svgdefid])) {
+            return;
+        }
+        $use = $this->svgobjs[$soid]['defs'][$svgdefid];
+        if (isset($attr['xlink:href'])) {
+            unset($attr['xlink:href']);
+        }
+        if (isset($attr['id'])) {
+            unset($attr['id']);
+        }
+        if (isset($use['attr']['attr']['x']) && isset($attr['x'])) {
+            $attr['x'] = strval(floatval($attr['x']) + floatval($use['attr']['attr']['x']));
+        }
+        if (isset($use['attr']['attr']['y']) && isset($attr['y'])) {
+            $attr['y'] = strval(floatval($attr['y']) + floatval($use['attr']['attr']['y']));
+        }
+        if (empty($attr['style'])) {
+            $attr['style'] = '';
+        }
+        if (!empty($use['attr']['attr']['style'])) {
+            // merge styles
+            $attr['style'] = str_replace(';;', ';', ';' . $use['attr']['attr']['style'] . $attr['style']);
+        }
+        $attribs['attr'] = array_merge($use['attr']['attr'], $attr);
+        /** @var  TSVGAttribs $attribs */
+        $attribs = (array) $attribs;
+        $this->handleSVGTagStart($parser, $use['name'], $attribs);
     }
 }
