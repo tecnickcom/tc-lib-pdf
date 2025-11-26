@@ -1753,7 +1753,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         float $width,
         float $height,
     ): string {
-        $regs = array();
+        $regs = [];
         if (
             !preg_match(
                 '/rect\(([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)\)/si',
@@ -2034,7 +2034,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        $regs = array();
+        $regs = [];
         if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
             return $this->parseSVGStyleGradient(
                 $gradients,
@@ -2512,7 +2512,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'stop' => $this->parseSVGTagSTARTstop($soid, $attribs['attr'], $svgstyle),
             'path' => $this->parseSVGTagSTARTpath($soid, $attribs['attr'], $svgstyle),
             'rect' => $this->parseSVGTagSTARTrect($soid, $attribs['attr'], $svgstyle),
-            'circle' => $this->parseSVGTagSTARTcircle($soid),
+            'circle' => $this->parseSVGTagSTARTcircle($soid, $attribs['attr'], $svgstyle),
             'ellipse' => $this->parseSVGTagSTARTellipse($soid),
             'line' => $this->parseSVGTagSTARTline($soid),
             'polyline' => $this->parseSVGTagSTARTpolyline($soid),
@@ -2848,19 +2848,19 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
         $posx = (isset($attr['x']) ? $this->toUnit(
             $this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT)
-        ) : 0);
+        ) : 0.0);
         $posy = (isset($attr['y']) ? $this->toUnit(
             $this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT)
-        ) : 0);
+        ) : 0.0);
         $width = (isset($attr['width']) ? $this->toUnit(
             $this->getUnitValuePoints($attr['width'], self::REFUNITVAL, self::SVGUNIT)
-        ) : 0);
+        ) : 0.0);
         $height = (isset($attr['height']) ? $this->toUnit(
             $this->getUnitValuePoints($attr['height'], self::REFUNITVAL, self::SVGUNIT)
-        ) : 0);
+        ) : 0.0);
         $prx = (isset($attr['rx']) ? $this->toUnit(
             $this->getUnitValuePoints($attr['rx'], self::REFUNITVAL, self::SVGUNIT)
-        ) : 0);
+        ) : 0.0);
         $pry = (isset($attr['ry']) ? $this->toUnit(
             $this->getUnitValuePoints($attr['ry'], self::REFUNITVAL, self::SVGUNIT)
         ) : $prx);
@@ -2908,16 +2908,71 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'circle'.
      *
      * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTcircle(int $soid)
+    protected function parseSVGTagSTARTcircle(int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
         }
-        $soid = $soid; // @phpstan-ignore-line
-        //@TODO
+        $crr = (isset($attr['r']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['r'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0);
+        $ctx = (isset($attr['cx']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['cx'], self::REFUNITVAL, self::SVGUNIT)
+        ) : (isset($attr['x']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['x'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0));
+        $cty = (isset($attr['cy']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['cy'], self::REFUNITVAL, self::SVGUNIT)
+        ) : (isset($attr['y']) ? $this->toUnit(
+            $this->getUnitValuePoints($attr['y'], self::REFUNITVAL, self::SVGUNIT)
+        ) : 0.0));
+        $posx = ($ctx - $crr);
+        $posy = ($cty - $crr);
+        $width = (2 * $crr);
+        $height = $width;
+        if ($this->svgobjs[$soid]['clipmode']) {
+            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+            $this->svgobjs[$soid]['out'] .= $this->graph->getCircle(
+                $ctx,
+                $cty,
+                $crr,
+                0,
+                360,
+                'CNZ',
+                [],
+                8
+            );
+            return;
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
+        $obstyle = $this->parseSVGStyle(
+            $this->svgobjs[$soid],
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'getCircle',
+            [$ctx, $cty, $crr, 0, 360, 'CNZ'],
+        );
+        if (!empty($obstyle)) {
+            $this->svgobjs[$soid]['out'] .= $this->graph->getCircle(
+                $ctx,
+                $cty,
+                $crr,
+                0,
+                360,
+                $obstyle,
+                [],
+                8
+            );
+        }
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
     }
 
     /**
