@@ -3825,4 +3825,44 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         return $soid;
     }
+
+    /**
+     * Get the PDF output string to print the specified SVG object.
+     *
+     * @param int   $soid       SVG Object ID (as returned by addSVG).
+     * @param float $xpos       Abscissa (X coordinate) of the upper-left Image corner in user units.
+     * @param float $ypos       Ordinate (Y coordinate) of the upper-left Image corner in user units.
+     * @param float $width      Image width in user units.
+     * @param float $height     Image height in user units.
+     * @param float $pageheight Page height in user units.
+     *
+     * @return string Image PDF page content.
+     */
+    public function getSetSVG(
+        int $soid,
+        float $xpos,
+        float $ypos,
+        float $width,
+        float $height,
+        float $pageheight,
+    ): string {
+        if (empty($this->svgobjs[$soid])) {
+            throw new PdfException('Unknown SVG ID: ' . $soid);
+        }
+
+        $out = $this->svgobjs[$soid]['out'];
+
+        foreach ($this->svgobjs[$soid]['child'] as $chid) {
+            $out .= $this->getSetSVG(
+                $chid,
+                $xpos,
+                $ypos,
+                $width,
+                $height,
+                $pageheight,
+            );
+        }
+
+        return $out;
+    }
 }
