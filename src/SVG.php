@@ -34,6 +34,16 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TTMatrix from \Com\Tecnick\Pdf\Graph\Base
  * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
  *
+ * @phpstan-type TSVGSize array{
+ *    'x': float,
+ *    'y': float,
+ *    'width': float,
+ *    'height': float,
+ *    'viewBox': array{float, float, float, float},
+ *    'ar_align': string,
+ *    'ar_ms': string,
+ * }
+ *
  * @phpstan-type TSCGCoord array{
  *    'x': float,
  *    'y': float,
@@ -387,6 +397,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'defs': array<string, TSVGDefs>,
  *    'cliptm': TTMatrix,
  *    'styles': array<int, TSVGStyle>,
+ *    'child': array<int>,
  *    'textmode': TSVGTextMode,
  *    'text': string,
  *    'out': string,
@@ -606,6 +617,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'cliptm' => [1.0,0.0,0.0,1.0,0.0,0.0],
         'defs' => [],
         'styles' => [0 => self::DEFSVGSTYLE],
+        'child' => [],
         'textmode' => [
             'rtl' => false,
             'invisible' => false,
@@ -2088,7 +2100,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $clippaths = [],
     ): void {
         foreach ($clippaths as $cp) {
-            $this->handleSVGTagStart('clip-path', $cp['name'], $soid, $cp['attr'], $cp['tm']);
+            $this->handleSVGTagStart(
+                'clip-path',
+                $cp['name'],
+                $cp['attr'],
+                $soid,
+                $cp['tm'],
+            );
         }
     }
 
@@ -2365,8 +2383,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param string $parser The XML parser calling the handler.
      * @param string $name Name of the element for which this handler is called.
-     * @param int $soid ID of the current SVG object.
      * @param TSVGAttribs $attribs Associative array with the element's attributes.
+     * @param int $soid ID of the current SVG object.
      * @param TTMatrix $ctm Current transformation matrix (optional).
      *
      * @return void
@@ -2376,8 +2394,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function handleSVGTagStart(
         string $parser,
         string $name,
-        int $soid,
         array $attribs,
+        int $soid = -1,
         array $ctm = [1.0,0.0,0.0,1.0,0.0,0.0], // identity matrix
     ): void {
         if (empty($this->svgobjs[$soid])) {
@@ -2385,6 +2403,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $name = $this->removeTagNamespace($name);
+
+        if ($soid < 0) {
+            $soid = (int)array_key_last($this->svgobjs);
+        }
 
         if ($this->svgobjs[$soid]['clipmode']) {
             $this->svgobjs[$soid]['clippaths'][] = [
@@ -2544,8 +2566,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $this->handleSVGTagStart(
                     'child-tag',
                     $child['name'],
-                    $soid,
                     $child['attr'], // @phpstan-ignore argument.type
+                    $soid,
                 );
                 continue;
             }
@@ -3364,7 +3386,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 )
             )
         ) {
-            // @TODO $this->ImageSVG($img, $posx, $posy, $width, $height);
+            try {
+                $child = $this->addSVG($img, $posx, $posy, $width, $height);
+            } catch (Exception $e) {
+                return;
+            }
+            $this->svgobjs[$soid]['child'][] = $child;
             return;
         }
         if (preg_match('/^data:image\/[^;]+;base64,/', $img, $match) > 0) {
@@ -3513,6 +3540,289 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $attribs['attr'] = array_merge($use['attr']['attr'], $attr);
         /** @var  TSVGAttribs $attribs */
         $attribs = (array) $attribs;
-        $this->handleSVGTagStart($parser, $use['name'], $soid, $attribs);
+        $this->handleSVGTagStart(
+            $parser,
+            $use['name'],
+            $attribs,
+            $soid,
+        );
+    }
+
+    /**
+     * Get the SVG data from a file or data string.
+     *
+     * @param string $img
+     *
+     * @return string
+     */
+    protected function getRawSVGData(string $img): string
+    {
+        if (empty($img) || (($img[0] === '@') && (strlen($img) === 1))) {
+            return '';
+        }
+        if ($img[0] === '@') { // image from string
+            return substr($img, 1);
+        }
+        $data = $this->file->getFileData($img);
+        if (empty($data)) {
+            return '';
+        }
+        return $data;
+    }
+
+    /**
+     * Get the SVG size from the SVG data.
+     *
+     * @param string $data The string containing the SVG image data.
+     *
+     * @return TSVGSize Associative array with dimensions.
+     */
+    protected function getSVGSize(string $data): array
+    {
+        $out = [
+            'x' => 0.0,
+            'y' => 0.0,
+            'width' => 0.0,
+            'height' => 0.0,
+            'viewBox' => [0.0,0.0,0.0,0.0],
+            'ar_align' => 'xMidYMid',
+            'ar_ms' => 'meet',
+        ];
+
+        preg_match('/<svg([^\>]*)>/si', $data, $regs);
+        if (!isset($regs[1]) || empty($regs[1])) {
+            return $out;
+        }
+
+        $tmp = [];
+        if (preg_match('/[\s]+x[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+            $out['x'] = $this->toUnit($this->getUnitValuePoints($tmp[1], self::REFUNITVAL, self::SVGUNIT));
+        }
+        $tmp = array();
+        if (preg_match('/[\s]+y[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+            $out['y'] = $this->toUnit($this->getUnitValuePoints($tmp[1], self::REFUNITVAL, self::SVGUNIT));
+        }
+        $tmp = array();
+        if (preg_match('/[\s]+width[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+            $out['width'] = $this->toUnit($this->getUnitValuePoints($tmp[1], self::REFUNITVAL, self::SVGUNIT));
+        }
+        $tmp = array();
+        if (preg_match('/[\s]+height[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+            $out['height'] = $this->toUnit($this->getUnitValuePoints($tmp[1], self::REFUNITVAL, self::SVGUNIT));
+        }
+
+        $tmp = [];
+        if (
+            !preg_match(
+                '/[\s]+viewBox[\s]*=[\s]*"[\s]*([0-9\.\-]+)[\s]+([0-9\.\-]+)[\s]+([0-9\.]+)[\s]+([0-9\.]+)[\s]*"/si',
+                $regs[1],
+                $tmp,
+            )
+        ) {
+            return $out;
+        }
+
+        if (count($tmp) == 5) {
+            array_shift($tmp);
+            foreach ($tmp as $key => $val) {
+                $out['viewBox'][$key] = $this->toUnit($this->getUnitValuePoints($val, self::REFUNITVAL, self::SVGUNIT));
+            }
+        }
+
+        // get aspect ratio
+        $tmp = [];
+        if (!preg_match('/[\s]+preserveAspectRatio[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+            return $out;
+        }
+
+        $asr = preg_split('/[\s]+/si', $tmp[1]);
+        if (!is_array($asr) || count($asr) < 1) {
+            return $out;
+        }
+        switch (count($asr)) {
+            case 3:
+                $out['ar_align'] = $asr[1];
+                $out['ar_ms'] = $asr[2];
+                break;
+            case 2:
+                $out['ar_align'] = $asr[0];
+                $out['ar_ms'] = $asr[1];
+                break;
+            case 1:
+                $out['ar_align'] = $asr[0];
+                $out['ar_ms'] = 'meet';
+                break;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Add a new SVG image and return its object ID.
+     *
+     * @param string $img The string containing the SVG image data or the path to the SVG file.
+     * @param float $posx X position in user units.
+     * @param float $posy Y position in user units.
+     * @param float $width Width in user units.
+     * @param float $height Height in user units.
+     *
+     * @return int The SVG object ID.
+     */
+    public function addSVG(
+        string $img,
+        float $posx = 0.0,
+        float $posy = 0.0,
+        float $width = 0.0,
+        float $height = 0.0,
+    ): int {
+        $data = $this->getRawSVGData($img);
+        if (empty($data)) {
+            throw new PdfException('Invalid SVG');
+        }
+
+        $size = $this->getSVGSize($data);
+        if ($size['width'] <= 0.0 || $size['height'] <= 0.0) {
+            throw new PdfException('Invalid SVG size');
+        }
+
+        if ($size['width'] <= 0.0) {
+            $size['width'] = 1.0;
+        }
+        if ($size['height'] <= 0.0) {
+            $size['height'] = 1.0;
+        }
+
+        // calculate image width && height on document
+        if (($width <= 0.0) && ($height <= 0.0)) {
+            // convert image size to document unit
+            $width = $size['width'];
+            $height = $size['height'];
+        } elseif ($width <= 0.0) {
+            $width = $height * $size['width'] / $size['height'];
+        } elseif ($height <= 0.0) {
+            $height = $width * $size['height'] / $size['width'];
+        }
+
+        if (!empty($size['viewBox'][2]) && !empty($size['viewBox'][3])) {
+            $size['width'] = $size['viewBox'][2];
+            $size['height'] = $size['viewBox'][3];
+        } else {
+            if ($size['width'] <= 0) {
+                $size['width'] = $width;
+            }
+            if ($size['height'] <= 0) {
+                $size['height'] = $height;
+            }
+        }
+
+        // SVG position && scale factors
+        $svgoffset_x = $this->toUnit($posx - $size['x']);
+        $svgoffset_y = $this->toUnit($size['y'] - $posy);
+        $svgscale_x = $width / $size['width'];
+        $svgscale_y = $height / $size['height'];
+
+        // scaling && alignment
+        if ($size['ar_align'] != 'none') {
+            // force uniform scaling
+            if ($size['ar_ms'] == 'slice') {
+                // the entire viewport is covered by the viewBox
+                if ($svgscale_x > $svgscale_y) {
+                    $svgscale_y = $svgscale_x;
+                } elseif ($svgscale_x < $svgscale_y) {
+                    $svgscale_x = $svgscale_y;
+                }
+            } else { // meet
+                // the entire viewBox is visible within the viewport
+                if ($svgscale_x < $svgscale_y) {
+                    $svgscale_y = $svgscale_x;
+                } elseif ($svgscale_x > $svgscale_y) {
+                    $svgscale_x = $svgscale_y;
+                }
+            }
+            // correct X alignment
+            switch (substr($size['ar_align'], 1, 3)) {
+                case 'Min':
+                    // do nothing
+                    break;
+                case 'Max':
+                    $svgoffset_x += $this->toUnit($width - ($size['width'] * $svgscale_x));
+                    break;
+                default:
+                case 'Mid':
+                    $svgoffset_x += $this->toUnit(($width - ($size['width'] * $svgscale_x)) / 2);
+                    break;
+            }
+            // correct Y alignment
+            switch (substr($size['ar_align'], 5)) {
+                case 'Min':
+                    // do nothing
+                    break;
+                case 'Max':
+                    $svgoffset_y -= $this->toUnit($height - ($size['height'] * $svgscale_y));
+                    break;
+                default:
+                case 'Mid':
+                    $svgoffset_y -= $this->toUnit(($height - ($size['height'] * $svgscale_y)) / 2);
+                    break;
+            }
+        }
+
+        $soid = (int)array_key_last($this->svgobjs);
+        $soid++;
+
+        $this->svgobjs[$soid] = self::SVGDEFOBJ; // @phpstan-ignore-line assign.propertyType
+
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
+        $this->svgobjs[$soid]['out'] .= $this->graph->getRawRect(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            'CNZ',
+        );
+
+        // scale && translate
+        $esx = $this->toUnit($size['x']) * (1 - $svgscale_x);
+        $fsy = $this->toYUnit($size['y']) * (1 - $svgscale_y);
+        $ctm = [
+            0 => $svgscale_x,
+            1 => 0.0,
+            2 => 0.0,
+            3 => $svgscale_y,
+            4 => $esx + $svgoffset_x,
+            5 => $fsy + $svgoffset_y,
+        ];
+        $this->svgobjs[$soid]['out'] .= $this->graph->getTransformation($ctm);
+
+        // creates a new XML parser to be used by the other XML functions
+        $parser = xml_parser_create('UTF-8');
+        // the following function allows to use parser inside object
+        xml_set_object($parser, $this);
+        // disable case-folding for this XML parser
+        xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
+        // sets the element handler functions for the XML parser
+        xml_set_element_handler($parser, [$this, 'handleSVGTagStart'], [$this, 'handleSVGTagEnd']);
+        // sets the character data handler function for the XML parser
+        xml_set_character_data_handler($parser, [$this, 'handlerSVGCharacter']);
+
+        // start parsing an XML document
+        if (!xml_parse($parser, $data)) {
+            throw new PdfException(sprintf(
+                'SVG Error: %s at line %d',
+                xml_error_string(
+                    xml_get_error_code($parser)
+                ),
+                xml_get_current_line_number($parser),
+            ),);
+        }
+
+        // free this XML parser
+        xml_parser_free($parser);
+        // >= PHP 7.0.0 "explicitly unset the reference to parser to avoid memory leaks"
+        unset($parser);
+
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+
+        return $soid;
     }
 }
