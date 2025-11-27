@@ -120,6 +120,7 @@ $pdf->page->addContent($iid12_out);
 // test SVG
 //$svgid01 = $pdf->addSVG('./images/testsvg.svg');
 //$svgid01_out = $pdf->getSetSVG($svgid01, 0, 60, 100, 50, $page01['height']);
+//echo $svgid01_out; exit();
 //$pdf->page->addContent($svgid01_out);
 
 // ----------
