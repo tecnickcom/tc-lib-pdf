@@ -2092,19 +2092,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG style clip-path.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid SVG object ID.
      * @param array<string, TSVGClipPath> $clippaths Clipping paths.
      */
     protected function parseSVGStyleClipPath(
+        \XMLParser $parser,
         int $soid,
         array $clippaths = [],
     ): void {
         foreach ($clippaths as $cp) {
             $this->handleSVGTagStart(
-                'clip-path',
+                $parser,
                 $cp['name'],
                 $cp['attr'],
                 $soid,
+                true,
                 $cp['tm'],
             );
         }
@@ -2113,6 +2116,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG style.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid SVG object ID.
      * @param float $posx X position in user units.
      * @param float $posy Y position in user units.
@@ -2124,6 +2128,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string the Raw PDF command.
      */
     protected function parseSVGStyle(
+        \XMLParser $parser,
         int $soid,
         float $posx = 0,
         float $posy = 0,
@@ -2138,7 +2143,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        $this->parseSVGStyleClipPath($soid, $this->svgobjs[$soid]['clippaths']);
+        $this->parseSVGStyleClipPath($parser, $soid, $this->svgobjs[$soid]['clippaths']);
 
         return $this->parseSVGStyleColor($this->svgobjs[$soid]['styles'][$sid]) .
             $this->parseSVGStyleClip(
@@ -2168,7 +2173,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Handler for the SVG character data.
      *
-     * @param string $parser The XML parser calling the handler.
+     * @param \XMLParser $parser The XML parser calling the handler.
      * @param string $data Character data.
      *
      * @return void
@@ -2176,7 +2181,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
     protected function handlerSVGCharacter(
-        string $parser,
+        \XMLParser $parser,
         string $data,
     ) {
         $soid = (int)array_key_last($this->svgobjs);
@@ -2189,7 +2194,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Handler for the end of an SVG tag.
      *
-     * @param string $parser The XML parser calling the handler.
+     * @param \XMLParser $parser The XML parser calling the handler.
      * @param string $name Name of the element for which this handler is called.
      *
      * @return void
@@ -2197,7 +2202,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
     protected function handleSVGTagEnd(
-        string $parser,
+        \XMLParser $parser,
         string $name,
     ): void {
         $name = $this->removeTagNamespace($name);
@@ -2381,10 +2386,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Handler for the start of an SVG tag.
      *
-     * @param string $parser The XML parser calling the handler.
+     * @param \XMLParser $parser The XML parser calling the handler.
      * @param string $name Name of the element for which this handler is called.
      * @param TSVGAttribs $attribs Associative array with the element's attributes.
      * @param int $soid ID of the current SVG object.
+     * @param bool $clipmode Clip-path mode (optional).
      * @param TTMatrix $ctm Current transformation matrix (optional).
      *
      * @return void
@@ -2392,10 +2398,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
     protected function handleSVGTagStart(
-        string $parser,
+        \XMLParser $parser,
         string $name,
         array $attribs,
         int $soid = -1,
+        bool $clipmode = false,
         array $ctm = [1.0,0.0,0.0,1.0,0.0,0.0], // identity matrix
     ): void {
         if (empty($this->svgobjs[$soid])) {
@@ -2453,7 +2460,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        $this->svgobjs[$soid]['clipmode'] = ($parser == 'clip-path');
+        $this->svgobjs[$soid]['clipmode'] = $clipmode;
 
         // process style
         $svgstyle = (array) $this->svgobjs[$soid]['styles'][0];
@@ -2530,22 +2537,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         match ($name) {
             'defs' => $this->parseSVGTagSTARTdefs($soid),
             'clipPath' => $this->parseSVGTagSTARTclipPath($soid, $tmx),
-            'svg' => $this->parseSVGTagSTARTsvg($soid, $attribs['attr'], $svgstyle),
-            'g' => $this->parseSVGTagSTARTg($soid, $attribs['attr'], $svgstyle),
+            'svg' => $this->parseSVGTagSTARTsvg($parser, $soid, $attribs['attr'], $svgstyle),
+            'g' => $this->parseSVGTagSTARTg($parser, $soid, $attribs['attr'], $svgstyle),
             'linearGradient' => $this->parseSVGTagSTARTlinearGradient($soid, $attribs['attr']),
             'radialGradient' => $this->parseSVGTagSTARTradialGradient($soid, $attribs['attr']),
             'stop' => $this->parseSVGTagSTARTstop($soid, $attribs['attr'], $svgstyle),
-            'path' => $this->parseSVGTagSTARTpath($soid, $attribs['attr'], $svgstyle),
-            'rect' => $this->parseSVGTagSTARTrect($soid, $attribs['attr'], $svgstyle),
-            'circle' => $this->parseSVGTagSTARTcircle($soid, $attribs['attr'], $svgstyle),
-            'ellipse' => $this->parseSVGTagSTARTellipse($soid, $attribs['attr'], $svgstyle),
-            'line' => $this->parseSVGTagSTARTline($soid, $attribs['attr'], $svgstyle),
-            'polyline' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
-            'polygon' => $this->parseSVGTagSTARTpolygon($soid, $attribs['attr'], $svgstyle),
-            'image' => $this->parseSVGTagSTARTimage($soid, $attribs['attr'], $svgstyle),
-            'text' => $this->parseSVGTagSTARTtext($soid, $attribs['attr'], $svgstyle),
-            'tspan' => $this->parseSVGTagSTARTtspan($soid, $attribs['attr'], $svgstyle),
-            'use' => $this->parseSVGTagSTARTuse($soid, $attribs, $parser),
+            'path' => $this->parseSVGTagSTARTpath($parser, $soid, $attribs['attr'], $svgstyle),
+            'rect' => $this->parseSVGTagSTARTrect($parser, $soid, $attribs['attr'], $svgstyle),
+            'circle' => $this->parseSVGTagSTARTcircle($parser, $soid, $attribs['attr'], $svgstyle),
+            'ellipse' => $this->parseSVGTagSTARTellipse($parser, $soid, $attribs['attr'], $svgstyle),
+            'line' => $this->parseSVGTagSTARTline($parser, $soid, $attribs['attr'], $svgstyle),
+            'polyline' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attribs['attr'], $svgstyle),
+            'polygon' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attribs['attr'], $svgstyle),
+            'image' => $this->parseSVGTagSTARTimage($parser, $soid, $attribs['attr'], $svgstyle),
+            'text' => $this->parseSVGTagSTARTtext($parser, $soid, $attribs['attr'], $svgstyle),
+            'tspan' => $this->parseSVGTagSTARTtspan($parser, $soid, $attribs['attr'], $svgstyle),
+            'use' => $this->parseSVGTagSTARTuse($parser, $soid, $attribs),
             default => null,
         };
 
@@ -2564,7 +2571,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
             if (empty($child['attr']['closing_tag'])) {
                 $this->handleSVGTagStart(
-                    'child-tag',
+                    $parser,
                     $child['name'],
                     $child['attr'], // @phpstan-ignore argument.type
                     $soid,
@@ -2574,7 +2581,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (isset($child['attr']['content'])) {
                 $this->svgobjs[$soid]['text'] = $child['attr']['content'];
             }
-            $this->handleSVGTagEnd('child-tag', $child['name']);
+            $this->handleSVGTagEnd($parser, $child['name']);
         }
     }
 
@@ -2618,13 +2625,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'svg'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTsvg(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTsvg(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         $this->svgobjs[$soid]['tagdepth']++;
         if ($this->svgobjs[$soid]['tagdepth'] <= 1) {
@@ -2656,7 +2664,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $width = empty($svgW) ? ($page['width'] - $svgX) : $svgW;
         $height = empty($svgH) ? ($page['height'] - $svgY) : $svgH;
         // draw clipping rect
-        $this->graph->getRawRect(
+        $this->svgobjs[$soid]['out'] .= $this->graph->getRawRect(
             $posx,
             $posy,
             $width,
@@ -2664,6 +2672,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'CNZ',
         );
         $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -2673,6 +2682,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // parse viewbox, calculate extra transformation matrix
         if (empty($attr['viewBox'])) {
             $this->parseSVGStyle(
+                $parser,
                 $soid,
                 $posx,
                 $posy,
@@ -2686,6 +2696,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tmp = $tmp[0];
         if (sizeof($tmp) != 4) {
             $this->parseSVGStyle(
+                $parser,
                 $soid,
                 $posx,
                 $posy,
@@ -2747,6 +2758,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tmx = $this->graph->getCtmProduct($tmx, $newtmx);
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
         $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -2758,13 +2770,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'g'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTg(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTg(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         array_push($this->svgobjs[$soid]['styles'], $svgstyle);
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
@@ -2777,7 +2790,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             [$width, 0.0, 0.0, $height, $posx, $posy]
         );
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
-        $this->svgobjs[$soid]['out'] .= $this->parseSVGStyle(
+        $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -2933,13 +2947,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'path'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTpath(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTpath(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
@@ -2975,6 +2990,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
         $obstyle = $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -2992,13 +3008,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'rect'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTrect(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTrect(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
@@ -3038,6 +3055,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -3064,13 +3082,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'circle'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTcircle(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTcircle(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
@@ -3109,6 +3128,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -3135,13 +3155,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'ellipse'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTellipse(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTellipse(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
@@ -3185,6 +3206,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -3213,13 +3235,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'line'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTline(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTline(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
@@ -3246,6 +3269,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -3266,13 +3290,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'polygon'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTpolygon(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTpolygon(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
@@ -3317,6 +3342,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -3337,13 +3363,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'image'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTimage(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTimage(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return;
@@ -3370,6 +3397,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -3414,14 +3442,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG Start tag 'text'.
      * Basic support only.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTtext(int $soid, array $attr, array $svgstyle, bool $is_tspan = false)
-    {
+    protected function parseSVGTagSTARTtext(
+        \XMLParser $parser,
+        int $soid,
+        array $attr,
+        array $svgstyle,
+        bool $is_tspan = false,
+    ) {
         if (isset($this->svgobjs[$soid]['textmode']['text-anchor']) && !empty($this->svgobjs[$soid]['text'])) {
             // @TODO: unsupported feature
         }
@@ -3474,6 +3508,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $this->parseSVGStyle(
+            $parser,
             $soid,
             $posx,
             $posy,
@@ -3487,27 +3522,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'tspan'.
      *
+     * @param \XMLParser $parser The XML parser.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      * @param TSVGStyle $svgstyle Current SVG style.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTtspan(int $soid, array $attr, array $svgstyle)
+    protected function parseSVGTagSTARTtspan(\XMLParser $parser, int $soid, array $attr, array $svgstyle)
     {
-        $this->parseSVGTagSTARTtext($soid, $attr, $svgstyle, true);
+        $this->parseSVGTagSTARTtext($parser, $soid, $attr, $svgstyle, true);
     }
 
     /**
      * Parse the SVG Start tag 'use'.
      *
+     * @param \XMLParser $parser The XML parser calling the handler.
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttribs $attribs Associative array with the element's attributes.
-     * @param string $parser The XML parser calling the handler.
      *
      * @return void
      */
-    protected function parseSVGTagSTARTuse(int $soid, array $attribs, string $parser)
+    protected function parseSVGTagSTARTuse(\XMLParser $parser, int $soid, array $attribs)
     {
         $attr = $attribs['attr'];
         if (empty($attr['xlink:href'])) {
