@@ -2080,20 +2080,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG style clip-path.
      *
+     * @param int $soid SVG object ID.
      * @param array<string, TSVGClipPath> $clippaths Clipping paths.
      */
     protected function parseSVGStyleClipPath(
+        int $soid,
         array $clippaths = [],
     ): void {
         foreach ($clippaths as $cp) {
-            $this->handleSVGTagStart('clip-path', $cp['name'], $cp['attr'], $cp['tm']);
+            $this->handleSVGTagStart('clip-path', $cp['name'], $soid, $cp['attr'], $cp['tm']);
         }
     }
 
     /**
      * Parse the SVG style.
      *
-     * @param TSVGObj $svgobj SVG object.
+     * @param int $soid SVG object ID.
      * @param float $posx X position in user units.
      * @param float $posy Y position in user units.
      * @param float $width Width in user units.
@@ -2104,7 +2106,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string the Raw PDF command.
      */
     protected function parseSVGStyle(
-        array &$svgobj,
+        int $soid,
         float $posx = 0,
         float $posy = 0,
         float $width = 1,
@@ -2112,25 +2114,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         string $clip_fnc = '',
         array $clip_par = [],
     ): string {
-        $sid = (int)array_key_last($svgobj['styles']);
+        $sid = (int)array_key_last($this->svgobjs[$soid]['styles']);
 
-        if (empty($svgobj['styles'][$sid]['opacity'])) {
+        if (empty($this->svgobjs[$soid]['styles'][$sid]['opacity'])) {
             return '';
         }
 
-        $this->parseSVGStyleClipPath($svgobj['clippaths']);
+        $this->parseSVGStyleClipPath($soid, $this->svgobjs[$soid]['clippaths']);
 
-        return $this->parseSVGStyleColor($svgobj['styles'][$sid]) .
+        return $this->parseSVGStyleColor($this->svgobjs[$soid]['styles'][$sid]) .
             $this->parseSVGStyleClip(
-                $svgobj['styles'][$sid],
+                $this->svgobjs[$soid]['styles'][$sid],
                 $posx,
                 $posy,
                 $width,
                 $height
             ) .
             $this->parseSVGStyleFill(
-                $svgobj['styles'][$sid],
-                $svgobj['gradients'],
+                $this->svgobjs[$soid]['styles'][$sid],
+                $this->svgobjs[$soid]['gradients'],
                 $posx,
                 $posy,
                 $width,
@@ -2138,8 +2140,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $clip_fnc,
                 $clip_par
             ) .
-            $this->parseSVGStyleStroke($svgobj['styles'][$sid]) .
-            $this->parseSVGStyleFont($svgobj['styles'][$sid], $svgobj['styles'][($sid - 1)]);
+            $this->parseSVGStyleStroke($this->svgobjs[$soid]['styles'][$sid]) .
+            $this->parseSVGStyleFont(
+                $this->svgobjs[$soid]['styles'][$sid],
+                $this->svgobjs[$soid]['styles'][($sid - 1)]
+            );
     }
 
     /**
@@ -2360,6 +2365,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param string $parser The XML parser calling the handler.
      * @param string $name Name of the element for which this handler is called.
+     * @param int $soid ID of the current SVG object.
      * @param TSVGAttribs $attribs Associative array with the element's attributes.
      * @param TTMatrix $ctm Current transformation matrix (optional).
      *
@@ -2370,15 +2376,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function handleSVGTagStart(
         string $parser,
         string $name,
+        int $soid,
         array $attribs,
         array $ctm = [1.0,0.0,0.0,1.0,0.0,0.0], // identity matrix
     ): void {
-        $name = $this->removeTagNamespace($name);
-
-        $soid = (int)array_key_last($this->svgobjs);
-        if ($soid < 0) {
+        if (empty($this->svgobjs[$soid])) {
             return;
         }
+
+        $name = $this->removeTagNamespace($name);
 
         if ($this->svgobjs[$soid]['clipmode']) {
             $this->svgobjs[$soid]['clippaths'][] = [
@@ -2535,7 +2541,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 continue;
             }
             if (empty($child['attr']['closing_tag'])) {
-                $this->handleSVGTagStart('child-tag', $child['name'], $child['attr']); // @phpstan-ignore argument.type
+                $this->handleSVGTagStart(
+                    'child-tag',
+                    $child['name'],
+                    $soid,
+                    $child['attr'], // @phpstan-ignore argument.type
+                );
                 continue;
             }
             if (isset($child['attr']['content'])) {
@@ -2631,7 +2642,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'CNZ',
         );
         $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -2640,7 +2651,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // parse viewbox, calculate extra transformation matrix
         if (empty($attr['viewBox'])) {
             $this->parseSVGStyle(
-                $this->svgobjs[$soid],
+                $soid,
                 $posx,
                 $posy,
                 $width,
@@ -2653,7 +2664,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tmp = $tmp[0];
         if (sizeof($tmp) != 4) {
             $this->parseSVGStyle(
-                $this->svgobjs[$soid],
+                $soid,
                 $posx,
                 $posy,
                 $width,
@@ -2714,7 +2725,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tmx = $this->graph->getCtmProduct($tmx, $newtmx);
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
         $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -2745,7 +2756,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
         $this->svgobjs[$soid]['out'] .= $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -2942,7 +2953,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
         $obstyle = $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -3005,7 +3016,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -3076,7 +3087,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -3152,7 +3163,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -3213,7 +3224,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -3284,7 +3295,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $obstyle = $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -3337,7 +3348,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $this->parseSVGStyle(
-            $this->svgobjs[$soid],
+            $soid,
             $posx,
             $posy,
             $width,
@@ -3436,7 +3447,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix']);
         $this->parseSVGStyle(
-            $this->svgobjs[$soid], // @phpstan-ignore-line argument.type
+            $soid,
             $posx,
             $posy,
             1,
@@ -3502,6 +3513,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $attribs['attr'] = array_merge($use['attr']['attr'], $attr);
         /** @var  TSVGAttribs $attribs */
         $attribs = (array) $attribs;
-        $this->handleSVGTagStart($parser, $use['name'], $attribs);
+        $this->handleSVGTagStart($parser, $use['name'], $soid, $attribs);
     }
 }
