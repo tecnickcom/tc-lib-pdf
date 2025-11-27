@@ -364,7 +364,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-type TSVGClipPath array{
  *    'name': string,
  *    'attr': TSVGAttribs,
- *    'tm': array<int, float>,
+ *    'tm': TTMatrix,
  * }
  *
  * @phpstan-type TSVGDefs array{
@@ -385,7 +385,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *    'gradients': array<int, TSVGGradient>,
  *    'clippaths': array<string, TSVGClipPath>,
  *    'defs': array<string, TSVGDefs>,
- *    'cliptm': array<float>,
+ *    'cliptm': TTMatrix,
  *    'styles': array<int, TSVGStyle>,
  *    'textmode': TSVGTextMode,
  *    'text': string,
@@ -603,7 +603,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'y' => 0.0,
         'gradients' => [],
         'clippaths' => [],
-        'cliptm' => [],
+        'cliptm' => [1.0,0.0,0.0,1.0,0.0,0.0],
         'defs' => [],
         'styles' => [0 => self::DEFSVGSTYLE],
         'textmode' => [
@@ -2080,24 +2080,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG style clip-path.
      *
-     * @param TSVGStyle $svgstyle SVG style.
      * @param array<string, TSVGClipPath> $clippaths Clipping paths.
-     * @return string the Raw PDF command.
      */
     protected function parseSVGStyleClipPath(
-        array &$svgstyle,
         array $clippaths = [],
-    ): string {
-        $out = '';
-        $regs = [];
-        if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['clip-path'], $regs)) {
-            $clip_path = $clippaths[$regs[1]];
-            foreach ($clip_path as $cp) {
-                $cp = $cp; // @phpstan-ignore-line
-                //@TODO $out .= $this->handleSVGTagStart('clip-path', $cp['name'], $cp['attr'], $cp['tm']);
-            }
+    ): void {
+        foreach ($clippaths as $cp) {
+            $this->handleSVGTagStart('clip-path', $cp['name'], $cp['attr'], $cp['tm']);
         }
-        return $out;
     }
 
     /**
@@ -2128,8 +2118,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        return $this->parseSVGStyleClipPath($svgobj['styles'][$sid], $svgobj['clippaths']) .
-        $this->parseSVGStyleColor($svgobj['styles'][$sid]) .
+        $this->parseSVGStyleClipPath($svgobj['clippaths']);
+
+        return $this->parseSVGStyleColor($svgobj['styles'][$sid]) .
             $this->parseSVGStyleClip(
                 $svgobj['styles'][$sid],
                 $posx,
@@ -2380,7 +2371,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         string $parser,
         string $name,
         array $attribs,
-        array $ctm = [1,0,0,1,0,0], // identity matrix
+        array $ctm = [1.0,0.0,0.0,1.0,0.0,0.0], // identity matrix
     ): void {
         $name = $this->removeTagNamespace($name);
 
@@ -3362,8 +3353,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 )
             )
         ) {
-            // @TODO
-            // $this->ImageSVG($img, $posx, $posy, $width, $height);
+            // @TODO $this->ImageSVG($img, $posx, $posy, $width, $height);
             return;
         }
         if (preg_match('/^data:image\/[^;]+;base64,/', $img, $match) > 0) {
