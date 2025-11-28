@@ -12,6 +12,8 @@
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
+ *
+ * @phpcs:disable Generic.Files.LineLength
  */
 
 namespace Com\Tecnick\Pdf;

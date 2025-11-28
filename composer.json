@@ -36,8 +36,8 @@
   "require-dev": {
     "pdepend/pdepend": "2.16.2",
     "phpmd/phpmd": "2.15.0",
-    "phpunit/phpunit": "12.3.12 || 11.5.7 || 10.5.40",
-    "squizlabs/php_codesniffer": "3.13.4"
+    "phpunit/phpunit": "12.4.4 || 11.5.44 || 10.5.58",
+    "squizlabs/php_codesniffer": "4.0.1"
   },
   "autoload": {
     "psr-4": {

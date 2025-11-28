@@ -183,7 +183,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.1.7';
+    protected string $version = '8.1.10';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -760,8 +760,6 @@ abstract class Base
             'vmin' => (($value * min($ref['viewport']['height'], $ref['viewport']['width'])) / 100),
             // Relative to 1% of the width of the viewport.
             'vw' => (($value * $ref['viewport']['width']) / 100),
-            // Default to pixels.
-            default => ($value * $this->pointtopixelratio),
         };
     }
 

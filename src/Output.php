@@ -1412,15 +1412,26 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 if (is_array($def)) {
                     $out .= ' <<';
                     foreach ($def as $apstate => $stream) {
+                        if (!is_string($stream)) {
+                            continue;
+                        }
                         // reference to XObject that define the appearance for this mode-state
-                        $apsobjid = $this->getOutAPXObjects($width, $height, $stream);
+                        $apsobjid = $this->getOutAPXObjects(
+                            $width,
+                            $height,
+                            $stream,
+                        );
                         $out .= ' /' . $apstate . ' ' . $apsobjid . ' 0 R';
                     }
 
                     $out .= ' >>';
-                } else {
+                } elseif (is_string($def)) {
                     // reference to XObject that define the appearance for this mode
-                    $apsobjid = $this->getOutAPXObjects($width, $height, $def);
+                    $apsobjid = $this->getOutAPXObjects(
+                        $width,
+                        $height,
+                        $def,
+                    );
                     $out .= ' ' . $apsobjid . ' 0 R';
                 }
             }
@@ -1853,7 +1864,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (isset($annot['opt']['cl']) && is_array($annot['opt']['cl'])) {
             $out .= ' /CL [';
             foreach ($annot['opt']['cl'] as $cl) {
-                $out .= sprintf('%F ', $this->toPoints($cl));
+                if (is_numeric($cl)) {
+                    $out .= \sprintf('%F ', $this->toPoints(floatval($cl)));
+                }
             }
 
             $out .= ']';
@@ -2268,7 +2281,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 // array of bit settings
                 $flag = 0;
                 foreach ($annot['opt']['ff'] as $val) {
-                    $flag += 1 << ($val - 1);
+                    if (is_numeric($val) && ($val >= 1) && ($val <= 32)) {
+                        $flag += 1 << (intval($val) - 1);
+                    }
                 }
             } else {
                 $flag = (int) $annot['opt']['ff'];
@@ -2285,8 +2300,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /V';
             if (is_array($annot['opt']['v'])) {
                 foreach ($annot['opt']['v'] as $optval) {
-                    if (is_float($optval)) {
-                        $optval = sprintf('%F', $optval);
+                    if (is_numeric($optval)) {
+                        $optval = sprintf('%F', floatval($optval));
+                    } elseif (!is_string($optval)) {
+                        continue;
                     }
 
                     $out .= ' ' . $optval;
@@ -2300,8 +2317,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /DV';
             if (is_array($annot['opt']['dv'])) {
                 foreach ($annot['opt']['dv'] as $optval) {
-                    if (is_float($optval)) {
-                        $optval = sprintf('%F', $optval);
+                    if (is_numeric($optval)) {
+                        $optval = sprintf('%F', floatval($optval));
+                    } elseif (!is_string($optval)) {
+                        continue;
                     }
 
                     $out .= ' ' . $optval;
@@ -2315,8 +2334,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /RV';
             if (is_array($annot['opt']['rv'])) {
                 foreach ($annot['opt']['rv'] as $optval) {
-                    if (is_float($optval)) {
-                        $optval = sprintf('%F', $optval);
+                    if (is_numeric($optval)) {
+                        $optval = sprintf('%F', floatval($optval));
+                    } elseif (!is_string($optval)) {
+                        continue;
                     }
 
                     $out .= ' ' . $optval;
@@ -2356,8 +2377,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     }
                     $out .= ' [' . $this->getOutTextString($copt[0], $oid, true)
                         . ' ' . $this->getOutTextString($copt[1], $oid, true) . ']';
-                } else {
-                    $out .= ' ' . $this->getOutTextString($copt, $oid, true);
+                } elseif (is_string($copt) || is_numeric($copt)) {
+                    $out .= ' ' . $this->getOutTextString(strval($copt), $oid, true);
                 }
             }
 
@@ -2371,7 +2392,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (! empty($annot['opt']['i']) && is_array($annot['opt']['i'])) {
             $out .= ' /I [';
             foreach ($annot['opt']['i'] as $copt) {
-                $out .= (int) $copt . ' ';
+                if (is_numeric($copt)) {
+                    $out .= strval(intval($copt)) . ' ';
+                }
             }
 
             $out .= ']';
@@ -2547,7 +2570,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 // set prev and next pointers
                 $prev = $lru[$o['l']];
                 $this->outlines[$prev]['next'] = $i; // @phpstan-ignore assign.propertyType
-                $this->outlines[$i]['prev'] = $prev;
+                $this->outlines[$i]['prev'] = $prev; // @phpstan-ignore assign.propertyType
             }
 
             $lru[$o['l']] = $i;

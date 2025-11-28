@@ -1107,7 +1107,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function getLastBBox(): array
     {
-        return $this->bbox[array_key_last($this->bbox)];
+        return $this->bbox[array_key_last($this->bbox)] ?? [
+            'x' => 0.0,
+            'y' => 0.0,
+            'w' => 0.0,
+            'h' => 0.0,
+        ];
     }
 
     /**
