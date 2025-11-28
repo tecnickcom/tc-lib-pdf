@@ -373,7 +373,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @phpstan-type TSVGClipPath array{
  *    'name': string,
- *    'attr': TSVGAttribs,
+ *    'attr': TSVGAttributes,
  *    'tm': TTMatrix,
  * }
  *
@@ -2420,7 +2420,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if ($this->svgobjs[$soid]['clipmode']) {
             $this->svgobjs[$soid]['clippaths'][] = [
                 'name' => $name,
-                'attribs' => ['attr' => $attr, 'child' => []],
+                'attr' => $attr,
                 'tm' => $this->svgobjs[$soid]['cliptm'],
             ];
             return;
