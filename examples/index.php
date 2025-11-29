@@ -118,8 +118,8 @@ $iid12_out = $pdf->image->getSetImage($iid12, 40, 40, 40, 20, $page01['height'])
 $pdf->page->addContent($iid12_out);
 
 // test SVG
-//$svgid01 = $pdf->addSVG('./images/tcpdf_box.svg');
-//$svgid01_out = $pdf->getSetSVG($svgid01, 0, 60, 100, 50, $page01['height']);
+//$svgid01 = $pdf->addSVG('./images/tcpdf_box.svg', 0, 100, 100, 100, $page01['height']);
+//$svgid01_out = $pdf->getSetSVG($svgid01);
 //echo($svgid01_out); exit; //DEBUG
 //$pdf->page->addContent($svgid01_out);
 
