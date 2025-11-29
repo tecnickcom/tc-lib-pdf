@@ -967,7 +967,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $params[$prk] = $this->getUnitValuePoints($prv, self::REFUNITVAL, self::SVGUNIT);
                 if (abs($params[$prk]) < $this->svgminunitlen) {
                     // approximate little values to zero
-                    $params[$prk] = 0;
+                    $params[$prk] = 0.0;
                 }
             }
 
@@ -992,7 +992,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $coord['firstcmd'] = false;
         }
 
-        return $out . ' ' . $pop . "\n";
+        $out .= ' ' . $pop . "\n";
+
+        return $out;
     }
 
     /**
@@ -1726,7 +1728,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $out .= $this->graph->getStyleCmd($strokestyle);
 
-        $svgstyle['objstyle'] .= 'D'; // @phpstan-ignore-line
+        $objstyle = 'D';
+        if (strpos($svgstyle['objstyle'], $objstyle) === false) {
+            $svgstyle['objstyle'] .= $objstyle; // @phpstan-ignore-line
+        }
 
         return $out;
     }
@@ -2087,7 +2092,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
 
-        $svgstyle['objstyle'] .= ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
+        $objstyle = ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
+        if (strpos($svgstyle['objstyle'], $objstyle) === false) {
+            $svgstyle['objstyle'] .= $objstyle; // @phpstan-ignore-line
+        }
 
         $out .= $col->getPdfColor();
 
@@ -2130,7 +2138,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param string $clip_fnc Optional clipping function name.
      * @param array<mixed> $clip_par Optional clipping function parameters.
      *
-     * @return string the Raw PDF command.
+     * @return string the object style.
      */
     protected function parseSVGStyle(
         \XMLParser $parser,
@@ -2178,7 +2186,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['styles'][$psid]
         );
 
-        return $out;
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['out'] .= $out;
+
+        return $svgstyle['objstyle'];
     }
 
     /**
@@ -3010,6 +3021,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             [$width, 0.0, 0.0, $height, $posx, $posy]
         );
 
+
         if ($this->svgobjs[$soid]['clipmode']) {
             // @phpstan-ignore assign.propertyType
             $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx);
@@ -3017,6 +3029,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['out'] .= $this->getSVGPath($ptd, 'CNZ');
             return;
         }
+
         // @phpstan-ignore assign.propertyType
         $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
         // @phpstan-ignore assign.propertyType
@@ -3031,6 +3044,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'getSVGPath',
             [$ptd, 'CNZ'],
         );
+
         if (!empty($obstyle)) {
             // @phpstan-ignore assign.propertyType
             $this->svgobjs[$soid]['out'] .= $this->getSVGPath($ptd, $obstyle);
