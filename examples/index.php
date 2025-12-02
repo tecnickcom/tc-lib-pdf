@@ -122,6 +122,10 @@ $svgid01 = $pdf->addSVG('./images/tcpdf_box.svg', 20, 80, 120, 80, $page01['heig
 $svgid01_out = $pdf->getSetSVG($svgid01);
 $pdf->page->addContent($svgid01_out);
 
+//$svgid02 = $pdf->addSVG('./images/testsvg.svg', 20, 160, 120, 60, $page01['height']);
+//$svgid02_out = $pdf->getSetSVG($svgid02);
+//$pdf->page->addContent($svgid02_out);
+
 // ----------
 // Add second page
 
