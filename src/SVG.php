@@ -2151,6 +2151,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param float $posy Y position in user units.
      * @param float $width Width in user units.
      * @param float $height Height in user units.
+     * @param string $objstyle Style to return.
      * @param string $clip_fnc Optional clipping function name.
      * @param array<mixed> $clip_par Optional clipping function parameters.
      *
@@ -2163,6 +2164,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         float $posy = 0,
         float $width = 1,
         float $height = 1,
+        string &$objstyle = '',
         string $clip_fnc = '',
         array $clip_par = [],
     ): string {
@@ -2203,10 +2205,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['styles'][$psid]
         );
 
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $out;
+        $objstyle = $svgstyle['objstyle'];
 
-        return $svgstyle['objstyle'];
+        return $out;
     }
 
     /**
@@ -2708,15 +2709,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $posy = 0;
         $width = empty($svgW) ? ($page['width'] - $svgX) : $svgW;
         $height = empty($svgH) ? ($page['height'] - $svgY) : $svgH;
+
+        $out = '';
+
         // draw clipping rect
-        $this->svgobjs[$soid]['out'] .= $this->graph->getRawRect(
+        $out .=  $this->graph->getRawRect(
             $posx,
             $posy,
             $width,
             $height,
             'CNZ',
         );
-        $this->parseSVGStyle(
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
@@ -2726,7 +2730,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
         // parse viewbox, calculate extra transformation matrix
         if (empty($attr['viewBox'])) {
-            $this->parseSVGStyle(
+            $out .= $this->parseSVGStyle(
                 $parser,
                 $soid,
                 $posx,
@@ -2740,7 +2744,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         preg_match_all("/[0-9]+/", $attr['viewBox'], $tmp);
         $tmp = $tmp[0];
         if (sizeof($tmp) != 4) {
-            $this->parseSVGStyle(
+            $out .= $this->parseSVGStyle(
                 $parser,
                 $soid,
                 $posx,
@@ -2802,7 +2806,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $newtmx = [$wsr, 0.0, 0.0, $hsr, (($wsr * ($asx - $vbx)) - $svgX), (($hsr * ($asy - $vby)) - $svgY)];
         $tmx = $this->graph->getCtmProduct($tmx, $newtmx);
         $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx, $soid);
-        $this->parseSVGStyle(
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
@@ -2810,6 +2814,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $width,
             $height,
         );
+
+        $this->svgobjs[$soid]['out'] .= $out;
     }
 
     /**
@@ -2835,8 +2841,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $svgstyle['transfmatrix'],
             [$width, 0.0, 0.0, $height, $posx, $posy]
         );
-        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx, $soid);
-        $this->parseSVGStyle(
+        $out = '';
+        $out .= $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($tmx, $soid);
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
@@ -2844,6 +2851,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $width,
             $height,
         );
+
+        $this->svgobjs[$soid]['out'] = $out;
     }
 
     /**
@@ -3035,17 +3044,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        // @phpstan-ignore assign.propertyType
         $out .= $this->graph->getStartTransform();
-        // @phpstan-ignore assign.propertyType
         $out .= $this->getOutSVGTransformation($tmx, $soid);
-        $obstyle = $this->parseSVGStyle(
+        $obstyle = '';
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
             $posy,
             $width,
             $height,
+            $obstyle,
             'getSVGPath',
             [$ptd, 'CNZ'],
         );
@@ -3081,11 +3090,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $height = (isset($attr['height']) ? $this->svgUnitToUnit($attr['height'], $soid) : 0.0);
         $prx = (isset($attr['rx']) ? $this->svgUnitToUnit($attr['rx'], $soid) : 0.0);
         $pry = (isset($attr['ry']) ? $this->svgUnitToUnit($attr['ry'], $soid) : $prx);
+        $out = '';
         if ($this->svgobjs[$soid]['clipmode']) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getRoundedRect(
+            $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+            $out .= $this->graph->getRoundedRect(
                 $posx,
                 $posy,
                 $width,
@@ -3095,25 +3103,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 '1111',
                 'CNZ',
             );
+            $this->svgobjs[$soid]['out'] .= $out;
             return;
         }
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-        $obstyle = $this->parseSVGStyle(
+        $out .= $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+        $obstyle = '';
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
             $posy,
             $width,
             $height,
+            $obstyle,
             'getRoundedRect',
             [$posx, $posy, $width, $height, $prx, $pry, '1111', 'CNZ'],
         );
         if (!empty($obstyle)) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getRoundedRect(
+            $out .= $this->graph->getRoundedRect(
                 $posx,
                 $posy,
                 $width,
@@ -3124,8 +3132,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $obstyle,
             );
         }
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+
+        $out .= $this->graph->getStopTransform();
+
+        $this->svgobjs[$soid]['out'] .= $out;
     }
 
     /**
@@ -3162,11 +3172,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $posy = ($cty - $crr);
         $width = (2 * $crr);
         $height = $width;
+        $out = '';
         if ($this->svgobjs[$soid]['clipmode']) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getCircle(
+            $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+            $out .= $this->graph->getCircle(
                 $ctx,
                 $cty,
                 $crr,
@@ -3176,25 +3185,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 [],
                 8
             );
+            $this->svgobjs[$soid]['out'] .= $out;
             return;
         }
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-        $obstyle = $this->parseSVGStyle(
+        $out .= $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+        $obstyle = '';
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
             $posy,
             $width,
             $height,
+            $obstyle,
             'getCircle',
             [$ctx, $cty, $crr, 0, 360, 'CNZ'],
         );
         if (!empty($obstyle)) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getCircle(
+            $out .= $this->graph->getCircle(
                 $ctx,
                 $cty,
                 $crr,
@@ -3205,8 +3214,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 8
             );
         }
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+        $out .= $this->graph->getStopTransform();
+
+        $this->svgobjs[$soid]['out'] .= $out;
     }
 
     /**
@@ -3244,11 +3254,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $posy = ($ecy - $ery);
         $width = (2 * $erx);
         $height = (2 * $ery);
+        $out = '';
         if ($this->svgobjs[$soid]['clipmode']) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getEllipse(
+            $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+            $out .= $this->graph->getEllipse(
                 $ecx,
                 $ecy,
                 $erx,
@@ -3260,25 +3269,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 [],
                 8
             );
+            $this->svgobjs[$soid]['out'] .= $out;
             return;
         }
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-        $obstyle = $this->parseSVGStyle(
+        $out .= $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+        $obstyle = '';
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
             $posy,
             $width,
             $height,
+            $obstyle,
             'getEllipse',
             [$ecx, $ecy, $erx, $ery, 0, 0, 360, 'CNZ'],
         );
         if (!empty($obstyle)) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getEllipse(
+            $out .= $this->graph->getEllipse(
                 $ecx,
                 $ecy,
                 $erx,
@@ -3291,8 +3300,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 8
             );
         }
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+        $out .= $this->graph->getStopTransform();
+        
+        $this->svgobjs[$soid]['out'] .= $out;
     }
 
     /**
@@ -3321,29 +3331,30 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $posy = $posy1;
         $width = abs($posx2 - $posx1);
         $height = abs($posy2 - $posy1);
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-        $this->parseSVGStyle(
+        $out = '';
+        $out .= $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+        $obstyle = '';
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
             $posy,
             $width,
             $height,
+            $obstyle,
             'getLine',
             [$posx1, $posy1, $posx2, $posy2],
         );
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getLine(
+        $out .= $this->graph->getLine(
             $posx1,
             $posy1,
             $posx2,
             $posy2,
         );
+        $out .= $this->graph->getStopTransform();
         // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+        $this->svgobjs[$soid]['out'] .= $out; 
     }
 
     /**
@@ -3388,39 +3399,38 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $posy = $ymin;
         $width = ($xmax - $xmin);
         $height = ($ymax - $ymin);
+        $out = '';
         if ($this->svgobjs[$soid]['clipmode']) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getPolygon(
+            $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+            $out .= $this->graph->getPolygon(
                 $pset,
                 'CNZ',
             );
             return;
         }
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-        $obstyle = $this->parseSVGStyle(
+        $out .= $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+        $obstyle = '';
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $posx,
             $posy,
             $width,
             $height,
+            $obstyle,
             'getPolygon',
             [$pset, 'CNZ']
         );
         if (!empty($obstyle)) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['out'] .= $this->graph->getPolygon(
+            $out .= $this->graph->getPolygon(
                 $pset,
                 $obstyle,
             );
         }
+        $out .= $this->graph->getStopTransform();
         // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+        $this->svgobjs[$soid]['out'] .= $out;
     }
 
     /**
@@ -3449,10 +3459,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $posy = (isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0);
         $width = (isset($attr['width']) ? $this->svgUnitToUnit($attr['width'], $soid) : 0.0);
         $height = (isset($attr['height']) ? $this->svgUnitToUnit($attr['height'], $soid) : 0.0);
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStartTransform();
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
+        $out = '';
+        $out .= $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
         $this->parseSVGStyle(
             $parser,
             $soid,
@@ -3485,8 +3494,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $img = '@' . base64_decode(substr($img, strlen($match[0])));
         }
         $imgid = $this->image->add($img);
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->image->getSetImage(
+        $out .= $this->image->getSetImage(
             $imgid,
             $posx,
             $posy,
@@ -3494,8 +3502,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $height,
             $this->page->getPage()['pheight'],
         );
+        $out .= $this->graph->getStopTransform();
+
         // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+        $this->svgobjs[$soid]['out'] .= $out;
     }
 
     /**
