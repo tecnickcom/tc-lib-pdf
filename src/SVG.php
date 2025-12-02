@@ -3909,8 +3909,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         // SVG position && scale factors
-        $svgoffset_x = $this->toUnit($posx - $size['x']);
-        $svgoffset_y = $this->toUnit($size['y'] - $posy);
+        $svgoffset_x = $this->toPoints($posx - $size['x']);
+        $svgoffset_y = $this->toPoints($size['y'] - $posy);
         $svgscale_x = $width / $size['width'];
         $svgscale_y = $height / $size['height'];
 
@@ -3938,11 +3938,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     // do nothing
                     break;
                 case 'Max':
-                    $svgoffset_x += $this->toUnit($width - ($size['width'] * $svgscale_x));
+                    $svgoffset_x += $this->toPoints($width - ($size['width'] * $svgscale_x));
                     break;
                 default:
                 case 'Mid':
-                    $svgoffset_x += $this->toUnit(($width - ($size['width'] * $svgscale_x)) / 2);
+                    $svgoffset_x += $this->toPoints(($width - ($size['width'] * $svgscale_x)) / 2);
                     break;
             }
             // correct Y alignment
@@ -3951,11 +3951,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     // do nothing
                     break;
                 case 'Max':
-                    $svgoffset_y -= $this->toUnit($height - ($size['height'] * $svgscale_y));
+                    $svgoffset_y -= $this->toPoints($height - ($size['height'] * $svgscale_y));
                     break;
                 default:
                 case 'Mid':
-                    $svgoffset_y -= $this->toUnit(($height - ($size['height'] * $svgscale_y)) / 2);
+                    $svgoffset_y -= $this->toPoints(($height - ($size['height'] * $svgscale_y)) / 2);
                     break;
             }
         }
@@ -3978,8 +3978,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
 
         // scale && translate
-        $esx = $this->toUnit($size['x']) * (1 - $svgscale_x);
-        $fsy = $this->toYUnit($size['y']) * (1 - $svgscale_y);
+        $esx = $this->toPoints($size['x']) * (1 - $svgscale_x);
+        $fsy = $this->toYPoints($size['y']) * (1 - $svgscale_y);
         $ctm = [
             0 => $svgscale_x,
             1 => 0.0,
