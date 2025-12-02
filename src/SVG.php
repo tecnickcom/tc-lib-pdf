@@ -2615,35 +2615,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'use' => $this->parseSVGTagSTARTuse($parser, $soid, $attr),
             default => null,
         };
-
-        // process child elements
-        /*
-        if (empty($attribs['child'])) {
-            return;
-        }
-
-        $children = $attr['child'];
-        unset($attribs['child']);
-
-        foreach ($children as $child) {
-            if (empty($child['attr']) || !is_array($child['attr']) || !is_string($child['name'])) {
-                continue;
-            }
-            if (empty($child['attr']['closing_tag'])) {
-                $this->handleSVGTagStart(
-                    $parser,
-                    $child['name'],
-                    $child['attr'],
-                    $soid,
-                );
-                continue;
-            }
-            if (isset($child['attr']['content'])) {
-                $this->svgobjs[$soid]['text'] = $child['attr']['content'];
-            }
-            $this->handleSVGTagEnd($parser, $child['name']);
-        }
-        */
     }
 
     /**
@@ -4019,6 +3990,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         ];
         $out .= $this->graph->getTransformation($ctm);
 
+        $this->svgobjs[$soid]['out'] .= $out;
+
         // creates a new XML parser to be used by the other XML functions
         $parser = xml_parser_create('UTF-8');
         // the following function allows to use parser inside object
@@ -4046,9 +4019,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // >= PHP 7.0.0 "explicitly unset the reference to parser to avoid memory leaks"
         unset($parser);
 
-        $out .= $this->graph->getStopTransform();
-
-        $this->svgobjs[$soid]['out'] .= $out;
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
 
         return $soid;
     }
