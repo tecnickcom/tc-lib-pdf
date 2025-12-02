@@ -1714,11 +1714,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG stroke style.
      *
+     * @param int $soid SVG object ID.
      * @param TSVGStyle $svgstyle SVG style.
      *
      * @return string the Raw PDF command to set the stroke.
      */
     protected function parseSVGStyleStroke(
+        int $soid,
         array &$svgstyle,
     ): string {
         if (empty($svgstyle['stroke']) || ($svgstyle['stroke'] == 'none')) {
@@ -1728,7 +1730,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $strokestyle = $this->graph->getDefaultStyle();
 
         $col = $this->color->getColorObj($svgstyle['stroke']);
-        if ($col == null) {
+        if (empty($col)) {
             return '';
         }
 
@@ -1743,9 +1745,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
 
-        $ref = self::REFUNITVAL;
+        $ref = $this->svgobjs[$soid]['refunitval'];
         $ref['parent'] = 0;
-        $strokestyle['lineWidth'] = $this->svgUnitToPoints(
+        $strokestyle['lineWidth'] = $this->svgUnitToUnit(
             $svgstyle['stroke-width'],
             -1,
             $ref,
@@ -1762,7 +1764,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
         // $strokestyle['dashPhase'] = 0,
         $strokestyle['lineColor'] = $svgstyle['stroke'];
-        $strokestyle['fillColor'] = $svgstyle['stroke'];
+        unset($strokestyle['fillColor']);
 
         $out .= $this->graph->getStyleCmd($strokestyle);
 
@@ -2195,7 +2197,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $clip_fnc,
             $clip_par
         );
-        $out .= $this->parseSVGStyleStroke($svgstyle);
+        $out .= $this->parseSVGStyleStroke($soid, $svgstyle);
         $out .= $this->parseSVGStyleFont(
             $svgstyle,
             $prev_svgstyle,
