@@ -384,13 +384,13 @@ use TSVGStyle;
  *    'defsmode': bool,
  *    'clipmode': bool,
  *    'clipid': int,
- *    'gradientid': string,
  *    'tagdepth': int,
  *    'x0': float,
  *    'y0': float,
  *    'x': float,
  *    'y': float,
  *    'refunitval': TRefUnitValues,
+ *    'gradientid': string,
  *    'gradients': array<string, TSVGGradient>,
  *    'clippaths': array<string, TSVGAttribs>,
  *    'defs': array<string, TSVGAttribs>,
@@ -399,6 +399,7 @@ use TSVGStyle;
  *    'child': array<int>,
  *    'textmode': TSVGTextMode,
  *    'text': string,
+ *    'dir': string,
  *    'out': string,
  * }
  *
@@ -612,13 +613,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'defsmode' => false,
         'clipmode' => false,
         'clipid' => 0,
-        'gradientid' => '',
         'tagdepth' => 0,
         'x0' => 0.0,
         'y0' => 0.0,
         'x' => 0.0,
         'y' => 0.0,
         'refunitval' => self::REFUNITVAL,
+        'gradientid' => '',
         'gradients' => [],
         'clippaths' => [],
         'cliptm' => self::TMXID,
@@ -632,6 +633,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'text-anchor' => 'start',
         ],
         'text' => '',
+        'dir' => '',
         'out' => '',
     ];
 
@@ -3556,6 +3558,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             // embedded image encoded as base64
             $img = '@' . base64_decode(substr($img, strlen($match[0])));
         }
+
+        if (!empty($this->svgobjs[$soid]['dir']) && (($img[0] == '.') || (basename($img) == $img))) {
+            // replace relative path with full server path
+            $img = $this->svgobjs[$soid]['dir'] . '/' . $img;
+        }
+
         $imgid = $this->image->add($img);
         $out .= $this->image->getSetImage(
             $imgid,
@@ -3563,7 +3571,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $posy,
             $width,
             $height,
-            $this->page->getPage()['pheight'],
+            $this->page->getPage()['height'],
         );
         $out .= $this->graph->getStopTransform();
         return $out;
@@ -3872,6 +3880,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
         $this->graph->setPageHeight($pageheight);
 
+        $imgdir = dirname($img);
+        if ($imgdir === '.') {
+            $imgdir = '';
+        }
+
         $data = $this->getRawSVGData($img);
         if (empty($data)) {
             throw new PdfException('Invalid SVG');
@@ -3969,6 +3982,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // @phpstan-ignore assign.propertyType
         $this->svgobjs[$soid] = self::SVGDEFOBJ;
+        $this->svgobjs[$soid]['dir'] = $imgdir;
         $this->svgobjs[$soid]['refunitval']['page']['height'] = $this->toPoints($pageheight);
 
         $out = '';

@@ -312,6 +312,13 @@
      d="m 32.361418,52.28906 48.780487,0 -24.39025,48.78049 z"
      id="path28"
      style="fill:#ffff00;stroke:#0000ff;stroke-width:1.21951222" />
+  <image
+     xlink:href="tcpdf_logo.jpg"
+     id="image36"
+     height="26.666664"
+     width="80"
+     y="111.32501"
+     x="16.751661" />
   <text
      x="13.399332"
      y="41.580627"
