@@ -3520,7 +3520,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out = '';
         $out .= $this->graph->getStartTransform();
         $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-        $this->parseSVGStyle(
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $svgstyle,
@@ -3638,7 +3638,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out = '';
         $out .= $this->graph->getStartTransform();
         $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
-        $this->parseSVGStyle(
+        $out .= $this->parseSVGStyle(
             $parser,
             $soid,
             $svgstyle,
