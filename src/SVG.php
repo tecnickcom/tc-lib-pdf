@@ -64,7 +64,7 @@ use TSVGStyle;
  * }
  *
  * @phpstan-type TSVGGradient array{
- *    'xref': int,
+ *    'xref': string,
  *    'type': int,
  *    'gradientUnits': string,
  *    'mode': string,
@@ -384,14 +384,14 @@ use TSVGStyle;
  *    'defsmode': bool,
  *    'clipmode': bool,
  *    'clipid': int,
- *    'gradientid': int,
+ *    'gradientid': string,
  *    'tagdepth': int,
  *    'x0': float,
  *    'y0': float,
  *    'x': float,
  *    'y': float,
  *    'refunitval': TRefUnitValues,
- *    'gradients': array<int, TSVGGradient>,
+ *    'gradients': array<string, TSVGGradient>,
  *    'clippaths': array<string, TSVGAttribs>,
  *    'defs': array<string, TSVGAttribs>,
  *    'cliptm': TTMatrix,
@@ -612,7 +612,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'defsmode' => false,
         'clipmode' => false,
         'clipid' => 0,
-        'gradientid' => 0,
+        'gradientid' => '',
         'tagdepth' => 0,
         'x0' => 0.0,
         'y0' => 0.0,
@@ -1872,8 +1872,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * Parse the SVG fill style.
      *
      * @parma int $soid SVG object ID.
-     * @param array<int, TSVGGradient> $gradients Gradients.
-     * @param int $xref Gradient ID.
+     * @param array<string, TSVGGradient> $gradients Gradients.
+     * @param string $xref Gradient ID.
      * @param float $grx X position in user units.
      * @param float $gry Y position in user units.
      * @param float $grw Width in user units.
@@ -1886,7 +1886,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function parseSVGStyleGradient(
         int $soid,
         array $gradients,
-        int $xref,
+        string $xref,
         float $grx,
         float $gry,
         float $grw,
@@ -2026,7 +2026,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out = '';
 
         $out .= sprintf(
-            '%F 0 0 %F %F %F cm',
+            '%F 0 0 %F %F %F cm' . "\n",
             $this->toPoints($grw),
             $this->toPoints($grh),
             $this->toPoints($grx),
@@ -2051,7 +2051,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param int $soid SVG object ID.
      * @param TSVGStyle $svgstyle SVG style.
-     * @param array<int, TSVGGradient> $gradients Gradients.
+     * @param array<string, TSVGGradient> $gradients Gradients.
      * @param float $posx X position in user units.
      * @param float $posy Y position in user units.
      * @param float $width Width in user units.
@@ -2081,7 +2081,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $this->parseSVGStyleGradient(
                 $soid,
                 $gradients,
-                intval($regs[1]),
+                $regs[1],
                 $posx,
                 $posy,
                 $width,
@@ -2481,7 +2481,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if (
             $this->svgobjs[$soid]['defsmode']
-            && !in_array($name, ['clipPath', 'linearGradient', 'radialGradient', 'stop'])
+            && !in_array($name, self::SVGDEFSMODESTART)
         ) {
             if (!isset($this->svgobjs[$soid]['clippaths'])) {
                 $this->svgobjs[$soid]['clippaths'] = [];
@@ -2964,11 +2964,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
         }
-        $pcx = isset($attr['cx']) ? $this->svgUnitToUnit($attr['cx'], $soid, $ref) : 0.5;
-        $pcy = isset($attr['cy']) ? $this->svgUnitToUnit($attr['cy'], $soid, $ref) : 0.5;
-        $pfx = isset($attr['fx']) ? $this->svgUnitToUnit($attr['fx'], $soid, $ref) : $pcx;
-        $pfy = isset($attr['fy']) ? $this->svgUnitToUnit($attr['fy'], $soid, $ref) : $pcy;
-        $grr = isset($attr['r']) ? $this->svgUnitToUnit($attr['r'], $soid, $ref) : 0.5;
+        $pcx = $attr['cx'] ?? 0.5;
+        $pcy = $attr['cy'] ?? 0.5;
+        $pfx = $attr['fx'] ?? $pcx;
+        $pfy = $attr['fy'] ?? $pcy;
+        $grr = $attr['r'] ?? 0.5;
         if (isset($attr['gradientTransform'])) {
             $this->svgobjs[$soid]['gradients'][$gid]['gradientTransform'] =
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
@@ -2996,7 +2996,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $svgstyle,
     ): string {
         $offset = isset($attr['offset']) ? $this->svgUnitToUnit($attr['offset'], $soid) : 0.0;
-        $stop_color = isset($svgstyle['stop-color']) ? $this->color->getColorObj($svgstyle['stop-color']) : 'black';
+        $stop_color = $svgstyle['stop-color'] ?? 'black';
         $opacity = isset($svgstyle['stop-opacity']) ? min(
             0.0,
             max(
@@ -3073,7 +3073,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $height,
             $obstyle,
             'getSVGPath',
-            [$ptd, 'CNZ'],
+            [$soid, $ptd, 'CNZ'],
         );
 
         if (!empty($obstyle)) {
@@ -3979,7 +3979,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // scale && translate
         $esx = $this->toPoints($size['x']) * (1 - $svgscale_x);
-        $fsy = $this->toYPoints($size['y']) * (1 - $svgscale_y);
+        $fsy = $this->toPoints($pageheight - $size['y']) * (1 - $svgscale_y);
         $ctm = [
             0 => $svgscale_x,
             1 => 0.0,
