@@ -1910,23 +1910,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $gradient = $newgradient;
         }
 
+        $out = '';
+        $out .= $this->graph->getStartTransform();
+
         if (!empty($clip_fnc)) {
-            $bbox = [];
+            $fnout = null;
             if (method_exists($this, $clip_fnc)) {
-                $bbox = $this->$clip_fnc(...$clip_par);
+                $fnout = $this->$clip_fnc(...$clip_par);
             } elseif (method_exists($this->graph, $clip_fnc)) {
-                $bbox = $this->graph->$clip_fnc(...$clip_par);
+                $fnout = $this->graph->$clip_fnc(...$clip_par);
             }
-            if (
-                (!isset($gradient['type'])
-                || ($gradient['type'] != 3))
-                && is_array($bbox)
-                && (count($bbox) == 4)
+            if (is_string($fnout)) {
+                $out .= $fnout;
+            } elseif (
+                is_array($fnout) && (count($fnout) == 4)
+                && (!isset($gradient['type']) || ($gradient['type'] != 3))
             ) {
-                $grx = is_numeric($bbox[0]) ? (float)$bbox[0] : 0.0;
-                $gry = is_numeric($bbox[1]) ? (float)$bbox[1] : 0.0;
-                $grw = is_numeric($bbox[2]) ? (float)$bbox[2] : 0.0;
-                $grh = is_numeric($bbox[3]) ? (float)$bbox[3] : 0.0;
+                $grx = is_numeric($fnout[0]) ? (float)$fnout[0] : 0.0;
+                $gry = is_numeric($fnout[1]) ? (float)$fnout[1] : 0.0;
+                $grw = is_numeric($fnout[2]) ? (float)$fnout[2] : 0.0;
+                $grh = is_numeric($fnout[3]) ? (float)$fnout[3] : 0.0;
             }
         }
 
@@ -2022,8 +2025,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $gry -= $grh;
         }
 
-        $out = '';
-
         $out .= sprintf(
             '%F 0 0 %F %F %F cm' . "\n",
             $this->toPoints($grw),
@@ -2041,6 +2042,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 false,
             );
         }
+
+        $out .= $this->graph->getStopTransform();
 
         return $out;
     }
