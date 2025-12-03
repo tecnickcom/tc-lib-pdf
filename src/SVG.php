@@ -2014,7 +2014,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $gradient['coords'][3] = $tmp;
 
         // set transformation map for gradient
-        $gry = ($this->page->getPage()['height'] - $gry);
+        $gry = ($this->toUnit($this->svgobjs[$soid]['refunitval']['page']['height']) - $gry);
         if ($gradient['type'] == 3) {
             // circular gradient
             $gry -= ($gradient['coords'][1] * ($grw + $grh));
@@ -2030,7 +2030,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->toPoints($grw),
             $this->toPoints($grh),
             $this->toPoints($grx),
-            $this->toPoints($gry)
+            $this->toPoints($gry),
         );
 
         if (count($gradient['stops']) > 1) {
@@ -3977,8 +3977,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
 
         // scale && translate
-        $esx = $this->toPoints($size['x']) * (1 - $svgscale_x);
-        $fsy = $this->toPoints($pageheight - $size['y']) * (1 - $svgscale_y);
+        $esx = $this->toPoints($size['x'] * (1 - $svgscale_x));
+        $fsy = $this->toPoints(($pageheight - $size['y']) * (1 - $svgscale_y));
+
         $ctm = [
             0 => $svgscale_x,
             1 => 0.0,
@@ -3987,6 +3988,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             4 => $esx + $svgoffset_x,
             5 => $fsy + $svgoffset_y,
         ];
+
         $out .= $this->graph->getTransformation($ctm);
 
         $this->svgobjs[$soid]['out'] .= $out;
