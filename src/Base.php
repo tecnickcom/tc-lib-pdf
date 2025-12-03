@@ -334,7 +334,7 @@ abstract class Base
     /**
      * Ratio between an internal point and pixel size.
      */
-    protected float $pointtopixelratio = 1.0;
+    protected float $pointtopixelratio = 72 / 96; // 96 DPI (standard web/CSS baseline)
 
     /**
      * Version of the PDF/A mode or 0 otherwise.

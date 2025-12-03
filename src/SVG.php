@@ -867,7 +867,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 'skewY' => $this->parseSVGTMskewY($val),
                 default => $this->graph::IDMATRIX,
             };
-
             $tma = $this->graph->getCtmProduct($tma, $tmb);
         }
 
@@ -886,11 +885,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $trm,
         int $soid = 0,
     ): array {
-        $tmy = $this->svgobjs[$soid]['refunitval']['page']['height'];
+        $pheight = $this->svgobjs[$soid]['refunitval']['page']['height'];
         $trm[1] = -$trm[1];
         $trm[2] = -$trm[2];
-        $trm[4] = $this->svgUnitToPoints($trm[4], $soid) - ($tmy * $trm[2]);
-        $trm[5] = ($tmy * (1 - $trm[3])) - $this->svgUnitToPoints($trm[5], $soid);
+        $trm[4] = $this->svgUnitToPoints($trm[4], $soid) - ($pheight * $trm[2]);
+        $trm[5] = ($pheight * (1 - $trm[3])) - $this->svgUnitToPoints($trm[5], $soid);
         return $trm;
     }
 
