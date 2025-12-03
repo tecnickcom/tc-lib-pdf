@@ -2997,9 +2997,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ): string {
         $offset = isset($attr['offset']) ? $this->svgUnitToUnit($attr['offset'], $soid) : 0.0;
         $stop_color = $svgstyle['stop-color'] ?? 'black';
-        $opacity = isset($svgstyle['stop-opacity']) ? min(
+        $opacity = isset($svgstyle['stop-opacity']) ? max(
             0.0,
-            max(
+            min(
                 1.0,
                 floatval($svgstyle['stop-opacity'])
             )
@@ -3245,7 +3245,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             );
         }
         $out .= $this->graph->getStopTransform();
-
         return $out;
     }
 
