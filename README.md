@@ -1,5 +1,6 @@
 # tc-lib-pdf
-*PHP PDF Library*
+
+***PHP PDF Library***
 
 [![Latest Stable Version](https://poser.pugx.org/tecnickcom/tc-lib-pdf/version)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 ![Build](https://github.com/tecnickcom/tc-lib-pdf/actions/workflows/check.yml/badge.svg)
@@ -21,23 +22,23 @@
 
 ## Description
 
-PHP library for generating PDF documents on-the-fly.
-This is the new version of the TCPDF library that will be deprecated once all the existing features are ported.
+A PHP library for generating PDF documents dynamically.  
+This is the latest iteration of the TCPDF library; the previous version will be deprecated once all its features have been migrated.
 
-NOTE: The first complete (stable) version will be 8.1.0. As this is currently unstable, only the patch number in the version will be updated, even if breaking changes are introduced.
+**Note:** The first fully stable release was version 8.1.0. Subsequent releases adhere to semantic versioning: PATCH versions are reserved for backwards-compatible bug fixes, MINOR versions for backwards-compatible feature enhancements, and MAJOR versions for changes that break backwards compatibility. For further details, see [semver.org](https://semver.org/).
 
-### Main Features:
+### Main Features
 
-***(the features striked through are in progress)***
+***Features with strikethrough are planned for future releases and are not yet available.***
 
 * all standard page formats, custom page formats, custom margins and units of measure;
 * UTF-8 Unicode and Right-To-Left languages;
 * TrueTypeUnicode, OpenTypeUnicode v1, TrueType, OpenType v1, Type1 and CID-0 fonts;
 * font subsetting;
-* [] ~SVG~
-* [] ~CSS~
-* [] ~HTML~
-* [] ~JavaScript~
+* SVG
+* ~~CSS~~ (TODO)
+* ~~HTML~~ (TODO)
+* ~~JavaScript~~ (TODO)
 * images, graphic (geometric figures) and transformation methods;
 * supports JPEG, PNG and SVG images natively, all images supported by GD (GD, GD2, GD2PART, GIF, JPEG, PNG, BMP, XBM, XPM) and all images supported via ImagMagick (http://www.imagemagick.org/script/formats.php)
 * 1D and 2D barcodes via tc-lib-barcode.
@@ -59,7 +60,7 @@ NOTE: The first complete (stable) version will be 8.1.0. As this is currently un
 * Layers and object visibility.
 * PDF/A-1b support.
 
-### Third party fonts:
+### Third party fonts
 
 This library may include third party font files released with different licenses.
 
@@ -81,7 +82,7 @@ Link : http://dejavu-fonts.org
 The binary files (.z) that begins with the prefix "ae" have been extracted from the Arabeyes.org collection (GNU-GPLv2).
 Link : http://projects.arabeyes.org/
 
-### ICC profile:
+### ICC profile
 
 TCPDF includes the sRGB.icc profile from the icc-profiles-free Debian package:
 https://packages.debian.org/source/stable/icc-profiles-free
@@ -91,8 +92,8 @@ https://packages.debian.org/source/stable/icc-profiles-free
 First, you need to install all development dependencies using [Composer](https://getcomposer.org/):
 
 ```bash
-$ curl -sS https://getcomposer.org/installer | php
-$ mv composer.phar /usr/local/bin/composer
+curl -sS https://getcomposer.org/installer | php
+mv composer.phar /usr/local/bin/composer
 ```
 
 You can install the library via composer:
@@ -124,19 +125,17 @@ make qa
 
 All artifacts are generated in the target directory.
 
-
 ## Example
 
 Examples are located in the `example` directory.
 
 Start a development server (requires PHP 8.0+) using the command:
 
-```
+```bash
 make server
 ```
 
 and point your browser to <http://localhost:8971/index.php>
-
 
 ## Installation
 
@@ -156,7 +155,6 @@ Create a composer.json in your projects root-directory:
 }
 ```
 
-
 ## Packaging
 
 This library is mainly intended to be used and included in other PHP projects using Composer.
@@ -165,10 +163,10 @@ this library includes make targets for building these packages (`make rpm` and `
 The packages are generated under the `target` directory.
 
 When this library is installed using an RPM or DEB package, you can use it your code by including the autoloader:
-```
+
+```bash
 require_once ('/usr/share/php/Com/Tecnick/Barcode/autoload.php');
 ```
-
 
 ## Developer(s) Contact
 
