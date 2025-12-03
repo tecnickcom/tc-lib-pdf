@@ -124,12 +124,13 @@ $pdf->page->addContent($svgid01_out);
 
 $svgid02 = $pdf->addSVG('./images/testsvg.svg', 10, 160, 120, 60, $page01['height']);
 $svgid02_out = $pdf->getSetSVG($svgid02);
-//echo $svgid02_out; exit(); //DEBUG
 $pdf->page->addContent($svgid02_out);
 
+// The copyright holder of the tux.svg image is Larry Ewing,
+// allows anyone to use it for any purpose, provided that the copyright holder is properly attributed.
+// Redistribution, derivative work, commercial use, and all other use is permitted.
 $svgid03 = $pdf->addSVG('./images/tux.svg', 130, 80, 62, 75, $page01['height']);
 $svgid03_out = $pdf->getSetSVG($svgid03);
-//echo $svgid03_out; exit(); //DEBUG
 $pdf->page->addContent($svgid03_out);
 
 // ----------
