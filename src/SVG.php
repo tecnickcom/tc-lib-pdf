@@ -1029,6 +1029,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $coord['firstcmd'] = false;
         }
 
+        $this->bbox[] = [
+            'x' => $coord['xmin'],
+            'y' => $coord['ymin'],
+            'w' => ($coord['xmax'] - $coord['xmin']),
+            'h' => ($coord['ymax'] - $coord['ymin']),
+        ];
+
         $out .= $pop;
 
         return $out;
@@ -1914,6 +1921,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out .= $this->graph->getStartTransform();
 
         if (!empty($clip_fnc)) {
+            $bboxid_start = array_key_last($this->bbox);
             $fnout = null;
             if (method_exists($this, $clip_fnc)) {
                 $fnout = $this->$clip_fnc(...$clip_par);
@@ -1922,14 +1930,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
             if (is_string($fnout)) {
                 $out .= $fnout;
-            } elseif (
-                is_array($fnout) && (count($fnout) == 4)
+            }
+            $bboxid_last = array_key_last($this->bbox);
+
+            if (
+                ($bboxid_last > $bboxid_start)
                 && (!isset($gradient['type']) || ($gradient['type'] != 3))
             ) {
-                $grx = is_numeric($fnout[0]) ? (float)$fnout[0] : 0.0;
-                $gry = is_numeric($fnout[1]) ? (float)$fnout[1] : 0.0;
-                $grw = is_numeric($fnout[2]) ? (float)$fnout[2] : 0.0;
-                $grh = is_numeric($fnout[3]) ? (float)$fnout[3] : 0.0;
+                $bbox = $this->bbox[$bboxid_last];
+                $grx = is_numeric($bbox['x']) ? (float)$bbox['x'] : 0.0;
+                $gry = is_numeric($bbox['y']) ? (float)$bbox['y'] : 0.0;
+                $grw = is_numeric($bbox['w']) ? (float)$bbox['w'] : 0.0;
+                $grh = is_numeric($bbox['h']) ? (float)$bbox['h'] : 0.0;
             }
         }
 
@@ -2889,9 +2901,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['gradients'][$gid]['gradientUnits'] = 'objectBoundingBox';
         }
         // $attr['spreadMethod']
-
-        /** @var TRefUnitValues $ref */
-        $ref = $this->svgobjs[$soid]['refunitval'];
         if (
             ((!isset($attr['x1'])) && (!isset($attr['y1']))
             && (!isset($attr['x2'])) && (!isset($attr['y2'])))
@@ -2901,14 +2910,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             || (isset($attr['y2']) && (substr($attr['y2'], -1) == '%')))
         ) {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'percentage';
-            $ref['parent'] = 100.0;
         } else {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
         }
-        $px1 = isset($attr['x1']) ? $this->svgUnitToUnit($attr['x1'], $soid, $ref) : 0.0;
-        $py1 = isset($attr['y1']) ? $this->svgUnitToUnit($attr['y1'], $soid, $ref) : 0.0;
-        $px2 = isset($attr['x2']) ? $this->svgUnitToUnit($attr['x2'], $soid, $ref) : 100.0;
-        $py2 = isset($attr['y2']) ? $this->svgUnitToUnit($attr['y2'], $soid, $ref) : 0.0;
+        $px1 = $attr['x1'] ?? 0.0;
+        $py1 = $attr['y1'] ?? 0.0;
+        $px2 = $attr['x2'] ?? 100.0;
+        $py2 = $attr['y2'] ?? 0.0;
         if (isset($attr['gradientTransform'])) {
             $this->svgobjs[$soid]['gradients'][$gid]['gradientTransform'] =
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
@@ -2918,7 +2926,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             // gradient is defined on another place
             $this->svgobjs[$soid]['gradients'][$gid]['xref'] = substr($attr['xlink:href'], 1);
         }
-
         return '';
     }
 
@@ -2951,9 +2958,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['gradients'][$gid]['gradientUnits'] = 'objectBoundingBox';
         }
         // $attr['spreadMethod']
-
-        /** @var TRefUnitValues $ref */
-        $ref = $this->svgobjs[$soid]['refunitval'];
         if (
             ((!isset($attr['cx'])) && (!isset($attr['cy'])))
             || ((isset($attr['cx']) && (substr($attr['cx'], -1) == '%'))
@@ -2962,7 +2966,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'percentage';
         } elseif (isset($attr['r']) && is_numeric($attr['r']) && ($attr['r']) <= 1) {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'ratio';
-            $ref['parent'] = 100.0;
         } else {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
         }
@@ -2976,7 +2979,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
         }
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$pcx, $pcy, $pfx, $pfy, $grr];
-        if (isset($attr['xlink:href']) && !empty($attr['xlink:href'])) {
+        if (!empty($attr['xlink:href'])) {
             // gradient is defined on another place
             $this->svgobjs[$soid]['gradients'][$gid]['xref'] = substr($attr['xlink:href'], 1);
         }
