@@ -70,25 +70,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\CSS
         // fix the HTML
         $tidy->cleanRepair();
         // get the CSS part
-        $head = tidy_get_head($tidy);
-        $css = empty($head) ? '' : $head->value;
+        $headnode = tidy_get_head($tidy);
+        $css = empty($headnode) ? '' : $headnode->value;
         $css = preg_replace('/<style([^>]+)>/ims', '<style>', $css) ?? '';
         $css = preg_replace('/<\/style>(.*)<style>/ims', "\n", $css) ?? '';
         $css = str_replace('/*<![CDATA[*/', '', $css);
         $css = str_replace('/*]]>*/', '', $css);
         preg_match('/<style>(.*)<\/style>/ims', $css, $matches);
         $css = empty($matches[1]) ? '' : strtolower($matches[1]);
-        // include default css
-        $css = '<style>' . $defcss . $css . '</style>';
         // get the body part
-        $body = tidy_get_body($tidy);
-        $html = empty($body) ? '' : $body->value;
+        $bodynode = tidy_get_body($tidy);
+        $body = empty($bodynode) ? '' : $bodynode->value;
         // fix some self-closing tags
-        $html = str_replace('<br>', '<br />', $html);
+        $body = str_replace('<br>', '<br />', $body);
         // remove some empty tag blocks
-        $html = preg_replace('/<div([^\>]*)><\/div>/', '', $html) ?? '';
-        $html = preg_replace('/<p([^\>]*)><\/p>/', '', $html) ?? '';
-        // return the cleaned XHTML code + CSS
-        return $css . $html;
+        $body = preg_replace('/<div([^\>]*)><\/div>/', '', $body) ?? '';
+        $body = preg_replace('/<p([^\>]*)><\/p>/', '', $body) ?? '';
+        // return the cleaned XHTML code with CSS
+        return '<style>' . $defcss . $css . '</style>' . $body;
     }
 }
