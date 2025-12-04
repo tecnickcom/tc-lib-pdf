@@ -17,6 +17,7 @@
 namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Color\Model as ColorModel;
 
 /**
  * Com\Tecnick\Pdf\CSS
@@ -30,8 +31,384 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base as BorderStyle
+ *
+ * @phpstan-type TCSSBorderSpacing array{
+ *     'H': float,
+ *     'V': float,
+ * }
  */
 abstract class CSS extends \Com\Tecnick\Pdf\SVG
 {
-    //@TODO
+    /**
+     * Default values for cell boundaries.
+     *
+     * @const TCSSBorderSpacing
+     */
+    public const ZEROBORDERSPACE = [
+        'H' => 0,
+        'V' => 0,
+    ];
+
+    /**
+     * Default CSS margin.
+     *
+     * @var TCellBound
+     */
+    protected $defCSSCellMargin = self::ZEROCELLBOUND;
+
+    /**
+     * Default CSS padding.
+     *
+     * @var TCellBound
+     */
+    protected $defCSSCellPadding = self::ZEROCELLBOUND;
+
+    /**
+     * Default CSS border space.
+     *
+     * @var TCSSBorderSpacing
+     */
+    protected $defCSSBorderSpacing = self::ZEROBORDERSPACE;
+
+    /**
+     * Set the default CSS margin in user units.
+     *
+     * @param float $top    Top.
+     * @param float $right  Right.
+     * @param float $bottom Bottom.
+     * @param float $left   Left.
+     */
+    public function setDefaultCSSMargin(
+        float $top,
+        float $right,
+        float $bottom,
+        float $left
+    ): void {
+        $this->defCSSCellMargin['T'] = $this->toPoints($top);
+        $this->defCSSCellMargin['R'] = $this->toPoints($right);
+        $this->defCSSCellMargin['B'] = $this->toPoints($bottom);
+        $this->defCSSCellMargin['L'] = $this->toPoints($left);
+    }
+
+    /**
+     * Set the default CSS padding in user units.
+     *
+     * @param float $top    Top.
+     * @param float $right  Right.
+     * @param float $bottom Bottom.
+     * @param float $left   Left.
+     */
+    public function setDefaultCSSPadding(
+        float $top,
+        float $right,
+        float $bottom,
+        float $left
+    ): void {
+        $this->defCSSCellPadding['T'] = $this->toPoints($top);
+        $this->defCSSCellPadding['R'] = $this->toPoints($right);
+        $this->defCSSCellPadding['B'] = $this->toPoints($bottom);
+        $this->defCSSCellPadding['L'] = $this->toPoints($left);
+    }
+
+    /**
+     * Set the default CSS border spacing in user units.
+     *
+     * @param float $horiz Horizontal space.
+     * @param float $vert Vertical space.
+     */
+    public function setDefaultCSSBorderSpacing(
+        float $vert,
+        float $horiz,
+    ): void {
+        $this->defCSSBorderSpacing['V'] = $this->toPoints($vert);
+        $this->defCSSBorderSpacing['H'] = $this->toPoints($horiz);
+    }
+
+    /**
+     * Returns the border width from CSS property.
+     *
+     * @param string $width border width.
+     *
+     * @return float width in internal points.
+     */
+    protected function getCSSBorderWidthPoints(string $width): float
+    {
+        return match ($width) {
+            '' => 0.0,
+            'thin' => 2.0,
+            'medium' => 4.0,
+            'thick' => 6.0,
+            default => $this->getUnitValuePoints($width),
+        };
+    }
+
+    /**
+     * Returns the border width from CSS property.
+     *
+     * @param string $width border width.
+     *
+     * @return float width in user units.
+     */
+    protected function getCSSBorderWidth(string $width): float
+    {
+        return $this->toUnit($this->getCSSBorderWidthPoints($width));
+    }
+
+    /**
+     * Returns the border dash style from CSS property.
+     *
+     * @param string $style Border style to convert.
+     *
+     * @return int Border dash style (return -1 in case of none or hidden border).
+     */
+    protected function getCSSBorderDashStyle(string $style): int
+    {
+        return match (strtolower($style)) {
+            'none' => -1,
+            'hidden' => -1,
+            'dotted' => 1,
+            'dashed' => 3,
+            'double' => 0,
+            'groove' => 0,
+            'ridge' => 0,
+            'inset' => 0,
+            'outset' => 0,
+            'solid' => 0,
+            default => 0,
+        };
+    }
+
+    /**
+     * Returns the default CSS borer style.
+     *
+     * @return BorderStyle
+     */
+    protected function getCSSDefaultBorderStyle(): array
+    {
+        return [
+            'lineWidth' => 0,
+            'lineCap' => 'square',
+            'lineJoin' => 'miter',
+            'miterLimit' => $this->toUnit(10.0),
+            'dashArray' => [],
+            'dashPhase' => 0,
+            'lineColor' => 'black',
+            'fillColor' => '',
+        ];
+    }
+
+    /**
+     * Returns the border style array from CSS border properties.
+     *
+     * @param string $cssborder border properties.
+     *
+     * @return BorderStyle border properties.
+     */
+    protected function getCSSBorderStyle(string $cssborder): array
+    {
+        $border = $this->getCSSDefaultBorderStyle();
+        $bprop = preg_split('/[\s]+/', trim($cssborder));
+        if ($bprop === false) {
+            return $border;
+        }
+        $count = \count($bprop);
+        if (($count > 0) && ($bprop[$count - 1] === '!important')) {
+            unset($bprop[$count - 1]);
+            --$count;
+        }
+        switch ($count) {
+            case 2:
+                $width = 'medium';
+                $style = $bprop[0];
+                $color = $bprop[1];
+                break;
+            case 1:
+                $width = 'medium';
+                $style = $bprop[0];
+                $color = 'black';
+                break;
+            case 0:
+                $width = 'medium';
+                $style = 'solid';
+                $color = 'black';
+                break;
+            default:
+                $width = $bprop[0];
+                $style = $bprop[1];
+                $color = $bprop[2];
+                break;
+        }
+        if ($style == 'none') {
+            return $border;
+        }
+        $dash = $this->getCSSBorderDashStyle($style);
+        if ($dash < 0) {
+            return $border;
+        }
+        $border['dashPhase'] = $dash;
+        $border['lineWidth'] = $this->getCSSBorderWidth($width);
+        $colobj = $this->color->getColorObj($color);
+        $border['lineColor'] = empty($colobj) ? 'black' : $colobj->getCssColor();
+        return $border;
+    }
+
+    /**
+     * Get the internal Cell padding from CSS attribute.
+     *
+     * @param string $csspadding padding properties.
+     * @param float $width width of the containing element.
+     *
+     * @return TCellBound cell paddings.
+     */
+    public function getCSSPadding(string $csspadding, float $width = 0.0): array
+    {
+        /** @var TCellBound $cellpad */
+        $cellpad = $this->defCSSCellPadding;
+        $pad = preg_split('/[\s]+/', trim($csspadding));
+        if ($pad === false) {
+            return $cellpad;
+        }
+        switch (count($pad)) {
+            case 4:
+                $cellpad['T'] = $pad[0];
+                $cellpad['R'] = $pad[1];
+                $cellpad['B'] = $pad[2];
+                $cellpad['L'] = $pad[3];
+                break;
+            case 3:
+                $cellpad['T'] = $pad[0];
+                $cellpad['R'] = $pad[1];
+                $cellpad['B'] = $pad[2];
+                $cellpad['L'] = $pad[1];
+                break;
+            case 2:
+                $cellpad['T'] = $pad[0];
+                $cellpad['R'] = $pad[1];
+                $cellpad['B'] = $pad[0];
+                $cellpad['L'] = $pad[1];
+                break;
+            case 1:
+                $cellpad['T'] = $pad[0];
+                $cellpad['R'] = $pad[0];
+                $cellpad['B'] = $pad[0];
+                $cellpad['L'] = $pad[0];
+                break;
+            default:
+                return $cellpad;
+        }
+        if ($width <= 0) {
+            $region = $this->page->getRegion();
+            $width = $region['RW'];
+        }
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = $width;
+        $cellpad['T'] = $this->toUnit($this->getUnitValuePoints($cellpad['T'], $ref));
+        $cellpad['R'] = $this->toUnit($this->getUnitValuePoints($cellpad['R'], $ref));
+        $cellpad['B'] = $this->toUnit($this->getUnitValuePoints($cellpad['B'], $ref));
+        $cellpad['L'] = $this->toUnit($this->getUnitValuePoints($cellpad['L'], $ref));
+        return $cellpad;
+    }
+
+    /**
+     * Get the internal Cell margin from CSS attribute.
+     *
+     * @param string $cssmargin margin properties.
+     * @param float $width width of the containing element.
+     *
+     * @return TCellBound cell margins.
+     */
+    public function getCSSMargin(string $cssmargin, float $width = 0.0): array
+    {
+        /** @var TCellBound $cellmrg */
+        $cellmrg = $this->defCSSCellMargin;
+        $mrg = preg_split('/[\s]+/', trim($cssmargin));
+        if ($mrg === false) {
+            return $cellmrg;
+        }
+        switch (count($mrg)) {
+            case 4:
+                $cellmrg['T'] = $mrg[0];
+                $cellmrg['R'] = $mrg[1];
+                $cellmrg['B'] = $mrg[2];
+                $cellmrg['L'] = $mrg[3];
+                break;
+            case 3:
+                $cellmrg['T'] = $mrg[0];
+                $cellmrg['R'] = $mrg[1];
+                $cellmrg['B'] = $mrg[2];
+                $cellmrg['L'] = $mrg[1];
+                break;
+            case 2:
+                $cellmrg['T'] = $mrg[0];
+                $cellmrg['R'] = $mrg[1];
+                $cellmrg['B'] = $mrg[0];
+                $cellmrg['L'] = $mrg[1];
+                break;
+            case 1:
+                $cellmrg['T'] = $mrg[0];
+                $cellmrg['R'] = $mrg[0];
+                $cellmrg['B'] = $mrg[0];
+                $cellmrg['L'] = $mrg[0];
+                break;
+            default:
+                return $cellmrg;
+        }
+        if ($width <= 0) {
+            $region = $this->page->getRegion();
+            $width = $region['RW'];
+        }
+        $cellmrg['T'] = str_replace('auto', '0', $cellmrg['T']);
+        $cellmrg['R'] = str_replace('auto', '0', $cellmrg['R']);
+        $cellmrg['B'] = str_replace('auto', '0', $cellmrg['B']);
+        $cellmrg['L'] = str_replace('auto', '0', $cellmrg['L']);
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = $width;
+        $cellmrg['T'] = $this->toUnit($this->getUnitValuePoints($cellmrg['T'], $ref));
+        $cellmrg['R'] = $this->toUnit($this->getUnitValuePoints($cellmrg['R'], $ref));
+        $cellmrg['B'] = $this->toUnit($this->getUnitValuePoints($cellmrg['B'], $ref));
+        $cellmrg['L'] = $this->toUnit($this->getUnitValuePoints($cellmrg['L'], $ref));
+        return $cellmrg;
+    }
+
+    /**
+     * Get the border-spacing from CSS attribute.
+     *
+     * @param string $cssbspace border-spacing CSS properties.
+     * @param float $width width of the containing element.
+     *
+     * @return TCSSBorderSpacing of border spacings.
+     */
+    public function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
+    {
+        /** @var TCSSBorderSpacing $bsp */
+        $bsp = $this->defCSSBorderSpacing;
+        $space = preg_split('/[\s]+/', trim($cssbspace));
+        if ($space === false) {
+            return $bsp;
+        }
+        switch (count($space)) {
+            case 2:
+                $bsp['H'] = $space[0];
+                $bsp['V'] = $space[1];
+                break;
+            case 1:
+                $bsp['H'] = $space[0];
+                $bsp['V'] = $space[0];
+                break;
+            default:
+                return $bsp;
+        }
+        if ($width <= 0) {
+            $region = $this->page->getRegion();
+            $width = $region['RW'];
+        }
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = $width;
+        $bsp['H'] = $this->toUnit($this->getUnitValuePoints($bsp['H'], $ref));
+        $bsp['V'] = $this->toUnit($this->getUnitValuePoints($bsp['V'], $ref));
+        return $bsp;
+    }
 }
