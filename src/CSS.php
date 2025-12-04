@@ -42,6 +42,8 @@ use Com\Tecnick\Color\Model as ColorModel;
  */
 abstract class CSS extends \Com\Tecnick\Pdf\SVG
 {
+    //@TODO: add missing methods
+
     /**
      * Default values for cell boundaries.
      *
