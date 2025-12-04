@@ -698,7 +698,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
         if (
-            preg_match(
+            \preg_match(
                 '/([a-z0-9\-\.]+)[\,\s]+'
                 . '([a-z0-9\-\.]+)[\,\s]+'
                 . '([a-z0-9\-\.]+)[\,\s]+'
@@ -709,12 +709,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $regs,
             )
         ) {
-            $tmb[0] = floatval($regs[1]);
-            $tmb[1] = floatval($regs[2]);
-            $tmb[2] = floatval($regs[3]);
-            $tmb[3] = floatval($regs[4]);
-            $tmb[4] = floatval($regs[5]);
-            $tmb[5] = floatval($regs[6]);
+            $tmb[0] = \floatval($regs[1]);
+            $tmb[1] = \floatval($regs[2]);
+            $tmb[2] = \floatval($regs[3]);
+            $tmb[3] = \floatval($regs[4]);
+            $tmb[4] = \floatval($regs[5]);
+            $tmb[5] = \floatval($regs[6]);
         }
         return $tmb;
     }
@@ -730,13 +730,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
-            $tmb[4] = floatval($regs[1]);
-            $tmb[5] = floatval($regs[2]);
+        if (\preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[4] = \floatval($regs[1]);
+            $tmb[5] = \floatval($regs[2]);
             return $tmb;
         }
-        if (preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
-            $tmb[4] = floatval($regs[1]);
+        if (\preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[4] = \floatval($regs[1]);
         }
         return $tmb;
     }
@@ -752,13 +752,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
-            $tmb[0] = floatval($regs[1]);
-            $tmb[3] = floatval($regs[2]);
+        if (\preg_match('/([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[0] = \floatval($regs[1]);
+            $tmb[3] = \floatval($regs[2]);
             return $tmb;
         }
-        if (preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
-            $tmb[0] = floatval($regs[1]);
+        if (\preg_match('/([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[0] = \floatval($regs[1]);
             $tmb[3] = $tmb[0];
         }
         return $tmb;
@@ -775,22 +775,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (preg_match('/([0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
-            $ang = deg2rad(floatval($regs[1]));
-            $trx = floatval($regs[2]);
-            $try = floatval($regs[3]);
-            $tmb[0] = cos($ang);
-            $tmb[1] = sin($ang);
+        if (\preg_match('/([0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)[\,\s]+([a-z0-9\-\.]+)/si', $val, $regs)) {
+            $ang = \deg2rad(\floatval($regs[1]));
+            $trx = \floatval($regs[2]);
+            $try = \floatval($regs[3]);
+            $tmb[0] = \cos($ang);
+            $tmb[1] = \sin($ang);
             $tmb[2] = -$tmb[1];
             $tmb[3] = $tmb[0];
             $tmb[4] = ($trx * (1 - $tmb[0])) - ($try * $tmb[2]);
             $tmb[5] = ($try * (1 - $tmb[3])) - ($trx * $tmb[1]);
             return $tmb;
         }
-        if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
-            $ang = deg2rad(floatval($regs[1]));
-            $tmb[0] = cos($ang);
-            $tmb[1] = sin($ang);
+        if (\preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+            $ang = \deg2rad(\floatval($regs[1]));
+            $tmb[0] = \cos($ang);
+            $tmb[1] = \sin($ang);
             $tmb = [$tmb[0], $tmb[1], -$tmb[1], $tmb[0], 0, 0];
         }
         return $tmb;
@@ -807,8 +807,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
-            $tmb[2] = tan(deg2rad(floatval($regs[1])));
+        if (\preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[2] = \tan(\deg2rad(\floatval($regs[1])));
         }
         return $tmb;
     }
@@ -824,8 +824,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     {
         $tmb = $this->graph::IDMATRIX;
         $regs = [];
-        if (preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
-            $tmb[1] = tan(deg2rad(floatval($regs[1])));
+        if (\preg_match('/([0-9\-\.]+)/si', $val, $regs)) {
+            $tmb[1] = \tan(\deg2rad(\floatval($regs[1])));
         }
         return $tmb;
     }
@@ -843,7 +843,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tma = $this->graph::IDMATRIX;
 
         if (
-            !preg_match_all(
+            !\preg_match_all(
                 '/(matrix|translate|scale|rotate|skewX|skewY)[\s]*+\(([^\)]+)\)/si',
                 $attr,
                 $transform,
@@ -921,8 +921,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function removeTagNamespace(string $name)
     {
-        $parts = explode(':', $name);
-        return end($parts);
+        $parts = \explode(':', $name);
+        return \end($parts);
     }
 
     /**
@@ -945,18 +945,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         // extract paths
-        $attrd = preg_replace('/([0-9ACHLMQSTVZ])([\-\+])/si', '\\1 \\2', $attrd);
+        $attrd = \preg_replace('/([0-9ACHLMQSTVZ])([\-\+])/si', '\\1 \\2', $attrd);
         if (empty($attrd)) {
             return '';
         }
 
-        $attrd = preg_replace('/(\.[0-9]+)(\.)/s', '\\1 \\2', $attrd);
+        $attrd = \preg_replace('/(\.[0-9]+)(\.)/s', '\\1 \\2', $attrd);
         if (empty($attrd)) {
             return '';
         }
 
         $paths = [];
-        preg_match_all('/([ACHLMQSTVZ])[\s]*+([^ACHLMQSTVZ\"]*+)/si', $attrd, $paths, PREG_SET_ORDER);
+        \preg_match_all('/([ACHLMQSTVZ])[\s]*+([^ACHLMQSTVZ\"]*+)/si', $attrd, $paths, PREG_SET_ORDER);
 
         // initialize variables
         $out = '';
@@ -981,10 +981,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // draw curve pieces
         foreach ($paths as $key => $val) {
             // get curve type
-            $cmd = trim($val[1]);
+            $cmd = \trim($val[1]);
 
             // relative or absolute coordinates
-            $coord['relcoord'] = (strtolower($cmd) == $cmd);
+            $coord['relcoord'] = (\strtolower($cmd) == $cmd);
             if ($coord['relcoord']) {
                 // use relative coordinated instead of absolute
                 $coord['xoffset'] = $coord['x'];
@@ -999,12 +999,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             // get curve parameters
             $rprms = [];
-            preg_match_all('/-?\d+(?:\.\d+)?/', trim($val[2]), $rprms);
+            \preg_match_all('/-?\d+(?:\.\d+)?/', \trim($val[2]), $rprms);
             $rawparams = $rprms[0];
 
             foreach ($rawparams as $prk => $prv) {
                 $params[$prk] = $this->svgUnitToUnit($prv, $soid);
-                if (abs($params[$prk]) < $this->svgminunitlen) {
+                if (\abs($params[$prk]) < $this->svgminunitlen) {
                     // approximate little values to zero
                     $params[$prk] = 0.0;
                 }
@@ -1014,7 +1014,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $coord['x0'] = $coord['x'];
             $coord['y0'] = $coord['y'];
 
-            $out .= match (strtoupper($cmd)) {
+            $out .= match (\strtoupper($cmd)) {
                 'A' => $this->svgPathCmdA($params, $coord, $paths, $key, $rawparams),
                 'C' => $this->svgPathCmdC($params, $coord),
                 'H' => $this->svgPathCmdH($params, $coord),
@@ -1065,27 +1065,27 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             $crd['x0'] = $crd['x'];
             $crd['y0'] = $crd['y'];
-            $rpx = (float) max(abs($prm[($prk - 6)]), .000000001);
-            $rpy = (float) max(abs($prm[($prk - 5)]), .000000001);
-            $ang = -intval($rawparams[($prk - 4)]);
-            $angle = deg2rad($ang);
+            $rpx = (float) \max(\abs($prm[($prk - 6)]), .000000001);
+            $rpy = (float) \max(\abs($prm[($prk - 5)]), .000000001);
+            $ang = -\intval($rawparams[($prk - 4)]);
+            $angle = \deg2rad($ang);
             $laf = $rawparams[($prk - 3)]; // large-arc-flag
             $swf = $rawparams[($prk - 2)]; // sweep-flag
             $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
             $crd['y'] = $prv + $crd['yoffset'];
 
             if (
-                (abs($crd['x0'] - $crd['x']) < $this->svgminunitlen) &&
-                (abs($crd['y0'] - $crd['y']) < $this->svgminunitlen)
+                (\abs($crd['x0'] - $crd['x']) < $this->svgminunitlen) &&
+                (\abs($crd['y0'] - $crd['y']) < $this->svgminunitlen)
             ) {
                 // endpoints are almost identical
-                $crd['xmin'] = (float) min($crd['xmin'], $crd['x']);
-                $crd['ymin'] = (float) min($crd['ymin'], $crd['y']);
-                $crd['xmax'] = (float) max($crd['xmax'], $crd['x']);
-                $crd['ymax'] = (float) max($crd['ymax'], $crd['y']);
+                $crd['xmin'] = (float) \min($crd['xmin'], $crd['x']);
+                $crd['ymin'] = (float) \min($crd['ymin'], $crd['y']);
+                $crd['xmax'] = (float) \max($crd['xmax'], $crd['x']);
+                $crd['ymax'] = (float) \max($crd['ymax'], $crd['y']);
             } else {
-                $cos_ang = cos($angle);
-                $sin_ang = sin($angle);
+                $cos_ang = \cos($angle);
+                $sin_ang = \sin($angle);
                 $cra = (($crd['x0'] - $crd['x']) / 2);
                 $crb = (($crd['y0'] - $crd['y']) / 2);
                 $pxa = ($cra * $cos_ang) - ($crb * $sin_ang);
@@ -1096,15 +1096,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $pya2 = $pya * $pya;
                 $delta = ($pxa2 / $rx2) + ($pya2 / $ry2);
                 if ($delta > 1) {
-                    $rpx *= sqrt($delta);
-                    $rpy *= sqrt($delta);
+                    $rpx *= \sqrt($delta);
+                    $rpy *= \sqrt($delta);
                     $rx2 = $rpx * $rpx;
                     $ry2 = $rpy * $rpy;
                 }
                 $numerator = (($rx2 * $ry2) - ($rx2 * $pya2) - ($ry2 * $pxa2));
                 $root = 0;
                 if ($numerator > 0) {
-                    $root = sqrt($numerator / (($rx2 * $pya2) + ($ry2 * $pxa2)));
+                    $root = \sqrt($numerator / (($rx2 * $pya2) + ($ry2 * $pxa2)));
                 }
                 if ($laf == $swf) {
                     $root *= -1;
@@ -1139,15 +1139,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $angs = $angf;
                     $angf = $tmp;
                 }
-                $angs = round(rad2deg($angs), 6);
-                $angf = round(rad2deg($angf), 6);
+                $angs = \round(\rad2deg($angs), 6);
+                $angf = \round(\rad2deg($angf), 6);
                 // covent angles to positive values
                 if (($angs < 0) && ($angf < 0)) {
                     $angs += 360;
                     $angf += 360;
                 }
                 $pie = false;
-                if (($key == 0) && (isset($paths[($key + 1)][1])) && (trim($paths[($key + 1)][1]) == 'z')) {
+                if (($key == 0) && (isset($paths[($key + 1)][1])) && (\trim($paths[($key + 1)][1]) == 'z')) {
                     $pie = true;
                 }
                 // list($axmin, $aymin, $axmax, $aymax)
@@ -1167,10 +1167,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     true,
                     $bbox,
                 );
-                $crd['xmin'] = (float) min($crd['xmin'], $crd['x'], $bbox[0]);
-                $crd['ymin'] = (float) min($crd['ymin'], $crd['y'], $bbox[1]);
-                $crd['xmax'] = (float) max($crd['xmax'], $crd['x'], $bbox[2]);
-                $crd['ymax'] = (float) max($crd['ymax'], $crd['y'], $bbox[3]);
+                $crd['xmin'] = (float) \min($crd['xmin'], $crd['x'], $bbox[0]);
+                $crd['ymin'] = (float) \min($crd['ymin'], $crd['y'], $bbox[1]);
+                $crd['xmax'] = (float) \max($crd['xmax'], $crd['x'], $bbox[2]);
+                $crd['ymax'] = (float) \max($crd['ymax'], $crd['y'], $bbox[3]);
             }
 
             if ($crd['relcoord']) {
@@ -1206,10 +1206,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
             $crd['y'] = $prv + $crd['yoffset'];
             $out .= $this->graph->getRawCurve($px1, $py1, $px2, $py2, $crd['x'], $crd['y']);
-            $crd['xmin'] = (float) min($crd['xmin'], $crd['x'], $px1, $px2);
-            $crd['ymin'] = (float) min($crd['ymin'], $crd['y'], $py1, $py2);
-            $crd['xmax'] = (float) max($crd['xmax'], $crd['x'], $px1, $px2);
-            $crd['ymax'] = (float) max($crd['ymax'], $crd['y'], $py1, $py2);
+            $crd['xmin'] = (float) \min($crd['xmin'], $crd['x'], $px1, $px2);
+            $crd['ymin'] = (float) \min($crd['ymin'], $crd['y'], $py1, $py2);
+            $crd['xmax'] = (float) \max($crd['xmax'], $crd['x'], $px1, $px2);
+            $crd['ymax'] = (float) \max($crd['ymax'], $crd['y'], $py1, $py2);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
                 $crd['yoffset'] = $crd['y'];
@@ -1234,15 +1234,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         foreach ($prm as $prv) {
             $crd['x'] = $prv + $crd['xoffset'];
             if (
-                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
-                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+                (\abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (\abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
             ) {
                 $out .= $this->graph->getRawLine($crd['x'], $crd['y']);
                 $crd['x0'] = $crd['x'];
                 $crd['y0'] = $crd['y'];
             }
-            $crd['xmin'] = min($crd['xmin'], $crd['x']);
-            $crd['xmax'] = max($crd['xmax'], $crd['x']);
+            $crd['xmin'] = \min($crd['xmin'], $crd['x']);
+            $crd['xmax'] = \max($crd['xmax'], $crd['x']);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
             }
@@ -1271,17 +1271,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             $crd['y'] = $prv + $crd['yoffset'];
             if (
-                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
-                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+                (\abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (\abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
             ) {
                 $out .= $this->graph->getRawLine($crd['x'], $crd['y']);
                 $crd['x0'] = $crd['x'];
                 $crd['y0'] = $crd['y'];
             }
-            $crd['xmin'] = min($crd['xmin'], $crd['x']);
-            $crd['ymin'] = min($crd['ymin'], $crd['y']);
-            $crd['xmax'] = max($crd['xmax'], $crd['x']);
-            $crd['ymax'] = max($crd['ymax'], $crd['y']);
+            $crd['xmin'] = \min($crd['xmin'], $crd['x']);
+            $crd['ymin'] = \min($crd['ymin'], $crd['y']);
+            $crd['xmax'] = \max($crd['xmax'], $crd['x']);
+            $crd['ymax'] = \max($crd['ymax'], $crd['y']);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
                 $crd['yoffset'] = $crd['y'];
@@ -1312,8 +1312,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $crd['y'] = $prv + $crd['yoffset'];
             if (
                 $crd['firstcmd'] ||
-                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
-                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+                (\abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (\abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
             ) {
                 if ($prk == 1) {
                     $out .= $this->graph->getRawPoint($crd['x'], $crd['y']);
@@ -1326,10 +1326,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $crd['x0'] = $crd['x'];
                 $crd['y0'] = $crd['y'];
             }
-            $crd['xmin'] = min($crd['xmin'], $crd['x']);
-            $crd['ymin'] = min($crd['ymin'], $crd['y']);
-            $crd['xmax'] = max($crd['xmax'], $crd['x']);
-            $crd['ymax'] = max($crd['ymax'], $crd['y']);
+            $crd['xmin'] = \min($crd['xmin'], $crd['x']);
+            $crd['ymin'] = \min($crd['ymin'], $crd['y']);
+            $crd['xmax'] = \max($crd['xmax'], $crd['x']);
+            $crd['ymax'] = \max($crd['ymax'], $crd['y']);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
                 $crd['yoffset'] = $crd['y'];
@@ -1366,10 +1366,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $pxb = ($crd['x'] + (2 * $px1)) / 3;
             $pyb = ($crd['y'] + (2 * $py1)) / 3;
             $out .= $this->graph->getRawCurve($pxa, $pya, $pxb, $pyb, $crd['x'], $crd['y']);
-            $crd['xmin'] = min($crd['xmin'], $crd['x'], $pxa, $pxb);
-            $crd['ymin'] = min($crd['ymin'], $crd['y'], $pya, $pyb);
-            $crd['xmax'] = max($crd['xmax'], $crd['x'], $pxa, $pxb);
-            $crd['ymax'] = max($crd['ymax'], $crd['y'], $pya, $pyb);
+            $crd['xmin'] = \min($crd['xmin'], $crd['x'], $pxa, $pxb);
+            $crd['ymin'] = \min($crd['ymin'], $crd['y'], $pya, $pyb);
+            $crd['xmax'] = \max($crd['xmax'], $crd['x'], $pxa, $pxb);
+            $crd['ymax'] = \max($crd['ymax'], $crd['y'], $pya, $pyb);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
                 $crd['yoffset'] = $crd['y'];
@@ -1403,8 +1403,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if (
                 ($key > 0) &&
-                ((strtoupper($paths[($key - 1)][1]) == 'C') ||
-                (strtoupper($paths[($key - 1)][1]) == 'S'))
+                ((\strtoupper($paths[($key - 1)][1]) == 'C') ||
+                (\strtoupper($paths[($key - 1)][1]) == 'S'))
             ) {
                 $px1 = (2 * $crd['x']) - $px2;
                 $py1 = (2 * $crd['y']) - $py2;
@@ -1418,10 +1418,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $crd['x'] = $prm[($prk - 1)] + $crd['xoffset'];
             $crd['y'] = $prv + $crd['yoffset'];
             $out .= $this->graph->getRawCurve($px1, $py1, $px2, $py2, $crd['x'], $crd['y']);
-            $crd['xmin'] = min($crd['xmin'], $crd['x'], $px1, $px2);
-            $crd['ymin'] = min($crd['ymin'], $crd['y'], $py1, $py2);
-            $crd['xmax'] = max($crd['xmax'], $crd['x'], $px1, $px2);
-            $crd['ymax'] = max($crd['ymax'], $crd['y'], $py1, $py2);
+            $crd['xmin'] = \min($crd['xmin'], $crd['x'], $px1, $px2);
+            $crd['ymin'] = \min($crd['ymin'], $crd['y'], $py1, $py2);
+            $crd['xmax'] = \max($crd['xmax'], $crd['x'], $px1, $px2);
+            $crd['ymax'] = \max($crd['ymax'], $crd['y'], $py1, $py2);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
                 $crd['yoffset'] = $crd['y'];
@@ -1455,8 +1455,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if (
                 ($key > 0) &&
-                ((strtoupper($paths[($key - 1)][1]) == 'Q') ||
-                (strtoupper($paths[($key - 1)][1]) == 'T'))
+                ((\strtoupper($paths[($key - 1)][1]) == 'Q') ||
+                (\strtoupper($paths[($key - 1)][1]) == 'T'))
             ) {
                 $px1 = (2 * $crd['x']) - $px1;
                 $py1 = (2 * $crd['y']) - $py1;
@@ -1473,10 +1473,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $pxb = ($crd['x'] + (2 * $px1)) / 3;
             $pyb = ($crd['y'] + (2 * $py1)) / 3;
             $out .= $this->graph->getRawCurve($pxa, $pya, $pxb, $pyb, $crd['x'], $crd['y']);
-            $crd['xmin'] = min($crd['xmin'], $crd['x'], $pxa, $pxb);
-            $crd['ymin'] = min($crd['ymin'], $crd['y'], $pya, $pyb);
-            $crd['xmax'] = max($crd['xmax'], $crd['x'], $pxa, $pxb);
-            $crd['ymax'] = max($crd['ymax'], $crd['y'], $pya, $pyb);
+            $crd['xmin'] = \min($crd['xmin'], $crd['x'], $pxa, $pxb);
+            $crd['ymin'] = \min($crd['ymin'], $crd['y'], $pya, $pyb);
+            $crd['xmax'] = \max($crd['xmax'], $crd['x'], $pxa, $pxb);
+            $crd['ymax'] = \max($crd['ymax'], $crd['y'], $pya, $pyb);
             if ($crd['relcoord']) {
                 $crd['xoffset'] = $crd['x'];
                 $crd['yoffset'] = $crd['y'];
@@ -1501,15 +1501,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         foreach ($prm as $prv) {
             $crd['y'] = $prv + $crd['yoffset'];
             if (
-                (abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
-                (abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
+                (\abs($crd['x0'] - $crd['x']) >= $this->svgminunitlen) ||
+                (\abs($crd['y0'] - $crd['y']) >= $this->svgminunitlen)
             ) {
                 $out .= $this->graph->getRawLine($crd['x'], $crd['y']);
                 $crd['x0'] = $crd['x'];
                 $crd['y0'] = $crd['y'];
             }
-            $crd['ymin'] = min($crd['ymin'], $crd['y']);
-            $crd['ymax'] = max($crd['ymax'], $crd['y']);
+            $crd['ymin'] = \min($crd['ymin'], $crd['y']);
+            $crd['ymax'] = \max($crd['ymax'], $crd['y']);
             if ($crd['relcoord']) {
                 $crd['yoffset'] = $crd['y'];
             }
@@ -1542,16 +1542,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return float Quantity to increases or decreases the space between characters in a text.
      */
-    protected function getTALetterSpacing(string $spacing, float $parent = 0): float
+    protected function getTALetterSpacing(string $spacing, float $parent = 0.0): float
     {
-        $spacing = trim($spacing);
+        $spacing = \trim($spacing);
         return match ($spacing) {
-            'normal' => 0,
+            'normal' => 0.0,
             'inherit' => $parent,
-            default => $this->svgUnitToPoints($spacing, -1, array_merge(self::REFUNITVAL, ['parent' => $parent])),
+            default => $this->svgUnitToPoints($spacing, -1, \array_merge(self::REFUNITVAL, ['parent' => $parent])),
         };
     }
-
 
     /**
      * Returns the percentage of font stretching.
@@ -1563,7 +1562,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function getTAFontStretching(string $stretch, float $parent = 100): float
     {
-        $stretch = trim($stretch);
+        $stretch = \trim($stretch);
         return match ($stretch) {
             'ultra-condensed' => 40,
             'extra-condensed' => 55,
@@ -1577,7 +1576,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'wider' => ($parent + 10),
             'narrower' => ($parent - 10),
             'inherit' => $parent,
-            default => $this->getUnitValuePoints($stretch, array_merge(self::REFUNITVAL, ['parent' => $parent]), '%'),
+            default => $this->getUnitValuePoints($stretch, \array_merge(self::REFUNITVAL, ['parent' => $parent]), '%'),
         };
     }
 
@@ -1590,7 +1589,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function getTAFontWeight(string $weight): string
     {
-        $weight = trim($weight);
+        $weight = \trim($weight);
         return match ($weight) {
             'bold', 'bolder' => 'B',
             // default to 'normal'
@@ -1607,7 +1606,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function getTAFontStyle(string $style): string
     {
-        $style = trim($style);
+        $style = \trim($style);
         return match ($style) {
             'italic', 'oblique' => 'I',
             // default to 'normal'
@@ -1624,7 +1623,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function getTAFontDecoration(string $decoration): string
     {
-        $decoration = trim($decoration);
+        $decoration = \trim($decoration);
         return match ($decoration) {
             'underline' => 'U',
             'overline' => 'O',
@@ -1644,8 +1643,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseCSSAttrib(string $tag, string $attr, string $default = ''): string
     {
-        if (preg_match('/' . $attr . '[\s]*+:[\s]*+([^\;\"]*+)/si', $tag, $regs)) {
-            return trim($regs[1]);
+        if (\preg_match('/' . $attr . '[\s]*+:[\s]*+([^\;\"]*+)/si', $tag, $regs)) {
+            return \trim($regs[1]);
         }
         return $default;
     }
@@ -1713,7 +1712,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->pon,
             $svgstyle['font-family'],
             $svgstyle['font-mode'],
-            intval($svgstyle['font-size-val']),
+            \intval($svgstyle['font-size-val']),
         );
 
         return $fontmetric['out'];
@@ -1766,9 +1765,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         //  $strokestyle['miterLimit'] = (10.0 / $this->kunit),
         $strokestyle['dashArray'] = (
             empty($svgstyle['stroke-dasharray']) || ($svgstyle['stroke-dasharray'] == 'none')
-        ) ? [] : array_map(
+        ) ? [] : \array_map(
             'intval',
-            explode(' ', $svgstyle['stroke-dasharray'], 100),
+            \explode(' ', $svgstyle['stroke-dasharray'], 100),
         );
         // $strokestyle['dashPhase'] = 0,
         $strokestyle['lineColor'] = $svgstyle['stroke'];
@@ -1777,7 +1776,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out .= $this->graph->getStyleCmd($strokestyle);
 
         $objstyle = 'D';
-        if (strpos($svgstyle['objstyle'], $objstyle) === false) {
+        if (\strpos($svgstyle['objstyle'], $objstyle) === false) {
             $svgstyle['objstyle'] .= $objstyle; // @phpstan-ignore-line
         }
 
@@ -1831,7 +1830,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ): string {
         $regs = [];
         if (
-            !preg_match(
+            !\preg_match(
                 '/rect\(([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)[\s]*([a-z0-9\-\.]*)\)/si',
                 $svgstyle['clip'],
                 $regs
@@ -1923,34 +1922,34 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out .= $this->graph->getStartTransform();
 
         if (!empty($clip_fnc)) {
-            $bboxid_start = array_key_last($this->bbox);
+            $bboxid_start = \array_key_last($this->bbox);
             $fnout = null;
-            if (method_exists($this, $clip_fnc)) {
+            if (\method_exists($this, $clip_fnc)) {
                 $fnout = $this->$clip_fnc(...$clip_par);
-            } elseif (method_exists($this->graph, $clip_fnc)) {
+            } elseif (\method_exists($this->graph, $clip_fnc)) {
                 $fnout = $this->graph->$clip_fnc(...$clip_par);
             }
-            if (is_string($fnout)) {
+            if (\is_string($fnout)) {
                 $out .= $fnout;
             }
-            $bboxid_last = array_key_last($this->bbox);
+            $bboxid_last = \array_key_last($this->bbox);
 
             if (
                 ($bboxid_last > $bboxid_start)
                 && (!isset($gradient['type']) || ($gradient['type'] != 3))
             ) {
                 $bbox = $this->bbox[$bboxid_last];
-                $grx = is_numeric($bbox['x']) ? (float)$bbox['x'] : 0.0;
-                $gry = is_numeric($bbox['y']) ? (float)$bbox['y'] : 0.0;
-                $grw = is_numeric($bbox['w']) ? (float)$bbox['w'] : 0.0;
-                $grh = is_numeric($bbox['h']) ? (float)$bbox['h'] : 0.0;
+                $grx = \is_numeric($bbox['x']) ? (float)$bbox['x'] : 0.0;
+                $gry = \is_numeric($bbox['y']) ? (float)$bbox['y'] : 0.0;
+                $grw = \is_numeric($bbox['w']) ? (float)$bbox['w'] : 0.0;
+                $grh = \is_numeric($bbox['h']) ? (float)$bbox['h'] : 0.0;
             }
         }
 
         switch ($gradient['mode']) {
             case 'percentage':
                 foreach ($gradient['coords'] as $key => $val) {
-                    $gradient['coords'][$key] = (intval($val) / 100);
+                    $gradient['coords'][$key] = (\intval($val) / 100);
                     if ($val < 0) {
                         $gradient['coords'][$key] = 0;
                     } elseif ($val > 1) {
@@ -1969,10 +1968,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $gya = ($gtm[1] * $gradient['coords'][0]) + ($gtm[3] * $gradient['coords'][1]) + $gtm[5];
                     $gxb = ($gtm[0] * $gradient['coords'][2]) + ($gtm[2] * $gradient['coords'][3]) + $gtm[4];
                     $gyb = ($gtm[1] * $gradient['coords'][2]) + ($gtm[3] * $gradient['coords'][3]) + $gtm[5];
-                    $grr = sqrt(pow(
+                    $grr = \sqrt(\pow(
                         ($gtm[0] * $gradient['coords'][4]),
                         2
-                    ) + pow(
+                    ) + \pow(
                         ($gtm[1] * $gradient['coords'][4]),
                         2
                     ));
@@ -2034,12 +2033,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if ($gradient['type'] == 3) {
             // circular gradient
             $gry -= ($gradient['coords'][1] * ($grw + $grh));
-            $grh = $grw = max($grw, $grh);
+            $grh = $grw = \max($grw, $grh);
         } else {
             $gry -= $grh;
         }
 
-        $out .= sprintf(
+        $out .= \sprintf(
             '%F 0 0 %F %F %F cm' . "\n",
             $this->toPoints($grw),
             $this->toPoints($grh),
@@ -2047,7 +2046,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->toPoints($gry),
         );
 
-        if (count($gradient['stops']) > 1) {
+        if (\count($gradient['stops']) > 1) {
             $out .= $this->graph->getGradient(
                 $gradient['type'],
                 $gradient['coords'],
@@ -2093,7 +2092,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $regs = [];
-        if (preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
+        if (\preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
             return $this->parseSVGStyleGradient(
                 $soid,
                 $gradients,
@@ -2124,7 +2123,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $objstyle = ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
-        if (strpos($svgstyle['objstyle'], $objstyle) === false) {
+        if (\strpos($svgstyle['objstyle'], $objstyle) === false) {
             $svgstyle['objstyle'] .= $objstyle; // @phpstan-ignore-line
         }
 
@@ -2238,7 +2237,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         \XMLParser $parser,
         string $data,
     ) {
-        $soid = (int)array_key_last($this->svgobjs);
+        $soid = (int)\array_key_last($this->svgobjs);
         if (($soid < 0) || !isset($this->svgobjs[$soid]['text'])) {
             return;
         }
@@ -2262,24 +2261,24 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ): void {
         $name = $this->removeTagNamespace($name);
 
-        $soid = (int)array_key_last($this->svgobjs);
+        $soid = (int)\array_key_last($this->svgobjs);
         if ($soid < 0) {
             return;
         }
 
         if (
             $this->svgobjs[$soid]['defsmode']
-            && !in_array($name, self::SVGDEFSMODEEND)
+            && !\in_array($name, self::SVGDEFSMODEEND)
         ) {
-            if (end($this->svgobjs[$soid]['defs']) !== false) {
-                $last_svgdefs_id = (string)array_key_last($this->svgobjs[$soid]['defs']);
+            if (\end($this->svgobjs[$soid]['defs']) !== false) {
+                $last_svgdefs_id = (string)\array_key_last($this->svgobjs[$soid]['defs']);
                 if (!empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
                     foreach (
                         $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'] as $child
                     ) {
                         if (
                             isset($child['attr']['id']) &&
-                            is_scalar($child['attr']['id']) &&
+                            \is_scalar($child['attr']['id']) &&
                             ($child['name'] == $name)
                         ) {
                             // @phpstan-ignore assign.propertyType
@@ -2378,7 +2377,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function parseSVGTagENDg(int $soid): string
     {
         // @phpstan-ignore assign.propertyType
-        array_pop($this->svgobjs[$soid]['styles']);
+        \array_pop($this->svgobjs[$soid]['styles']);
         return $this->graph->getStopTransform();
     }
 
@@ -2448,7 +2447,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if (!$this->svgobjs[$soid]['defsmode']) {
             // @phpstan-ignore assign.propertyType
-            array_pop($this->svgobjs[$soid]['styles']);
+            \array_pop($this->svgobjs[$soid]['styles']);
         }
 
         return $out;
@@ -2477,7 +2476,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $ctm = self::TMXID, // identity matrix
     ): void {
         if ($soid < 0) {
-            $soid = (int)array_key_last($this->svgobjs);
+            $soid = (int)\array_key_last($this->svgobjs);
         }
         if (empty($this->svgobjs[$soid])) {
             return;
@@ -2497,7 +2496,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if (
             $this->svgobjs[$soid]['defsmode']
-            && !in_array($name, self::SVGDEFSMODESTART)
+            && !\in_array($name, self::SVGDEFSMODESTART)
         ) {
             if (!isset($this->svgobjs[$soid]['clippaths'])) {
                 $this->svgobjs[$soid]['clippaths'] = [];
@@ -2511,14 +2510,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 return;
             }
 
-            if (end($this->svgobjs[$soid]['defs']) !== false) {
-                $last_svgdefs_id = key($this->svgobjs[$soid]['defs']);
+            if (\end($this->svgobjs[$soid]['defs']) !== false) {
+                $last_svgdefs_id = \key($this->svgobjs[$soid]['defs']);
                 if (
                     !empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])
-                    && is_array($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])
+                    && \is_array($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])
                 ) {
                     $attr['id'] = 'DF_' .
-                    (count($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child']) + 1);
+                    (\count($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child']) + 1);
                     $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$attr['id']] = [
                         'name' => $name,
                         'attr' => $attr
@@ -2536,15 +2535,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $svgstyle = (array) $this->svgobjs[$soid]['styles'][0];
 
         // last style
-        $sid = (int)array_key_last($this->svgobjs[$soid]['styles']);
-        $psid = max(0, $sid - 1);
+        $sid = (int)\array_key_last($this->svgobjs[$soid]['styles']);
+        $psid = \max(0, $sid - 1);
         $prev_svgstyle = (array) $this->svgobjs[$soid]['styles'][$psid];
 
         if (
             $this->svgobjs[$soid]['clipmode'] &&
             !isset($attr['fill']) &&
             (!isset($attr['style']) ||
-            (!preg_match('/[;\"\s]{1}fill[\s]*:[\s]*([^;\"]*)/si', $attr['style'], $attrval)))
+            (!\preg_match('/[;\"\s]{1}fill[\s]*:[\s]*([^;\"]*)/si', $attr['style'], $attrval)))
         ) {
             // default fill attribute for clipping
             $attr['fill'] = 'none';
@@ -2560,7 +2559,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         foreach ($prev_svgstyle as $key => $val) {
-            if (in_array($key, self::SVGINHPROP)) {
+            if (\in_array($key, self::SVGINHPROP)) {
                 // inherit previous value
                 $svgstyle[$key] = $val;
             }
@@ -2575,7 +2574,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 // CSS style syntax
                 $attrval = [];
                 if (
-                    preg_match(
+                    \preg_match(
                         '/[;\"\s]{1}' . $key . '[\s]*:[\s]*([^;\"]*)/si',
                         $attr['style'],
                         $attrval
@@ -2665,7 +2664,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['clipmode'] = true;
 
         if (empty($this->svgobjs[$soid]['clipid'])) {
-            $this->svgobjs[$soid]['clipid'] = 'CP_' . (count($this->svgobjs[$soid]['cliptm']) + 1);
+            $this->svgobjs[$soid]['clipid'] = 'CP_' . (\count($this->svgobjs[$soid]['cliptm']) + 1);
         }
 
         $cid = $this->svgobjs[$soid]['clipid'];
@@ -2700,7 +2699,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
         // inner SVG
         $out = '';
-        array_push($this->svgobjs[$soid]['styles'], $svgstyle);
+        \array_push($this->svgobjs[$soid]['styles'], $svgstyle);
         $out .= $this->graph->getStartTransform();
         $svgX = isset($attr['x']) ? $this->svgUnitToUnit($attr['x'], $soid) : 0.0;
         $svgY = isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0;
@@ -2748,9 +2747,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out;
         }
         $tmp = [];
-        preg_match_all("/[0-9]+/", $attr['viewBox'], $tmp);
+        \preg_match_all("/[0-9]+/", $attr['viewBox'], $tmp);
         $tmp = $tmp[0];
-        if (sizeof($tmp) != 4) {
+        if (\sizeof($tmp) != 4) {
             $out .= $this->parseSVGStyle(
                 $parser,
                 $soid,
@@ -2763,10 +2762,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             );
             return $out;
         }
-        $vbx = floatval($tmp[0]);
-        $vby = floatval($tmp[1]);
-        $vbw = floatval($tmp[2]);
-        $vbh = floatval($tmp[3]);
+        $vbx = \floatval($tmp[0]);
+        $vby = \floatval($tmp[1]);
+        $vbw = \floatval($tmp[2]);
+        $vbh = \floatval($tmp[3]);
         // get aspect ratio
         $tmp = [];
         $aspectX = 'xMid';
@@ -2776,18 +2775,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if ($attr['preserveAspectRatio'] == 'none') {
                 $fit = 'none';
             } else {
-                preg_match_all('/[a-zA-Z]+/', $attr['preserveAspectRatio'], $tmp);
+                \preg_match_all('/[a-zA-Z]+/', $attr['preserveAspectRatio'], $tmp);
                 $tmp = $tmp[0];
                 if (
-                    (sizeof($tmp) == 2)
-                    && (strlen($tmp[0]) == 8)
-                    && (in_array(
+                    (\sizeof($tmp) == 2)
+                    && (\strlen($tmp[0]) == 8)
+                    && (\in_array(
                         $tmp[1],
                         array('meet', 'slice', 'none')
                     ))
                 ) {
-                    $aspectX = substr($tmp[0], 0, 4);
-                    $aspectY = substr($tmp[0], 4, 4);
+                    $aspectX = \substr($tmp[0], 0, 4);
+                    $aspectY = \substr($tmp[0], 4, 4);
                     $fit = $tmp[1];
                 }
             }
@@ -2849,7 +2848,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ): string {
         $out = '';
         // @phpstan-ignore assign.propertyType
-        array_push($this->svgobjs[$soid]['styles'], $svgstyle);
+        \array_push($this->svgobjs[$soid]['styles'], $svgstyle);
         $out .= $this->graph->getStartTransform();
         $posx = isset($attr['x']) ? $this->svgUnitToUnit($attr['x'], $soid) : 0.0;
         $posy = isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0;
@@ -2889,7 +2888,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         if (!isset($attr['id'])) {
-            $attr['id'] = 'GR_' . (count($this->svgobjs[$soid]['gradients']) + 1);
+            $attr['id'] = 'GR_' . (\count($this->svgobjs[$soid]['gradients']) + 1);
         }
         $gid = $attr['id'];
         // @phpstan-ignore assign.propertyType
@@ -2906,10 +2905,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (
             ((!isset($attr['x1'])) && (!isset($attr['y1']))
             && (!isset($attr['x2'])) && (!isset($attr['y2'])))
-            || ((isset($attr['x1']) && (substr($attr['x1'], -1) == '%'))
-            || (isset($attr['y1']) && (substr($attr['y1'], -1) == '%'))
-            || (isset($attr['x2']) && (substr($attr['x2'], -1) == '%'))
-            || (isset($attr['y2']) && (substr($attr['y2'], -1) == '%')))
+            || ((isset($attr['x1']) && (\substr($attr['x1'], -1) == '%'))
+            || (isset($attr['y1']) && (\substr($attr['y1'], -1) == '%'))
+            || (isset($attr['x2']) && (\substr($attr['x2'], -1) == '%'))
+            || (isset($attr['y2']) && (\substr($attr['y2'], -1) == '%')))
         ) {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'percentage';
         } else {
@@ -2926,7 +2925,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$px1, $py1, $px2, $py2];
         if (!empty($attr['xlink:href'])) {
             // gradient is defined on another place
-            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = substr($attr['xlink:href'], 1);
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($attr['xlink:href'], 1);
         }
         return '';
     }
@@ -2946,7 +2945,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         if (!isset($attr['id'])) {
-            $attr['id'] = 'GR_' . (count($this->svgobjs[$soid]['gradients']) + 1);
+            $attr['id'] = 'GR_' . (\count($this->svgobjs[$soid]['gradients']) + 1);
         }
         $gid = $attr['id'];
         // @phpstan-ignore assign.propertyType
@@ -2962,11 +2961,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // $attr['spreadMethod']
         if (
             ((!isset($attr['cx'])) && (!isset($attr['cy'])))
-            || ((isset($attr['cx']) && (substr($attr['cx'], -1) == '%'))
-            || (isset($attr['cy']) && (substr($attr['cy'], -1) == '%')))
+            || ((isset($attr['cx']) && (\substr($attr['cx'], -1) == '%'))
+            || (isset($attr['cy']) && (\substr($attr['cy'], -1) == '%')))
         ) {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'percentage';
-        } elseif (isset($attr['r']) && is_numeric($attr['r']) && ($attr['r']) <= 1) {
+        } elseif (isset($attr['r']) && \is_numeric($attr['r']) && ($attr['r']) <= 1) {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'ratio';
         } else {
             $this->svgobjs[$soid]['gradients'][$gid]['mode'] = 'measure';
@@ -2983,7 +2982,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$pcx, $pcy, $pfx, $pfy, $grr];
         if (!empty($attr['xlink:href'])) {
             // gradient is defined on another place
-            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = substr($attr['xlink:href'], 1);
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($attr['xlink:href'], 1);
         }
         return '';
     }
@@ -3004,11 +3003,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ): string {
         $offset = isset($attr['offset']) ? $this->svgUnitToUnit($attr['offset'], $soid) : 0.0;
         $stop_color = $svgstyle['stop-color'] ?? 'black';
-        $opacity = isset($svgstyle['stop-opacity']) ? max(
+        $opacity = isset($svgstyle['stop-opacity']) ? \max(
             0.0,
-            min(
+            \min(
                 1.0,
-                floatval($svgstyle['stop-opacity'])
+                \floatval($svgstyle['stop-opacity'])
             )
         ) : 1.0;
         $gid = $this->svgobjs[$soid]['gradientid'];
@@ -3047,7 +3046,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        $ptd = trim($attr['d']);
+        $ptd = \trim($attr['d']);
 
         $posx = isset($attr['x']) ? $this->svgUnitToUnit($attr['x'], $soid) : 0.0;
         $posy = isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0;
@@ -3378,8 +3377,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $posy2 = (isset($attr['y2']) ? $this->svgUnitToUnit($attr['y2'], $soid) : 0.0);
         $posx = $posx1;
         $posy = $posy1;
-        $width = abs($posx2 - $posx1);
-        $height = abs($posy2 - $posy1);
+        $width = \abs($posx2 - $posx1);
+        $height = \abs($posy2 - $posy1);
         $out = '';
         $out .= $this->graph->getStartTransform();
         $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
@@ -3428,10 +3427,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return '';
         }
-        $attrpoints = (!empty($attr['points']) ? trim($attr['points']) : '0 0');
+        $attrpoints = (!empty($attr['points']) ? \trim($attr['points']) : '0 0');
         // note that point may use a complex syntax not covered here
-        $points = preg_split('/[\,\s]+/si', $attrpoints);
-        if (!is_array($points) || count($points) < 4) {
+        $points = \preg_split('/[\,\s]+/si', $attrpoints);
+        if (!\is_array($points) || \count($points) < 4) {
             return '';
         }
         $pset = [];
@@ -3443,12 +3442,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $pset[$key] = $this->svgUnitToUnit($val, $soid);
             if (($key % 2) == 0) {
                 // X coordinate
-                $xmin = min($xmin, $pset[$key]);
-                $xmax = max($xmax, $pset[$key]);
+                $xmin = \min($xmin, $pset[$key]);
+                $xmax = \max($xmax, $pset[$key]);
             } else {
                 // Y coordinate
-                $ymin = min($ymin, $pset[$key]);
-                $ymax = max($ymax, $pset[$key]);
+                $ymin = \min($ymin, $pset[$key]);
+                $ymax = \max($ymax, $pset[$key]);
             }
         }
         $posx = $xmin;
@@ -3536,10 +3535,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $height,
         );
         if (
-            'svg' === strtolower(
-                trim(
-                    pathinfo(
-                        ($purl = parse_url($img, PHP_URL_PATH)) ? $purl : '',
+            'svg' === \strtolower(
+                \trim(
+                    \pathinfo(
+                        ($purl = \parse_url($img, PHP_URL_PATH)) ? $purl : '',
                         PATHINFO_EXTENSION
                     ),
                 )
@@ -3554,12 +3553,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->svgobjs[$soid]['child'][] = $child;
             return $out;
         }
-        if (preg_match('/^data:image\/[^;]+;base64,/', $img, $match) > 0) {
+        if (\preg_match('/^data:image\/[^;]+;base64,/', $img, $match) > 0) {
             // embedded image encoded as base64
-            $img = '@' . base64_decode(substr($img, strlen($match[0])));
+            $img = '@' . \base64_decode(\substr($img, \strlen($match[0])));
         }
 
-        if (!empty($this->svgobjs[$soid]['dir']) && (($img[0] == '.') || (basename($img) == $img))) {
+        if (!empty($this->svgobjs[$soid]['dir']) && (($img[0] == '.') || (\basename($img) == $img))) {
             // replace relative path with full server path
             $img = $this->svgobjs[$soid]['dir'] . '/' . $img;
         }
@@ -3605,7 +3604,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
         // @phpstan-ignore assign.propertyType
-        array_push($this->svgobjs[$soid]['styles'], $svgstyle);
+        \array_push($this->svgobjs[$soid]['styles'], $svgstyle);
         $posx = 0.0;
         $posy = 0.0;
         if (isset($attr['x'])) {
@@ -3706,7 +3705,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (empty($attr['xlink:href'])) {
             return '';
         }
-        $svgdefid = substr($attr['xlink:href'], 1);
+        $svgdefid = \substr($attr['xlink:href'], 1);
         if (empty($this->svgobjs[$soid]['defs'][$svgdefid])) {
             return '';
         }
@@ -3720,21 +3719,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             unset($attr['id']);
         }
         if (isset($use['attr']['x']) && isset($attr['x'])) {
-            $attr['x'] = strval(floatval($attr['x']) + floatval($use['attr']['x']));
+            $attr['x'] = \strval(\floatval($attr['x']) + \floatval($use['attr']['x']));
         }
-        if (isset($use['attr']['y']) && isset($attr['y']) && is_string($use['attr']['y'])) {
-            $attr['y'] = strval(floatval($attr['y']) + floatval($use['attr']['y']));
+        if (isset($use['attr']['y']) && isset($attr['y']) && \is_string($use['attr']['y'])) {
+            $attr['y'] = \strval(\floatval($attr['y']) + \floatval($use['attr']['y']));
         }
         if (empty($attr['style'])) {
             $attr['style'] = '';
         }
-        if (!empty($use['attr']['style']) && is_string($use['attr']['style'])) {
+        if (!empty($use['attr']['style']) && \is_string($use['attr']['style'])) {
             // merge styles
-            $attr['style'] = str_replace(';;', ';', ';' . $use['attr']['style'] . $attr['style']);
+            $attr['style'] = \str_replace(';;', ';', ';' . $use['attr']['style'] . $attr['style']);
         }
         /** @var TSVGAttributes $attr */
-        $attr = array_merge($use['attr'], $attr);
-        if (!is_string($use['name'])) {
+        $attr = \array_merge($use['attr'], $attr);
+        if (!\is_string($use['name'])) {
             return '';
         }
         $this->handleSVGTagStart(
@@ -3755,11 +3754,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function getRawSVGData(string $img): string
     {
-        if (empty($img) || (($img[0] === '@') && (strlen($img) === 1))) {
+        if (empty($img) || (($img[0] === '@') && (\strlen($img) === 1))) {
             return '';
         }
         if ($img[0] === '@') { // image from string
-            return substr($img, 1);
+            return \substr($img, 1);
         }
         $data = $this->file->getFileData($img);
         if (empty($data)) {
@@ -3787,31 +3786,31 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'ar_ms' => 'meet',
         ];
 
-        preg_match('/<svg([^\>]*)>/si', $data, $regs);
+        \preg_match('/<svg([^\>]*)>/si', $data, $regs);
         if (!isset($regs[1]) || empty($regs[1])) {
             return $out;
         }
 
         $tmp = [];
-        if (preg_match('/[\s]+x[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+        if (\preg_match('/[\s]+x[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
             $out['x'] = $this->svgUnitToUnit($tmp[1]);
         }
         $tmp = array();
-        if (preg_match('/[\s]+y[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+        if (\preg_match('/[\s]+y[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
             $out['y'] = $this->svgUnitToUnit($tmp[1]);
         }
         $tmp = array();
-        if (preg_match('/[\s]+width[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+        if (\preg_match('/[\s]+width[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
             $out['width'] = $this->svgUnitToUnit($tmp[1]);
         }
         $tmp = array();
-        if (preg_match('/[\s]+height[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+        if (\preg_match('/[\s]+height[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
             $out['height'] = $this->svgUnitToUnit($tmp[1]);
         }
 
         $tmp = [];
         if (
-            !preg_match(
+            !\preg_match(
                 '/[\s]+viewBox[\s]*=[\s]*"[\s]*([0-9\.\-]+)[\s]+([0-9\.\-]+)[\s]+([0-9\.]+)[\s]+([0-9\.]+)[\s]*"/si',
                 $regs[1],
                 $tmp,
@@ -3820,8 +3819,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out;
         }
 
-        if (count($tmp) == 5) {
-            array_shift($tmp);
+        if (\count($tmp) == 5) {
+            \array_shift($tmp);
             foreach ($tmp as $key => $val) {
                 $out['viewBox'][$key] = $this->svgUnitToUnit($val);
             }
@@ -3829,15 +3828,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // get aspect ratio
         $tmp = [];
-        if (!preg_match('/[\s]+preserveAspectRatio[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+        if (!\preg_match('/[\s]+preserveAspectRatio[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
             return $out;
         }
 
-        $asr = preg_split('/[\s]+/si', $tmp[1]);
-        if (!is_array($asr) || count($asr) < 1) {
+        $asr = \preg_split('/[\s]+/si', $tmp[1]);
+        if (!\is_array($asr) || \count($asr) < 1) {
             return $out;
         }
-        switch (count($asr)) {
+        switch (\count($asr)) {
             case 3:
                 $out['ar_align'] = $asr[1];
                 $out['ar_ms'] = $asr[2];
@@ -3880,7 +3879,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
         $this->graph->setPageHeight($pageheight);
 
-        $imgdir = dirname($img);
+        $imgdir = \dirname($img);
         if ($imgdir === '.') {
             $imgdir = '';
         }
@@ -3950,7 +3949,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             }
             // correct X alignment
-            switch (substr($size['ar_align'], 1, 3)) {
+            switch (\substr($size['ar_align'], 1, 3)) {
                 case 'Min':
                     // do nothing
                     break;
@@ -3963,7 +3962,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     break;
             }
             // correct Y alignment
-            switch (substr($size['ar_align'], 5)) {
+            switch (\substr($size['ar_align'], 5)) {
                 case 'Min':
                     // do nothing
                     break;
@@ -3977,7 +3976,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
 
-        $soid = (int)array_key_last($this->svgobjs);
+        $soid = (int)\array_key_last($this->svgobjs);
         $soid++;
 
         // @phpstan-ignore assign.propertyType
@@ -4013,29 +4012,29 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['out'] .= $out;
 
         // creates a new XML parser to be used by the other XML functions
-        $parser = xml_parser_create('UTF-8');
+        $parser = \xml_parser_create('UTF-8');
         // the following function allows to use parser inside object
-        xml_set_object($parser, $this);
+        \xml_set_object($parser, $this);
         // disable case-folding for this XML parser
-        xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
+        \xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
         // sets the element handler functions for the XML parser
-        xml_set_element_handler($parser, [$this, 'handleSVGTagStart'], [$this, 'handleSVGTagEnd']);
+        \xml_set_element_handler($parser, [$this, 'handleSVGTagStart'], [$this, 'handleSVGTagEnd']);
         // sets the character data handler function for the XML parser
-        xml_set_character_data_handler($parser, [$this, 'handlerSVGCharacter']);
+        \xml_set_character_data_handler($parser, [$this, 'handlerSVGCharacter']);
 
         // start parsing an XML document
-        if (!xml_parse($parser, $data)) {
-            throw new PdfException(sprintf(
+        if (!\xml_parse($parser, $data)) {
+            throw new PdfException(\sprintf(
                 'SVG Error: %s at line %d',
-                xml_error_string(
-                    xml_get_error_code($parser)
+                \xml_error_string(
+                    \xml_get_error_code($parser)
                 ),
-                xml_get_current_line_number($parser),
+                \xml_get_current_line_number($parser),
             ),);
         }
 
         // free this XML parser
-        xml_parser_free($parser);
+        \xml_parser_free($parser);
         // >= PHP 7.0.0 "explicitly unset the reference to parser to avoid memory leaks"
         unset($parser);
 
