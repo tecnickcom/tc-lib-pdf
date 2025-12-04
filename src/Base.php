@@ -183,7 +183,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.2.1';
+    protected string $version = '8.2.2';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -321,20 +321,32 @@ abstract class Base
     ];
 
     /**
-     * DPI (Dot Per Inch) Document Resolution (do not change).
-     * 1pt = 1/72 of 1in.
+     * DPI (Dot Per Inch) PDF Document Resolution (do not change).
+     * 1pt = 1/72 inch.
+     *
+     * @var float
      */
-    protected float $dpi = 72.0;
+    protected const DPI_PDF = 72.0;
+
+    /**
+     * DPI (Dot Per Inch) Image/CSS Resolution (do not change).
+     * 1pt = 1/96 inch.
+     *
+     * @var float
+     */
+    protected const DPI_IMG = 96.0;
+
+    /**
+     * DPI (Dot Per Inch) ratio between internal PDF points and pixels.
+     *
+     * @var float
+     */
+    protected const DPI_PIXEL_RATIO = self::DPI_PDF / self::DPI_IMG;
 
     /**
      * Unit of measure conversion ratio.
      */
     protected float $kunit = 1.0;
-
-    /**
-     * Ratio between an internal point and pixel size.
-     */
-    protected float $pointtopixelratio = 72 / 96; // 96 DPI (standard web/CSS baseline)
 
     /**
      * Version of the PDF/A mode or 0 otherwise.
@@ -686,18 +698,6 @@ abstract class Base
     }
 
     /**
-     * Set the pixel/point ratio used to convert pixel values to points.
-     *
-     * @param float $val
-     *
-     * @return void
-     */
-    public function setPointToPixelRatio(float $val): void
-    {
-        $this->pointtopixelratio = $val;
-    }
-
-    /**
      * Converts a string containing value and unit of measure to internal points.
      * This is used to convert values for SVG, CSS, HTML.
      *
@@ -735,21 +735,21 @@ abstract class Base
             // Relative to the width of the "0" (zero)
             'ch' => ($value * $ref['font']['zerowidth']),
             // Centimeters.
-            'cm' => (($value * $this->dpi) / 2.54),
+            'cm' => (($value * self::DPI_PDF) / 2.54),
             // Relative to the font-size of the element.
             'em' => ($value * $ref['font']['size']),
             // Relative to the x-height of the current font.
             'ex' => ($value * $ref['font']['xheight']),
             // Inches.
-            'in' => ($value * $this->dpi),
+            'in' => ($value * self::DPI_PDF),
             // Millimeters.
-            'mm' => (($value * $this->dpi) / 25.4),
+            'mm' => (($value * self::DPI_PDF) / 25.4),
             // One pica is 12 points.
             'pc' => ($value * 12),
             // Points.
             'pt' => $value,
             // Pixels.
-            'px' => ($value * $this->pointtopixelratio),
+            'px' => ($value * self::DPI_PIXEL_RATIO),
             // Relative to font-size of the root element.
             'rem' => ($value * $ref['font']['rootsize']),
             // Relative to 1% of the height of the viewport.
