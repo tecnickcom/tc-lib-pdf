@@ -33,5 +33,62 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  */
 abstract class HTML extends \Com\Tecnick\Pdf\CSS
 {
-    //@TODO
+    //@TODO: add missing methods
+
+    /**
+     * Cleanup HTML code (requires HTML Tidy library).
+     *
+     * @param string $html htmlcode to fix.
+     * @param string $defcss CSS to add.
+     *
+     * @return string XHTML code cleaned up.
+     */
+    public static function tidyHTML(
+        string $html,
+        string $defcss,
+    ): string {
+        $tidyopts = [
+            'clean' => 1,
+            'drop-empty-paras' => 0,
+            'drop-proprietary-attributes' => 1,
+            'fix-backslash' => 1,
+            'hide-comments' => 1,
+            'join-styles' => 1,
+            'lower-literals' => 1,
+            'merge-divs' => 1,
+            'merge-spans' => 1,
+            'output-xhtml' => 1,
+            'word-2000' => 1,
+            'wrap' => 0,
+            'output-bom' => 0,
+        ];
+        // clean up the HTML code
+        $tidy = tidy_parse_string($html, $tidyopts);
+        if ($tidy === false) {
+            throw new PdfException('Unable to tidy the HTML');
+        }
+        // fix the HTML
+        $tidy->cleanRepair();
+        // get the CSS part
+        $head = tidy_get_head($tidy);
+        $css = empty($head) ? '' : $head->value;
+        $css = preg_replace('/<style([^>]+)>/ims', '<style>', $css) ?? '';
+        $css = preg_replace('/<\/style>(.*)<style>/ims', "\n", $css) ?? '';
+        $css = str_replace('/*<![CDATA[*/', '', $css);
+        $css = str_replace('/*]]>*/', '', $css);
+        preg_match('/<style>(.*)<\/style>/ims', $css, $matches);
+        $css = empty($matches[1]) ? '' : strtolower($matches[1]);
+        // include default css
+        $css = '<style>' . $defcss . $css . '</style>';
+        // get the body part
+        $body = tidy_get_body($tidy);
+        $html = empty($body) ? '' : $body->value;
+        // fix some self-closing tags
+        $html = str_replace('<br>', '<br />', $html);
+        // remove some empty tag blocks
+        $html = preg_replace('/<div([^\>]*)><\/div>/', '', $html) ?? '';
+        $html = preg_replace('/<p([^\>]*)><\/p>/', '', $html) ?? '';
+        // return the cleaned XHTML code + CSS
+        return $css . $html;
+    }
 }
