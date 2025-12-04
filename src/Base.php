@@ -72,20 +72,17 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *     'h': float,
  * }
  *
+ * @phpstan-type TCellBound array{
+ *     'T': float,
+ *     'R': float,
+ *     'B': float,
+ *     'L': float,
+ * }
+ *
  * @phpstan-type TCellDef array{
- *     'margin': array{
- *         'T': float,
- *         'R': float,
- *         'B': float,
- *         'L': float,
- *     },
- *     'padding': array{
- *         'T': float,
- *         'R': float,
- *         'B': float,
- *         'L': float,
- *     },
- *    'borderpos': float,
+ *     'margin': TCellBound,
+ *     'padding': TCellBound,
+ *     'borderpos': float,
  * }
  *
  * @phpstan-type TRefUnitValues array{
@@ -292,8 +289,8 @@ abstract class Base
         'small' => -2.0,
         'medium' => 0.0,
         'large' => 2.0,
-        'x-large' => 4.0,
         'larger' => 3.0,
+        'x-large' => 4.0,
         'xx-large' => 6.0,
     ];
 
@@ -612,23 +609,25 @@ abstract class Base
     public const BORDERPOS_INTERNAL = 0.5; // 1/2
 
     /**
+     * Default values for cell boundaries.
+     *
+     * @const TCellBound
+     */
+    public const ZEROCELLBOUND = [
+        'T' => 0,
+        'R' => 0,
+        'B' => 0,
+        'L' => 0,
+    ];
+
+    /**
      * Default values for cell.
      *
      * @const TCellDef
      */
     public const ZEROCELL = [
-        'margin' => [
-            'T' => 0,
-            'R' => 0,
-            'B' => 0,
-            'L' => 0,
-        ],
-        'padding' => [
-            'T' => 0,
-            'R' => 0,
-            'B' => 0,
-            'L' => 0,
-        ],
+        'margin' => self::ZEROCELLBOUND,
+        'padding' => self::ZEROCELLBOUND,
         'borderpos' => self::BORDERPOS_DEFAULT,
     ];
 
