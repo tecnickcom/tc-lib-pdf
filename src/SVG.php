@@ -1542,16 +1542,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return float Quantity to increases or decreases the space between characters in a text.
      */
-    protected function getTALetterSpacing(string $spacing, float $parent = 0): float
+    protected function getTALetterSpacing(string $spacing, float $parent = 0.0): float
     {
         $spacing = trim($spacing);
         return match ($spacing) {
-            'normal' => 0,
+            'normal' => 0.0,
             'inherit' => $parent,
             default => $this->svgUnitToPoints($spacing, -1, array_merge(self::REFUNITVAL, ['parent' => $parent])),
         };
     }
-
 
     /**
      * Returns the percentage of font stretching.
