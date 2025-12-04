@@ -168,7 +168,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function getCSSBorderDashStyle(string $style): int
     {
-        return match (strtolower($style)) {
+        return match (\strtolower($style)) {
             'none' => -1,
             'hidden' => -1,
             'dotted' => 1,
@@ -212,7 +212,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     protected function getCSSBorderStyle(string $cssborder): array
     {
         $border = $this->getCSSDefaultBorderStyle();
-        $bprop = preg_split('/[\s]+/', trim($cssborder));
+        $bprop = \preg_split('/[\s]+/', \trim($cssborder));
         if ($bprop === false) {
             return $border;
         }
@@ -269,11 +269,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         /** @var TCellBound $cellpad */
         $cellpad = $this->defCSSCellPadding;
-        $pad = preg_split('/[\s]+/', trim($csspadding));
+        $pad = \preg_split('/[\s]+/', \trim($csspadding));
         if ($pad === false) {
             return $cellpad;
         }
-        switch (count($pad)) {
+        switch (\count($pad)) {
             case 4:
                 $cellpad['T'] = $pad[0];
                 $cellpad['R'] = $pad[1];
@@ -326,11 +326,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         /** @var TCellBound $cellmrg */
         $cellmrg = $this->defCSSCellMargin;
-        $mrg = preg_split('/[\s]+/', trim($cssmargin));
+        $mrg = \preg_split('/[\s]+/', \trim($cssmargin));
         if ($mrg === false) {
             return $cellmrg;
         }
-        switch (count($mrg)) {
+        switch (\count($mrg)) {
             case 4:
                 $cellmrg['T'] = $mrg[0];
                 $cellmrg['R'] = $mrg[1];
@@ -362,10 +362,10 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
-        $cellmrg['T'] = str_replace('auto', '0', $cellmrg['T']);
-        $cellmrg['R'] = str_replace('auto', '0', $cellmrg['R']);
-        $cellmrg['B'] = str_replace('auto', '0', $cellmrg['B']);
-        $cellmrg['L'] = str_replace('auto', '0', $cellmrg['L']);
+        $cellmrg['T'] = \str_replace('auto', '0', $cellmrg['T']);
+        $cellmrg['R'] = \str_replace('auto', '0', $cellmrg['R']);
+        $cellmrg['B'] = \str_replace('auto', '0', $cellmrg['B']);
+        $cellmrg['L'] = \str_replace('auto', '0', $cellmrg['L']);
         $ref = self::REFUNITVAL;
         $ref['parent'] = $width;
         $cellmrg['T'] = $this->toUnit($this->getUnitValuePoints($cellmrg['T'], $ref));
@@ -387,11 +387,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         /** @var TCSSBorderSpacing $bsp */
         $bsp = $this->defCSSBorderSpacing;
-        $space = preg_split('/[\s]+/', trim($cssbspace));
+        $space = \preg_split('/[\s]+/', \trim($cssbspace));
         if ($space === false) {
             return $bsp;
         }
-        switch (count($space)) {
+        switch (\count($space)) {
             case 2:
                 $bsp['H'] = $space[0];
                 $bsp['V'] = $space[1];

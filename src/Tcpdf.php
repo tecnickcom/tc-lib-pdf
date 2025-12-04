@@ -68,10 +68,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         ?ObjEncrypt $objEncrypt = null
     ) {
         $this->setDecimalSeparator();
-        $this->doctime = time();
+        $this->doctime = \time();
         $this->docmodtime = $this->doctime;
         $seed = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
-        $this->fileid = md5($seed->encrypt('TCPDF'));
+        $this->fileid = \md5($seed->encrypt('TCPDF'));
         $this->setPDFFilename($this->fileid . '.pdf');
         $this->unit = $unit;
         $this->setUnicodeMode($isunicode);
@@ -92,7 +92,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->pdfx = ($mode == 'pdfx');
         $this->pdfa = 0;
         $matches = ['', '0'];
-        if (preg_match('/^pdfa([1-3])$/', $mode, $matches) === 1) {
+        if (\preg_match('/^pdfa([1-3])$/', $mode, $matches) === 1) {
             $this->pdfa = (int) $matches[1];
         }
     }
@@ -120,8 +120,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         // check for decimal separator
-        if (sprintf('%.1F', 1.0) != '1.0') {
-            setlocale(LC_NUMERIC, 'C');
+        if (\sprintf('%.1F', 1.0) != '1.0') {
+            \setlocale(LC_NUMERIC, 'C');
         }
     }
 
@@ -134,7 +134,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     {
         $this->isunicode = $isunicode;
         // check if PCRE Unicode support is enabled
-        if ($this->isunicode && (@preg_match('/\pL/u', 'a') == 1)) {
+        if ($this->isunicode && (@\preg_match('/\pL/u', 'a') == 1)) {
             $this->setSpaceRegexp('/(?!\xa0)[\s\p{Z}]/u');
             return;
         }
@@ -151,10 +151,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function setPDFFilename(string $name): void
     {
-        $bname = basename($name);
-        if (preg_match('/^[\w,\s-]+(\.pdf)?$/i', $bname) === 1) {
+        $bname = \basename($name);
+        if (\preg_match('/^[\w,\s-]+(\.pdf)?$/i', $bname) === 1) {
             $this->pdffilename = $bname;
-            $this->encpdffilename = rawurlencode($bname);
+            $this->encpdffilename = \rawurlencode($bname);
         }
     }
 
@@ -177,7 +177,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function setSpaceRegexp(string $regexp = '/[^\S\xa0]/'): void
     {
-        $parts = explode('/', $regexp);
+        $parts = \explode('/', $regexp);
         $this->spaceregexp = [
             'r' => $regexp,
             'p' => (empty($parts[1]) ? '[\s]' : $parts[1]),
@@ -221,7 +221,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         string $layout = 'SinglePage',
         string $mode = 'UseNone'
     ): static {
-        $this->display['zoom'] = (is_numeric($zoom) || in_array($zoom, $this::VALIDZOOM)) ? $zoom : 'default';
+        $this->display['zoom'] = (\is_numeric($zoom) || \in_array($zoom, $this::VALIDZOOM)) ? $zoom : 'default';
         $this->display['layout'] = $this->page->getLayout($layout);
         $this->display['page'] = $this->page->getDisplay($mode);
         return $this;
@@ -290,7 +290,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         if (empty($file)) {
             throw new PdfException('Empty file name');
         }
-        $filekey = basename((string) $file);
+        $filekey = \basename((string) $file);
         if (
             ! empty($filekey)
             && empty($this->embeddedfiles[$filekey])
@@ -383,22 +383,22 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'txt' => $txt,
             'opt' => $opt,
         ];
-        switch (strtolower($opt['subtype'])) {
+        switch (\strtolower($opt['subtype'])) {
             case 'fileattachment':
             case 'sound':
                 $this->addEmbeddedFile($opt['fs']);
         }
 
         // Add widgets annotation's icons
-        if (isset($opt['mk']['i']) && is_string($opt['mk']['i'])) {
+        if (isset($opt['mk']['i']) && \is_string($opt['mk']['i'])) {
             $this->image->add($opt['mk']['i']);
         }
 
-        if (isset($opt['mk']['ri']) && is_string($opt['mk']['ri'])) {
+        if (isset($opt['mk']['ri']) && \is_string($opt['mk']['ri'])) {
             $this->image->add($opt['mk']['ri']);
         }
 
-        if (isset($opt['mk']['ix']) && is_string($opt['mk']['ix'])) {
+        if (isset($opt['mk']['ix']) && \is_string($opt['mk']['ix'])) {
             $this->image->add($opt['mk']['ix']);
         }
 
@@ -449,7 +449,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function addInternalLink(int $page = -1, float $posy = 0): string
     {
-        $lnkid = '@' . (count($this->links) + 1);
+        $lnkid = '@' . (\count($this->links) + 1);
         $this->links[$lnkid] = [
             'p' => ($page < 0) ? $this->page->getPageID() : $page,
             'y' => $posy,
@@ -517,7 +517,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         string $fstyle = '',
         string $color = '',
     ): void {
-        $maxlevel = ((count($this->outlines) > 0) ? (end($this->outlines)['l'] + 1) : 0);
+        $maxlevel = ((\count($this->outlines) > 0) ? (\end($this->outlines)['l'] + 1) : 0);
         $this->outlines[] = [
             't' => $name,
             'u' => $link,
@@ -525,7 +525,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'p' => (($page < 0) ? $this->page->getPageID() : $page),
             'x' => $posx,
             'y' => $posy,
-            's' => strtoupper($fstyle),
+            's' => \strtoupper($fstyle),
             'c' => $color,
             'parent' => 0,
             'first' => -1,
@@ -566,7 +566,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function setUserRights(array $rights): void
     {
-        $this->userrights = array_merge($this->userrights, $rights);
+        $this->userrights = \array_merge($this->userrights, $rights);
     }
 
     /**
@@ -614,7 +614,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function setSignature(array $data): void
     {
-        $this->signature = array_merge($this->signature, $data);
+        $this->signature = \array_merge($this->signature, $data);
 
         if (empty($this->signature['signcert'])) {
             throw new PdfException('Invalid signing certificate (signcert)');
@@ -658,7 +658,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      */
     public function setSignTimeStamp(array $data): void
     {
-        $this->sigtimestamp = array_merge($this->sigtimestamp, $data);
+        $this->sigtimestamp = \array_merge($this->sigtimestamp, $data);
 
         if ($this->sigtimestamp['enabled'] && empty($this->sigtimestamp['host'])) {
             throw new PdfException('Invalid TSA host');
@@ -699,7 +699,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $pntw = $this->toPoints($width);
         $pnth = $this->toPoints($heigth);
 
-        $sigapp['rect'] = sprintf('%F %F %F %F', $pntx, $pnty, ($pntx + $pntw), ($pnty + $pnth));
+        $sigapp['rect'] = \sprintf('%F %F %F %F', $pntx, $pnty, ($pntx + $pntw), ($pnty + $pnth));
 
         return $sigapp;
     }
@@ -882,11 +882,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $xobj = $this->xobjects[$tid];
 
         if (empty($width) || $width < 0) {
-            $width = min($xobj['w'], $region['RW']);
+            $width = \min($xobj['w'], $region['RW']);
         }
 
         if (empty($height) || $height < 0) {
-            $height = min($xobj['h'], $region['RH']);
+            $height = \min($xobj['h'], $region['RH']);
         }
 
         $tplx = $this->cellHPos($posx, $width, $halign, $this->defcell);
@@ -1055,8 +1055,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         bool $view = true,
         bool $lock = true,
     ): string {
-        $layer = sprintf('LYR%03d', (count($this->pdflayer) + 1));
-        $name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $name);
+        $layer = \sprintf('LYR%03d', (\count($this->pdflayer) + 1));
+        $name = \preg_replace('/[^a-zA-Z0-9_\-]/', '', $name);
         if (empty($name)) {
             $name = $layer;
         }
@@ -1072,7 +1072,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->pdflayer[] = array(
             'layer' => $layer,
             'name' => $name,
-            'intent' => implode(' ', $intarr),
+            'intent' => \implode(' ', $intarr),
             'print' => $print,
             'view' => $view,
             'lock' => $lock,
@@ -1163,7 +1163,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
                 $this->pon,
                 $curfont['idx'],
                 $bmrk['s'] . (($bmrk['l'] == 0) ? 'B' : ''),
-                (int) round($curfont['size'] - $bmrk['l']),
+                (int) \round($curfont['size'] - $bmrk['l']),
                 $curfont['spacing'],
                 $curfont['stretching'],
             );

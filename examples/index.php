@@ -19,10 +19,10 @@
 require(__DIR__ . '/../vendor/autoload.php');
 
 
-define('OUTPUT_FILE', realpath(__DIR__ . '/../target') . '/example.pdf');
+\define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
 // define fonts directory
-define('K_PATH_FONTS', realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
+\define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 // autoloader when using RPM or DEB package installation
 //require ('/usr/share/php/Com/Tecnick/Pdf/autoload.php');
@@ -58,7 +58,7 @@ $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
 
 // test images directory
-$imgdir = realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
+$imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
 
 
 // ----------
@@ -1662,7 +1662,7 @@ $rawpdf = $pdf->getOutPDFString();
 
 // Various output modes:
 
-//$pdf->savePDF(dirname(__DIR__).'/target', $rawpdf);
+//$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
 $pdf->renderPDF($rawpdf);
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

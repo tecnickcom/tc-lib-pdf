@@ -63,29 +63,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\CSS
             'output-bom' => 0,
         ];
         // clean up the HTML code
-        $tidy = tidy_parse_string($html, $tidyopts);
+        $tidy = \tidy_parse_string($html, $tidyopts);
         if ($tidy === false) {
             throw new PdfException('Unable to tidy the HTML');
         }
         // fix the HTML
         $tidy->cleanRepair();
         // get the CSS part
-        $headnode = tidy_get_head($tidy);
+        $headnode = \tidy_get_head($tidy);
         $css = empty($headnode) ? '' : $headnode->value;
-        $css = preg_replace('/<style([^>]+)>/ims', '<style>', $css) ?? '';
-        $css = preg_replace('/<\/style>(.*)<style>/ims', "\n", $css) ?? '';
-        $css = str_replace('/*<![CDATA[*/', '', $css);
-        $css = str_replace('/*]]>*/', '', $css);
-        preg_match('/<style>(.*)<\/style>/ims', $css, $matches);
-        $css = empty($matches[1]) ? '' : strtolower($matches[1]);
+        $css = \preg_replace('/<style([^>]+)>/ims', '<style>', $css) ?? '';
+        $css = \preg_replace('/<\/style>(.*)<style>/ims', "\n", $css) ?? '';
+        $css = \str_replace('/*<![CDATA[*/', '', $css);
+        $css = \str_replace('/*]]>*/', '', $css);
+        \preg_match('/<style>(.*)<\/style>/ims', $css, $matches);
+        $css = empty($matches[1]) ? '' : \strtolower($matches[1]);
         // get the body part
-        $bodynode = tidy_get_body($tidy);
+        $bodynode = \tidy_get_body($tidy);
         $body = empty($bodynode) ? '' : $bodynode->value;
         // fix some self-closing tags
-        $body = str_replace('<br>', '<br />', $body);
+        $body = \str_replace('<br>', '<br />', $body);
         // remove some empty tag blocks
-        $body = preg_replace('/<div([^\>]*)><\/div>/', '', $body) ?? '';
-        $body = preg_replace('/<p([^\>]*)><\/p>/', '', $body) ?? '';
+        $body = \preg_replace('/<div([^\>]*)><\/div>/', '', $body) ?? '';
+        $body = \preg_replace('/<p([^\>]*)><\/p>/', '', $body) ?? '';
         // return the cleaned XHTML code with CSS
         return '<style>' . $defcss . $css . '</style>' . $body;
     }

@@ -530,7 +530,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         $out = $this->getOutPDFHeader()
             . $this->getOutPDFBody();
-        $startxref = strlen($out);
+        $startxref = \strlen($out);
         $offset = $this->getPDFObjectOffsets($out);
         $out .= $this->getOutPDFXref($offset)
             . $this->getOutPDFTrailer()
@@ -600,13 +600,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getPDFObjectOffsets(string $data): array
     {
-        preg_match_all('/(([0-9]+)[\s][0-9]+[\s]obj[\n])/i', $data, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        \preg_match_all('/(([0-9]+)[\s][0-9]+[\s]obj[\n])/i', $data, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
         $offset = [];
         foreach ($matches as $match) {
             $offset[($match[2][0])] = $match[2][1];
         }
 
-        ksort($offset);
+        \ksort($offset);
         return $offset;
     }
 
@@ -621,12 +621,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . '0 ' . ($this->pon + 1) . "\n"
             . '0000000000 65535 f ' . "\n";
         $freegen = ($this->pon + 2);
-        $lastobj = array_key_last($offset);
+        $lastobj = \array_key_last($offset);
         for ($idx = 1; $idx <= $lastobj; ++$idx) {
             if (isset($offset[$idx])) {
-                $out .= sprintf('%010d 00000 n ' . "\n", $offset[$idx]);
+                $out .= \sprintf('%010d 00000 n ' . "\n", $offset[$idx]);
             } else {
-                $out .= sprintf('0000000000 %05d f ' . "\n", $freegen);
+                $out .= \sprintf('0000000000 %05d f ' . "\n", $freegen);
                 ++$freegen;
             }
         }
@@ -665,13 +665,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $oid = ++$this->pon;
         $this->objid['srgbicc'] = $oid;
         $out = $oid . ' 0 obj' . "\n";
-        $icc = file_get_contents(__DIR__ . '/include/sRGB.icc.z');
+        $icc = \file_get_contents(__DIR__ . '/include/sRGB.icc.z');
         if ($icc === false) {
             throw new PdfException('Unable to read sRGB.icc.z file');
         }
 
         $icc = $this->encrypt->encryptString($icc, $oid);
-        return $out . '<< /N 3 /Filter /FlateDecode /Length ' . strlen($icc)
+        return $out . '<< /N 3 /Filter /FlateDecode /Length ' . \strlen($icc)
             . ' >>'
             . ' stream' . "\n"
             . $icc . "\n"
@@ -795,8 +795,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $afnames[] = $this->getOutTextString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
                 $afobjs[] = $efdata['f'] . ' 0 R';
             }
-            $out .= ' /AF [ ' . implode(' ', $afobjs) . ' ]';
-            $out .= ' /EmbeddedFiles << /Names [ ' . implode(' ', $afnames) . ' ] >>';
+            $out .= ' /AF [ ' . \implode(' ', $afobjs) . ' ]';
+            $out .= ' /EmbeddedFiles << /Names [ ' . \implode(' ', $afnames) . ' ] >>';
         }
 
         $out .= ' >>';
@@ -832,8 +832,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /OpenAction [' . $fpo . ' 0 R /FitH null]';
         } elseif ($this->display['zoom'] == 'real') {
             $out .= ' /OpenAction [' . $fpo . ' 0 R /XYZ null null 1]';
-        } elseif (! is_string($this->display['zoom'])) {
-            $out .= sprintf(' /OpenAction [' . $fpo . ' 0 R /XYZ null null %F]', ($this->display['zoom'] / 100));
+        } elseif (! \is_string($this->display['zoom'])) {
+            $out .= \sprintf(' /OpenAction [' . $fpo . ' 0 R /XYZ null null %F]', ($this->display['zoom'] / 100));
         }
 
         //$out .= ' /AA <<>>';
@@ -985,7 +985,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         int $height = 0,
         string $stream = ''
     ): string {
-        $stream = trim($stream);
+        $stream = \trim($stream);
         $oid = ++$this->pon;
         $out = $oid . ' 0 obj' . "\n";
         $tid = 'AX' . $oid;
@@ -1007,7 +1007,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         ];
         $out .= '<< /Type /XObject /Subtype /Form /FormType 1';
         if ($this->compress) {
-            $stream = gzcompress($stream);
+            $stream = \gzcompress($stream);
             if ($stream === false) {
                 throw new PdfException('Unable to compress stream');
             }
@@ -1015,11 +1015,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $stream = $this->encrypt->encryptString($stream, $oid);
-        $rect = sprintf('%F %F', $width, $height);
+        $rect = \sprintf('%F %F', $width, $height);
         return $out . ' /BBox [0 0 ' . $rect . ']'
             . ' /Matrix [1 0 0 1 0 0]'
             . ' /Resources 2 0 R'
-            . ' /Length ' . strlen($stream)
+            . ' /Length ' . \strlen($stream)
             . ' >>'
             . ' stream' . "\n"
             . $stream . "\n"
@@ -1043,16 +1043,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' /Type /XObject'
                 . ' /Subtype /Form'
                 . ' /FormType 1';
-            $stream = trim($data['outdata']);
+            $stream = \trim($data['outdata']);
             if ($this->compress) {
-                $stream = gzcompress($stream);
+                $stream = \gzcompress($stream);
                 if ($stream === false) {
                     throw new PdfException('Unable to compress stream');
                 }
                 $out .= ' /Filter /FlateDecode';
             }
 
-            $out .= sprintf(
+            $out .= \sprintf(
                 ' /BBox [%F %F %F %F]',
                 $this->toPoints($data['x']),
                 $this->toPoints(-$data['y']),
@@ -1094,7 +1094,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
 
             $stream = $this->encrypt->encryptString($stream, $data['n']);
-            $out .= ' /Length ' . strlen($stream)
+            $out .= ' /Length ' . \strlen($stream)
                 . ' >>'
                 . ' stream' . "\n"
                 . $stream . "\n"
@@ -1142,7 +1142,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $poid = $page['n'];
             $pgx = $this->toPoints($dst['x']);
             $pgy = $this->toYPoints($dst['y'], $page['pheight']);
-            $out .= ' /' . $name . ' ' . sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
+            $out .= ' /' . $name . ' ' . \sprintf('[%u 0 R /XYZ %F %F null]', $poid, $pgx, $pgy);
         }
 
         return $out . ' >>' . "\n"
@@ -1160,7 +1160,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out = '';
-        reset($this->embeddedfiles);
+        \reset($this->embeddedfiles);
         foreach ($this->embeddedfiles as $name => $data) {
             if (!empty($data['content'])) {
                 // if content is already set, use it
@@ -1173,7 +1173,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
             }
 
-            $rawsize = strlen($content);
+            $rawsize = \strlen($content);
             if ($rawsize <= 0) {
                 continue; // silently skip the file
             }
@@ -1194,7 +1194,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             if ($this->pdfa == 3) {
                 $filter = ' /Subtype /text#2Fxml';
             } elseif ($this->compress) {
-                $content = gzcompress($content);
+                $content = \gzcompress($content);
                 if ($content === false) {
                     throw new PdfException('Unable to compress content');
                 }
@@ -1207,7 +1207,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . '<<'
                 . ' /Type /EmbeddedFile'
                 . $filter
-                . ' /Length ' . strlen($stream)
+                . ' /Length ' . \strlen($stream)
                 . ' /Params <</Size ' . $rawsize . '>>'
                 . ' >>'
                 . ' stream' . "\n"
@@ -1231,25 +1231,25 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected static function getColorStringFromArray(array $color): string
     {
-        $col = array_values($color);
+        $col = \array_values($color);
         $out = '[';
-        match (count($color)) {
-            4 => $out .= sprintf(
+        match (\count($color)) {
+            4 => $out .= \sprintf(
                 '%F %F %F %F',
-                (max(0, min(100, (float) $col[0])) / 100),
-                (max(0, min(100, (float) $col[1])) / 100),
-                (max(0, min(100, (float) $col[2])) / 100),
-                (max(0, min(100, (float) $col[3])) / 100)
+                (\max(0, \min(100, (float) $col[0])) / 100),
+                (\max(0, \min(100, (float) $col[1])) / 100),
+                (\max(0, \min(100, (float) $col[2])) / 100),
+                (\max(0, \min(100, (float) $col[3])) / 100)
             ),
-            3 => $out .= sprintf(
+            3 => $out .= \sprintf(
                 '%F %F %F',
-                (max(0, min(255, (float) $col[0])) / 255),
-                (max(0, min(255, (float) $col[1])) / 255),
-                (max(0, min(255, (float) $col[2])) / 255)
+                (\max(0, \min(255, (float) $col[0])) / 255),
+                (\max(0, \min(255, (float) $col[1])) / 255),
+                (\max(0, \min(255, (float) $col[2])) / 255)
             ),
-            1 => $out .= sprintf(
+            1 => $out .= \sprintf(
                 '%F',
-                (max(0, min(255, (float) $col[0])) / 255)
+                (\max(0, \min(255, (float) $col[0])) / 255)
             ),
             default => $out . ']',
         };
@@ -1269,20 +1269,20 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     continue;
                 }
                 $annot = $this->annotation[$oid];
-                $annot['opt'] = array_change_key_case($annot['opt'], CASE_LOWER);
+                $annot['opt'] = \array_change_key_case($annot['opt'], CASE_LOWER);
                 $out .= $this->getAnnotationRadiobuttonGroups($annot); // @phpstan-ignore-line
                 $orx = $this->toPoints($annot['x']);
                 $ory = $this->toYPoints(($annot['y'] + $annot['h']), $page['pheight']);
                 $width = $this->toPoints($annot['w']);
                 $height = $this->toPoints($annot['h']);
-                $rect = sprintf('%F %F %F %F', $orx, $ory, $orx + $width, $ory + $height);
+                $rect = \sprintf('%F %F %F %F', $orx, $ory, $orx + $width, $ory + $height);
                 $out .= ((int) $oid) . ' 0 obj' . "\n" // @phpstan-ignore-line
                     . '<<'
                     . ' /Type /Annot'
                     . ' /Subtype /' . $annot['opt']['subtype']
                     . ' /Rect [' . $rect . ']';
                 $ft = ['Btn', 'Tx', 'Ch', 'Sig'];
-                $formfield = (! empty($annot['opt']['ft']) && in_array($annot['opt']['ft'], $ft));
+                $formfield = (! empty($annot['opt']['ft']) && \in_array($annot['opt']['ft'], $ft));
                 if ($formfield) {
                     $out .= ' /FT /' . $annot['opt']['ft']; // @phpstan-ignore-line
                 }
@@ -1292,13 +1292,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
 
                 $out .= ' /P ' . $page['n'] . ' 0 R'
-                    . ' /NM ' . $this->encrypt->escapeDataString(sprintf('%04u-%04u', $page['num'], $key), $oid)
+                    . ' /NM ' . $this->encrypt->escapeDataString(\sprintf('%04u-%04u', $page['num'], $key), $oid)
                     . ' /M ' . $this->getOutDateTimeString($this->docmodtime, $oid)
                     . $this->getOutAnnotationFlags($annot) // @phpstan-ignore-line
                     . $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height) // @phpstan-ignore-line
                     . $this->getAnnotationBorder($annot); // @phpstan-ignore-line
 
-                if (! empty($annot['opt']['c']) && is_string($annot['opt']['c'])) {
+                if (! empty($annot['opt']['c']) && \is_string($annot['opt']['c'])) {
                      $out .= ' /C [ ' . $this->color->getPdfRgbComponents($annot['opt']['c']) . ' ]';
                 }
 
@@ -1334,7 +1334,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = '';
         if (
             empty($this->radiobuttonGroups[$annot['txt']])
-            || ! is_array($this->radiobuttonGroups[$annot['txt']])
+            || ! \is_array($this->radiobuttonGroups[$annot['txt']])
         ) {
             return $out;
         }
@@ -1353,14 +1353,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out .= ' /T ' . $this->encrypt->escapeDataString($annot['txt'], $oid);
-        if (! empty($annot['opt']['tu']) && is_string($annot['opt']['tu'])) {
+        if (! empty($annot['opt']['tu']) && \is_string($annot['opt']['tu'])) {
             $out .= ' /TU ' . $this->encrypt->escapeDataString($annot['opt']['tu'], $oid);
         }
 
         $out .= ' /FT /Btn /Kids [';
         $defval = '';
         foreach ($this->radiobuttonGroups[$annot['txt']] as $data) {
-            if (isset($data['kid']) && is_numeric($data['kid'])) {
+            if (isset($data['kid']) && \is_numeric($data['kid'])) {
                 $out .= ' ' . $data['kid'] . ' 0 R';
                 if ($data['def'] !== 'Off') {
                     $defval = $data['def'];
@@ -1369,7 +1369,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out .= ' ]';
-        if (! empty($defval) && is_string($defval)) {
+        if (! empty($defval) && \is_string($defval)) {
             $out .= ' /V /' . $defval;
         }
 
@@ -1394,7 +1394,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         int $height = 0
     ): string {
         $out = '';
-        if (! empty($annot['opt']['as']) && is_string($annot['opt']['as'])) {
+        if (! empty($annot['opt']['as']) && \is_string($annot['opt']['as'])) {
             $out .= ' /AS /' . $annot['opt']['as'];
         }
 
@@ -1403,16 +1403,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out .= ' /AP <<';
-        if (! is_array($annot['opt']['ap'])) {
+        if (! \is_array($annot['opt']['ap'])) {
             $out .= $annot['opt']['ap'];
         } else {
             foreach ($annot['opt']['ap'] as $mode => $def) {
                 // $mode can be: n = normal; r = rollover; d = down;
-                $out .= ' /' . strtoupper($mode);
-                if (is_array($def)) {
+                $out .= ' /' . \strtoupper($mode);
+                if (\is_array($def)) {
                     $out .= ' <<';
                     foreach ($def as $apstate => $stream) {
-                        if (!is_string($stream)) {
+                        if (!\is_string($stream)) {
                             continue;
                         }
                         // reference to XObject that define the appearance for this mode-state
@@ -1425,7 +1425,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     }
 
                     $out .= ' >>';
-                } elseif (is_string($def)) {
+                } elseif (\is_string($def)) {
                     // reference to XObject that define the appearance for this mode
                     $apsobjid = $this->getOutAPXObjects(
                         $width,
@@ -1450,29 +1450,29 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = '';
         if (
             ! empty($annot['opt']['bs'])
-            && (is_array($annot['opt']['bs']))
+            && (\is_array($annot['opt']['bs']))
         ) {
             $out .= ' /BS << /Type /Border';
-            if (isset($annot['opt']['bs']['w']) && is_numeric($annot['opt']['bs']['w'])) {
+            if (isset($annot['opt']['bs']['w']) && \is_numeric($annot['opt']['bs']['w'])) {
                 $out .= ' /W ' . (int) $annot['opt']['bs']['w'];
             }
 
             $bstyles = ['S', 'D', 'B', 'I', 'U'];
             if (
                 ! empty($annot['opt']['bs']['s'])
-                && is_string($annot['opt']['bs']['s'])
-                && in_array($annot['opt']['bs']['s'], $bstyles)
+                && \is_string($annot['opt']['bs']['s'])
+                && \in_array($annot['opt']['bs']['s'], $bstyles)
             ) {
                 $out .= ' /S /' . $annot['opt']['bs']['s'];
             }
 
             if (
                 isset($annot['opt']['bs']['d'])
-                && (is_array($annot['opt']['bs']['d']))
+                && (\is_array($annot['opt']['bs']['d']))
             ) {
                 $out .= ' /D [';
                 foreach ($annot['opt']['bs']['d'] as $cord) {
-                    if (is_numeric($cord)) {
+                    if (\is_numeric($cord)) {
                         $out .= ' ' . (int) $cord;
                     }
                 }
@@ -1485,21 +1485,21 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /Border [';
             if (
                 isset($annot['opt']['border'])
-                && (count($annot['opt']['border']) >= 3)
-                && is_numeric($annot['opt']['border'][0])
-                && is_numeric($annot['opt']['border'][1])
-                && is_numeric($annot['opt']['border'][2])
+                && (\count($annot['opt']['border']) >= 3)
+                && \is_numeric($annot['opt']['border'][0])
+                && \is_numeric($annot['opt']['border'][1])
+                && \is_numeric($annot['opt']['border'][2])
             ) {
                 $out .= (int) $annot['opt']['border'][0]
                     . ' ' . (int) $annot['opt']['border'][1]
                     . ' ' . (int) $annot['opt']['border'][2];
                 if (
                     isset($annot['opt']['border'][3])
-                    && is_array($annot['opt']['border'][3])
+                    && \is_array($annot['opt']['border'][3])
                 ) {
                     $out .= ' [';
                     foreach ($annot['opt']['border'][3] as $dash) {
-                        if (is_numeric($dash)) {
+                        if (\is_numeric($dash)) {
                             $out .= ' ' . (int) $dash;
                         }
                     }
@@ -1513,13 +1513,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ']';
         }
 
-        if (isset($annot['opt']['be']) && (is_array($annot['opt']['be']))) {
+        if (isset($annot['opt']['be']) && (\is_array($annot['opt']['be']))) {
             $out .= ' /BE <<';
             $bstyles = ['S', 'C'];
             if (
                 ! empty($annot['opt']['be']['s'])
-                && is_string($annot['opt']['be']['s'])
-                && in_array($annot['opt']['be']['s'], $bstyles)
+                && \is_string($annot['opt']['be']['s'])
+                && \in_array($annot['opt']['be']['s'], $bstyles)
             ) {
                 $out .= ' /S /' . $annot['opt']['be']['s'];
             } else {
@@ -1528,11 +1528,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             if (
                 isset($annot['opt']['be']['i'])
-                && is_numeric($annot['opt']['be']['i'])
+                && \is_numeric($annot['opt']['be']['i'])
                 && ($annot['opt']['be']['i'] >= 0)
                 && ($annot['opt']['be']['i'] <= 2)
             ) {
-                $out .= ' /I ' . sprintf(' %F', $annot['opt']['be']['i']);
+                $out .= ' /I ' . \sprintf(' %F', $annot['opt']['be']['i']);
             }
 
             $out .= '>>';
@@ -1570,17 +1570,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             'fileattachment',
             'sound',
         ];
-        if (empty($annot['opt']['subtype']) || ! in_array(strtolower($annot['opt']['subtype']), $markups)) {
+        if (empty($annot['opt']['subtype']) || ! \in_array(\strtolower($annot['opt']['subtype']), $markups)) {
             return $out;
         }
 
-        if (! empty($annot['opt']['t']) && is_string($annot['opt']['t'])) {
+        if (! empty($annot['opt']['t']) && \is_string($annot['opt']['t'])) {
             $out .= ' /T ' . $this->getOutTextString($annot['opt']['t'], $oid, true);
         }
 
         //$out .= ' /Popup ';
         if (isset($annot['opt']['ca'])) {
-            $out .= ' /CA ' . sprintf('%F', (float) $annot['opt']['ca']);
+            $out .= ' /CA ' . \sprintf('%F', (float) $annot['opt']['ca']);
         }
 
         if (isset($annot['opt']['rc'])) {
@@ -1626,13 +1626,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getAnnotationFlagsCode(int|array $flags): int
     {
-        if (! is_array($flags)) {
+        if (! \is_array($flags)) {
             return $flags;
         }
 
         $fval = 0;
         foreach ($flags as $flag) {
-            $fval += match (strtolower($flag)) {
+            $fval += match (\strtolower($flag)) {
                 'invisible'      => 1 << 0,
                 'hidden'         => 1 << 1,
                 'print'          => 1 << 2,
@@ -1660,7 +1660,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutAnnotationOptSubtype(array $annot, int $pagenum, int $oid, int $key): string
     {
-        return match (strtolower($annot['opt']['subtype'])) {
+        return match (\strtolower($annot['opt']['subtype'])) {
             '3d' => $this->getOutAnnotationOptSubtype3D($annot),
             'caret' => $this->getOutAnnotationOptSubtypeCaret($annot),
             'circle' => $this->getOutAnnotationOptSubtypeCircle($annot),
@@ -1706,7 +1706,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $iconsapp = ['Comment', 'Help', 'Insert', 'Key', 'NewParagraph', 'Note', 'Paragraph'];
         if (
             isset($annot['opt']['name'])
-            && in_array($annot['opt']['name'], $iconsapp)
+            && \in_array($annot['opt']['name'], $iconsapp)
         ) {
             $out .= ' /Name /' . $annot['opt']['name'];
         } else {
@@ -1721,7 +1721,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (
             isset($annot['opt']['statemodel'])
-            && in_array($annot['opt']['statemodel'], $statemodels)
+            && \in_array($annot['opt']['statemodel'], $statemodels)
         ) {
             $out .= ' /StateModel /' . $annot['opt']['statemodel'];
         } else {
@@ -1737,7 +1737,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (
             isset($annot['opt']['state'])
-            && in_array($annot['opt']['state'], $states)
+            && \in_array($annot['opt']['state'], $states)
         ) {
             $out .= ' /State /' . $annot['opt']['state'];
         } elseif ($annot['opt']['statemodel'] == 'Marked') {
@@ -1766,23 +1766,23 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             switch ($annot['txt'][0]) {
                 case '#': // internal destination
                     $out .= ' /A << /S /GoTo /D /'
-                    . $this->encrypt->encodeNameObject(substr($annot['txt'], 1)) . '>>';
+                    . $this->encrypt->encodeNameObject(\substr($annot['txt'], 1)) . '>>';
                     break;
                 case '@': // internal link ID
                         $l = $this->links[$annot['txt']];
                         $page = $this->page->getPage($l['p']);
                         $y = $this->toYPoints($l['y'], $page['pheight']);
-                        $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
+                        $out .= \sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                     break;
                 case '%': // embedded PDF file
-                    $filename = basename(substr($annot['txt'], 1));
+                    $filename = \basename(\substr($annot['txt'], 1));
                     $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P ' . ($pagenum - 1)
                         . ' /A ' . $this->embeddedfiles[$filename]['a']
                         . ' >>'
                         . ' >>';
                     break;
                 case '*': // embedded generic file
-                    $filename = basename(substr($annot['txt'], 1));
+                    $filename = \basename(\substr($annot['txt'], 1));
                     $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
                         . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
@@ -1790,18 +1790,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         . $this->getOutTextString($jsa, $oid, true) . ' >>';
                     break;
                 default:
-                    $parsedUrl = parse_url($annot['txt']);
+                    $parsedUrl = \parse_url($annot['txt']);
                     if (
                         empty($parsedUrl['scheme'])
                         && (isset($parsedUrl['path']) && $parsedUrl['path'] !== ''
-                        && strtolower(substr($parsedUrl['path'], -4)) == '.pdf')
+                        && \strtolower(\substr($parsedUrl['path'], -4)) == '.pdf')
                     ) {
                         // relative link to a PDF file
                         $dest = '[0 /Fit]'; // default page 0
                         if (! empty($parsedUrl['fragment'])) {
                             // check for named destination
-                            $tmp = explode('=', $parsedUrl['fragment']);
-                            $dest = '(' . ((count($tmp) == 2) ? $tmp[1] : $tmp[0]) . ')';
+                            $tmp = \explode('=', $parsedUrl['fragment']);
+                            $dest = '(' . ((\count($tmp) == 2) ? $tmp[1] : $tmp[0]) . ')';
                         }
 
                         $out .= ' /A << /S /GoToR /D ' . $dest
@@ -1820,7 +1820,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $hmodes = ['N', 'I', 'O', 'P'];
-        if (! empty($annot['opt']['h']) && in_array($annot['opt']['h'], $hmodes)) {
+        if (! empty($annot['opt']['h']) && \in_array($annot['opt']['h'], $hmodes)) {
             $out .= ' /H /' . $annot['opt']['h'];
         } else {
             $out .= ' /H /I';
@@ -1846,7 +1846,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (
             isset($annot['opt']['q'])
-            && is_numeric($annot['opt']['q'])
+            && \is_numeric($annot['opt']['q'])
             && ($annot['opt']['q'] >= 0)
             && ($annot['opt']['q'] <= 2)
         ) {
@@ -1861,11 +1861,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /DS ' . $this->getOutTextString($annot['opt']['ds'], $annot['n'], true);
         }
 
-        if (isset($annot['opt']['cl']) && is_array($annot['opt']['cl'])) {
+        if (isset($annot['opt']['cl']) && \is_array($annot['opt']['cl'])) {
             $out .= ' /CL [';
             foreach ($annot['opt']['cl'] as $cl) {
-                if (is_numeric($cl)) {
-                    $out .= \sprintf('%F ', $this->toPoints(floatval($cl)));
+                if (\is_numeric($cl)) {
+                    $out .= \sprintf('%F ', $this->toPoints(\floatval($cl)));
                 }
             }
 
@@ -1873,24 +1873,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $tfit = ['FreeText', 'FreeTextCallout', 'FreeTextTypeWriter'];
-        if (isset($annot['opt']['it']) && in_array($annot['opt']['it'], $tfit)) {
+        if (isset($annot['opt']['it']) && \in_array($annot['opt']['it'], $tfit)) {
             $out .= ' /IT /' . $annot['opt']['it'];
         }
 
         if (
             isset($annot['opt']['rd'])
-            && is_array($annot['opt']['rd'])
-            && (count($annot['opt']['rd']) == 4)
-            && is_numeric($annot['opt']['rd'][0])
-            && is_numeric($annot['opt']['rd'][1])
-            && is_numeric($annot['opt']['rd'][2])
-            && is_numeric($annot['opt']['rd'][3])
+            && \is_array($annot['opt']['rd'])
+            && (\count($annot['opt']['rd']) == 4)
+            && \is_numeric($annot['opt']['rd'][0])
+            && \is_numeric($annot['opt']['rd'][1])
+            && \is_numeric($annot['opt']['rd'][2])
+            && \is_numeric($annot['opt']['rd'][3])
         ) {
             $l = $this->toPoints((float) $annot['opt']['rd'][0]);
             $r = $this->toPoints((float) $annot['opt']['rd'][1]);
             $t = $this->toPoints((float) $annot['opt']['rd'][2]);
             $b = $this->toPoints((float) $annot['opt']['rd'][3]);
-            $out .= ' /RD [' . sprintf('%F %F %F %F', $l, $r, $t, $b) . ']';
+            $out .= ' /RD [' . \sprintf('%F %F %F %F', $l, $r, $t, $b) . ']';
         }
 
         $lineendings = [
@@ -1905,7 +1905,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             'RClosedArrow',
             'Slash',
         ];
-        if (isset($annot['opt']['le']) && in_array($annot['opt']['le'], $lineendings)) {
+        if (isset($annot['opt']['le']) && \in_array($annot['opt']['le'], $lineendings)) {
             $out .= ' /LE /' . $annot['opt']['le'];
         }
 
@@ -2070,14 +2070,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
-        $filename = basename($annot['opt']['fs']);
+        $filename = \basename($annot['opt']['fs']);
         if (! isset($this->embeddedfiles[$filename]['f'])) {
             return '';
         }
 
         $out = ' /FS ' . $this->embeddedfiles[$filename]['f'] . ' 0 R';
         $iconsapp = ['Graph', 'Paperclip', 'PushPin', 'Tag'];
-        if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+        if (isset($annot['opt']['name']) && \in_array($annot['opt']['name'], $iconsapp)) {
             $out .= ' /Name /' . $annot['opt']['name'];
         } else {
             $out .= ' /Name /PushPin';
@@ -2100,7 +2100,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
-        $filename = basename($annot['opt']['fs']);
+        $filename = \basename($annot['opt']['fs']);
         if (! isset($this->embeddedfiles[$filename]['f'])) {
             return '';
         }
@@ -2109,7 +2109,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         // /R /C /B /E /CO /CP
         $out = ' /Sound ' . $this->embeddedfiles[$filename]['f'] . ' 0 R';
         $iconsapp = ['Speaker', 'Mic'];
-        if (isset($annot['opt']['name']) && in_array($annot['opt']['name'], $iconsapp)) {
+        if (isset($annot['opt']['name']) && \in_array($annot['opt']['name'], $iconsapp)) {
             $out .= ' /Name /' . $annot['opt']['name'];
         } else {
             $out .= ' /Name /Speaker';
@@ -2141,78 +2141,78 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     ): string {
         $out = '';
         $hmode = ['N', 'I', 'O', 'P', 'T'];
-        if (! empty($annot['opt']['h']) && in_array($annot['opt']['h'], $hmode)) {
+        if (! empty($annot['opt']['h']) && \in_array($annot['opt']['h'], $hmode)) {
             $out .= ' /H /' . $annot['opt']['h'];
         }
 
-        if (! empty($annot['opt']['mk']) && is_array($annot['opt']['mk'])) {
+        if (! empty($annot['opt']['mk']) && \is_array($annot['opt']['mk'])) {
             $out .= ' /MK <<';
             if (
                 isset($annot['opt']['mk']['r'])
-                && is_numeric($annot['opt']['mk']['r'])
+                && \is_numeric($annot['opt']['mk']['r'])
             ) {
                 $out .= ' /R ' . $annot['opt']['mk']['r'];
             }
 
-            if (isset($annot['opt']['mk']['bc']) && (is_array($annot['opt']['mk']['bc']))) {
+            if (isset($annot['opt']['mk']['bc']) && (\is_array($annot['opt']['mk']['bc']))) {
                 $out .= ' /BC '
                 . static::getColorStringFromArray($annot['opt']['mk']['bc']); // @phpstan-ignore argument.type
             }
 
-            if (isset($annot['opt']['mk']['bg']) && (is_array($annot['opt']['mk']['bg']))) {
+            if (isset($annot['opt']['mk']['bg']) && (\is_array($annot['opt']['mk']['bg']))) {
                 $out .= ' /BG '
                 . static::getColorStringFromArray($annot['opt']['mk']['bg']); // @phpstan-ignore argument.type
             }
 
             if (
                 isset($annot['opt']['mk']['ca'])
-                && is_string($annot['opt']['mk']['ca'])
+                && \is_string($annot['opt']['mk']['ca'])
             ) {
                 $out .= ' /CA ' . $annot['opt']['mk']['ca'];
             }
 
             if (
                 isset($annot['opt']['mk']['rc'])
-                && is_string($annot['opt']['mk']['rc'])
+                && \is_string($annot['opt']['mk']['rc'])
             ) {
                 $out .= ' /RC ' . $annot['opt']['mk']['rc'];
             }
 
             if (
                 isset($annot['opt']['mk']['ac'])
-                && is_string($annot['opt']['mk']['ac'])
+                && \is_string($annot['opt']['mk']['ac'])
             ) {
                 $out .= ' /AC ' . $annot['opt']['mk']['ac'];
             }
 
-            if (isset($annot['opt']['mk']['i']) && is_string($annot['opt']['mk']['i'])) {
+            if (isset($annot['opt']['mk']['i']) && \is_string($annot['opt']['mk']['i'])) {
                 $info = $this->image->getImageDataByKey($this->image->getKey($annot['opt']['mk']['i']));
                 if (! empty($info['obj'])) {
                     $out .= ' /I ' . $info['obj'] . ' 0 R';
                 }
             }
 
-            if (isset($annot['opt']['mk']['ri']) && is_string($annot['opt']['mk']['ri'])) {
+            if (isset($annot['opt']['mk']['ri']) && \is_string($annot['opt']['mk']['ri'])) {
                 $info = $this->image->getImageDataByKey($this->image->getKey($annot['opt']['mk']['ri']));
                 if (! empty($info['obj'])) {
                     $out .= ' /RI ' . $info['obj'] . ' 0 R';
                 }
             }
 
-            if (isset($annot['opt']['mk']['ix']) && is_string($annot['opt']['mk']['ix'])) {
+            if (isset($annot['opt']['mk']['ix']) && \is_string($annot['opt']['mk']['ix'])) {
                 $info = $this->image->getImageDataByKey($this->image->getKey($annot['opt']['mk']['ix']));
                 if (! empty($info['obj'])) {
                     $out .= ' /IX ' . $info['obj'] . ' 0 R';
                 }
             }
 
-            if (! empty($annot['opt']['mk']['if']) && is_array($annot['opt']['mk']['if'])) {
+            if (! empty($annot['opt']['mk']['if']) && \is_array($annot['opt']['mk']['if'])) {
                 $out .= ' /IF <<';
                 $if_sw = ['A', 'B', 'S', 'N'];
                 if (
                     isset($annot['opt']['mk']['if']['sw'])
-                    && is_string($annot['opt']['mk']['if']['sw'])
-                    && in_array($annot['opt']['mk']['if']['sw'], $if_sw)
+                    && \is_string($annot['opt']['mk']['if']['sw'])
+                    && \in_array($annot['opt']['mk']['if']['sw'], $if_sw)
                 ) {
                     $out .= ' /SW /' . $annot['opt']['mk']['if']['sw'];
                 }
@@ -2220,20 +2220,20 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $if_s = ['A', 'P'];
                 if (
                     isset($annot['opt']['mk']['if']['s'])
-                    && is_string($annot['opt']['mk']['if']['s'])
-                    && in_array($annot['opt']['mk']['if']['s'], $if_s)
+                    && \is_string($annot['opt']['mk']['if']['s'])
+                    && \in_array($annot['opt']['mk']['if']['s'], $if_s)
                 ) {
                     $out .= ' /S /' . $annot['opt']['mk']['if']['s'];
                 }
 
                 if (
                     isset($annot['opt']['mk']['if']['a'])
-                    && (is_array($annot['opt']['mk']['if']['a']))
-                    && (count($annot['opt']['mk']['if']['a']) == 2)
-                    && is_numeric($annot['opt']['mk']['if']['a'][0])
-                    && is_numeric($annot['opt']['mk']['if']['a'][1])
+                    && (\is_array($annot['opt']['mk']['if']['a']))
+                    && (\count($annot['opt']['mk']['if']['a']) == 2)
+                    && \is_numeric($annot['opt']['mk']['if']['a'][0])
+                    && \is_numeric($annot['opt']['mk']['if']['a'][1])
                 ) {
-                    $out .= sprintf(
+                    $out .= \sprintf(
                         ' /A [%F %F]',
                         $annot['opt']['mk']['if']['a'][0],
                         $annot['opt']['mk']['if']['a'][1]
@@ -2249,7 +2249,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             if (
                 isset($annot['opt']['mk']['tp'])
-                && is_numeric($annot['opt']['mk']['tp'])
+                && \is_numeric($annot['opt']['mk']['tp'])
                 && ($annot['opt']['mk']['tp'] >= 0)
                 && ($annot['opt']['mk']['tp'] <= 6)
             ) {
@@ -2264,25 +2264,25 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /Parent ' . $this->radiobuttonGroups[$annot['txt']]['n'] . ' 0 R';
         }
 
-        if (isset($annot['opt']['t']) && is_string($annot['opt']['t'])) {
+        if (isset($annot['opt']['t']) && \is_string($annot['opt']['t'])) {
             $out .= ' /T ' . $this->encrypt->escapeDataString($annot['opt']['t'], $oid);
         }
 
-        if (isset($annot['opt']['tu']) && is_string($annot['opt']['tu'])) {
+        if (isset($annot['opt']['tu']) && \is_string($annot['opt']['tu'])) {
             $out .= ' /TU ' . $this->encrypt->escapeDataString($annot['opt']['tu'], $oid);
         }
 
-        if (isset($annot['opt']['tm']) && is_string($annot['opt']['tm'])) {
+        if (isset($annot['opt']['tm']) && \is_string($annot['opt']['tm'])) {
             $out .= ' /TM ' . $this->encrypt->escapeDataString($annot['opt']['tm'], $oid);
         }
 
         if (isset($annot['opt']['ff'])) {
-            if (is_array($annot['opt']['ff'])) {
+            if (\is_array($annot['opt']['ff'])) {
                 // array of bit settings
                 $flag = 0;
                 foreach ($annot['opt']['ff'] as $val) {
-                    if (is_numeric($val) && ($val >= 1) && ($val <= 32)) {
-                        $flag += 1 << (intval($val) - 1);
+                    if (\is_numeric($val) && ($val >= 1) && ($val <= 32)) {
+                        $flag += 1 << (\intval($val) - 1);
                     }
                 }
             } else {
@@ -2298,11 +2298,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (isset($annot['opt']['v'])) {
             $out .= ' /V';
-            if (is_array($annot['opt']['v'])) {
+            if (\is_array($annot['opt']['v'])) {
                 foreach ($annot['opt']['v'] as $optval) {
-                    if (is_numeric($optval)) {
-                        $optval = sprintf('%F', floatval($optval));
-                    } elseif (!is_string($optval)) {
+                    if (\is_numeric($optval)) {
+                        $optval = \sprintf('%F', \floatval($optval));
+                    } elseif (!\is_string($optval)) {
                         continue;
                     }
 
@@ -2315,11 +2315,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (isset($annot['opt']['dv'])) {
             $out .= ' /DV';
-            if (is_array($annot['opt']['dv'])) {
+            if (\is_array($annot['opt']['dv'])) {
                 foreach ($annot['opt']['dv'] as $optval) {
-                    if (is_numeric($optval)) {
-                        $optval = sprintf('%F', floatval($optval));
-                    } elseif (!is_string($optval)) {
+                    if (\is_numeric($optval)) {
+                        $optval = \sprintf('%F', \floatval($optval));
+                    } elseif (!\is_string($optval)) {
                         continue;
                     }
 
@@ -2332,11 +2332,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (isset($annot['opt']['rv'])) {
             $out .= ' /RV';
-            if (is_array($annot['opt']['rv'])) {
+            if (\is_array($annot['opt']['rv'])) {
                 foreach ($annot['opt']['rv'] as $optval) {
-                    if (is_numeric($optval)) {
-                        $optval = sprintf('%F', floatval($optval));
-                    } elseif (!is_string($optval)) {
+                    if (\is_numeric($optval)) {
+                        $optval = \sprintf('%F', \floatval($optval));
+                    } elseif (!\is_string($optval)) {
                         continue;
                     }
 
@@ -2361,24 +2361,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (
             isset($annot['opt']['q'])
-            && is_numeric($annot['opt']['q'])
+            && \is_numeric($annot['opt']['q'])
             && ($annot['opt']['q'] >= 0)
             && ($annot['opt']['q'] <= 2)
         ) {
             $out .= ' /Q ' . (int) $annot['opt']['q'];
         }
 
-        if (! empty($annot['opt']['opt']) && is_array($annot['opt']['opt'])) {
+        if (! empty($annot['opt']['opt']) && \is_array($annot['opt']['opt'])) {
             $out .= ' /Opt [';
             foreach ($annot['opt']['opt'] as $copt) {
-                if (is_array($copt)) {
-                    if ((count($copt) != 2) || ! is_string($copt[0]) || ! is_string($copt[1])) {
+                if (\is_array($copt)) {
+                    if ((\count($copt) != 2) || ! \is_string($copt[0]) || ! \is_string($copt[1])) {
                         continue;
                     }
                     $out .= ' [' . $this->getOutTextString($copt[0], $oid, true)
                         . ' ' . $this->getOutTextString($copt[1], $oid, true) . ']';
-                } elseif (is_string($copt) || is_numeric($copt)) {
-                    $out .= ' ' . $this->getOutTextString(strval($copt), $oid, true);
+                } elseif (\is_string($copt) || \is_numeric($copt)) {
+                    $out .= ' ' . $this->getOutTextString(\strval($copt), $oid, true);
                 }
             }
 
@@ -2389,11 +2389,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /TI ' . (int) $annot['opt']['ti'];
         }
 
-        if (! empty($annot['opt']['i']) && is_array($annot['opt']['i'])) {
+        if (! empty($annot['opt']['i']) && \is_array($annot['opt']['i'])) {
             $out .= ' /I [';
             foreach ($annot['opt']['i'] as $copt) {
-                if (is_numeric($copt)) {
-                    $out .= strval(intval($copt)) . ' ';
+                if (\is_numeric($copt)) {
+                    $out .= \strval(\intval($copt)) . ' ';
                 }
             }
 
@@ -2478,7 +2478,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
-        if (strpos($this->javascript, 'this.addField') > 0) {
+        if (\strpos($this->javascript, 'this.addField') > 0) {
             if (! $this->userrights['enabled']) {
                 // $this->setUserRights();
             }
@@ -2486,7 +2486,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             // The following two lines are used to avoid form fields duplication after saving.
             // The addField method only works when releasing user rights (UR3).
             $pattern = "ftcpdfdocsaved=this.addField('%s','%s',%d,[%F,%F,%F,%F]);";
-            $jsa = sprintf($pattern, 'tcpdfdocsaved', 'text', 0, 0, 1, 0, 1);
+            $jsa = \sprintf($pattern, 'tcpdfdocsaved', 'text', 0, 0, 1, 0, 1);
             $jsb = "getField('tcpdfdocsaved').value='saved';";
             $this->javascript = $jsa . "\n" . $this->javascript . "\n" . $jsb;
         }
@@ -2538,7 +2538,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // sort outlines by page and original position
-        array_multisort($outline_p, SORT_NUMERIC, SORT_ASC, $outline_k, SORT_NUMERIC, SORT_ASC, $this->outlines);
+        \array_multisort($outline_p, SORT_NUMERIC, SORT_ASC, $outline_k, SORT_NUMERIC, SORT_ASC, $this->outlines);
     }
 
     /**
@@ -2548,7 +2548,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function processPrevNextBookmarks(): int
     {
-        $numbookmarks = count($this->outlines);
+        $numbookmarks = \count($this->outlines);
         $this->sortBookmarks();
         $lru = [];
         $level = 0;
@@ -2588,7 +2588,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function unhtmlentities(string $text_to_convert): string
     {
-        return html_entity_decode($text_to_convert, ENT_QUOTES, $this->encoding);
+        return \html_entity_decode($text_to_convert, ENT_QUOTES, $this->encoding);
     }
 
     /**
@@ -2600,7 +2600,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
-        $numbookmarks = is_countable($this->outlines) ? count($this->outlines) : 0;
+        $numbookmarks = \is_countable($this->outlines) ? \count($this->outlines) : 0;
         if ($numbookmarks <= 0) {
             return '';
         }
@@ -2613,13 +2613,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             // covert HTML title to string
             $search = [$nltags, "/[\r]+/si", "/[\n]+/si"];
             $replace = ["\n", '', "\n"];
-            $title = preg_replace($search, $replace, $outline['t']);
+            $title = \preg_replace($search, $replace, $outline['t']);
             if ($title === null) {
                 $title = '';
             }
-            $title = strip_tags($title);
+            $title = \strip_tags($title);
 
-            $title = preg_replace("/^\s+|\s+$/u", '', $title);
+            $title = \preg_replace("/^\s+|\s+$/u", '', $title);
             if ($title === null) {
                 $title = '';
             }
@@ -2647,18 +2647,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 switch ($outline['u'][0]) {
                     case '#':
                         // internal destination
-                        $out .= ' /Dest /' . $this->encrypt->encodeNameObject(substr($outline['u'], 1));
+                        $out .= ' /Dest /' . $this->encrypt->encodeNameObject(\substr($outline['u'], 1));
                         break;
                     case '@':
                             // internal link ID
                             $l = $this->links[$outline['u']];
                             $page = $this->page->getPage($l['p']);
                             $y = $this->toYPoints($l['y'], $page['pheight']);
-                            $out .= sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
+                            $out .= \sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                         break;
                     case '%':
                         // embedded PDF file
-                        $filename = basename(substr($outline['u'], 1));
+                        $filename = \basename(\substr($outline['u'], 1));
                         $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P '
                             . ($outline['p'] - 1)
                             . ' /A ' . $this->embeddedfiles[$filename]['a'] . ' >>'
@@ -2666,7 +2666,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         break;
                     case '*':
                         // embedded generic file
-                        $filename = basename(substr($outline['u'], 1));
+                        $filename = \basename(\substr($outline['u'], 1));
                         $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;'
                         . 'for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
@@ -2686,22 +2686,22 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $page = $this->page->getPage($outline['p']);
                 $x = $this->toPoints($outline['x']);
                 $y = $this->toYPoints($outline['y'], $page['pheight']);
-                $out .= ' ' . sprintf('/Dest [%u 0 R /XYZ %F %F null]', $page['n'], $x, $y);
+                $out .= ' ' . \sprintf('/Dest [%u 0 R /XYZ %F %F null]', $page['n'], $x, $y);
             }
 
             // set font style
             $style = 0;
             if (! empty($outline['s'])) {
-                if (str_contains($outline['s'], 'B')) {
+                if (\str_contains($outline['s'], 'B')) {
                     $style |= 2; // bold
                 }
 
-                if (str_contains($outline['s'], 'I')) {
+                if (\str_contains($outline['s'], 'I')) {
                     $style |= 1; // oblique
                 }
             }
 
-            $out .= sprintf(' /F %d', $style);
+            $out .= \sprintf(' /F %d', $style);
             // set bookmark color
             if (empty($outline['c'])) {
                 $out .= ' /C [0.0 0.0 0.0]'; // black
@@ -2736,7 +2736,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = '';
         foreach ($this->signature['appearance']['empty'] as $key => $esa) {
             $page = $this->page->getPage($esa['page']);
-            $signame = $esa['name'] . sprintf(' [%03d]', ($key + 1));
+            $signame = $esa['name'] . \sprintf(' [%03d]', ($key + 1));
             $out .= $esa['objid'] . ' 0 obj' . "\n"
                 . '<<'
                 . ' /Type /Annot'
@@ -2766,20 +2766,20 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // remove last newline
-        $pdfdoc = substr($pdfdoc, 0, -1);
+        $pdfdoc = \substr($pdfdoc, 0, -1);
         // remove filler space
-        $byterange_strlen = strlen($this::BYTERANGE);
+        $byterange_strlen = \strlen($this::BYTERANGE);
         // define the ByteRange
         $byte_range = [];
         $byte_range[0] = 0;
-        $byte_range[1] = strpos($pdfdoc, $this::BYTERANGE) + $byterange_strlen + 10;
+        $byte_range[1] = \strpos($pdfdoc, $this::BYTERANGE) + $byterange_strlen + 10;
         $byte_range[2] = $byte_range[1] + $this::SIGMAXLEN + 2;
-        $byte_range[3] = strlen($pdfdoc) - $byte_range[2];
-        $pdfdoc = substr($pdfdoc, 0, $byte_range[1]) . substr($pdfdoc, $byte_range[2]);
+        $byte_range[3] = \strlen($pdfdoc) - $byte_range[2];
+        $pdfdoc = \substr($pdfdoc, 0, $byte_range[1]) . \substr($pdfdoc, $byte_range[2]);
         // replace the ByteRange
-        $byterange = sprintf('/ByteRange[0 %u %u %u]', $byte_range[1], $byte_range[2], $byte_range[3]);
-        $byterange .= str_repeat(' ', ($byterange_strlen - strlen($byterange)));
-        $pdfdoc = str_replace($this::BYTERANGE, $byterange, $pdfdoc);
+        $byterange = \sprintf('/ByteRange[0 %u %u %u]', $byte_range[1], $byte_range[2], $byte_range[3]);
+        $byterange .= \str_repeat(' ', ($byterange_strlen - \strlen($byterange)));
+        $pdfdoc = \str_replace($this::BYTERANGE, $byterange, $pdfdoc);
         // write the document to a temporary folder
         $tempdoc = $this->cache->getNewFileName('doc', $this->fileid);
         if ($tempdoc === false) {
@@ -2787,16 +2787,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $f = $this->file->fopenLocal($tempdoc, 'wb');
-        $pdfdoc_length = strlen($pdfdoc);
-        fwrite($f, $pdfdoc, $pdfdoc_length);
-        fclose($f);
+        $pdfdoc_length = \strlen($pdfdoc);
+        \fwrite($f, $pdfdoc, $pdfdoc_length);
+        \fclose($f);
         // get digital signature via openssl library
         $tempsign = $this->cache->getNewFileName('sig', $this->fileid);
         if ($tempsign === false) {
             throw new PdfException('Unable to create temporary signature file');
         }
 
-        openssl_pkcs7_sign(
+        \openssl_pkcs7_sign(
             $tempdoc,
             $tempsign,
             $this->signature['signcert'],
@@ -2812,30 +2812,30 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             throw new PdfException('Unable to read signature file');
         }
         // extract signature
-        $signature = substr($signature, $pdfdoc_length);
-        $signature = substr($signature, (strpos($signature, "%%EOF\n\n------") + 13));
+        $signature = \substr($signature, $pdfdoc_length);
+        $signature = \substr($signature, (\strpos($signature, "%%EOF\n\n------") + 13));
 
-        $tmparr = explode("\n\n", $signature);
+        $tmparr = \explode("\n\n", $signature);
         $signature = $tmparr[1];
         // decode signature
-        $signature = base64_decode(trim($signature));
+        $signature = \base64_decode(\trim($signature));
         if ($signature === false) {
             throw new PdfException('Unable to decode signature');
         }
         // add TSA timestamp to signature
         $signature = $this->applySignatureTimestamp($signature);
         // convert signature to hex
-        $signature = unpack('H*', $signature);
+        $signature = \unpack('H*', $signature);
         if ($signature === false) {
             throw new PdfException('Unable to unpack signature');
         }
-        $signature = current($signature);
-        if (! is_string($signature)) {
+        $signature = \current($signature);
+        if (! \is_string($signature)) {
             throw new PdfException('Invalid signature');
         }
-        $signature = str_pad($signature, $this::SIGMAXLEN, '0');
+        $signature = \str_pad($signature, $this::SIGMAXLEN, '0');
         // Add signature to the document
-        return substr($pdfdoc, 0, $byte_range[1]) . '<' . $signature . '>' . substr($pdfdoc, $byte_range[1]);
+        return \substr($pdfdoc, 0, $byte_range[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byte_range[1]);
     }
 
     /**
@@ -2883,7 +2883,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $oid . ' 0 obj' . "\n";
         $out .= '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '
             . $this::BYTERANGE
-            . ' /Contents<' . str_repeat('0', $this::SIGMAXLEN) . '>';
+            . ' /Contents<' . \str_repeat('0', $this::SIGMAXLEN) . '>';
         if (empty($this->signature['approval']) || ($this->signature['approval'] != 'A')) {
             $out .= ' /Reference [ << /Type /SigRef';
             if ($this->signature['cert_type'] > 0) {
@@ -3046,24 +3046,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return;
         }
 
-        if (headers_sent()) {
+        if (\headers_sent()) {
             throw new PdfException(
                 'The PDF file cannot be sent because some data has already been output to the browser.'
             );
         }
 
-        header('Content-Type: application/pdf');
-        header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0, max-age=1');
-        header('Pragma: public');
-        header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
-        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header(
+        \header('Content-Type: application/pdf');
+        \header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0, max-age=1');
+        \header('Pragma: public');
+        \header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
+        \header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        \header(
             'Content-Disposition: inline; filename="' . $this->encpdffilename . '"; filename*=UTF-8\'\''
             . $this->encpdffilename
         );
         if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
             // the content length may vary if the server is using compression
-            header('Content-Length: ' . strlen($rawpdf));
+            \header('Content-Length: ' . \strlen($rawpdf));
         }
 
         echo $rawpdf;
@@ -3078,40 +3078,40 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     public function downloadPDF(string $rawpdf = ''): void
     {
-        if (ob_get_contents()) {
+        if (\ob_get_contents()) {
             throw new PdfException(
                 'The PDF file cannot be sent, some data has already been output to the browser.'
             );
         }
 
-        if (headers_sent()) {
+        if (\headers_sent()) {
             throw new PdfException(
                 'The PDF file cannot be sent because some data has already been output to the browser.'
             );
         }
 
-        header('Content-Description: File Transfer');
-        header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0, max-age=1');
-        header('Pragma: public');
-        header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
-        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        \header('Content-Description: File Transfer');
+        \header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0, max-age=1');
+        \header('Pragma: public');
+        \header('Expires: Sat, 01 Jan 2000 01:00:00 GMT'); // Date in the past
+        \header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
         // force download dialog
-        header('Content-Type: application/pdf');
-        if (! str_contains(PHP_SAPI, 'cgi')) {
-            header('Content-Type: application/force-download', false);
-            header('Content-Type: application/octet-stream', false);
-            header('Content-Type: application/download', false);
+        \header('Content-Type: application/pdf');
+        if (! \str_contains(PHP_SAPI, 'cgi')) {
+            \header('Content-Type: application/force-download', false);
+            \header('Content-Type: application/octet-stream', false);
+            \header('Content-Type: application/download', false);
         }
 
         // use the Content-Disposition header to supply a recommended filename
-        header(
+        \header(
             'Content-Disposition: attachment; filename="' . $this->encpdffilename . '";'
             . " filename*=UTF-8''" . $this->encpdffilename
         );
-        header('Content-Transfer-Encoding: binary');
+        \header('Content-Transfer-Encoding: binary');
         if (empty($_SERVER['HTTP_ACCEPT_ENCODING'])) {
             // the content length may vary if the server is using compression
-            header('Content-Length: ' . strlen($rawpdf));
+            \header('Content-Length: ' . \strlen($rawpdf));
         }
 
         echo $rawpdf;
@@ -3127,14 +3127,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         string $path = '',
         string $rawpdf = ''
     ): void {
-        $filepath = implode('/', [realpath($path), $this->pdffilename]);
+        $filepath = \implode('/', [\realpath($path), $this->pdffilename]);
         $fhd = $this->file->fopenLocal($filepath, 'wb');
         if (! $fhd) {
             throw new PdfException('Unable to create output file: ' . $filepath);
         }
 
-        fwrite($fhd, $rawpdf, strlen($rawpdf));
-        fclose($fhd);
+        \fwrite($fhd, $rawpdf, \strlen($rawpdf));
+        \fclose($fhd);
     }
 
     /**
@@ -3151,6 +3151,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         . 'Content-Transfer-Encoding: base64' . "\r\n"
         . 'Content-Disposition: attachment;' . "\r\n"
         . ' filename="' . $this->encpdffilename . '"' . "\r\n\r\n"
-        . chunk_split(base64_encode($rawpdf), 76, "\r\n");
+        . \chunk_split(\base64_encode($rawpdf), 76, "\r\n");
     }
 }

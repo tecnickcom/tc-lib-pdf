@@ -180,7 +180,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.2.2';
+    protected string $version = '8.3.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -712,16 +712,16 @@ abstract class Base
         string $defunit = 'px',
     ): float {
         $unit = 'px';
-        if (in_array($defunit, self::VALIDUNITS)) {
+        if (\in_array($defunit, self::VALIDUNITS)) {
             $unit = $defunit;
         }
 
         $value = 0.0;
-        if (is_numeric($val)) {
-            $value = floatval($val);
-        } elseif (preg_match('/([0-9\.\-\+]+)([a-z%]{0,4})/', $val, $match)) {
-            $value = floatval($match[1]);
-            if (in_array($match[2], self::VALIDUNITS)) {
+        if (\is_numeric($val)) {
+            $value = \floatval($val);
+        } elseif (\preg_match('/([0-9\.\-\+]+)([a-z%]{0,4})/', $val, $match)) {
+            $value = \floatval($match[1]);
+            if (\in_array($match[2], self::VALIDUNITS)) {
                 $unit = $match[2];
             }
         } else {
@@ -754,9 +754,9 @@ abstract class Base
             // Relative to 1% of the height of the viewport.
             'vh' => (($value * $ref['viewport']['height']) / 100),
             // Relative to 1% of viewport's* larger dimension.
-            'vmax' => (($value * max($ref['viewport']['height'], $ref['viewport']['width'])) / 100),
+            'vmax' => (($value * \max($ref['viewport']['height'], $ref['viewport']['width'])) / 100),
             // Relative to 1% of viewport's smaller dimension.
-            'vmin' => (($value * min($ref['viewport']['height'], $ref['viewport']['width'])) / 100),
+            'vmin' => (($value * \min($ref['viewport']['height'], $ref['viewport']['width'])) / 100),
             // Relative to 1% of the width of the viewport.
             'vw' => (($value * $ref['viewport']['width']) / 100),
         };
@@ -777,7 +777,7 @@ abstract class Base
         array $ref = self::REFUNITVAL,
         string $defunit = 'pt',
     ): float {
-        if (is_string($val) && isset(self::FONTRELSIZE[$val])) {
+        if (\is_string($val) && isset(self::FONTRELSIZE[$val])) {
             return ($ref['parent'] + self::FONTRELSIZE[$val]);
         }
 

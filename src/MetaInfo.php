@@ -80,7 +80,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
     {
         if (
             isset($this->$field)
-            && is_array($this->$field)
+            && \is_array($this->$field)
             && ($key !== '')
             && isset($this->$field[$key])
             && ($value !== '')
@@ -156,7 +156,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
             return $this;
         }
 
-        $isvalid = preg_match('/^[1-9]+[.]\d+$/', $version);
+        $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
         if ($isvalid === false) {
             throw new PdfException('Invalid PDF version format');
         }
@@ -209,7 +209,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getFormattedDate(int $time): string
     {
-        return substr_replace(date('YmdHisO', $time), "'", (-2), 0) . "'";
+        return \substr_replace(\date('YmdHisO', $time), "'", (-2), 0) . "'";
     }
 
     /**
@@ -221,7 +221,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getXMPFormattedDate(int $time): string
     {
-        return date('Y-m-dTH:i:sP', $time);
+        return \date('Y-m-dTH:i:sP', $time);
     }
 
     /**
@@ -282,7 +282,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getEscapedXML(string $str): string
     {
-        return strtr($str, [
+        return \strtr($str, [
             "\0" => '',
             '&' => '&amp;',
             '<' => '&lt;',
@@ -316,11 +316,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getOutXMP(): string
     {
-        $uuid = 'uuid:' . substr($this->fileid, 0, 8)
-        . '-' . substr($this->fileid, 8, 4)
-        . '-' . substr($this->fileid, 12, 4)
-        . '-' . substr($this->fileid, 16, 4)
-        . '-' . substr($this->fileid, 20, 12);
+        $uuid = 'uuid:' . \substr($this->fileid, 0, 8)
+        . '-' . \substr($this->fileid, 8, 4)
+        . '-' . \substr($this->fileid, 12, 4)
+        . '-' . \substr($this->fileid, 16, 4)
+        . '-' . \substr($this->fileid, 20, 12);
 
         // @codingStandardsIgnoreStart
         $xmp = '<?xpacket begin="' . $this->uniconv->chr(0xfeff) . '" id="W5M0MpCehiHzreSzNTczkc9d"?>' . "\n"
@@ -442,7 +442,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
         . '<<'
         . ' /Type /Metadata'
         . ' /Subtype /XML'
-        . ' /Length ' . strlen($xmp)
+        . ' /Length ' . \strlen($xmp)
         . ' >> stream' . "\n"
         . $xmp . "\n"
         . 'endstream' . "\n"
@@ -484,7 +484,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
             $val = $this->viewerpref[$name];
             if (
                 isset($this->page->$box[$val]) // @phpstan-ignore offsetAccess.nonOffsetAccessible
-                && is_string($this->page->$box[$val])
+                && \is_string($this->page->$box[$val])
             ) {
                 $box = $this->page->$box[$val];
             }
@@ -500,7 +500,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
     {
         $mode = 'AppDefault';
         if (isset($this->viewerpref['PrintScaling'])) {
-            $name = strtolower($this->viewerpref['PrintScaling']);
+            $name = \strtolower($this->viewerpref['PrintScaling']);
             $valid = [
                 'none' => 'None',
                 'appdefault' => 'AppDefault',
@@ -519,7 +519,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
     protected function getDuplexMode(): string
     {
         if (isset($this->viewerpref['Duplex'])) {
-            $name = strtolower($this->viewerpref['Duplex']);
+            $name = \strtolower($this->viewerpref['Duplex']);
             $valid = [
                 'simplex' => 'Simplex',
                 'duplexflipshortedge' => 'DuplexFlipShortEdge',
