@@ -49,7 +49,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @const TCSSBorderSpacing
      */
-    public const ZEROBORDERSPACE = [
+    protected const ZEROBORDERSPACE = [
         'H' => 0,
         'V' => 0,
     ];
@@ -74,6 +74,45 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @var TCSSBorderSpacing
      */
     protected $defCSSBorderSpacing = self::ZEROBORDERSPACE;
+
+    /**
+     * Maximum value that can be represented in Roman notation.
+     *
+     * @var int
+     */
+    protected const ROMAN_LIMIT = 3_999_999_999;
+
+    /**
+     * Maps Roman Vinculum symbols to number multipliers.
+     *
+     * @var array<string, int>
+     */
+    protected const ROMAN_VINCULUM = [
+        '\u{033F}' => 1_000_000,
+        '\u{0305}' => 1_000,
+        '' => 1,
+    ];
+
+    /**
+     * Maps Roman symbols to numbers.
+     *
+     * @var array<string, int>
+     */
+    protected const ROMAN_SYMBOL = [
+        // standard notation
+        'M' => 1_000,
+        'CM' => 900,
+        'D' => 500,
+        'CD' => 400,
+        'C' => 100,
+        'XC' => 90,
+        'L' => 50,
+        'XL' => 40,
+        'X' => 10,
+        'IX' => 9,
+        'V' => 5,
+        'IV' => 4,
+    ];
 
     /**
      * Set the default CSS margin in user units.
@@ -265,7 +304,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return TCellBound cell paddings.
      */
-    public function getCSSPadding(string $csspadding, float $width = 0.0): array
+    protected function getCSSPadding(string $csspadding, float $width = 0.0): array
     {
         /** @var TCellBound $cellpad */
         $cellpad = $this->defCSSCellPadding;
@@ -322,7 +361,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return TCellBound cell margins.
      */
-    public function getCSSMargin(string $cssmargin, float $width = 0.0): array
+    protected function getCSSMargin(string $cssmargin, float $width = 0.0): array
     {
         /** @var TCellBound $cellmrg */
         $cellmrg = $this->defCSSCellMargin;
@@ -383,7 +422,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return TCSSBorderSpacing of border spacings.
      */
-    public function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
+    protected function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
     {
         /** @var TCSSBorderSpacing $bsp */
         $bsp = $this->defCSSBorderSpacing;
@@ -412,5 +451,186 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $bsp['H'] = $this->toUnit($this->getUnitValuePoints($bsp['H'], $ref));
         $bsp['V'] = $this->toUnit($this->getUnitValuePoints($bsp['V'], $ref));
         return $bsp;
+    }
+
+    /**
+     * Implode CSS data array into a single string.
+     *
+     * @param array<string, string> $css array of CSS properties.
+     *
+     * @return string merged CSS properties.
+     */
+    protected function implodeCSSData(array $css): string
+    {
+        $out = '';
+        foreach ($css as $style) {
+            if (!\is_array($style) || empty($style['c']) || (!\is_string($style['c']))) {
+                continue;
+            }
+            $csscmds = \explode(';', $style['c']);
+            foreach ($csscmds as $cmd) {
+                if (empty($cmd)) {
+                    continue;
+                }
+                $pos = \strpos($cmd, ':');
+                if ($pos === false) {
+                    continue;
+                }
+                $cmd = \substr($cmd, 0, ($pos + 1));
+                if (\strpos($out, $cmd) !== false) {
+                    // remove duplicate commands (last commands have high priority)
+                    $out = \preg_replace('/' . $cmd . '[^;]+/i', '', $out) ?? '';
+                }
+            }
+            $out .= ';' . $style['c'];
+        }
+        // remove multiple semicolons
+        $out = \preg_replace('/[;]+/', ';', $out) ?? '';
+        return $out;
+    }
+
+    /**
+     * Tidy up the CSS string by removing unsupported properties.
+     *
+     * @param string $css string containing CSS definitions.
+     *
+     * @return string
+     */
+    protected function tidyCSS($css): string
+    {
+        if (empty($css)) {
+            return '';
+        }
+        // remove comments
+        $css = \preg_replace('/\/\*[^\*]*\*\//', '', $css) ?? '';
+        // remove newlines and multiple spaces
+        $css = \preg_replace('/[\s]+/', ' ', $css) ?? '';
+        // remove some spaces
+        $css = \preg_replace('/[\s]*([;:\{\}]{1})[\s]*/', '\\1', $css) ?? '';
+        // remove empty blocks
+        $css = \preg_replace('/([^\}\{]+)\{\}/', '', $css) ?? '';
+        // replace media type parenthesis
+        $css = \preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1§', $css) ?? '';
+        $css = \preg_replace('/\}\}/si', '}§', $css) ?? '';
+        // find media blocks (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
+        $blk = [];
+        $matches = [];
+        if (\preg_match_all('/@media[\s]+([^\§]*)§([^§]*)§/i', $css, $matches) > 0) {
+            foreach ($matches[1] as $key => $type) {
+                $blk[$type] = $matches[2][$key];
+            }
+            // remove media blocks
+            $css = \preg_replace('/@media[\s]+([^\§]*)§([^§]*)§/i', '', $css) ?? '';
+        }
+        // keep 'all' and 'print' media, other media types are discarded
+        if (!empty($blk['all'])) {
+            $css .= $blk['all'];
+        }
+        if (!empty($blk['print'])) {
+            $css .= $blk['print'];
+        }
+        return \trim($css);
+    }
+
+    /**
+     * Extracts the CSS properties from a CSS string.
+     *
+     * @param string $css string containing CSS definitions.
+     *
+     * @return array<string, string> CSS properties.
+     */
+    protected function extractCSSproperties($css): array
+    {
+        $css = $this->tidyCSS($css);
+        if (empty($css)) {
+            return [];
+        }
+        $blk = [];
+        $matches = [];
+        // explode css data string into array
+        if (\substr($css, -1) == '}') {
+            // remove last parethesis
+            $css = \substr($css, 0, -1);
+        }
+        $matches = \explode('}', $css);
+        foreach ($matches as $key => $block) {
+            // index 0 contains the CSS selector, index 1 contains CSS properties
+            $blk[$key] = \explode('{', $block);
+            if (!isset($blk[$key][1])) {
+                // remove empty definitions
+                unset($blk[$key]);
+            }
+        }
+        // split groups of selectors (comma-separated list of selectors)
+        foreach ($blk as $key => $block) {
+            if (\strpos($block[0], ',') > 0) {
+                $selectors = \explode(',', $block[0]);
+                foreach ($selectors as $sel) {
+                    $blk[] = [0 => \trim($sel), 1 => $block[1]];
+                }
+                unset($blk[$key]);
+            }
+        }
+        // covert array to selector => properties
+        $out = [];
+        foreach ($blk as $block) {
+            $selector = $block[0];
+            // calculate selector's specificity
+            $matches = [];
+            $sta = 0; // the declaration is not from is a 'style' attribute
+            // number of ID attributes
+            $stb = \intval(\preg_match_all('/[\#]/', $selector, $matches));
+            // number of other attributes
+            $stc = \intval(\preg_match_all('/[\[\.]/', $selector, $matches));
+            // number of pseudo-classes
+            $stc += \intval(\preg_match_all(
+                '/[\:]link|visited|hover|active|focus|target|lang|enabled|disabled'
+                . '|checked|indeterminate|root|nth|first|last|only|empty|contains|not/i',
+                $selector,
+                $matches,
+            ));
+            // number of element names
+            $std = \intval(\preg_match_all('/[\>\+\~\s]{1}[a-zA-Z0-9]+/', " $selector", $matches));
+            // number of pseudo-elements
+            $std += \intval(\preg_match_all('/[\:][\:]/', $selector, $matches));
+            $specificity = $sta . $stb . $stc . $std;
+            // add specificity to the beginning of the selector
+            $out["$specificity $selector"] = $block[1];
+        }
+        // sort selectors alphabetically to account for specificity
+        \ksort($out, SORT_STRING);
+        return $out;
+    }
+
+    /**
+     * Returns the Roman representation of an integer number.
+     * Roman standard notation can represent numbers up to 3,999.
+     * For bigger numbers, up to two layers of the "vinculum" notation
+     * are used for a max value of 3,999,999,999.
+     *
+     * @param int $num number to convert.
+     *
+     * @return string roman representation of the specified number.
+     */
+    protected function intToRoman(int $num): string
+    {
+        if ($num > self::ROMAN_LIMIT) {
+            return \strval($num);
+        }
+        $rmn = '';
+        foreach (self::ROMAN_VINCULUM as $sfx => $mul) {
+            foreach (self::ROMAN_SYMBOL as $sym => $val) {
+                $limit = (int)($mul * $val);
+                while ($num >= $limit) {
+                    $rmn .= $sym[0] . $sfx . (!empty($sym[1]) ? $sym[1] . $sfx : '');
+                    $num -= $limit;
+                }
+            }
+        }
+        while ($num >= 1) {
+            $rmn .= 'I';
+            $num--;
+        }
+        return $rmn;
     }
 }
