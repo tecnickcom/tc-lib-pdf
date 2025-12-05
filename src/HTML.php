@@ -43,7 +43,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\CSS
      *
      * @return string XHTML code cleaned up.
      */
-    public static function tidyHTML(
+    protected function tidyHTML(
         string $html,
         string $defcss,
     ): string {

@@ -265,7 +265,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return TCellBound cell paddings.
      */
-    public function getCSSPadding(string $csspadding, float $width = 0.0): array
+    protected function getCSSPadding(string $csspadding, float $width = 0.0): array
     {
         /** @var TCellBound $cellpad */
         $cellpad = $this->defCSSCellPadding;
@@ -322,7 +322,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return TCellBound cell margins.
      */
-    public function getCSSMargin(string $cssmargin, float $width = 0.0): array
+    protected function getCSSMargin(string $cssmargin, float $width = 0.0): array
     {
         /** @var TCellBound $cellmrg */
         $cellmrg = $this->defCSSCellMargin;
@@ -383,7 +383,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return TCSSBorderSpacing of border spacings.
      */
-    public function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
+    protected function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
     {
         /** @var TCSSBorderSpacing $bsp */
         $bsp = $this->defCSSBorderSpacing;
@@ -421,7 +421,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return string merged CSS properties.
      */
-    public static function implodeCSSData(array $css): string
+    protected function implodeCSSData(array $css): string
     {
         $out = '';
         foreach ($css as $style) {
@@ -447,6 +447,119 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
         // remove multiple semicolons
         $out = \preg_replace('/[;]+/', ';', $out) ?? '';
+        return $out;
+    }
+
+    /**
+     * Tidy up the CSS string by removing unsupported properties.
+     *
+     * @param string $css string containing CSS definitions.
+     *
+     * @return string
+     */
+    protected function tidyCSS($css): string
+    {
+        if (empty($css)) {
+            return '';
+        }
+        // remove comments
+        $css = \preg_replace('/\/\*[^\*]*\*\//', '', $css) ?? '';
+        // remove newlines and multiple spaces
+        $css = \preg_replace('/[\s]+/', ' ', $css) ?? '';
+        // remove some spaces
+        $css = \preg_replace('/[\s]*([;:\{\}]{1})[\s]*/', '\\1', $css) ?? '';
+        // remove empty blocks
+        $css = \preg_replace('/([^\}\{]+)\{\}/', '', $css) ?? '';
+        // replace media type parenthesis
+        $css = \preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1§', $css) ?? '';
+        $css = \preg_replace('/\}\}/si', '}§', $css) ?? '';
+        // find media blocks (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
+        $blk = [];
+        $matches = [];
+        if (\preg_match_all('/@media[\s]+([^\§]*)§([^§]*)§/i', $css, $matches) > 0) {
+            foreach ($matches[1] as $key => $type) {
+                $blk[$type] = $matches[2][$key];
+            }
+            // remove media blocks
+            $css = \preg_replace('/@media[\s]+([^\§]*)§([^§]*)§/i', '', $css) ?? '';
+        }
+        // keep 'all' and 'print' media, other media types are discarded
+        if (!empty($blk['all'])) {
+            $css .= $blk['all'];
+        }
+        if (!empty($blk['print'])) {
+            $css .= $blk['print'];
+        }
+        return \trim($css);
+    }
+
+    /**
+     * Extracts the CSS properties from a CSS string.
+     *
+     * @param string $css string containing CSS definitions.
+     *
+     * @return array<string, string> CSS properties.
+     */
+    protected function extractCSSproperties($css): array
+    {
+        $css = $this->tidyCSS($css);
+        if (empty($css)) {
+            return [];
+        }
+        $blk = [];
+        $matches = [];
+        // explode css data string into array
+        if (\substr($css, -1) == '}') {
+            // remove last parethesis
+            $css = \substr($css, 0, -1);
+        }
+        $matches = \explode('}', $css);
+        foreach ($matches as $key => $block) {
+            // index 0 contains the CSS selector, index 1 contains CSS properties
+            $blk[$key] = \explode('{', $block);
+            if (!isset($blk[$key][1])) {
+                // remove empty definitions
+                unset($blk[$key]);
+            }
+        }
+        // split groups of selectors (comma-separated list of selectors)
+        foreach ($blk as $key => $block) {
+            if (\strpos($block[0], ',') > 0) {
+                $selectors = \explode(',', $block[0]);
+                foreach ($selectors as $sel) {
+                    $blk[] = [0 => \trim($sel), 1 => $block[1]];
+                }
+                unset($blk[$key]);
+            }
+        }
+        // covert array to selector => properties
+        $out = [];
+        foreach ($blk as $block) {
+            $selector = $block[0];
+            // calculate selector's specificity
+            $matches = [];
+            $sta = 0; // the declaration is not from is a 'style' attribute
+            // number of ID attributes
+            $stb = \intval(\preg_match_all('/[\#]/', $selector, $matches));
+            // number of other attributes
+            $stc = \intval(\preg_match_all('/[\[\.]/', $selector, $matches));
+            // number of pseudo-classes
+            $stc += \intval(\preg_match_all(
+                '/[\:]link|visited|hover|active|focus|target|lang|enabled|disabled'
+                . '|checked|indeterminate|root|nth|first|last|only|empty|contains|not/i',
+                $selector,
+                $matches,
+            ));
+            // number of element names
+            $std = \intval(\preg_match_all('/[\>\+\~\s]{1}[a-zA-Z0-9]+/', " $selector", $matches));
+            // number of pseudo-elements
+            $std += \intval(\preg_match_all('/[\:][\:]/', $selector, $matches));
+            $specificity = $sta . $stb . $stc . $std;
+            // add specificity to the beginning of the selector
+            $out["$specificity $selector"] = $block[1];
+        }
+        // sort selectors alphabetically to account for specificity
+        \ksort($out, SORT_STRING);
         return $out;
     }
 }
