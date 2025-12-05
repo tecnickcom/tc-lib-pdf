@@ -413,4 +413,40 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $bsp['V'] = $this->toUnit($this->getUnitValuePoints($bsp['V'], $ref));
         return $bsp;
     }
+
+    /**
+     * Implode CSS data array into a single string.
+     *
+     * @param array<string, string> $css array of CSS properties.
+     *
+     * @return string merged CSS properties.
+     */
+    public static function implodeCSSData(array $css): string
+    {
+        $out = '';
+        foreach ($css as $style) {
+            if (!\is_array($style) || empty($style['c']) || (!\is_string($style['c']))) {
+                continue;
+            }
+            $csscmds = \explode(';', $style['c']);
+            foreach ($csscmds as $cmd) {
+                if (empty($cmd)) {
+                    continue;
+                }
+                $pos = \strpos($cmd, ':');
+                if ($pos === false) {
+                    continue;
+                }
+                $cmd = \substr($cmd, 0, ($pos + 1));
+                if (\strpos($out, $cmd) !== false) {
+                    // remove duplicate commands (last commands have high priority)
+                    $out = \preg_replace('/' . $cmd . '[^;]+/i', '', $out) ?? '';
+                }
+            }
+            $out .= ';' . $style['c'];
+        }
+        // remove multiple semicolons
+        $out = \preg_replace('/[;]+/', ';', $out) ?? '';
+        return $out;
+    }
 }
