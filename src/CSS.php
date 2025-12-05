@@ -562,4 +562,56 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         \ksort($out, SORT_STRING);
         return $out;
     }
+
+    /**
+     * Returns the Roman representation of an integer number.
+     * Roman standard notation can represent numbers up to 3,999.
+     * For bigger numbers, up to two layers of the "vinculum" notation
+     * are used for a max value of 3,999,999,999.
+     *
+     * @param int $num number to convert.
+     *
+     * @return string roman representation of the specified number.
+     */
+    protected function intToRoman(int $num): string
+    {
+        if ($num >= 4_000_000_000) {
+            return \strval($num);
+        }
+        $vnc = [
+            '\u{033F}' => 1_000_000,
+            '\u{0305}' => 1_000,
+            '' => 1,
+        ];
+        $map = [
+            // standard notation
+            'M' => 1_000,
+            'CM' => 900,
+            'D' => 500,
+            'CD' => 400,
+            'C' => 100,
+            'XC' => 90,
+            'L' => 50,
+            'XL' => 40,
+            'X' => 10,
+            'IX' => 9,
+            'V' => 5,
+            'IV' => 4,
+        ];
+        $rmn = '';
+        foreach ($vnc as $sfx => $mul) {
+            foreach ($map as $sym => $val) {
+                $limit = (int)($mul * $val);
+                while ($num >= $limit) {
+                    $rmn .= $sym[0] . $sfx . (!empty($sym[1]) ? $sym[1] . $sfx : '');
+                    $num -= $limit;
+                }
+            }
+        }
+        while ($num >= 1) {
+            $rmn .= 'I';
+            $num--;
+        }
+        return $rmn;
+    }
 }
