@@ -49,7 +49,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @const TCSSBorderSpacing
      */
-    public const ZEROBORDERSPACE = [
+    protected const ZEROBORDERSPACE = [
         'H' => 0,
         'V' => 0,
     ];
@@ -74,6 +74,45 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @var TCSSBorderSpacing
      */
     protected $defCSSBorderSpacing = self::ZEROBORDERSPACE;
+
+    /**
+     * Maximum value that can be represented in Roman notation.
+     *
+     * @var int
+     */
+    protected const ROMAN_LIMIT = 3_999_999_999;
+
+    /**
+     * Maps Roman Vinculum symbols to number multipliers.
+     *
+     * @var array<string, int>
+     */
+    protected const ROMAN_VINCULUM = [
+        '\u{033F}' => 1_000_000,
+        '\u{0305}' => 1_000,
+        '' => 1,
+    ];
+
+    /**
+     * Maps Roman symbols to numbers.
+     *
+     * @var array<string, int>
+     */
+    protected const ROMAN_SYMBOL = [
+        // standard notation
+        'M' => 1_000,
+        'CM' => 900,
+        'D' => 500,
+        'CD' => 400,
+        'C' => 100,
+        'XC' => 90,
+        'L' => 50,
+        'XL' => 40,
+        'X' => 10,
+        'IX' => 9,
+        'V' => 5,
+        'IV' => 4,
+    ];
 
     /**
      * Set the default CSS margin in user units.
@@ -575,32 +614,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function intToRoman(int $num): string
     {
-        if ($num >= 4_000_000_000) {
+        if ($num > self::ROMAN_LIMIT) {
             return \strval($num);
         }
-        $vnc = [
-            '\u{033F}' => 1_000_000,
-            '\u{0305}' => 1_000,
-            '' => 1,
-        ];
-        $map = [
-            // standard notation
-            'M' => 1_000,
-            'CM' => 900,
-            'D' => 500,
-            'CD' => 400,
-            'C' => 100,
-            'XC' => 90,
-            'L' => 50,
-            'XL' => 40,
-            'X' => 10,
-            'IX' => 9,
-            'V' => 5,
-            'IV' => 4,
-        ];
         $rmn = '';
-        foreach ($vnc as $sfx => $mul) {
-            foreach ($map as $sym => $val) {
+        foreach (self::ROMAN_VINCULUM as $sfx => $mul) {
+            foreach (self::ROMAN_SYMBOL as $sym => $val) {
                 $limit = (int)($mul * $val);
                 while ($num >= $limit) {
                     $rmn .= $sym[0] . $sfx . (!empty($sym[1]) ? $sym[1] . $sfx : '');
