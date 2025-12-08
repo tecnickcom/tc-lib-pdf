@@ -92,4 +92,85 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *      }>
      */
     protected array $jsobjects = [];
+
+    /**
+     * Append raw javascript string to the global one.
+     *
+     * @param string $script Raw Javascript string.
+     *
+     * @return void
+     */
+    public function appendRawJavaScript(string $script): void
+    {
+        $this->javascript .= $script;
+    }
+
+    /**
+     * Add a raw javascript string as new object.
+     *
+     * @param string $script Raw Javascript string.
+     * @param bool $onload Set to true to execute the script when opening the document.
+     *
+     * @return int PDF object ID or -1 in case of error.
+     */
+    public function addRawJavaScriptObj(string $script, bool $onload = false): int
+    {
+        if ($this->pdfa > 0) {
+            return -1;
+        }
+        $oid = ++$this->pon;
+        $this->jsobjects[] = [
+            'n' => $oid,
+            'js' => $script,
+            'onload' => $onload,
+        ];
+        return $oid;
+    }
+
+    /**
+     * Adds a JavaScript field.
+     *
+     * @param string $type field type.
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param array<string, string> $prop javascript field properties (see: Javascript for Acrobat API reference).
+     */
+    protected function addJavaScriptField(
+        string $type,
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $prop,
+    ): void {
+        $page = $this->page->getPage();
+        $curfont = $this->font->getCurrentFont();
+        // avoid fields duplication after saving the document
+        $this->javascript .= "if (getField('tcpdfdocsaved').value != 'saved') {"
+        . sprintf(
+            "f" . $name . "=this.addField('%s','%s',%u,[%F,%F,%F,%F]);",
+            $name,
+            $type,
+            $page['num'] - 1,
+            $this->toPoints($posx),
+            $this->toYPoints($posy, $page['pheight']) + 1.0,
+            $this->toPoints($posx + $width),
+            $this->toYPoints($posy + $height, $page['pheight']) + 1.0,
+        ) . "\n"
+        . 'f' . $name . '.textSize=' . $curfont['size'] . ";\n";
+        foreach ($prop as $key => $val) {
+            if (strcmp(substr($key, -5), 'Color') == 0) {
+                $color = $this->color->getColorObj($val);
+                $val = ($color === null) ? '' : $color->getJsPdfColor();
+            } else {
+                $val = "'" . $val . "'";
+            }
+            $this->javascript .= 'f' . $name . '.' . $key . '=' . $val . ";\n";
+        }
+        $this->javascript .= '}';
+    }
 }

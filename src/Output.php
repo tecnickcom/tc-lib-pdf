@@ -2452,15 +2452,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         foreach ($this->jsobjects as $key => $val) {
+            // additional Javascript objects
+            $oid = $val['n'];
+            $out .= $oid . ' 0 obj' . "\n"
+            . '<< '
+            . '/S /JavaScript /JS '
+            . $this->getOutTextString($val['js'], $oid, true)
+            . ' >>' . "\n"
+            . 'endobj' . "\n";
             if ($val['onload']) {
-                // additional Javascript object
-                $oid = ++$this->pon;
-                $out .= $oid . ' 0 obj' . "\n"
-                . '<< '
-                . '/S /JavaScript /JS '
-                . $this->getOutTextString($val['js'], $oid, true)
-                . ' >>' . "\n"
-                . 'endobj' . "\n";
                 $njs .= ' (JS' . $key . ') ' . $oid . ' 0 R';
             }
         }
