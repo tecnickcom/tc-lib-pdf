@@ -94,6 +94,20 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     protected array $jsobjects = [];
 
     /**
+     * Deafult Javascript Annotation properties.
+     * Possible values are described on official Javascript for Acrobat API reference.
+     * Annotation options can be directly specified using the 'aopt' entry.
+     *
+     * @var array<string, mixed>
+     */
+    protected array $defJSAnnotProp = [
+        'lineWidth' => 1, // 1=thin
+        'borderStyle' => 'solid',
+        'fillColor' => 'white',
+        'strokeColor' => 'grey',
+    ];
+
+    /**
      * Append raw javascript string to the global one.
      *
      * @param string $script Raw Javascript string.
@@ -172,5 +186,30 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $this->javascript .= 'f' . $name . '.' . $key . '=' . $val . ";\n";
         }
         $this->javascript .= '}';
+    }
+
+    /**
+     * Set the default Javascript Annotation properties.
+     * Possible values are described on official Javascript for Acrobat API reference.
+     * Annotation options can be directly specified using the 'aopt' entry.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return void
+     */
+    public function setDefJSAnnotProp(array $data): void
+    {
+        $this->defJSAnnotProp = $data;
+    }
+
+    /**
+     * Returns the default Javascript Annotation properties.
+     * Possible values are described on official Javascript for Acrobat API reference.
+     *
+     * @return array<string, mixed>
+     */
+    public function getDefJSAnnotProp(): array
+    {
+        return $this->defJSAnnotProp;
     }
 }
