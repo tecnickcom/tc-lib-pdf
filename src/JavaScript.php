@@ -33,7 +33,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
-abstract class JavaScript extends \Com\Tecnick\Pdf\HTML
+abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 {
     //@TODO
 }

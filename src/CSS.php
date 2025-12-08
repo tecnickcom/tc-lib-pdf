@@ -39,6 +39,8 @@ use Com\Tecnick\Color\Model as ColorModel;
  *     'H': float,
  *     'V': float,
  * }
+ *
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class CSS extends \Com\Tecnick\Pdf\SVG
 {

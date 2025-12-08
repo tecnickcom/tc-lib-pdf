@@ -32,6 +32,7 @@ namespace Com\Tecnick\Pdf;
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Style
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Base
  *
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class Cell extends \Com\Tecnick\Pdf\Base
 {

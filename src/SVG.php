@@ -403,6 +403,7 @@ use TSVGStyle;
  *    'out': string,
  * }
  *
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class SVG extends \Com\Tecnick\Pdf\Text
 {

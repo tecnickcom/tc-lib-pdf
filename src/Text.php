@@ -59,6 +59,8 @@ use Com\Tecnick\Unicode\Data\Type as UnicodeType;
  *          'totspacewidth': float,
  *          'words': int,
  *      }
+ *
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class Text extends \Com\Tecnick\Pdf\Cell
 {

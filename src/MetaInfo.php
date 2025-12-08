@@ -37,7 +37,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
-abstract class MetaInfo extends \Com\Tecnick\Pdf\JavaScript
+abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
 {
     /**
      * Valid document zoom modes

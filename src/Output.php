@@ -435,6 +435,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    }
  *
  * @SuppressWarnings("PHPMD")
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
