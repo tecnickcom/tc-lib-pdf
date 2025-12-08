@@ -2099,14 +2099,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' /R ' . $annot['opt']['mk']['r'];
             }
 
-            if (isset($annot['opt']['mk']['bc']) && (\is_array($annot['opt']['mk']['bc']))) {
-                $out .= ' /BC '
-                . static::getColorStringFromArray($annot['opt']['mk']['bc']); // @phpstan-ignore argument.type
+            if (isset($annot['opt']['mk']['bc'])) {
+                if (\is_array($annot['opt']['mk']['bc'])) {
+                    $out .= ' /BC '
+                    . static::getColorStringFromArray($annot['opt']['mk']['bc']); // @phpstan-ignore argument.type
+                }
             }
 
-            if (isset($annot['opt']['mk']['bg']) && (\is_array($annot['opt']['mk']['bg']))) {
-                $out .= ' /BG '
-                . static::getColorStringFromArray($annot['opt']['mk']['bg']); // @phpstan-ignore argument.type
+            if (isset($annot['opt']['mk']['bg'])) {
+                if (\is_array($annot['opt']['mk']['bg'])) {
+                    $out .= ' /BG '
+                    . static::getColorStringFromArray($annot['opt']['mk']['bg']); // @phpstan-ignore argument.type
+                }
             }
 
             if (
