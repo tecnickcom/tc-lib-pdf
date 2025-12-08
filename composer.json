@@ -23,7 +23,7 @@
     "ext-date": "*",
     "ext-pcre": "*",
     "tecnickcom/tc-lib-barcode": "^2.4",
-    "tecnickcom/tc-lib-color": "^2.2",
+    "tecnickcom/tc-lib-color": "^2.3",
     "tecnickcom/tc-lib-pdf-image": "^2.1",
     "tecnickcom/tc-lib-pdf-font": "^2.6",
     "tecnickcom/tc-lib-file": "^2.2",
