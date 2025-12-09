@@ -1254,7 +1254,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posx horizontal position in user units (LTR).
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
-     * @param float $height height in user units.
      * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @param string $onvalue Value to be returned if selected.
@@ -1267,13 +1266,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         float $posx,
         float $posy,
         float $width,
-        float $height,
+        string $onvalue = 'On',
+        bool $checked = false,
         array $opt = [
             'subtype' => 'Widget',
         ],
         array $jsp = [],
-        string $onvalue = 'On',
-        bool $checked = false,
     ): int {
         $font = $this->font->insert($this->pon, 'zapfdingbats');
         $color = $this->getPDFDefFillColor();
@@ -1335,7 +1333,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $posx,
             $posy,
             $width,
-            $height,
+            $width,
             $name,
             $opt, // @phpstan-ignore argument.type
         );
