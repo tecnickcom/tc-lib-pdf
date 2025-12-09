@@ -1572,6 +1572,13 @@ $pdf->page->addContent($tmpl);
 
 // ----------
 
+// Annotation Form Fields
+
+$fftextid = $pdf->addFFText('test', 20, 110, 50, 10);
+$pdf->page->addAnnotRef($fftextid);
+
+// ----------
+
 // Layers
 
 $pageV01 = $pdf->addPage();

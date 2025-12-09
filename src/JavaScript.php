@@ -666,6 +666,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             'subtype' => 'text',
         ]
     ): int {
+        if (empty($opt['subtype'])) {
+            $opt['subtype'] = 'text';
+        }
         if (!empty($this->xobjtid)) {
             // Store annotationparameters for later use on a XObject template.
             $this->xobjects[$this->xobjtid]['annotations'][] = [
@@ -680,7 +683,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 
             return 0;
         }
-
         $oid = ++$this->pon;
         $this->annotation[$oid] = [
             'n' => $oid,
@@ -696,20 +698,16 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             case 'sound':
                 $this->addEmbeddedFile($opt['fs']);
         }
-
         // Add widgets annotation's icons
         if (isset($opt['mk']['i']) && \is_string($opt['mk']['i'])) {
             $this->image->add($opt['mk']['i']);
         }
-
         if (isset($opt['mk']['ri']) && \is_string($opt['mk']['ri'])) {
             $this->image->add($opt['mk']['ri']);
         }
-
         if (isset($opt['mk']['ix']) && \is_string($opt['mk']['ix'])) {
             $this->image->add($opt['mk']['ix']);
         }
-
         return $oid;
     }
 
@@ -1239,7 +1237,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         float $posy,
         float $width,
         float $height,
-        array $opt,
+        array $opt = [
+            'subtype' => 'text',
+        ],
         array $jsp = [],
     ): int {
         // merge properties
