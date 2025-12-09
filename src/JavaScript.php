@@ -1096,7 +1096,39 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $this->xobjects[$tid]['spot_colors'][] = $key;
     }
 
-     // ===| ANNOTAION FORM FIELDS |=======================================================
+    // ===| ANNOTAION FORM FIELDS |=======================================================
+
+   /**
+    * Merge annotation options with Javascript properties.
+    *
+    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    *
+    * @return TAnnotOpts merged Annotation options.
+    */
+    protected function mergeAnnotOptions(
+        array $opt = [
+            'subtype' => 'text',
+        ],
+        array $jsp = [],
+    ): array {
+        // merge properties
+        $jsp = \array_merge($this->defJSAnnotProp, $jsp);
+        $opt = \array_merge($opt, $this->getAnnotOptFromJSProp($jsp));
+        // set font
+        $curfont = $this->font->getCurrentFont();
+        $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
+        $fontstyle = $curfont['outraw'];
+        $style = $this->graph->getCurrentStyleArray();
+        if (!empty($style['fillColor'])) {
+            $txtcol = $this->color->getColorObj($style['fillColor']);
+            if ($txtcol != null) {
+                $fontstyle .= ' ' . $txtcol->getPdfColor();
+            }
+        }
+        $opt['da'] = $fontstyle;
+        return $opt; // @phpstan-ignore return.type
+    }
 
     // /**
     //  * Adds an annotation button form field.
@@ -1121,7 +1153,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-//
+    //
     // /**
     //  * Adds an annotation checkbox form field.
     //  *
@@ -1145,7 +1177,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-//
+    //
     // /**
     //  * Adds an annotation combobox form field.
     //  *
@@ -1169,7 +1201,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-//
+    //
     // /**
     //  * Adds an annotation listbox form field.
     //  *
@@ -1193,7 +1225,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-//
+    //
     // /**
     //  * Adds an annotation radiobutton form field.
     //  *
@@ -1242,24 +1274,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         ],
         array $jsp = [],
     ): int {
-        // merge properties
-        $jsp = \array_merge($this->defJSAnnotProp, $jsp);
-        $opt = \array_merge($opt, $this->getAnnotOptFromJSProp($jsp));
-        // set font
-        $curfont = $this->font->getCurrentFont();
-        $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
-        $fontstyle = $curfont['outraw'];
-        $style = $this->graph->getCurrentStyleArray();
-        if (!empty($style['fillColor'])) {
-            $txtcol = $this->color->getColorObj($style['fillColor']);
-            if ($txtcol != null) {
-                $fontstyle .= ' ' . $txtcol->getPdfColor();
-            }
-        }
-        $opt['da'] = $fontstyle;
+        $opt = $this->mergeAnnotOptions($opt, $jsp);
        // appearance stream
         $opt['ap'] = [];
-        $opt['ap']['n'] = '/Tx BMC q ' . $fontstyle . ' ';
+        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
         $text = (!empty($opt['v']) && \is_string($opt['v'])) ? $opt['v'] : '';
         $halign = '';
         if (isset($opt['q'])) {
