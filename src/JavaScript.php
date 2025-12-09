@@ -1174,7 +1174,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-    //
+
     // /**
     //  * Adds an annotation checkbox form field.
     //  *
@@ -1198,7 +1198,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-    //
+
     // /**
     //  * Adds an annotation combobox form field.
     //  *
@@ -1222,7 +1222,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-    //
+
     // /**
     //  * Adds an annotation listbox form field.
     //  *
@@ -1329,6 +1329,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $this->radiobuttons[$name]['#readonly#'] = false;
         }
         $this->radiobuttons[$name]['#readonly#'] = ($this->radiobuttons[$name]['#readonly#'] || (bool)($opt['f'] & 64));
+        $this->font->popLastFont();
         return $this->setAnnotation(
             $posx,
             $posy,
