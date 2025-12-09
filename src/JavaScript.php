@@ -1098,9 +1098,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $this->xobjects[$tid]['spot_colors'][] = $key;
     }
 
-    // Annotation Form Fields
-
-
+     // ===| ANNOTAION FORM FIELDS |=======================================================
 
     // /**
     //  * Adds an annotation button form field.
@@ -1221,124 +1219,95 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-//
- //   /**
- //    * Adds an annotation text form field.
- //    *
- //    * @param string $name field name.
- //    * @param float $posx horizontal position in user units (LTR).
- //    * @param float $posy vertical position in user units (LTR).
- //    * @param float $width width in user units.
- //    * @param float $height height in user units.
- //    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
- //    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
- //    *
- //    * @return int PDF Object ID.
- //    */
- //   public function addFFText(
- //       string $name,
- //       float $posx,
- //       float $posy,
- //       float $width,
- //       float $height,
- //       array $opt = [],
- //       array $jsp = [],
- //   ): int {
- //       // merge properties
- //       $jsp = \array_merge($this->defJSAnnotProp, $jsp);
- //       $opt = \array_merge($opt, $this->getAnnotOptFromJSProp($jsp));
- //       // set font
- //       $curfont = $this->font->getCurrentFont();
- //       $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
-//      $fontstyle = $curfont['outraw'];
- //       $style = $this->graph->getCurrentStyleArray();
- //       if (!empty($style['fillColor'])) {
- //           $txtcol = $this->color->getColorObj($style['fillColor']);
- //           if ($txtcol != null) {
- //               $fontstyle .= ' '.$txtcol->getPdfColor();
- //           }
- //       }
-//      $opt['da'] = $fontstyle;
-//      // appearance stream
-//      $opt['ap'] = [];
-//      $opt['ap']['n'] = '/Tx BMC q '.$fontstyle.' ';
-//      $text = empty($opt['v']) ? '' : $opt['v'];
-//
-//
-//
-//
-//      $tmpid = $this->startTemplate($w, $h, false);
-//      $align = '';
-//      if (isset($popt['q'])) {
-//          switch ($popt['q']) {
-//              case 0: {
-//                  $align = 'L';
-//                  break;
-//              }
-//              case 1: {
-//                  $align = 'C';
-//                  break;
-//              }
-//              case 2: {
-//                  $align = 'R';
-//                  break;
-//              }
-//              default: {
-//                  $align = '';
-//                  break;
-//              }
-//          }
-//      }
-//      $this->MultiCell($w, $h, $text, 0, $align, false, 0, 0, 0, true, 0, false, true, 0, 'T', false);
-//      $this->endTemplate();
-//
-//      --$this->n;
-//      $popt['ap']['n'] .= $this->xobjects[$tmpid]['outdata'];
-//      unset($this->xobjects[$tmpid]);
-//      $popt['ap']['n'] .= 'Q EMC';
-//      // merge options
-//      $opt = array_merge($popt, $opt);
-//      // remove some conflicting options
-//      unset($opt['bs']);
-//      // set remaining annotation data
-//      $opt['Subtype'] = 'Widget';
-//      $opt['ft'] = 'Tx';
-//      $opt['t'] = $name;
-//      // Additional annotation's parameters (check _putannotsobj() method):
-//      //$opt['f']
-//      //$opt['as']
-//      //$opt['bs']
-//      //$opt['be']
-//      //$opt['c']
-//      //$opt['border']
-//      //$opt['h']
-//      //$opt['mk'];
-//      //$opt['mk']['r']
-//      //$opt['mk']['bc'];
-//      //$opt['mk']['bg'];
-//      unset($opt['mk']['ca']);
-//      unset($opt['mk']['rc']);
-//      unset($opt['mk']['ac']);
-//      unset($opt['mk']['i']);
-//      unset($opt['mk']['ri']);
-//      unset($opt['mk']['ix']);
-//      unset($opt['mk']['if']);
-//      //$opt['mk']['if']['sw'];
-//      //$opt['mk']['if']['s'];
-//      //$opt['mk']['if']['a'];
-//      //$opt['mk']['if']['fb'];
-//      unset($opt['mk']['tp']);
-//      //$opt['tu']
-//      //$opt['tm']
-//      //$opt['ff']
-//      //$opt['v']
-//      //$opt['dv']
-//      //$opt['a']
-//      //$opt['aa']
-//      //$opt['q']
-//      $this->Annotation($x, $y, $w, $h, $name, $opt, 0);
-//
-//   }
 
-//@TODO
+   /**
+    * Adds an annotation text form field.
+    *
+    * @param string $name field name.
+    * @param float $posx horizontal position in user units (LTR).
+    * @param float $posy vertical position in user units (LTR).
+    * @param float $width width in user units.
+    * @param float $height height in user units.
+    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    *
+    * @return int PDF Object ID.
+    */
+    public function addFFText(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $opt,
+        array $jsp = [],
+    ): int {
+        // merge properties
+        $jsp = \array_merge($this->defJSAnnotProp, $jsp);
+        $opt = \array_merge($opt, $this->getAnnotOptFromJSProp($jsp));
+        // set font
+        $curfont = $this->font->getCurrentFont();
+        $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
+        $fontstyle = $curfont['outraw'];
+        $style = $this->graph->getCurrentStyleArray();
+        if (!empty($style['fillColor'])) {
+            $txtcol = $this->color->getColorObj($style['fillColor']);
+            if ($txtcol != null) {
+                $fontstyle .= ' ' . $txtcol->getPdfColor();
+            }
+        }
+        $opt['da'] = $fontstyle;
+       // appearance stream
+        $opt['ap'] = [];
+        $opt['ap']['n'] = '/Tx BMC q ' . $fontstyle . ' ';
+        $text = (!empty($opt['v']) && \is_string($opt['v'])) ? $opt['v'] : '';
+        $halign = '';
+        if (isset($opt['q'])) {
+            $halign = match ($opt['q']) {
+                0 => 'L',
+                1 => 'C',
+                2 => 'R',
+                default => '',
+            };
+        }
+        $tid = $this->newXObjectTemplate($width, $height);
+        $txtbox = $this->getTextCell(
+            $text,
+            $posx,
+            $posy,
+            $width,
+            $height,
+            0,
+            0,
+            'T',
+            $halign,
+        );
+        $this->addXObjectContent($tid, $txtbox);
+        $this->exitXObjectTemplate();
+        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $opt['ap']['n'] .= 'Q EMC';
+        $opt['Subtype'] = 'Widget';
+        $opt['ft'] = 'Tx';
+        $opt['t'] = $name;
+        unset(
+            $this->xobjects[$tid],
+            $opt['bs'],
+            $opt['mk']['ca'],
+            $opt['mk']['rc'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ac'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['if'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['tp'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        );
+        return $this->setAnnotation(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $name,
+            $opt, // @phpstan-ignore argument.type
+        );
+    }
 }
