@@ -1603,9 +1603,22 @@ $fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15, [
     'one',
     'two',
     'three',
-],
-);
+]);
 $pdf->page->addAnnotRef($fflsbxid1);
+
+// button
+$ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 30, 5, 
+    'Reset', 
+    ['S'=>'ResetForm'],
+    ['subtype' => 'Widget'],
+    [
+        'lineWidth'=>2,
+        'borderStyle'=>'beveled',
+        'fillColor'=>'aqua',
+        'strokeColor'=>'silver',
+    ],
+);
+$pdf->page->addAnnotRef($ffbtnid1);
 
 // ----------
 

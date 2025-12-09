@@ -1151,29 +1151,146 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         return $opt; // @phpstan-ignore return.type
     }
 
-    // /**
-    //  * Adds an annotation button form field.
-    //  *
-    //  * @param string $name field name.
-    //  * @param float $posx horizontal position in user units (LTR).
-    //  * @param float $posy vertical position in user units (LTR).
-    //  * @param float $width width in user units.
-    //  * @param float $height height in user units.
-    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    //  *
-    //  * @return int PDF Object ID.
-    //  */
-    // public function addFFButton(
-    //     string $name,
-    //     float $posx,
-    //     float $posy,
-    //     float $width,
-    //     float $height,
-    //     array $opt = [],
-    //     array $jsp = [],
-    // ): int {
-    // }
+    /**
+     * Adds an annotation button form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param string $caption caption.
+     * @param string|array<string,mixed> $action action triggered by pressing the button.
+     *                      Use a string to specify a javascript action.
+     *                      Use an array to specify a form action options
+     *                      as in section 12.7.5 of PDF32000_2008.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     *
+     * @return int PDF Object ID.
+     */
+    public function addFFButton(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        string $caption,
+        string|array $action,
+        array $opt = [
+            'subtype' => 'Widget',
+        ],
+        array $jsp = [],
+    ): int {
+        $jsp['Pushbutton'] = 'true';
+        $jsp['highlight'] = 'push';
+        $jsp['display'] = 'display.noPrint';
+        $opt = $this->mergeAnnotOptions($opt, $jsp);
+        // appearance stream
+        $opt['ap'] = [];
+        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
+
+        $tid = $this->newXObjectTemplate($width, $height);
+
+
+
+        $txtbox = $this->getTextCell( //@TODO cell border and fill...
+            $caption,
+            $posx,
+            $posy,
+            $width,
+            $height,
+            0,
+            0,
+            'T',
+        );
+
+
+
+        $this->addXObjectContent($tid, $txtbox);
+        $this->exitXObjectTemplate();
+        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $opt['ap']['n'] .= 'Q EMC';
+        $opt['Subtype'] = 'Widget';
+        $opt['ft'] = 'Btn';
+        $opt['t'] = $caption;
+        $opt['v'] = $name;
+        if (!isset($opt['mk'])) {
+            $opt['mk'] = [];
+        }
+        $oid = ($this->pon + 1); // from setAnnotation
+        if (!empty($action) && !\is_array($action)) {
+            ++$oid; // from addRawJavaScriptObj
+        }
+        $opt['mk']['ca'] = $this->getOutTextString($caption, $oid, true);
+        $opt['mk']['rc'] = $this->getOutTextString($caption, $oid, true);
+        $opt['mk']['ac'] = $this->getOutTextString($caption, $oid, true);
+        if (!empty($action)) {
+            if (\is_string($action)) {
+                // raw javascript action
+                $jsoid = $this->addRawJavaScriptObj($action);
+                if ($jsoid > 0) {
+                    $opt['aa'] = '/D ' . $jsoid . ' 0 R';
+                }
+            } elseif (\is_array($action)) {
+                // form action options as in section 12.7.5 of PDF32000_2008.
+                $opt['aa'] = '/D <<';
+                $bmode = ['SubmitForm', 'ResetForm', 'ImportData'];
+                foreach ($action as $key => $val) {
+                    if (($key == 'S') && \is_string($val) && \in_array($val, $bmode)) {
+                        $opt['aa'] .= ' /S /' . $val;
+                    } elseif (($key == 'F') && (!empty($val)) && \is_string($val)) {
+                        $opt['aa'] .= ' /F ' . $this->encrypt->escapeDataString($val, $oid);
+                    } elseif (($key == 'Fields') && !empty($val) && \is_array($val)) {
+                        $opt['aa'] .= ' /Fields [';
+                        foreach ($val as $field) {
+                            if (\is_string($field)) {
+                                $opt['aa'] .= ' ' . $this->getOutTextString($field, $oid);
+                            }
+                        }
+                        $opt['aa'] .= ']';
+                    } elseif (($key == 'Flags')) {
+                        $flg = 0;
+                        if (\is_array($val)) {
+                            foreach ($val as $flag) {
+                                $flg += match ($flag) {
+                                    'Include/Exclude' => 1 << 0,
+                                    'IncludeNoValueFields' => 1 << 1,
+                                    'ExportFormat' => 1 << 2,
+                                    'GetMethod' => 1 << 3,
+                                    'SubmitCoordinates' => 1 << 4,
+                                    'XFDF' => 1 << 5,
+                                    'IncludeAppendSaves' => 1 << 6,
+                                    'IncludeAnnotations' => 1 << 7,
+                                    'SubmitPDF' => 1 << 8,
+                                    'CanonicalFormat' => 1 << 9,
+                                    'ExclNonUserAnnots' => 1 << 10,
+                                    'ExclFKey' => 1 << 11,
+                                    'EmbedForm' => 1 << 13,
+                                    default => 0,
+                                };
+                            }
+                        } elseif (\is_numeric($val)) {
+                            $flg = intval($val);
+                        }
+                        $opt['aa'] .= ' /Flags ' . $flg;
+                    }
+                }
+                $opt['aa'] .= ' >>';
+            }
+        }
+        unset(
+            $this->xobjects[$tid],
+        );
+        return $this->setAnnotation(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $name,
+            $opt, // @phpstan-ignore argument.type
+        );
+    }
 
     /**
      * Adds an annotation checkbox form field.

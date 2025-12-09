@@ -623,4 +623,28 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
 
         return $out . $stoptr;
     }
+
+    /**
+     * Format a text string for output.
+     *
+     * @param string $str String to escape.
+     * @param int    $oid Current PDF object number.
+     * @param bool   $bom If true set the Byte Order Mark (BOM).
+     *
+     * @return string escaped string.
+     */
+    protected function getOutTextString(
+        string $str,
+        int $oid,
+        bool $bom = false
+    ): string {
+        if ($this->isunicode) {
+            $str = $this->uniconv->toUTF16BE($str);
+            if ($bom) {
+                $str = "\xFE\xFF" . $str; // Byte Order Mark (BOM)
+            }
+        }
+
+        return $this->encrypt->escapeDataString($str, $oid);
+    }
 }
