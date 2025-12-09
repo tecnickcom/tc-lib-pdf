@@ -1281,6 +1281,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         }
         unset(
             $this->xobjects[$tid],
+            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
         );
         return $this->setAnnotation(
             $posx,

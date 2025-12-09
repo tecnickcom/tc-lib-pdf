@@ -1599,11 +1599,11 @@ $ffcmbxid1 = $pdf->addFFComboBox('test_combobox', 20, 150, 50, 5, [
 $pdf->page->addAnnotRef($ffcmbxid1);
 
 // listbox
-$fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15, [
-    'one',
-    'two',
-    'three',
-]);
+$fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15,
+    ['one', 'two', 'three'],
+    ['subtype' => 'Widget'],
+    ['multipleSelection'=>'true'],
+);
 $pdf->page->addAnnotRef($fflsbxid1);
 
 // button
