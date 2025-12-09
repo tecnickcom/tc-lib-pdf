@@ -32,13 +32,12 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type TAnnotOpts from Output
+ * @phpstan-import-type TGTransparency from Output
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 {
-    //@TODO
-
     /**
      * Fonts used in annotations.
      *
@@ -145,8 +144,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 
     /**
      * Adds a JavaScript field.
+     * Requires Acrobat Writer or an alternative PDF reader with Javascript support.
      *
-     * @param string $type field type.
+     * @param string $type field type: button, checkbox, combobox, listbox, radiobutton, text.
      * @param string $name field name.
      * @param float $posx horizontal position in user units (LTR).
      * @param float $posy vertical position in user units (LTR).
@@ -224,12 +224,15 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     protected function getAnnotOptFromJSProp(array $prp): array
     {
+        /** @var TAnnotOpts $opt */
+        $opt = [];
+        if (empty($prp)) {
+            return $opt;
+        }
         if (!empty($prp['aopt']) && \is_array($prp['aopt'])) {
             // the annotation options are already defined
             return $prp['aopt']; // @phpstan-ignore return.type
         }
-        /** @var TAnnotOpts $opt */
-        $opt = [];
         // alignment: Controls how the text is laid out within the text field.
         if (!empty($prp['alignment'])) {
             $opt['q'] = match ($prp['alignment']) {
@@ -839,4 +842,503 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             'prev' => -1,
         ];
     }
+
+    // ===| XOBJECT |=======================================================
+
+    /**
+     * Create a new XObject template and return the object id.
+     *
+     * An XObject Template is a PDF block that is a self-contained description
+     * of any sequence of graphics objects (including path objects, text objects,
+     * and sampled images). An XObject Template may be painted multiple times,
+     * either on several pages or at several locations on the same page and
+     * produces the same results each time, subject only to the graphics state
+     * at the time it is invoked.
+     *
+     * @param float $width  Width of the XObject.
+     * @param float $heigth Height of the XObject.
+     * @param ?TGTransparency $transpgroup Optional group attributes.
+     *
+     * @return string XObject template object ID.
+     */
+    public function newXObjectTemplate(
+        float $width = 0,
+        float $heigth = 0,
+        ?array $transpgroup = null,
+    ): string {
+        $oid = ++$this->pon;
+        $tid = 'XT' . $oid;
+        $this->xobjtid = $tid;
+
+        $region = $this->page->getRegion();
+
+        if (empty($width) || $width < 0) {
+            $width = $region['RW'];
+        }
+
+        if (empty($heigth) || $heigth < 0) {
+            $heigth = $region['RH'];
+        }
+
+        $this->xobjects[$tid] = [
+            'spot_colors' => [],
+            'extgstate' => [],
+            'gradient' => [],
+            'font' => [],
+            'image' => [],
+            'xobject' => [],
+            'annotations' => [],
+            'id' => $tid,
+            'n' => $oid,
+            'x' => 0,
+            'y' => 0,
+            'w' => $width,
+            'h' => $heigth,
+            'outdata' => '',
+            'transparency' => $transpgroup,
+        ];
+
+        return $tid;
+    }
+
+    /**
+     * Exit from the XObject template mode.
+     *
+     * See: newXObjectTemplate.
+     */
+    public function exitXObjectTemplate(): void
+    {
+        $this->xobjtid = '';
+    }
+
+    /**
+     * Returns the PDF code to render the specified XObject template.
+     *
+     * See: newXObjectTemplate.
+     *
+     * @param string      $tid         The XObject Template object as returned by the newXObjectTemplate method.
+     * @param float       $posx        Abscissa of upper-left corner.
+     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $width       Width.
+     * @param float       $height      Height.
+     * @param string      $valign      Vertical alignment inside the specified box: T=top; C=center; B=bottom.
+     * @param string      $halign      Horizontal alignment inside the specified box: L=left; C=center; R=right.
+     *
+     * @return string The PDF code to render the specified XObject template.
+     */
+    public function getXObjectTemplate(
+        string $tid,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        string $valign = 'T',
+        string $halign = 'L',
+    ): string {
+        $this->xobjtid = '';
+        $region = $this->page->getRegion();
+
+        if (empty($this->xobjects[$tid])) {
+            return '';
+        }
+
+        $xobj = $this->xobjects[$tid];
+
+        if (empty($width) || $width < 0) {
+            $width = \min($xobj['w'], $region['RW']);
+        }
+
+        if (empty($height) || $height < 0) {
+            $height = \min($xobj['h'], $region['RH']);
+        }
+
+        $tplx = $this->cellHPos($posx, $width, $halign, $this->defcell);
+        $tply = $this->cellVPos($posy, $height, $valign, $this->defcell);
+
+        $this->bbox[] = [
+            'x' => $tplx,
+            'y' => $tply,
+            'w' => $width,
+            'h' => $height,
+        ];
+
+        $ctm = [
+            0 => ($width / $xobj['w']),
+            1 => 0,
+            2 => 0,
+            3 => ($height / $xobj['h']),
+            4 => $this->toPoints($tplx),
+            5 => $this->toYPoints($tply + $height),
+        ];
+
+        $out = $this->graph->getStartTransform();
+        $out .= $this->graph->getTransformation($ctm);
+        $out .= '/' . $xobj['id'] . ' Do' . "\n";
+        $out .= $this->graph->getStopTransform();
+
+        if (!empty($xobj['annotations'])) {
+            foreach ($xobj['annotations'] as $annot) {
+                // transform original coordinates
+                $clt = $this->graph->getCtmProduct(
+                    $ctm,
+                    array(
+                        1,
+                        0,
+                        0,
+                        1,
+                        $this->toPoints($annot['x']),
+                        $this->toPoints(-$annot['y']),
+                    ),
+                );
+                $anx = $this->toUnit($clt[4]);
+                $any = $this->toYUnit($clt[5] + $this->toUnit($height));
+
+                $crb = $this->graph->getCtmProduct(
+                    $ctm,
+                    array(
+                        1,
+                        0,
+                        0,
+                        1,
+                        $this->toPoints(($annot['x'] + $annot['w'])),
+                        $this->toPoints((-$annot['y'] - $annot['h'])),
+                    ),
+                );
+                $anw = $this->toUnit($crb[4]) - $anx;
+                $anh = $this->toYUnit($crb[5] + $this->toUnit($height)) - $any;
+
+                $out .= $this->setAnnotation(
+                    $anx,
+                    $any,
+                    $anw,
+                    $anh,
+                    $annot['txt'],
+                    $annot['opt']
+                );
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Add the specified raw PDF content to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $data  The raw PDF content data to add.
+     */
+    public function addXObjectContent(string $tid, string $data): void
+    {
+        $this->xobjects[$tid]['outdata'] .= $data;
+    }
+
+    /**
+     * Add the specified XObject ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $key  The XObject key to add.
+     */
+    public function addXObjectXObjectID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['xobject'][] = $key;
+    }
+
+    /**
+     * Add the specified Image ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  TheImage key to add.
+     */
+    public function addXObjectImageID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['image'][] = $key;
+    }
+
+    /**
+     * Add the specified Font ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $key  The Font key to add.
+     */
+    public function addXObjectFontID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['font'][] = $key;
+    }
+
+    /**
+     * Add the specified Gradient ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  The Gradient key to add.
+     */
+    public function addXObjectGradientID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['gradient'][] = $key;
+    }
+
+    /**
+     * Add the specified ExtGState ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param int     $key  The ExtGState key to add.
+     */
+    public function addXObjectExtGStateID(string $tid, int $key): void
+    {
+        $this->xobjects[$tid]['extgstate'][] = $key;
+    }
+
+    /**
+     * Add the specified SpotColor ID to the XObject template.
+     *
+     * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
+     * @param string  $key  The SpotColor key to add.
+     */
+    public function addXObjectSpotColorID(string $tid, string $key): void
+    {
+        $this->xobjects[$tid]['spot_colors'][] = $key;
+    }
+
+    // Annotation Form Fields
+
+
+
+    // /**
+    //  * Adds an annotation button form field.
+    //  *
+    //  * @param string $name field name.
+    //  * @param float $posx horizontal position in user units (LTR).
+    //  * @param float $posy vertical position in user units (LTR).
+    //  * @param float $width width in user units.
+    //  * @param float $height height in user units.
+    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  *
+    //  * @return int PDF Object ID.
+    //  */
+    // public function addFFButton(
+    //     string $name,
+    //     float $posx,
+    //     float $posy,
+    //     float $width,
+    //     float $height,
+    //     array $opt = [],
+    //     array $jsp = [],
+    // ): int {
+    // }
+//
+    // /**
+    //  * Adds an annotation checkbox form field.
+    //  *
+    //  * @param string $name field name.
+    //  * @param float $posx horizontal position in user units (LTR).
+    //  * @param float $posy vertical position in user units (LTR).
+    //  * @param float $width width in user units.
+    //  * @param float $height height in user units.
+    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  *
+    //  * @return int PDF Object ID.
+    //  */
+    // public function addFFCheckBox(
+    //     string $name,
+    //     float $posx,
+    //     float $posy,
+    //     float $width,
+    //     float $height,
+    //     array $opt = [],
+    //     array $jsp = [],
+    // ): int {
+    // }
+//
+    // /**
+    //  * Adds an annotation combobox form field.
+    //  *
+    //  * @param string $name field name.
+    //  * @param float $posx horizontal position in user units (LTR).
+    //  * @param float $posy vertical position in user units (LTR).
+    //  * @param float $width width in user units.
+    //  * @param float $height height in user units.
+    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  *
+    //  * @return int PDF Object ID.
+    //  */
+    // public function addFFComboBox(
+    //     string $name,
+    //     float $posx,
+    //     float $posy,
+    //     float $width,
+    //     float $height,
+    //     array $opt = [],
+    //     array $jsp = [],
+    // ): int {
+    // }
+//
+    // /**
+    //  * Adds an annotation listbox form field.
+    //  *
+    //  * @param string $name field name.
+    //  * @param float $posx horizontal position in user units (LTR).
+    //  * @param float $posy vertical position in user units (LTR).
+    //  * @param float $width width in user units.
+    //  * @param float $height height in user units.
+    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  *
+    //  * @return int PDF Object ID.
+    //  */
+    // public function addFFListBox(
+    //     string $name,
+    //     float $posx,
+    //     float $posy,
+    //     float $width,
+    //     float $height,
+    //     array $opt = [],
+    //     array $jsp = [],
+    // ): int {
+    // }
+//
+    // /**
+    //  * Adds an annotation radiobutton form field.
+    //  *
+    //  * @param string $name field name.
+    //  * @param float $posx horizontal position in user units (LTR).
+    //  * @param float $posy vertical position in user units (LTR).
+    //  * @param float $width width in user units.
+    //  * @param float $height height in user units.
+    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  *
+    //  * @return int PDF Object ID.
+    //  */
+    // public function addFFRadioButton(
+    //     string $name,
+    //     float $posx,
+    //     float $posy,
+    //     float $width,
+    //     float $height,
+    //     array $opt = [],
+    //     array $jsp = [],
+    // ): int {
+    // }
+//
+ //   /**
+ //    * Adds an annotation text form field.
+ //    *
+ //    * @param string $name field name.
+ //    * @param float $posx horizontal position in user units (LTR).
+ //    * @param float $posy vertical position in user units (LTR).
+ //    * @param float $width width in user units.
+ //    * @param float $height height in user units.
+ //    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+ //    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+ //    *
+ //    * @return int PDF Object ID.
+ //    */
+ //   public function addFFText(
+ //       string $name,
+ //       float $posx,
+ //       float $posy,
+ //       float $width,
+ //       float $height,
+ //       array $opt = [],
+ //       array $jsp = [],
+ //   ): int {
+ //       // merge properties
+ //       $jsp = \array_merge($this->defJSAnnotProp, $jsp);
+ //       $opt = \array_merge($opt, $this->getAnnotOptFromJSProp($jsp));
+ //       // set font
+ //       $curfont = $this->font->getCurrentFont();
+ //       $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
+//      $fontstyle = $curfont['outraw'];
+ //       $style = $this->graph->getCurrentStyleArray();
+ //       if (!empty($style['fillColor'])) {
+ //           $txtcol = $this->color->getColorObj($style['fillColor']);
+ //           if ($txtcol != null) {
+ //               $fontstyle .= ' '.$txtcol->getPdfColor();
+ //           }
+ //       }
+//      $opt['da'] = $fontstyle;
+//      // appearance stream
+//      $opt['ap'] = [];
+//      $opt['ap']['n'] = '/Tx BMC q '.$fontstyle.' ';
+//      $text = empty($opt['v']) ? '' : $opt['v'];
+//
+//
+//
+//
+//      $tmpid = $this->startTemplate($w, $h, false);
+//      $align = '';
+//      if (isset($popt['q'])) {
+//          switch ($popt['q']) {
+//              case 0: {
+//                  $align = 'L';
+//                  break;
+//              }
+//              case 1: {
+//                  $align = 'C';
+//                  break;
+//              }
+//              case 2: {
+//                  $align = 'R';
+//                  break;
+//              }
+//              default: {
+//                  $align = '';
+//                  break;
+//              }
+//          }
+//      }
+//      $this->MultiCell($w, $h, $text, 0, $align, false, 0, 0, 0, true, 0, false, true, 0, 'T', false);
+//      $this->endTemplate();
+//
+//      --$this->n;
+//      $popt['ap']['n'] .= $this->xobjects[$tmpid]['outdata'];
+//      unset($this->xobjects[$tmpid]);
+//      $popt['ap']['n'] .= 'Q EMC';
+//      // merge options
+//      $opt = array_merge($popt, $opt);
+//      // remove some conflicting options
+//      unset($opt['bs']);
+//      // set remaining annotation data
+//      $opt['Subtype'] = 'Widget';
+//      $opt['ft'] = 'Tx';
+//      $opt['t'] = $name;
+//      // Additional annotation's parameters (check _putannotsobj() method):
+//      //$opt['f']
+//      //$opt['as']
+//      //$opt['bs']
+//      //$opt['be']
+//      //$opt['c']
+//      //$opt['border']
+//      //$opt['h']
+//      //$opt['mk'];
+//      //$opt['mk']['r']
+//      //$opt['mk']['bc'];
+//      //$opt['mk']['bg'];
+//      unset($opt['mk']['ca']);
+//      unset($opt['mk']['rc']);
+//      unset($opt['mk']['ac']);
+//      unset($opt['mk']['i']);
+//      unset($opt['mk']['ri']);
+//      unset($opt['mk']['ix']);
+//      unset($opt['mk']['if']);
+//      //$opt['mk']['if']['sw'];
+//      //$opt['mk']['if']['s'];
+//      //$opt['mk']['if']['a'];
+//      //$opt['mk']['if']['fb'];
+//      unset($opt['mk']['tp']);
+//      //$opt['tu']
+//      //$opt['tm']
+//      //$opt['ff']
+//      //$opt['v']
+//      //$opt['dv']
+//      //$opt['a']
+//      //$opt['aa']
+//      //$opt['q']
+//      $this->Annotation($x, $y, $w, $h, $name, $opt, 0);
+//
+//   }
+
+//@TODO
 }
