@@ -1236,11 +1236,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $out .= ' /Contents ' . $this->getOutTextString($annot['txt'], $oid, true);
                 }
 
+                list($aas, $apx) = $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height); // @phpstan-ignore-line
+
                 $out .= ' /P ' . $page['n'] . ' 0 R'
                     . ' /NM ' . $this->encrypt->escapeDataString(\sprintf('%04u-%04u', $page['num'], $key), $oid)
                     . ' /M ' . $this->getOutDateTimeString($this->docmodtime, $oid)
                     . $this->getOutAnnotationFlags($annot) // @phpstan-ignore-line
-                    . $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height) // @phpstan-ignore-line
+                    . $aas
                     . $this->getAnnotationBorder($annot); // @phpstan-ignore-line
 
                 if (! empty($annot['opt']['c']) && \is_string($annot['opt']['c'])) {
@@ -1253,7 +1255,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= $this->getOutAnnotationMarkups($annot, $oid) // @phpstan-ignore-line
                     . $this->getOutAnnotationOptSubtype($annot, $num, $oid, $key) // @phpstan-ignore-line
                     . ' >>' . "\n"
-                    . 'endobj' . "\n";
+                    . 'endobj' . "\n"
+                    . $apx;
                 if (! $formfield) {
                     continue;
                 }
@@ -1278,7 +1281,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         $out = '';
         if (
-            empty($this->radiobuttons[$annot['txt']])
+            empty($this->radiobuttons[$annot['txt']]['kids'])
             || ! \is_array($this->radiobuttons[$annot['txt']])
         ) {
             return $out;
@@ -1319,8 +1322,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= ' >>' . "\n"
             . 'endobj' . "\n";
         $this->objid['form'][] = $oid;
-        // store object id to be used on Parent entry of Kids
-        $this->radiobuttons[$annot['txt']]['n'] = $oid;
+        $this->radiobuttons[$annot['txt']]['kids'] = []; // set only once
         return $out;
     }
 
@@ -1330,21 +1332,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * @param TAnnot $annot  Array containing page annotations.
      * @param int    $width  Annotation width.
      * @param int    $height Annotation height.
+     *
+     * @return array{string, string}
      */
     protected function getAnnotationAppearanceStream(
         array $annot,
         int $width = 0,
         int $height = 0
-    ): string {
+    ): array {
         $out = '';
         if (! empty($annot['opt']['as']) && \is_string($annot['opt']['as'])) {
             $out .= ' /AS /' . $annot['opt']['as'];
         }
 
         if (empty($annot['opt']['ap'])) {
-            return $out;
+            return [$out, ''];
         }
 
+        $apxout = '';
         $out .= ' /AP <<';
         if (! \is_array($annot['opt']['ap'])) {
             $out .= $annot['opt']['ap'];
@@ -1359,28 +1364,31 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                             continue;
                         }
                         // reference to XObject that define the appearance for this mode-state
-                        $apsobjid = $this->getOutAPXObjects(
+                        $apxout .= $this->getOutAPXObjects(
                             $width,
                             $height,
                             $stream,
                         );
-                        $out .= ' /' . $apstate . ' ' . $apsobjid . ' 0 R';
+                        $out .= ' /' . $apstate . ' ' . $this->pon . ' 0 R';
                     }
 
                     $out .= ' >>';
                 } elseif (\is_string($def)) {
                     // reference to XObject that define the appearance for this mode
-                    $apsobjid = $this->getOutAPXObjects(
+                    $apxout .= $this->getOutAPXObjects(
                         $width,
                         $height,
                         $def,
                     );
-                    $out .= ' ' . $apsobjid . ' 0 R';
+                    $out .= ' ' . $this->pon . ' 0 R';
                 }
             }
         }
 
-        return $out . ' >>';
+        return [
+            $out . ' >>',
+            $apxout,
+        ];
     }
 
     /**
