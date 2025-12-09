@@ -1590,6 +1590,23 @@ $pdf->page->addAnnotRef($ffrbid3);
 $ffckbxid1 = $pdf->addFFCheckBox('test_checkbox', 20, 140, 5);
 $pdf->page->addAnnotRef($ffckbxid1);
 
+// combobox
+$ffcmbxid1 = $pdf->addFFComboBox('test_combobox', 20, 150, 50, 5, [
+    ['0','one'],
+    ['1','two'],
+    ['2','three'],
+]);
+$pdf->page->addAnnotRef($ffcmbxid1);
+
+// listbox
+$fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15, [
+    'one',
+    'two',
+    'three',
+],
+);
+$pdf->page->addAnnotRef($fflsbxid1);
+
 // ----------
 
 // Layers

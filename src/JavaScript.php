@@ -1243,53 +1243,162 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         );
     }
 
-    // /**
-    //  * Adds an annotation combobox form field.
-    //  *
-    //  * @param string $name field name.
-    //  * @param float $posx horizontal position in user units (LTR).
-    //  * @param float $posy vertical position in user units (LTR).
-    //  * @param float $width width in user units.
-    //  * @param float $height height in user units.
-    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    //  *
-    //  * @return int PDF Object ID.
-    //  */
-    // public function addFFComboBox(
-    //     string $name,
-    //     float $posx,
-    //     float $posy,
-    //     float $width,
-    //     float $height,
-    //     array $opt = [],
-    //     array $jsp = [],
-    // ): int {
-    // }
+    /**
+     * Adds an annotation combobox (select) form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param array<array{string,string}>|array<string> $values List of selection values.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     *
+     * @return int PDF Object ID.
+     */
+    public function addFFComboBox(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $values,
+        array $opt = [
+            'subtype' => 'Widget',
+        ],
+        array $jsp = [],
+    ): int {
+        $jsp['Combo'] = true;
+        $opt = $this->mergeAnnotOptions($opt, $jsp);
+        // appearance stream
+        $opt['ap'] = [];
+        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
+        $text = '';
+        foreach ($values as $item) {
+            if (\is_array($item)) {
+                $text .= $item[1] . "\n";
+            } else {
+                $text .= $item . "\n";
+            }
+        }
+        $tid = $this->newXObjectTemplate($width, $height);
+        $txtbox = $this->getTextCell(
+            $text,
+            $posx,
+            $posy,
+            $width,
+            $height,
+            0,
+            0,
+            'T',
+        );
+        $this->addXObjectContent($tid, $txtbox);
+        $this->exitXObjectTemplate();
+        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $opt['ap']['n'] .= 'Q EMC';
+        $opt['Subtype'] = 'Widget';
+        $opt['ft'] = 'Ch';
+        $opt['t'] = $name;
+        $opt['opt'] = $values;
+        unset(
+            $this->xobjects[$tid],
+            $opt['mk']['ca'],
+            $opt['mk']['rc'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ac'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['if'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['tp'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        );
+        return $this->setAnnotation(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $name,
+            $opt, // @phpstan-ignore argument.type
+        );
+    }
 
-    // /**
-    //  * Adds an annotation listbox form field.
-    //  *
-    //  * @param string $name field name.
-    //  * @param float $posx horizontal position in user units (LTR).
-    //  * @param float $posy vertical position in user units (LTR).
-    //  * @param float $width width in user units.
-    //  * @param float $height height in user units.
-    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    //  *
-    //  * @return int PDF Object ID.
-    //  */
-    // public function addFFListBox(
-    //     string $name,
-    //     float $posx,
-    //     float $posy,
-    //     float $width,
-    //     float $height,
-    //     array $opt = [],
-    //     array $jsp = [],
-    // ): int {
-    // }
+    /**
+     * Adds an annotation listbox (select) form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param array<array{string,string}>|array<string> $values List of selection values.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     *
+     * @return int PDF Object ID.
+     */
+    public function addFFListBox(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $values,
+        array $opt = [
+            'subtype' => 'Widget',
+        ],
+        array $jsp = [],
+    ): int {
+        $opt = $this->mergeAnnotOptions($opt, $jsp);
+        // appearance stream
+        $opt['ap'] = [];
+        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
+        $text = '';
+        foreach ($values as $item) {
+            if (\is_array($item)) {
+                $text .= $item[1] . "\n";
+            } else {
+                $text .= $item . "\n";
+            }
+        }
+        $tid = $this->newXObjectTemplate($width, $height);
+        $txtbox = $this->getTextCell(
+            $text,
+            $posx,
+            $posy,
+            $width,
+            $height,
+            0,
+            0,
+            'T',
+        );
+        $this->addXObjectContent($tid, $txtbox);
+        $this->exitXObjectTemplate();
+        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $opt['ap']['n'] .= 'Q EMC';
+        $opt['Subtype'] = 'Widget';
+        $opt['ft'] = 'Ch';
+        $opt['t'] = $name;
+        $opt['opt'] = $values;
+        unset(
+            $this->xobjects[$tid],
+            $opt['mk']['ca'],
+            $opt['mk']['rc'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ac'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['if'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['tp'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        );
+        return $this->setAnnotation(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $name,
+            $opt, // @phpstan-ignore argument.type
+        );
+    }
 
     /**
      * Adds an annotation radiobutton form field.
