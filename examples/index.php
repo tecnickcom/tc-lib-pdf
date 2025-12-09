@@ -1580,7 +1580,7 @@ $pdf->page->addAnnotRef($fftextid);
 
 // radiobuttons
 $ffrbid1 = $pdf->addFFRadioButton('test_radiobutton', 20, 120, 5, 'one');
-$ffrbid2 = $pdf->addFFRadioButton('test_radiobutton', 20, 125, 5, 'two');
+$ffrbid2 = $pdf->addFFRadioButton('test_radiobutton', 20, 125, 5, 'two', true);
 $ffrbid3 = $pdf->addFFRadioButton('test_radiobutton', 20, 130, 5, 'three');
 $pdf->page->addAnnotRef($ffrbid1);
 $pdf->page->addAnnotRef($ffrbid2);

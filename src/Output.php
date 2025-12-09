@@ -1174,29 +1174,29 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @param array<int|float> $color Array of colors.
      */
-    protected static function getColorStringFromArray(array $color): string
+    protected static function getColorStringFromPercArray(array $color): string
     {
         $col = \array_values($color);
         $out = '[';
-        match (\count($color)) {
-            4 => $out .= \sprintf(
+        $out .= match (\count($color)) {
+            4 => \sprintf(
                 '%F %F %F %F',
-                (\max(0, \min(100, (float) $col[0])) / 100),
-                (\max(0, \min(100, (float) $col[1])) / 100),
-                (\max(0, \min(100, (float) $col[2])) / 100),
-                (\max(0, \min(100, (float) $col[3])) / 100)
+                (float) $col[0],
+                (float) $col[1],
+                (float) $col[2],
+                (float) $col[3],
             ),
-            3 => $out .= \sprintf(
+            3 => \sprintf(
                 '%F %F %F',
-                (\max(0, \min(255, (float) $col[0])) / 255),
-                (\max(0, \min(255, (float) $col[1])) / 255),
-                (\max(0, \min(255, (float) $col[2])) / 255)
+                (float) $col[0],
+                (float) $col[1],
+                (float) $col[2],
             ),
-            1 => $out .= \sprintf(
+            1 => \sprintf(
                 '%F',
-                (\max(0, \min(255, (float) $col[0])) / 255)
+                (float) $col[0],
             ),
-            default => $out . ']',
+            default => '',
         };
         return $out . ']';
     }
@@ -1236,7 +1236,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $out .= ' /Contents ' . $this->getOutTextString($annot['txt'], $oid, true);
                 }
 
-                list($aas, $apx) = $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height); // @phpstan-ignore-line
+                list($aas, $apx) = $this->getAnnotationAppearanceStream(
+                    $annot,
+                    (int) $width,
+                    (int) $height,
+                );
 
                 $out .= ' /P ' . $page['n'] . ' 0 R'
                     . ' /NM ' . $this->encrypt->escapeDataString(\sprintf('%04u-%04u', $page['num'], $key), $oid)
@@ -2108,14 +2112,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             if (isset($annot['opt']['mk']['bc'])) {
                 if (\is_array($annot['opt']['mk']['bc'])) {
                     $out .= ' /BC '
-                    . static::getColorStringFromArray($annot['opt']['mk']['bc']); // @phpstan-ignore argument.type
+                    . static::getColorStringFromPercArray($annot['opt']['mk']['bc']); // @phpstan-ignore argument.type
                 }
             }
 
             if (isset($annot['opt']['mk']['bg'])) {
                 if (\is_array($annot['opt']['mk']['bg'])) {
                     $out .= ' /BG '
-                    . static::getColorStringFromArray($annot['opt']['mk']['bg']); // @phpstan-ignore argument.type
+                    . static::getColorStringFromPercArray($annot['opt']['mk']['bg']); // @phpstan-ignore argument.type
                 }
             }
 
