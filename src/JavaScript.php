@@ -1127,7 +1127,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     * Merge annotation options with Javascript properties.
     *
     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
     * @param string $color Default PDF color command.
     *
     * @return TAnnotOpts merged Annotation options.
@@ -1160,7 +1160,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //  * @param float $width width in user units.
     //  * @param float $height height in user units.
     //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
     //  *
     //  * @return int PDF Object ID.
     //  */
@@ -1175,29 +1175,73 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     // ): int {
     // }
 
-    // /**
-    //  * Adds an annotation checkbox form field.
-    //  *
-    //  * @param string $name field name.
-    //  * @param float $posx horizontal position in user units (LTR).
-    //  * @param float $posy vertical position in user units (LTR).
-    //  * @param float $width width in user units.
-    //  * @param float $height height in user units.
-    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    //  *
-    //  * @return int PDF Object ID.
-    //  */
-    // public function addFFCheckBox(
-    //     string $name,
-    //     float $posx,
-    //     float $posy,
-    //     float $width,
-    //     float $height,
-    //     array $opt = [],
-    //     array $jsp = [],
-    // ): int {
-    // }
+    /**
+     * Adds an annotation checkbox form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param string $onvalue Value to be returned if selected.
+     * @param bool $checked Define the initial state.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     *
+     * @return int PDF Object ID.
+     */
+    public function addFFCheckBox(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        string $onvalue = 'Yes',
+        bool $checked = false,
+        array $opt = [
+            'subtype' => 'Widget',
+        ],
+        array $jsp = [],
+    ): int {
+        $font = $this->font->insert($this->pon, 'zapfdingbats');
+        $color = $this->getPDFDefFillColor();
+        $jsp['borderStyle'] = 'inset';
+        $jsp['value'] = empty($jsp['value']) ? ['Yes'] : $jsp['value'];
+        $opt = $this->mergeAnnotOptions($opt, $jsp, $color);
+        $onvalue = empty($onvalue) ? 'Yes' : $onvalue;
+        $opt['ap'] = [];
+        $opt['ap']['n'] = [];
+        $rfx = (($this->toPoints($width) - ($font['cw'][110] * $font['cratio'])) / 2);
+        $rfy = ($this->toPoints($width) - ($font['ascent'] - $font['descent']));
+        $opt['ap']['n']['Yes'] = \sprintf(
+            'q %s BT %s %F %F Td (' . \chr(110) . ') Tj ET Q',
+            $color,
+            $font['outraw'],
+            $rfx,
+            $rfy,
+        );
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        $opt['ap']['n']['Off'] = \sprintf(
+            'q %s BT %s %F %F Td (' . \chr(111) . ') Tj ET Q',
+            $color,
+            $font['outraw'],
+            $rfx,
+            $rfy,
+        );
+        $opt['opt'] = [$onvalue];
+        $opt['as'] = $checked ? 'Yes' : 'Off';
+        $opt['v'] = ['/' . $opt['as']];
+        $opt['Subtype'] = 'Widget';
+        $opt['ft'] = 'Btn';
+        $opt['t'] = $name;
+        $this->font->popLastFont();
+        return $this->setAnnotation(
+            $posx,
+            $posy,
+            $width,
+            $width,
+            $name,
+            $opt, // @phpstan-ignore argument.type
+        );
+    }
 
     // /**
     //  * Adds an annotation combobox form field.
@@ -1208,7 +1252,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //  * @param float $width width in user units.
     //  * @param float $height height in user units.
     //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
     //  *
     //  * @return int PDF Object ID.
     //  */
@@ -1232,7 +1276,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //  * @param float $width width in user units.
     //  * @param float $height height in user units.
     //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    //  * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
     //  *
     //  * @return int PDF Object ID.
     //  */
@@ -1254,10 +1298,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posx horizontal position in user units (LTR).
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
-     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @param string $onvalue Value to be returned if selected.
      * @param bool $checked Define the initial state.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return int PDF Object ID.
      */
@@ -1349,7 +1393,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     * @param float $width width in user units.
     * @param float $height height in user units.
     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
     *
     * @return int PDF Object ID.
     */

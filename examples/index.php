@@ -1586,6 +1586,10 @@ $pdf->page->addAnnotRef($ffrbid1);
 $pdf->page->addAnnotRef($ffrbid2);
 $pdf->page->addAnnotRef($ffrbid3);
 
+// checkbox
+$ffckbxid1 = $pdf->addFFCheckBox('test_checkbox', 20, 140, 5);
+$pdf->page->addAnnotRef($ffckbxid1);
+
 // ----------
 
 // Layers
