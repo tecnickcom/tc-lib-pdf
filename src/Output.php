@@ -1215,7 +1215,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
                 $annot = $this->annotation[$oid];
                 $annot['opt'] = \array_change_key_case($annot['opt'], CASE_LOWER);
-                $out .= $this->getAnnotationRadiobuttonGroups($annot); // @phpstan-ignore-line
+                $out .= $this->getAnnotationradiobuttons($annot); // @phpstan-ignore-line
                 $orx = $this->toPoints($annot['x']);
                 $ory = $this->toYPoints(($annot['y'] + $annot['h']), $page['pheight']);
                 $width = $this->toPoints($annot['w']);
@@ -1258,7 +1258,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     continue;
                 }
 
-                if (isset($this->radiobuttonGroups[$annot['txt']])) {
+                if (isset($this->radiobuttons[$annot['txt']])) {
                     continue;
                 }
 
@@ -1274,23 +1274,23 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @param TAnnot $annot Array containing page annotations.
      */
-    protected function getAnnotationRadiobuttonGroups(array $annot): string
+    protected function getAnnotationradiobuttons(array $annot): string
     {
         $out = '';
         if (
-            empty($this->radiobuttonGroups[$annot['txt']])
-            || ! \is_array($this->radiobuttonGroups[$annot['txt']])
+            empty($this->radiobuttons[$annot['txt']])
+            || ! \is_array($this->radiobuttons[$annot['txt']])
         ) {
             return $out;
         }
 
-        $oid = $this->radiobuttonGroups[$annot['txt']]['n'];
+        $oid = $this->radiobuttons[$annot['txt']]['n'];
         $out = $oid . ' 0 obj' . "\n"
             . '<<'
             . ' /Type /Annot'
             . ' /Subtype /Widget'
             . ' /Rect [0 0 0 0]';
-        if ($this->radiobuttonGroups[$annot['txt']]['#readonly#']) {
+        if ($this->radiobuttons[$annot['txt']]['#readonly#']) {
             // read only
             $out .= ' /F 68 /Ff 49153';
         } else {
@@ -1304,17 +1304,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out .= ' /FT /Btn /Kids [';
         $defval = '';
-        foreach ($this->radiobuttonGroups[$annot['txt']] as $data) {
-            if (isset($data['kid']) && \is_numeric($data['kid'])) {
-                $out .= ' ' . $data['kid'] . ' 0 R';
-                if ($data['def'] !== 'Off') {
-                    $defval = $data['def'];
-                }
+        foreach ($this->radiobuttons[$annot['txt']]['kids'] as $kids) {
+                $out .= ' ' . $kids['n'] . ' 0 R';
+            if ($kids['def'] !== 'Off') {
+                $defval = $kids['def'];
             }
         }
 
         $out .= ' ]';
-        if (! empty($defval) && \is_string($defval)) {
+        if (!empty($defval) && \is_string($defval)) {
             $out .= ' /V /' . $defval;
         }
 
@@ -1322,7 +1320,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . 'endobj' . "\n";
         $this->objid['form'][] = $oid;
         // store object id to be used on Parent entry of Kids
-        $this->radiobuttonGroups[$annot['txt']]['n'] = $oid;
+        $this->radiobuttons[$annot['txt']]['n'] = $oid;
         return $out;
     }
 
@@ -2209,8 +2207,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // --- Entries for field dictionaries ---
-        if (isset($this->radiobuttonGroups[$annot['txt']]['n'])) {
-            $out .= ' /Parent ' . $this->radiobuttonGroups[$annot['txt']]['n'] . ' 0 R';
+        if (isset($this->radiobuttons[$annot['txt']]['n'])) {
+            $out .= ' /Parent ' . $this->radiobuttons[$annot['txt']]['n'] . ' 0 R';
         }
 
         if (isset($annot['opt']['t']) && \is_string($annot['opt']['t'])) {

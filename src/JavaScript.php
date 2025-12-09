@@ -34,6 +34,19 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TAnnotOpts from Output
  * @phpstan-import-type TGTransparency from Output
  *
+ *
+ *
+ * @phpstan-type TRadioButtonItem array{
+ *         'n': int,
+ *         'def': string,
+ *     }
+ *
+ * @phpstan-type TRadioButton array{
+ *         'n': int,
+ *         '#readonly#': bool,
+ *         'kids': array<TRadioButtonItem>,
+ *     }
+ *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
@@ -69,14 +82,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     /**
      * Radio Button Groups.
      *
-     * @var array<string, array{
-     *         'n': int,
-     *         '#readonly#': bool,
-     *         'kid'?: int,
-     *         'def': string,
-     *      }>
+     * @var array<string, TRadioButton>
      */
-    protected array $radiobuttonGroups = [];
+    protected array $radiobuttons = [];
 
     /**
      * Javascript block to add.
@@ -1098,11 +1106,29 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 
     // ===| ANNOTAION FORM FIELDS |=======================================================
 
+      /**
+       * Retyurns the PDF command to ser the default fill color from the style stack.
+       *
+       * @return string
+       */
+    protected function getPDFDefFillColor(): string
+    {
+        $style = $this->graph->getCurrentStyleArray();
+        if (!empty($style['fillColor'])) {
+            $colobj = $this->color->getColorObj($style['fillColor']);
+            if ($colobj != null) {
+                return $colobj->getPdfColor();
+            }
+        }
+        return '';
+    }
+
    /**
     * Merge annotation options with Javascript properties.
     *
     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    * @param string $color Default PDF color command.
     *
     * @return TAnnotOpts merged Annotation options.
     */
@@ -1111,6 +1137,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             'subtype' => 'text',
         ],
         array $jsp = [],
+        string $color = '',
     ): array {
         // merge properties
         $jsp = \array_merge($this->defJSAnnotProp, $jsp);
@@ -1119,14 +1146,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $curfont = $this->font->getCurrentFont();
         $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
         $fontstyle = $curfont['outraw'];
-        $style = $this->graph->getCurrentStyleArray();
-        if (!empty($style['fillColor'])) {
-            $txtcol = $this->color->getColorObj($style['fillColor']);
-            if ($txtcol != null) {
-                $fontstyle .= ' ' . $txtcol->getPdfColor();
-            }
-        }
-        $opt['da'] = $fontstyle;
+        $color = empty($color) ? $this->getPDFDefFillColor() : $color;
+        $opt['da'] = $fontstyle . ' ' . $color;
         return $opt; // @phpstan-ignore return.type
     }
 
@@ -1225,32 +1246,102 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     //     array $jsp = [],
     // ): int {
     // }
-    //
-    // /**
-    //  * Adds an annotation radiobutton form field.
-    //  *
-    //  * @param string $name field name.
-    //  * @param float $posx horizontal position in user units (LTR).
-    //  * @param float $posy vertical position in user units (LTR).
-    //  * @param float $width width in user units.
-    //  * @param float $height height in user units.
-    //  * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    //  * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    //  *
-    //  * @return int PDF Object ID.
-    //  */
-    // public function addFFRadioButton(
-    //     string $name,
-    //     float $posx,
-    //     float $posy,
-    //     float $width,
-    //     float $height,
-    //     array $opt = [],
-    //     array $jsp = [],
-    // ): int {
-    // }
 
-   /**
+    /**
+     * Adds an annotation radiobutton form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @param string $onvalue Value to be returned if selected.
+     * @param bool $checked Define the initial state.
+     *
+     * @return int PDF Object ID.
+     */
+    public function addFFRadioButton(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $opt = [
+            'subtype' => 'Widget',
+        ],
+        array $jsp = [],
+        string $onvalue = 'On',
+        bool $checked = false,
+    ): int {
+        $font = $this->font->insert($this->pon, 'zapfdingbats');
+        $color = $this->getPDFDefFillColor();
+        $jsp['NoToggleToOff'] = 'true';
+        $jsp['Radio'] = 'true';
+        $jsp['borderStyle'] = 'inset';
+        $opt = $this->mergeAnnotOptions($opt, $jsp, $color);
+        $onvalue = empty($onvalue) ? 'On' : $onvalue;
+        $defval = ($checked) ? $onvalue : 'Off';
+        if (empty($this->radiobuttons[$name])) {
+            $oid = ++$this->pon;
+            $this->radiobuttons[$name] = [
+                'n' => $oid,
+                '#readonly#' => false,
+                'kids' => [],
+            ];
+        }
+        $this->radiobuttons[$name]['kids'][] = [
+            'n' => ($this->pon + 1), // this is assigned on setAnnotation
+            'def' => $defval,
+        ];
+        $opt['ap'] = [];
+        $opt['ap']['n'] = [];
+        $rfx = (($this->toPoints($width) - ($font['cw'][108] * $font['cratio'])) / 2);
+        $rfy = ($this->toPoints($width) - ($font['ascent'] - $font['descent']));
+        $opt['ap']['n'][$onvalue] = \sprintf(
+            'q %s BT %s %F %F Td (' . \chr(108) . ') Tj ET Q',
+            $color,
+            $font['outraw'],
+            $rfx,
+            $rfy,
+        );
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        $opt['ap']['n']['Off'] = \sprintf(
+            'q %s BT %s %F %F Td (' . \chr(109) . ') Tj ET Q',
+            $color,
+            $font['outraw'],
+            $rfx,
+            $rfy,
+        );
+        if (!isset($opt['mk'])) {
+            $opt['mk'] = [];
+        }
+        $opt['mk']['ca'] = '(l)';
+        $opt['Subtype'] = 'Widget';
+        $opt['ft'] = 'Btn';
+        if ($checked) {
+            $opt['v'] = ['/' . $onvalue];
+            $opt['as'] = $onvalue;
+        } else {
+            $opt['as'] = 'Off';
+        }
+        // store readonly flag
+        if (!isset($this->radiobuttons[$name]['#readonly#'])) {
+            $this->radiobuttons[$name]['#readonly#'] = false;
+        }
+        $this->radiobuttons[$name]['#readonly#'] = ($this->radiobuttons[$name]['#readonly#'] || (bool)($opt['f'] & 64));
+        return $this->setAnnotation(
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $name,
+            $opt, // @phpstan-ignore argument.type
+        );
+    }
+
+    /**
     * Adds an annotation text form field.
     *
     * @param string $name field name.
