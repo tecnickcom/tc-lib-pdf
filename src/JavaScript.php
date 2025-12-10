@@ -860,14 +860,14 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * at the time it is invoked.
      *
      * @param float $width  Width of the XObject.
-     * @param float $heigth Height of the XObject.
+     * @param float $height Height of the XObject.
      * @param ?TGTransparency $transpgroup Optional group attributes.
      *
      * @return string XObject template object ID.
      */
     public function newXObjectTemplate(
         float $width = 0,
-        float $heigth = 0,
+        float $height = 0,
         ?array $transpgroup = null,
     ): string {
         $oid = ++$this->pon;
@@ -880,8 +880,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $width = $region['RW'];
         }
 
-        if (empty($heigth) || $heigth < 0) {
-            $heigth = $region['RH'];
+        if (empty($height) || $height < 0) {
+            $height = $region['RH'];
         }
 
         $this->xobjects[$tid] = [
@@ -897,9 +897,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             'x' => 0,
             'y' => 0,
             'w' => $width,
-            'h' => $heigth,
+            'h' => $height,
             'outdata' => '',
             'transparency' => $transpgroup,
+            'pheight' => $this->page->setPagePHeight($this->toPoints($height)),
+            'gheight' => $this->graph->setPageHeight($height),
         ];
 
         return $tid;
@@ -912,6 +914,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function exitXObjectTemplate(): void
     {
+        // restore page height
+        $this->page->setPagePHeight($this->xobjects[$this->xobjtid]['pheight']);
+        $this->graph->setPageHeight($this->xobjects[$this->xobjtid]['gheight']);
         $this->xobjtid = '';
     }
 

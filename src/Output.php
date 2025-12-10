@@ -352,6 +352,8 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'y': float,
  *         'w': float,
  *         'h': float,
+ *         'pheight': float,
+ *         'gheight': float,
  *     }
  *
  * @phpstan-type TOutline array{
@@ -949,6 +951,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             'y' => 0,
             'h' => 0,
             'outdata' => '',
+            'pheight' => 0,
+            'gheight' => 0,
         ];
         $out .= '<< /Type /XObject /Subtype /Form /FormType 1';
         if ($this->compress) {

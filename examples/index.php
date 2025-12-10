@@ -1620,6 +1620,9 @@ $pdf->page->addContent($tmpl);
 
 // ----------
 
+$bfont5 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
+$pdf->page->addContent($bfont5['out']);
+
 // Annotation Form Fields
 
 // text
@@ -1726,8 +1729,6 @@ $pdf->appendRawJavaScript($formjs);
 
 $pageV01 = $pdf->addPage();
 $pdf->setBookmark('Layers', '', 0, -1, 0, 0, 'B', '');
-
-$pdf->page->addContent($bfont4['out']);
 
 $txtV1 = 'LAYERS: You can limit the visibility of PDF objects to screen or printer by using the newLayer() method.
 Check the print preview of this document to display the alternative text.';

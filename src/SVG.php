@@ -3878,7 +3878,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (empty($pageheight)) {
             $pageheight = $this->page->getPage()['height'];
         }
-        $this->graph->setPageHeight($pageheight);
+        $prevPageHeight = $this->graph->setPageHeight($pageheight);
 
         $imgdir = \dirname($img);
         if ($imgdir === '.') {
@@ -4040,6 +4040,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         unset($parser);
 
         $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+        $this->graph->setPageHeight($prevPageHeight);
 
         return $soid;
     }
