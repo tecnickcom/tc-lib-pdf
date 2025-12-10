@@ -1215,7 +1215,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
                 $annot = $this->annotation[$oid];
                 $annot['opt'] = \array_change_key_case($annot['opt'], CASE_LOWER);
-                $out .= $this->getAnnotationradiobuttons($annot); // @phpstan-ignore-line
+                $out .= $this->getAnnotationRadioButtons($annot); // @phpstan-ignore-line
                 $orx = $this->toPoints($annot['x']);
                 $ory = $this->toYPoints(($annot['y'] + $annot['h']), $page['pheight']);
                 $width = $this->toPoints($annot['w']);
@@ -1281,7 +1281,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @param TAnnot $annot Array containing page annotations.
      */
-    protected function getAnnotationradiobuttons(array $annot): string
+    protected function getAnnotationRadioButtons(array $annot): string
     {
         $out = '';
         if (

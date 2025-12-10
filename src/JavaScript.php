@@ -34,8 +34,6 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TAnnotOpts from Output
  * @phpstan-import-type TGTransparency from Output
  *
- *
- *
  * @phpstan-type TRadioButtonItem array{
  *         'n': int,
  *         'def': string,
@@ -390,80 +388,80 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (isset($prp['charLimit']) && \is_numeric($prp['charLimit'])) {
             $opt['maxlen'] = intval($prp['charLimit']);
         }
-        $off = 0;
+        $flg = 0;
         // readonly:
         // The read-only characteristic of a field.
         // If a field is read-only, the user can see the field but cannot change it.
         if (!empty($prp['readonly']) && ($prp['readonly'] == 'true')) {
-            $off += 1 << 0;
+            $flg += 1 << 0;
         }
         // required:
         // Specifies whether a field requires a value.
         if (!empty($prp['required']) && ($prp['required'] == 'true')) {
-            $off += 1 << 1;
+            $flg += 1 << 1;
         }
         // multiline:
         // Controls how text is wrapped within the field.
         if (!empty($prp['multiline']) && ($prp['multiline'] == 'true')) {
-            $off += 1 << 12;
+            $flg += 1 << 12;
         }
         // password:
         // Specifies whether the field should display asterisks when data is entered in the field.
         if (!empty($prp['password']) && ($prp['password'] == 'true')) {
-            $off += 1 << 13;
+            $flg += 1 << 13;
         }
         // NoToggleToOff:
         // If set, exactly one radio button shall be selected at all times;
         // selecting the currently selected button has no effect.
         if (!empty($prp['NoToggleToOff']) && ($prp['NoToggleToOff'] == 'true')) {
-            $off += 1 << 14;
+            $flg += 1 << 14;
         }
         // Radio:
         // If set, the field is a set of radio buttons.
         if (!empty($prp['Radio']) && ($prp['Radio'] == 'true')) {
-            $off += 1 << 15;
+            $flg += 1 << 15;
         }
         // Pushbutton:
         // If set, the field is a pushbutton that does not retain a permanent value.
         if (!empty($prp['Pushbutton']) && ($prp['Pushbutton'] == 'true')) {
-            $off += 1 << 16;
+            $flg += 1 << 16;
         }
         // Combo:
         // If set, the field is a combo box; if clear, the field is a list box.
         if (!empty($prp['Combo']) && ($prp['Combo'] == 'true')) {
-            $off += 1 << 17;
+            $flg += 1 << 17;
         }
         // editable:
         // Controls whether a combo box is editable.
         if (!empty($prp['editable']) && ($prp['editable'] == 'true')) {
-            $off += 1 << 18;
+            $flg += 1 << 18;
         }
         // Sort:
         // If set, the field's option items shall be sorted alphabetically.
         if (!empty($prp['Sort']) && ($prp['Sort'] == 'true')) {
-            $off += 1 << 19;
+            $flg += 1 << 19;
         }
         // fileSelect:
         // If true, sets the file-select flag in the Options tab of the text field
         // (Field is Used for File Selection).
         if (!empty($prp['fileSelect']) && ($prp['fileSelect'] == 'true')) {
-            $off += 1 << 20;
+            $flg += 1 << 20;
         }
         // multipleSelection:
         // If true, indicates that a list box allows a multiple selection of items.
         if (!empty($prp['multipleSelection']) && ($prp['multipleSelection'] == 'true')) {
-            $off += 1 << 21;
+            $flg += 1 << 21;
         }
         // doNotSpellCheck:
         // If true, spell checking is not performed on this editable text field.
         if (!empty($prp['doNotSpellCheck']) && ($prp['doNotSpellCheck'] == 'true')) {
-            $off += 1 << 22;
+            $flg += 1 << 22;
         }
         // doNotScroll:
         // If true, the text field does not scroll and the user,
         // therefore, is limited by the rectangular region designed for the field.
         if (!empty($prp['doNotScroll']) && ($prp['doNotScroll'] == 'true')) {
-            $off += 1 << 23;
+            $flg += 1 << 23;
         }
         // comb:
         // If set to true, the field background is drawn as series of boxes
@@ -475,25 +473,25 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // password, and fileSelect.
         // A side-effect of setting this property is that the doNotScroll property is also set.
         if (!empty($prp['comb']) && ($prp['comb'] == 'true')) {
-            $off += 1 << 24;
+            $flg += 1 << 24;
         }
         // radiosInUnison:
         // If false, even if a group of radio buttons have the same name and export value,
         // they behave in a mutually exclusive fashion, like HTML radio buttons.
         if (!empty($prp['radiosInUnison']) && ($prp['radiosInUnison'] == 'true')) {
-            $off += 1 << 25;
+            $flg += 1 << 25;
         }
         // richText:
         // If true, the field allows rich text formatting.
         if (!empty($prp['richText']) && ($prp['richText'] == 'true')) {
-            $off += 1 << 25;
+            $flg += 1 << 25;
         }
         // commitOnSelChange:
         // Controls whether a field value is committed after a selection change.
         if (!empty($prp['commitOnSelChange']) && ($prp['commitOnSelChange'] == 'true')) {
-            $off += 1 << 26;
+            $flg += 1 << 26;
         }
-        $opt['ff'] = $off;
+        $opt['ff'] = $flg;
         // defaultValue:
         // The default value of a field - that is, the value that the field is set to when the form is reset.
         if (isset($prp['defaultValue'])) {
@@ -1189,12 +1187,25 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // appearance stream
         $opt['ap'] = [];
         $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
-
         $tid = $this->newXObjectTemplate($width, $height);
-
-
-
-        $txtbox = $this->getTextCell( //@TODO cell border and fill...
+        $defbstyle =  [
+            'lineWidth' => $this->toUnit(1),
+            'lineCap' => 'square',
+            'lineJoin' => 'miter',
+            'dashArray' => [],
+            'dashPhase' => 0,
+            'lineColor' => '#333333',
+            'fillColor' => '#cccccc',
+        ];
+        $bstyle = [
+            'all' => $defbstyle,
+            0 => $defbstyle, // TOP
+            1 => $defbstyle, // RIGHT
+            2 => $defbstyle, // BOTTOM
+            3 => $defbstyle, // LEFT
+        ];
+        $bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
+        $txtbox = $this->getTextCell(
             $caption,
             $posx,
             $posy,
@@ -1202,11 +1213,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $height,
             0,
             0,
-            'T',
+            'C',
+            'C',
+            null,
+            $bstyle, // @phpstan-ignore argument.type
         );
-
-
-
         $this->addXObjectContent($tid, $txtbox);
         $this->exitXObjectTemplate();
         $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];

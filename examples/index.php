@@ -32,7 +32,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     'mm', // string $unit = 'mm',
     true, // bool $isunicode = true,
     false, // bool $subsetfont = false,
-    true, // bool $compress = true,
+    false, // bool $compress = true,
     '', // string $mode = '',
     null, // ?ObjEncrypt $objEncrypt = null,
 );
@@ -1189,6 +1189,7 @@ $style_cell = [
     ],
 ];
 
+$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
 $txtcell1 = $pdf->getTextCell(
     'DEFAULT', // string $txt,
     20, // float $posx = 0,
@@ -1278,6 +1279,53 @@ $txtcell2 = $pdf->getTextCell(
 );
 $pdf->page->addContent($txtcell2);
 
+$defbstyle =  [
+    'lineWidth' => $pdf->toUnit(1),
+    'lineCap' => 'square',
+    'lineJoin' => 'miter',
+    'dashArray' => [],
+    'dashPhase' => 0,
+    'lineColor' => '#333333',
+    'fillColor' => '#cccccc',
+];
+$bstyle = [
+    'all' => $defbstyle,
+    0 => $defbstyle, // TOP
+    1 => $defbstyle, // RIGHT
+    2 => $defbstyle, // BOTTOM
+    3 => $defbstyle, // LEFT
+];
+$bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
+
+$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
+$txtcell3 = $pdf->getTextCell(
+    'BUTTON', // string $txt,
+    120, // float $posx = 0,
+    100, // float $posy = 0,
+    0, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
+    'C', // string $valign = 'C',
+    'C', // string $halign = 'C',
+    null, // ?array $cell = null,
+    $bstyle, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null // ?array $shadow = null,
+);
+$pdf->page->addContent($txtcell3);
 
 $pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
 
@@ -1614,8 +1662,8 @@ $ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 30, 5,
     [
         'lineWidth'=>2,
         'borderStyle'=>'beveled',
-        'fillColor'=>'aqua',
-        'strokeColor'=>'silver',
+        'fillColor'=>'#80c4ff',
+        'strokeColor'=>'#404040',
     ],
 );
 $pdf->page->addAnnotRef($ffbtnid1);
