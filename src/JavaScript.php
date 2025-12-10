@@ -1207,8 +1207,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
         $txtbox = $this->getTextCell(
             $caption,
-            $posx,
-            $posy,
+            0,
+            0,
             $width,
             $height,
             0,
