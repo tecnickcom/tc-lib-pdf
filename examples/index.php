@@ -1654,8 +1654,8 @@ $fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15,
 );
 $pdf->page->addAnnotRef($fflsbxid1);
 
-// button
-$ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 30, 5, 
+// button - reset form
+$ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 20, 5, 
     'Reset', 
     ['S'=>'ResetForm'],
     ['subtype' => 'Widget'],
@@ -1667,6 +1667,40 @@ $ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 30, 5,
     ],
 );
 $pdf->page->addAnnotRef($ffbtnid1);
+
+// button - print document
+$ffbtnid2 = $pdf->addFFButton('print', 45, 180, 20, 5, 
+    'Print', 
+    'Print()',
+    ['subtype' => 'Widget'],
+    [
+        'lineWidth'=>2,
+        'borderStyle'=>'beveled',
+        'fillColor'=>'#80c4ff',
+        'strokeColor'=>'#404040',
+    ],
+);
+$pdf->page->addAnnotRef($ffbtnid2);
+
+// JavaScript form validation functions
+$formjs = <<<EOD
+function CheckField(name,message) {
+	var f = getField(name);
+	if(f.value == '') {
+	    app.alert(message);
+	    f.setFocus();
+	    return false;
+	}
+	return true;
+}
+function Print() {
+	if(!CheckField('test_text','test_text is mandatory')) {return;}
+	print();
+}
+EOD;
+
+// Add raw JavaScript code
+$pdf->appendRawJavaScript($formjs);
 
 // ----------
 
