@@ -1702,4 +1702,161 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $opt, // @phpstan-ignore argument.type
         );
     }
+
+    // ==| JS Fiedls |==
+
+    /**
+     * Adds a JavaScript button form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param string $caption caption.
+     * @param string $action action triggered by pressing the button.
+     *                      Use a string to specify a javascript action.
+     *                      Use an array to specify a form action options
+     *                      as in section 12.7.5 of PDF32000_2008.
+     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     */
+    public function addJSButton(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        string $caption,
+        string $action,
+        array $jsp = [],
+    ): void {
+        $this->addJavaScriptField('button', $name, $posx, $posy, $width, $height, $jsp);
+        $this->javascript .= 'f' . $name . ".buttonSetCaption('" . \addslashes($caption) . "');\n";
+        $this->javascript .= 'f' . $name . ".setAction('MouseUp','" . \addslashes($action) . "');\n";
+        $this->javascript .= 'f' . $name . ".highlight='push';\n";
+        $this->javascript .= 'f' . $name . ".print=false;\n";
+    }
+
+    /**
+     * Adds a JavaScript checkbox form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     */
+    public function addJSCheckBox(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        array $jsp = [],
+    ): void {
+        $this->addJavaScriptField('checkbox', $name, $posx, $posy, $width, $width, $jsp);
+    }
+
+    /**
+     * Adds a JavaScript combobox (select) form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param array<array{string,string}>|array<string> $values List of selection values.
+     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     */
+    public function addJSComboBox(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $values,
+        array $jsp = [],
+    ): void {
+        $this->addJavaScriptField('combobox', $name, $posx, $posy, $width, $height, $jsp);
+        $itm = '';
+        foreach ($values as $value) {
+            if (is_array($value)) {
+                $itm .= ',[\'' . \addslashes($value[1]) . '\',\'' . \addslashes($value[0]) . '\']';
+            } else {
+                $itm .= ',[\'' . \addslashes($value) . '\',\'' . \addslashes($value) . '\']';
+            }
+        }
+        $this->javascript .= 'f' . $name . '.setItems(' . \substr($itm, 1) . ');' . "\n";
+    }
+
+    /**
+     * Adds a JavaScript listbox (select) form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param array<array{string,string}>|array<string> $values List of selection values.
+     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     */
+    public function addJSListBox(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $values,
+        array $jsp = [],
+    ): void {
+        $this->addJavaScriptField('listbox', $name, $posx, $posy, $width, $height, $jsp);
+            $itm = '';
+        foreach ($values as $value) {
+            if (\is_array($value)) {
+                $itm .= ',[\'' . \addslashes($value[1]) . '\',\'' . \addslashes($value[0]) . '\']';
+            } else {
+                $itm .= ',[\'' . \addslashes($value) . '\',\'' . \addslashes($value) . '\']';
+            }
+        }
+            $this->javascript .= 'f' . $name . '.\setItems(' . \substr($itm, 1) . ');' . "\n";
+    }
+
+    /**
+     * Adds a JavaScript radiobutton form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     */
+    public function addJSRadioButton(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        array $jsp = [],
+    ): void {
+        $this->addJavaScriptField('radiobutton', $name, $posx, $posy, $width, $width, $jsp);
+    }
+
+    /**
+    * Adds a JavaScript text form field.
+    *
+    * @param string $name field name.
+    * @param float $posx horizontal position in user units (LTR).
+    * @param float $posy vertical position in user units (LTR).
+    * @param float $width width in user units.
+    * @param float $height height in user units.
+    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+    */
+    public function addJSText(
+        string $name,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $jsp = [],
+    ): void {
+        $this->addJavaScriptField('text', $name, $posx, $posy, $width, $height, $jsp);
+    }
 }
