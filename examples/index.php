@@ -1669,7 +1669,7 @@ $ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 20, 5,
 $pdf->page->addAnnotRef($ffbtnid1);
 
 // button - print document
-$ffbtnid2 = $pdf->addFFButton('print', 45, 180, 20, 5, 
+$ffbtnid2 = $pdf->addFFButton('print', 40, 180, 20, 5, 
     'Print', 
     'Print()',
     ['subtype' => 'Widget'],
@@ -1681,6 +1681,24 @@ $ffbtnid2 = $pdf->addFFButton('print', 45, 180, 20, 5,
     ],
 );
 $pdf->page->addAnnotRef($ffbtnid2);
+
+// button - submit form
+$ffbtnid3 = $pdf->addFFButton('submit', 60, 180, 20, 5, 
+    'Submit', 
+    [
+        'S'=>'SubmitForm',
+        'F'=>'http://localhost/printvars.php',
+        'Flags'=>['ExportFormat'],
+    ],
+    ['subtype' => 'Widget'],
+    [
+        'lineWidth'=>2,
+        'borderStyle'=>'beveled',
+        'fillColor'=>'#80c4ff',
+        'strokeColor'=>'#404040',
+    ],
+);
+$pdf->page->addAnnotRef($ffbtnid3);
 
 // JavaScript form validation functions
 $formjs = <<<EOD
