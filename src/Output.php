@@ -921,13 +921,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF Annotation code for Apearance Stream XObjects entry.
      *
-     * @param int    $width  annotation width
-     * @param int    $height annotation height
+     * @param float    $width  annotation width
+     * @param float    $height annotation height
      * @param string $stream appearance stream
      */
     protected function getOutAPXObjects(
-        int $width = 0,
-        int $height = 0,
+        float $width = 0,
+        float $height = 0,
         string $stream = ''
     ): string {
         $stream = \trim($stream);
@@ -1238,8 +1238,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
                 list($aas, $apx) = $this->getAnnotationAppearanceStream(
                     $annot,
-                    (int) $width,
-                    (int) $height,
+                    $width,
+                    $height,
                 );
 
                 $out .= ' /P ' . $page['n'] . ' 0 R'
@@ -1334,15 +1334,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the Annotation code for Appearance Stream.
      *
      * @param TAnnot $annot  Array containing page annotations.
-     * @param int    $width  Annotation width.
-     * @param int    $height Annotation height.
+     * @param float    $width  Annotation width.
+     * @param float    $height Annotation height.
      *
      * @return array{string, string}
      */
     protected function getAnnotationAppearanceStream(
         array $annot,
-        int $width = 0,
-        int $height = 0
+        float $width = 0,
+        float $height = 0
     ): array {
         $out = '';
         if (! empty($annot['opt']['as']) && \is_string($annot['opt']['as'])) {
