@@ -1378,7 +1378,7 @@ $style_cell_b = [
 
 // block of text between two page regions
 $pdf->addTextCell(
-    $txt3, // string $txt,
+    "\u{27A0}".$txt3, // string $txt,
     -1, // int $pid = -1,
     20, // float $posx = 0,
     165, // float $posy = 0,
@@ -1620,7 +1620,7 @@ $pdf->page->addContent($tmpl);
 
 // ----------
 
-$bfont5 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
+$bfont5 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 $pdf->page->addContent($bfont5['out']);
 
 // Annotation Form Fields
@@ -1659,7 +1659,7 @@ $pdf->page->addAnnotRef($fflsbxid1);
 
 // button - reset form
 $ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 20, 5, 
-    'Reset', 
+    "\u{27A0} Reset", 
     ['S'=>'ResetForm'],
     ['subtype' => 'Widget'],
     [
