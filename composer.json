@@ -30,8 +30,8 @@
     "tecnickcom/tc-lib-pdf-encrypt": "^2.1",
     "tecnickcom/tc-lib-unicode-data": "^2.0",
     "tecnickcom/tc-lib-unicode": "^2.0",
-    "tecnickcom/tc-lib-pdf-page": "^4.2",
-    "tecnickcom/tc-lib-pdf-graph": "^2.3"
+    "tecnickcom/tc-lib-pdf-page": "^4.3",
+    "tecnickcom/tc-lib-pdf-graph": "^2.4"
   },
   "require-dev": {
     "pdepend/pdepend": "2.16.2",
