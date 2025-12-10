@@ -352,6 +352,8 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'y': float,
  *         'w': float,
  *         'h': float,
+ *         'pheight': float,
+ *         'gheight': float,
  *     }
  *
  * @phpstan-type TOutline array{
@@ -435,6 +437,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    }
  *
  * @SuppressWarnings("PHPMD")
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
@@ -466,62 +469,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * @var array<string, string>
      */
     protected array $lang = [];
-
-    /**
-     * Fonts used in annotations.
-     *
-     * @var array<string, int>
-     */
-    protected array $annotation_fonts = [];
-
-    /**
-     * Destinations.
-     *
-     * @var array<string, array{
-     *          'p': int,
-     *          'x': float,
-     *          'y': float,
-     *      }>
-     */
-    protected array $dests = [];
-
-    /**
-     * Links.
-     *
-     * @var array<string, array{
-     *          'p': int,
-     *          'y': float,
-     *      }>
-     */
-    protected array $links = [];
-
-    /**
-     * Radio Button Groups.
-     *
-     * @var array<string, array{
-     *         'n': int,
-     *         '#readonly#': bool,
-     *         'kid'?: int,
-     *         'def': string,
-     *      }>
-     */
-    protected array $radiobuttonGroups = [];
-
-    /**
-     * Javascript block to add.
-     */
-    protected string $javascript = '';
-
-    /**
-     * Javascript objects.
-     *
-     * @var array<int, array{
-     *          'n': int,
-     *          'js': string,
-     *          'onload': bool,
-     *      }>
-     */
-    protected array $jsobjects = [];
 
     /**
      * Returns the RAW PDF string.
@@ -976,13 +923,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF Annotation code for Apearance Stream XObjects entry.
      *
-     * @param int    $width  annotation width
-     * @param int    $height annotation height
+     * @param float    $width  annotation width
+     * @param float    $height annotation height
      * @param string $stream appearance stream
      */
     protected function getOutAPXObjects(
-        int $width = 0,
-        int $height = 0,
+        float $width = 0,
+        float $height = 0,
         string $stream = ''
     ): string {
         $stream = \trim($stream);
@@ -1004,6 +951,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             'y' => 0,
             'h' => 0,
             'outdata' => '',
+            'pheight' => 0,
+            'gheight' => 0,
         ];
         $out .= '<< /Type /XObject /Subtype /Form /FormType 1';
         if ($this->compress) {
@@ -1229,29 +1178,29 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @param array<int|float> $color Array of colors.
      */
-    protected static function getColorStringFromArray(array $color): string
+    protected static function getColorStringFromPercArray(array $color): string
     {
         $col = \array_values($color);
         $out = '[';
-        match (\count($color)) {
-            4 => $out .= \sprintf(
+        $out .= match (\count($color)) {
+            4 => \sprintf(
                 '%F %F %F %F',
-                (\max(0, \min(100, (float) $col[0])) / 100),
-                (\max(0, \min(100, (float) $col[1])) / 100),
-                (\max(0, \min(100, (float) $col[2])) / 100),
-                (\max(0, \min(100, (float) $col[3])) / 100)
+                (float) $col[0],
+                (float) $col[1],
+                (float) $col[2],
+                (float) $col[3],
             ),
-            3 => $out .= \sprintf(
+            3 => \sprintf(
                 '%F %F %F',
-                (\max(0, \min(255, (float) $col[0])) / 255),
-                (\max(0, \min(255, (float) $col[1])) / 255),
-                (\max(0, \min(255, (float) $col[2])) / 255)
+                (float) $col[0],
+                (float) $col[1],
+                (float) $col[2],
             ),
-            1 => $out .= \sprintf(
+            1 => \sprintf(
                 '%F',
-                (\max(0, \min(255, (float) $col[0])) / 255)
+                (float) $col[0],
             ),
-            default => $out . ']',
+            default => '',
         };
         return $out . ']';
     }
@@ -1270,7 +1219,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
                 $annot = $this->annotation[$oid];
                 $annot['opt'] = \array_change_key_case($annot['opt'], CASE_LOWER);
-                $out .= $this->getAnnotationRadiobuttonGroups($annot); // @phpstan-ignore-line
+                $out .= $this->getAnnotationRadioButtons($annot); // @phpstan-ignore-line
                 $orx = $this->toPoints($annot['x']);
                 $ory = $this->toYPoints(($annot['y'] + $annot['h']), $page['pheight']);
                 $width = $this->toPoints($annot['w']);
@@ -1291,11 +1240,17 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $out .= ' /Contents ' . $this->getOutTextString($annot['txt'], $oid, true);
                 }
 
+                list($aas, $apx) = $this->getAnnotationAppearanceStream(
+                    $annot,
+                    $width,
+                    $height,
+                );
+
                 $out .= ' /P ' . $page['n'] . ' 0 R'
                     . ' /NM ' . $this->encrypt->escapeDataString(\sprintf('%04u-%04u', $page['num'], $key), $oid)
                     . ' /M ' . $this->getOutDateTimeString($this->docmodtime, $oid)
                     . $this->getOutAnnotationFlags($annot) // @phpstan-ignore-line
-                    . $this->getAnnotationAppearanceStream($annot, (int) $width, (int) $height) // @phpstan-ignore-line
+                    . $aas
                     . $this->getAnnotationBorder($annot); // @phpstan-ignore-line
 
                 if (! empty($annot['opt']['c']) && \is_string($annot['opt']['c'])) {
@@ -1308,12 +1263,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= $this->getOutAnnotationMarkups($annot, $oid) // @phpstan-ignore-line
                     . $this->getOutAnnotationOptSubtype($annot, $num, $oid, $key) // @phpstan-ignore-line
                     . ' >>' . "\n"
-                    . 'endobj' . "\n";
+                    . 'endobj' . "\n"
+                    . $apx;
                 if (! $formfield) {
                     continue;
                 }
 
-                if (isset($this->radiobuttonGroups[$annot['txt']])) {
+                if (isset($this->radiobuttons[$annot['txt']])) {
                     continue;
                 }
 
@@ -1329,23 +1285,23 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @param TAnnot $annot Array containing page annotations.
      */
-    protected function getAnnotationRadiobuttonGroups(array $annot): string
+    protected function getAnnotationRadioButtons(array $annot): string
     {
         $out = '';
         if (
-            empty($this->radiobuttonGroups[$annot['txt']])
-            || ! \is_array($this->radiobuttonGroups[$annot['txt']])
+            empty($this->radiobuttons[$annot['txt']]['kids'])
+            || ! \is_array($this->radiobuttons[$annot['txt']])
         ) {
             return $out;
         }
 
-        $oid = $this->radiobuttonGroups[$annot['txt']]['n'];
+        $oid = $this->radiobuttons[$annot['txt']]['n'];
         $out = $oid . ' 0 obj' . "\n"
             . '<<'
             . ' /Type /Annot'
             . ' /Subtype /Widget'
             . ' /Rect [0 0 0 0]';
-        if ($this->radiobuttonGroups[$annot['txt']]['#readonly#']) {
+        if ($this->radiobuttons[$annot['txt']]['#readonly#']) {
             // read only
             $out .= ' /F 68 /Ff 49153';
         } else {
@@ -1359,25 +1315,22 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out .= ' /FT /Btn /Kids [';
         $defval = '';
-        foreach ($this->radiobuttonGroups[$annot['txt']] as $data) {
-            if (isset($data['kid']) && \is_numeric($data['kid'])) {
-                $out .= ' ' . $data['kid'] . ' 0 R';
-                if ($data['def'] !== 'Off') {
-                    $defval = $data['def'];
-                }
+        foreach ($this->radiobuttons[$annot['txt']]['kids'] as $kids) {
+                $out .= ' ' . $kids['n'] . ' 0 R';
+            if ($kids['def'] !== 'Off') {
+                $defval = $kids['def'];
             }
         }
 
         $out .= ' ]';
-        if (! empty($defval) && \is_string($defval)) {
+        if (!empty($defval) && \is_string($defval)) {
             $out .= ' /V /' . $defval;
         }
 
         $out .= ' >>' . "\n"
             . 'endobj' . "\n";
         $this->objid['form'][] = $oid;
-        // store object id to be used on Parent entry of Kids
-        $this->radiobuttonGroups[$annot['txt']]['n'] = $oid;
+        $this->radiobuttons[$annot['txt']]['kids'] = []; // set only once
         return $out;
     }
 
@@ -1385,23 +1338,26 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the Annotation code for Appearance Stream.
      *
      * @param TAnnot $annot  Array containing page annotations.
-     * @param int    $width  Annotation width.
-     * @param int    $height Annotation height.
+     * @param float    $width  Annotation width.
+     * @param float    $height Annotation height.
+     *
+     * @return array{string, string}
      */
     protected function getAnnotationAppearanceStream(
         array $annot,
-        int $width = 0,
-        int $height = 0
-    ): string {
+        float $width = 0,
+        float $height = 0
+    ): array {
         $out = '';
         if (! empty($annot['opt']['as']) && \is_string($annot['opt']['as'])) {
             $out .= ' /AS /' . $annot['opt']['as'];
         }
 
         if (empty($annot['opt']['ap'])) {
-            return $out;
+            return [$out, ''];
         }
 
+        $apxout = '';
         $out .= ' /AP <<';
         if (! \is_array($annot['opt']['ap'])) {
             $out .= $annot['opt']['ap'];
@@ -1416,28 +1372,31 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                             continue;
                         }
                         // reference to XObject that define the appearance for this mode-state
-                        $apsobjid = $this->getOutAPXObjects(
+                        $apxout .= $this->getOutAPXObjects(
                             $width,
                             $height,
                             $stream,
                         );
-                        $out .= ' /' . $apstate . ' ' . $apsobjid . ' 0 R';
+                        $out .= ' /' . $apstate . ' ' . $this->pon . ' 0 R';
                     }
 
                     $out .= ' >>';
                 } elseif (\is_string($def)) {
                     // reference to XObject that define the appearance for this mode
-                    $apsobjid = $this->getOutAPXObjects(
+                    $apxout .= $this->getOutAPXObjects(
                         $width,
                         $height,
                         $def,
                     );
-                    $out .= ' ' . $apsobjid . ' 0 R';
+                    $out .= ' ' . $this->pon . ' 0 R';
                 }
             }
         }
 
-        return $out . ' >>';
+        return [
+            $out . ' >>',
+            $apxout,
+        ];
     }
 
     /**
@@ -2154,14 +2113,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' /R ' . $annot['opt']['mk']['r'];
             }
 
-            if (isset($annot['opt']['mk']['bc']) && (\is_array($annot['opt']['mk']['bc']))) {
-                $out .= ' /BC '
-                . static::getColorStringFromArray($annot['opt']['mk']['bc']); // @phpstan-ignore argument.type
+            if (isset($annot['opt']['mk']['bc'])) {
+                if (\is_array($annot['opt']['mk']['bc'])) {
+                    $out .= ' /BC '
+                    . static::getColorStringFromPercArray($annot['opt']['mk']['bc']); // @phpstan-ignore argument.type
+                }
             }
 
-            if (isset($annot['opt']['mk']['bg']) && (\is_array($annot['opt']['mk']['bg']))) {
-                $out .= ' /BG '
-                . static::getColorStringFromArray($annot['opt']['mk']['bg']); // @phpstan-ignore argument.type
+            if (isset($annot['opt']['mk']['bg'])) {
+                if (\is_array($annot['opt']['mk']['bg'])) {
+                    $out .= ' /BG '
+                    . static::getColorStringFromPercArray($annot['opt']['mk']['bg']); // @phpstan-ignore argument.type
+                }
             }
 
             if (
@@ -2260,8 +2223,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // --- Entries for field dictionaries ---
-        if (isset($this->radiobuttonGroups[$annot['txt']]['n'])) {
-            $out .= ' /Parent ' . $this->radiobuttonGroups[$annot['txt']]['n'] . ' 0 R';
+        if (isset($this->radiobuttons[$annot['txt']]['n'])) {
+            $out .= ' /Parent ' . $this->radiobuttons[$annot['txt']]['n'] . ' 0 R';
         }
 
         if (isset($annot['opt']['t']) && \is_string($annot['opt']['t'])) {
@@ -2507,15 +2470,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         foreach ($this->jsobjects as $key => $val) {
+            // additional Javascript objects
+            $oid = $val['n'];
+            $out .= $oid . ' 0 obj' . "\n"
+            . '<< '
+            . '/S /JavaScript /JS '
+            . $this->getOutTextString($val['js'], $oid, true)
+            . ' >>' . "\n"
+            . 'endobj' . "\n";
             if ($val['onload']) {
-                // additional Javascript object
-                $oid = ++$this->pon;
-                $out .= $oid . ' 0 obj' . "\n"
-                . '<< '
-                . '/S /JavaScript /JS '
-                . $this->getOutTextString($val['js'], $oid, true)
-                . ' >>' . "\n"
-                . 'endobj' . "\n";
                 $njs .= ' (JS' . $key . ') ' . $oid . ' 0 R';
             }
         }

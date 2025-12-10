@@ -180,7 +180,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.2.4';
+    protected string $version = '8.2.7';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -667,7 +667,9 @@ abstract class Base
      */
     public function toYPoints(float $usr, float $pageh = -1): float
     {
-        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
+        if ($pageh < 0) {
+            return ($this->page->getPage()['pheight'] - $this->toPoints($usr));
+        }
         return ($pageh - $this->toPoints($usr));
     }
 
@@ -680,7 +682,9 @@ abstract class Base
      */
     public function toYUnit(float $pnt, float $pageh = -1): float
     {
-        $pageh = $pageh >= 0 ? $pageh : $this->page->getPage()['pheight'];
+        if ($pageh < 0) {
+             return $this->toUnit($this->page->getPage()['pheight'] - $pnt);
+        }
         return $this->toUnit($pageh - $pnt);
     }
 

@@ -30,8 +30,10 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
-abstract class HTML extends \Com\Tecnick\Pdf\CSS
+abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 {
     //@TODO: add missing methods
 
@@ -43,7 +45,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\CSS
      *
      * @return string XHTML code cleaned up.
      */
-    protected function tidyHTML(
+    public function tidyHTML(
         string $html,
         string $defcss,
     ): string {

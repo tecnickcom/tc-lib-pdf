@@ -1189,6 +1189,7 @@ $style_cell = [
     ],
 ];
 
+$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
 $txtcell1 = $pdf->getTextCell(
     'DEFAULT', // string $txt,
     20, // float $posx = 0,
@@ -1278,6 +1279,53 @@ $txtcell2 = $pdf->getTextCell(
 );
 $pdf->page->addContent($txtcell2);
 
+$defbstyle =  [
+    'lineWidth' => $pdf->toUnit(1),
+    'lineCap' => 'square',
+    'lineJoin' => 'miter',
+    'dashArray' => [],
+    'dashPhase' => 0,
+    'lineColor' => '#333333',
+    'fillColor' => '#cccccc',
+];
+$bstyle = [
+    'all' => $defbstyle,
+    0 => $defbstyle, // TOP
+    1 => $defbstyle, // RIGHT
+    2 => $defbstyle, // BOTTOM
+    3 => $defbstyle, // LEFT
+];
+$bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
+
+$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
+$txtcell3 = $pdf->getTextCell(
+    'BUTTON', // string $txt,
+    120, // float $posx = 0,
+    100, // float $posy = 0,
+    0, // float $width = 0,
+    0, // float $height = 0,
+    0, // float $offset = 0,
+    0, // float $linespace = 0,
+    'C', // string $valign = 'C',
+    'C', // string $halign = 'C',
+    null, // ?array $cell = null,
+    $bstyle, // array $styles = [],
+    0, // float $strokewidth = 0,
+    0, // float $wordspacing = 0,
+    0, // float $leading = 0,
+    0, // float $rise = 0,
+    true, // bool $jlast = true,
+    true, // bool $fill = true,
+    false, // bool $stroke = false,
+    false, //bool $underline = false,
+    false, //bool $linethrough = false,
+    false, //bool $overline = false,
+    false, // bool $clip = false,
+    true, // bool $drawcell = true,
+    '', // string $forcedir = '',
+    null // ?array $shadow = null,
+);
+$pdf->page->addContent($txtcell3);
 
 $pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
 
@@ -1330,7 +1378,7 @@ $style_cell_b = [
 
 // block of text between two page regions
 $pdf->addTextCell(
-    $txt3, // string $txt,
+    "\u{27A0}".$txt3, // string $txt,
     -1, // int $pid = -1,
     20, // float $posx = 0,
     165, // float $posy = 0,
@@ -1572,12 +1620,115 @@ $pdf->page->addContent($tmpl);
 
 // ----------
 
+$bfont5 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
+$pdf->page->addContent($bfont5['out']);
+
+// Annotation Form Fields
+
+// text
+$fftextid = $pdf->addFFText('test_text', 20, 110, 50, 5);
+$pdf->page->addAnnotRef($fftextid);
+
+// radiobuttons
+$ffrbid1 = $pdf->addFFRadioButton('test_radiobutton', 20, 120, 5, 'one');
+$ffrbid2 = $pdf->addFFRadioButton('test_radiobutton', 20, 125, 5, 'two', true);
+$ffrbid3 = $pdf->addFFRadioButton('test_radiobutton', 20, 130, 5, 'three');
+$pdf->page->addAnnotRef($ffrbid1);
+$pdf->page->addAnnotRef($ffrbid2);
+$pdf->page->addAnnotRef($ffrbid3);
+
+// checkbox
+$ffckbxid1 = $pdf->addFFCheckBox('test_checkbox', 20, 140, 5);
+$pdf->page->addAnnotRef($ffckbxid1);
+
+// combobox
+$ffcmbxid1 = $pdf->addFFComboBox('test_combobox', 20, 150, 50, 5, [
+    ['0','one'],
+    ['1','two'],
+    ['2','three'],
+]);
+$pdf->page->addAnnotRef($ffcmbxid1);
+
+// listbox
+$fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15,
+    ['one', 'two', 'three'],
+    ['subtype' => 'Widget'],
+    ['multipleSelection'=>'true'],
+);
+$pdf->page->addAnnotRef($fflsbxid1);
+
+// button - reset form
+$ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 20, 5, 
+    "\u{27A0} Reset", 
+    ['S'=>'ResetForm'],
+    ['subtype' => 'Widget'],
+    [
+        'lineWidth'=>2,
+        'borderStyle'=>'beveled',
+        'fillColor'=>'#80c4ff',
+        'strokeColor'=>'#404040',
+    ],
+);
+$pdf->page->addAnnotRef($ffbtnid1);
+
+// button - print document
+$ffbtnid2 = $pdf->addFFButton('print', 40, 180, 20, 5, 
+    'Print', 
+    'Print()',
+    ['subtype' => 'Widget'],
+    [
+        'lineWidth'=>2,
+        'borderStyle'=>'beveled',
+        'fillColor'=>'#80c4ff',
+        'strokeColor'=>'#404040',
+    ],
+);
+$pdf->page->addAnnotRef($ffbtnid2);
+
+// button - submit form
+$ffbtnid3 = $pdf->addFFButton('submit', 60, 180, 20, 5, 
+    'Submit', 
+    [
+        'S'=>'SubmitForm',
+        'F'=>'http://localhost/printvars.php',
+        'Flags'=>['ExportFormat'],
+    ],
+    ['subtype' => 'Widget'],
+    [
+        'lineWidth'=>2,
+        'borderStyle'=>'beveled',
+        'fillColor'=>'#80c4ff',
+        'strokeColor'=>'#404040',
+    ],
+);
+$pdf->page->addAnnotRef($ffbtnid3);
+
+// JavaScript form validation functions
+$formjs = <<<EOD
+function CheckField(name,message) {
+	var f = getField(name);
+	if(f.value == '') {
+	    app.alert(message);
+	    f.setFocus();
+	    return false;
+	}
+	return true;
+}
+function Print() {
+	if(!CheckField('test_text','test_text is mandatory')) {return;}
+	print();
+}
+EOD;
+
+// Add raw JavaScript code
+$pdf->appendRawJavaScript($formjs);
+
+// ----------
+
 // Layers
 
 $pageV01 = $pdf->addPage();
 $pdf->setBookmark('Layers', '', 0, -1, 0, 0, 'B', '');
-
-$pdf->page->addContent($bfont4['out']);
 
 $txtV1 = 'LAYERS: You can limit the visibility of PDF objects to screen or printer by using the newLayer() method.
 Check the print preview of this document to display the alternative text.';
