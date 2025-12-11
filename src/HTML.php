@@ -35,7 +35,34 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  */
 abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 {
-    //@TODO: add missing methods
+    //@TODO: to be completed
+
+    /**
+     * Valid bullet types for list-items
+     *
+     * @var array<string>
+     */
+    protected const LIST_SYMBOL = [
+        '!',
+        '#',
+        '1',
+        'A',
+        'I',
+        'a',
+        'circle',
+        'decimal',
+        'decimal-leading-zero',
+        'disc',
+        'i',
+        'lower-alpha',
+        'lower-greek',
+        'lower-latin',
+        'lower-roman',
+        'square',
+        'upper-alpha',
+        'upper-latin',
+        'upper-roman',
+    ];
 
     /**
      * Cleanup HTML code (requires HTML Tidy library).
