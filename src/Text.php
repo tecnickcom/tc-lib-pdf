@@ -1109,12 +1109,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function getLastBBox(): array
     {
-        return $this->bbox[\array_key_last($this->bbox)] ?? [
-            'x' => 0.0,
-            'y' => 0.0,
-            'w' => 0.0,
-            'h' => 0.0,
-        ];
+        $idx = \array_key_last($this->bbox);
+        if ($idx === null || empty($this->bbox[$idx])) {
+            return [
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 0.0,
+                'h' => 0.0,
+            ];
+        }
+        return $this->bbox[$idx];
     }
 
     /**
@@ -1451,7 +1455,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
             $val = \str_replace("'", '\\\'', \trim($val));
             $key = \preg_replace('/\d+/', '', $val);
-            $pattern[$key] = $val;
+            if ($key !== null) {
+                $pattern[$key] = $val;
+            }
         }
 
         return $pattern;
