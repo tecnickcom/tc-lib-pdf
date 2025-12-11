@@ -2338,10 +2338,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     if ((\count($copt) != 2) || ! \is_string($copt[0]) || ! \is_string($copt[1])) {
                         continue;
                     }
-                    $out .= ' [' . $this->getOutTextString($copt[0], $oid, true)
-                        . ' ' . $this->getOutTextString($copt[1], $oid, true) . ']';
+                    $out .= '[' . $this->getOutTextString($copt[0], $oid, true)
+                        . $this->getOutTextString($copt[1], $oid, true) . ']';
                 } elseif (\is_string($copt) || \is_numeric($copt)) {
-                    $out .= ' ' . $this->getOutTextString(\strval($copt), $oid, true);
+                    $out .= $this->getOutTextString(\strval($copt), $oid, true);
                 }
             }
 

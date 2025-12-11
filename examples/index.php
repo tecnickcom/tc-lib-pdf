@@ -32,7 +32,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     'mm', // string $unit = 'mm',
     true, // bool $isunicode = true,
     false, // bool $subsetfont = false,
-    true, // bool $compress = true,
+    false, // bool $compress = true,
     '', // string $mode = '',
     null, // ?ObjEncrypt $objEncrypt = null,
 );
@@ -1170,7 +1170,7 @@ $pdf->page->addContent($txtbox);
 $col = $pdf->color->getPdfColor('black');
 $pdf->page->addContent($col);
 
-$bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 14);
+$bfont4 = $pdf->font->insert($pdf->pon, 'freeserif', 'I', 12);
 $pdf->page->addContent($bfont4['out']);
 
 $pdf->setDefaultCellPadding(2,2,2,2);
@@ -1299,7 +1299,7 @@ $bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
 
 $pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
 $txtcell3 = $pdf->getTextCell(
-    'BUTTON', // string $txt,
+    "BUTTON", // string $txt,
     120, // float $posx = 0,
     100, // float $posy = 0,
     0, // float $width = 0,
@@ -1620,29 +1620,32 @@ $pdf->page->addContent($tmpl);
 
 // ----------
 
-$bfont5 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
-$pdf->page->addContent($bfont5['out']);
-
 // Annotation Form Fields
 
+$pageC03 = $pdf->addPage();
+$pdf->setBookmark('Form', '', 0, -1, 0, 0, 'B', '');
+
+$bfont5 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
+$pdf->page->addContent($bfont5['out']);
+
 // text
-$fftextid = $pdf->addFFText('test_text', 20, 110, 50, 5);
+$fftextid = $pdf->addFFText('test_text', 20, 20, 50, 5);
 $pdf->page->addAnnotRef($fftextid);
 
 // radiobuttons
-$ffrbid1 = $pdf->addFFRadioButton('test_radiobutton', 20, 120, 5, 'one');
-$ffrbid2 = $pdf->addFFRadioButton('test_radiobutton', 20, 125, 5, 'two', true);
-$ffrbid3 = $pdf->addFFRadioButton('test_radiobutton', 20, 130, 5, 'three');
+$ffrbid1 = $pdf->addFFRadioButton('test_radiobutton', 20, 30, 5, 'one');
+$ffrbid2 = $pdf->addFFRadioButton('test_radiobutton', 20, 35, 5, 'two', true);
+$ffrbid3 = $pdf->addFFRadioButton('test_radiobutton', 20, 40, 5, 'three');
 $pdf->page->addAnnotRef($ffrbid1);
 $pdf->page->addAnnotRef($ffrbid2);
 $pdf->page->addAnnotRef($ffrbid3);
 
 // checkbox
-$ffckbxid1 = $pdf->addFFCheckBox('test_checkbox', 20, 140, 5);
+$ffckbxid1 = $pdf->addFFCheckBox('test_checkbox', 20, 50, 5);
 $pdf->page->addAnnotRef($ffckbxid1);
 
 // combobox
-$ffcmbxid1 = $pdf->addFFComboBox('test_combobox', 20, 150, 50, 5, [
+$ffcmbxid1 = $pdf->addFFComboBox('test_combobox', 20, 60, 50, 5, [
     ['0','one'],
     ['1','two'],
     ['2','three'],
@@ -1650,7 +1653,7 @@ $ffcmbxid1 = $pdf->addFFComboBox('test_combobox', 20, 150, 50, 5, [
 $pdf->page->addAnnotRef($ffcmbxid1);
 
 // listbox
-$fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15,
+$fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 70, 50, 15,
     ['one', 'two', 'three'],
     ['subtype' => 'Widget'],
     ['multipleSelection'=>'true'],
@@ -1658,8 +1661,8 @@ $fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 160, 50, 15,
 $pdf->page->addAnnotRef($fflsbxid1);
 
 // button - reset form
-$ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 20, 5, 
-    "\u{27A0} Reset", 
+$ffbtnid1 = $pdf->addFFButton('reset', 20, 90, 20, 5, 
+    "Reset", 
     ['S'=>'ResetForm'],
     ['subtype' => 'Widget'],
     [
@@ -1672,7 +1675,7 @@ $ffbtnid1 = $pdf->addFFButton('reset', 20, 180, 20, 5,
 $pdf->page->addAnnotRef($ffbtnid1);
 
 // button - print document
-$ffbtnid2 = $pdf->addFFButton('print', 40, 180, 20, 5, 
+$ffbtnid2 = $pdf->addFFButton('print', 40, 90, 20, 5, 
     'Print', 
     'Print()',
     ['subtype' => 'Widget'],
@@ -1686,7 +1689,7 @@ $ffbtnid2 = $pdf->addFFButton('print', 40, 180, 20, 5,
 $pdf->page->addAnnotRef($ffbtnid2);
 
 // button - submit form
-$ffbtnid3 = $pdf->addFFButton('submit', 60, 180, 20, 5, 
+$ffbtnid3 = $pdf->addFFButton('submit', 60, 90, 20, 5, 
     'Submit', 
     [
         'S'=>'SubmitForm',

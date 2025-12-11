@@ -1345,7 +1345,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $onvalue = empty($onvalue) ? 'Yes' : $onvalue;
         $opt['ap'] = [];
         $opt['ap']['n'] = [];
-        $rfx = (($this->toPoints($width) - ($font['cw'][110] * $font['cratio'])) / 2);
+        $rfx = (($this->toPoints($width) - $font['cw'][110]) / 2);
         $rfy = ($this->toPoints($width) - ($font['ascent'] - $font['descent']));
         $opt['ap']['n']['Yes'] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(110) . ') Tj ET Q',
@@ -1354,6 +1354,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $rfx,
             $rfy,
         );
+
+        $rfx = (($this->toPoints($width) - $font['cw'][111]) / 2);
         // @phpstan-ignore offsetAccess.nonOffsetAccessible
         $opt['ap']['n']['Off'] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(111) . ') Tj ET Q',
@@ -1584,7 +1586,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         ];
         $opt['ap'] = [];
         $opt['ap']['n'] = [];
-        $rfx = (($this->toPoints($width) - ($font['cw'][108] * $font['cratio'])) / 2);
+        $rfx = (($this->toPoints($width) - $font['cw'][108]) / 2);
         $rfy = ($this->toPoints($width) - ($font['ascent'] - $font['descent']));
         $opt['ap']['n'][$onvalue] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(108) . ') Tj ET Q',
@@ -1593,6 +1595,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $rfx,
             $rfy,
         );
+        $rfx = (($this->toPoints($width) - $font['cw'][109]) / 2);
         // @phpstan-ignore offsetAccess.nonOffsetAccessible
         $opt['ap']['n']['Off'] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(109) . ') Tj ET Q',
