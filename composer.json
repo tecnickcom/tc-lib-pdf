@@ -33,11 +33,17 @@
     "tecnickcom/tc-lib-pdf-page": "^4.3",
     "tecnickcom/tc-lib-pdf-graph": "^2.4"
   },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  },
   "require-dev": {
     "pdepend/pdepend": "2.16.2",
     "phpmd/phpmd": "2.15.0",
     "phpunit/phpunit": "12.4.4 || 11.5.44 || 10.5.58",
-    "squizlabs/php_codesniffer": "4.0.1"
+    "squizlabs/php_codesniffer": "4.0.1",
+    "phpcompatibility/php-compatibility": "^10.0.0@dev"
   },
   "autoload": {
     "psr-4": {

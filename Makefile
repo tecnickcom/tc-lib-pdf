@@ -84,7 +84,7 @@ COMPOSER=$(PHP) -d "apc.enable_cli=0" $(shell which composer)
 PHPDOC=$(shell which phpDocumentor)
 
 # phpstan version
-PHPSTANVER=2.1.32
+PHPSTANVER=2.1.33
 
 # --- MAKE TARGETS ---
 
@@ -126,7 +126,7 @@ x: buildall
 # Full build and test sequence
 .PHONY: buildall
 buildall: deps
-	cd vendor/tecnickcom/tc-lib-pdf-font/ && make buildall
+	cd vendor/tecnickcom/tc-lib-pdf-font/ && make deps fonts
 	$(MAKE) codefix qa bz2 rpm deb
 
 # Package the library in a compressed bz2 archive
@@ -223,7 +223,7 @@ endif
 .PHONY: lint
 lint:
 	./vendor/bin/phpcbf --config-set ignore_non_auto_fixable_on_exit 1
-	./vendor/bin/phpcs --ignore="\./vendor/" --standard=phpcs.xml src test
+	./vendor/bin/phpcs --standard=phpcs.xml
 	./vendor/bin/phpmd src text unusedcode,naming,design --exclude vendor
 	./vendor/bin/phpmd test text unusedcode,naming,design --exclude */vendor/*
 	php -r 'exit((int)version_compare(PHP_MAJOR_VERSION, "7", ">"));' || ./vendor/phpstan.phar analyse
