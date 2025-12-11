@@ -79,13 +79,13 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     private function setNonEmptyArrayFieldValue(string $field, string $key, string $value): static
     {
         if (
-            isset($this->$field)
-            && \is_array($this->$field)
+            isset($this->{$field})
+            && \is_array($this->{$field})
             && ($key !== '')
-            && isset($this->$field[$key])
+            && isset($this->{$field}[$key])
             && ($value !== '')
         ) {
-            $this->$field[$key] = $value;
+            $this->{$field}[$key] = $value;
         }
 
         return $this;
@@ -459,10 +459,10 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
         if (isset($this->viewerpref[$name])) {
             $val = $this->viewerpref[$name];
             if (
-                isset($this->page->$box[$val]) // @phpstan-ignore offsetAccess.nonOffsetAccessible
-                && \is_string($this->page->$box[$val])
+                isset($this->page->{$box}[$val]) // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                && \is_string($this->page->{$box}[$val])
             ) {
-                $box = $this->page->$box[$val];
+                $box = $this->page->{$box}[$val];
             }
         }
 

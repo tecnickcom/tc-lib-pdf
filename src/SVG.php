@@ -4014,8 +4014,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // creates a new XML parser to be used by the other XML functions
         $parser = \xml_parser_create('UTF-8');
-        // the following function allows to use parser inside object
-        \xml_set_object($parser, $this);
         // disable case-folding for this XML parser
         \xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
         // sets the element handler functions for the XML parser
@@ -4025,17 +4023,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         // start parsing an XML document
         if (!\xml_parse($parser, $data)) {
-            throw new PdfException(\sprintf(
-                'SVG Error: %s at line %d',
-                \xml_error_string(
-                    \xml_get_error_code($parser)
+            throw new PdfException(
+                \sprintf(
+                    'SVG Error: %s at line %d',
+                    \xml_error_string(
+                        \xml_get_error_code($parser)
+                    ),
+                    \xml_get_current_line_number($parser),
                 ),
-                \xml_get_current_line_number($parser),
-            ),);
+            );
         }
 
-        // free this XML parser
-        \xml_parser_free($parser);
         // >= PHP 7.0.0 "explicitly unset the reference to parser to avoid memory leaks"
         unset($parser);
 
