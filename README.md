@@ -36,9 +36,9 @@ This is the latest iteration of the TCPDF library; the previous version will be 
 * TrueTypeUnicode, OpenTypeUnicode v1, TrueType, OpenType v1, Type1 and CID-0 fonts;
 * font subsetting;
 * SVG
-* ~~CSS~~ (TODO)
+* ~~CSS~~ (TODO - WIP)
 * ~~HTML~~ (TODO)
-* ~~JavaScript~~ (TODO)
+* JavaScript
 * images, graphic (geometric figures) and transformation methods;
 * supports JPEG, PNG and SVG images natively, all images supported by GD (GD, GD2, GD2PART, GIF, JPEG, PNG, BMP, XBM, XPM) and all images supported via ImagMagick (http://www.imagemagick.org/script/formats.php)
 * 1D and 2D barcodes via tc-lib-barcode.
