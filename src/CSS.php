@@ -715,4 +715,20 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
         return $css; // @phpstan-ignore return.type
     }
+
+    /**
+     * Parse and normalize CSS color.
+     *
+     * @param string $color CSS color string to parse.
+     *
+     * @return string CSS color representation.
+     */
+    protected function getCSSColor(string $color): string
+    {
+        $colobj = $this->color->getColorObj($color);
+        if ($colobj === null) {
+            return '';
+        }
+        return $colobj->getCssColor();
+    }
 }

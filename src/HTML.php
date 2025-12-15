@@ -31,6 +31,9 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ *
+ * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base as BorderStyle
+ *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
@@ -559,7 +562,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'block' => false,
             //'border-collapse' => '',//
             //'border-spacing' => '',//
-            'border' => 0.0,
+            'border' => [],
             //'caption-side' => '',//
             'clip' => false,
             //'color' => '',//
@@ -1244,10 +1247,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // font color
         if ((!empty($dom[$key]['style']['color']))) {
-            $colobj = $this->color->getColorObj($dom[$key]['style']['color']);
-            if ($colobj !== null) {
-                $dom[$key]['fgcolor'] = $colobj->getCssColor();
-            }
+            $dom[$key]['fgcolor'] = $this->getCSSColor($dom[$key]['style']['color']);
         } elseif ($dom[$key]['value'] == 'a') {
             $dom[$key]['fgcolor'] = 'blue';
         }
@@ -1292,79 +1292,107 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // check CSS border properties
         if (!empty($dom[$key]['style']['border'])) {
-            $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border']);
-            if (!empty($borderstyle)) {
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
-                $dom[$key]['border']['LTRB'] = $borderstyle;
-            }
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['border']['LTRB'] = $this->getCSSBorderStyle($dom[$key]['style']['border']);
         }
-        /*
-        if (isset($dom[$key]['style']['border-color'])) {
-            $brd_colors = preg_split('/[\s]+/', trim($dom[$key]['style']['border-color']));
-            if (isset($brd_colors[3])) {
-                $dom[$key]['border']['L']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[3], $this->spot_colors);
-            }
-            if (isset($brd_colors[1])) {
-                $dom[$key]['border']['R']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[1], $this->spot_colors);
-            }
-            if (isset($brd_colors[0])) {
-                $dom[$key]['border']['T']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[0], $this->spot_colors);
-            }
-            if (isset($brd_colors[2])) {
-                $dom[$key]['border']['B']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[2], $this->spot_colors);
+        /** @var  array<string, BorderStyle> $brdr */
+        $brdr = [
+            'L' => $this->getCSSDefaultBorderStyle(),
+            'R' => $this->getCSSDefaultBorderStyle(),
+            'T' => $this->getCSSDefaultBorderStyle(),
+            'B' => $this->getCSSDefaultBorderStyle(),
+        ];
+        if (!empty($dom[$key]['style']['border-color'])) {
+            $brd_colors = \preg_split('/[\s]+/', \trim($dom[$key]['style']['border-color']));
+            if ($brd_colors !== false) {
+                if (!empty($brd_colors[3])) {
+                    $brdr['L']['lineColor'] = $this->getCSSColor($brd_colors[3]);
+                }
+                if (!empty($brd_colors[1])) {
+                    $brdr['R']['lineColor'] = $this->getCSSColor($brd_colors[1]);
+                }
+                if (!empty($brd_colors[0])) {
+                    $brdr['T']['lineColor'] = $this->getCSSColor($brd_colors[0]);
+                }
+                if (!empty($brd_colors[2])) {
+                    $brdr['B']['lineColor'] = $this->getCSSColor($brd_colors[2]);
+                }
             }
         }
         if (isset($dom[$key]['style']['border-width'])) {
-            $brd_widths = preg_split('/[\s]+/', trim($dom[$key]['style']['border-width']));
-            if (isset($brd_widths[3])) {
-                $dom[$key]['border']['L']['width'] = $this->getCSSBorderWidth($brd_widths[3]);
-            }
-            if (isset($brd_widths[1])) {
-                $dom[$key]['border']['R']['width'] = $this->getCSSBorderWidth($brd_widths[1]);
-            }
-            if (isset($brd_widths[0])) {
-                $dom[$key]['border']['T']['width'] = $this->getCSSBorderWidth($brd_widths[0]);
-            }
-            if (isset($brd_widths[2])) {
-                $dom[$key]['border']['B']['width'] = $this->getCSSBorderWidth($brd_widths[2]);
-            }
-        }
-        if (isset($dom[$key]['style']['border-style'])) {
-            $brd_styles = preg_split('/[\s]+/', trim($dom[$key]['style']['border-style']));
-            if (isset($brd_styles[3]) AND ($brd_styles[3]!='none')) {
-                $dom[$key]['border']['L']['cap'] = 'square';
-                $dom[$key]['border']['L']['join'] = 'miter';
-                $dom[$key]['border']['L']['dash'] = $this->getCSSBorderDashStyle($brd_styles[3]);
-                if ($dom[$key]['border']['L']['dash'] < 0) {
-                    $dom[$key]['border']['L'] = array();
+            $brd_widths = \preg_split('/[\s]+/', \trim($dom[$key]['style']['border-width']));
+            if ($brd_widths !== false) {
+                if (isset($brd_widths[3])) {
+                    $brdr['L']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[3]);
                 }
-            }
-            if (isset($brd_styles[1])) {
-                $dom[$key]['border']['R']['cap'] = 'square';
-                $dom[$key]['border']['R']['join'] = 'miter';
-                $dom[$key]['border']['R']['dash'] = $this->getCSSBorderDashStyle($brd_styles[1]);
-                if ($dom[$key]['border']['R']['dash'] < 0) {
-                    $dom[$key]['border']['R'] = array();
+                if (isset($brd_widths[1])) {
+                    $brdr['R']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[1]);
                 }
-            }
-            if (isset($brd_styles[0])) {
-                $dom[$key]['border']['T']['cap'] = 'square';
-                $dom[$key]['border']['T']['join'] = 'miter';
-                $dom[$key]['border']['T']['dash'] = $this->getCSSBorderDashStyle($brd_styles[0]);
-                if ($dom[$key]['border']['T']['dash'] < 0) {
-                    $dom[$key]['border']['T'] = array();
+                if (isset($brd_widths[0])) {
+                    $brdr['T']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[0]);
                 }
-            }
-            if (isset($brd_styles[2])) {
-                $dom[$key]['border']['B']['cap'] = 'square';
-                $dom[$key]['border']['B']['join'] = 'miter';
-                $dom[$key]['border']['B']['dash'] = $this->getCSSBorderDashStyle($brd_styles[2]);
-                if ($dom[$key]['border']['B']['dash'] < 0) {
-                    $dom[$key]['border']['B'] = array();
+                if (isset($brd_widths[2])) {
+                    $brdr['B']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[2]);
                 }
             }
         }
-        $cellside = array('L' => 'left', 'R' => 'right', 'T' => 'top', 'B' => 'bottom');
+        if (!empty($dom[$key]['style']['border-style'])) {
+            $brd_styles = \preg_split('/[\s]+/', trim($dom[$key]['style']['border-style']));
+            if ($brd_styles !== false) {
+                if (isset($brd_styles[3]) && ($brd_styles[3] != 'none')) {
+                    $brdr['L']['lineCap'] = 'square';
+                    $brdr['L']['lineJoin'] = 'miter';
+                    $brdr['L']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[3]);
+                    if ($brdr['L']['dashPhase'] < 0) {
+                        $brdr['L'] = [];
+                    }
+                }
+                if (isset($brd_styles[1])) {
+                    $brdr['R']['lineCap'] = 'square';
+                    $brdr['R']['lineJoin'] = 'miter';
+                    $brdr['R']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[1]);
+                    if ($brdr['R']['dashPhase'] < 0) {
+                        $brdr['R'] = [];
+                    }
+                }
+                if (isset($brd_styles[0])) {
+                    $brdr['T']['lineCap'] = 'square';
+                    $brdr['T']['lineJoin'] = 'miter';
+                    $brdr['T']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[0]);
+                    if ($brdr['T']['dashPhase'] < 0) {
+                        $brdr['T'] = [];
+                    }
+                }
+                if (isset($brd_styles[2])) {
+                    $brdr['B']['lineCap'] = 'square';
+                    $brdr['B']['lineJoin'] = 'miter';
+                    $brdr['B']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[2]);
+                    if ($brdr['B']['dashPhase'] < 0) {
+                        $brdr['B'] = [];
+                    }
+                }
+            }
+        }
+        if ($brdr['L']['lineWidth'] > 0) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['border']['L'] = $brdr['L'];
+        }
+        if ($brdr['R']['lineWidth'] > 0) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['border']['R'] = $brdr['R'];
+        }
+        if ($brdr['T']['lineWidth'] > 0) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['border']['T'] = $brdr['T'];
+        }
+        if ($brdr['B']['lineWidth'] > 0) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['border']['B'] = $brdr['B'];
+        }
+
+
+        /*
+        $cellside = array('L' => 'left', 'R' => 'right', 'T' => 'top', 'B' => 'bottom',);
         foreach ($cellside as $bsk => $bsv) {
             if (isset($dom[$key]['style']['border-'.$bsv])) {
                 $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border-'.$bsv]);
