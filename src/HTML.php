@@ -1370,22 +1370,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        if ($brdr['L']['lineWidth'] > 0) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $dom[$key]['border']['L'] = $brdr['L'];
-        }
-        if ($brdr['R']['lineWidth'] > 0) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $dom[$key]['border']['R'] = $brdr['R'];
-        }
-        if ($brdr['T']['lineWidth'] > 0) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $dom[$key]['border']['T'] = $brdr['T'];
-        }
-        if ($brdr['B']['lineWidth'] > 0) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $dom[$key]['border']['B'] = $brdr['B'];
-        }
         $cellside = [
             'L' => 'left',
             'R' => 'right',
@@ -1393,20 +1377,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'B' => 'bottom',
         ];
         foreach ($cellside as $bsk => $bsv) {
-            if (isset($dom[$key]['style']['border-'.$bsv])) {
-                $dom[$key]['border'][$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-'.$bsv]);
+            if (isset($dom[$key]['style']['border-' . $bsv])) {
+                $brdr[$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-' . $bsv]);
             }
-            if (isset($dom[$key]['style']['border-'.$bsv.'-color'])) {
-                $dom[$key]['border'][$bsk]['color'] = $this->getCSSColor($dom[$key]['style']['border-'.$bsv.'-color']);
+            if (isset($dom[$key]['style']['border-' . $bsv . '-color'])) {
+                $brdr[$bsk]['lineColor'] = $this->getCSSColor($dom[$key]['style']['border-' . $bsv . '-color']);
             }
-            if (isset($dom[$key]['style']['border-'.$bsv.'-width'])) {
-                $dom[$key]['border'][$bsk]['width'] = $this->getCSSBorderWidth($dom[$key]['style']['border-'.$bsv.'-width']);
+            if (isset($dom[$key]['style']['border-' . $bsv . '-width'])) {
+                $brdr[$bsk]['lineWidth'] = $this->getCSSBorderWidth($dom[$key]['style']['border-' . $bsv . '-width']);
             }
-            if (isset($dom[$key]['style']['border-'.$bsv.'-style'])) {
-                $dom[$key]['border'][$bsk]['dash'] = $this->getCSSBorderDashStyle($dom[$key]['style']['border-'.$bsv.'-style']);
-                if ($dom[$key]['border'][$bsk]['dash'] < 0) {
-                    $dom[$key]['border'][$bsk] = [];
+            if (isset($dom[$key]['style']['border-' . $bsv . '-style'])) {
+                $brdr[$bsk]['dashPhase'] = $this->getCSSBorderDashStyle($dom[$key]['style']['border-' . $bsv . '-style']);
+                if ($brdr[$bsk]['dashPhase'] < 0) {
+                    $brdr[$bsk] = [];
                 }
+            }
+            if ($brdr[$bsk]['lineWidth'] > 0) {
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                $dom[$key]['border'][$bsk] = $brdr[$bsk];
             }
         }
         /*
