@@ -1242,17 +1242,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['fontstyle'] .= 'I';
         }
-        /*
         // font color
-        if (isset($dom[$key]['style']['color']) AND (!TCPDF_STATIC::empty_string($dom[$key]['style']['color']))) {
-            $dom[$key]['fgcolor'] = TCPDF_COLORS::convertHTMLColorToDec($dom[$key]['style']['color'], $this->spot_colors);
+        if ((!empty($dom[$key]['style']['color']))) {
+            $colobj = $this->color->getColorObj($dom[$key]['style']['color']);
+            if ($colobj !== null) {
+                $dom[$key]['fgcolor'] = $colobj->getCssColor();
+            }
         } elseif ($dom[$key]['value'] == 'a') {
-            $dom[$key]['fgcolor'] = $this->htmlLinkColorArray;
+            $dom[$key]['fgcolor'] = 'blue';
         }
         // background color
-        if (isset($dom[$key]['style']['background-color']) AND (!TCPDF_STATIC::empty_string($dom[$key]['style']['background-color']))) {
-            $dom[$key]['bgcolor'] = TCPDF_COLORS::convertHTMLColorToDec($dom[$key]['style']['background-color'], $this->spot_colors);
+        if ((!empty($dom[$key]['style']['background-color']))) {
+            $colobj = $this->color->getColorObj($dom[$key]['style']['background-color']);
+            if ($colobj !== null) {
+                $dom[$key]['bgcolor'] = $colobj->getCssColor();
+            }
         }
+        /*
         // text-decoration
         if (isset($dom[$key]['style']['text-decoration'])) {
             $decors = explode(' ', strtolower($dom[$key]['style']['text-decoration']));
