@@ -1253,7 +1253,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // background color
         if ((!empty($dom[$key]['style']['background-color']))) {
-                $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['style']['background-color']);
+            $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['style']['background-color']);
         }
         // text-decoration
         if (
@@ -1287,6 +1287,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (!empty($dom[$key]['style']['text-align'])) {
             $dom[$key]['align'] = \strtoupper($dom[$key]['style']['text-align'][0]);
         }
+        // check for CSS padding properties
+        $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ? 0 : $this->getCSSPadding($dom[$key]['style']['padding']);
+        // check for CSS margin properties
+        $dom[$key]['margin'] = empty($dom[$key]['style']['margin']) ? 0.0 : $this->getCSSMargin($dom[$key]['style']['margin']);
         // check CSS border properties
         if (!empty($dom[$key]['style']['border'])) {
             // @phpstan-ignore offsetAccess.nonOffsetAccessible
@@ -1376,6 +1380,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'T' => 'top',
             'B' => 'bottom',
         ];
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = 0.0;
         foreach ($cellside as $bsk => $bsv) {
             if (isset($dom[$key]['style']['border-' . $bsv])) {
                 $brdr[$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-' . $bsv]);
@@ -1396,25 +1402,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 $dom[$key]['border'][$bsk] = $brdr[$bsk];
             }
-        }
-        // check for CSS padding properties
-        $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ? 0 : $this->getCSSPadding($dom[$key]['style']['padding']);
-
-        /*
-        foreach ($cellside as $psk => $psv) {
-            if (isset($dom[$key]['style']['padding-'.$psv])) {
-                $dom[$key]['padding'][$psk] = $this->getHTMLUnitToUnits($dom[$key]['style']['padding-'.$psv], 0, 'px', false);
+            if (isset($dom[$key]['style']['padding-' . $bsv])) {
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                $dom[$key]['padding'][$bsk] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['padding-' . $bsv], $ref));
             }
-        }
-        // check for CSS margin properties
-        if (isset($dom[$key]['style']['margin'])) {
-            $dom[$key]['margin'] = $this->getCSSMargin($dom[$key]['style']['margin']);
-        } else {
-            $dom[$key]['margin'] = $this->cell_margin;
-        }
-        foreach ($cellside as $psk => $psv) {
-            if (isset($dom[$key]['style']['margin-'.$psv])) {
-                $dom[$key]['margin'][$psk] = $this->getHTMLUnitToUnits(str_replace('auto', '0', $dom[$key]['style']['margin-'.$psv]), 0, 'px', false);
+            if (isset($dom[$key]['style']['margin-' . $bsv])) {
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                $dom[$key]['margin'][$bsk] = $this->toUnit($this->getUnitValuePoints(
+                    \str_replace('auto', '0', $dom[$key]['style']['margin-' . $bsv]),
+                    $ref
+                ));
             }
         }
         // check for CSS border-spacing properties
@@ -1422,29 +1419,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($dom[$key]['style']['border-spacing']);
         }
         // page-break-inside
-        if (isset($dom[$key]['style']['page-break-inside']) AND ($dom[$key]['style']['page-break-inside'] == 'avoid')) {
+        if (
+            !empty($dom[$key]['style']['page-break-inside'])
+            && ($dom[$key]['style']['page-break-inside'] == 'avoid')
+        ) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['attribute']['nobr'] = 'true';
         }
         // page-break-before
-        if (isset($dom[$key]['style']['page-break-before'])) {
-            if ($dom[$key]['style']['page-break-before'] == 'always') {
-                $dom[$key]['attribute']['pagebreak'] = 'true';
-            } elseif ($dom[$key]['style']['page-break-before'] == 'left') {
-                $dom[$key]['attribute']['pagebreak'] = 'left';
-            } elseif ($dom[$key]['style']['page-break-before'] == 'right') {
-                $dom[$key]['attribute']['pagebreak'] = 'right';
-            }
+        if (!empty($dom[$key]['style']['page-break-before'])) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['attribute']['pagebreak'] = match ($dom[$key]['style']['page-break-before']) {
+                'always' => 'true',
+                'left' => 'left',
+                'right' => 'right',
+                default => '',
+            };
         }
         // page-break-after
-        if (isset($dom[$key]['style']['page-break-after'])) {
-            if ($dom[$key]['style']['page-break-after'] == 'always') {
-                $dom[$key]['attribute']['pagebreakafter'] = 'true';
-            } elseif ($dom[$key]['style']['page-break-after'] == 'left') {
-                $dom[$key]['attribute']['pagebreakafter'] = 'left';
-            } elseif ($dom[$key]['style']['page-break-after'] == 'right') {
-                $dom[$key]['attribute']['pagebreakafter'] = 'right';
-            }
+        if (!empty($dom[$key]['style']['page-break-after'])) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['attribute']['pagebreakafter'] = match ($dom[$key]['style']['page-break-after']) {
+                'always' => 'true',
+                'left' => 'left',
+                'right' => 'right',
+                default => '',
+            };
         }
-        */
     }
 }
