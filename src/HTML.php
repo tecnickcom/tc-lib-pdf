@@ -1173,7 +1173,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $fsize = \trim($dom[$key]['style']['font-size']);
             $ref = self::REFUNITVAL;
             if (\is_numeric($dom[$parentkey]['fontsize'])) {
-                $ref['parent'] = floatval($dom[$parentkey]['fontsize']);
+                $ref['parent'] = \floatval($dom[$parentkey]['fontsize']);
             }
             $dom[$key]['fontsize'] = $this->getFontValuePoints($fsize, $ref, 'pt');
         }
@@ -1184,7 +1184,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['font-stretch'] = $this->getTAFontStretching(
                 $dom[$key]['style']['font-stretch'],
-                floatval($dom[$parentkey]['font-stretch']),
+                \floatval($dom[$parentkey]['font-stretch']),
             );
         }
         // letter-spacing
@@ -1194,51 +1194,55 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['letter-spacing'] = $this->getTALetterSpacing(
                 $dom[$key]['style']['letter-spacing'],
-                floatval($dom[$parentkey]['letter-spacing']),
+                \floatval($dom[$parentkey]['letter-spacing']),
             );
         }
-        /*
         // line-height (internally is the cell height ratio)
         if (isset($dom[$key]['style']['line-height'])) {
-            $lineheight = trim($dom[$key]['style']['line-height']);
+            $lineheight = \trim($dom[$key]['style']['line-height']);
             switch ($lineheight) {
                 // A normal line height. This is default
-                case 'normal': {
+                case 'normal':
                     $dom[$key]['line-height'] = $dom[0]['line-height'];
                     break;
-                }
-                case 'inherit': {
+                case 'inherit':
                     $dom[$key]['line-height'] = $dom[$parentkey]['line-height'];
-                }
-                default: {
-                    if (is_numeric($lineheight)) {
+                default:
+                    if (\is_numeric($lineheight)) {
                         // convert to percentage of font height
-                        $lineheight = ($lineheight * 100).'%';
+                        $lineheight = ($lineheight * 100) . '%';
                     }
-                    $dom[$key]['line-height'] = $this->getHTMLUnitToUnits($lineheight, 1, '%', true);
-                    if (substr($lineheight, -1) !== '%') {
+                    $dom[$key]['line-height'] = $this->toUnit($this->getUnitValuePoints($lineheight, defunit: '%'));
+                    if (\substr($lineheight, -1) !== '%') {
                         if ($dom[$key]['fontsize'] <= 0) {
                             $dom[$key]['line-height'] = 1;
-                        } else {
-                            $dom[$key]['line-height'] = (($dom[$key]['line-height'] - $this->cell_padding['T'] - $this->cell_padding['B']) / $dom[$key]['fontsize']);
+                        } elseif (\is_numeric($dom[$key]['fontsize'])) {
+                            $dom[$key]['line-height'] = ($dom[$key]['line-height'] / floatval($dom[$key]['fontsize']));
                         }
                     }
-                }
             }
         }
         // font style
-        if (isset($dom[$key]['style']['font-weight'])) {
-            if (strtolower($dom[$key]['style']['font-weight'][0]) == 'n') {
-                if (strpos($dom[$key]['fontstyle'], 'B') !== false) {
-                    $dom[$key]['fontstyle'] = str_replace('B', '', $dom[$key]['fontstyle']);
+        if (
+            isset($dom[$key]['style']['font-weight'])
+            && \is_string($dom[$key]['fontstyle'])
+        ) {
+            if (\strtolower($dom[$key]['style']['font-weight'][0]) == 'n') {
+                if (\strpos($dom[$key]['fontstyle'], 'B') !== false) {
+                    $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
                 }
-            } elseif (strtolower($dom[$key]['style']['font-weight'][0]) == 'b') {
+            } elseif (\strtolower($dom[$key]['style']['font-weight'][0]) == 'b') {
                 $dom[$key]['fontstyle'] .= 'B';
             }
         }
-        if (isset($dom[$key]['style']['font-style']) AND (strtolower($dom[$key]['style']['font-style'][0]) == 'i')) {
+        if (
+            isset($dom[$key]['style']['font-style'])
+            && \is_string($dom[$key]['fontstyle'])
+            && (\strtolower($dom[$key]['style']['font-style'][0]) == 'i')
+        ) {
             $dom[$key]['fontstyle'] .= 'I';
         }
+        /*
         // font color
         if (isset($dom[$key]['style']['color']) AND (!TCPDF_STATIC::empty_string($dom[$key]['style']['color']))) {
             $dom[$key]['fgcolor'] = TCPDF_COLORS::convertHTMLColorToDec($dom[$key]['style']['color'], $this->spot_colors);
