@@ -1258,41 +1258,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['bgcolor'] = $colobj->getCssColor();
             }
         }
-        /*
         // text-decoration
-        if (isset($dom[$key]['style']['text-decoration'])) {
-            $decors = explode(' ', strtolower($dom[$key]['style']['text-decoration']));
+        if (
+            !empty($dom[$key]['style']['text-decoration'])
+            && \is_string($dom[$key]['fontstyle'])
+        ) {
+            $decors = \explode(' ', \strtolower($dom[$key]['style']['text-decoration']));
             foreach ($decors as $dec) {
-                $dec = trim($dec);
-                if (!TCPDF_STATIC::empty_string($dec)) {
-                    if ($dec[0] == 'u') {
-                        // underline
-                        $dom[$key]['fontstyle'] .= 'U';
-                    } elseif ($dec[0] == 'l') {
-                        // line-through
-                        $dom[$key]['fontstyle'] .= 'D';
-                    } elseif ($dec[0] == 'o') {
-                        // overline
-                        $dom[$key]['fontstyle'] .= 'O';
-                    }
+                $dec = \trim($dec);
+                if (!empty($dec)) {
+                    $dom[$key]['fontstyle'] .= match ($dec[0]) {
+                        'u' => 'U',
+                        'l' => 'D',
+                        'o '=> 'O',
+                        default => '',
+                    };
                 }
             }
         } elseif ($dom[$key]['value'] == 'a') {
-            $dom[$key]['fontstyle'] = $this->htmlLinkFontStyle;
+            $dom[$key]['fontstyle'] = 'U';
         }
-        // check for width attribute
-        if (isset($dom[$key]['style']['width'])) {
+        // check width attribute
+        if (!empty($dom[$key]['style']['width'])) {
             $dom[$key]['width'] = $dom[$key]['style']['width'];
         }
-        // check for height attribute
-        if (isset($dom[$key]['style']['height'])) {
+        // check height attribute
+        if (!empty($dom[$key]['style']['height'])) {
             $dom[$key]['height'] = $dom[$key]['style']['height'];
         }
-        // check for text alignment
-        if (isset($dom[$key]['style']['text-align'])) {
-            $dom[$key]['align'] = strtoupper($dom[$key]['style']['text-align'][0]);
+        // check text alignment
+        if (!empty($dom[$key]['style']['text-align'])) {
+            $dom[$key]['align'] = \strtoupper($dom[$key]['style']['text-align'][0]);
         }
-        // check for CSS border properties
+        /*
+        // check CSS border properties
         if (isset($dom[$key]['style']['border'])) {
             $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border']);
             if (!empty($borderstyle)) {
