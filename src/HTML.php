@@ -1397,13 +1397,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['border'][$bsk] = $brdr[$bsk];
             }
         }
-        /*
         // check for CSS padding properties
-        if (isset($dom[$key]['style']['padding'])) {
-            $dom[$key]['padding'] = $this->getCSSPadding($dom[$key]['style']['padding']);
-        } else {
-            $dom[$key]['padding'] = $this->cell_padding;
-        }
+        $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ? 0 : $this->getCSSPadding($dom[$key]['style']['padding']);
+
+        /*
         foreach ($cellside as $psk => $psv) {
             if (isset($dom[$key]['style']['padding-'.$psv])) {
                 $dom[$key]['padding'][$psk] = $this->getHTMLUnitToUnits($dom[$key]['style']['padding-'.$psv], 0, 'px', false);
