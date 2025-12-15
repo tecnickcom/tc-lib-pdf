@@ -138,6 +138,68 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected const HTML_TAG_PATTERN = '/(<[^>]+>)/';
 
     /**
+     * HTML inheritable properties.
+     *
+     * @var array<string>
+     */
+    protected const HTML_INHPROP = [
+        'align',
+        //'azimuth',//
+        'bgcolor',
+        'block',
+        //'border-collapse',//
+        //'border-spacing',//
+        'border',
+        //'caption-side',//
+        'clip',
+        //'color',//
+        //'cursor',//
+        'dir',
+        //'direction',//
+        //'empty-cells',//
+        'fgcolor',
+        'fill',
+        //'font-family',//
+        //'font-size-adjust',//
+        //'font-size',//
+        'font-stretch',
+        //'font-stretch',//
+        //'font-style',//
+        //'font-variant',//
+        //'font-weight',//
+        //'font',//
+        'fontname',
+        'fontsize',
+        'fontstyle',
+        'hide',
+        'letter-spacing',
+        'line-height',
+        //'list-style-image',//
+        //'list-style-position',//
+        //'list-style-type',//
+        //'list-style',//
+        'listtype',
+        //'orphans',//
+        //'page-break-inside',//
+        //'page',//
+        'parent',
+        //'quotes',//
+        //'speak-header',//
+        //'speak',//
+        'stroke',
+        'strokecolor',
+        'tag',
+        //'text-align',//
+        'text-indent',
+        'text-transform',
+        'value',
+        //'volume',//
+        //'white-space',//
+        //'widows',//
+        //'word-spacing',//
+    ];
+
+    /**
      * Cleanup HTML code (requires HTML Tidy library).
      *
      * @param string $html htmlcode to fix.
@@ -483,26 +545,504 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Returns the default properties for the root HTML element.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getHTMLRootProperties(): array
+    {
+        $font = $this->font->getCurrentFont();
+        return [
+            'align' => '',
+            //'azimuth' => '',//
+            'bgcolor' => '',
+            'block' => false,
+            //'border-collapse' => '',//
+            //'border-spacing' => '',//
+            'border' => 0.0,
+            //'caption-side' => '',//
+            'clip' => false,
+            //'color' => '',//
+            //'cursor' => '',//
+            'dir' => $this->rtl ? 'rtl' : 'ltr',
+            //'direction' => '',//
+            //'empty-cells' => '',//
+            'fgcolor' => 'black',
+            'fill' => true,
+            //'font-family' => '',//
+            //'font-size-adjust' => '',//
+            //'font-size' => $font['size'],//
+            'font-stretch' => $font['stretching'],
+            //'font-style' => $font['style'],//
+            //'font-variant' => '',//
+            //'font-weight' => '',//
+            //'font' => '',//
+            'fontname' => $font['key'],
+            'fontsize' => $font['size'],
+            'fontstyle' => $font['style'],
+            'hide' => false,
+            'letter-spacing' => $font['spacing'],
+            'line-height' => 1.0,
+            //'list-style-image' => '',//
+            //'list-style-position' => '',//
+            //'list-style-type' => '',//
+            //'list-style' => '',//
+            'listtype' => '',
+            //'orphans' => '',//
+            //'page-break-inside' => '',//
+            //'page' => '',//
+            'parent' => 0,
+            //'quotes' => '',//
+            //'speak-header' => '',//
+            //'speak' => '',//
+            'stroke' => 0.0,
+            'strokecolor' => 'black',
+            'tag' => false,
+            //'text-align' => '',//
+            'text-indent' => 0.0,
+            'text-transform' => '',
+            'value' => '',
+            //'volume' => '',//
+            //'white-space' => '',//
+            //'widows' => '',//
+            //'word-spacing' => '',//
+        ];
+    }
+
+    /**
      * Parse and returs the HTML DOM array,
      *
      * @param string $html HTML code to parse.
      *
-     * @return array<string, mixed> HTML DOM Array
+     * @return array<int, array<string, mixed>> HTML DOM Array
      */
     protected function getHTMLDOM(string $html): array
     {
-        $dom = [];
-
         $css = $this->getCSSArrayFromHTML($html);
         // create a custom tag to contain the encoded CSS data array (used for table content).
         $jcss = \json_encode($css);
+        $cssarray = '';
         if ($jcss !== false) {
-            //$cssarray = '<cssarray>' . \htmlentities($jcss) . '</cssarray>';
+            $cssarray = '<cssarray>' . \htmlentities($jcss) . '</cssarray>';
         }
+
         $html = $this->sanitizeHTML($html);
 
-        // @TODO
+        $dom = [];
+        $dom[0] = $this->getHTMLRootProperties();
+        $level = [0];
+
+        $elm = \preg_split(self::HTML_TAG_PATTERN, $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        if ($elm === false) {
+            return $dom;
+        }
+
+        $maxel = \count($elm);
+        $elkey = 0;
+        $key = 1;
+
+        while ($elkey < $maxel) {
+            $dom[$key] = [];
+            $dom[$key]['elkey'] = $elkey;
+            $element = $elm[$elkey];
+            $parent = \intval(\end($level));
+
+            if (\preg_match(self::HTML_TAG_PATTERN, $element) > 0) {
+                $element = \substr($element, 1, -1);
+                if (empty(\preg_match('/[\/]?([a-zA-Z0-9]*)/', $element, $tag))) {
+                    continue;
+                }
+                $tagname = \strtolower($tag[1]);
+                // check if we are inside a table header
+                $thead = false;
+                if ($tagname == 'thead') {
+                    $thead = ($element[0] !== '/');
+                    ++$elkey;
+                    continue;
+                }
+                $dom[$key]['tag'] = true;
+                $dom[$key]['value'] = $tagname;
+                $dom[$key]['block'] = \in_array($dom[$key]['value'], self::HTML_BLOCK_TAGS);
+                if ($element[0] == '/') { // closing tag
+                    array_pop($level);
+                    $this->processHTMLDOMClosingTag($dom, $elm, $key, $parent, $cssarray);
+                } else { // opening or self-closing html tag
+                    $this->processHTMLDOMOpeningTag($dom, $css, $level, $element, $key, $parent, $thead);
+                }
+            } else {
+                // content between tags (TEXT)
+                $this->processHTMLDOMText($dom, $element, $key, $parent);
+            }
+
+            ++$elkey;
+            ++$key;
+        }
 
         return $dom;
+    }
+
+    /**
+     * Process the content between tags (text).
+     *
+     * @param array<int, array<string, mixed>> $dom DOM array.
+     * @param string $element Element data.
+     * @param int $key Current element ID.
+     * @param int $parent ID of the parent element.
+     *
+     * @return void
+     */
+    protected function processHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
+    {
+        $dom[$key]['tag'] = false;
+        $dom[$key]['block'] = false;
+        $dom[$key]['parent'] = $parent;
+        $dom[$key]['dir'] = $dom[$parent]['dir'];
+        if (!empty($dom[$parent]['text-transform'])) {
+            $ttm = [
+                'capitalize' => MB_CASE_TITLE,
+                'uppercase' => MB_CASE_UPPER,
+                'lowercase' => MB_CASE_LOWER,
+            ];
+            if (!empty($ttm[$dom[$parent]['text-transform']])) {
+                $element = \mb_convert_case(
+                    $element,
+                    $ttm[$dom[$parent]['text-transform']],
+                    $this->encoding,
+                );
+            }
+            $element = \preg_replace("/&NBSP;/i", "&nbsp;", $element) ?? '';
+        }
+        $dom[$key]['value'] = \stripslashes($this->unhtmlentities($element));
+    }
+
+    /**
+     * Inherith HTML properties from a parent element.
+     *
+     * @param array<int, array<string, mixed>> $dom DOM array.
+     * @param int $key ID of the current HTML element.
+     * @param int $parent ID of the parent element from which to inherit properties.
+     *
+     * @return void
+     */
+    protected function inheritHTMLProperties(array &$dom, int $key, int $parent): void
+    {
+        foreach (self::HTML_INHPROP as $prp) {
+            $dom[$key][$prp] = $dom[$parent][$prp];
+        }
+    }
+
+    /**
+     * Process the HTML DOM closing tag.
+     *
+     * @param array<int, array<string, mixed>> $dom DOM array.
+     * @param string $element Element data.
+     * @param int $key Current element ID.
+     * @param int $parent ID of the parent element.
+     *
+     * @return void
+     */
+    protected function processHTMLDOMClosingTag(array &$dom, array $elm, int $key, int $parent, string $cssarray): void
+    {
+        $dom[$key]['opening'] = false;
+        $dom[$key]['parent'] = $parent;
+        $granparent = $dom[$parent]['parent'];
+        $this->inheritHTMLProperties($dom, $key, $granparent);
+
+        // set the number of columns in table tag
+        if (($dom[$key]['value'] == 'tr') && (!empty($dom[$granparent]['cols']))) {
+            $dom[$granparent]['cols'] = $dom[$parent]['cols'];
+        }
+        if (($dom[$key]['value'] == 'td') || ($dom[$key]['value'] == 'th')) {
+            $dom[$parent]['content'] = $cssarray;
+            for ($idx = ($parent + 1); $idx < $key; ++$idx) {
+                $dom[$parent]['content'] .= \stripslashes($elm[$dom[$idx]['elkey']]);
+            }
+            $key = $idx;
+            // mark nested tables
+            $dom[$parent]['content'] = \str_replace('<table', '<table nested="true"', $dom[$parent]['content']);
+            // remove thead sections from nested tables
+            $dom[$parent]['content'] = \str_replace('<thead>', '', $dom[$parent]['content']);
+            $dom[$parent]['content'] = \str_replace('</thead>', '', $dom[$parent]['content']);
+        }
+        // store header rows on a new table
+        if (
+            ($dom[$key]['value'] === 'tr')
+            && !empty($dom[$parent]['thead'])
+            && ($dom[$parent]['thead'] === true)
+        ) {
+            if (empty($dom[$granparent]['thead'])) {
+                $dom[$granparent]['thead'] = $cssarray . $elm[$dom[$granparent]['elkey']];
+            }
+            for ($idx = $parent; $idx <= $key; ++$idx) {
+                $dom[$granparent]['thead'] .= $elm[$dom[$idx]['elkey']];
+            }
+            if (!isset($dom[$parent]['attribute'])) {
+                $dom[$parent]['attribute'] = [];
+            }
+            // header elements must be always contained in a single page
+            $dom[$parent]['attribute']['nobr'] = 'true';
+        }
+        if (($dom[$key]['value'] == 'table') && (!empty($dom[$parent]['thead']))) {
+            // remove the nobr attributes from the table header
+            $dom[$parent]['thead'] = str_replace(' nobr="true"', '', $dom[$parent]['thead']);
+            $dom[$parent]['thead'] .= '</tablehead>';
+        }
+    }
+
+    /**
+     * Process HTML DOM Opening Tag.
+     *
+     * @param array<int, array<string, mixed>> $dom
+     * @param array<string, mixed> $css
+     * @param array<int> $level
+     * @param string $element
+     * @param int $key
+     * @param int $parent
+     * @param bool $thead
+     *
+     * @return void
+     */
+    protected function processHTMLDOMOpeningTag(
+        array &$dom,
+        array $css,
+        array $level,
+        string $element,
+        int $key,
+        int $parent,
+        bool $thead,
+    ): void {
+        $dom[$key]['opening'] = true;
+        $dom[$key]['parent'] = $parent;
+        $dom[$key]['self'] = ((\substr($element, -1, 1) == '/')
+            || (\in_array($dom[$key]['value'], self::HTML_SELF_CLOSING_TAGS)));
+        if (!$dom[$key]['self']) {
+            array_push($level, $key);
+        }
+        $parentkey = 0;
+        if ($key > 0) {
+            $parentkey = $dom[$key]['parent'];
+            $this->inheritHTMLProperties($dom, $key, $parentkey);
+        }
+
+        // get attributes
+        if (
+            \preg_match_all(
+                '/([^=\s]*)[\s]*=[\s]*"([^"]*)"/',
+                $element,
+                $attr_array,
+                PREG_PATTERN_ORDER,
+            ) > 0
+        ) {
+            $dom[$key]['attribute'] = []; // reset attribute array
+            foreach ($attr_array[1] as $id => $name) {
+                $dom[$key]['attribute'][strtolower($name)] = $attr_array[2][$id];
+            }
+        }
+
+        if (!empty($css)) {
+            // merge CSS style to current style
+            \list($dom[$key]['csssel'], $dom[$key]['cssdata']) = $this->getHTMLDOMCSSData($dom, $css, $key);
+            $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
+        }
+
+        //@TODO ...
+        $thead = $thead; //@TODO
+    }
+
+    /**
+     * Returns the styles array that apply for the selected HTML tag.
+     *
+     * @param array<int, array<string, mixed>> $dom
+     * @param array<string, string> $css
+     * @param int $key Key of the current HTML tag.
+     *
+     * @return array CSS properties
+     */
+    public function getHTMLDOMCSSData(array $dom, array $css, int $key): array
+    {
+        $ret = [];
+        // get parent CSS selectors
+        $selectors = [];
+        if (!empty($dom[($dom[$key]['parent'])]['csssel'])) {
+            $selectors = $dom[($dom[$key]['parent'])]['csssel'];
+        }
+        // get all styles that apply
+        foreach ($css as $selector => $style) {
+            $pos = \strpos($selector, ' ');
+            if ($pos === false) {
+                continue;
+            }
+            // get specificity
+            $specificity = \substr($selector, 0, $pos);
+            // remove specificity
+            $selector = \substr($selector, $pos);
+
+            // check if this selector apply to current tag
+            if ($this->isValidCSSSelectorForTag($dom, $key, $selector)) {
+                if (!\in_array($selector, $selectors)) {
+                    // add style if not already added on parent selector
+                    $ret[] = [
+                        'k' => $selector,
+                        's' => $specificity,
+                        'c' => $style,
+                    ];
+                    $selectors[] = $selector;
+                }
+            }
+        }
+        if (!empty($dom[$key]['attribute']['style'])) {
+            // attach inline style (latest properties have high priority)
+            $ret[] = [
+                'k' => '',
+                's' => '1000',
+                'c' => $dom[$key]['attribute']['style'],
+            ];
+        }
+        // order the css array to account for specificity
+        $cssordered = [];
+        foreach ($ret as $key => $val) {
+            $skey = \sprintf('%04d', $key);
+            $cssordered[$val['s'] . '_' . $skey] = $val;
+        }
+        // sort selectors alphabetically to account for specificity
+        \ksort($cssordered, SORT_STRING);
+        return [$selectors, $cssordered];
+    }
+
+    /**
+     * Returns true if the CSS selector is valid for the selected HTML tag.
+     *
+     * @param array $dom array of HTML tags and properties
+     * @param int $key key of the current HTML tag
+     * @param string $selector CSS selector string
+     *
+     * @return bool True if the selector is valid, false otherwise
+     */
+    public function isValidCSSSelectorForTag(array $dom, int $key, int $selector): bool
+    {
+        $ret = false;
+        $tag = $dom[$key]['value'];
+        $class = [];
+        if (!empty($dom[$key]['attribute']['class'])) {
+            $class = \explode(' ', \strtolower($dom[$key]['attribute']['class']));
+        }
+        $idx = '';
+        if (!empty($dom[$key]['attribute']['id'])) {
+            $idx = \strtolower($dom[$key]['attribute']['id']);
+        }
+        $selector = \preg_replace('/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si', '\\1*.\\3', $selector) ?? '';
+        $matches = [];
+        if (empty(\preg_match_all('/([\>\+\~\s]{1})([a-zA-Z0-9\*]+)([^\>\+\~\s]*)/si', $selector, $matches, PREG_PATTERN_ORDER | PREG_OFFSET_CAPTURE))) {
+            return $ret;
+        }
+        $parentop = \array_pop($matches[1]);
+        $operator = $parentop[0];
+        $offset = $parentop[1];
+        $lasttag = \array_pop($matches[2]);
+        $lasttag = \strtolower(\trim($lasttag[0]));
+        if (($lasttag !== '*') && ($lasttag !== $tag)) {
+            return $ret;
+        }
+        // the last element on selector is our tag or 'any tag'
+        $attrib = \array_pop($matches[3]);
+        $attrib = \strtolower(\trim($attrib[0]));
+        if (empty($attrib)) {
+            $ret = true;
+        } else {
+            // check if matches class, id, attribute, pseudo-class or pseudo-element
+            switch ($attrib[0]) {
+                case '.': // class
+                    $ret =  (\in_array(\substr($attrib, 1), $class));
+                    break;
+                case '#': // ID
+                    $ret = (\substr($attrib, 1) == $idx);
+                    break;
+                case '[': // attribute
+                    $attrmatch = [];
+                    if (empty(\preg_match('/\[([a-zA-Z0-9]*)[\s]*([\~\^\$\*\|\=]*)[\s]*["]?([^"\]]*)["]?\]/i', $attrib, $attrmatch))) {
+                        break;
+                    }
+                    $att = \strtolower($attrmatch[1]);
+                    $val = $attrmatch[3];
+                    if (isset($dom[$key]['attribute'][$att])) {
+                        switch ($attrmatch[2]) {
+                            case '=':
+                                $ret = ($dom[$key]['attribute'][$att] == $val);
+                                break;
+                            case '~=':
+                                $ret = (\in_array($val, \explode(' ', $dom[$key]['attribute'][$att])));
+                                break;
+                            case '^=':
+                                $ret = ($val == \substr($dom[$key]['attribute'][$att], 0, \strlen($val)));
+                                break;
+                            case '$=':
+                                $ret = ($val == \substr($dom[$key]['attribute'][$att], -\strlen($val)));
+                                break;
+                            case '*=':
+                                $ret = (\strpos($dom[$key]['attribute'][$att], $val) !== false);
+                                break;
+                            case '|=':
+                                $ret = (($dom[$key]['attribute'][$att] == $val)
+                                || (preg_match('/' . $val . '[\-]{1}/i', $dom[$key]['attribute'][$att]) > 0));
+                                break;
+                            default: {
+                                $ret = true;
+                            }
+                        }
+                    }
+                    break;
+                case ':': // pseudo-class or pseudo-element
+                    if ($attrib[1] == ':') { // pseudo-element
+                        // @TODO: pseudo-elements are not supported!
+                        // (::first-line, ::first-letter, ::before, ::after)
+                    } else { // pseudo-class
+                        // @TODO: pseudo-classes are not supported!
+                        // (:root, :nth-child(n), :nth-last-child(n), :nth-of-type(n), :nth-last-of-type(n), :first-child, :last-child, :first-of-type, :last-of-type, :only-child, :only-of-type, :empty, :link, :visited, :active, :hover, :focus, :target, :lang(fr), :enabled, :disabled, :checked)
+                    }
+                    break;
+            } // end of switch
+        }
+
+        if ($ret && ($offset > 0)) {
+            $ret = false;
+            // check remaining selector part
+            $selector = \substr($selector, 0, $offset);
+            switch ($operator) {
+                case ' ': // descendant of an element
+                    while ($dom[$key]['parent'] > 0) {
+                        if ($this->isValidCSSSelectorForTag($dom, $dom[$key]['parent'], $selector)) {
+                            $ret = true;
+                            break;
+                        } else {
+                            $key = $dom[$key]['parent'];
+                        }
+                    }
+                    break;
+                case '>': // child of an element
+                    $ret = $this->isValidCSSSelectorForTag($dom, $dom[$key]['parent'], $selector);
+                    break;
+                case '+': // immediately preceded by an element
+                    for ($idx = ($key - 1); $idx > $dom[$key]['parent']; --$idx) {
+                        if ($dom[$idx]['tag'] and $dom[$idx]['opening']) {
+                            $ret = $this->isValidCSSSelectorForTag($dom, $idx, $selector);
+                            break;
+                        }
+                    }
+                    break;
+                case '~': // preceded by an element
+                    for ($idx = ($key - 1); $idx > $dom[$key]['parent']; --$idx) {
+                        if (
+                            $dom[$idx]['tag']
+                            && $dom[$idx]['opening']
+                            && $this->isValidCSSSelectorForTag($dom, $idx, $selector)
+                        ) {
+                                break;
+                        }
+                    }
+                    break;
+            }
+        }
+
+        return $ret;
     }
 }
