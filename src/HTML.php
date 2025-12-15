@@ -1253,10 +1253,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // background color
         if ((!empty($dom[$key]['style']['background-color']))) {
-            $colobj = $this->color->getColorObj($dom[$key]['style']['background-color']);
-            if ($colobj !== null) {
-                $dom[$key]['bgcolor'] = $colobj->getCssColor();
-            }
+                $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['style']['background-color']);
         }
         // text-decoration
         if (
@@ -1389,19 +1386,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['border']['B'] = $brdr['B'];
         }
-
-
-        /*
-        $cellside = array('L' => 'left', 'R' => 'right', 'T' => 'top', 'B' => 'bottom',);
+        $cellside = [
+            'L' => 'left',
+            'R' => 'right',
+            'T' => 'top',
+            'B' => 'bottom',
+        ];
         foreach ($cellside as $bsk => $bsv) {
             if (isset($dom[$key]['style']['border-'.$bsv])) {
-                $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border-'.$bsv]);
-                if (!empty($borderstyle)) {
-                    $dom[$key]['border'][$bsk] = $borderstyle;
-                }
+                $dom[$key]['border'][$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-'.$bsv]);
             }
             if (isset($dom[$key]['style']['border-'.$bsv.'-color'])) {
-                $dom[$key]['border'][$bsk]['color'] = TCPDF_COLORS::convertHTMLColorToDec($dom[$key]['style']['border-'.$bsv.'-color'], $this->spot_colors);
+                $dom[$key]['border'][$bsk]['color'] = $this->getCSSColor($dom[$key]['style']['border-'.$bsv.'-color']);
             }
             if (isset($dom[$key]['style']['border-'.$bsv.'-width'])) {
                 $dom[$key]['border'][$bsk]['width'] = $this->getCSSBorderWidth($dom[$key]['style']['border-'.$bsv.'-width']);
@@ -1409,10 +1405,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (isset($dom[$key]['style']['border-'.$bsv.'-style'])) {
                 $dom[$key]['border'][$bsk]['dash'] = $this->getCSSBorderDashStyle($dom[$key]['style']['border-'.$bsv.'-style']);
                 if ($dom[$key]['border'][$bsk]['dash'] < 0) {
-                    $dom[$key]['border'][$bsk] = array();
+                    $dom[$key]['border'][$bsk] = [];
                 }
             }
         }
+        /*
         // check for CSS padding properties
         if (isset($dom[$key]['style']['padding'])) {
             $dom[$key]['padding'] = $this->getCSSPadding($dom[$key]['style']['padding']);
