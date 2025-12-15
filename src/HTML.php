@@ -1294,6 +1294,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (!empty($dom[$key]['style']['border'])) {
             $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border']);
             if (!empty($borderstyle)) {
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 $dom[$key]['border']['LTRB'] = $borderstyle;
             }
         }
