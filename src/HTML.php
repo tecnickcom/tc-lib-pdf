@@ -1290,14 +1290,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (!empty($dom[$key]['style']['text-align'])) {
             $dom[$key]['align'] = \strtoupper($dom[$key]['style']['text-align'][0]);
         }
-        /*
         // check CSS border properties
-        if (isset($dom[$key]['style']['border'])) {
+        if (!empty($dom[$key]['style']['border'])) {
             $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border']);
             if (!empty($borderstyle)) {
                 $dom[$key]['border']['LTRB'] = $borderstyle;
             }
         }
+        /*
         if (isset($dom[$key]['style']['border-color'])) {
             $brd_colors = preg_split('/[\s]+/', trim($dom[$key]['style']['border-color']));
             if (isset($brd_colors[3])) {
