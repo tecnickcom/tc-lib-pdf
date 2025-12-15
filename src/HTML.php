@@ -876,6 +876,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
         }
 
+        $this->splitHTMLStyleAttributes($dom, $key, $parentkey);
+
         //@TODO ...
         $thead = $thead; //@TODO
     }
@@ -1102,5 +1104,327 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $ret;
+    }
+
+    /**
+     * Split the HTML DOM Style attributes.
+     *
+     * @param array<int, array<string, mixed>> $dom
+     * @param int $key key of the current HTML tag.
+     * @param int $parentkey Key of the parent element.
+     */
+    public function splitHTMLStyleAttributes(array $dom, int $key, int $parentkey): void
+    {
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            empty($dom[$key]['attribute']['style'])
+            || !\is_string($dom[$key]['attribute']['style'])
+            || empty(\preg_match_all(
+                '/([^;:\s]*):([^;]*)/',
+                $dom[$key]['attribute']['style'],
+                $style_array,
+                PREG_PATTERN_ORDER,
+            ))
+        ) {
+            return;
+        }
+
+        $dom[$key]['style'] = []; // reset style attribute array
+        foreach ($style_array[1] as $id => $name) {
+            // in case of duplicate attribute the last replace the previous
+            $dom[$key]['style'][\strtolower($name)] = \trim($style_array[2][$id]);
+        }
+        // --- get some style attributes ---
+        // text direction
+        if (isset($dom[$key]['style']['direction'])) {
+            $dom[$key]['dir'] = $dom[$key]['style']['direction'];
+        }
+        // display
+        if (isset($dom[$key]['style']['display'])) {
+            $dom[$key]['hide'] = (\trim(\strtolower($dom[$key]['style']['display'])) == 'none');
+        }
+        // font family
+        if (!empty($dom[$key]['style']['font-family'])) {
+            $dom[$key]['fontname'] = $this->font->getFontFamilyName($dom[$key]['style']['font-family']);
+        }
+        // list-style-type
+        if (!empty($dom[$key]['style']['list-style-type'])) {
+            $dom[$key]['listtype'] = \trim(\strtolower($dom[$key]['style']['list-style-type']));
+            if ($dom[$key]['listtype'] == 'inherit') {
+                $dom[$key]['listtype'] = $dom[$parentkey]['listtype'];
+            }
+        }
+        // text-indent
+        if (isset($dom[$key]['style']['text-indent'])) {
+            $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['text-indent']));
+            if ($dom[$key]['text-indent'] == 'inherit') {
+                $dom[$key]['text-indent'] = $dom[$parentkey]['text-indent'];
+            }
+        }
+        // text-transform
+        if (isset($dom[$key]['style']['text-transform'])) {
+            $dom[$key]['text-transform'] = $dom[$key]['style']['text-transform'];
+        }
+        // font size
+        if (
+            isset($dom[$key]['style']['font-size'])
+            && \is_numeric($dom[$key]['style']['font-size'])
+        ) {
+            $fsize = \trim($dom[$key]['style']['font-size']);
+            $ref = self::REFUNITVAL;
+            if (\is_numeric($dom[$parentkey]['fontsize'])) {
+                $ref['parent'] = floatval($dom[$parentkey]['fontsize']);
+            }
+            $dom[$key]['fontsize'] = $this->getFontValuePoints($fsize, $ref, 'pt');
+        }
+        // font-stretch
+        if (
+            isset($dom[$key]['style']['font-stretch'])
+            && \is_numeric($dom[$parentkey]['font-stretch'])
+        ) {
+            $dom[$key]['font-stretch'] = $this->getTAFontStretching(
+                $dom[$key]['style']['font-stretch'],
+                floatval($dom[$parentkey]['font-stretch']),
+            );
+        }
+        // letter-spacing
+        if (
+            isset($dom[$key]['style']['letter-spacing'])
+            && \is_numeric($dom[$parentkey]['letter-spacing'])
+        ) {
+            $dom[$key]['letter-spacing'] = $this->getTALetterSpacing(
+                $dom[$key]['style']['letter-spacing'],
+                floatval($dom[$parentkey]['letter-spacing']),
+            );
+        }
+        /*
+        // line-height (internally is the cell height ratio)
+        if (isset($dom[$key]['style']['line-height'])) {
+            $lineheight = trim($dom[$key]['style']['line-height']);
+            switch ($lineheight) {
+                // A normal line height. This is default
+                case 'normal': {
+                    $dom[$key]['line-height'] = $dom[0]['line-height'];
+                    break;
+                }
+                case 'inherit': {
+                    $dom[$key]['line-height'] = $dom[$parentkey]['line-height'];
+                }
+                default: {
+                    if (is_numeric($lineheight)) {
+                        // convert to percentage of font height
+                        $lineheight = ($lineheight * 100).'%';
+                    }
+                    $dom[$key]['line-height'] = $this->getHTMLUnitToUnits($lineheight, 1, '%', true);
+                    if (substr($lineheight, -1) !== '%') {
+                        if ($dom[$key]['fontsize'] <= 0) {
+                            $dom[$key]['line-height'] = 1;
+                        } else {
+                            $dom[$key]['line-height'] = (($dom[$key]['line-height'] - $this->cell_padding['T'] - $this->cell_padding['B']) / $dom[$key]['fontsize']);
+                        }
+                    }
+                }
+            }
+        }
+        // font style
+        if (isset($dom[$key]['style']['font-weight'])) {
+            if (strtolower($dom[$key]['style']['font-weight'][0]) == 'n') {
+                if (strpos($dom[$key]['fontstyle'], 'B') !== false) {
+                    $dom[$key]['fontstyle'] = str_replace('B', '', $dom[$key]['fontstyle']);
+                }
+            } elseif (strtolower($dom[$key]['style']['font-weight'][0]) == 'b') {
+                $dom[$key]['fontstyle'] .= 'B';
+            }
+        }
+        if (isset($dom[$key]['style']['font-style']) AND (strtolower($dom[$key]['style']['font-style'][0]) == 'i')) {
+            $dom[$key]['fontstyle'] .= 'I';
+        }
+        // font color
+        if (isset($dom[$key]['style']['color']) AND (!TCPDF_STATIC::empty_string($dom[$key]['style']['color']))) {
+            $dom[$key]['fgcolor'] = TCPDF_COLORS::convertHTMLColorToDec($dom[$key]['style']['color'], $this->spot_colors);
+        } elseif ($dom[$key]['value'] == 'a') {
+            $dom[$key]['fgcolor'] = $this->htmlLinkColorArray;
+        }
+        // background color
+        if (isset($dom[$key]['style']['background-color']) AND (!TCPDF_STATIC::empty_string($dom[$key]['style']['background-color']))) {
+            $dom[$key]['bgcolor'] = TCPDF_COLORS::convertHTMLColorToDec($dom[$key]['style']['background-color'], $this->spot_colors);
+        }
+        // text-decoration
+        if (isset($dom[$key]['style']['text-decoration'])) {
+            $decors = explode(' ', strtolower($dom[$key]['style']['text-decoration']));
+            foreach ($decors as $dec) {
+                $dec = trim($dec);
+                if (!TCPDF_STATIC::empty_string($dec)) {
+                    if ($dec[0] == 'u') {
+                        // underline
+                        $dom[$key]['fontstyle'] .= 'U';
+                    } elseif ($dec[0] == 'l') {
+                        // line-through
+                        $dom[$key]['fontstyle'] .= 'D';
+                    } elseif ($dec[0] == 'o') {
+                        // overline
+                        $dom[$key]['fontstyle'] .= 'O';
+                    }
+                }
+            }
+        } elseif ($dom[$key]['value'] == 'a') {
+            $dom[$key]['fontstyle'] = $this->htmlLinkFontStyle;
+        }
+        // check for width attribute
+        if (isset($dom[$key]['style']['width'])) {
+            $dom[$key]['width'] = $dom[$key]['style']['width'];
+        }
+        // check for height attribute
+        if (isset($dom[$key]['style']['height'])) {
+            $dom[$key]['height'] = $dom[$key]['style']['height'];
+        }
+        // check for text alignment
+        if (isset($dom[$key]['style']['text-align'])) {
+            $dom[$key]['align'] = strtoupper($dom[$key]['style']['text-align'][0]);
+        }
+        // check for CSS border properties
+        if (isset($dom[$key]['style']['border'])) {
+            $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border']);
+            if (!empty($borderstyle)) {
+                $dom[$key]['border']['LTRB'] = $borderstyle;
+            }
+        }
+        if (isset($dom[$key]['style']['border-color'])) {
+            $brd_colors = preg_split('/[\s]+/', trim($dom[$key]['style']['border-color']));
+            if (isset($brd_colors[3])) {
+                $dom[$key]['border']['L']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[3], $this->spot_colors);
+            }
+            if (isset($brd_colors[1])) {
+                $dom[$key]['border']['R']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[1], $this->spot_colors);
+            }
+            if (isset($brd_colors[0])) {
+                $dom[$key]['border']['T']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[0], $this->spot_colors);
+            }
+            if (isset($brd_colors[2])) {
+                $dom[$key]['border']['B']['color'] = TCPDF_COLORS::convertHTMLColorToDec($brd_colors[2], $this->spot_colors);
+            }
+        }
+        if (isset($dom[$key]['style']['border-width'])) {
+            $brd_widths = preg_split('/[\s]+/', trim($dom[$key]['style']['border-width']));
+            if (isset($brd_widths[3])) {
+                $dom[$key]['border']['L']['width'] = $this->getCSSBorderWidth($brd_widths[3]);
+            }
+            if (isset($brd_widths[1])) {
+                $dom[$key]['border']['R']['width'] = $this->getCSSBorderWidth($brd_widths[1]);
+            }
+            if (isset($brd_widths[0])) {
+                $dom[$key]['border']['T']['width'] = $this->getCSSBorderWidth($brd_widths[0]);
+            }
+            if (isset($brd_widths[2])) {
+                $dom[$key]['border']['B']['width'] = $this->getCSSBorderWidth($brd_widths[2]);
+            }
+        }
+        if (isset($dom[$key]['style']['border-style'])) {
+            $brd_styles = preg_split('/[\s]+/', trim($dom[$key]['style']['border-style']));
+            if (isset($brd_styles[3]) AND ($brd_styles[3]!='none')) {
+                $dom[$key]['border']['L']['cap'] = 'square';
+                $dom[$key]['border']['L']['join'] = 'miter';
+                $dom[$key]['border']['L']['dash'] = $this->getCSSBorderDashStyle($brd_styles[3]);
+                if ($dom[$key]['border']['L']['dash'] < 0) {
+                    $dom[$key]['border']['L'] = array();
+                }
+            }
+            if (isset($brd_styles[1])) {
+                $dom[$key]['border']['R']['cap'] = 'square';
+                $dom[$key]['border']['R']['join'] = 'miter';
+                $dom[$key]['border']['R']['dash'] = $this->getCSSBorderDashStyle($brd_styles[1]);
+                if ($dom[$key]['border']['R']['dash'] < 0) {
+                    $dom[$key]['border']['R'] = array();
+                }
+            }
+            if (isset($brd_styles[0])) {
+                $dom[$key]['border']['T']['cap'] = 'square';
+                $dom[$key]['border']['T']['join'] = 'miter';
+                $dom[$key]['border']['T']['dash'] = $this->getCSSBorderDashStyle($brd_styles[0]);
+                if ($dom[$key]['border']['T']['dash'] < 0) {
+                    $dom[$key]['border']['T'] = array();
+                }
+            }
+            if (isset($brd_styles[2])) {
+                $dom[$key]['border']['B']['cap'] = 'square';
+                $dom[$key]['border']['B']['join'] = 'miter';
+                $dom[$key]['border']['B']['dash'] = $this->getCSSBorderDashStyle($brd_styles[2]);
+                if ($dom[$key]['border']['B']['dash'] < 0) {
+                    $dom[$key]['border']['B'] = array();
+                }
+            }
+        }
+        $cellside = array('L' => 'left', 'R' => 'right', 'T' => 'top', 'B' => 'bottom');
+        foreach ($cellside as $bsk => $bsv) {
+            if (isset($dom[$key]['style']['border-'.$bsv])) {
+                $borderstyle = $this->getCSSBorderStyle($dom[$key]['style']['border-'.$bsv]);
+                if (!empty($borderstyle)) {
+                    $dom[$key]['border'][$bsk] = $borderstyle;
+                }
+            }
+            if (isset($dom[$key]['style']['border-'.$bsv.'-color'])) {
+                $dom[$key]['border'][$bsk]['color'] = TCPDF_COLORS::convertHTMLColorToDec($dom[$key]['style']['border-'.$bsv.'-color'], $this->spot_colors);
+            }
+            if (isset($dom[$key]['style']['border-'.$bsv.'-width'])) {
+                $dom[$key]['border'][$bsk]['width'] = $this->getCSSBorderWidth($dom[$key]['style']['border-'.$bsv.'-width']);
+            }
+            if (isset($dom[$key]['style']['border-'.$bsv.'-style'])) {
+                $dom[$key]['border'][$bsk]['dash'] = $this->getCSSBorderDashStyle($dom[$key]['style']['border-'.$bsv.'-style']);
+                if ($dom[$key]['border'][$bsk]['dash'] < 0) {
+                    $dom[$key]['border'][$bsk] = array();
+                }
+            }
+        }
+        // check for CSS padding properties
+        if (isset($dom[$key]['style']['padding'])) {
+            $dom[$key]['padding'] = $this->getCSSPadding($dom[$key]['style']['padding']);
+        } else {
+            $dom[$key]['padding'] = $this->cell_padding;
+        }
+        foreach ($cellside as $psk => $psv) {
+            if (isset($dom[$key]['style']['padding-'.$psv])) {
+                $dom[$key]['padding'][$psk] = $this->getHTMLUnitToUnits($dom[$key]['style']['padding-'.$psv], 0, 'px', false);
+            }
+        }
+        // check for CSS margin properties
+        if (isset($dom[$key]['style']['margin'])) {
+            $dom[$key]['margin'] = $this->getCSSMargin($dom[$key]['style']['margin']);
+        } else {
+            $dom[$key]['margin'] = $this->cell_margin;
+        }
+        foreach ($cellside as $psk => $psv) {
+            if (isset($dom[$key]['style']['margin-'.$psv])) {
+                $dom[$key]['margin'][$psk] = $this->getHTMLUnitToUnits(str_replace('auto', '0', $dom[$key]['style']['margin-'.$psv]), 0, 'px', false);
+            }
+        }
+        // check for CSS border-spacing properties
+        if (isset($dom[$key]['style']['border-spacing'])) {
+            $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($dom[$key]['style']['border-spacing']);
+        }
+        // page-break-inside
+        if (isset($dom[$key]['style']['page-break-inside']) AND ($dom[$key]['style']['page-break-inside'] == 'avoid')) {
+            $dom[$key]['attribute']['nobr'] = 'true';
+        }
+        // page-break-before
+        if (isset($dom[$key]['style']['page-break-before'])) {
+            if ($dom[$key]['style']['page-break-before'] == 'always') {
+                $dom[$key]['attribute']['pagebreak'] = 'true';
+            } elseif ($dom[$key]['style']['page-break-before'] == 'left') {
+                $dom[$key]['attribute']['pagebreak'] = 'left';
+            } elseif ($dom[$key]['style']['page-break-before'] == 'right') {
+                $dom[$key]['attribute']['pagebreak'] = 'right';
+            }
+        }
+        // page-break-after
+        if (isset($dom[$key]['style']['page-break-after'])) {
+            if ($dom[$key]['style']['page-break-after'] == 'always') {
+                $dom[$key]['attribute']['pagebreakafter'] = 'true';
+            } elseif ($dom[$key]['style']['page-break-after'] == 'left') {
+                $dom[$key]['attribute']['pagebreakafter'] = 'left';
+            } elseif ($dom[$key]['style']['page-break-after'] == 'right') {
+                $dom[$key]['attribute']['pagebreakafter'] = 'right';
+            }
+        }
+        */
     }
 }
