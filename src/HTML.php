@@ -667,7 +667,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     array_pop($level);
                     $this->processHTMLDOMClosingTag($dom, $elm, $key, $parent, $cssarray);
                 } else { // opening or self-closing html tag
-                    $this->processHTMLDOMOpeningTag($dom, $css, $level, $element, $key, $parent, $thead);
+                    $this->processHTMLDOMOpeningTag(
+                        $dom,
+                        $css,
+                        $level,
+                        $element,
+                        $key,
+                        $parent,
+                        $thead,
+                    );
                 }
             } else {
                 // content between tags (TEXT)
@@ -703,7 +711,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 'uppercase' => MB_CASE_UPPER,
                 'lowercase' => MB_CASE_LOWER,
             ];
-            if (!empty($ttm[$dom[$parent]['text-transform']])) {
+            if (
+                isset($dom[$parent]['text-transform'])
+                && \is_string($dom[$parent]['text-transform'])
+                && !empty($ttm[$dom[$parent]['text-transform']])
+            ) {
                 $element = \mb_convert_case(
                     $element,
                     $ttm[$dom[$parent]['text-transform']],
@@ -735,9 +747,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Process the HTML DOM closing tag.
      *
      * @param array<int, array<string, mixed>> $dom DOM array.
-     * @param string $element Element data.
+     * @param array<int, string> $elm Current element.
      * @param int $key Current element ID.
      * @param int $parent ID of the parent element.
+     * @param string $cssarray.
      *
      * @return void
      */
@@ -755,7 +768,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (($dom[$key]['value'] == 'td') || ($dom[$key]['value'] == 'th')) {
             $dom[$parent]['content'] = $cssarray;
             for ($idx = ($parent + 1); $idx < $key; ++$idx) {
-                $dom[$parent]['content'] .= \stripslashes($elm[$dom[$idx]['elkey']]);
+                if (isset($dom[$idx]['elkey']) && \is_int($dom[$idx]['elkey'])) {
+                    $dom[$parent]['content'] .= \stripslashes($elm[$dom[$idx]['elkey']]);
+                }
             }
             $key = $idx;
             // mark nested tables
@@ -770,21 +785,36 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && !empty($dom[$parent]['thead'])
             && ($dom[$parent]['thead'] === true)
         ) {
-            if (empty($dom[$granparent]['thead'])) {
+            if (
+                empty($dom[$granparent]['thead'])
+                && !empty($dom[$granparent]['elkey'])
+                && \is_int($dom[$granparent]['elkey'])
+            ) {
                 $dom[$granparent]['thead'] = $cssarray . $elm[$dom[$granparent]['elkey']];
             }
             for ($idx = $parent; $idx <= $key; ++$idx) {
-                $dom[$granparent]['thead'] .= $elm[$dom[$idx]['elkey']];
+                if (
+                    isset($dom[$idx]['elkey'])
+                    && \is_int($dom[$idx]['elkey'])
+                    && \is_string($dom[$granparent]['thead'])
+                ) {
+                    $dom[$granparent]['thead'] .= $elm[$dom[$idx]['elkey']];
+                }
             }
             if (!isset($dom[$parent]['attribute'])) {
                 $dom[$parent]['attribute'] = [];
             }
             // header elements must be always contained in a single page
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$parent]['attribute']['nobr'] = 'true';
         }
-        if (($dom[$key]['value'] == 'table') && (!empty($dom[$parent]['thead']))) {
+        if (
+            ($dom[$key]['value'] == 'table')
+            && (!empty($dom[$parent]['thead']))
+            && \is_string($dom[$parent]['thead'])
+        ) {
             // remove the nobr attributes from the table header
-            $dom[$parent]['thead'] = str_replace(' nobr="true"', '', $dom[$parent]['thead']);
+            $dom[$parent]['thead'] = \str_replace(' nobr="true"', '', $dom[$parent]['thead']);
             $dom[$parent]['thead'] .= '</tablehead>';
         }
     }
@@ -793,7 +823,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Process HTML DOM Opening Tag.
      *
      * @param array<int, array<string, mixed>> $dom
-     * @param array<string, mixed> $css
+     * @param array<string, string> $css
      * @param array<int> $level
      * @param string $element
      * @param int $key
@@ -841,7 +871,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if (!empty($css)) {
             // merge CSS style to current style
-            \list($dom[$key]['csssel'], $dom[$key]['cssdata']) = $this->getHTMLDOMCSSData($dom, $css, $key);
+            list($dom[$key]['csssel'], $dom[$key]['cssdata']) = $this->getHTMLDOMCSSData($dom, $css, $key);
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
         }
 
@@ -856,14 +887,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<string, string> $css
      * @param int $key Key of the current HTML tag.
      *
-     * @return array CSS properties
+     * @return array{array<string>, array<string, array{'k': string, 'c': string, 's': string}>}
      */
     public function getHTMLDOMCSSData(array $dom, array $css, int $key): array
     {
         $ret = [];
         // get parent CSS selectors
+        /** @var array<string> $selectors */
         $selectors = [];
-        if (!empty($dom[($dom[$key]['parent'])]['csssel'])) {
+        if (
+            isset($dom[$key]['parent'])
+            && \is_int($dom[$key]['parent'])
+            && !empty($dom[($dom[$key]['parent'])]['csssel'])
+            && \is_array($dom[($dom[$key]['parent'])]['csssel'])
+        ) {
             $selectors = $dom[($dom[$key]['parent'])]['csssel'];
         }
         // get all styles that apply
@@ -890,6 +927,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
         if (!empty($dom[$key]['attribute']['style'])) {
             // attach inline style (latest properties have high priority)
             $ret[] = [
@@ -906,28 +944,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // sort selectors alphabetically to account for specificity
         \ksort($cssordered, SORT_STRING);
+        // @phpstan-ignore return.type
         return [$selectors, $cssordered];
     }
 
     /**
      * Returns true if the CSS selector is valid for the selected HTML tag.
      *
-     * @param array $dom array of HTML tags and properties
+     * @param array<int, array<string, mixed>> $dom
      * @param int $key key of the current HTML tag
      * @param string $selector CSS selector string
      *
      * @return bool True if the selector is valid, false otherwise
      */
-    public function isValidCSSSelectorForTag(array $dom, int $key, int $selector): bool
+    public function isValidCSSSelectorForTag(array $dom, int $key, string $selector): bool
     {
         $ret = false;
         $tag = $dom[$key]['value'];
         $class = [];
-        if (!empty($dom[$key]['attribute']['class'])) {
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['class'])
+            && \is_string($dom[$key]['attribute']['class'])
+        ) {
             $class = \explode(' ', \strtolower($dom[$key]['attribute']['class']));
         }
         $idx = '';
-        if (!empty($dom[$key]['attribute']['id'])) {
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['id'])
+            && \is_string($dom[$key]['attribute']['id'])
+        ) {
             $idx = \strtolower($dom[$key]['attribute']['id']);
         }
         $selector = \preg_replace('/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si', '\\1*.\\3', $selector) ?? '';
@@ -936,16 +983,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $ret;
         }
         $parentop = \array_pop($matches[1]);
-        $operator = $parentop[0];
-        $offset = $parentop[1];
+        $operator = $parentop[0] ?? '';
+        $offset = $parentop[1] ?? 0;
         $lasttag = \array_pop($matches[2]);
-        $lasttag = \strtolower(\trim($lasttag[0]));
+        $lasttag = \strtolower(\trim($lasttag[0] ?? ''));
         if (($lasttag !== '*') && ($lasttag !== $tag)) {
             return $ret;
         }
         // the last element on selector is our tag or 'any tag'
         $attrib = \array_pop($matches[3]);
-        $attrib = \strtolower(\trim($attrib[0]));
+        $attrib = \strtolower(\trim($attrib[0] ?? ''));
         if (empty($attrib)) {
             $ret = true;
         } else {
@@ -964,7 +1011,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                     $att = \strtolower($attrmatch[1]);
                     $val = $attrmatch[3];
-                    if (isset($dom[$key]['attribute'][$att])) {
+                    if (
+                        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                        isset($dom[$key]['attribute'][$att])
+                        && \is_string($dom[$key]['attribute'][$att])
+                    ) {
                         switch ($attrmatch[2]) {
                             case '=':
                                 $ret = ($dom[$key]['attribute'][$att] == $val);
@@ -983,7 +1034,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 break;
                             case '|=':
                                 $ret = (($dom[$key]['attribute'][$att] == $val)
-                                || (preg_match('/' . $val . '[\-]{1}/i', $dom[$key]['attribute'][$att]) > 0));
+                                || (\preg_match('/' . $val . '[\-]{1}/i', $dom[$key]['attribute'][$att]) > 0));
                                 break;
                             default: {
                                 $ret = true;
@@ -1003,13 +1054,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } // end of switch
         }
 
-        if ($ret && ($offset > 0)) {
+        if (
+            $ret
+            && ($offset > 0)
+            && \is_int($dom[$key]['parent'])
+        ) {
             $ret = false;
             // check remaining selector part
             $selector = \substr($selector, 0, $offset);
             switch ($operator) {
                 case ' ': // descendant of an element
-                    while ($dom[$key]['parent'] > 0) {
+                    while (
+                        \is_int($dom[$key]['parent'])
+                        && ($dom[$key]['parent'] > 0)
+                    ) {
                         if ($this->isValidCSSSelectorForTag($dom, $dom[$key]['parent'], $selector)) {
                             $ret = true;
                             break;

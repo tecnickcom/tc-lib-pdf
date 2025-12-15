@@ -456,7 +456,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     /**
      * Implode CSS data array into a single string.
      *
-     * @param array<string, string> $css array of CSS properties.
+     * @param array<string, array{'k': string, 'c': string, 's': string}> $css array of CSS properties.
      *
      * @return string merged CSS properties.
      */
@@ -537,7 +537,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @param string $css string containing CSS definitions.
      *
-     * @return array<string, mixed> CSS properties.
+     * @return array<string, string> CSS properties.
      */
     protected function extractCSSproperties($css): array
     {
@@ -651,7 +651,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @param string $html HTML string to parse.
      *
-     * @return array<string, mixed> CSS styles (selector => properties).
+     * @return array<string, string> CSS styles (selector => properties).
      */
     protected function getCSSArrayFromHTML(string &$html): array
     {
