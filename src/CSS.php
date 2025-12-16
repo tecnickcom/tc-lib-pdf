@@ -44,8 +44,6 @@ use Com\Tecnick\Color\Model as ColorModel;
  */
 abstract class CSS extends \Com\Tecnick\Pdf\SVG
 {
-    //@TODO: add missing methods
-
     /**
      * Default values for cell boundaries.
      *
@@ -458,7 +456,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     /**
      * Implode CSS data array into a single string.
      *
-     * @param array<string, string> $css array of CSS properties.
+     * @param array<string, array{'k': string, 'c': string, 's': string}> $css array of CSS properties.
      *
      * @return string merged CSS properties.
      */
@@ -634,5 +632,103 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $num--;
         }
         return $rmn;
+    }
+
+    /**
+     * Reverse function for htmlentities.
+     *
+     * @param string $text_to_convert Text to convert.
+     *
+     * @return string converted text string
+     */
+    protected function unhtmlentities(string $text_to_convert): string
+    {
+        return \html_entity_decode($text_to_convert, ENT_QUOTES, $this->encoding);
+    }
+
+    /**
+     * Extract CSS styles from an HTML string.
+     *
+     * @param string $html HTML string to parse.
+     *
+     * @return array<string, string> CSS styles (selector => properties).
+     */
+    protected function getCSSArrayFromHTML(string &$html): array
+    {
+        /** @var array<string, mixed> $css */
+        $css = [];
+
+        $matches = [];
+        if (\preg_match_all('/<cssarray>([^\<]*?)<\/cssarray>/is', $html, $matches) > 0) {
+            if (isset($matches[1][0])) {
+                $dcss = \json_decode(
+                    $this->unhtmlentities($matches[1][0]),
+                    true,
+                );
+                if (\is_array($dcss)) {
+                    $css = $dcss;
+                }
+            }
+            $html = \preg_replace('/<cssarray>(.*?)<\/cssarray>/is', '', $html) ?? '';
+        }
+
+        // extract external CSS files
+        $matches = [];
+        if (\preg_match_all('/<link([^\>]*?)>/is', $html, $matches) > 0) {
+            foreach ($matches[1] as $key => $link) {
+                $type = [];
+                if (\preg_match('/type[\s]*=[\s]*"text\/css"/', $link, $type) > 0) {
+                    $type = [];
+                    if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
+                        // get 'all' and 'print' media, other media types are discarded
+                        // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
+                        if (!empty($type[1]) && (($type[1] == 'all') || ($type[1] == 'print'))) {
+                            $type = [];
+                            if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
+                                // read CSS data file
+                                $cssdata = $this->file->getFileData(\trim($type[1]));
+                                if (($cssdata !== false) && (\strlen($cssdata) > 0)) {
+                                    $css = \array_merge($css, $this->extractCSSproperties($cssdata));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // extract style tags
+        $matches = [];
+        if (\preg_match_all('/<style([^\>]*?)>([^\<]*?)<\/style>/is', $html, $matches) > 0) {
+            foreach ($matches[1] as $key => $media) {
+                $type = [];
+                if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $media, $type) > 0) {
+                    // get 'all' and 'print' media, other media types are discarded
+                    // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
+                    if (!empty($type[1]) && (($type[1] == 'all') || ($type[1] == 'print'))) {
+                        $cssdata = $matches[2][$key];
+                        $css = \array_merge($css, $this->extractCSSproperties($cssdata));
+                    }
+                }
+            }
+        }
+
+        return $css; // @phpstan-ignore return.type
+    }
+
+    /**
+     * Parse and normalize CSS color.
+     *
+     * @param string $color CSS color string to parse.
+     *
+     * @return string CSS color representation.
+     */
+    protected function getCSSColor(string $color): string
+    {
+        $colobj = $this->color->getColorObj($color);
+        if ($colobj === null) {
+            return '';
+        }
+        return $colobj->getCssColor();
     }
 }

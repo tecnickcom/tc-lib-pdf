@@ -2543,18 +2543,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
-     * Reverse function for htmlentities.
-     *
-     * @param string $text_to_convert Text to convert.
-     *
-     * @return string converted text string
-     */
-    protected function unhtmlentities(string $text_to_convert): string
-    {
-        return \html_entity_decode($text_to_convert, ENT_QUOTES, $this->encoding);
-    }
-
-    /**
      * Returns the PDF Bookmarks entry.
      */
     protected function getOutBookmarks(): string

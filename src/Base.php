@@ -180,7 +180,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.3.1';
+    protected string $version = '8.4.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -293,6 +293,20 @@ abstract class Base
         'x-large' => 4.0,
         'xx-large' => 6.0,
     ];
+
+    /**
+     * Ration for small font.
+     *
+     * @var float
+     */
+    protected const FONT_SMALL_RATIO = 2 / 3;
+
+    /**
+     * Default monospaced font.
+     *
+     * @var string
+     */
+    protected const FONT_MONO = 'courier';
 
     /**
      * Default eference values for unit conversion.
