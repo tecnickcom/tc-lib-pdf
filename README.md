@@ -36,8 +36,8 @@ This is the latest iteration of the TCPDF library; the previous version will be 
 * TrueTypeUnicode, OpenTypeUnicode v1, TrueType, OpenType v1, Type1 and CID-0 fonts;
 * font subsetting;
 * SVG
-* ~~CSS~~ (TODO - WIP)
-* ~~HTML~~ (TODO)
+* CSS
+* ~~HTML~~ (WIP)
 * JavaScript
 * images, graphic (geometric figures) and transformation methods;
 * supports JPEG, PNG and SVG images natively, all images supported by GD (GD, GD2, GD2PART, GIF, JPEG, PNG, BMP, XBM, XPM) and all images supported via ImagMagick (http://www.imagemagick.org/script/formats.php)
@@ -129,7 +129,7 @@ All artifacts are generated in the target directory.
 
 Examples are located in the `example` directory.
 
-Start a development server (requires PHP 8.0+) using the command:
+Start a development server (requires PHP 8.1+) using the command:
 
 ```bash
 make server
@@ -144,14 +144,8 @@ Create a composer.json in your projects root-directory:
 ```json
 {
     "require": {
-        "tecnickcom/tc-lib-pdf": "dev-main"
+        "tecnickcom/tc-lib-pdf": "^8.4"
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "git@github.com:tecnickcom/tc-lib-pdf.git"
-        }
-    ]
 }
 ```
 
