@@ -879,10 +879,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
         }
 
-        $this->splitHTMLStyleAttributes($dom, $key, $parentkey);
-
-        //@TODO ...
-        $thead = $thead; //@TODO
+        $this->parseHTMLStyleAttributes($dom, $key, $parentkey);
+        $this->parseHTMLAttributes($dom, $key, $thead);
     }
 
     /**
@@ -1110,13 +1108,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Split the HTML DOM Style attributes.
+     * Parse HTML DOM Style attributes.
      *
      * @param array<int, array<string, mixed>> $dom
      * @param int $key key of the current HTML tag.
      * @param int $parentkey Key of the parent element.
      */
-    public function splitHTMLStyleAttributes(array $dom, int $key, int $parentkey): void
+    public function parseHTMLStyleAttributes(array $dom, int $key, int $parentkey): void
     {
         if (
             // @phpstan-ignore offsetAccess.nonOffsetAccessible
@@ -1445,6 +1443,299 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 'right' => 'right',
                 default => '',
             };
+        }
+    }
+
+    /**
+     * Parst HTML DOM attributes.
+     *
+     * @param array<int, array<string, mixed>> $dom
+     * @param int $key key of the current HTML tag.
+     * @param bool $thead
+     */
+    public function parseHTMLAttributes(array $dom, int $key, bool $thead): void
+    {
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['display'])
+            && \is_string($dom[$key]['attribute']['display'])
+        ) {
+            $dom[$key]['hide'] = (\trim(\strtolower($dom[$key]['attribute']['display'])) == 'none');
+        }
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['border'])
+            && \is_string($dom[$key]['attribute']['border'])
+        ) {
+            $borderstyle = $this->getCSSBorderStyle($dom[$key]['attribute']['border'] . ' solid black');
+            if (!empty($borderstyle)) {
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                $dom[$key]['border']['LTRB'] = $borderstyle;
+            }
+        }
+        // check for font tag
+        if ($dom[$key]['value'] == 'font') {
+            // font family
+            if (
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                !empty($dom[$key]['attribute']['face'])
+                && \is_string($dom[$key]['attribute']['face'])
+            ) {
+                $dom[$key]['fontname'] = $this->font->getFontFamilyName($dom[$key]['attribute']['face']);
+            }
+            // font size
+            if (
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                isset($dom[$key]['attribute']['size'])
+                && \is_numeric($dom[$key]['attribute']['size'])
+            ) {
+                if (
+                    ($key > 0)
+                    && \is_string($dom[$key]['attribute']['size'])
+                    // @phpstan-ignore offsetAccess.invalidOffset
+                    && \is_numeric($dom[($dom[$key]['parent'])]['fontsize'])
+                ) {
+                    $dom[$key]['fontsize'] = match ($dom[$key]['attribute']['size'][0]) {
+                        // @phpstan-ignore offsetAccess.invalidOffset
+                        '+' => $dom[($dom[$key]['parent'])]['fontsize']
+                            + \intval(\substr($dom[$key]['attribute']['size'], 1)),
+                        // @phpstan-ignore offsetAccess.invalidOffset
+                        '-' => $dom[($dom[$key]['parent'])]['fontsize']
+                            - \intval(\substr($dom[$key]['attribute']['size'], 1)),
+                        default => \intval($dom[$key]['attribute']['size']),
+                    };
+                } elseif (\is_numeric($dom[$key]['attribute']['size'])) {
+                    $dom[$key]['fontsize'] = \intval($dom[$key]['attribute']['size']);
+                }
+            }
+        }
+        // force natural alignment for lists
+        if (
+            (($dom[$key]['value'] == 'ul')
+            || ($dom[$key]['value'] == 'ol')
+            || ($dom[$key]['value'] == 'dl'))
+            && (!isset($dom[$key]['align'])
+            || empty($dom[$key]['align'])
+            || ($dom[$key]['align'] != 'J'))
+        ) {
+            $dom[$key]['align'] = ($this->rtl) ? 'R' : 'L';
+        }
+        if (
+            ($dom[$key]['value'] == 'small')
+            || ($dom[$key]['value'] == 'sup')
+            || ($dom[$key]['value'] == 'sub')
+        ) {
+            if (
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                !isset($dom[$key]['attribute']['size'])
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                && !isset($dom[$key]['style']['font-size'])
+                && \is_numeric($dom[$key]['fontsize'])
+            ) {
+                $dom[$key]['fontsize'] = \floatval($dom[$key]['fontsize']) * self::FONT_SMALL_RATIO;
+            }
+        }
+        if (empty($dom[$key]['fontstyle']) || !\is_string($dom[$key]['fontstyle'])) {
+            $dom[$key]['fontstyle'] = '';
+        }
+        if (
+            ($dom[$key]['value'] == 'strong')
+            || ($dom[$key]['value'] == 'b')
+        ) {
+            $dom[$key]['fontstyle'] .= 'B';
+        }
+        if (
+            ($dom[$key]['value'] == 'em')
+            || ($dom[$key]['value'] == 'i')
+        ) {
+            $dom[$key]['fontstyle'] .= 'I';
+        }
+        if ($dom[$key]['value'] == 'u') {
+            $dom[$key]['fontstyle'] .= 'U';
+        }
+        if (
+            ($dom[$key]['value'] == 'del')
+            || ($dom[$key]['value'] == 's')
+            || ($dom[$key]['value'] == 'strike')
+        ) {
+            $dom[$key]['fontstyle'] .= 'D';
+        }
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !isset($dom[$key]['style']['text-decoration'])
+            && ($dom[$key]['value'] == 'a')
+        ) {
+            $dom[$key]['fontstyle'] = 'U';
+        }
+        if (
+            ($dom[$key]['value'] == 'pre')
+            || ($dom[$key]['value'] == 'tt')
+        ) {
+            $dom[$key]['fontname'] = self::FONT_MONO;
+        }
+        if (
+            !empty($dom[$key]['value'])
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            && ($dom[$key]['value'][0] == 'h')
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            && \is_numeric($dom[$key]['value'][1])
+            && (\intval($dom[$key]['value'][1]) > 0)
+            && (\intval($dom[$key]['value'][1]) < 7)
+        ) {
+            // headings h1, h2, h3, h4, h5, h6
+            if (
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                !isset($dom[$key]['attribute']['size'])
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                && !isset($dom[$key]['style']['font-size'])
+                // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                && \is_numeric($dom[$key]['value'][1])
+            ) {
+                $headsize = (4 - \intval($dom[$key]['value'][1])) * 2;
+                // @phpstan-ignore assignOp.invalid,binaryOp.invalid
+                $dom[$key]['fontsize'] = $dom[0]['fontsize'] + $headsize;
+            }
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            if (!isset($dom[$key]['style']['font-weight'])) {
+                // @phpstan-ignore assignOp.invalid
+                $dom[$key]['fontstyle'] .= 'B';
+            }
+        }
+        if (($dom[$key]['value'] == 'table')) {
+            $dom[$key]['rows'] = 0; // number of rows
+            $dom[$key]['trids'] = []; // IDs of TR elements
+            $dom[$key]['thead'] = ''; // table header rows
+        }
+        if ($dom[$key]['value'] == 'tr') {
+            $dom[$key]['cols'] = 0;
+            if ($thead) {
+                $dom[$key]['thead'] = true;
+                // rows on thead block are printed as a separate table
+            } else {
+                $dom[$key]['thead'] = false;
+                $parent = $dom[$key]['parent'];
+                if (
+                    // @phpstan-ignore offsetAccess.invalidOffset
+                    !isset($dom[$parent]['rows'])
+                    // @phpstan-ignore offsetAccess.invalidOffset
+                    || !\is_int($dom[$parent]['rows'])
+                ) {
+                    // @phpstan-ignore offsetAccess.invalidOffset
+                    $dom[$parent]['rows'] = 0;
+                }
+                // store the number of rows on table element
+                // @phpstan-ignore offsetAccess.invalidOffset
+                ++$dom[$parent]['rows'];
+                if (
+                    // @phpstan-ignore offsetAccess.invalidOffset
+                    !isset($dom[$parent]['trids'])
+                    // @phpstan-ignore offsetAccess.invalidOffset
+                    || !\is_array($dom[$parent]['trids'])
+                ) {
+                    // @phpstan-ignore offsetAccess.invalidOffset
+                    $dom[$parent]['trids'] = [];
+                }
+                // store the TR elements IDs on table element
+                // @phpstan-ignore offsetAccess.invalidOffset
+                \array_push($dom[$parent]['trids'], $key);
+            }
+        }
+        if (
+            ($dom[$key]['value'] == 'th')
+            || ($dom[$key]['value'] == 'td')
+        ) {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $colspan = (isset($dom[$key]['attribute']['colspan'])
+                && \is_numeric($dom[$key]['attribute']['colspan']))
+                ? \intval($dom[$key]['attribute']['colspan']) : 1;
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $dom[$key]['attribute']['colspan'] = $colspan;
+            if (
+                // @phpstan-ignore offsetAccess.invalidOffset
+                isset($dom[($dom[$key]['parent'])]['cols'])
+                // @phpstan-ignore offsetAccess.invalidOffset
+                && \is_numeric($dom[($dom[$key]['parent'])]['cols'])
+            ) {
+                // @phpstan-ignore offsetAccess.invalidOffset
+                $dom[($dom[$key]['parent'])]['cols'] += $colspan;
+            }
+        }
+        // text direction
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        if (!empty($dom[$key]['attribute']['dir'])) {
+            $dom[$key]['dir'] = $dom[$key]['attribute']['dir'];
+        }
+        // set foreground color attribute
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['color'])
+            && \is_string($dom[$key]['attribute']['color'])
+        ) {
+            $dom[$key]['fgcolor'] = $this->getCSSColor($dom[$key]['attribute']['color']);
+        } elseif (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            empty($dom[$key]['style']['color'])
+            && ($dom[$key]['value'] == 'a')
+        ) {
+            $dom[$key]['fgcolor'] = 'blue';
+        }
+        // set background color attribute
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['bgcolor'])
+            && \is_string($dom[$key]['attribute']['bgcolor'])
+        ) {
+            $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['attribute']['bgcolor']);
+        }
+        // set stroke color attribute
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['strokecolor'])
+            && \is_string($dom[$key]['attribute']['strokecolor'])
+        ) {
+            $dom[$key]['strokecolor'] = $this->getCSSColor($dom[$key]['attribute']['strokecolor']);
+        }
+        // check for width attribute
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        if (isset($dom[$key]['attribute']['width'])) {
+            $dom[$key]['width'] = $dom[$key]['attribute']['width'];
+        }
+        // check for height attribute
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        if (isset($dom[$key]['attribute']['height'])) {
+            $dom[$key]['height'] = $dom[$key]['attribute']['height'];
+        }
+        // check for text alignment
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible,offsetAccess.nonOffsetAccessible
+            (!empty($dom[$key]['attribute']['align'][0]))
+            && \is_string($dom[$key]['attribute']['align'][0])
+            && ($dom[$key]['value'] !== 'img')
+        ) {
+            $dom[$key]['align'] = \strtoupper($dom[$key]['attribute']['align'][0]);
+        }
+        // check for text rendering mode (the following attributes do not exist in HTML)
+        if (
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            !empty($dom[$key]['attribute']['stroke'])
+            && (\is_numeric($dom[$key]['attribute']['stroke'])
+            || \is_string($dom[$key]['attribute']['stroke']))
+            && \is_numeric($dom[$key]['fontsize'])
+        ) {
+            $ref = self::REFUNITVAL;
+            $ref['parent'] = \floatval($dom[$key]['fontsize']);
+            // font stroke width
+            $dom[$key]['stroke'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref));
+        }
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        if (isset($dom[$key]['attribute']['fill'])) {
+            // font fill
+            $dom[$key]['fill'] = ($dom[$key]['attribute']['fill'] == 'true');
+        }
+        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        if (isset($dom[$key]['attribute']['clip'])) {
+            // clipping mode
+            $dom[$key]['clip'] = ($dom[$key]['attribute']['clip'] == 'true');
         }
     }
 }

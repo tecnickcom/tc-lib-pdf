@@ -295,6 +295,20 @@ abstract class Base
     ];
 
     /**
+     * Ration for small font.
+     *
+     * @var float
+     */
+    protected const FONT_SMALL_RATIO = 2 / 3;
+
+    /**
+     * Default monospaced font.
+     *
+     * @var string
+     */
+    protected const FONT_MONO = 'courier';
+
+    /**
      * Default eference values for unit conversion.
      *
      * @var TRefUnitValues
