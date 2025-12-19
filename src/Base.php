@@ -256,6 +256,15 @@ abstract class Base
     protected bool $rtl = false;
 
     /**
+     * Boolean flag to set temporary document language direction.
+     *    False = LTR = Left-To-Right.
+     *    True = RTL = Right-To-Left.
+     *
+     * @val bool
+     */
+    protected bool $tmprtl = false;
+
+    /**
      * Document ID.
      */
     protected string $fileid;
@@ -800,5 +809,36 @@ abstract class Base
         }
 
         return $this->getUnitValuePoints($val, $ref, $defunit);
+    }
+
+    /**
+     * Set the default document language direction.
+     *
+     * @param bool $enabled False = LTR = Left-To-Right; True = RTL = Right-To-Left.
+     */
+    public function setRTL(bool $enabled): static
+    {
+        $this->rtl = $enabled;
+        return $this;
+    }
+
+    /**
+     * Force temporary RTL language direction.
+     *
+     * @param string $mode 'L' = 'LTR' = Left-To-Right; 'R' = 'RTL' = Right-To-Left.
+     */
+    protected function setTmpRTL(string $mode): void
+    {
+        $this->tmprtl = (!empty($mode) && (strtoupper($mode[0]) == 'R'));
+    }
+
+    /**
+     * Return the current temporary RTL status.
+     *
+     * @return bool
+     */
+    protected function isRTL(): bool
+    {
+        return ($this->rtl || $this->tmprtl);
     }
 }
