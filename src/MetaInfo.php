@@ -426,17 +426,6 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     }
 
     /**
-     * Set the default document language direction.
-     *
-     * @param bool $enabled False = LTR = Left-To-Right; True = RTL = Right-To-Left.
-     */
-    public function setRTL(bool $enabled): static
-    {
-        $this->rtl = $enabled;
-        return $this;
-    }
-
-    /**
      * Set the viewer preferences dictionary
      * controlling the way the document is to be presented on the screen or in print.
      *
