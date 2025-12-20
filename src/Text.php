@@ -1735,4 +1735,19 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     {
         return \str_replace('%', '%%', $str);
     }
+
+    /**
+     * Returns the string width in user units.
+     *
+     * @param string $str Input string to measure.
+     *
+     * @return float String width in user units.
+     */
+    protected function getStringWidth(string $str): float
+    {
+        $ordarr = [];
+        $dim = self::DIM_DEFAULT;
+        $this->prepareText($str, $ordarr, $dim);
+        return $this->toUnit($dim['totwidth']);
+    }
 }

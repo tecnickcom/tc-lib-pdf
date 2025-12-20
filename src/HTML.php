@@ -68,6 +68,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ];
 
     /**
+     * Default list types for unordered lists.
+     *
+     * @var array<string>
+     */
+    protected const LIST_DEF_ULTYPE = [
+        'disc',
+        'circle',
+        'square',
+    ];
+
+    /**
      * HTML block tags.
      *
      * @var array<string>
@@ -201,6 +212,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         //'widows',//
         //'word-spacing',//
     ];
+
+    /**
+     * Typoe of symbol used for HTML unordered list items.
+     *
+     * @var string
+     */
+    protected string $ullidot = '!';
 
     /**
      * Cleanup HTML code (requires HTML Tidy library).
@@ -1737,5 +1755,252 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // clipping mode
             $dom[$key]['clip'] = ($dom[$key]['attribute']['clip'] == 'true');
         }
+    }
+
+    /**
+     * Sets the default symbol to be used as unordered-list (UL) list-item (LI) bullet.
+     *
+     * @param string $sym This can be one of the values in self::LIST_SYMBOL
+     *                       or an image specified as:'img|type|width|height|image.ext').
+     */
+    public function setULLIDot($sym = '!'): void
+    {
+        if (\substr($sym, 0, 4) == 'img|') {
+            // image type
+            $this->ullidot = $sym;
+            return;
+        }
+
+        $sym = \strtolower($sym);
+        $this->ullidot = (\in_array($sym, self::LIST_SYMBOL)) ? $sym : '!';
+    }
+
+    /**
+     * Returns the PDF code for an HTML list bullet or ordered list item symbol.
+     *
+     * @param int    $depth  List nesting level.
+     * @param int    $count  List entry position, starting form 1.
+     * @param float  $posx   Abscissa of upper-left corner.
+     * @param float  $posy   Ordinate of upper-left corner.
+     * @param string $type   Type of list.
+     *
+     * @return string
+     */
+    protected function getHTMLliBullet(
+        int $depth,
+        int $count,
+        float $posx = 0,
+        float $posy = 0,
+        string $type = '',
+    ): string {
+        switch ($type) {
+            case '^': // special symbol used for avoid justification of rect bullet
+                return '';
+            case '!': // default list type for unordered list
+                $type = self::LIST_DEF_ULTYPE[($depth - 1) % 3];
+                break;
+            case '#': // default list type for ordered list
+                $type = 'decimal';
+                break;
+            default:
+                if (\substr($type, 0, 4) === 'img|') {
+                    // custom image type ('img|type|width|height|image.ext')
+                    $img = \explode('|', $type);
+                    $type = 'img';
+                }
+        }
+
+        $font = $this->font->getCurrentFont();
+        $size = $font['usize'];
+        $lspace = 2 * $font['cw'][32]; // width of two spaces
+        $txti = '';
+        $img = ['', '', '0', '0', ''];
+
+        switch ($type) {
+            // unordered types
+            case 'none':
+                break;
+            case 'disc':
+                if ($this->isunicode) {
+                    $txti = "\u{2022}";
+                    break;
+                }
+                $rad = $size / 4;
+                $lspace += (2 * $rad);
+                $posx += $this->rtl ? $lspace : -$lspace;
+                $style = [
+                    'lineWidth' => 0,
+                    'lineCap'   => 'butt',
+                    'lineJoin'  => 'miter',
+                    'miterLimit' => 0,
+                    'dashArray' => [],
+                    'dashPhase' => 0,
+                    'lineColor' => (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
+                    'fillColor' => (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
+                ];
+                return $this->graph->getStartTransform()
+                . $this->graph->getCircle(
+                    $posx,
+                    $posy + $this->toUnit($font['midpoint']),
+                    $rad,
+                    0,
+                    360,
+                    'F',
+                    $style,
+                    8,
+                ) . $this->graph->getStopTransform();
+            case 'circle':
+                if ($this->isunicode) {
+                    $txti = "\u{25E6}";
+                    break;
+                }
+                $rad = $size / 4;
+                $lspace += (2 * $rad);
+                $posx += $this->rtl ? $lspace : -$lspace;
+                $style = [
+                    'lineWidth' => ($rad / 3),
+                    'lineCap'   => 'butt',
+                    'lineJoin'  => 'miter',
+                    'miterLimit' => 0,
+                    'dashArray' => [],
+                    'dashPhase' => 0,
+                    'lineColor' => (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
+                    'fillColor' => (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
+                ];
+                return $this->graph->getStartTransform()
+                . $this->graph->getCircle(
+                    $posx,
+                    $posy + $this->toUnit($font['midpoint']),
+                    $rad,
+                    0,
+                    360,
+                    'D',
+                    $style,
+                    8,
+                ) . $this->graph->getStopTransform();
+            case 'square':
+                if ($this->isunicode) {
+                    $txti = "\u{25AA}";
+                    break;
+                }
+                $len = $size / 2;
+                $lspace += $len;
+                $posx += $this->rtl ? $lspace : -$lspace;
+                $style = [
+                    'lineWidth' => 0,
+                    'lineCap'   => 'butt',
+                    'lineJoin'  => 'miter',
+                    'miterLimit' => 0,
+                    'dashArray' => [],
+                    'dashPhase' => 0,
+                    'lineColor' => (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
+                    'fillColor' => (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
+                ];
+                return $this->graph->getStartTransform()
+                . $this->graph->getBasicRect(
+                    $posx,
+                    $posy + (($this->toUnit($font['height']) - $len) / 2),
+                    $len,
+                    $len,
+                    'F',
+                    $style,
+                ) . $this->graph->getStopTransform();
+            case 'img':
+                // 1=>type, 2=>width, 3=>height, 4=>image.ext
+                $lspace += \floatval($img[2]);
+                $posx += $this->rtl ? $lspace : -$lspace;
+                $imgtype = strtolower($img[1]);
+                $imgwidth = \floatval($img[2]);
+                $imgheight = \floatval($img[3]);
+                $pageheight = $this->page->getPage()['height'];
+                switch ($imgtype) {
+                    case 'svg':
+                        $svgid = $this->addSVG(
+                            $img[4],
+                            $posx,
+                            $posy + (($this->toUnit($font['height']) - $imgheight) / 2),
+                            $imgwidth,
+                            $imgheight,
+                            $pageheight,
+                        );
+                        return $this->getSetSVG($svgid);
+                    default:
+                        $imgid = $this->image->add($img[4]);
+                        return $this->image->getSetImage(
+                            $imgid,
+                            $posx,
+                            $posy + (($this->toUnit($font['height']) - $imgheight) / 2),
+                            $imgwidth,
+                            $imgheight,
+                            $pageheight,
+                        );
+                }
+            // ordered types
+            case '1':
+            case 'decimal':
+                $txti = \strval($count);
+                break;
+            case 'decimal-leading-zero':
+                $txti = \sprintf('%02d', $count);
+                break;
+            case 'i':
+            case 'lower-roman':
+                $txti = \strtolower($this->intToRoman($count));
+                break;
+            case 'I':
+            case 'upper-roman':
+                $txti = $this->intToRoman($count);
+                break;
+            case 'a':
+            case 'lower-alpha':
+            case 'lower-latin':
+                $txti = \chr(97 + $count - 1);
+                break;
+            case 'A':
+            case 'upper-alpha':
+            case 'upper-latin':
+                $txti = \chr(65 + $count - 1);
+                break;
+            case 'lower-greek':
+                $txti = $this->uniconv->chr(945 + $count - 1);
+                break;
+            case 'hebrew':
+                $txti = $this->uniconv->chr(1488 + $count - 1);
+                break;
+            case 'armenian':
+                $txti = $this->uniconv->chr(1377 + $count - 1);
+                break;
+            case 'georgian':
+                $txti = $this->uniconv->chr(4304 + $count - 1);
+                break;
+            case 'cjk-ideographic':
+                $txti = $this->uniconv->chr(19968 + $count - 1);
+                break;
+            case 'hiragana':
+                $txti = $this->uniconv->chr(12354 + $count - 1);
+                break;
+            case 'hiragana-iroha':
+                $txti = $this->uniconv->chr(12356 + $count - 1);
+                break;
+            case 'katakana':
+                $txti = $this->uniconv->chr(12450 + $count - 1);
+                break;
+            case 'katakana-iroha':
+                $txti = $this->uniconv->chr(12452 + $count - 1);
+                break;
+            default:
+                $txti = \strval($count);
+                break;
+        }
+
+        if (empty($txti)) {
+            return '';
+        }
+
+        // return ordered item as text
+        $txti = $this->rtl ? '.' . $txti : $txti . '.';
+        $lspace += $this->getStringWidth($txti);
+        $posx += $this->rtl ? $lspace : -$lspace;
+        return $this->getTextLine($txti, $posx, $posy);
     }
 }
