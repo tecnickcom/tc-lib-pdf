@@ -113,8 +113,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         'split' => [],
     ];
 
-
-
     /**
      * If true, ZERO-WIDTH-SPACE characters are automatically added
      * to the text to allow line breaking after some non-letter characters.

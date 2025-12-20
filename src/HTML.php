@@ -33,6 +33,14 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  *
  * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base as BorderStyle
+ * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Cell
+ * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
+ * @//phpstan-import-type PageInputData from \Com\Tecnick\Pdf\Page\Box
+ * @//phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
+ * @//phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
+ * @//phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
+ * @//phpstan-import-type TStackBBox from \Com\Tecnick\Pdf\Base
+ *
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
@@ -760,7 +768,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function inheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
         foreach (self::HTML_INHPROP as $prp) {
-            $dom[$key][$prp] = $dom[$parent][$prp];
+            if (!isset($dom[$key][$prp])) {
+                $dom[$key][$prp] = $dom[$parent][$prp];
+            }
         }
     }
 
@@ -871,7 +881,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $parentkey = 0;
         if ($key > 0) {
-            $parentkey = $dom[$key]['parent'];
+            $parentkey = (int) $dom[$key]['parent'];
             $this->inheritHTMLProperties($dom, $key, $parentkey);
         }
 
@@ -1132,7 +1142,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param int $key key of the current HTML tag.
      * @param int $parentkey Key of the parent element.
      */
-    public function parseHTMLStyleAttributes(array $dom, int $key, int $parentkey): void
+    public function parseHTMLStyleAttributes(array &$dom, int $key, int $parentkey): void
     {
         if (
             // @phpstan-ignore offsetAccess.nonOffsetAccessible
@@ -1471,7 +1481,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param int $key key of the current HTML tag.
      * @param bool $thead
      */
-    public function parseHTMLAttributes(array $dom, int $key, bool $thead): void
+    public function parseHTMLAttributes(array &$dom, int $key, bool $thead): void
     {
         if (
             // @phpstan-ignore offsetAccess.nonOffsetAccessible
@@ -1631,7 +1641,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 // rows on thead block are printed as a separate table
             } else {
                 $dom[$key]['thead'] = false;
-                $parent = $dom[$key]['parent'];
+                $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
                 if (
                     // @phpstan-ignore offsetAccess.invalidOffset
                     !isset($dom[$parent]['rows'])
@@ -1668,14 +1678,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 ? \intval($dom[$key]['attribute']['colspan']) : 1;
             // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['attribute']['colspan'] = $colspan;
+            $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
             if (
                 // @phpstan-ignore offsetAccess.invalidOffset
-                isset($dom[($dom[$key]['parent'])]['cols'])
+                isset($dom[($parent)]['cols'])
                 // @phpstan-ignore offsetAccess.invalidOffset
-                && \is_numeric($dom[($dom[$key]['parent'])]['cols'])
+                && \is_numeric($dom[($parent)]['cols'])
             ) {
                 // @phpstan-ignore offsetAccess.invalidOffset
-                $dom[($dom[$key]['parent'])]['cols'] += $colspan;
+                $dom[$parent]['cols'] += $colspan;
             }
         }
         // text direction
@@ -2003,4 +2014,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $posx += $this->rtl ? $lspace : -$lspace;
         return $this->getTextLine($txti, $posx, $posy);
     }
+
+    // /**
+    //  * @TODO - EXPERIMENTAL - DRAFT
+    //  * Returns the PDF code to render an HTML block inside a rectangular cell.
+    //  *
+    //  * @param string      $html        HTML code to be processed.
+    //  * @param float       $posx        Abscissa of upper-left corner.
+    //  * @param float       $posy        Ordinate of upper-left corner.
+    //  * @param float       $width       Width.
+    //  * @param float       $height      Height.
+    //  * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+    //  * @param array<int, StyleDataOpt> $styles Cell border styles (see: getCurrentStyleArray).
+    //  *
+    //  * @return string
+    //  */
+    // public function getHTMLCell(
+    //    string $html,
+    //    float $posx = 0,
+    //    float $posy = 0,
+    //    float $width = 0,
+    //    float $height = 0,
+    //    ?array $cell = null,
+    //    array $styles = [],
+    //): string {
+    //    $dom = $this->getHTMLDOM($html);
+    //
+    //    var_export($dom); exit(); //DEBUG
+    //
+    //    return '';
+    //}
 }
