@@ -31,35 +31,30 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- *
- * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base as BorderStyle
- * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Cell
+ * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
+ * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
- * @//phpstan-import-type PageInputData from \Com\Tecnick\Pdf\Page\Box
- * @//phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
- * @//phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
- * @//phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
- * @//phpstan-import-type TStackBBox from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  *
  * @phpstan-type THTMLAttrib array{
  *     'align'?: string,
  *     'attribute'?: array<string, string>,
  *     'azimuth'?: string,
  *     'bgcolor'?: string,
- *     'block'?: bool,
+ *     'block': bool,
  *     'border'?: array<string, BorderStyle>,
  *     'border-collapse'?: string,
  *     'border-spacing'?: string,
  *     'caption-side'?: string,
  *     'clip'?: bool,
  *     'color'?: string,
- *     'cols'?: string,
- *     'cssdata'?: string,
- *     'csssel'?: string,
+ *     'cols'?: int,
+ *     'cssdata'?: array<string, TCSSData>,
+ *     'csssel'?: array<string>,
  *     'cursor'?: string,
- *     'dir'?: string,
+ *     'dir': string,
  *     'direction'?: string,
- *     'elkey'?: int,
+ *     'elkey': int,
  *     'empty-cells'?: string,
  *     'fgcolor'?: string,
  *     'fill'?: bool,
@@ -83,33 +78,33 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'list-style-position'?: string,
  *     'list-style-type'?: string,
  *     'listtype'?: string,
- *     'margin'?: string,
- *     'opening'?: bool,
+ *     'margin'?: TCellBound,
+ *     'opening': bool,
  *     'orphans'?: string,
- *     'padding'?: string,
+ *     'padding'?: TCellBound,
  *     'page'?: string,
  *     'page-break-inside'?: string,
- *     'parent'?: int,
+ *     'parent': int,
  *     'quotes'?: string,
- *     'rows'?: string,
+ *     'rows'?: int,
  *     'self'?: bool,
  *     'speak'?: string,
  *     'speak-header'?: string,
  *     'stroke'?: float,
  *     'strokecolor'?: string,
- *     'style'?: string,
- *     'tag'?: bool,
+ *     'style'?: array<string, string>,
+ *     'tag': bool,
  *     'text-align'?: string,
  *     'text-indent'?: float,
  *     'text-transform'?: string,
  *     'thead'?: string,
- *     'trids'?: string,
- *     'value'?: string,
+ *     'trids'?: array<int>,
+ *     'value': string,
  *     'volume'?: string,
  *     'white-space'?: string,
  *     'widows'?: string,
  *     'width'?: string,
- *     'word-spacing'?: string,
+ *     'word-spacing'?: float,
  * }
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
@@ -214,6 +209,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ];
 
     /**
+     * HTML text transform cases.
+     *
+     * @var array<string, int>
+     */
+    protected const HTML_TEXT_TRANSFORM = [
+        'capitalize' => \MB_CASE_TITLE,
+        'uppercase' => \MB_CASE_UPPER,
+        'lowercase' => \MB_CASE_LOWER,
+    ];
+
+    /**
      * HTML valid (supported) tags.
      *
      * @var string
@@ -228,7 +234,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected const HTML_TAG_PATTERN = '/(<[^>]+>)/';
 
     /**
-     * HTML inheritable properties.
+     * List of HTML inheritable properties.
      *
      * @var array<string>
      */
@@ -644,65 +650,80 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Returns the default properties for the root HTML element.
      *
-     * @return array<string, mixed>
+     * @return THTMLAttrib
      */
     protected function getHTMLRootProperties(): array
     {
         $font = $this->font->getCurrentFont();
         return [
             'align' => '',
+            'attribute' => [],
             //'azimuth' => '',//
             'bgcolor' => '',
             'block' => false,
+            'border' => [],
             //'border-collapse' => '',//
             //'border-spacing' => '',//
-            'border' => [],
             //'caption-side' => '',//
             'clip' => false,
-            //'color' => '',//
+            'color' => '',//
+            //'cols' => 0,
+            //'cssdata' => [],
+            //'csssel' => [],
             //'cursor' => '',//
             'dir' => $this->rtl ? 'rtl' : 'ltr',
             //'direction' => '',//
+            'elkey' => 0,
             //'empty-cells' => '',//
-            'fgcolor' => 'black',
+            //'fgcolor' => 'black',
             'fill' => true,
+            //'font' => '',//
             //'font-family' => '',//
-            //'font-size-adjust' => '',//
             //'font-size' => $font['size'],//
+            //'font-size-adjust' => '',//
             'font-stretch' => $font['stretching'],
             //'font-style' => $font['style'],//
             //'font-variant' => '',//
             //'font-weight' => '',//
-            //'font' => '',//
             'fontname' => $font['key'],
             'fontsize' => $font['size'],
             'fontstyle' => $font['style'],
+            //'height' => 0.0,
             'hide' => false,
             'letter-spacing' => $font['spacing'],
             'line-height' => 1.0,
+            //'list-style' => '',//
             //'list-style-image' => '',//
             //'list-style-position' => '',//
             //'list-style-type' => '',//
-            //'list-style' => '',//
             'listtype' => '',
+            //'margin' => self::ZEROCELLBOUND,
+            'opening' => false,
             //'orphans' => '',//
-            //'page-break-inside' => '',//
+            //'padding' => self::ZEROCELLBOUND,
             //'page' => '',//
+            //'page-break-inside' => '',//
             'parent' => 0,
             //'quotes' => '',//
-            //'speak-header' => '',//
+            //'rows' => 0,
+            //'self' => false,
             //'speak' => '',//
+            //'speak-header' => '',//
             'stroke' => 0.0,
             'strokecolor' => 'black',
+            //'style' => '',
             'tag' => false,
             //'text-align' => '',//
             'text-indent' => 0.0,
             'text-transform' => '',
+            //'thead' => '',
+            //'trids' => [],
             'value' => '',
             //'volume' => '',//
             //'white-space' => '',//
             //'widows' => '',//
-            //'word-spacing' => '',//
+            //'width' => 0.0,
+            //'word-spacing' => 0.0,//
         ];
     }
 
@@ -711,7 +732,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param string $html HTML code to parse.
      *
-     * @return array<int, array<string, mixed>> HTML DOM Array
+     * @return array<int, THTMLAttrib> HTML DOM Array
      */
     protected function getHTMLDOM(string $html): array
     {
@@ -725,8 +746,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $html = $this->sanitizeHTML($html);
 
-        $dom = [];
-        $dom[0] = $this->getHTMLRootProperties();
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = [0 => $this->getHTMLRootProperties()];
+
+        /** @var array<int> $level */
         $level = [0];
 
         $elm = \preg_split(self::HTML_TAG_PATTERN, $html, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
@@ -739,10 +762,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $key = 1;
 
         while ($elkey < $maxel) {
-            $dom[$key] = [];
-            $dom[$key]['elkey'] = $elkey;
             $element = $elm[$elkey];
             $parent = \intval(\end($level));
+
+            // init new DOM element
+            $dom[$key] = [
+                'attribute' => [],
+                'block' => false,
+                'dir' => $dom[$parent]['dir'],
+                'elkey' => $elkey,
+                'opening' => false,
+                'parent' => $parent,
+                'tag' => false,
+                'value' => '',
+            ];
 
             if (\preg_match(self::HTML_TAG_PATTERN, $element) > 0) {
                 $element = \substr($element, 1, -1);
@@ -762,7 +795,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['block'] = \in_array($dom[$key]['value'], self::HTML_BLOCK_TAGS);
                 if ($element[0] == '/') { // closing tag
                     array_pop($level);
-                    $this->processHTMLDOMClosingTag($dom, $elm, $key, $parent, $cssarray);
+                    $this->processHTMLDOMClosingTag(
+                        $dom,
+                        $elm,
+                        $key,
+                        $parent,
+                        $cssarray,
+                    );
                 } else { // opening or self-closing html tag
                     $this->processHTMLDOMOpeningTag(
                         $dom,
@@ -770,13 +809,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $level,
                         $element,
                         $key,
-                        $parent,
                         $thead,
                     );
                 }
             } else {
                 // content between tags (TEXT)
-                $this->processHTMLDOMText($dom, $element, $key, $parent);
+                $this->processHTMLDOMText(
+                    $dom,
+                    $element,
+                    $key,
+                    $parent,
+                );
             }
 
             ++$elkey;
@@ -789,7 +832,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process the content between tags (text).
      *
-     * @param array<int, array<string, mixed>> $dom DOM array.
+     * @param array<int, THTMLAttrib> $dom DOM array.
      * @param string $element Element data.
      * @param int $key Current element ID.
      * @param int $parent ID of the parent element.
@@ -798,24 +841,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function processHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
     {
-        $dom[$key]['tag'] = false;
-        $dom[$key]['block'] = false;
-        $dom[$key]['parent'] = $parent;
-        $dom[$key]['dir'] = $dom[$parent]['dir'];
         if (!empty($dom[$parent]['text-transform'])) {
-            $ttm = [
-                'capitalize' => MB_CASE_TITLE,
-                'uppercase' => MB_CASE_UPPER,
-                'lowercase' => MB_CASE_LOWER,
-            ];
-            if (
-                isset($dom[$parent]['text-transform'])
-                && \is_string($dom[$parent]['text-transform'])
-                && !empty($ttm[$dom[$parent]['text-transform']])
-            ) {
+            if (!empty(self::HTML_TEXT_TRANSFORM[$dom[$parent]['text-transform']])) {
                 $element = \mb_convert_case(
                     $element,
-                    $ttm[$dom[$parent]['text-transform']],
+                    self::HTML_TEXT_TRANSFORM[$dom[$parent]['text-transform']],
                     $this->encoding,
                 );
             }
@@ -825,9 +855,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Inherith HTML properties from a parent element.
+     * Inherit HTML properties from a parent element.
      *
-     * @param array<int, array<string, mixed>> $dom DOM array.
+     * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key ID of the current HTML element.
      * @param int $parent ID of the parent element from which to inherit properties.
      *
@@ -835,17 +865,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function inheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
-        foreach (self::HTML_INHPROP as $prp) {
-            if (!isset($dom[$key][$prp])) {
-                $dom[$key][$prp] = $dom[$parent][$prp];
-            }
-        }
+
+        $dom[$key] = \array_merge($dom[$parent], $dom[$key]);
     }
 
     /**
      * Process the HTML DOM closing tag.
      *
-     * @param array<int, array<string, mixed>> $dom DOM array.
+     * @param array<int, THTMLAttrib> $dom DOM array.
      * @param array<int, string> $elm Current element.
      * @param int $key Current element ID.
      * @param int $parent ID of the parent element.
@@ -855,13 +882,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function processHTMLDOMClosingTag(array &$dom, array $elm, int $key, int $parent, string $cssarray): void
     {
-        $dom[$key]['opening'] = false;
-        $dom[$key]['parent'] = $parent;
         $granparent = $dom[$parent]['parent'];
         $this->inheritHTMLProperties($dom, $key, $granparent);
 
         // set the number of columns in table tag
-        if (($dom[$key]['value'] == 'tr') && (!empty($dom[$granparent]['cols']))) {
+        if (
+            ($dom[$key]['value'] == 'tr')
+            && (!empty($dom[$parent]['cols']))
+            && (empty($dom[$granparent]['cols']))
+        ) {
             $dom[$granparent]['cols'] = $dom[$parent]['cols'];
         }
         if (($dom[$key]['value'] == 'td') || ($dom[$key]['value'] == 'th')) {
@@ -900,11 +929,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $dom[$granparent]['thead'] .= $elm[$dom[$idx]['elkey']];
                 }
             }
-            if (!isset($dom[$parent]['attribute'])) {
-                $dom[$parent]['attribute'] = [];
-            }
             // header elements must be always contained in a single page
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$parent]['attribute']['nobr'] = 'true';
         }
         if (
@@ -921,12 +946,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML DOM Opening Tag.
      *
-     * @param array<int, array<string, mixed>> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
      * @param array<int> $level
      * @param string $element
      * @param int $key
-     * @param int $parent
      * @param bool $thead
      *
      * @return void
@@ -937,11 +961,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $level,
         string $element,
         int $key,
-        int $parent,
         bool $thead,
     ): void {
         $dom[$key]['opening'] = true;
-        $dom[$key]['parent'] = $parent;
         $dom[$key]['self'] = ((\substr($element, -1, 1) == '/')
             || (\in_array($dom[$key]['value'], self::HTML_SELF_CLOSING_TAGS)));
         if (!$dom[$key]['self']) {
@@ -967,14 +989,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['attribute'][strtolower($name)] = $attr_array[2][$id];
             }
         }
-
         if (!empty($css)) {
             // merge CSS style to current style
-            list($dom[$key]['csssel'], $dom[$key]['cssdata']) = $this->getHTMLDOMCSSData($dom, $css, $key);
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
+            $this->getHTMLDOMCSSData($dom, $css, $key);
+            if (!empty($dom[$key]['cssdata'])) {
+                $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
+            }
         }
-
         $this->parseHTMLStyleAttributes($dom, $key, $parentkey);
         $this->parseHTMLAttributes($dom, $key, $thead);
     }
@@ -982,25 +1003,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Returns the styles array that apply for the selected HTML tag.
      *
-     * @param array<int, array<string, mixed>> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
      * @param int $key Key of the current HTML tag.
-     *
-     * @return array{array<string>, array<string, array{'k': string, 'c': string, 's': string}>}
      */
-    public function getHTMLDOMCSSData(array $dom, array $css, int $key): array
+    public function getHTMLDOMCSSData(array &$dom, array $css, int $key): void
     {
+        /** @var array<TCSSData> $ret */
         $ret = [];
         // get parent CSS selectors
         /** @var array<string> $selectors */
         $selectors = [];
-        if (
-            isset($dom[$key]['parent'])
-            && \is_int($dom[$key]['parent'])
-            && !empty($dom[($dom[$key]['parent'])]['csssel'])
-            && \is_array($dom[($dom[$key]['parent'])]['csssel'])
-        ) {
-            $selectors = $dom[($dom[$key]['parent'])]['csssel'];
+        $parent = $dom[$key]['parent'];
+        if (!empty($dom[$parent]['csssel'])) {
+            $selectors = $dom[$parent]['csssel'];
         }
         // get all styles that apply
         foreach ($css as $selector => $style) {
@@ -1012,7 +1028,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $specificity = \substr($selector, 0, $pos);
             // remove specificity
             $selector = \substr($selector, $pos);
-
             // check if this selector apply to current tag
             if ($this->isValidCSSSelectorForTag($dom, $key, $selector)) {
                 if (!\in_array($selector, $selectors)) {
@@ -1026,8 +1041,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
-        if (!empty($dom[$key]['attribute']['style'])) {
+        if (
+            !empty($dom[$key]['attribute'])
+            && !empty($dom[$key]['attribute']['style'])
+        ) {
             // attach inline style (latest properties have high priority)
             $ret[] = [
                 'k' => '',
@@ -1036,21 +1053,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ];
         }
         // order the css array to account for specificity
+        /** @var array<string, TCSSData> $cssordered */
         $cssordered = [];
         foreach ($ret as $key => $val) {
             $skey = \sprintf('%04d', $key);
             $cssordered[$val['s'] . '_' . $skey] = $val;
         }
-        // sort selectors alphabetically to account for specificity
-        \ksort($cssordered, SORT_STRING);
-        // @phpstan-ignore return.type
-        return [$selectors, $cssordered];
+        if (!empty($selectors)) {
+            $dom[$key]['csssel'] = $selectors;
+        }
+        if (!empty($cssordered)) {
+            // sort selectors alphabetically to account for specificity
+            \ksort($cssordered, SORT_STRING);
+            $dom[$key]['cssdata'] = $cssordered;
+        }
     }
 
     /**
      * Returns true if the CSS selector is valid for the selected HTML tag.
      *
-     * @param array<int, array<string, mixed>> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param int $key key of the current HTML tag
      * @param string $selector CSS selector string
      *
@@ -1061,19 +1083,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $ret = false;
         $tag = $dom[$key]['value'];
         $class = [];
-        if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            !empty($dom[$key]['attribute']['class'])
-            && \is_string($dom[$key]['attribute']['class'])
-        ) {
+        if (!empty($dom[$key]['attribute']['class'])) {
             $class = \explode(' ', \strtolower($dom[$key]['attribute']['class']));
         }
         $idx = '';
-        if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            !empty($dom[$key]['attribute']['id'])
-            && \is_string($dom[$key]['attribute']['id'])
-        ) {
+        if (!empty($dom[$key]['attribute']['id'])) {
             $idx = \strtolower($dom[$key]['attribute']['id']);
         }
         $selector = \preg_replace('/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si', '\\1*.\\3', $selector) ?? '';
@@ -1110,11 +1124,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                     $att = \strtolower($attrmatch[1]);
                     $val = $attrmatch[3];
-                    if (
-                        // @phpstan-ignore offsetAccess.nonOffsetAccessible
-                        isset($dom[$key]['attribute'][$att])
-                        && \is_string($dom[$key]['attribute'][$att])
-                    ) {
+                    if (!empty($dom[$key]['attribute'][$att])) {
                         switch ($attrmatch[2]) {
                             case '=':
                                 $ret = ($dom[$key]['attribute'][$att] == $val);
@@ -1193,7 +1203,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             && $dom[$idx]['opening']
                             && $this->isValidCSSSelectorForTag($dom, $idx, $selector)
                         ) {
-                                break;
+                            break;
                         }
                     }
                     break;
@@ -1206,16 +1216,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Parse HTML DOM Style attributes.
      *
-     * @param array<int, array<string, mixed>> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param int $key key of the current HTML tag.
      * @param int $parentkey Key of the parent element.
      */
     public function parseHTMLStyleAttributes(array &$dom, int $key, int $parentkey): void
     {
         if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             empty($dom[$key]['attribute']['style'])
-            || !\is_string($dom[$key]['attribute']['style'])
             || empty(\preg_match_all(
                 '/([^;:\s]*):([^;]*)/',
                 $dom[$key]['attribute']['style'],
@@ -1382,12 +1390,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$key]['align'] = \strtoupper($dom[$key]['style']['text-align'][0]);
         }
         // check for CSS padding properties
-        $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ? 0 : $this->getCSSPadding($dom[$key]['style']['padding']);
+        $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ?
+            self::ZEROCELLBOUND : $this->getCSSPadding($dom[$key]['style']['padding']);
         // check for CSS margin properties
-        $dom[$key]['margin'] = empty($dom[$key]['style']['margin']) ? 0.0 : $this->getCSSMargin($dom[$key]['style']['margin']);
+        $dom[$key]['margin'] = empty($dom[$key]['style']['margin']) ?
+            self::ZEROCELLBOUND : $this->getCSSMargin($dom[$key]['style']['margin']);
         // check CSS border properties
         if (!empty($dom[$key]['style']['border'])) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['border']['LTRB'] = $this->getCSSBorderStyle($dom[$key]['style']['border']);
         }
         /** @var  array<string, BorderStyle> $brdr */
@@ -1493,15 +1502,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
             if ($brdr[$bsk]['lineWidth'] > 0) {
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 $dom[$key]['border'][$bsk] = $brdr[$bsk];
             }
             if (isset($dom[$key]['style']['padding-' . $bsv])) {
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 $dom[$key]['padding'][$bsk] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['padding-' . $bsv], $ref));
             }
             if (isset($dom[$key]['style']['margin-' . $bsv])) {
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 $dom[$key]['margin'][$bsk] = $this->toUnit($this->getUnitValuePoints(
                     \str_replace('auto', '0', $dom[$key]['style']['margin-' . $bsv]),
                     $ref
@@ -1517,12 +1523,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             !empty($dom[$key]['style']['page-break-inside'])
             && ($dom[$key]['style']['page-break-inside'] == 'avoid')
         ) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['attribute']['nobr'] = 'true';
         }
         // page-break-before
         if (!empty($dom[$key]['style']['page-break-before'])) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['attribute']['pagebreak'] = match ($dom[$key]['style']['page-break-before']) {
                 'always' => 'true',
                 'left' => 'left',
@@ -1532,7 +1536,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // page-break-after
         if (!empty($dom[$key]['style']['page-break-after'])) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $dom[$key]['attribute']['pagebreakafter'] = match ($dom[$key]['style']['page-break-after']) {
                 'always' => 'true',
                 'left' => 'left',
@@ -1545,57 +1548,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Parst HTML DOM attributes.
      *
-     * @param array<int, array<string, mixed>> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param int $key key of the current HTML tag.
      * @param bool $thead
      */
     public function parseHTMLAttributes(array &$dom, int $key, bool $thead): void
     {
-        if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            !empty($dom[$key]['attribute']['display'])
-            && \is_string($dom[$key]['attribute']['display'])
-        ) {
+        if (!empty($dom[$key]['attribute']['display'])) {
             $dom[$key]['hide'] = (\trim(\strtolower($dom[$key]['attribute']['display'])) == 'none');
         }
-        if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            !empty($dom[$key]['attribute']['border'])
-            && \is_string($dom[$key]['attribute']['border'])
-        ) {
+        if (!empty($dom[$key]['attribute']['border'])) {
             $borderstyle = $this->getCSSBorderStyle($dom[$key]['attribute']['border'] . ' solid black');
             if (!empty($borderstyle)) {
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 $dom[$key]['border']['LTRB'] = $borderstyle;
             }
         }
         // check for font tag
         if ($dom[$key]['value'] == 'font') {
             // font family
-            if (
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
-                !empty($dom[$key]['attribute']['face'])
-                && \is_string($dom[$key]['attribute']['face'])
-            ) {
+            if (!empty($dom[$key]['attribute']['face'])) {
                 $dom[$key]['fontname'] = $this->font->getFontFamilyName($dom[$key]['attribute']['face']);
             }
             // font size
             if (
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 isset($dom[$key]['attribute']['size'])
                 && \is_numeric($dom[$key]['attribute']['size'])
             ) {
                 if (
                     ($key > 0)
-                    && \is_string($dom[$key]['attribute']['size'])
-                    // @phpstan-ignore offsetAccess.invalidOffset
+                    && isset($dom[($dom[$key]['parent'])]['fontsize'])
                     && \is_numeric($dom[($dom[$key]['parent'])]['fontsize'])
                 ) {
                     $dom[$key]['fontsize'] = match ($dom[$key]['attribute']['size'][0]) {
-                        // @phpstan-ignore offsetAccess.invalidOffset
                         '+' => $dom[($dom[$key]['parent'])]['fontsize']
                             + \intval(\substr($dom[$key]['attribute']['size'], 1)),
-                        // @phpstan-ignore offsetAccess.invalidOffset
                         '-' => $dom[($dom[$key]['parent'])]['fontsize']
                             - \intval(\substr($dom[$key]['attribute']['size'], 1)),
                         default => \intval($dom[$key]['attribute']['size']),
@@ -1622,9 +1608,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             || ($dom[$key]['value'] == 'sub')
         ) {
             if (
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 !isset($dom[$key]['attribute']['size'])
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 && !isset($dom[$key]['style']['font-size'])
                 && \is_numeric($dom[$key]['fontsize'])
             ) {
@@ -1657,7 +1641,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$key]['fontstyle'] .= 'D';
         }
         if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             !isset($dom[$key]['style']['text-decoration'])
             && ($dom[$key]['value'] == 'a')
         ) {
@@ -1671,29 +1654,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         if (
             !empty($dom[$key]['value'])
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             && ($dom[$key]['value'][0] == 'h')
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             && \is_numeric($dom[$key]['value'][1])
             && (\intval($dom[$key]['value'][1]) > 0)
             && (\intval($dom[$key]['value'][1]) < 7)
         ) {
             // headings h1, h2, h3, h4, h5, h6
             if (
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 !isset($dom[$key]['attribute']['size'])
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 && !isset($dom[$key]['style']['font-size'])
-                // @phpstan-ignore offsetAccess.nonOffsetAccessible
                 && \is_numeric($dom[$key]['value'][1])
             ) {
                 $headsize = (4 - \intval($dom[$key]['value'][1])) * 2;
-                // @phpstan-ignore assignOp.invalid,binaryOp.invalid
                 $dom[$key]['fontsize'] = $dom[0]['fontsize'] + $headsize;
             }
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             if (!isset($dom[$key]['style']['font-weight'])) {
-                // @phpstan-ignore assignOp.invalid
                 $dom[$key]['fontstyle'] .= 'B';
             }
         }
@@ -1711,28 +1686,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['thead'] = false;
                 $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
                 if (
-                    // @phpstan-ignore offsetAccess.invalidOffset
                     !isset($dom[$parent]['rows'])
-                    // @phpstan-ignore offsetAccess.invalidOffset
                     || !\is_int($dom[$parent]['rows'])
                 ) {
-                    // @phpstan-ignore offsetAccess.invalidOffset
                     $dom[$parent]['rows'] = 0;
                 }
                 // store the number of rows on table element
-                // @phpstan-ignore offsetAccess.invalidOffset
                 ++$dom[$parent]['rows'];
                 if (
-                    // @phpstan-ignore offsetAccess.invalidOffset
                     !isset($dom[$parent]['trids'])
-                    // @phpstan-ignore offsetAccess.invalidOffset
                     || !\is_array($dom[$parent]['trids'])
                 ) {
-                    // @phpstan-ignore offsetAccess.invalidOffset
                     $dom[$parent]['trids'] = [];
                 }
                 // store the TR elements IDs on table element
-                // @phpstan-ignore offsetAccess.invalidOffset
                 \array_push($dom[$parent]['trids'], $key);
             }
         }
@@ -1740,83 +1707,58 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ($dom[$key]['value'] == 'th')
             || ($dom[$key]['value'] == 'td')
         ) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             $colspan = (isset($dom[$key]['attribute']['colspan'])
                 && \is_numeric($dom[$key]['attribute']['colspan']))
-                ? \intval($dom[$key]['attribute']['colspan']) : 1;
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+                ? $dom[$key]['attribute']['colspan'] : '1';
             $dom[$key]['attribute']['colspan'] = $colspan;
             $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
             if (
-                // @phpstan-ignore offsetAccess.invalidOffset
                 isset($dom[($parent)]['cols'])
-                // @phpstan-ignore offsetAccess.invalidOffset
                 && \is_numeric($dom[($parent)]['cols'])
             ) {
-                // @phpstan-ignore offsetAccess.invalidOffset
-                $dom[$parent]['cols'] += $colspan;
+                $dom[$parent]['cols'] += \intval($colspan);
             }
         }
         // text direction
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
         if (!empty($dom[$key]['attribute']['dir'])) {
             $dom[$key]['dir'] = $dom[$key]['attribute']['dir'];
         }
         // set foreground color attribute
-        if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            !empty($dom[$key]['attribute']['color'])
-            && \is_string($dom[$key]['attribute']['color'])
-        ) {
+        if (!empty($dom[$key]['attribute']['color'])) {
             $dom[$key]['fgcolor'] = $this->getCSSColor($dom[$key]['attribute']['color']);
         } elseif (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             empty($dom[$key]['style']['color'])
             && ($dom[$key]['value'] == 'a')
         ) {
             $dom[$key]['fgcolor'] = 'blue';
         }
         // set background color attribute
-        if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            !empty($dom[$key]['attribute']['bgcolor'])
-            && \is_string($dom[$key]['attribute']['bgcolor'])
-        ) {
+        if (!empty($dom[$key]['attribute']['bgcolor'])) {
             $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['attribute']['bgcolor']);
         }
         // set stroke color attribute
-        if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            !empty($dom[$key]['attribute']['strokecolor'])
-            && \is_string($dom[$key]['attribute']['strokecolor'])
-        ) {
+        if (!empty($dom[$key]['attribute']['strokecolor'])) {
             $dom[$key]['strokecolor'] = $this->getCSSColor($dom[$key]['attribute']['strokecolor']);
         }
         // check for width attribute
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
         if (isset($dom[$key]['attribute']['width'])) {
             $dom[$key]['width'] = $dom[$key]['attribute']['width'];
         }
         // check for height attribute
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
         if (isset($dom[$key]['attribute']['height'])) {
             $dom[$key]['height'] = $dom[$key]['attribute']['height'];
         }
         // check for text alignment
         if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible,offsetAccess.nonOffsetAccessible
-            (!empty($dom[$key]['attribute']['align'][0]))
-            && \is_string($dom[$key]['attribute']['align'][0])
+            (!empty($dom[$key]['attribute']['align']))
             && ($dom[$key]['value'] !== 'img')
         ) {
             $dom[$key]['align'] = \strtoupper($dom[$key]['attribute']['align'][0]);
         }
         // check for text rendering mode (the following attributes do not exist in HTML)
         if (
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
             !empty($dom[$key]['attribute']['stroke'])
-            && (\is_numeric($dom[$key]['attribute']['stroke'])
-            || \is_string($dom[$key]['attribute']['stroke']))
+            && \is_numeric($dom[$key]['attribute']['stroke'])
             && \is_numeric($dom[$key]['fontsize'])
         ) {
             $ref = self::REFUNITVAL;
@@ -1824,12 +1766,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // font stroke width
             $dom[$key]['stroke'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref));
         }
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
         if (isset($dom[$key]['attribute']['fill'])) {
             // font fill
             $dom[$key]['fill'] = ($dom[$key]['attribute']['fill'] == 'true');
         }
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
         if (isset($dom[$key]['attribute']['clip'])) {
             // clipping mode
             $dom[$key]['clip'] = ($dom[$key]['attribute']['clip'] == 'true');
@@ -2093,7 +2033,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     //  * @param float       $width       Width.
     //  * @param float       $height      Height.
     //  * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-    //  * @param array<int, StyleDataOpt> $styles Cell border styles (see: getCurrentStyleArray).
+    //  * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
     //  *
     //  * @return string
     //  */
