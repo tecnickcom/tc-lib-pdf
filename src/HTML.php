@@ -342,7 +342,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function strTrimLeft($str, $replace = ''): string
     {
-        return \preg_replace('/^' . $this->spaceregexp['p'] . '+/' . $this->spaceregexp['m'], $replace, $str) ?? '';
+        return \preg_replace(
+            '/^' . $this->spaceregexp['p'] . '+/' . $this->spaceregexp['m'],
+            $replace,
+            $str,
+        ) ?? '';
     }
 
     /**
@@ -355,7 +359,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function strTrimRight($str, $replace = ''): string
     {
-        return \preg_replace('/' . $this->spaceregexp['p'] . '+$/' . $this->spaceregexp['m'], $replace, $str) ?? '';
+        return \preg_replace(
+            '/' . $this->spaceregexp['p'] . '+$/' . $this->spaceregexp['m'],
+            $replace,
+            $str,
+        ) ?? '';
     }
 
     /**
@@ -731,13 +739,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $maxel = \count($elm);
-        $elkey = -1;
-        $key = 0;
+        $elkey = 0;
+        $key = 1;
 
         while ($elkey < $maxel) {
-            ++$elkey;
-            ++$key;
-
             $element = $elm[$elkey];
             $parent = \intval(\end($level));
 
@@ -794,6 +799,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $parent,
                 );
             }
+
+            ++$elkey;
+            ++$key;
         }
         /** @var array<int, THTMLAttrib> $dom */
         return $dom;
@@ -849,8 +857,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return void
      */
-    protected function processHTMLDOMClosingTag(array &$dom, array $elm, int $key, int $parent, string $cssarray): void
-    {
+    protected function processHTMLDOMClosingTag(
+        array &$dom,
+        array $elm,
+        int $key,
+        int $parent,
+        string $cssarray,
+    ): void {
         $granparent = $dom[$parent]['parent'];
         $this->inheritHTMLProperties($dom, $key, $granparent);
 
@@ -1063,9 +1076,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (!empty($dom[$key]['attribute']['id'])) {
             $idx = \strtolower($dom[$key]['attribute']['id']);
         }
-        $selector = \preg_replace('/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si', '\\1*.\\3', $selector) ?? '';
+        $selector = \preg_replace(
+            '/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si',
+            '\\1*.\\3',
+            $selector,
+        ) ?? '';
         $matches = [];
-        if (empty(\preg_match_all('/([\>\+\~\s]{1})([a-zA-Z0-9\*]+)([^\>\+\~\s]*)/si', $selector, $matches, PREG_PATTERN_ORDER | PREG_OFFSET_CAPTURE))) {
+        if (
+            empty(\preg_match_all(
+                '/([\>\+\~\s]{1})([a-zA-Z0-9\*]+)([^\>\+\~\s]*)/si',
+                $selector,
+                $matches,
+                PREG_PATTERN_ORDER | PREG_OFFSET_CAPTURE,
+            ))
+        ) {
             return $ret;
         }
         $parentop = \array_pop($matches[1]);
@@ -1092,7 +1116,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 case '[': // attribute
                     $attrmatch = [];
-                    if (empty(\preg_match('/\[([a-zA-Z0-9]*)[\s]*([\~\^\$\*\|\=]*)[\s]*["]?([^"\]]*)["]?\]/i', $attrib, $attrmatch))) {
+                    if (
+                        empty(\preg_match(
+                            '/\[([a-zA-Z0-9]*)[\s]*([\~\^\$\*\|\=]*)[\s]*["]?([^"\]]*)["]?\]/i',
+                            $attrib,
+                            $attrmatch,
+                        ))
+                    ) {
                         break;
                     }
                     $att = \strtolower($attrmatch[1]);
@@ -1130,7 +1160,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         // (::first-line, ::first-letter, ::before, ::after)
                     } else { // pseudo-class
                         // @TODO: pseudo-classes are not supported!
-                        // (:root, :nth-child(n), :nth-last-child(n), :nth-of-type(n), :nth-last-of-type(n), :first-child, :last-child, :first-of-type, :last-of-type, :only-child, :only-of-type, :empty, :link, :visited, :active, :hover, :focus, :target, :lang(fr), :enabled, :disabled, :checked)
+                        // (:root, :nth-child(n), :nth-last-child(n),
+                        // :nth-of-type(n), :nth-last-of-type(n), :first-child,
+                        // :last-child, :first-of-type, :last-of-type, :only-child,
+                        // :only-of-type, :empty, :link, :visited, :active, :hover,
+                        // :focus, :target, :lang(fr), :enabled, :disabled, :checked)
                     }
                     break;
             } // end of switch
@@ -1304,13 +1338,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         // convert to percentage of font height
                         $lineheight = ($lineheight * 100) . '%';
                     }
-                    $dom[$key]['line-height'] = $this->toUnit($this->getUnitValuePoints($lineheight, defunit: '%'));
+                    $dom[$key]['line-height'] = $this->toUnit(
+                        $this->getUnitValuePoints($lineheight, defunit: '%')
+                    );
                     /** @var array<int, THTMLAttrib> $dom */
                     if (\substr($lineheight, -1) !== '%') {
                         if ($dom[$key]['fontsize'] <= 0) {
                             $dom[$key]['line-height'] = 1.0;
                         } elseif (\is_numeric($dom[$key]['fontsize'])) {
-                            $dom[$key]['line-height'] = ($dom[$key]['line-height'] / floatval($dom[$key]['fontsize']));
+                            $dom[$key]['line-height'] = $dom[$key]['line-height'] / floatval($dom[$key]['fontsize']);
                         }
                     }
             }
@@ -1490,13 +1526,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $brdr[$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-' . $bsv]);
             }
             if (!empty($dom[$key]['style']['border-' . $bsv . '-color'])) {
-                $brdr[$bsk]['lineColor'] = $this->getCSSColor($dom[$key]['style']['border-' . $bsv . '-color']);
+                $brdr[$bsk]['lineColor'] = $this->getCSSColor(
+                    $dom[$key]['style']['border-' . $bsv . '-color']
+                );
             }
             if (!empty($dom[$key]['style']['border-' . $bsv . '-width'])) {
-                $brdr[$bsk]['lineWidth'] = $this->getCSSBorderWidth($dom[$key]['style']['border-' . $bsv . '-width']);
+                $brdr[$bsk]['lineWidth'] = $this->getCSSBorderWidth(
+                    $dom[$key]['style']['border-' . $bsv . '-width']
+                );
             }
             if (!empty($dom[$key]['style']['border-' . $bsv . '-style'])) {
-                $brdr[$bsk]['dashPhase'] = $this->getCSSBorderDashStyle($dom[$key]['style']['border-' . $bsv . '-style']);
+                $brdr[$bsk]['dashPhase'] = $this->getCSSBorderDashStyle(
+                    $dom[$key]['style']['border-' . $bsv . '-style']
+                );
                 if ($brdr[$bsk]['dashPhase'] < 0) {
                     $brdr[$bsk] = [];
                 }
@@ -1507,7 +1549,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             /** @var array<int, THTMLAttrib> $dom */
             if (!empty($dom[$key]['style']['padding-' . $bsv])) {
-                $dom[$key]['padding'][$bsk] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['padding-' . $bsv], $ref));
+                $dom[$key]['padding'][$bsk] = $this->toUnit(
+                    $this->getUnitValuePoints($dom[$key]['style']['padding-' . $bsv], $ref)
+                );
             }
             /** @var array<int, THTMLAttrib> $dom */
             if (!empty($dom[$key]['style']['margin-' . $bsv])) {
@@ -1797,7 +1841,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $ref = self::REFUNITVAL;
             $ref['parent'] = \floatval($dom[$key]['fontsize']);
             // font stroke width
-            $dom[$key]['stroke'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref));
+            $dom[$key]['stroke'] = $this->toUnit(
+                $this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref)
+            );
         }
         /** @var array<int, THTMLAttrib> $dom */
         if (isset($dom[$key]['attribute']['fill'])) {
@@ -2058,33 +2104,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         return $this->getTextLine($txti, $posx, $posy);
     }
 
-    // /**
-    //  * @TODO - EXPERIMENTAL - DRAFT
-    //  * Returns the PDF code to render an HTML block inside a rectangular cell.
-    //  *
-    //  * @param string      $html        HTML code to be processed.
-    //  * @param float       $posx        Abscissa of upper-left corner.
-    //  * @param float       $posy        Ordinate of upper-left corner.
-    //  * @param float       $width       Width.
-    //  * @param float       $height      Height.
-    //  * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-    //  * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
-    //  *
-    //  * @return string
-    //  */
-    // public function getHTMLCell(
-    //    string $html,
-    //    float $posx = 0,
-    //    float $posy = 0,
-    //    float $width = 0,
-    //    float $height = 0,
-    //    ?array $cell = null,
-    //    array $styles = [],
-    //): string {
-    //    $dom = $this->getHTMLDOM($html);
+    //  /**
+    //   * @TODO - EXPERIMENTAL - DRAFT
+    //   * Returns the PDF code to render an HTML block inside a rectangular cell.
+    //   *
+    //   * @param string      $html        HTML code to be processed.
+    //   * @param float       $posx        Abscissa of upper-left corner.
+    //   * @param float       $posy        Ordinate of upper-left corner.
+    //   * @param float       $width       Width.
+    //   * @param float       $height      Height.
+    //   * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+    //   * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
+    //   *
+    //   * @return string
+    //   */
+    //  public function getHTMLCell(
+    //     string $html,
+    //     float $posx = 0,
+    //     float $posy = 0,
+    //     float $width = 0,
+    //     float $height = 0,
+    //     ?array $cell = null,
+    //     array $styles = [],
+    // ): string {
+    //     $dom = $this->getHTMLDOM($html);
     //
-    //    var_export($dom); exit(); //DEBUG
+    //     var_export($dom); exit(); //DEBUG
     //
-    //    return '';
-    //}
+    //     return '';
+    // }
 }
