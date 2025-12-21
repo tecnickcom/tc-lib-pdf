@@ -1028,12 +1028,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         if (!empty($selectors)) {
             /** @var array<int, THTMLAttrib> $dom */
+            /** @var array<string> $selectors */
+            // @phpstan-ignore parameterByRef.type
             $dom[$key]['csssel'] = $selectors;
         }
         if (!empty($cssordered)) {
             // sort selectors alphabetically to account for specificity
             \ksort($cssordered, SORT_STRING);
             /** @var array<int, THTMLAttrib> $dom */
+            /** @var array<string, TCSSData> $cssordered */
+            // @phpstan-ignore parameterByRef.type
             $dom[$key]['cssdata'] = $cssordered;
         }
     }
