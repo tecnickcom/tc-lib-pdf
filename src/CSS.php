@@ -40,6 +40,12 @@ use Com\Tecnick\Color\Model as ColorModel;
  *     'V': float,
  * }
  *
+ * @phpstan-type TCSSData array{
+ *     'k': string,
+ *     'c': string,
+ *     's': string,
+ * }
+ *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class CSS extends \Com\Tecnick\Pdf\SVG
@@ -456,7 +462,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     /**
      * Implode CSS data array into a single string.
      *
-     * @param array<string, array{'k': string, 'c': string, 's': string}> $css array of CSS properties.
+     * @param array<string, TCSSData> $css array of CSS properties.
      *
      * @return string merged CSS properties.
      */
@@ -464,7 +470,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         $out = '';
         foreach ($css as $style) {
-            if (!\is_array($style) || empty($style['c']) || (!\is_string($style['c']))) {
+            if (empty($style['c'])) {
                 continue;
             }
             $csscmds = \explode(';', $style['c']);

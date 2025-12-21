@@ -1617,9 +1617,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $opt['as'] = 'Off';
         }
         // store readonly flag
-        if (!isset($this->radiobuttons[$name]['#readonly#'])) {
-            $this->radiobuttons[$name]['#readonly#'] = false;
-        }
         $this->radiobuttons[$name]['#readonly#'] = ($this->radiobuttons[$name]['#readonly#'] || (bool)($opt['f'] & 64));
         $this->font->popLastFont();
         return $this->setAnnotation(

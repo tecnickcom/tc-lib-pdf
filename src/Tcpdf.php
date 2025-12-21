@@ -117,6 +117,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         }
 
         // check for decimal separator
+        // @phpstan-ignore notEqual.alwaysFalse
         if (\sprintf('%.1F', 1.0) != '1.0') {
             \setlocale(LC_NUMERIC, 'C');
         }

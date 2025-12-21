@@ -1781,6 +1781,29 @@ $pdf->page->addAnnotRef($lnk2);
 
 // ----------
 
+// HTML
+
+$pageV01 = $pdf->addPage();
+$pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
+
+$pdf->page->addContent($bfont5['out']);
+
+/*
+$html_01 = '<h1>HTML H1 Test</h1> <h2>HTML H2 Test</h2>';
+
+$pdf-> getHTMLCell(
+    $html_01, // string $html,
+    20, // float $posx = 0,
+    120, // float $posy = 0,
+    150, // float $width = 0,
+    0, // float $height = 0,
+    null, // ?array $cell = null,
+    $style_cell, // array $styles = [],
+);
+*/
+
+// ----------
+
 $pageTOC = $pdf->addPage();
 $pdf->setBookmark('TOC');
 
