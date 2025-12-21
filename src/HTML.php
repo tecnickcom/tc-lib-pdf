@@ -759,10 +759,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $maxel = \count($elm);
-        $elkey = 0;
-        $key = 1;
+        $elkey = -1;
+        $key = 0;
 
         while ($elkey < $maxel) {
+            ++$elkey;
+            ++$key;
+
             $element = $elm[$elkey];
             $parent = \intval(\end($level));
 
@@ -822,9 +825,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $parent,
                 );
             }
-
-            ++$elkey;
-            ++$key;
         }
 
         return $dom;
@@ -1056,11 +1056,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // order the css array to account for specificity
         /** @var array<string, TCSSData> $cssordered */
         $cssordered = [];
+        /** @var TCSSData $val */
         foreach ($ret as $key => $val) {
-            $skey = \sprintf('%04d', $key);
-            $cssordered[$val['s'] . '_' . $skey] = $val;
+            $skey = \sprintf('%s_%04d', $val['s'], $key);
+            $cssordered[$skey] = $val;
         }
         if (!empty($selectors)) {
+            /** @var array<int, THTMLAttrib> $dom */
             $dom[$key]['csssel'] = $selectors;
         }
         if (!empty($cssordered)) {
