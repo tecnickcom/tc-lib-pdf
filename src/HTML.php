@@ -1242,11 +1242,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // --- get some style attributes ---
         // text direction
-        if (isset($dom[$key]['style']['direction'])) {
+        if (!empty($dom[$key]['style']['direction'])) {
             $dom[$key]['dir'] = $dom[$key]['style']['direction'];
         }
         // display
-        if (isset($dom[$key]['style']['display'])) {
+        if (!empty($dom[$key]['style']['display'])) {
             $dom[$key]['hide'] = (\trim(\strtolower($dom[$key]['style']['display'])) == 'none');
         }
         // font family
@@ -1261,19 +1261,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
         // text-indent
-        if (isset($dom[$key]['style']['text-indent'])) {
-            $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['text-indent']));
-            if ($dom[$key]['text-indent'] == 'inherit') {
+        if (!empty($dom[$key]['style']['text-indent'])) {
+            if ($dom[$key]['style']['text-indent'] == 'inherit') {
                 $dom[$key]['text-indent'] = $dom[$parentkey]['text-indent'];
+            } else {
+                $dom[$key]['text-indent'] = $this->toUnit(
+                    $this->getUnitValuePoints($dom[$key]['style']['text-indent']),
+                );
             }
         }
         // text-transform
-        if (isset($dom[$key]['style']['text-transform'])) {
+        if (!empty($dom[$key]['style']['text-transform'])) {
             $dom[$key]['text-transform'] = $dom[$key]['style']['text-transform'];
         }
         // font size
         if (
-            isset($dom[$key]['style']['font-size'])
+            !empty($dom[$key]['style']['font-size'])
             && \is_numeric($dom[$key]['style']['font-size'])
         ) {
             $fsize = \trim($dom[$key]['style']['font-size']);
@@ -1285,7 +1288,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // font-stretch
         if (
-            isset($dom[$key]['style']['font-stretch'])
+            !empty($dom[$key]['style']['font-stretch'])
             && \is_numeric($dom[$parentkey]['font-stretch'])
         ) {
             $dom[$key]['font-stretch'] = $this->getTAFontStretching(
@@ -1295,7 +1298,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // letter-spacing
         if (
-            isset($dom[$key]['style']['letter-spacing'])
+            !empty($dom[$key]['style']['letter-spacing'])
             && \is_numeric($dom[$parentkey]['letter-spacing'])
         ) {
             $dom[$key]['letter-spacing'] = $this->getTALetterSpacing(
@@ -1304,7 +1307,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
         // line-height (internally is the cell height ratio)
-        if (isset($dom[$key]['style']['line-height'])) {
+        if (!empty($dom[$key]['style']['line-height'])) {
             $lineheight = \trim($dom[$key]['style']['line-height']);
             switch ($lineheight) {
                 // A normal line height. This is default
@@ -1330,7 +1333,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // font style
         if (
-            isset($dom[$key]['style']['font-weight'])
+            !empty($dom[$key]['style']['font-weight'])
             && \is_string($dom[$key]['fontstyle'])
         ) {
             if (\strtolower($dom[$key]['style']['font-weight'][0]) == 'n') {
@@ -1342,7 +1345,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
         if (
-            isset($dom[$key]['style']['font-style'])
+            !empty($dom[$key]['style']['font-style'])
             && \is_string($dom[$key]['fontstyle'])
             && (\strtolower($dom[$key]['style']['font-style'][0]) == 'i')
         ) {
@@ -1388,7 +1391,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         // check text alignment
         if (!empty($dom[$key]['style']['text-align'])) {
-            $dom[$key]['align'] = \strtoupper($dom[$key]['style']['text-align'][0]);
+            $dom[$key]['align'] = \strtoupper((string) $dom[$key]['style']['text-align'][0]);
         }
         // check for CSS padding properties
         $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ?
@@ -1424,7 +1427,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        if (isset($dom[$key]['style']['border-width'])) {
+        if (!empty($dom[$key]['style']['border-width'])) {
             $brd_widths = \preg_split('/[\s]+/', \trim($dom[$key]['style']['border-width']));
             if ($brd_widths !== false) {
                 if (isset($brd_widths[3])) {
@@ -1442,7 +1445,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
         if (!empty($dom[$key]['style']['border-style'])) {
-            $brd_styles = \preg_split('/[\s]+/', trim($dom[$key]['style']['border-style']));
+            $brd_styles = \preg_split('/[\s]+/', \trim($dom[$key]['style']['border-style']));
             if ($brd_styles !== false) {
                 if (isset($brd_styles[3]) && ($brd_styles[3] != 'none')) {
                     $brdr['L']['lineCap'] = 'square';
@@ -1488,16 +1491,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $ref['parent'] = 0.0;
         foreach ($cellside as $bsk => $bsv) {
             $brdr[$bsk] = $this->getCSSDefaultBorderStyle();
-            if (isset($dom[$key]['style']['border-' . $bsv])) {
+            if (!empty($dom[$key]['style']['border-' . $bsv])) {
                 $brdr[$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-' . $bsv]);
             }
-            if (isset($dom[$key]['style']['border-' . $bsv . '-color'])) {
+            if (!empty($dom[$key]['style']['border-' . $bsv . '-color'])) {
                 $brdr[$bsk]['lineColor'] = $this->getCSSColor($dom[$key]['style']['border-' . $bsv . '-color']);
             }
-            if (isset($dom[$key]['style']['border-' . $bsv . '-width'])) {
+            if (!empty($dom[$key]['style']['border-' . $bsv . '-width'])) {
                 $brdr[$bsk]['lineWidth'] = $this->getCSSBorderWidth($dom[$key]['style']['border-' . $bsv . '-width']);
             }
-            if (isset($dom[$key]['style']['border-' . $bsv . '-style'])) {
+            if (!empty($dom[$key]['style']['border-' . $bsv . '-style'])) {
                 $brdr[$bsk]['dashPhase'] = $this->getCSSBorderDashStyle($dom[$key]['style']['border-' . $bsv . '-style']);
                 if ($brdr[$bsk]['dashPhase'] < 0) {
                     $brdr[$bsk] = [];
@@ -1506,10 +1509,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($brdr[$bsk]['lineWidth'] > 0) {
                 $dom[$key]['border'][$bsk] = $brdr[$bsk];
             }
-            if (isset($dom[$key]['style']['padding-' . $bsv])) {
+            if (!empty($dom[$key]['style']['padding-' . $bsv])) {
                 $dom[$key]['padding'][$bsk] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['padding-' . $bsv], $ref));
             }
-            if (isset($dom[$key]['style']['margin-' . $bsv])) {
+            if (!empty($dom[$key]['style']['margin-' . $bsv])) {
                 $dom[$key]['margin'][$bsk] = $this->toUnit($this->getUnitValuePoints(
                     \str_replace('auto', '0', $dom[$key]['style']['margin-' . $bsv]),
                     $ref
@@ -1517,7 +1520,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
         // check for CSS border-spacing properties
-        if (isset($dom[$key]['style']['border-spacing'])) {
+        if (!empty($dom[$key]['style']['border-spacing'])) {
             $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($dom[$key]['style']['border-spacing']);
         }
         // page-break-inside
@@ -1611,7 +1614,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             if (
                 !isset($dom[$key]['attribute']['size'])
-                && !isset($dom[$key]['style']['font-size'])
+                && empty($dom[$key]['style']['font-size'])
                 && \is_numeric($dom[$key]['fontsize'])
             ) {
                 $dom[$key]['fontsize'] = \floatval($dom[$key]['fontsize']) * self::FONT_SMALL_RATIO;
@@ -1643,7 +1646,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$key]['fontstyle'] .= 'D';
         }
         if (
-            !isset($dom[$key]['style']['text-decoration'])
+            empty($dom[$key]['style']['text-decoration'])
             && ($dom[$key]['value'] == 'a')
         ) {
             $dom[$key]['fontstyle'] = 'U';
@@ -1664,13 +1667,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // headings h1, h2, h3, h4, h5, h6
             if (
                 !isset($dom[$key]['attribute']['size'])
-                && !isset($dom[$key]['style']['font-size'])
+                && empty($dom[$key]['style']['font-size'])
                 && \is_numeric($dom[$key]['value'][1])
             ) {
                 $headsize = (4 - \intval($dom[$key]['value'][1])) * 2;
                 $dom[$key]['fontsize'] = $dom[0]['fontsize'] + $headsize;
             }
-            if (!isset($dom[$key]['style']['font-weight'])) {
+            if (empty($dom[$key]['style']['font-weight'])) {
                 $dom[$key]['fontstyle'] .= 'B';
             }
         }
