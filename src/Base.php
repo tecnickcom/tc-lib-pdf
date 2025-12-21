@@ -594,10 +594,10 @@ abstract class Base
      * @var TStackBBox
      */
     protected array $bbox = [[
-        'x' => 0,
-        'y' => 0,
-        'w' => 0,
-        'h' => 0,
+        'x' => 0.0,
+        'y' => 0.0,
+        'w' => 0.0,
+        'h' => 0.0,
     ]];
 
     /**
@@ -637,10 +637,10 @@ abstract class Base
      * @const TCellBound
      */
     public const ZEROCELLBOUND = [
-        'T' => 0,
-        'R' => 0,
-        'B' => 0,
-        'L' => 0,
+        'T' => 0.0,
+        'R' => 0.0,
+        'B' => 0.0,
+        'L' => 0.0,
     ];
 
     /**
