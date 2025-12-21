@@ -1789,7 +1789,7 @@ $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
 $pdf->page->addContent($bfont5['out']);
 
 /*
-$html_01 = '<h1>HTML H1 Test</h1><h2>HTML H2 Test</h2>';
+$html_01 = '<h1>HTML H1 Test</h1> <h2>HTML H2 Test</h2>';
 
 $pdf-> getHTMLCell(
     $html_01, // string $html,

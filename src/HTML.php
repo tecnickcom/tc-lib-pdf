@@ -41,13 +41,81 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @//phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
  * @//phpstan-import-type TStackBBox from \Com\Tecnick\Pdf\Base
  *
+ * @phpstan-type THTMLAttrib array{
+ *     'align'?: string,
+ *     'attribute'?: array<string, string>,
+ *     'azimuth'?: string,
+ *     'bgcolor'?: string,
+ *     'block'?: bool,
+ *     'border'?: array<string, BorderStyle>,
+ *     'border-collapse'?: string,
+ *     'border-spacing'?: string,
+ *     'caption-side'?: string,
+ *     'clip'?: bool,
+ *     'color'?: string,
+ *     'cols'?: string,
+ *     'cssdata'?: string,
+ *     'csssel'?: string,
+ *     'cursor'?: string,
+ *     'dir'?: string,
+ *     'direction'?: string,
+ *     'elkey'?: int,
+ *     'empty-cells'?: string,
+ *     'fgcolor'?: string,
+ *     'fill'?: bool,
+ *     'font'?: string,
+ *     'font-family'?: string,
+ *     'font-size'?: float,
+ *     'font-size-adjust'?: string,
+ *     'font-stretch'?: float,
+ *     'font-style'?: string,
+ *     'font-variant'?: string,
+ *     'font-weight'?: string,
+ *     'fontname'?: string,
+ *     'fontsize'?: float,
+ *     'fontstyle'?: string,
+ *     'height'?: float,
+ *     'hide'?: bool,
+ *     'letter-spacing'?: float,
+ *     'line-height'?: float,
+ *     'list-style'?: string,
+ *     'list-style-image'?: string,
+ *     'list-style-position'?: string,
+ *     'list-style-type'?: string,
+ *     'listtype'?: string,
+ *     'margin'?: string,
+ *     'opening'?: bool,
+ *     'orphans'?: string,
+ *     'padding'?: string,
+ *     'page'?: string,
+ *     'page-break-inside'?: string,
+ *     'parent'?: int,
+ *     'quotes'?: string,
+ *     'rows'?: string,
+ *     'self'?: bool,
+ *     'speak'?: string,
+ *     'speak-header'?: string,
+ *     'stroke'?: float,
+ *     'strokecolor'?: string,
+ *     'style'?: string,
+ *     'tag'?: bool,
+ *     'text-align'?: string,
+ *     'text-indent'?: float,
+ *     'text-transform'?: string,
+ *     'thead'?: string,
+ *     'trids'?: string,
+ *     'value'?: string,
+ *     'volume'?: string,
+ *     'white-space'?: string,
+ *     'widows'?: string,
+ *     'width'?: string,
+ *     'word-spacing'?: string,
+ * }
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 {
-    //@TODO: to be completed
-
     /**
      * Valid bullet types for list-items
      *
