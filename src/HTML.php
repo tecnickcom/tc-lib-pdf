@@ -35,6 +35,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
+ * @//phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base as BorderStyleOpt
  *
  * @phpstan-type THTMLAttrib array{
  *     'align'?: string,
@@ -967,7 +968,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $dom[$key]['self'] = ((\substr($element, -1, 1) == '/')
             || (\in_array($dom[$key]['value'], self::HTML_SELF_CLOSING_TAGS)));
         if (!$dom[$key]['self']) {
-            array_push($level, $key);
+            \array_push($level, $key);
         }
         $parentkey = 0;
         if ($key > 0) {
@@ -986,7 +987,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['attribute'] = []; // reset attribute array
             foreach ($attr_array[1] as $id => $name) {
-                $dom[$key]['attribute'][strtolower($name)] = $attr_array[2][$id];
+                $dom[$key]['attribute'][\strtolower($name)] = (string) $attr_array[2][$id];
             }
         }
         if (!empty($css)) {
@@ -1486,6 +1487,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $ref = self::REFUNITVAL;
         $ref['parent'] = 0.0;
         foreach ($cellside as $bsk => $bsv) {
+            $brdr[$bsk] = $this->getCSSDefaultBorderStyle();
             if (isset($dom[$key]['style']['border-' . $bsv])) {
                 $brdr[$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-' . $bsv]);
             }

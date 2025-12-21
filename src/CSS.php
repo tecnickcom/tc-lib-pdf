@@ -470,7 +470,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         $out = '';
         foreach ($css as $style) {
-            if (!\is_array($style) || empty($style['c']) || (!\is_string($style['c']))) {
+            if (empty($style['c'])) {
                 continue;
             }
             $csscmds = \explode(';', $style['c']);
