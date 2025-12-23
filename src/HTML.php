@@ -2104,33 +2104,329 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         return $this->getTextLine($txti, $posx, $posy);
     }
 
-    //  /**
-    //   * @TODO - EXPERIMENTAL - DRAFT
-    //   * Returns the PDF code to render an HTML block inside a rectangular cell.
-    //   *
-    //   * @param string      $html        HTML code to be processed.
-    //   * @param float       $posx        Abscissa of upper-left corner.
-    //   * @param float       $posy        Ordinate of upper-left corner.
-    //   * @param float       $width       Width.
-    //   * @param float       $height      Height.
-    //   * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-    //   * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
-    //   *
-    //   * @return string
-    //   */
-    //  public function getHTMLCell(
-    //     string $html,
-    //     float $posx = 0,
-    //     float $posy = 0,
-    //     float $width = 0,
-    //     float $height = 0,
-    //     ?array $cell = null,
-    //     array $styles = [],
-    // ): string {
-    //     $dom = $this->getHTMLDOM($html);
-    //
-    //     var_export($dom); exit(); //DEBUG
-    //
-    //     return '';
-    // }
+    /**
+     * @TODO - EXPERIMENTAL - DRAFT - IN PROGRESS
+     *
+     * Returns the PDF code to render an HTML block inside a rectangular cell.
+     *
+     * @param string      $html        HTML code to be processed.
+     * @param float       $posx        Abscissa of upper-left corner.
+     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $width       Width.
+     * @param float       $height      Height.
+     * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
+     *
+     * @return string
+     */
+    public function getHTMLCell(
+        string $html,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        ?array $cell = null,
+        array $styles = [],
+    ): string {
+        $out = '';
+        $dom = $this->getHTMLDOM($html);
+        $numel = \count($dom);
+        $key = 0;
+
+        $tpx = $posx;
+        $tpy = $posy;
+        $tpw = $width;
+        $tph = $height;
+
+        $cell = $cell; // @TODO
+        $styles = $styles; // @TODO
+
+        while ($key < $numel) {
+            $elm = $dom[$key];
+
+            if ($elm['tag']) { // HTML TAG
+                if ($elm['opening']) { // opening tag
+                    $out .= match ($elm['value']) {
+                        // 'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'abbr'       => $this->parseHTMLTagOPENabbr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'acronym'    => $this->parseHTMLTagOPENacronym($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'address'    => $this->parseHTMLTagOPENaddress($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'applet'     => $this->parseHTMLTagOPENapplet($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'area'       => $this->parseHTMLTagOPENarea($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'article'    => $this->parseHTMLTagOPENarticle($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'aside'      => $this->parseHTMLTagOPENaside($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'audio'      => $this->parseHTMLTagOPENaudio($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'base'       => $this->parseHTMLTagOPENbase($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'basefont'   => $this->parseHTMLTagOPENbasefont($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'bdi'        => $this->parseHTMLTagOPENbdi($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'bdo'        => $this->parseHTMLTagOPENbdo($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'big'        => $this->parseHTMLTagOPENbig($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'blockquote' => $this->parseHTMLTagOPENblockquote($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'body'       => $this->parseHTMLTagOPENbody($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'br'         => $this->parseHTMLTagOPENbr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'button'     => $this->parseHTMLTagOPENbutton($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'canvas'     => $this->parseHTMLTagOPENcanvas($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'caption'    => $this->parseHTMLTagOPENcaption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'center'     => $this->parseHTMLTagOPENcenter($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'cite'       => $this->parseHTMLTagOPENcite($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'code'       => $this->parseHTMLTagOPENcode($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'col'        => $this->parseHTMLTagOPENcol($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'colgroup'   => $this->parseHTMLTagOPENcolgroup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'data'       => $this->parseHTMLTagOPENdata($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'datalist'   => $this->parseHTMLTagOPENdatalist($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dd'         => $this->parseHTMLTagOPENdd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'del'        => $this->parseHTMLTagOPENdel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'details'    => $this->parseHTMLTagOPENdetails($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dfn'        => $this->parseHTMLTagOPENdfn($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dialog'     => $this->parseHTMLTagOPENdialog($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'div'        => $this->parseHTMLTagOPENdiv($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dl'         => $this->parseHTMLTagOPENdl($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dt'         => $this->parseHTMLTagOPENdt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'em'         => $this->parseHTMLTagOPENem($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'embed'      => $this->parseHTMLTagOPENembed($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'fieldset'   => $this->parseHTMLTagOPENfieldset($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'figcaption' => $this->parseHTMLTagOPENfigcaption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'figure'     => $this->parseHTMLTagOPENfigure($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'footer'     => $this->parseHTMLTagOPENfooter($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'form'       => $this->parseHTMLTagOPENform($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h1'         => $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h2'         => $this->parseHTMLTagOPENh2($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h3'         => $this->parseHTMLTagOPENh3($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h4'         => $this->parseHTMLTagOPENh4($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h5'         => $this->parseHTMLTagOPENh5($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h6'         => $this->parseHTMLTagOPENh6($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'head'       => $this->parseHTMLTagOPENhead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'header'     => $this->parseHTMLTagOPENheader($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'hgroup'     => $this->parseHTMLTagOPENhgroup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'hr'         => $this->parseHTMLTagOPENhr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'html'       => $this->parseHTMLTagOPENhtml($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'i'          => $this->parseHTMLTagOPENi($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'iframe'     => $this->parseHTMLTagOPENiframe($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'img'        => $this->parseHTMLTagOPENimg($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'input'      => $this->parseHTMLTagOPENinput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ins'        => $this->parseHTMLTagOPENins($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'kbd'        => $this->parseHTMLTagOPENkbd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'label'      => $this->parseHTMLTagOPENlabel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'legend'     => $this->parseHTMLTagOPENlegend($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'li'         => $this->parseHTMLTagOPENli($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'link'       => $this->parseHTMLTagOPENlink($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'main'       => $this->parseHTMLTagOPENmain($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'map'        => $this->parseHTMLTagOPENmap($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'mark'       => $this->parseHTMLTagOPENmark($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'menu'       => $this->parseHTMLTagOPENmenu($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'meta'       => $this->parseHTMLTagOPENmeta($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'meter'      => $this->parseHTMLTagOPENmeter($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'nav'        => $this->parseHTMLTagOPENnav($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'noscript'   => $this->parseHTMLTagOPENnoscript($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'object'     => $this->parseHTMLTagOPENobject($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ol'         => $this->parseHTMLTagOPENol($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'optgroup'   => $this->parseHTMLTagOPENoptgroup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'option'     => $this->parseHTMLTagOPENoption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'output'     => $this->parseHTMLTagOPENoutput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'p'          => $this->parseHTMLTagOPENp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'param'      => $this->parseHTMLTagOPENparam($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'picture'    => $this->parseHTMLTagOPENpicture($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'pre'        => $this->parseHTMLTagOPENpre($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'progress'   => $this->parseHTMLTagOPENprogress($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'q'          => $this->parseHTMLTagOPENq($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'rp'         => $this->parseHTMLTagOPENrp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'rt'         => $this->parseHTMLTagOPENrt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ruby'       => $this->parseHTMLTagOPENruby($elm, $tpx, $tpy, $tpw, $tph),
+                        // 's'          => $this->parseHTMLTagOPENs($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'samp'       => $this->parseHTMLTagOPENsamp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'script'     => $this->parseHTMLTagOPENscript($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'search'     => $this->parseHTMLTagOPENsearch($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'section'    => $this->parseHTMLTagOPENsection($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'select'     => $this->parseHTMLTagOPENselect($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'small'      => $this->parseHTMLTagOPENsmall($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'source'     => $this->parseHTMLTagOPENsource($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'span'       => $this->parseHTMLTagOPENspan($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'strong'     => $this->parseHTMLTagOPENstrong($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'style'      => $this->parseHTMLTagOPENstyle($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'sub'        => $this->parseHTMLTagOPENsub($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'summary'    => $this->parseHTMLTagOPENsummary($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'sup'        => $this->parseHTMLTagOPENsup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'svg'        => $this->parseHTMLTagOPENsvg($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'table'      => $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tbody'      => $this->parseHTMLTagOPENtbody($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'td'         => $this->parseHTMLTagOPENtd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'template'   => $this->parseHTMLTagOPENtemplate($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'textarea'   => $this->parseHTMLTagOPENtextarea($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tfoot'      => $this->parseHTMLTagOPENtfoot($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'th'         => $this->parseHTMLTagOPENth($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'thead'      => $this->parseHTMLTagOPENthead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'time'       => $this->parseHTMLTagOPENtime($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'title'      => $this->parseHTMLTagOPENtitle($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tr'         => $this->parseHTMLTagOPENtr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'track'      => $this->parseHTMLTagOPENtrack($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'u'          => $this->parseHTMLTagOPENu($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ul'         => $this->parseHTMLTagOPENul($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'var'        => $this->parseHTMLTagOPENvar($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'video'      => $this->parseHTMLTagOPENvideo($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'wbr'        => $this->parseHTMLTagOPENwbr($elm, $tpx, $tpy, $tpw, $tph),
+                        default      => '',
+                    };
+                } else { // closing tag
+                    $out .= match ($elm['value']) {
+                        // 'a'          => $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'abbr'       => $this->parseHTMLTagCLOSEabbr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'acronym'    => $this->parseHTMLTagCLOSEacronym($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'address'    => $this->parseHTMLTagCLOSEaddress($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'applet'     => $this->parseHTMLTagCLOSEapplet($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'area'       => $this->parseHTMLTagCLOSEarea($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'article'    => $this->parseHTMLTagCLOSEarticle($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'aside'      => $this->parseHTMLTagCLOSEaside($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'audio'      => $this->parseHTMLTagCLOSEaudio($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'b'          => $this->parseHTMLTagCLOSEb($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'base'       => $this->parseHTMLTagCLOSEbase($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'basefont'   => $this->parseHTMLTagCLOSEbasefont($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'bdi'        => $this->parseHTMLTagCLOSEbdi($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'bdo'        => $this->parseHTMLTagCLOSEbdo($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'big'        => $this->parseHTMLTagCLOSEbig($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'blockquote' => $this->parseHTMLTagCLOSEblockquote($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'body'       => $this->parseHTMLTagCLOSEbody($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'br'         => $this->parseHTMLTagCLOSEbr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'button'     => $this->parseHTMLTagCLOSEbutton($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'canvas'     => $this->parseHTMLTagCLOSEcanvas($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'caption'    => $this->parseHTMLTagCLOSEcaption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'center'     => $this->parseHTMLTagCLOSEcenter($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'cite'       => $this->parseHTMLTagCLOSEcite($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'code'       => $this->parseHTMLTagCLOSEcode($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'col'        => $this->parseHTMLTagCLOSEcol($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'colgroup'   => $this->parseHTMLTagCLOSEcolgroup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'data'       => $this->parseHTMLTagCLOSEdata($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'datalist'   => $this->parseHTMLTagCLOSEdatalist($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dd'         => $this->parseHTMLTagCLOSEdd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'del'        => $this->parseHTMLTagCLOSEdel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'details'    => $this->parseHTMLTagCLOSEdetails($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dfn'        => $this->parseHTMLTagCLOSEdfn($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dialog'     => $this->parseHTMLTagCLOSEdialog($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'div'        => $this->parseHTMLTagCLOSEdiv($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dl'         => $this->parseHTMLTagCLOSEdl($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dt'         => $this->parseHTMLTagCLOSEdt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'em'         => $this->parseHTMLTagCLOSEem($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'embed'      => $this->parseHTMLTagCLOSEembed($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'fieldset'   => $this->parseHTMLTagCLOSEfieldset($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'figcaption' => $this->parseHTMLTagCLOSEfigcaption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'figure'     => $this->parseHTMLTagCLOSEfigure($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'footer'     => $this->parseHTMLTagCLOSEfooter($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'form'       => $this->parseHTMLTagCLOSEform($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h1'         => $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h2'         => $this->parseHTMLTagCLOSEh2($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h3'         => $this->parseHTMLTagCLOSEh3($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h4'         => $this->parseHTMLTagCLOSEh4($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h5'         => $this->parseHTMLTagCLOSEh5($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h6'         => $this->parseHTMLTagCLOSEh6($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'head'       => $this->parseHTMLTagCLOSEhead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'header'     => $this->parseHTMLTagCLOSEheader($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'hgroup'     => $this->parseHTMLTagCLOSEhgroup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'hr'         => $this->parseHTMLTagCLOSEhr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'html'       => $this->parseHTMLTagCLOSEhtml($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'i'          => $this->parseHTMLTagCLOSEi($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'iframe'     => $this->parseHTMLTagCLOSEiframe($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'img'        => $this->parseHTMLTagCLOSEimg($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'input'      => $this->parseHTMLTagCLOSEinput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ins'        => $this->parseHTMLTagCLOSEins($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'kbd'        => $this->parseHTMLTagCLOSEkbd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'label'      => $this->parseHTMLTagCLOSElabel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'legend'     => $this->parseHTMLTagCLOSElegend($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'li'         => $this->parseHTMLTagCLOSEli($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'link'       => $this->parseHTMLTagCLOSElink($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'main'       => $this->parseHTMLTagCLOSEmain($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'map'        => $this->parseHTMLTagCLOSEmap($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'mark'       => $this->parseHTMLTagCLOSEmark($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'menu'       => $this->parseHTMLTagCLOSEmenu($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'meta'       => $this->parseHTMLTagCLOSEmeta($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'meter'      => $this->parseHTMLTagCLOSEmeter($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'nav'        => $this->parseHTMLTagCLOSEnav($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'noscript'   => $this->parseHTMLTagCLOSEnoscript($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'object'     => $this->parseHTMLTagCLOSEobject($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ol'         => $this->parseHTMLTagCLOSEol($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'optgroup'   => $this->parseHTMLTagCLOSEoptgroup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'option'     => $this->parseHTMLTagCLOSEoption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'output'     => $this->parseHTMLTagCLOSEoutput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'p'          => $this->parseHTMLTagCLOSEp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'param'      => $this->parseHTMLTagCLOSEparam($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'picture'    => $this->parseHTMLTagCLOSEpicture($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'pre'        => $this->parseHTMLTagCLOSEpre($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'progress'   => $this->parseHTMLTagCLOSEprogress($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'q'          => $this->parseHTMLTagCLOSEq($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'rp'         => $this->parseHTMLTagCLOSErp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'rt'         => $this->parseHTMLTagCLOSErt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ruby'       => $this->parseHTMLTagCLOSEruby($elm, $tpx, $tpy, $tpw, $tph),
+                        // 's'          => $this->parseHTMLTagCLOSEs($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'samp'       => $this->parseHTMLTagCLOSEsamp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'script'     => $this->parseHTMLTagCLOSEscript($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'search'     => $this->parseHTMLTagCLOSEsearch($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'section'    => $this->parseHTMLTagCLOSEsection($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'select'     => $this->parseHTMLTagCLOSEselect($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'small'      => $this->parseHTMLTagCLOSEsmall($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'source'     => $this->parseHTMLTagCLOSEsource($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'span'       => $this->parseHTMLTagCLOSEspan($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'strong'     => $this->parseHTMLTagCLOSEstrong($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'style'      => $this->parseHTMLTagCLOSEstyle($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'sub'        => $this->parseHTMLTagCLOSEsub($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'summary'    => $this->parseHTMLTagCLOSEsummary($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'sup'        => $this->parseHTMLTagCLOSEsup($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'svg'        => $this->parseHTMLTagCLOSEsvg($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'table'      => $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tbody'      => $this->parseHTMLTagCLOSEtbody($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'td'         => $this->parseHTMLTagCLOSEtd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'template'   => $this->parseHTMLTagCLOSEtemplate($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'textarea'   => $this->parseHTMLTagCLOSEtextarea($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tfoot'      => $this->parseHTMLTagCLOSEtfoot($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'th'         => $this->parseHTMLTagCLOSEth($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'thead'      => $this->parseHTMLTagCLOSEthead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'time'       => $this->parseHTMLTagCLOSEtime($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'title'      => $this->parseHTMLTagCLOSEtitle($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tr'         => $this->parseHTMLTagCLOSEtr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'track'      => $this->parseHTMLTagCLOSEtrack($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'u'          => $this->parseHTMLTagCLOSEu($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ul'         => $this->parseHTMLTagCLOSEul($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'var'        => $this->parseHTMLTagCLOSEvar($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'video'      => $this->parseHTMLTagCLOSEvideo($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'wbr'        => $this->parseHTMLTagCLOSEwbr($elm, $tpx, $tpy, $tpw, $tph),
+                        default      => '',
+                    };
+                }
+            } else { // Text Content
+                $out .= $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process HTML Text (content between tags).
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx  Abscissa of upper-left corner.
+     * @param float  $tpy  Ordinate of upper-left corner.
+     * @param float  $tpw  Width.
+     * @param float  $tph  Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLText(
+        array $elm,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        $elm = $elm; // @TODO
+        $tpx = $tpx; // @TODO
+        $tpy = $tpy; // @TODO
+        $tpw = $tpw; // @TODO
+        $tph = $tph; // @TODO
+        return '';
+    }
+
+    // FUNCTIONS TO PROCESS HTML OPENING TAGS
+    // @TODO
+
+    // FUNCTIONS TO PROCESS HTML CLOSING TAGS
+    // @TODO
 }
