@@ -35,7 +35,6 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
- * @//phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base as BorderStyleOpt
  *
  * @phpstan-type THTMLAttrib array{
  *     'align': string,
@@ -77,6 +76,8 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'trids': array<int>,
  *     'value': string,
  *     'width': float,
+ *     'x': float,
+ *     'y': float,
  * }
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
@@ -705,6 +706,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'widows' => '',//
             'width' => 0.0,
             //'word-spacing' => 0.0,//
+            'x' => 0.0,
+            'y' => 0.0,
+
         ];
     }
 
@@ -2105,6 +2109,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Move to the next page region and returns the page ID.
+     */
+    protected function pageBreak(): int
+    {
+        $pid = $this->page->getPageId();
+        $this->page->getNextRegion($pid);
+        $cpid = $this->page->getPageId();
+        if ($cpid > $pid) {
+            $pid = $cpid;
+            $this->setPageContext($pid);
+        }
+        return $pid;
+    }
+
+    /**
      * @TODO - EXPERIMENTAL - DRAFT - IN PROGRESS
      *
      * Returns the PDF code to render an HTML block inside a rectangular cell.
@@ -2146,6 +2165,42 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             if ($elm['tag']) { // HTML TAG
                 if ($elm['opening']) { // opening tag
+                    if ($elm['hide']) {
+                        $hidden_node_key = $key;
+                        if ($elm['self']) {
+                            ++$key; // skip just this self-closing tag
+                        } else {
+                            // skip this and all children tags
+                            while (
+                                ($key < $numel) && (
+                                    !$dom[$key]['tag']
+                                    || $dom[$key]['opening']
+                                    || ($dom[$key]['parent'] != $hidden_node_key)
+                                )
+                            ) {
+                                ++$key; // skip hidden objects
+                            }
+                            ++$key;
+                        }
+                        if ($key >= $numel) {
+                            break;
+                        }
+                        $elm = $dom[$key];
+                    }
+
+                    if (!empty($elm['attribute']['pagebreak'])) {
+                        $pid = $this->pageBreak();
+                        if ($elm['attribute']['pagebreak'] != 'true') {
+                            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+                            if (
+                                (($elm['attribute']['pagebreak'] == 'left') && $leftmode)
+                                || (($elm['attribute']['pagebreak'] == 'right') && !$leftmode)
+                            ) {
+                                $this->pageBreak();
+                            }
+                        }
+                    }
+
                     $out .= match ($elm['value']) {
                         // 'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
                         // 'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
@@ -2158,7 +2213,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         // 'dl'         => $this->parseHTMLTagOPENdl($elm, $tpx, $tpy, $tpw, $tph),
                         // 'dt'         => $this->parseHTMLTagOPENdt($elm, $tpx, $tpy, $tpw, $tph),
                         // 'em'         => $this->parseHTMLTagOPENem($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'font'        => $this->parseHTMLTagOPENfont($elm, $tpx, $tpy, $tpw, $tph)
+                        // 'font'       => $this->parseHTMLTagOPENfont($elm, $tpx, $tpy, $tpw, $tph)
                         // 'form'       => $this->parseHTMLTagOPENform($elm, $tpx, $tpy, $tpw, $tph),
                         // 'h1'         => $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph),
                         // 'h2'         => $this->parseHTMLTagOPENh2($elm, $tpx, $tpy, $tpw, $tph),
@@ -2211,7 +2266,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         // 'dl'         => $this->parseHTMLTagCLOSEdl($elm, $tpx, $tpy, $tpw, $tph),
                         // 'dt'         => $this->parseHTMLTagCLOSEdt($elm, $tpx, $tpy, $tpw, $tph),
                         // 'em'         => $this->parseHTMLTagCLOSEem($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'font'        => $this->parseHTMLTagCLOSEfont($elm, $tpx, $tpy, $tpw, $tph)
+                        // 'font'       => $this->parseHTMLTagCLOSEfont($elm, $tpx, $tpy, $tpw, $tph)
                         // 'form'       => $this->parseHTMLTagCLOSEform($elm, $tpx, $tpy, $tpw, $tph),
                         // 'h1'         => $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph),
                         // 'h2'         => $this->parseHTMLTagCLOSEh2($elm, $tpx, $tpy, $tpw, $tph),
