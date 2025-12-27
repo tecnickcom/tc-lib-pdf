@@ -2201,6 +2201,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
+                    // if (!empty($elm['attribute']['nobr'])) {
+                    //     if (!empty($dom[($dom[$key]['parent'])]['attribute']['nobr'])) {
+                    //         $dom[$key]['attribute']['nobr'] = '';
+                    //     }
+                    // }
+
                     $out .= match ($elm['value']) {
                         // 'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
                         // 'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
