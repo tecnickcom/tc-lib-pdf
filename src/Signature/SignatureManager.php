@@ -54,6 +54,12 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'timeout': int,
  * }
  *
+ * @phpstan-type LtvConfig array{
+ *     'timeout': int,
+ *     'fetchOcsp': bool,
+ *     'fetchCrl': bool,
+ * }
+ *
  * @phpstan-type SignatureConfig array{
  *     'certificate': string,
  *     'privateKey': string,
@@ -1071,5 +1077,327 @@ class SignatureManager
         }
 
         return $this->pdfContent;
+    }
+
+    /**
+     * Enable Long-Term Validation (LTV) for a signed PDF
+     *
+     * This method adds a Document Security Store (DSS) to the PDF containing:
+     * - OCSP responses for certificate validation
+     * - CRLs (Certificate Revocation Lists)
+     * - The full certificate chain
+     *
+     * This allows the signature to be validated even after certificates expire
+     * or OCSP/CRL services become unavailable.
+     *
+     * @param array<string> $certificates Array of DER-encoded certificates in the signing chain
+     * @param LtvConfig|null $config LTV configuration options
+     * @return string Updated PDF content with LTV data
+     */
+    public function enableLtv(array $certificates, ?array $config = null): string
+    {
+        if ($this->parser === null) {
+            throw new PdfException('No PDF loaded');
+        }
+
+        $timeout = $config['timeout'] ?? 30;
+        $fetchOcsp = $config['fetchOcsp'] ?? true;
+        $fetchCrl = $config['fetchCrl'] ?? true;
+
+        // Create DSS builder
+        $dssBuilder = new DssBuilder($timeout);
+
+        // Add certificates and fetch validation data
+        for ($i = 0; $i < count($certificates); $i++) {
+            $cert = $certificates[$i];
+            $issuerCert = $certificates[$i + 1] ?? null;
+
+            // Add certificate
+            $dssBuilder->addCertificate($cert);
+
+            // Add issuer certificate if available
+            if ($issuerCert !== null) {
+                $dssBuilder->addCertificate($issuerCert);
+
+                // Fetch OCSP response
+                if ($fetchOcsp) {
+                    $ocspClient = new OcspClient($timeout);
+                    $ocspResponse = $ocspClient->getOcspResponse($cert, $issuerCert);
+                    if ($ocspResponse !== null) {
+                        $dssBuilder->addOcspResponse($ocspResponse);
+                    }
+                }
+            }
+
+            // Fetch CRL
+            if ($fetchCrl) {
+                $crlFetcher = new CrlFetcher($timeout);
+                $crl = $crlFetcher->getCrl($cert);
+                if ($crl !== null) {
+                    $dssBuilder->addCrl($crl);
+                }
+            }
+        }
+
+        // Check if there's any validation data
+        if (!$dssBuilder->hasValidationData()) {
+            // Return PDF unchanged if no validation data was collected
+            return $this->pdfContent;
+        }
+
+        // Build DSS objects
+        $dssResult = $dssBuilder->buildDssObjects($this->currentObjectNumber);
+
+        // Create incremental update with DSS
+        return $this->addDssToDocument($dssResult);
+    }
+
+    /**
+     * Add DSS (Document Security Store) to the PDF
+     *
+     * @param array{objects: string, dssObjNum: int, nextObjNum: int} $dssResult DSS build result
+     * @return string Updated PDF content
+     */
+    protected function addDssToDocument(array $dssResult): string
+    {
+        $trailer = $this->parser->getTrailer();
+
+        // Start with existing content
+        $baseContent = rtrim($this->pdfContent);
+        if (!str_ends_with($baseContent, '%%EOF')) {
+            $baseContent .= "\n%%EOF";
+        }
+
+        // Update catalog to include DSS reference
+        $catalogObjNum = $this->getCatalogObjectNumber($trailer['Root']);
+        $updatedCatalogObj = $this->buildCatalogWithDss($catalogObjNum, $dssResult['dssObjNum']);
+
+        // Combine objects
+        $update = "\n";
+        $update .= $dssResult['objects'];
+        $update .= $updatedCatalogObj;
+
+        // Calculate object positions for xref
+        $objectPositions = [];
+        $currentPos = strlen($baseContent) + 1;
+
+        foreach (explode("\nendobj\n", $dssResult['objects'] . $updatedCatalogObj) as $objPart) {
+            if (empty(trim($objPart))) {
+                continue;
+            }
+
+            if (preg_match('/^(\d+)\s+0\s+obj/', trim($objPart), $m)) {
+                $objectPositions[(int)$m[1]] = $currentPos;
+            }
+
+            $currentPos += strlen($objPart) + 8;
+        }
+
+        // Build xref
+        $xrefPos = strlen($baseContent) + strlen($update);
+        $update .= "xref\n";
+        $update .= "0 1\n";
+        $update .= "0000000000 65535 f \n";
+
+        // Add entries for all new objects
+        $objNums = array_keys($objectPositions);
+        $objNums[] = $catalogObjNum;
+        sort($objNums);
+
+        foreach ($objNums as $objNum) {
+            $update .= $objNum . " 1\n";
+            $pos = $objectPositions[$objNum] ?? (strlen($baseContent) + 1);
+            $update .= sprintf("%010d %05d n \n", $pos, 0);
+        }
+
+        // Build trailer
+        $maxObjNum = $dssResult['nextObjNum'];
+        $update .= "trailer\n";
+        $update .= "<<\n";
+        $update .= "/Size " . ($maxObjNum + 1) . "\n";
+        $update .= "/Root " . $trailer['Root'] . "\n";
+        if (isset($trailer['Info'])) {
+            $update .= "/Info " . $trailer['Info'] . "\n";
+        }
+        $update .= "/Prev " . $this->parser->getXrefPosition() . "\n";
+        $update .= ">>\n";
+        $update .= "startxref\n";
+        $update .= $xrefPos . "\n";
+        $update .= "%%EOF\n";
+
+        $this->pdfContent = $baseContent . $update;
+        $this->currentObjectNumber = $maxObjNum;
+
+        return $this->pdfContent;
+    }
+
+    /**
+     * Build updated catalog object with DSS reference
+     *
+     * @param int $catalogObjNum Catalog object number
+     * @param int $dssObjNum DSS object number
+     * @return string PDF object string
+     */
+    protected function buildCatalogWithDss(int $catalogObjNum, int $dssObjNum): string
+    {
+        // Extract original catalog content
+        $catalogContent = $this->extractCatalogObject($catalogObjNum);
+
+        // Check if catalog already has DSS
+        if (preg_match('/\/DSS\s+\d+\s+\d+\s+R/', $catalogContent)) {
+            // Replace existing DSS reference
+            $catalogContent = preg_replace(
+                '/\/DSS\s+\d+\s+\d+\s+R/',
+                '/DSS ' . $dssObjNum . ' 0 R',
+                $catalogContent
+            );
+        } else {
+            // Add DSS reference before the closing >>
+            $catalogContent = preg_replace(
+                '/>>(\s*endobj)/',
+                '/DSS ' . $dssObjNum . " 0 R\n>>" . '$1',
+                $catalogContent
+            );
+        }
+
+        return $catalogContent;
+    }
+
+    /**
+     * Extract certificate chain from CMS signature in PDF
+     *
+     * @return array<string> Array of DER-encoded certificates
+     */
+    public function extractCertificateChain(): array
+    {
+        if ($this->parser === null) {
+            return [];
+        }
+
+        $certificates = [];
+
+        // Find signature Contents in PDF
+        if (preg_match_all('/\/Contents\s*<([0-9A-Fa-f]+)>/', $this->pdfContent, $matches)) {
+            foreach ($matches[1] as $hexContent) {
+                $signatureData = hex2bin($hexContent);
+                if ($signatureData === false) {
+                    continue;
+                }
+
+                // Extract certificates from PKCS#7/CMS signature
+                $certs = $this->extractCertificatesFromCms($signatureData);
+                $certificates = array_merge($certificates, $certs);
+            }
+        }
+
+        return array_values(array_unique($certificates));
+    }
+
+    /**
+     * Extract certificates from CMS/PKCS#7 signature
+     *
+     * @param string $cmsData DER-encoded CMS data
+     * @return array<string> Array of DER-encoded certificates
+     */
+    protected function extractCertificatesFromCms(string $cmsData): array
+    {
+        $certificates = [];
+
+        // Look for certificate sequences in the CMS data
+        // Certificates are typically in a context-specific tag [0]
+        // We'll search for the certificate structure pattern
+
+        // X.509 certificates start with SEQUENCE containing version, serial, etc.
+        // The pattern we're looking for: 30 8x ... 30 8x ... (nested sequences)
+
+        $offset = 0;
+        $len = strlen($cmsData);
+
+        while ($offset < $len - 10) {
+            // Look for certificate start pattern
+            if (ord($cmsData[$offset]) === 0x30) {
+                // Try to parse as certificate
+                $certStart = $offset;
+                try {
+                    $certLen = $this->parseCertificateLength($cmsData, $offset);
+                    if ($certLen > 100 && $certLen < 10000) {
+                        $cert = substr($cmsData, $certStart, $certLen);
+                        // Basic validation - check if it looks like a certificate
+                        if ($this->looksLikeCertificate($cert)) {
+                            $certificates[] = $cert;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Not a valid certificate, continue
+                }
+            }
+            $offset++;
+        }
+
+        return $certificates;
+    }
+
+    /**
+     * Parse certificate length from DER data
+     *
+     * @param string $data Binary data
+     * @param int $offset Current offset
+     * @return int Total certificate length including header
+     */
+    protected function parseCertificateLength(string $data, int $offset): int
+    {
+        if (ord($data[$offset]) !== 0x30) {
+            throw new PdfException('Not a SEQUENCE');
+        }
+
+        $offset++;
+        $byte = ord($data[$offset]);
+        $offset++;
+
+        if ($byte < 0x80) {
+            return $byte + 2;
+        }
+
+        $numBytes = $byte & 0x7F;
+        $length = 0;
+        for ($i = 0; $i < $numBytes; $i++) {
+            $length = ($length << 8) | ord($data[$offset + $i]);
+        }
+
+        return $length + 2 + $numBytes;
+    }
+
+    /**
+     * Basic check if data looks like a certificate
+     *
+     * @param string $data Binary data
+     * @return bool True if it looks like a certificate
+     */
+    protected function looksLikeCertificate(string $data): bool
+    {
+        // Check minimum length
+        if (strlen($data) < 100) {
+            return false;
+        }
+
+        // Should start with SEQUENCE
+        if (ord($data[0]) !== 0x30) {
+            return false;
+        }
+
+        // Should contain another SEQUENCE (tbsCertificate)
+        $offset = 0;
+        $byte = ord($data[1]);
+        if ($byte < 0x80) {
+            $offset = 2;
+        } else {
+            $offset = 2 + ($byte & 0x7F);
+        }
+
+        if ($offset >= strlen($data) || ord($data[$offset]) !== 0x30) {
+            return false;
+        }
+
+        return true;
     }
 }
