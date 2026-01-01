@@ -665,7 +665,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         if ($this->pdfx) {
-            $this->getOutputIntentsPdfX();
+            return $this->getOutputIntentsPdfX();
         }
 
         return $this->getOutputIntentsSrgb();

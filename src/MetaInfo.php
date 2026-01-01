@@ -151,8 +151,15 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     public function setPDFVersion(string $version = '1.7'): static
     {
-        if ($this->pdfa == 1) { // PDF/A 1 mode
+        // PDF/A-1 requires PDF version 1.4
+        if ($this->pdfa === 1) {
             $this->pdfver = '1.4';
+            return $this;
+        }
+
+        // PDF/A-2 and PDF/A-3 require PDF version 1.7
+        if ($this->pdfa === 2 || $this->pdfa === 3) {
+            $this->pdfver = '1.7';
             return $this;
         }
 
@@ -343,7 +350,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
         if ($this->pdfa !== 0) {
             $xmp .= '		<rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">' . "\n"
             . "\t\t\t" . '<pdfaid:part>' . $this->pdfa . '</pdfaid:part>' . "\n"
-            . "\t\t\t" . '<pdfaid:conformance>B</pdfaid:conformance>' . "\n"
+            . "\t\t\t" . '<pdfaid:conformance>' . $this->pdfaConformance . '</pdfaid:conformance>' . "\n"
             . "\t\t" . '</rdf:Description>' . "\n";
         }
 
