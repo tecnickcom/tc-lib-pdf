@@ -312,9 +312,13 @@ class SignatureManager
         $sigValueObjNum = $this->currentObjectNumber;
         $this->currentObjectNumber++;
         $sigAppearanceObjNum = $this->currentObjectNumber;
+        $this->currentObjectNumber++;
+        $acroFormObjNum = $this->currentObjectNumber;
 
         $pages = $this->parser->getPages();
-        $pageRef = $pages[$field['page']]['objRef'] ?? ($pages[1]['objRef'] ?? '1 0 R');
+        $pageData = $pages[$field['page']] ?? ($pages[1] ?? ['objNum' => 1, 'objRef' => '1 0 R']);
+        $pageRef = $pageData['objRef'];
+        $pageObjNum = $pageData['objNum'];
 
         // Build signature value object with placeholder
         $sigValueObj = $this->buildSignatureValueObject(
@@ -328,24 +332,240 @@ class SignatureManager
             $field['name'],
             $pageRef,
             $field['rect'],
-            $sigValueObjNum
+            $sigValueObjNum,
+            $sigAppearanceObjNum
         );
 
         // Build appearance object (empty for now)
-        $sigAppearanceObj = $this->buildAppearanceObject($sigAppearanceObjNum);
+        $sigAppearanceObj = $this->buildAppearanceObject($sigAppearanceObjNum, $field['rect']);
+
+        // Build AcroForm object
+        $acroFormObj = $this->buildAcroFormObject($acroFormObjNum, $sigFieldObjNum, $sigValueObjNum);
+
+        // Build updated page object with Annots
+        $updatedPageObj = $this->buildUpdatedPageObject($pageObjNum, $sigFieldObjNum, $field['page']);
+
+        // Build updated catalog object with AcroForm reference
+        $trailer = $this->parser->getTrailer();
+        $catalogObjNum = $this->getCatalogObjectNumber($trailer['Root']);
+        $updatedCatalogObj = $this->buildUpdatedCatalogObject($catalogObjNum, $acroFormObjNum);
 
         // Combine objects
-        $objects = $sigFieldObj . $sigValueObj . $sigAppearanceObj;
+        $objects = $sigFieldObj . $sigValueObj . $sigAppearanceObj . $acroFormObj . $updatedPageObj . $updatedCatalogObj;
 
         // Create incremental update (without signature yet)
+        $allObjNums = [$sigFieldObjNum, $sigValueObjNum, $sigAppearanceObjNum, $acroFormObjNum, $pageObjNum, $catalogObjNum];
         $pdfWithPlaceholder = $this->createIncrementalUpdateForSigning(
             $objects,
-            [$sigFieldObjNum, $sigValueObjNum, $sigAppearanceObjNum],
+            $allObjNums,
             $field['page']
         );
 
         // Now calculate ByteRange and sign
         return $this->finalizeSignature($pdfWithPlaceholder, $sigValueObjNum);
+    }
+
+    /**
+     * Get catalog object number from Root reference
+     *
+     * @param string $rootRef Root reference (e.g., "8 0 R")
+     * @return int Catalog object number
+     */
+    protected function getCatalogObjectNumber(string $rootRef): int
+    {
+        if (preg_match('/^(\d+)\s+\d+\s+R/', $rootRef, $m)) {
+            return (int)$m[1];
+        }
+        return 1;
+    }
+
+    /**
+     * Build AcroForm object
+     *
+     * @param int $objNum Object number
+     * @param int $sigFieldObjNum Signature field object number
+     * @param int $sigValueObjNum Signature value object number
+     * @return string PDF object string
+     */
+    protected function buildAcroFormObject(int $objNum, int $sigFieldObjNum, int $sigValueObjNum): string
+    {
+        // Collect existing signature fields from previous AcroForm
+        $existingFields = $this->getExistingAcroFormFields();
+
+        // Add the new field
+        $allFields = $existingFields;
+        $allFields[] = $sigFieldObjNum . ' 0 R';
+
+        $fieldsStr = implode(' ', $allFields);
+
+        return $objNum . " 0 obj\n"
+            . "<<\n"
+            . "/Fields [" . $fieldsStr . "]\n"
+            . "/SigFlags 3\n"
+            . ">>\n"
+            . "endobj\n";
+    }
+
+    /**
+     * Get existing fields from current AcroForm
+     *
+     * @return array<string> Field references
+     */
+    protected function getExistingAcroFormFields(): array
+    {
+        $fields = [];
+
+        // Search for ALL AcroForm references and find the latest one
+        if (preg_match_all('/\/AcroForm\s+(\d+)\s+\d+\s+R/', $this->pdfContent, $acroFormRefs, PREG_SET_ORDER)) {
+            // Get the last AcroForm reference (from the latest incremental update)
+            $lastRef = end($acroFormRefs);
+            $acroFormObjNum = (int)$lastRef[1];
+
+            // Find ALL occurrences of this AcroForm object and get the last one
+            $pattern = '/' . $acroFormObjNum . '\s+0\s+obj\s*<<[^>]*\/Fields\s*\[([^\]]*)\]/s';
+            if (preg_match_all($pattern, $this->pdfContent, $matches, PREG_SET_ORDER)) {
+                $lastMatch = end($matches);
+                $fieldsContent = trim($lastMatch[1]);
+                if (!empty($fieldsContent)) {
+                    // Extract all object references
+                    preg_match_all('/(\d+\s+\d+\s+R)/', $fieldsContent, $refs);
+                    $fields = $refs[1] ?? [];
+                }
+            }
+        }
+
+        // Also search for any Fields arrays directly (for cases where AcroForm is inline)
+        if (empty($fields)) {
+            if (preg_match_all('/\/Fields\s*\[([^\]]+)\]/', $this->pdfContent, $fieldMatches, PREG_SET_ORDER)) {
+                $lastFieldMatch = end($fieldMatches);
+                $fieldsContent = trim($lastFieldMatch[1]);
+                if (!empty($fieldsContent)) {
+                    preg_match_all('/(\d+\s+\d+\s+R)/', $fieldsContent, $refs);
+                    $fields = $refs[1] ?? [];
+                }
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Build updated page object with Annots
+     *
+     * @param int $pageObjNum Page object number
+     * @param int $sigFieldObjNum Signature field object number
+     * @param int $pageNumber Page number (1-based)
+     * @return string PDF object string
+     */
+    protected function buildUpdatedPageObject(int $pageObjNum, int $sigFieldObjNum, int $pageNumber): string
+    {
+        // Extract original page content to preserve it
+        $pageContent = $this->extractPageObject($pageObjNum);
+
+        // Check if page already has Annots
+        if (preg_match('/\/Annots\s*\[([^\]]*)\]/', $pageContent, $m)) {
+            // Add to existing Annots
+            $existingAnnots = trim($m[1]);
+            $newAnnots = $existingAnnots . ' ' . $sigFieldObjNum . ' 0 R';
+            $pageContent = preg_replace(
+                '/\/Annots\s*\[[^\]]*\]/',
+                '/Annots [' . $newAnnots . ']',
+                $pageContent
+            );
+        } else {
+            // Add Annots array before the closing >>
+            $pageContent = preg_replace(
+                '/>>(\s*endobj)/',
+                '/Annots [' . $sigFieldObjNum . " 0 R]\n>>" . '$1',
+                $pageContent
+            );
+        }
+
+        return $pageContent;
+    }
+
+    /**
+     * Build updated catalog object with AcroForm reference
+     *
+     * @param int $catalogObjNum Catalog object number
+     * @param int $acroFormObjNum AcroForm object number
+     * @return string PDF object string
+     */
+    protected function buildUpdatedCatalogObject(int $catalogObjNum, int $acroFormObjNum): string
+    {
+        // Extract original catalog content to preserve it
+        $catalogContent = $this->extractCatalogObject($catalogObjNum);
+
+        // Check if catalog already has AcroForm
+        if (preg_match('/\/AcroForm\s+\d+\s+\d+\s+R/', $catalogContent)) {
+            // Replace existing AcroForm reference
+            $catalogContent = preg_replace(
+                '/\/AcroForm\s+\d+\s+\d+\s+R/',
+                '/AcroForm ' . $acroFormObjNum . ' 0 R',
+                $catalogContent
+            );
+        } else {
+            // Add AcroForm reference before the closing >>
+            $catalogContent = preg_replace(
+                '/>>(\s*endobj)/',
+                '/AcroForm ' . $acroFormObjNum . " 0 R\n>>" . '$1',
+                $catalogContent
+            );
+        }
+
+        return $catalogContent;
+    }
+
+    /**
+     * Extract page object from PDF
+     *
+     * @param int $objNum Object number
+     * @return string Page object content
+     */
+    protected function extractPageObject(int $objNum): string
+    {
+        $pattern = '/(' . $objNum . '\s+0\s+obj\s*<<.*?>>)\s*endobj/s';
+        if (preg_match($pattern, $this->pdfContent, $m)) {
+            return $m[1] . "\nendobj\n";
+        }
+
+        // Fallback: build minimal page object
+        $pages = $this->parser->getPages();
+        foreach ($pages as $pageNum => $pageData) {
+            if ($pageData['objNum'] === $objNum) {
+                return $objNum . " 0 obj\n"
+                    . "<<\n"
+                    . "/Type /Page\n"
+                    . "/Parent 3 0 R\n"
+                    . "/MediaBox [0 0 595.276 841.890]\n"
+                    . ">>\n"
+                    . "endobj\n";
+            }
+        }
+
+        return $objNum . " 0 obj\n<<\n/Type /Page\n>>\nendobj\n";
+    }
+
+    /**
+     * Extract catalog object from PDF
+     *
+     * @param int $objNum Object number
+     * @return string Catalog object content
+     */
+    protected function extractCatalogObject(int $objNum): string
+    {
+        $pattern = '/(' . $objNum . '\s+0\s+obj\s*<<.*?>>)\s*endobj/s';
+        if (preg_match($pattern, $this->pdfContent, $m)) {
+            return $m[1] . "\nendobj\n";
+        }
+
+        // Fallback: build minimal catalog object
+        return $objNum . " 0 obj\n"
+            . "<<\n"
+            . "/Type /Catalog\n"
+            . "/Pages 3 0 R\n"
+            . ">>\n"
+            . "endobj\n";
     }
 
     /**
@@ -386,6 +606,7 @@ class SignatureManager
      * @param string $pageRef Page reference
      * @param array<float> $rect Rectangle coordinates
      * @param int $sigValueObjNum Signature value object number
+     * @param int $appearanceObjNum Appearance object number
      * @return string PDF object string
      */
     protected function buildSignedFieldObject(
@@ -393,7 +614,8 @@ class SignatureManager
         string $name,
         string $pageRef,
         array $rect,
-        int $sigValueObjNum
+        int $sigValueObjNum,
+        int $appearanceObjNum
     ): string {
         $rectStr = sprintf('%.4f %.4f %.4f %.4f', ...$rect);
 
@@ -407,6 +629,7 @@ class SignatureManager
             . "/P " . $pageRef . "\n"
             . "/T (" . $this->escapeString($name) . ")\n"
             . "/V " . $sigValueObjNum . " 0 R\n"
+            . "/AP << /N " . $appearanceObjNum . " 0 R >>\n"
             . ">>\n"
             . "endobj\n";
     }
@@ -473,15 +696,22 @@ class SignatureManager
      * Build appearance object (empty/invisible)
      *
      * @param int $objNum Object number
+     * @param array<float> $rect Rectangle coordinates
      * @return string PDF object string
      */
-    protected function buildAppearanceObject(int $objNum): string
+    protected function buildAppearanceObject(int $objNum, array $rect): string
     {
+        $width = abs($rect[2] - $rect[0]);
+        $height = abs($rect[3] - $rect[1]);
+        $bboxStr = sprintf('0 0 %.4f %.4f', $width, $height);
+
         return $objNum . " 0 obj\n"
             . "<<\n"
             . "/Type /XObject\n"
             . "/Subtype /Form\n"
-            . "/BBox [0 0 0 0]\n"
+            . "/FormType 1\n"
+            . "/BBox [" . $bboxStr . "]\n"
+            . "/Resources << >>\n"
             . "/Length 0\n"
             . ">>\n"
             . "stream\n"

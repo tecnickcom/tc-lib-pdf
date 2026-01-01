@@ -20,6 +20,9 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
+// Define fonts directory
+\define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
+
 use Com\Tecnick\Pdf\Tcpdf;
 use Com\Tecnick\Pdf\Signature\SignatureManager;
 
@@ -53,11 +56,13 @@ $pdf->setAuthor('Example Author');
 $pdf->setSubject('Multiple Digital Signatures Demo');
 $pdf->setTitle('Multi-Signature PDF');
 
+// Insert font BEFORE adding page (required)
+$font = $pdf->font->insert($pdf->pon, 'helvetica', '', 14);
+
 // Add a page with some content
 $page = $pdf->addPage();
 
-// Add some text (you would normally add more content here)
-$font = $pdf->font->insert($pdf->pon, 'helvetica', '', 14);
+// Set the font for the page
 $pdf->page->addContent($font['out']);
 
 // Simple text positioning

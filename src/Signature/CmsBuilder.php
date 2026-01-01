@@ -22,7 +22,7 @@ use phpseclib3\Crypt\EC;
 use phpseclib3\Crypt\PublicKeyLoader;
 use phpseclib3\File\X509;
 use phpseclib3\File\ASN1;
-use phpseclib3\File\ASN1\Maps;
+use phpseclib3\File\ASN1\Maps\Name;
 
 /**
  * CMS/PKCS#7 SignedData Builder using phpseclib
@@ -449,15 +449,38 @@ class CmsBuilder
     {
         $cert = $this->x509->getCurrentCert();
 
-        // Get issuer DN from certificate
+        // Get issuer DN from certificate and encode using ASN1
         $issuerDN = $cert['tbsCertificate']['issuer'];
-        $issuerEncoded = $this->x509->saveDN($issuerDN, true);
+        $issuerEncoded = ASN1::encodeDER($issuerDN, Name::MAP);
 
         // Get serial number
         $serialNumber = $cert['tbsCertificate']['serialNumber'];
-        $serialEncoded = $this->encodeInteger($serialNumber->toString());
+        $serialEncoded = $this->encodeBigInteger($serialNumber);
 
         return $this->wrapInSequence($issuerEncoded . $serialEncoded);
+    }
+
+    /**
+     * Encode a BigInteger as DER integer
+     *
+     * @param \phpseclib3\Math\BigInteger $bigInt BigInteger value
+     * @return string DER-encoded integer
+     */
+    protected function encodeBigInteger(\phpseclib3\Math\BigInteger $bigInt): string
+    {
+        $bytes = $bigInt->toBytes();
+
+        // Add leading zero if high bit is set (to indicate positive number)
+        if (strlen($bytes) > 0 && (ord($bytes[0]) & 0x80)) {
+            $bytes = "\x00" . $bytes;
+        }
+
+        // Handle zero case
+        if ($bytes === '') {
+            $bytes = "\x00";
+        }
+
+        return "\x02" . $this->encodeLength(strlen($bytes)) . $bytes;
     }
 
     /**
