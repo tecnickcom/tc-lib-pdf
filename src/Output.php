@@ -422,6 +422,11 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'n': int,
  *        'file': string,
  *        'content': string,
+ *        'mimeType': string,
+ *        'afRelationship': string,
+ *        'description': string,
+ *        'creationDate': int,
+ *        'modDate': int,
  *    }
  *
  * @phpstan-type TObjID array{
@@ -1127,6 +1132,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 continue; // silently skip the file
             }
 
+            // Get AFRelationship (default to Source for backward compatibility)
+            $afRelationship = $data['afRelationship'] ?? 'Source';
+
+            // Get description if provided
+            $descStr = '';
+            if (!empty($data['description'])) {
+                $descStr = ' /Desc ' . $this->getOutTextString($data['description'], $data['f']);
+            }
+
             // update name tree
             $oid = $data['f'];
             // embedded file specification object
@@ -1134,20 +1148,35 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . '<<'
                 . ' /Type /Filespec /F ' . $this->getOutTextString($name, $oid)
                 . ' /UF ' . $this->getOutTextString($name, $oid)
-                . ' /AFRelationship /Source'
+                . ' /AFRelationship /' . $afRelationship
+                . $descStr
                 . ' /EF <</F ' . $data['n'] . ' 0 R>>'
                 . ' >>' . "\n"
                 . 'endobj' . "\n";
+
             // embedded file object
             $filter = '';
+            $mimeType = $data['mimeType'] ?? 'application/octet-stream';
+
             if ($this->pdfa == 3) {
-                $filter = ' /Subtype /text#2Fxml';
+                // PDF/A-3 requires MIME type as Subtype (URL-encoded)
+                $encodedMime = \str_replace(['/', '+'], ['#2F', '#2B'], $mimeType);
+                $filter = ' /Subtype /' . $encodedMime;
             } elseif ($this->compress) {
                 $content = \gzcompress($content);
                 if ($content === false) {
                     throw new PdfException('Unable to compress content');
                 }
                 $filter = ' /Filter /FlateDecode';
+            }
+
+            // Build Params dictionary with optional dates
+            $params = '/Size ' . $rawsize;
+            if (!empty($data['creationDate'])) {
+                $params .= ' /CreationDate ' . $this->getOutDateTimeString($data['creationDate'], $data['n']);
+            }
+            if (!empty($data['modDate'])) {
+                $params .= ' /ModDate ' . $this->getOutDateTimeString($data['modDate'], $data['n']);
             }
 
             $stream = $this->encrypt->encryptString($content, $data['n']);
@@ -1157,7 +1186,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' /Type /EmbeddedFile'
                 . $filter
                 . ' /Length ' . \strlen($stream)
-                . ' /Params <</Size ' . $rawsize . '>>'
+                . ' /Params <<' . $params . '>>'
                 . ' >>'
                 . ' stream' . "\n"
                 . $stream . "\n"
