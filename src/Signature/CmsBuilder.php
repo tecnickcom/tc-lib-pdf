@@ -100,9 +100,19 @@ class CmsBuilder
     protected const OID_SIGNING_TIME = '1.2.840.113549.1.9.5';
 
     /**
+     * OID for signature timestamp attribute (RFC 3161)
+     */
+    protected const OID_SIGNATURE_TIMESTAMP = '1.2.840.113549.1.9.16.2.14';
+
+    /**
      * Hash algorithm to use
      */
     protected string $hashAlgorithm = 'sha256';
+
+    /**
+     * Timestamp client for RFC 3161 timestamps
+     */
+    protected ?TimestampClient $timestampClient = null;
 
     /**
      * Private key for signing
@@ -195,6 +205,39 @@ class CmsBuilder
         } catch (\Exception $e) {
             throw new PdfException('Unable to load private key: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Set the timestamp client for RFC 3161 timestamps
+     *
+     * @param TimestampClient $client Timestamp client instance
+     */
+    public function setTimestampClient(TimestampClient $client): void
+    {
+        $this->timestampClient = $client;
+    }
+
+    /**
+     * Create a timestamp client and set it
+     *
+     * @param string $tsaUrl TSA server URL
+     * @param string|null $username TSA username for authentication
+     * @param string|null $password TSA password for authentication
+     * @param int $timeout Request timeout in seconds
+     */
+    public function enableTimestamp(
+        string $tsaUrl,
+        ?string $username = null,
+        ?string $password = null,
+        int $timeout = 30
+    ): void {
+        $this->timestampClient = new TimestampClient(
+            $tsaUrl,
+            $this->hashAlgorithm,
+            $username,
+            $password,
+            $timeout
+        );
     }
 
     /**
@@ -430,6 +473,9 @@ class CmsBuilder
         // Signature value
         $signatureValue = $this->encodeOctetString($signature);
 
+        // Build unsigned attributes (timestamp if configured)
+        $unsignedAttrs = $this->buildUnsignedAttributes($signature);
+
         return $this->wrapInSequence(
             $version
             . $issuerAndSerial
@@ -437,7 +483,37 @@ class CmsBuilder
             . $encodedAttrs
             . $signatureAlgorithm
             . $signatureValue
+            . $unsignedAttrs
         );
+    }
+
+    /**
+     * Build unsigned attributes (includes timestamp token if configured)
+     *
+     * @param string $signature Binary signature value
+     * @return string DER-encoded unsigned attributes or empty string
+     */
+    protected function buildUnsignedAttributes(string $signature): string
+    {
+        if ($this->timestampClient === null) {
+            return '';
+        }
+
+        try {
+            // Get timestamp token for the signature value
+            $timestampToken = $this->timestampClient->getTimestampToken($signature);
+
+            // Build unsigned attribute with timestamp token
+            $attrSequence = $this->encodeOID(self::OID_SIGNATURE_TIMESTAMP);
+            $attrSequence .= $this->wrapInSet($timestampToken);
+            $encodedAttr = $this->wrapInSequence($attrSequence);
+
+            // Wrap in implicit [1] context tag for unsigned attributes
+            return $this->wrapInImplicitTag($encodedAttr, 1);
+        } catch (\Exception $e) {
+            // If timestamp fails, continue without it (log warning in production)
+            return '';
+        }
     }
 
     /**

@@ -47,6 +47,13 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'height': float,
  * }
  *
+ * @phpstan-type TimestampConfig array{
+ *     'url': string,
+ *     'username': string,
+ *     'password': string,
+ *     'timeout': int,
+ * }
+ *
  * @phpstan-type SignatureConfig array{
  *     'certificate': string,
  *     'privateKey': string,
@@ -55,6 +62,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'certType': int,
  *     'info': SignatureInfo,
  *     'appearance': SignatureAppearance,
+ *     'timestamp': TimestampConfig,
  * }
  */
 class SignatureManager
@@ -66,8 +74,9 @@ class SignatureManager
 
     /**
      * Maximum signature length (in hex characters)
+     * Increased to accommodate RFC 3161 timestamp tokens
      */
-    protected const SIGNATURE_MAX_LENGTH = 11742;
+    protected const SIGNATURE_MAX_LENGTH = 32768;
 
     /**
      * PDF parser instance
@@ -210,6 +219,16 @@ class SignatureManager
             $config['password'] ?? '',
             $config['hashAlgorithm'] ?? 'sha256'
         );
+
+        // Configure timestamp if provided
+        if (isset($config['timestamp']) && !empty($config['timestamp']['url'])) {
+            $this->cmsBuilder->enableTimestamp(
+                $config['timestamp']['url'],
+                $config['timestamp']['username'] ?? null,
+                $config['timestamp']['password'] ?? null,
+                $config['timestamp']['timeout'] ?? 30
+            );
+        }
 
         // Find or create signature field
         if ($fieldName !== null) {
