@@ -1520,6 +1520,132 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $stamper->applyToFile($outputPath);
     }
 
+    /**
+     * Create a new PDF Metadata Editor instance.
+     *
+     * The metadata editor allows modifying PDF document information properties.
+     *
+     * Usage:
+     * ```php
+     * $editor = $pdf->createMetadataEditor();
+     * $editor->loadFile('document.pdf')
+     *        ->setTitle('New Title')
+     *        ->setAuthor('John Doe')
+     *        ->setSubject('Document Subject')
+     *        ->setKeywords('pdf, document, keywords');
+     * $modified = $editor->apply();
+     * ```
+     *
+     * @return Manipulate\PdfMetadataEditor
+     */
+    public function createMetadataEditor(): Manipulate\PdfMetadataEditor
+    {
+        return new Manipulate\PdfMetadataEditor();
+    }
+
+    /**
+     * Edit metadata of an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param array<string, string> $metadata Associative array of metadata fields
+     * @param string $outputPath Output file path
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function editPdfMetadata(string $filePath, array $metadata, string $outputPath): bool
+    {
+        $editor = $this->createMetadataEditor();
+        $editor->loadFile($filePath)->setMetadata($metadata);
+        return $editor->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PDF Bookmark Manager instance.
+     *
+     * The bookmark manager allows adding, editing, and removing PDF bookmarks (outlines).
+     *
+     * Usage:
+     * ```php
+     * $manager = $pdf->createBookmarkManager();
+     * $manager->loadFile('document.pdf')
+     *         ->addBookmark('Chapter 1', 1)
+     *         ->addBookmark('Section 1.1', 2, 1)
+     *         ->addBookmark('Chapter 2', 5);
+     * $modified = $manager->apply();
+     * ```
+     *
+     * @return Manipulate\PdfBookmarkManager
+     */
+    public function createBookmarkManager(): Manipulate\PdfBookmarkManager
+    {
+        return new Manipulate\PdfBookmarkManager();
+    }
+
+    /**
+     * Add bookmarks to an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param array<array{title: string, page: int, level?: int}> $bookmarks Bookmarks to add
+     * @param string $outputPath Output file path
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function addPdfBookmarks(string $filePath, array $bookmarks, string $outputPath): bool
+    {
+        $manager = $this->createBookmarkManager();
+        $manager->loadFile($filePath)->addBookmarks($bookmarks);
+        return $manager->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PDF Barcode Stamper instance.
+     *
+     * The barcode stamper allows adding barcodes and QR codes to PDF documents.
+     *
+     * Usage:
+     * ```php
+     * $stamper = $pdf->createBarcodeStamper();
+     * $stamper->loadFile('document.pdf')
+     *         ->addQRCode('https://example.com', 50, 700, 100)
+     *         ->addCode128('ABC123', 50, 600, 150, 50);
+     * $modified = $stamper->apply();
+     * ```
+     *
+     * @return Manipulate\PdfBarcodeStamper
+     */
+    public function createBarcodeStamper(): Manipulate\PdfBarcodeStamper
+    {
+        return new Manipulate\PdfBarcodeStamper();
+    }
+
+    /**
+     * Add a QR code to an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param string $content QR code content
+     * @param float $x X position
+     * @param float $y Y position
+     * @param float $size Size
+     * @param string $outputPath Output file path
+     * @param array<int>|string $pages Pages to add to
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function addQRCodeToPdf(
+        string $filePath,
+        string $content,
+        float $x,
+        float $y,
+        float $size,
+        string $outputPath,
+        array|string $pages = 'all'
+    ): bool {
+        $stamper = $this->createBarcodeStamper();
+        $stamper->loadFile($filePath)
+                ->addQRCode($content, $x, $y, $size, $pages);
+        return $stamper->applyToFile($outputPath);
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
