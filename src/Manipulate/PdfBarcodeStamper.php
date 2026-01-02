@@ -70,6 +70,11 @@ class PdfBarcodeStamper
     protected ?BarcodeGenerator $barcodeGenerator = null;
 
     /**
+     * Resources dictionary content (ColorSpace, XObject, etc.)
+     */
+    protected string $resourcesContent = '';
+
+    /**
      * Supported barcode types
      *
      * @var array<string, string>
@@ -151,6 +156,69 @@ class PdfBarcodeStamper
         }
 
         $this->objects = $this->extractObjects($this->pdfContent);
+        $this->extractResources();
+    }
+
+    /**
+     * Extract shared Resources dictionary from PDF
+     */
+    protected function extractResources(): void
+    {
+        foreach ($this->objects as $objNum => $objContent) {
+            if (str_contains($objContent, '/Type /Page') && !str_contains($objContent, '/Type /Pages')) {
+                // Try reference pattern: /Resources N 0 R
+                if (preg_match('/\/Resources\s+(\d+)\s+\d+\s+R/', $objContent, $match)) {
+                    $resObjNum = (int)$match[1];
+                    if (isset($this->objects[$resObjNum])) {
+                        $this->resourcesContent = $this->objects[$resObjNum];
+                        return;
+                    }
+                }
+                // Try inline pattern: /Resources << ... >>
+                if (preg_match('/\/Resources\s*<</', $objContent)) {
+                    $this->resourcesContent = $this->extractNestedDict($objContent, '/Resources');
+                    if (!empty($this->resourcesContent)) {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract a nested dictionary from PDF content
+     */
+    protected function extractNestedDict(string $content, string $key): string
+    {
+        $pos = strpos($content, $key);
+        if ($pos === false) {
+            return '';
+        }
+
+        $start = strpos($content, '<<', $pos);
+        if ($start === false) {
+            return '';
+        }
+
+        $depth = 0;
+        $len = strlen($content);
+        $end = $start;
+
+        for ($i = $start; $i < $len - 1; $i++) {
+            if ($content[$i] === '<' && $content[$i + 1] === '<') {
+                $depth++;
+                $i++;
+            } elseif ($content[$i] === '>' && $content[$i + 1] === '>') {
+                $depth--;
+                $i++;
+                if ($depth === 0) {
+                    $end = $i + 1;
+                    break;
+                }
+            }
+        }
+
+        return substr($content, $start, $end - $start);
     }
 
     /**
@@ -462,6 +530,19 @@ class PdfBarcodeStamper
         $pagesObjNum = $this->objectNumber++;
         $fontObjNum = $this->objectNumber++;
 
+        // ColorSpace object (if present in original)
+        $colorSpaceObjNum = null;
+        $colorSpaceContent = '';
+        if (!empty($this->resourcesContent)) {
+            if (preg_match('/\/ColorSpace\s*<<\s*\/CS1\s+(\d+)\s+\d+\s+R/', $this->resourcesContent, $csMatch)) {
+                $origCsObjNum = (int)$csMatch[1];
+                if (isset($this->objects[$origCsObjNum])) {
+                    $colorSpaceObjNum = $this->objectNumber++;
+                    $colorSpaceContent = $this->objects[$origCsObjNum];
+                }
+            }
+        }
+
         $pageObjNums = [];
         $contentObjNums = [];
 
@@ -490,6 +571,14 @@ class PdfBarcodeStamper
         $pdf .= "{$fontObjNum} 0 obj\n";
         $pdf .= "<<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n/Encoding /WinAnsiEncoding\n>>\n";
         $pdf .= "endobj\n";
+
+        // ColorSpace (if present)
+        if ($colorSpaceObjNum !== null && !empty($colorSpaceContent)) {
+            $offsets[$colorSpaceObjNum] = strlen($pdf);
+            $pdf .= "{$colorSpaceObjNum} 0 obj\n";
+            $pdf .= $colorSpaceContent . "\n";
+            $pdf .= "endobj\n";
+        }
 
         // Pages and content
         foreach ($pages as $index => $page) {
@@ -531,6 +620,9 @@ class PdfBarcodeStamper
             $pdf .= "/Resources <<\n";
             $pdf .= "  /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]\n";
             $pdf .= "  /Font << /F1 {$fontObjNum} 0 R >>\n";
+            if ($colorSpaceObjNum !== null) {
+                $pdf .= "  /ColorSpace << /CS1 {$colorSpaceObjNum} 0 R >>\n";
+            }
             $pdf .= ">>\n";
             $pdf .= "/Contents {$contentObjNum} 0 R\n";
             $pdf .= ">>\n";

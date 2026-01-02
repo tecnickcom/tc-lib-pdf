@@ -64,6 +64,11 @@ class PdfPageBoxEditor
     protected string $pdfVersion = '1.7';
 
     /**
+     * Resources dictionary content (ColorSpace, XObject, etc.)
+     */
+    protected string $resourcesContent = '';
+
+    /**
      * Standard page sizes in points (width x height)
      *
      * @var array<string, array{0: float, 1: float}>
@@ -133,6 +138,7 @@ class PdfPageBoxEditor
         }
 
         $this->objects = $this->extractObjects($this->pdfContent);
+        $this->extractResources();
     }
 
     /**
@@ -154,6 +160,66 @@ class PdfPageBoxEditor
         }
 
         return $objects;
+    }
+
+    /**
+     * Extract resources dictionary from page objects
+     */
+    protected function extractResources(): void
+    {
+        foreach ($this->objects as $objContent) {
+            // Look for Resources dictionary with ColorSpace
+            if (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $objContent, $match)) {
+                $resourcesObjNum = (int)$match[1];
+                if (isset($this->objects[$resourcesObjNum])) {
+                    $this->resourcesContent = $this->objects[$resourcesObjNum];
+                    return;
+                }
+            }
+            // Also check for inline Resources dictionary
+            if (preg_match('/\/Resources\s*<</', $objContent)) {
+                $resourcesDict = $this->extractNestedDict($objContent, '/Resources');
+                if (!empty($resourcesDict) && str_contains($resourcesDict, '/ColorSpace')) {
+                    $this->resourcesContent = $resourcesDict;
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract a nested dictionary from content
+     *
+     * @param string $content Content to search
+     * @param string $key Dictionary key to extract
+     * @return string Extracted dictionary content
+     */
+    protected function extractNestedDict(string $content, string $key): string
+    {
+        $pattern = '/' . preg_quote($key, '/') . '\s*<</';
+        if (!preg_match($pattern, $content, $match, PREG_OFFSET_CAPTURE)) {
+            return '';
+        }
+
+        $startPos = $match[0][1] + strlen($match[0][0]) - 2;
+        $depth = 0;
+        $endPos = $startPos;
+
+        for ($i = $startPos; $i < strlen($content); $i++) {
+            if ($i < strlen($content) - 1 && $content[$i] === '<' && $content[$i + 1] === '<') {
+                $depth++;
+                $i++;
+            } elseif ($i < strlen($content) - 1 && $content[$i] === '>' && $content[$i + 1] === '>') {
+                $depth--;
+                $i++;
+                if ($depth === 0) {
+                    $endPos = $i + 1;
+                    break;
+                }
+            }
+        }
+
+        return substr($content, $startPos, $endPos - $startPos);
     }
 
     /**
@@ -684,6 +750,12 @@ class PdfPageBoxEditor
         $pagesObjNum = $this->objectNumber++;
         $fontObjNum = $this->objectNumber++;
 
+        // Allocate ColorSpace object if we have ColorSpace in resources
+        $colorSpaceObjNum = null;
+        if (!empty($this->resourcesContent) && str_contains($this->resourcesContent, '/ColorSpace')) {
+            $colorSpaceObjNum = $this->objectNumber++;
+        }
+
         $pageObjNums = [];
         $contentObjNums = [];
 
@@ -712,6 +784,14 @@ class PdfPageBoxEditor
         $pdf .= "{$fontObjNum} 0 obj\n";
         $pdf .= "<<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n/Encoding /WinAnsiEncoding\n>>\n";
         $pdf .= "endobj\n";
+
+        // ColorSpace (if needed)
+        if ($colorSpaceObjNum !== null) {
+            $offsets[$colorSpaceObjNum] = strlen($pdf);
+            $pdf .= "{$colorSpaceObjNum} 0 obj\n";
+            $pdf .= "[/Separation /Black /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0 0 1] /N 1 >>]\n";
+            $pdf .= "endobj\n";
+        }
 
         // Pages and content
         foreach ($pages as $index => $page) {
@@ -756,6 +836,9 @@ class PdfPageBoxEditor
             $pdf .= "/Resources <<\n";
             $pdf .= "  /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]\n";
             $pdf .= "  /Font << /F1 {$fontObjNum} 0 R >>\n";
+            if ($colorSpaceObjNum !== null) {
+                $pdf .= "  /ColorSpace << /CS1 {$colorSpaceObjNum} 0 R >>\n";
+            }
             $pdf .= ">>\n";
             $pdf .= "/Contents {$contentObjNum} 0 R\n";
             $pdf .= ">>\n";

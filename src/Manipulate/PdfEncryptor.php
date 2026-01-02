@@ -112,6 +112,13 @@ class PdfEncryptor
     ];
 
     /**
+     * Resources dictionary content (ColorSpace, XObject, etc.)
+     *
+     * @var string
+     */
+    protected string $resourcesContent = '';
+
+    /**
      * All available permissions
      *
      * @var array<string>
@@ -537,6 +544,72 @@ class PdfEncryptor
     }
 
     /**
+     * Extract shared Resources dictionary from PDF
+     */
+    protected function extractResources(): void
+    {
+        foreach ($this->objects as $objNum => $obj) {
+            if (str_contains($obj['content'], '/Type /Page') && !str_contains($obj['content'], '/Type /Pages')) {
+                // Try reference pattern: /Resources N 0 R
+                if (preg_match('/\/Resources\s+(\d+)\s+\d+\s+R/', $obj['content'], $match)) {
+                    $resObjNum = (int)$match[1];
+                    if (isset($this->objects[$resObjNum])) {
+                        $this->resourcesContent = $this->objects[$resObjNum]['content'];
+                        return;
+                    }
+                }
+                // Try inline pattern: /Resources << ... >>
+                if (preg_match('/\/Resources\s*<</', $obj['content'])) {
+                    $this->resourcesContent = $this->extractNestedDict($obj['content'], '/Resources');
+                    if (!empty($this->resourcesContent)) {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract a nested dictionary from PDF content
+     *
+     * @param string $content PDF content
+     * @param string $key Dictionary key
+     * @return string Extracted dictionary
+     */
+    protected function extractNestedDict(string $content, string $key): string
+    {
+        $pos = strpos($content, $key);
+        if ($pos === false) {
+            return '';
+        }
+
+        $start = strpos($content, '<<', $pos);
+        if ($start === false) {
+            return '';
+        }
+
+        $depth = 0;
+        $len = strlen($content);
+        $end = $start;
+
+        for ($i = $start; $i < $len - 1; $i++) {
+            if ($content[$i] === '<' && $content[$i + 1] === '<') {
+                $depth++;
+                $i++;
+            } elseif ($content[$i] === '>' && $content[$i + 1] === '>') {
+                $depth--;
+                $i++;
+                if ($depth === 0) {
+                    $end = $i + 1;
+                    break;
+                }
+            }
+        }
+
+        return substr($content, $start, $end - $start);
+    }
+
+    /**
      * Rebuild PDF with encryption
      *
      * @return string Encrypted PDF content
@@ -544,6 +617,7 @@ class PdfEncryptor
     protected function rebuildEncryptedPdf(): string
     {
         $pages = $this->parsePages();
+        $this->extractResources();
 
         if (empty($pages)) {
             throw new PdfException('No pages found in PDF');
@@ -591,6 +665,19 @@ class PdfEncryptor
         $encryptObjNum = $this->objectNumber++;
         $fontObjNum = $this->objectNumber++;
 
+        // ColorSpace object (if present in original)
+        $colorSpaceObjNum = null;
+        $colorSpaceContent = '';
+        if (!empty($this->resourcesContent)) {
+            if (preg_match('/\/ColorSpace\s*<<\s*\/CS1\s+(\d+)\s+\d+\s+R/', $this->resourcesContent, $csMatch)) {
+                $origCsObjNum = (int)$csMatch[1];
+                if (isset($this->objects[$origCsObjNum])) {
+                    $colorSpaceObjNum = $this->objectNumber++;
+                    $colorSpaceContent = $this->objects[$origCsObjNum]['content'];
+                }
+            }
+        }
+
         $pageObjNums = [];
         $contentObjNums = [];
 
@@ -626,6 +713,14 @@ class PdfEncryptor
         $pdf .= "<<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n/Encoding /WinAnsiEncoding\n>>\n";
         $pdf .= "endobj\n";
 
+        // ColorSpace (if present)
+        if ($colorSpaceObjNum !== null && !empty($colorSpaceContent)) {
+            $offsets[$colorSpaceObjNum] = strlen($pdf);
+            $pdf .= "{$colorSpaceObjNum} 0 obj\n";
+            $pdf .= $colorSpaceContent . "\n";
+            $pdf .= "endobj\n";
+        }
+
         // Pages and content streams
         foreach ($pages as $index => $page) {
             $pageObjNum = $pageObjNums[$index];
@@ -637,7 +732,11 @@ class PdfEncryptor
             $pdf .= "{$pageObjNum} 0 obj\n";
             $pdf .= "<<\n/Type /Page\n/Parent {$pagesObjNum} 0 R\n";
             $pdf .= "/MediaBox [{$box[0]} {$box[1]} {$box[2]} {$box[3]}]\n";
-            $pdf .= "/Resources << /Font << /F1 {$fontObjNum} 0 R >> >>\n";
+            $resourcesStr = "/Font << /F1 {$fontObjNum} 0 R >>";
+            if ($colorSpaceObjNum !== null) {
+                $resourcesStr .= " /ColorSpace << /CS1 {$colorSpaceObjNum} 0 R >>";
+            }
+            $pdf .= "/Resources << {$resourcesStr} >>\n";
             $pdf .= "/Contents {$contentObjNum} 0 R\n>>\n";
             $pdf .= "endobj\n";
 

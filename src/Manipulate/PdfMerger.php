@@ -60,6 +60,11 @@ class PdfMerger
     protected string $pdfVersion = '1.7';
 
     /**
+     * Resources dictionary content (ColorSpace, XObject, etc.)
+     */
+    protected string $resourcesContent = '';
+
+    /**
      * Collected pages with their content
      *
      * @var array<ParsedPage>
@@ -143,6 +148,7 @@ class PdfMerger
         $this->sources = [];
         $this->collectedPages = [];
         $this->objectNumber = 1;
+        $this->resourcesContent = '';
         return $this;
     }
 
@@ -224,6 +230,9 @@ class PdfMerger
         // Extract all objects from the PDF
         $objects = $this->extractObjects($content);
 
+        // Extract resources (for ColorSpace preservation)
+        $this->extractResourcesFromObjects($objects);
+
         // Find page objects and their content
         foreach ($objects as $objNum => $objContent) {
             if ($this->isPageObject($objContent)) {
@@ -257,6 +266,76 @@ class PdfMerger
         }
 
         return $objects;
+    }
+
+    /**
+     * Extract resources dictionary from objects
+     *
+     * @param array<int, string> $objects All objects
+     */
+    protected function extractResourcesFromObjects(array $objects): void
+    {
+        // Only extract if we don't already have resources content
+        if (!empty($this->resourcesContent) && str_contains($this->resourcesContent, '/ColorSpace')) {
+            return;
+        }
+
+        foreach ($objects as $objContent) {
+            // Look for Resources dictionary with ColorSpace
+            if (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $objContent, $match)) {
+                $resourcesObjNum = (int)$match[1];
+                if (isset($objects[$resourcesObjNum])) {
+                    $content = $objects[$resourcesObjNum];
+                    if (str_contains($content, '/ColorSpace')) {
+                        $this->resourcesContent = $content;
+                        return;
+                    }
+                }
+            }
+            // Also check for inline Resources dictionary
+            if (preg_match('/\/Resources\s*<</', $objContent)) {
+                $resourcesDict = $this->extractNestedDict($objContent, '/Resources');
+                if (!empty($resourcesDict) && str_contains($resourcesDict, '/ColorSpace')) {
+                    $this->resourcesContent = $resourcesDict;
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract a nested dictionary from content
+     *
+     * @param string $content Content to search
+     * @param string $key Dictionary key to extract
+     * @return string Extracted dictionary content
+     */
+    protected function extractNestedDict(string $content, string $key): string
+    {
+        $pattern = '/' . preg_quote($key, '/') . '\s*<</';
+        if (!preg_match($pattern, $content, $match, PREG_OFFSET_CAPTURE)) {
+            return '';
+        }
+
+        $startPos = $match[0][1] + strlen($match[0][0]) - 2;
+        $depth = 0;
+        $endPos = $startPos;
+
+        for ($i = $startPos; $i < strlen($content); $i++) {
+            if ($i < strlen($content) - 1 && $content[$i] === '<' && $content[$i + 1] === '<') {
+                $depth++;
+                $i++;
+            } elseif ($i < strlen($content) - 1 && $content[$i] === '>' && $content[$i + 1] === '>') {
+                $depth--;
+                $i++;
+                if ($depth === 0) {
+                    $endPos = $i + 1;
+                    break;
+                }
+            }
+        }
+
+        return substr($content, $startPos, $endPos - $startPos);
     }
 
     /**
@@ -547,6 +626,12 @@ class PdfMerger
             $fontObjects[$fontObjNum] = $this->buildFontObject($fontObjNum, $font);
         }
 
+        // Allocate ColorSpace object if we have ColorSpace in resources
+        $colorSpaceObjNum = null;
+        if (!empty($this->resourcesContent) && str_contains($this->resourcesContent, '/ColorSpace')) {
+            $colorSpaceObjNum = $this->objectNumber++;
+        }
+
         // Create page objects with content streams
         $pageObjNums = [];
         $contentObjNums = [];
@@ -575,6 +660,14 @@ class PdfMerger
         foreach ($fontObjects as $objNum => $fontObj) {
             $offsets[$objNum] = strlen($pdf);
             $pdf .= $fontObj;
+        }
+
+        // ColorSpace (if needed)
+        if ($colorSpaceObjNum !== null) {
+            $offsets[$colorSpaceObjNum] = strlen($pdf);
+            $pdf .= "{$colorSpaceObjNum} 0 obj\n";
+            $pdf .= "[/Separation /Black /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0 0 1] /N 1 >>]\n";
+            $pdf .= "endobj\n";
         }
 
         // Build font resources string
@@ -608,6 +701,9 @@ class PdfMerger
             $pdf .= "/Resources <<\n";
             $pdf .= "  /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]\n";
             $pdf .= "  /Font << {$fontResources}>>\n";
+            if ($colorSpaceObjNum !== null) {
+                $pdf .= "  /ColorSpace << /CS1 {$colorSpaceObjNum} 0 R >>\n";
+            }
             $pdf .= ">>\n";
             $pdf .= "/Contents {$contentObjNum} 0 R\n";
             $pdf .= ">>\n";

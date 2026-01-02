@@ -61,6 +61,11 @@ class PdfSplitter
     protected string $pdfVersion = '1.7';
 
     /**
+     * Resources dictionary content (ColorSpace, XObject, etc.)
+     */
+    protected string $resourcesContent = '';
+
+    /**
      * Load PDF from file
      *
      * @param string $filePath Path to PDF file
@@ -97,6 +102,7 @@ class PdfSplitter
         $this->pdfContent = $pdfContent;
         $this->parseVersion();
         $this->extractObjects();
+        $this->extractResources();
         $this->parsePages();
 
         return $this;
@@ -302,6 +308,68 @@ class PdfSplitter
                 $this->objects[$objNum] = $match[2];
             }
         }
+    }
+
+    /**
+     * Extract shared Resources dictionary from PDF
+     */
+    protected function extractResources(): void
+    {
+        foreach ($this->objects as $objNum => $objContent) {
+            if (str_contains($objContent, '/Type /Page') && !str_contains($objContent, '/Type /Pages')) {
+                // Try reference pattern: /Resources N 0 R
+                if (preg_match('/\/Resources\s+(\d+)\s+\d+\s+R/', $objContent, $match)) {
+                    $resObjNum = (int)$match[1];
+                    if (isset($this->objects[$resObjNum])) {
+                        $this->resourcesContent = $this->objects[$resObjNum];
+                        return;
+                    }
+                }
+                // Try inline pattern: /Resources << ... >>
+                if (preg_match('/\/Resources\s*<</', $objContent)) {
+                    $this->resourcesContent = $this->extractNestedDict($objContent, '/Resources');
+                    if (!empty($this->resourcesContent)) {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract a nested dictionary from PDF content
+     */
+    protected function extractNestedDict(string $content, string $key): string
+    {
+        $pos = strpos($content, $key);
+        if ($pos === false) {
+            return '';
+        }
+
+        $start = strpos($content, '<<', $pos);
+        if ($start === false) {
+            return '';
+        }
+
+        $depth = 0;
+        $len = strlen($content);
+        $end = $start;
+
+        for ($i = $start; $i < $len - 1; $i++) {
+            if ($content[$i] === '<' && $content[$i + 1] === '<') {
+                $depth++;
+                $i++;
+            } elseif ($content[$i] === '>' && $content[$i + 1] === '>') {
+                $depth--;
+                $i++;
+                if ($depth === 0) {
+                    $end = $i + 1;
+                    break;
+                }
+            }
+        }
+
+        return substr($content, $start, $end - $start);
     }
 
     /**
@@ -601,6 +669,19 @@ class PdfSplitter
             $fontObjects[$fontObjNum] = $this->buildFontObject($fontObjNum, $font);
         }
 
+        // ColorSpace object (if present in original)
+        $colorSpaceObjNum = null;
+        $colorSpaceContent = '';
+        if (!empty($this->resourcesContent)) {
+            if (preg_match('/\/ColorSpace\s*<<\s*\/CS1\s+(\d+)\s+\d+\s+R/', $this->resourcesContent, $csMatch)) {
+                $origCsObjNum = (int)$csMatch[1];
+                if (isset($this->objects[$origCsObjNum])) {
+                    $colorSpaceObjNum = $objectNumber++;
+                    $colorSpaceContent = $this->objects[$origCsObjNum];
+                }
+            }
+        }
+
         // Create page objects with content streams
         $pageObjNums = [];
         $contentObjNums = [];
@@ -631,6 +712,14 @@ class PdfSplitter
         foreach ($fontObjects as $objNum => $fontObj) {
             $offsets[$objNum] = strlen($pdf);
             $pdf .= $fontObj;
+        }
+
+        // Write ColorSpace object (if present)
+        if ($colorSpaceObjNum !== null && !empty($colorSpaceContent)) {
+            $offsets[$colorSpaceObjNum] = strlen($pdf);
+            $pdf .= "{$colorSpaceObjNum} 0 obj\n";
+            $pdf .= $colorSpaceContent . "\n";
+            $pdf .= "endobj\n";
         }
 
         // Build font resources string
@@ -670,6 +759,9 @@ class PdfSplitter
             $pdf .= "/Resources <<\n";
             $pdf .= "  /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]\n";
             $pdf .= "  /Font << {$fontResources}>>\n";
+            if ($colorSpaceObjNum !== null) {
+                $pdf .= "  /ColorSpace << /CS1 {$colorSpaceObjNum} 0 R >>\n";
+            }
             $pdf .= ">>\n";
             $pdf .= "/Contents {$contentObjNum} 0 R\n";
             $pdf .= ">>\n";
