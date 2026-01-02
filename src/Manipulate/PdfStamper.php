@@ -96,6 +96,18 @@ class PdfStamper
     protected array $stamps = [];
 
     /**
+     * Parsed PDF objects
+     *
+     * @var array<int, string>
+     */
+    protected array $objects = [];
+
+    /**
+     * Resources dictionary content (ColorSpace, XObject, etc.)
+     */
+    protected string $resourcesContent = '';
+
+    /**
      * Load PDF from file
      *
      * @param string $filePath Path to PDF file
@@ -131,9 +143,108 @@ class PdfStamper
 
         $this->pdfContent = $pdfContent;
         $this->parseVersion();
+        $this->extractObjects();
+        $this->extractResources();
         $this->stamps = [];
 
         return $this;
+    }
+
+    /**
+     * Extract all objects from PDF content
+     */
+    protected function extractObjects(): void
+    {
+        $this->objects = [];
+
+        // Match all PDF objects
+        if (preg_match_all('/(\d+)\s+0\s+obj\s*(.*?)\s*endobj/s', $this->pdfContent, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $objNum = (int) $match[1];
+                $this->objects[$objNum] = $match[2];
+            }
+        }
+    }
+
+    /**
+     * Extract Resources dictionary from page objects
+     */
+    protected function extractResources(): void
+    {
+        $this->resourcesContent = '';
+
+        // Find page objects and their resources
+        foreach ($this->objects as $objContent) {
+            if (strpos($objContent, '/Type /Page') !== false || strpos($objContent, '/Type/Page') !== false) {
+                // Check for Resources reference
+                if (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $objContent, $resMatch)) {
+                    $resObjNum = (int) $resMatch[1];
+                    if (isset($this->objects[$resObjNum])) {
+                        $this->resourcesContent = $this->objects[$resObjNum];
+                        break;
+                    }
+                }
+                // Check for inline Resources
+                if (preg_match('/\/Resources\s*<<(.*)>>/s', $objContent, $resMatch)) {
+                    $this->resourcesContent = $resMatch[1];
+                    break;
+                }
+            }
+        }
+
+        // If no resources found in page, check objects directly
+        if (empty($this->resourcesContent)) {
+            foreach ($this->objects as $objContent) {
+                if (strpos($objContent, '/ColorSpace') !== false && strpos($objContent, '/Font') !== false) {
+                    // This looks like a Resources dictionary
+                    if (preg_match('/<<(.*)>>/s', $objContent, $match)) {
+                        $this->resourcesContent = $match[1];
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract nested dictionary content
+     *
+     * @param string $content Content to parse
+     * @param string $key Dictionary key to extract
+     * @return string Extracted content
+     */
+    protected function extractNestedDict(string $content, string $key): string
+    {
+        $pattern = '/' . preg_quote($key, '/') . '\s*<<(.*?)>>/s';
+        if (preg_match($pattern, $content, $match)) {
+            return $match[1];
+        }
+
+        // Try matching with proper bracket counting
+        $startPattern = '/' . preg_quote($key, '/') . '\s*<</';
+        if (preg_match($startPattern, $content, $match, PREG_OFFSET_CAPTURE)) {
+            $startPos = $match[0][1] + strlen($match[0][0]);
+            $depth = 1;
+            $pos = $startPos;
+            $len = strlen($content);
+
+            while ($pos < $len && $depth > 0) {
+                if (substr($content, $pos, 2) === '<<') {
+                    $depth++;
+                    $pos += 2;
+                } elseif (substr($content, $pos, 2) === '>>') {
+                    $depth--;
+                    if ($depth === 0) {
+                        return substr($content, $startPos, $pos - $startPos);
+                    }
+                    $pos += 2;
+                } else {
+                    $pos++;
+                }
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -664,12 +775,242 @@ class PdfStamper
      */
     protected function modifyPdfWithStamps(array $stampStreams): string
     {
-        // For a basic implementation, we return the original PDF
-        // with stamp information added as annotations/comments
-        // A full implementation would modify content streams
+        // Find all page objects
+        $pageObjects = $this->findPageObjects();
 
-        // This is a simplified approach - just return original for now
-        // The proper implementation requires complex PDF parsing and modification
-        return $this->pdfContent;
+        if (empty($pageObjects)) {
+            return $this->pdfContent;
+        }
+
+        // Find the highest object number
+        $maxObjNum = 0;
+        foreach ($this->objects as $objNum => $content) {
+            $maxObjNum = max($maxObjNum, $objNum);
+        }
+
+        // Extract ColorSpace content from resources
+        $colorSpaceContent = '';
+        if (!empty($this->resourcesContent)) {
+            $colorSpaceContent = $this->extractNestedDict($this->resourcesContent, '/ColorSpace');
+        }
+
+        // Build the output PDF
+        $output = "%PDF-{$this->pdfVersion}\n";
+        $output .= "%\xE2\xE3\xCF\xD3\n"; // Binary marker
+
+        $xref = [];
+        $newContentObjects = [];
+        $nextObjNum = $maxObjNum + 1;
+
+        // Create new content stream objects for stamps
+        $pageNum = 1;
+        foreach ($pageObjects as $pageObjNum => $pageContent) {
+            if (isset($stampStreams[$pageNum]) && !empty(trim($stampStreams[$pageNum]))) {
+                // Create a new content stream for the stamp
+                $stampStreamContent = $stampStreams[$pageNum];
+                $newContentObjects[$pageObjNum] = [
+                    'objNum' => $nextObjNum,
+                    'content' => $stampStreamContent,
+                ];
+                $nextObjNum++;
+            }
+            $pageNum++;
+        }
+
+        // Allocate ColorSpace object if needed
+        $colorSpaceObjNum = null;
+        if (!empty($colorSpaceContent)) {
+            $colorSpaceObjNum = $nextObjNum;
+            $nextObjNum++;
+        }
+
+        // Write all original objects, modifying page objects as needed
+        $pageNum = 1;
+        foreach ($this->objects as $objNum => $content) {
+            $xref[$objNum] = strlen($output);
+
+            // Check if this is a page object that needs stamp content added
+            if (isset($pageObjects[$objNum]) && isset($newContentObjects[$objNum])) {
+                $output .= $this->buildModifiedPageObject(
+                    $objNum,
+                    $content,
+                    $newContentObjects[$objNum]['objNum'],
+                    $colorSpaceObjNum
+                );
+            } else {
+                $output .= "{$objNum} 0 obj\n{$content}\nendobj\n";
+            }
+
+            if (isset($pageObjects[$objNum])) {
+                $pageNum++;
+            }
+        }
+
+        // Write new stamp content stream objects
+        foreach ($newContentObjects as $pageObjNum => $data) {
+            $xref[$data['objNum']] = strlen($output);
+            $streamContent = $data['content'];
+            $streamLength = strlen($streamContent);
+
+            $output .= "{$data['objNum']} 0 obj\n";
+            $output .= "<< /Length {$streamLength} >>\n";
+            $output .= "stream\n";
+            $output .= $streamContent;
+            $output .= "\nendstream\n";
+            $output .= "endobj\n";
+        }
+
+        // Write ColorSpace object if needed
+        if ($colorSpaceObjNum !== null && !empty($colorSpaceContent)) {
+            $xref[$colorSpaceObjNum] = strlen($output);
+            $output .= "{$colorSpaceObjNum} 0 obj\n";
+            $output .= "<< {$colorSpaceContent} >>\n";
+            $output .= "endobj\n";
+        }
+
+        // Write xref table
+        $xrefOffset = strlen($output);
+        $output .= "xref\n";
+        $output .= "0 " . ($nextObjNum) . "\n";
+        $output .= "0000000000 65535 f \n";
+
+        for ($i = 1; $i < $nextObjNum; $i++) {
+            if (isset($xref[$i])) {
+                $output .= sprintf("%010d 00000 n \n", $xref[$i]);
+            } else {
+                $output .= "0000000000 65535 f \n";
+            }
+        }
+
+        // Find Root and Info from original trailer
+        $rootRef = '';
+        $infoRef = '';
+        if (preg_match('/\/Root\s+(\d+\s+\d+\s+R)/', $this->pdfContent, $match)) {
+            $rootRef = $match[1];
+        }
+        if (preg_match('/\/Info\s+(\d+\s+\d+\s+R)/', $this->pdfContent, $match)) {
+            $infoRef = $match[1];
+        }
+
+        // Write trailer
+        $output .= "trailer\n";
+        $output .= "<< /Size {$nextObjNum}";
+        if ($rootRef) {
+            $output .= " /Root {$rootRef}";
+        }
+        if ($infoRef) {
+            $output .= " /Info {$infoRef}";
+        }
+        $output .= " >>\n";
+        $output .= "startxref\n";
+        $output .= "{$xrefOffset}\n";
+        $output .= "%%EOF\n";
+
+        return $output;
+    }
+
+    /**
+     * Find all page objects
+     *
+     * @return array<int, string> Map of object numbers to page content
+     */
+    protected function findPageObjects(): array
+    {
+        $pages = [];
+        foreach ($this->objects as $objNum => $content) {
+            // Match /Type /Page but not /Type /Pages
+            if (preg_match('/\/Type\s*\/Page\b(?!s)/', $content)) {
+                $pages[$objNum] = $content;
+            }
+        }
+        return $pages;
+    }
+
+    /**
+     * Build a modified page object with stamp content reference
+     *
+     * @param int $objNum Page object number
+     * @param string $content Original page content
+     * @param int $stampObjNum Stamp content stream object number
+     * @param int|null $colorSpaceObjNum ColorSpace object number
+     * @return string Modified page object
+     */
+    protected function buildModifiedPageObject(
+        int $objNum,
+        string $content,
+        int $stampObjNum,
+        ?int $colorSpaceObjNum
+    ): string {
+        // Find existing Contents reference
+        $hasContents = preg_match('/\/Contents\s+(\d+)\s+0\s+R/', $content, $match);
+        $hasContentsArray = preg_match('/\/Contents\s*\[(.*?)\]/', $content, $arrayMatch);
+
+        if ($hasContents) {
+            $existingRef = $match[1];
+            // Replace single reference with array including stamp
+            $content = preg_replace(
+                '/\/Contents\s+\d+\s+0\s+R/',
+                "/Contents [{$existingRef} 0 R {$stampObjNum} 0 R]",
+                $content
+            );
+        } elseif ($hasContentsArray) {
+            // Add to existing array
+            $existingRefs = trim($arrayMatch[1]);
+            $content = preg_replace(
+                '/\/Contents\s*\[.*?\]/',
+                "/Contents [{$existingRefs} {$stampObjNum} 0 R]",
+                $content
+            );
+        } else {
+            // No contents - add new
+            $content = preg_replace(
+                '/(\/Type\s*\/Page)/',
+                "$1 /Contents {$stampObjNum} 0 R",
+                $content
+            );
+        }
+
+        // Update Resources to include font for stamps
+        if (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $content)) {
+            // Resources is a reference - we need to ensure font is available
+            // For simplicity, we add an inline Resources entry
+            $colorSpaceEntry = '';
+            if ($colorSpaceObjNum !== null) {
+                $colorSpaceEntry = " /ColorSpace {$colorSpaceObjNum} 0 R";
+            }
+
+            // Check if we have existing resource reference to preserve
+            if (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $content, $resMatch)) {
+                $resObjNum = (int) $resMatch[1];
+                // Keep original resources reference but add font inline
+                $content = preg_replace(
+                    '/\/Resources\s+\d+\s+0\s+R/',
+                    "/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> /ProcSet [/PDF /Text]{$colorSpaceEntry} >>",
+                    $content
+                );
+            }
+        } elseif (preg_match('/\/Resources\s*<</', $content)) {
+            // Inline resources - add font if not present
+            if (strpos($content, '/Font') === false) {
+                $content = preg_replace(
+                    '/\/Resources\s*<</',
+                    '/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >>',
+                    $content
+                );
+            }
+        } else {
+            // No resources - add them
+            $colorSpaceEntry = '';
+            if ($colorSpaceObjNum !== null) {
+                $colorSpaceEntry = " /ColorSpace {$colorSpaceObjNum} 0 R";
+            }
+            $content = preg_replace(
+                '/(\/Type\s*\/Page)/',
+                "$1 /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> /ProcSet [/PDF /Text]{$colorSpaceEntry} >>",
+                $content
+            );
+        }
+
+        return "{$objNum} 0 obj\n{$content}\nendobj\n";
     }
 }
