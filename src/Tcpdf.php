@@ -1740,6 +1740,50 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $editor->applyToFile($outputPath);
     }
 
+    /**
+     * Create a new PdfFormFiller instance.
+     *
+     * The form filler allows reading and filling PDF form fields.
+     *
+     * Example:
+     * ```php
+     * $filler = $pdf->createFormFiller();
+     * $filler->loadFile('form.pdf')
+     *        ->setFieldValue('name', 'John Doe')
+     *        ->setFieldValue('email', 'john@example.com');
+     * $modified = $filler->apply();
+     * ```
+     *
+     * @return Manipulate\PdfFormFiller
+     */
+    public function createFormFiller(): Manipulate\PdfFormFiller
+    {
+        return new Manipulate\PdfFormFiller();
+    }
+
+    /**
+     * Fill PDF form fields and save to file.
+     *
+     * @param string              $filePath   Path to source PDF with form
+     * @param array<string,mixed> $values     Field values to set
+     * @param string              $outputPath Path to save the filled PDF
+     * @param bool                $flatten    Whether to flatten fields
+     *
+     * @return bool True on success
+     */
+    public function fillPdfForm(
+        string $filePath,
+        array $values,
+        string $outputPath,
+        bool $flatten = false
+    ): bool {
+        $filler = $this->createFormFiller();
+        $filler->loadFile($filePath)
+               ->setFieldValues($values)
+               ->flattenFields($flatten);
+        return $filler->applyToFile($outputPath);
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
