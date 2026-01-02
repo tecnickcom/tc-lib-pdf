@@ -1646,6 +1646,48 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $stamper->applyToFile($outputPath);
     }
 
+    /**
+     * Create a new PDF Page Rotator instance.
+     *
+     * The rotator allows rotating pages in PDF documents.
+     *
+     * Usage:
+     * ```php
+     * $rotator = $pdf->createPageRotator();
+     * $rotator->loadFile('document.pdf')
+     *         ->rotatePage(1, 90)
+     *         ->rotatePages(180, [2, 4]);
+     * $modified = $rotator->apply();
+     * ```
+     *
+     * @return Manipulate\PdfPageRotator
+     */
+    public function createPageRotator(): Manipulate\PdfPageRotator
+    {
+        return new Manipulate\PdfPageRotator();
+    }
+
+    /**
+     * Rotate pages in an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param int $degrees Rotation in degrees (0, 90, 180, 270)
+     * @param string $outputPath Output file path
+     * @param array<int>|string $pages Pages to rotate
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function rotatePdfPages(
+        string $filePath,
+        int $degrees,
+        string $outputPath,
+        array|string $pages = 'all'
+    ): bool {
+        $rotator = $this->createPageRotator();
+        $rotator->loadFile($filePath)->rotatePages($degrees, $pages);
+        return $rotator->applyToFile($outputPath);
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
