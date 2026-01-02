@@ -1688,6 +1688,58 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $rotator->applyToFile($outputPath);
     }
 
+    /**
+     * Create a new PdfPageBoxEditor instance.
+     *
+     * The page box editor allows modifying page boxes (MediaBox, CropBox, etc.)
+     * to crop or resize PDF pages.
+     *
+     * Example:
+     * ```php
+     * $editor = $pdf->createPageBoxEditor();
+     * $editor->loadFile('document.pdf')
+     *        ->cropTo('A5', 'all')
+     *        ->addMargin(10, 'all');
+     * $modified = $editor->apply();
+     * ```
+     *
+     * @return Manipulate\PdfPageBoxEditor
+     */
+    public function createPageBoxEditor(): Manipulate\PdfPageBoxEditor
+    {
+        return new Manipulate\PdfPageBoxEditor();
+    }
+
+    /**
+     * Crop or resize pages in a PDF file.
+     *
+     * @param string       $filePath   Path to source PDF
+     * @param string       $size       Target size (A4, LETTER, etc.) or 'custom'
+     * @param string       $outputPath Path to save the modified PDF
+     * @param array|string $pages      Page numbers or 'all'
+     * @param float|null   $width      Custom width in points (if size is 'custom')
+     * @param float|null   $height     Custom height in points (if size is 'custom')
+     *
+     * @return bool True on success
+     */
+    public function cropPdfPages(
+        string $filePath,
+        string $size,
+        string $outputPath,
+        array|string $pages = 'all',
+        ?float $width = null,
+        ?float $height = null
+    ): bool {
+        $editor = $this->createPageBoxEditor();
+        $editor->loadFile($filePath);
+        if ($size === 'custom' && $width !== null && $height !== null) {
+            $editor->resizeToCustom($width, $height, $pages);
+        } else {
+            $editor->resizeTo($size, $pages);
+        }
+        return $editor->applyToFile($outputPath);
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
