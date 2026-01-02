@@ -1784,6 +1784,57 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $filler->applyToFile($outputPath);
     }
 
+    /**
+     * Create a new PdfEncryptor instance.
+     *
+     * The encryptor allows adding password protection and encryption to PDFs.
+     *
+     * Example:
+     * ```php
+     * $encryptor = $pdf->createEncryptor();
+     * $encryptor->loadFile('document.pdf')
+     *           ->setUserPassword('user123')
+     *           ->setOwnerPassword('owner456')
+     *           ->setPermissions(['print', 'copy']);
+     * $encryptor->encryptToFile('protected.pdf');
+     * ```
+     *
+     * @return Manipulate\PdfEncryptor
+     */
+    public function createEncryptor(): Manipulate\PdfEncryptor
+    {
+        return new Manipulate\PdfEncryptor();
+    }
+
+    /**
+     * Encrypt a PDF file with password protection.
+     *
+     * @param string        $filePath     Path to source PDF
+     * @param string        $userPassword Password to open document
+     * @param string        $outputPath   Path to save encrypted PDF
+     * @param string        $ownerPassword Owner password (optional, auto-generated if empty)
+     * @param int           $mode         Encryption mode (0=RC4_40, 1=RC4_128, 2=AES_128, 3=AES_256)
+     * @param array<string> $permissions  Permissions to allow
+     *
+     * @return bool True on success
+     */
+    public function encryptPdf(
+        string $filePath,
+        string $userPassword,
+        string $outputPath,
+        string $ownerPassword = '',
+        int $mode = Manipulate\PdfEncryptor::AES_128,
+        array $permissions = ['print', 'copy']
+    ): bool {
+        $encryptor = $this->createEncryptor();
+        $encryptor->loadFile($filePath)
+                  ->setUserPassword($userPassword)
+                  ->setOwnerPassword($ownerPassword)
+                  ->setEncryptionMode($mode)
+                  ->setPermissions($permissions);
+        return $encryptor->encryptToFile($outputPath);
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
