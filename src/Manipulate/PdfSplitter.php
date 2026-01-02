@@ -5,10 +5,8 @@
  *
  * PDF Split functionality - extracts pages from a PDF document.
  *
- * @since     2025-01-02
  * @category  Library
  * @package   Pdf
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -24,16 +22,15 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * Splits a PDF document into multiple parts or extracts specific pages.
  *
- * @since     2025-01-02
  * @category  Library
  * @package   Pdf
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-type PageData array{
  *     'mediaBox': array<float>,
- *     'dict': string,
+ *     'contentStream': string,
+ *     'fonts': array<string, array<string, mixed>>,
  *     'objNum': int,
  * }
  */
@@ -50,6 +47,13 @@ class PdfSplitter
      * @var array<PageData>
      */
     protected array $pages = [];
+
+    /**
+     * All extracted objects from source
+     *
+     * @var array<int, string>
+     */
+    protected array $objects = [];
 
     /**
      * PDF version from source
@@ -92,6 +96,7 @@ class PdfSplitter
 
         $this->pdfContent = $pdfContent;
         $this->parseVersion();
+        $this->extractObjects();
         $this->parsePages();
 
         return $this;
@@ -170,8 +175,6 @@ class PdfSplitter
 
         for ($i = 1; $i <= $totalPages; $i++) {
             $pageContent = $this->extractPage($i);
-            $filename = sprintf('%s%s%03d.pdf', rtrim($outputDir, '/'), '/', (int) $i);
-            $filename = str_replace('//', '/', $prefix . sprintf('%03d.pdf', $i));
             $fullPath = rtrim($outputDir, '/') . '/' . $prefix . sprintf('%03d.pdf', $i);
 
             if (file_put_contents($fullPath, $pageContent) !== false) {
@@ -285,40 +288,209 @@ class PdfSplitter
     }
 
     /**
+     * Extract all objects from PDF
+     */
+    protected function extractObjects(): void
+    {
+        $this->objects = [];
+
+        // Match objects: N 0 obj ... endobj
+        $pattern = '/(\d+)\s+0\s+obj\s*(.*?)\s*endobj/s';
+        if (preg_match_all($pattern, $this->pdfContent, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $objNum = (int)$match[1];
+                $this->objects[$objNum] = $match[2];
+            }
+        }
+    }
+
+    /**
      * Parse all pages from the PDF
      */
     protected function parsePages(): void
     {
         $this->pages = [];
 
-        // Find all page objects (not Pages, just Page)
-        if (preg_match_all('/(\d+)\s+0\s+obj\s*<<([^>]*\/Type\s*\/Page\b[^>]*)>>/s', $this->pdfContent, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                // Skip if this is actually a /Pages object
-                if (strpos($match[2], '/Type /Pages') !== false) {
-                    continue;
+        foreach ($this->objects as $objNum => $objContent) {
+            // Check if this is a Page object (not Pages)
+            if (preg_match('/\/Type\s*\/Page\b(?!s)/s', $objContent)) {
+                $page = $this->extractPageData($objContent, $objNum);
+                if ($page !== null) {
+                    $this->pages[] = $page;
                 }
-
-                $pageDict = $match[2];
-
-                // Extract MediaBox
-                $mediaBox = [0, 0, 612, 792]; // Default US Letter
-                if (preg_match('/\/MediaBox\s*\[\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*\]/', $pageDict, $mbMatch)) {
-                    $mediaBox = [
-                        (float) $mbMatch[1],
-                        (float) $mbMatch[2],
-                        (float) $mbMatch[3],
-                        (float) $mbMatch[4],
-                    ];
-                }
-
-                $this->pages[] = [
-                    'mediaBox' => $mediaBox,
-                    'dict' => $pageDict,
-                    'objNum' => (int) $match[1],
-                ];
             }
         }
+    }
+
+    /**
+     * Extract page data including content stream
+     *
+     * @param string $pageContent Page object content
+     * @param int $pageObjNum Page object number
+     * @return PageData|null
+     */
+    protected function extractPageData(string $pageContent, int $pageObjNum): ?array
+    {
+        // Extract MediaBox
+        $mediaBox = [0, 0, 612, 792]; // Default US Letter
+        if (preg_match('/\/MediaBox\s*\[\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*\]/', $pageContent, $mbMatch)) {
+            $mediaBox = [
+                (float)$mbMatch[1],
+                (float)$mbMatch[2],
+                (float)$mbMatch[3],
+                (float)$mbMatch[4],
+            ];
+        }
+
+        // Extract content stream
+        $contentStream = '';
+        if (preg_match('/\/Contents\s+(\d+)\s+0\s+R/', $pageContent, $cMatch)) {
+            $contentObjNum = (int)$cMatch[1];
+            if (isset($this->objects[$contentObjNum])) {
+                $contentStream = $this->extractStreamContent($this->objects[$contentObjNum], $contentObjNum);
+            }
+        } elseif (preg_match('/\/Contents\s*\[([\d\s0R]+)\]/s', $pageContent, $cMatch)) {
+            // Array of content streams
+            if (preg_match_all('/(\d+)\s+0\s+R/', $cMatch[1], $refs)) {
+                foreach ($refs[1] as $ref) {
+                    $refNum = (int)$ref;
+                    if (isset($this->objects[$refNum])) {
+                        $contentStream .= $this->extractStreamContent($this->objects[$refNum], $refNum);
+                    }
+                }
+            }
+        }
+
+        // Extract fonts from resources
+        $fonts = $this->extractFonts($pageContent);
+
+        return [
+            'mediaBox' => $mediaBox,
+            'contentStream' => $contentStream,
+            'fonts' => $fonts,
+            'objNum' => $pageObjNum,
+        ];
+    }
+
+    /**
+     * Extract stream content from an object
+     *
+     * @param string $objContent Object content
+     * @param int $objNum Object number
+     * @return string Decoded stream content
+     */
+    protected function extractStreamContent(string $objContent, int $objNum): string
+    {
+        // Check if stream is in the object content
+        if (preg_match('/stream\s*(.*?)\s*endstream/s', $objContent, $match)) {
+            return $this->decodeStream($objContent, $match[1]);
+        }
+
+        // Look for stream in full content
+        $pattern = '/' . $objNum . '\s+0\s+obj\s*<<[^>]*>>\s*stream\s*(.*?)\s*endstream/s';
+        if (preg_match($pattern, $this->pdfContent, $match)) {
+            return $this->decodeStream($objContent, $match[1]);
+        }
+
+        return '';
+    }
+
+    /**
+     * Decode stream content (handle FlateDecode)
+     *
+     * @param string $objContent Object dictionary for filter info
+     * @param string $streamData Raw stream data
+     * @return string Decoded stream
+     */
+    protected function decodeStream(string $objContent, string $streamData): string
+    {
+        // Check for FlateDecode filter
+        if (preg_match('/\/Filter\s*\/FlateDecode/', $objContent)) {
+            $decoded = @gzuncompress($streamData);
+            if ($decoded !== false) {
+                return $decoded;
+            }
+            // Try gzinflate for raw deflate data
+            $decoded = @gzinflate($streamData);
+            if ($decoded !== false) {
+                return $decoded;
+            }
+        }
+
+        return $streamData;
+    }
+
+    /**
+     * Extract font information from page resources
+     *
+     * @param string $pageContent Page object content
+     * @return array<string, array<string, mixed>>
+     */
+    protected function extractFonts(string $pageContent): array
+    {
+        $fonts = [];
+
+        // Look for font references in Resources
+        if (preg_match('/\/Font\s*<<([^>]*)>>/s', $pageContent, $fontMatch)) {
+            // Inline font dictionary
+            if (preg_match_all('/\/(\w+)\s+(\d+)\s+0\s+R/', $fontMatch[1], $refs, PREG_SET_ORDER)) {
+                foreach ($refs as $ref) {
+                    $fontName = $ref[1];
+                    $fontObjNum = (int)$ref[2];
+                    if (isset($this->objects[$fontObjNum])) {
+                        $fonts[$fontName] = $this->parseFontObject($this->objects[$fontObjNum]);
+                    }
+                }
+            }
+        } elseif (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $pageContent, $resMatch)) {
+            // Resources in separate object
+            $resObjNum = (int)$resMatch[1];
+            if (isset($this->objects[$resObjNum])) {
+                $resContent = $this->objects[$resObjNum];
+                if (preg_match('/\/Font\s*<<([^>]*)>>/s', $resContent, $fontMatch)) {
+                    if (preg_match_all('/\/(\w+)\s+(\d+)\s+0\s+R/', $fontMatch[1], $refs, PREG_SET_ORDER)) {
+                        foreach ($refs as $ref) {
+                            $fontName = $ref[1];
+                            $fontObjNum = (int)$ref[2];
+                            if (isset($this->objects[$fontObjNum])) {
+                                $fonts[$fontName] = $this->parseFontObject($this->objects[$fontObjNum]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $fonts;
+    }
+
+    /**
+     * Parse font object to extract font details
+     *
+     * @param string $fontContent Font object content
+     * @return array<string, mixed>
+     */
+    protected function parseFontObject(string $fontContent): array
+    {
+        $font = [
+            'type' => 'Type1',
+            'baseFont' => 'Helvetica',
+            'encoding' => 'WinAnsiEncoding',
+        ];
+
+        if (preg_match('/\/Subtype\s*\/(\w+)/', $fontContent, $match)) {
+            $font['type'] = $match[1];
+        }
+
+        if (preg_match('/\/BaseFont\s*\/(\S+)/', $fontContent, $match)) {
+            $font['baseFont'] = $match[1];
+        }
+
+        if (preg_match('/\/Encoding\s*\/(\w+)/', $fontContent, $match)) {
+            $font['encoding'] = $match[1];
+        }
+
+        return $font;
     }
 
     /**
@@ -332,7 +504,7 @@ class PdfSplitter
         $totalPages = count($this->pages);
 
         if ($pages === 'all') {
-            return range(1, $totalPages);
+            return range(1, max(1, $totalPages));
         }
 
         if (is_string($pages)) {
@@ -359,13 +531,13 @@ class PdfSplitter
             $part = trim($part);
             if (strpos($part, '-') !== false) {
                 [$start, $end] = explode('-', $part, 2);
-                $start = max(1, (int) $start);
-                $end = min($totalPages, (int) $end);
+                $start = max(1, (int)$start);
+                $end = min($totalPages, (int)$end);
                 for ($i = $start; $i <= $end; $i++) {
                     $pages[] = $i;
                 }
             } else {
-                $pageNum = (int) $part;
+                $pageNum = (int)$part;
                 if ($pageNum >= 1 && $pageNum <= $totalPages) {
                     $pages[] = $pageNum;
                 }
@@ -383,22 +555,104 @@ class PdfSplitter
      */
     protected function buildPdfWithPages(array $pageNumbers): string
     {
+        $objectNumber = 1;
+
+        // Collect all unique fonts needed from selected pages
+        $allFonts = [];
+        foreach ($pageNumbers as $pageNum) {
+            if (isset($this->pages[$pageNum - 1])) {
+                $page = $this->pages[$pageNum - 1];
+                foreach ($page['fonts'] as $name => $font) {
+                    $key = $font['baseFont'] ?? 'Helvetica';
+                    if (!isset($allFonts[$key])) {
+                        $allFonts[$key] = $font;
+                        $allFonts[$key]['name'] = $name;
+                    }
+                }
+            }
+        }
+
+        // Ensure we have at least one font
+        if (empty($allFonts)) {
+            $allFonts['Helvetica'] = [
+                'type' => 'Type1',
+                'baseFont' => 'Helvetica',
+                'encoding' => 'WinAnsiEncoding',
+                'name' => 'F1',
+            ];
+        }
+
+        // Start building PDF
         $pdf = "%PDF-{$this->pdfVersion}\n";
-        $pdf .= "%\xe2\xe3\xcf\xd3\n"; // Binary marker
+        $pdf .= "%\xe2\xe3\xcf\xd3\n";
 
-        $objNum = 1;
         $offsets = [];
-        $pageRefs = [];
 
-        // Create page objects
+        // Object 1: Catalog
+        $catalogObjNum = $objectNumber++;
+        $pagesObjNum = $objectNumber++;
+
+        // Create font objects
+        $fontObjects = [];
+        $fontObjNums = [];
+        foreach ($allFonts as $key => $font) {
+            $fontObjNum = $objectNumber++;
+            $fontObjNums[$key] = $fontObjNum;
+            $fontObjects[$fontObjNum] = $this->buildFontObject($fontObjNum, $font);
+        }
+
+        // Create page objects with content streams
+        $pageObjNums = [];
+        $contentObjNums = [];
+
+        foreach ($pageNumbers as $pageNum) {
+            if (isset($this->pages[$pageNum - 1])) {
+                $pageObjNum = $objectNumber++;
+                $contentObjNum = $objectNumber++;
+                $pageObjNums[] = $pageObjNum;
+                $contentObjNums[$pageObjNum] = $contentObjNum;
+            }
+        }
+
+        // Write Catalog
+        $offsets[$catalogObjNum] = strlen($pdf);
+        $pdf .= "{$catalogObjNum} 0 obj\n";
+        $pdf .= "<<\n/Type /Catalog\n/Pages {$pagesObjNum} 0 R\n>>\n";
+        $pdf .= "endobj\n";
+
+        // Write Pages
+        $kidsStr = implode(' ', array_map(fn($n) => "{$n} 0 R", $pageObjNums));
+        $offsets[$pagesObjNum] = strlen($pdf);
+        $pdf .= "{$pagesObjNum} 0 obj\n";
+        $pdf .= "<<\n/Type /Pages\n/Kids [{$kidsStr}]\n/Count " . count($pageObjNums) . "\n>>\n";
+        $pdf .= "endobj\n";
+
+        // Write font objects
+        foreach ($fontObjects as $objNum => $fontObj) {
+            $offsets[$objNum] = strlen($pdf);
+            $pdf .= $fontObj;
+        }
+
+        // Build font resources string
+        $fontResources = '';
+        $fontIndex = 1;
+        foreach ($fontObjNums as $key => $objNum) {
+            $fontResources .= "/F{$fontIndex} {$objNum} 0 R ";
+            $fontIndex++;
+        }
+
+        // Write page and content objects
+        $pageIndex = 0;
         foreach ($pageNumbers as $pageNum) {
             if (!isset($this->pages[$pageNum - 1])) {
                 continue;
             }
 
             $page = $this->pages[$pageNum - 1];
-            $pageObjNum = ++$objNum;
+            $pageObjNum = $pageObjNums[$pageIndex];
+            $contentObjNum = $contentObjNums[$pageObjNum];
 
+            // Write page object
             $mediaBox = sprintf(
                 '[%.4f %.4f %.4f %.4f]',
                 $page['mediaBox'][0],
@@ -411,154 +665,84 @@ class PdfSplitter
             $pdf .= "{$pageObjNum} 0 obj\n";
             $pdf .= "<<\n";
             $pdf .= "/Type /Page\n";
-            $pdf .= "/Parent 1 0 R\n";
+            $pdf .= "/Parent {$pagesObjNum} 0 R\n";
             $pdf .= "/MediaBox {$mediaBox}\n";
-            $pdf .= "/Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI] >>\n";
+            $pdf .= "/Resources <<\n";
+            $pdf .= "  /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]\n";
+            $pdf .= "  /Font << {$fontResources}>>\n";
+            $pdf .= ">>\n";
+            $pdf .= "/Contents {$contentObjNum} 0 R\n";
             $pdf .= ">>\n";
             $pdf .= "endobj\n";
 
-            $pageRefs[] = "{$pageObjNum} 0 R";
+            // Write content stream
+            $stream = $page['contentStream'];
+            $streamLength = strlen($stream);
+
+            $offsets[$contentObjNum] = strlen($pdf);
+            $pdf .= "{$contentObjNum} 0 obj\n";
+            $pdf .= "<<\n/Length {$streamLength}\n>>\n";
+            $pdf .= "stream\n";
+            $pdf .= $stream;
+            $pdf .= "\nendstream\n";
+            $pdf .= "endobj\n";
+
+            $pageIndex++;
         }
 
-        // Pages object (object 1)
-        $pagesObj = "1 0 obj\n";
-        $pagesObj .= "<<\n";
-        $pagesObj .= "/Type /Pages\n";
-        $pagesObj .= "/Kids [" . implode(' ', $pageRefs) . "]\n";
-        $pagesObj .= "/Count " . count($pageRefs) . "\n";
-        $pagesObj .= ">>\n";
-        $pagesObj .= "endobj\n";
+        // Write xref table
+        $xrefOffset = strlen($pdf);
+        $maxObjNum = max(array_keys($offsets));
 
-        // Catalog object
-        $catalogObjNum = ++$objNum;
+        $pdf .= "xref\n";
+        $pdf .= "0 " . ($maxObjNum + 1) . "\n";
+        $pdf .= "0000000000 65535 f \n";
 
-        // Insert Pages object at the beginning (after header)
-        $headerLen = strpos($pdf, '%', 5) + 5; // After binary marker line
-        $headerLen = strlen("%PDF-{$this->pdfVersion}\n%\xe2\xe3\xcf\xd3\n");
-
-        // Rebuild PDF with Pages object first
-        $newPdf = "%PDF-{$this->pdfVersion}\n";
-        $newPdf .= "%\xe2\xe3\xcf\xd3\n";
-
-        // Add Pages object
-        $offsets[1] = strlen($newPdf);
-        $newPdf .= $pagesObj;
-
-        // Re-add page objects with correct offsets
-        $pageRefs = [];
-        $pageObjNum = 1;
-        foreach ($pageNumbers as $pageNum) {
-            if (!isset($this->pages[$pageNum - 1])) {
-                continue;
-            }
-
-            $page = $this->pages[$pageNum - 1];
-            $pageObjNum = count($pageRefs) + 2;
-
-            $mediaBox = sprintf(
-                '[%.4f %.4f %.4f %.4f]',
-                $page['mediaBox'][0],
-                $page['mediaBox'][1],
-                $page['mediaBox'][2],
-                $page['mediaBox'][3]
-            );
-
-            $offsets[$pageObjNum] = strlen($newPdf);
-            $newPdf .= "{$pageObjNum} 0 obj\n";
-            $newPdf .= "<<\n";
-            $newPdf .= "/Type /Page\n";
-            $newPdf .= "/Parent 1 0 R\n";
-            $newPdf .= "/MediaBox {$mediaBox}\n";
-            $newPdf .= "/Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI] >>\n";
-            $newPdf .= ">>\n";
-            $newPdf .= "endobj\n";
-
-            $pageRefs[] = "{$pageObjNum} 0 R";
-        }
-
-        // Update Pages object with correct refs
-        $pagesContent = "1 0 obj\n";
-        $pagesContent .= "<<\n";
-        $pagesContent .= "/Type /Pages\n";
-        $pagesContent .= "/Kids [" . implode(' ', $pageRefs) . "]\n";
-        $pagesContent .= "/Count " . count($pageRefs) . "\n";
-        $pagesContent .= ">>\n";
-        $pagesContent .= "endobj\n";
-
-        // Rebuild again with correct structure
-        $finalPdf = "%PDF-{$this->pdfVersion}\n";
-        $finalPdf .= "%\xe2\xe3\xcf\xd3\n";
-
-        $offsets = [];
-        $offsets[1] = strlen($finalPdf);
-        $finalPdf .= $pagesContent;
-
-        // Add page objects
-        $nextObj = 2;
-        foreach ($pageNumbers as $pageNum) {
-            if (!isset($this->pages[$pageNum - 1])) {
-                continue;
-            }
-
-            $page = $this->pages[$pageNum - 1];
-
-            $mediaBox = sprintf(
-                '[%.4f %.4f %.4f %.4f]',
-                $page['mediaBox'][0],
-                $page['mediaBox'][1],
-                $page['mediaBox'][2],
-                $page['mediaBox'][3]
-            );
-
-            $offsets[$nextObj] = strlen($finalPdf);
-            $finalPdf .= "{$nextObj} 0 obj\n";
-            $finalPdf .= "<<\n";
-            $finalPdf .= "/Type /Page\n";
-            $finalPdf .= "/Parent 1 0 R\n";
-            $finalPdf .= "/MediaBox {$mediaBox}\n";
-            $finalPdf .= "/Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI] >>\n";
-            $finalPdf .= ">>\n";
-            $finalPdf .= "endobj\n";
-
-            $nextObj++;
-        }
-
-        // Add Catalog
-        $catalogNum = $nextObj;
-        $offsets[$catalogNum] = strlen($finalPdf);
-        $finalPdf .= "{$catalogNum} 0 obj\n";
-        $finalPdf .= "<<\n";
-        $finalPdf .= "/Type /Catalog\n";
-        $finalPdf .= "/Pages 1 0 R\n";
-        $finalPdf .= ">>\n";
-        $finalPdf .= "endobj\n";
-
-        // Write xref
-        $xrefOffset = strlen($finalPdf);
-        $objCount = $catalogNum + 1;
-
-        $finalPdf .= "xref\n";
-        $finalPdf .= "0 {$objCount}\n";
-        $finalPdf .= "0000000000 65535 f \n";
-
-        for ($i = 1; $i < $objCount; $i++) {
+        for ($i = 1; $i <= $maxObjNum; $i++) {
             if (isset($offsets[$i])) {
-                $finalPdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
+                $pdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
             } else {
-                $finalPdf .= "0000000000 00000 f \n";
+                $pdf .= "0000000000 00000 f \n";
             }
         }
 
         // Trailer
-        $finalPdf .= "trailer\n";
-        $finalPdf .= "<<\n";
-        $finalPdf .= "/Size {$objCount}\n";
-        $finalPdf .= "/Root {$catalogNum} 0 R\n";
-        $finalPdf .= ">>\n";
-        $finalPdf .= "startxref\n";
-        $finalPdf .= "{$xrefOffset}\n";
-        $finalPdf .= "%%EOF\n";
+        $pdf .= "trailer\n";
+        $pdf .= "<<\n";
+        $pdf .= "/Size " . ($maxObjNum + 1) . "\n";
+        $pdf .= "/Root {$catalogObjNum} 0 R\n";
+        $pdf .= ">>\n";
+        $pdf .= "startxref\n";
+        $pdf .= "{$xrefOffset}\n";
+        $pdf .= "%%EOF\n";
 
-        return $finalPdf;
+        return $pdf;
+    }
+
+    /**
+     * Build a font object
+     *
+     * @param int $objNum Object number
+     * @param array<string, mixed> $font Font data
+     * @return string Font object
+     */
+    protected function buildFontObject(int $objNum, array $font): string
+    {
+        $type = $font['type'] ?? 'Type1';
+        $baseFont = $font['baseFont'] ?? 'Helvetica';
+        $encoding = $font['encoding'] ?? 'WinAnsiEncoding';
+
+        $obj = "{$objNum} 0 obj\n";
+        $obj .= "<<\n";
+        $obj .= "/Type /Font\n";
+        $obj .= "/Subtype /{$type}\n";
+        $obj .= "/BaseFont /{$baseFont}\n";
+        if ($encoding) {
+            $obj .= "/Encoding /{$encoding}\n";
+        }
+        $obj .= ">>\n";
+        $obj .= "endobj\n";
+
+        return $obj;
     }
 }

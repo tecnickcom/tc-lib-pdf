@@ -27,6 +27,7 @@ use Com\Tecnick\Pdf\Forms\FieldCalculation;
 use Com\Tecnick\Pdf\Forms\FieldValidator;
 use Com\Tecnick\Pdf\Forms\ConditionalVisibility;
 use Com\Tecnick\Pdf\Manipulate;
+use Com\Tecnick\Pdf\Html\HtmlRenderer;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -1517,5 +1518,85 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $stamper->loadFile($filePath)
                 ->addWatermark($watermarkText);
         return $stamper->applyToFile($outputPath);
+    }
+
+    // ===| HTML RENDERING |=================================================
+
+    /**
+     * Create a new HTML renderer instance.
+     *
+     * The HTML renderer converts HTML content with CSS styling to PDF output.
+     *
+     * Supported HTML elements:
+     * - Block elements: p, div, h1-h6, blockquote, pre
+     * - Inline elements: span, b, strong, i, em, u, s, strike
+     * - Lists: ul, ol, li
+     * - Tables: table, tr, th, td
+     * - Links: a
+     * - Images: img
+     * - Line breaks: br, hr
+     *
+     * Supported CSS properties:
+     * - Font: font-family, font-size, font-weight, font-style
+     * - Color: color, background-color
+     * - Text: text-align, text-decoration, line-height
+     *
+     * Usage:
+     * ```php
+     * $renderer = $pdf->createHtmlRenderer();
+     * $renderer->setMargins(15, 15, 15);
+     * $renderer->render('<h1>Title</h1><p>Paragraph content</p>');
+     * ```
+     *
+     * @return HtmlRenderer
+     */
+    public function createHtmlRenderer(): HtmlRenderer
+    {
+        return new HtmlRenderer($this);
+    }
+
+    /**
+     * Write HTML content directly to the current page.
+     *
+     * This is a convenience method that creates an HTML renderer
+     * and renders the content at the specified position.
+     *
+     * Usage:
+     * ```php
+     * $pdf->addPage();
+     * $y = $pdf->writeHTML('<h1>Welcome</h1><p>This is a test.</p>');
+     * // $y contains the final Y position after rendering
+     * ```
+     *
+     * @param string $html HTML content to render
+     * @param float $x X position (0 = use left margin)
+     * @param float $y Y position (0 = current position)
+     * @param float $width Content width (0 = auto)
+     * @return float Final Y position after rendering
+     */
+    public function writeHTML(string $html, float $x = 0, float $y = 0, float $width = 0): float
+    {
+        $renderer = $this->createHtmlRenderer();
+        return $renderer->render($html, $x, $y, $width);
+    }
+
+    /**
+     * Write HTML content with custom margins.
+     *
+     * @param string $html HTML content to render
+     * @param float $marginLeft Left margin
+     * @param float $marginTop Top margin
+     * @param float $marginRight Right margin
+     * @return float Final Y position after rendering
+     */
+    public function writeHTMLWithMargins(
+        string $html,
+        float $marginLeft = 10,
+        float $marginTop = 10,
+        float $marginRight = 10
+    ): float {
+        $renderer = $this->createHtmlRenderer();
+        $renderer->setMargins($marginLeft, $marginTop, $marginRight);
+        return $renderer->render($html);
     }
 }

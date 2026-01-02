@@ -24,11 +24,8 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * Manages multiple digital signatures in PDF documents using incremental updates.
  * Uses phpseclib for cryptographic operations.
  *
- * @since     2025-01-01
  * @category  Library
  * @package   Pdf
- * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -884,13 +881,15 @@ class SignatureManager
             throw new PdfException('ByteRange placeholder not found');
         }
 
-        // Find the Contents placeholder
-        $contentsPattern = '/\/Contents\s*<(' . str_repeat('0', self::SIGNATURE_MAX_LENGTH) . ')>/';
-        if (!preg_match($contentsPattern, $pdfContent, $matches, PREG_OFFSET_CAPTURE)) {
+        // Find the Contents placeholder using strpos (regex would be too large)
+        $contentsPlaceholder = '<' . str_repeat('0', self::SIGNATURE_MAX_LENGTH) . '>';
+        $contentsPos = strpos($pdfContent, $contentsPlaceholder);
+        if ($contentsPos === false) {
             throw new PdfException('Contents placeholder not found');
         }
 
-        $contentsPos = (int)$matches[1][1];
+        // Position after the opening '<'
+        $contentsPos = $contentsPos + 1;
         $contentsLen = self::SIGNATURE_MAX_LENGTH;
 
         // Calculate ByteRange values
