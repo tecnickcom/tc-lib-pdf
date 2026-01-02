@@ -1876,6 +1876,53 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $optimizer->optimizeToFile($outputPath);
     }
 
+    /**
+     * Create a new PdfToImage instance.
+     *
+     * The converter allows rendering PDF pages as images.
+     * Requires either Imagick extension or Ghostscript.
+     *
+     * Example:
+     * ```php
+     * $converter = $pdf->createImageConverter();
+     * $converter->loadFile('document.pdf')
+     *           ->setFormat('png')
+     *           ->setResolution(150);
+     * $converter->saveAllPagesToDirectory('./images');
+     * ```
+     *
+     * @return Manipulate\PdfToImage
+     */
+    public function createImageConverter(): Manipulate\PdfToImage
+    {
+        return new Manipulate\PdfToImage();
+    }
+
+    /**
+     * Convert a PDF page to an image file.
+     *
+     * @param string $filePath   Path to source PDF
+     * @param int    $pageNum    Page number to convert (1-based)
+     * @param string $outputPath Path to save image
+     * @param string $format     Image format (png, jpeg, webp)
+     * @param int    $resolution Resolution in DPI
+     *
+     * @return bool True on success
+     */
+    public function pdfPageToImage(
+        string $filePath,
+        int $pageNum,
+        string $outputPath,
+        string $format = 'png',
+        int $resolution = 150
+    ): bool {
+        $converter = $this->createImageConverter();
+        $converter->loadFile($filePath)
+                  ->setFormat($format)
+                  ->setResolution($resolution);
+        return $converter->savePageToFile($pageNum, $outputPath);
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
