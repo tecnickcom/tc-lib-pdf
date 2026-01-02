@@ -1923,6 +1923,58 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $converter->savePageToFile($pageNum, $outputPath);
     }
 
+    /**
+     * Create a new PDF Linearizer instance.
+     *
+     * The linearizer optimizes PDF files for fast web view (linearization).
+     * Linearized PDFs can display the first page before the entire document
+     * has been downloaded, improving user experience for web-served documents.
+     *
+     * Usage:
+     * ```php
+     * $linearizer = $pdf->createLinearizer();
+     * $linearizer->loadFile('document.pdf');
+     * if (!$linearizer->isLinearized()) {
+     *     $linearizer->linearizeToFile('document_web.pdf');
+     * }
+     * ```
+     *
+     * @return Manipulate\PdfLinearizer
+     */
+    public function createLinearizer(): Manipulate\PdfLinearizer
+    {
+        return new Manipulate\PdfLinearizer();
+    }
+
+    /**
+     * Linearize a PDF file for fast web view.
+     *
+     * @param string $filePath   Path to source PDF
+     * @param string $outputPath Path to save linearized PDF
+     *
+     * @return bool True on success
+     */
+    public function linearizePdf(string $filePath, string $outputPath): bool
+    {
+        $linearizer = $this->createLinearizer();
+        $linearizer->loadFile($filePath);
+        return $linearizer->linearizeToFile($outputPath);
+    }
+
+    /**
+     * Check if a PDF file is already linearized.
+     *
+     * @param string $filePath Path to PDF file
+     *
+     * @return bool True if linearized
+     */
+    public function isPdfLinearized(string $filePath): bool
+    {
+        $linearizer = $this->createLinearizer();
+        $linearizer->loadFile($filePath);
+        return $linearizer->isLinearized();
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
