@@ -1835,6 +1835,47 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         return $encryptor->encryptToFile($outputPath);
     }
 
+    /**
+     * Create a new PdfOptimizer instance.
+     *
+     * The optimizer allows compressing and reducing PDF file size.
+     *
+     * Example:
+     * ```php
+     * $optimizer = $pdf->createOptimizer();
+     * $optimizer->loadFile('large.pdf')
+     *           ->setOptimizationLevel(PdfOptimizer::LEVEL_MAXIMUM);
+     * echo "Saved: " . $optimizer->getCompressionRatio() . "%";
+     * $optimizer->optimizeToFile('small.pdf');
+     * ```
+     *
+     * @return Manipulate\PdfOptimizer
+     */
+    public function createOptimizer(): Manipulate\PdfOptimizer
+    {
+        return new Manipulate\PdfOptimizer();
+    }
+
+    /**
+     * Optimize a PDF file and save to output.
+     *
+     * @param string $filePath   Path to source PDF
+     * @param string $outputPath Path to save optimized PDF
+     * @param int    $level      Optimization level (1=minimal, 2=standard, 3=maximum)
+     *
+     * @return bool True on success
+     */
+    public function optimizePdf(
+        string $filePath,
+        string $outputPath,
+        int $level = Manipulate\PdfOptimizer::LEVEL_STANDARD
+    ): bool {
+        $optimizer = $this->createOptimizer();
+        $optimizer->loadFile($filePath)
+                  ->setOptimizationLevel($level);
+        return $optimizer->optimizeToFile($outputPath);
+    }
+
     // ===| HTML RENDERING |=================================================
 
     /**
