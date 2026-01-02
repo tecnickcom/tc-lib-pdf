@@ -141,11 +141,10 @@ class PdfBookmarkManager
      */
     protected function extractResources(): void
     {
-        // Look for a shared Resources object referenced by pages
-        // Pattern: /Resources N 0 R where N is an object number
         foreach ($this->objects as $objNum => $objContent) {
-            // Check if this is a Page object with a Resources reference
+            // Check if this is a Page object
             if ($this->isPageObject($objContent)) {
+                // Try reference pattern first: /Resources N 0 R
                 if (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $objContent, $match)) {
                     $resObjNum = (int)$match[1];
                     if (isset($this->objects[$resObjNum])) {
@@ -153,8 +152,57 @@ class PdfBookmarkManager
                         return;
                     }
                 }
+                // Try inline pattern: /Resources << ... >> (with nested dicts)
+                if (preg_match('/\/Resources\s*<</', $objContent)) {
+                    $this->resourcesContent = $this->extractNestedDict($objContent, '/Resources');
+                    if (!empty($this->resourcesContent)) {
+                        return;
+                    }
+                }
             }
         }
+    }
+
+    /**
+     * Extract a nested dictionary from PDF content
+     *
+     * @param string $content PDF content
+     * @param string $key Dictionary key (e.g., '/Resources')
+     * @return string Extracted dictionary or empty string
+     */
+    protected function extractNestedDict(string $content, string $key): string
+    {
+        $pos = strpos($content, $key);
+        if ($pos === false) {
+            return '';
+        }
+
+        // Find << after the key
+        $start = strpos($content, '<<', $pos);
+        if ($start === false) {
+            return '';
+        }
+
+        // Count nested << and >> to find matching close
+        $depth = 0;
+        $len = strlen($content);
+        $end = $start;
+
+        for ($i = $start; $i < $len - 1; $i++) {
+            if ($content[$i] === '<' && $content[$i + 1] === '<') {
+                $depth++;
+                $i++;
+            } elseif ($content[$i] === '>' && $content[$i + 1] === '>') {
+                $depth--;
+                $i++;
+                if ($depth === 0) {
+                    $end = $i + 1;
+                    break;
+                }
+            }
+        }
+
+        return substr($content, $start, $end - $start);
     }
 
     /**
