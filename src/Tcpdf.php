@@ -22,6 +22,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Table\Table;
 use Com\Tecnick\Pdf\Table\TableCell;
 use Com\Tecnick\Pdf\RichText;
+use Com\Tecnick\Pdf\Font\VariableFont;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -1063,5 +1064,75 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             '', // javascript action
             $da
         );
+    }
+
+    // ===| VARIABLE FONTS |================================================
+
+    /**
+     * Create a VariableFont analyzer for a font file.
+     *
+     * Variable fonts contain multiple styles in a single file with
+     * continuous variation along axes (weight, width, slant, etc.).
+     *
+     * Usage:
+     * ```php
+     * $vf = $pdf->analyzeVariableFont('/path/to/font.ttf');
+     *
+     * if ($vf->isVariableFont()) {
+     *     // Get available axes
+     *     $axes = $vf->getAxes();
+     *     foreach ($axes as $tag => $axis) {
+     *         echo "{$axis['name']}: {$axis['minValue']} - {$axis['maxValue']}\n";
+     *     }
+     *
+     *     // Set specific values
+     *     $vf->setWeight(600);  // Semi-bold
+     *     $vf->setWidth(75);    // Condensed
+     *
+     *     // Get CSS font-variation-settings string
+     *     echo $vf->getVariationSettings();
+     * }
+     * ```
+     *
+     * Note: Full variable font rendering requires PDF 2.0 and compatible
+     * viewers. For maximum compatibility, use static font instances or
+     * the web font CSS approach with font-variation-settings.
+     *
+     * @param string $fontPath Path to the font file
+     * @return VariableFont
+     */
+    public function analyzeVariableFont(string $fontPath): VariableFont
+    {
+        return new VariableFont($fontPath);
+    }
+
+    /**
+     * Get information about a variable font's axes.
+     *
+     * @param string $fontPath Path to the font file
+     * @return array{
+     *     'isVariable': bool,
+     *     'axes': array<string, array{
+     *         'tag': string,
+     *         'name': string,
+     *         'minValue': float,
+     *         'defaultValue': float,
+     *         'maxValue': float,
+     *     }>,
+     *     'instances': array<string, array{
+     *         'name': string,
+     *         'coordinates': array<string, float>,
+     *     }>,
+     * }
+     */
+    public function getVariableFontInfo(string $fontPath): array
+    {
+        $vf = new VariableFont($fontPath);
+
+        return [
+            'isVariable' => $vf->isVariableFont(),
+            'axes' => $vf->getAxes(),
+            'instances' => $vf->getInstances(),
+        ];
     }
 }
