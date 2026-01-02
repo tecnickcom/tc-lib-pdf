@@ -359,31 +359,29 @@ class PdfBarcodeStamper
             $barcodeObj = $this->barcodeGenerator->getBarcodeObj(
                 $barcode['type'],
                 $barcode['content'],
-                -1,
-                -1,
+                (int) $barcode['w'],
+                (int) $barcode['h'],
                 $barcode['color'] ?? '#000000'
             );
 
-            $grid = $barcodeObj->getGrid();
+            // Get barcode data array
+            $barcodeData = $barcodeObj->getArray();
 
-            if (empty($grid) || !is_array($grid)) {
+            if (empty($barcodeData['bars'])) {
                 return '';
             }
 
-            // Get barcode dimensions
-            $gridWidth = count($grid[0] ?? []);
-            $gridHeight = count($grid);
+            // Get the actual barcode dimensions from the library
+            $barcodeWidth = $barcodeData['width'];
+            $barcodeHeight = $barcodeData['height'];
 
-            if ($gridWidth === 0 || $gridHeight === 0) {
+            if ($barcodeWidth === 0 || $barcodeHeight === 0) {
                 return '';
             }
 
-            // Calculate scaling
-            $scaleX = $barcode['w'] / $gridWidth;
-            $scaleY = $barcode['h'] / $gridHeight;
-
-            // Convert Y coordinate (PDF has origin at bottom-left)
-            $pdfY = $pageHeight - $barcode['y'] - $barcode['h'];
+            // Calculate scaling to fit our target size
+            $scaleX = $barcode['w'] / $barcodeWidth;
+            $scaleY = $barcode['h'] / $barcodeHeight;
 
             // Parse color
             $color = $barcode['color'] ?? '#000000';
@@ -392,25 +390,22 @@ class PdfBarcodeStamper
             $graphics = "q\n";
             $graphics .= sprintf("%.3f %.3f %.3f rg\n", $rgb[0], $rgb[1], $rgb[2]);
 
-            // Draw each cell of the barcode
-            foreach ($grid as $rowIndex => $row) {
-                if (!is_array($row)) {
-                    continue;
-                }
-                foreach ($row as $colIndex => $cell) {
-                    if ($cell === 1) {
-                        $cellX = $barcode['x'] + ($colIndex * $scaleX);
-                        $cellY = $pdfY + (($gridHeight - 1 - $rowIndex) * $scaleY);
+            // Draw each bar using the bars array [x, y, width, height]
+            foreach ($barcodeData['bars'] as $bar) {
+                // bar format: [x, y, width, height]
+                $barX = $barcode['x'] + ($bar[0] * $scaleX);
+                // PDF Y coordinate: convert from top-left origin to bottom-left origin
+                $barY = $pageHeight - $barcode['y'] - (($bar[1] + $bar[3]) * $scaleY);
+                $barW = $bar[2] * $scaleX;
+                $barH = $bar[3] * $scaleY;
 
-                        $graphics .= sprintf(
-                            "%.3f %.3f %.3f %.3f re f\n",
-                            $cellX,
-                            $cellY,
-                            $scaleX,
-                            $scaleY
-                        );
-                    }
-                }
+                $graphics .= sprintf(
+                    "%.3f %.3f %.3f %.3f re f\n",
+                    $barX,
+                    $barY,
+                    $barW,
+                    $barH
+                );
             }
 
             $graphics .= "Q\n";

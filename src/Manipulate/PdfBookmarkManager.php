@@ -493,7 +493,8 @@ class PdfBookmarkManager
 
         // Write Outlines (if any)
         if ($outlinesObjNum !== null && !empty($bookmarkObjNums)) {
-            $pdf .= $this->buildOutlinesObject($outlinesObjNum, $bookmarkObjNums, $pageObjNums, $offsets);
+            $currentOffset = strlen($pdf);
+            $pdf .= $this->buildOutlinesObject($outlinesObjNum, $bookmarkObjNums, $pageObjNums, $offsets, $currentOffset);
         }
 
         // Write font
@@ -577,13 +578,15 @@ class PdfBookmarkManager
      * @param array<int, int> $bookmarkObjNums Bookmark object numbers
      * @param array<int> $pageObjNums Page object numbers
      * @param array<int, int> &$offsets Offsets array (modified)
+     * @param int $currentOffset Current offset in the main PDF
      * @return string Outlines objects
      */
     protected function buildOutlinesObject(
         int $outlinesObjNum,
         array $bookmarkObjNums,
         array $pageObjNums,
-        array &$offsets
+        array &$offsets,
+        int $currentOffset
     ): string {
         $pdf = '';
 
@@ -592,8 +595,8 @@ class PdfBookmarkManager
         $firstObjNum = $bookmarkObjNums[0] ?? null;
         $lastObjNum = end($bookmarkObjNums) ?: null;
 
-        // Write Outlines root
-        $offsets[$outlinesObjNum] = 0; // Will be updated
+        // Write Outlines root - set offset BEFORE adding content
+        $offsets[$outlinesObjNum] = $currentOffset + strlen($pdf);
         $outlinesContent = "{$outlinesObjNum} 0 obj\n";
         $outlinesContent .= "<<\n/Type /Outlines\n";
         if ($firstObjNum !== null) {
@@ -605,7 +608,6 @@ class PdfBookmarkManager
         $outlinesContent .= "endobj\n";
 
         $pdf .= $outlinesContent;
-        $offsets[$outlinesObjNum] = strlen($pdf) - strlen($outlinesContent);
 
         // Write bookmark entries
         foreach ($this->bookmarks as $index => $bookmark) {
@@ -618,7 +620,8 @@ class PdfBookmarkManager
             $prevObjNum = $this->findPrevSibling($index, $bookmarkObjNums);
             $nextObjNum = $this->findNextSibling($index, $bookmarkObjNums);
 
-            $offsets[$objNum] = strlen($pdf);
+            // Set offset BEFORE adding content
+            $offsets[$objNum] = $currentOffset + strlen($pdf);
             $pdf .= "{$objNum} 0 obj\n";
             $pdf .= "<<\n";
             $pdf .= "/Title " . $this->encodePdfString($bookmark['title']) . "\n";
