@@ -21,6 +21,7 @@ use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Table\Table;
 use Com\Tecnick\Pdf\Table\TableCell;
+use Com\Tecnick\Pdf\RichText;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -853,5 +854,214 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         array $style = []
     ): TableCell {
         return new TableCell($content, $colspan, $rowspan, $style);
+    }
+
+    // ===| RICH TEXT |=====================================================
+
+    /**
+     * Create a new RichText builder object.
+     *
+     * Rich text content can be used in FreeText annotations and form fields.
+     * It uses a subset of XHTML for formatting.
+     *
+     * Usage:
+     * ```php
+     * $rt = $pdf->createRichText();
+     * $rt->addBold('Important: ')
+     *    ->addText('This is a message with ')
+     *    ->addColored('colored text', '#ff0000')
+     *    ->addText(' and ')
+     *    ->addItalic('italic text');
+     * $content = $rt->build();
+     * ```
+     *
+     * @param string $fontFamily Default font family
+     * @param float $fontSize Default font size in points
+     * @param string $textColor Default text color (hex format)
+     *
+     * @return RichText
+     */
+    public function createRichText(
+        string $fontFamily = 'Helvetica',
+        float $fontSize = 12,
+        string $textColor = '#000000'
+    ): RichText {
+        return new RichText($fontFamily, $fontSize, $textColor);
+    }
+
+    /**
+     * Add a FreeText annotation with rich text content.
+     *
+     * FreeText annotations display text directly on the page without
+     * requiring the user to open a popup. Rich text allows formatting.
+     *
+     * Usage:
+     * ```php
+     * $rt = $pdf->createRichText();
+     * $rt->addBold('Note: ')->addText('Review this section');
+     *
+     * $pdf->addRichTextAnnotation(
+     *     20, 100, 80, 20,
+     *     $rt->build(),
+     *     'Note: Review this section',  // Plain text fallback
+     *     ['borderColor' => '#ff0000']
+     * );
+     * ```
+     *
+     * @param float $x X position in user units
+     * @param float $y Y position in user units
+     * @param float $w Width in user units
+     * @param float $h Height in user units
+     * @param string $richContent Rich text XHTML content
+     * @param string $plainText Plain text fallback
+     * @param array{
+     *     'fontKey'?: string,
+     *     'fontSize'?: float,
+     *     'textColor'?: string,
+     *     'borderColor'?: string,
+     *     'borderWidth'?: float,
+     *     'backgroundColor'?: string,
+     *     'align'?: int,
+     * } $options Additional options
+     *
+     * @return int Annotation object ID
+     */
+    public function addRichTextAnnotation(
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        string $richContent,
+        string $plainText = '',
+        array $options = []
+    ): int {
+        $fontKey = $options['fontKey'] ?? 'Helv';
+        $fontSize = $options['fontSize'] ?? 12;
+        $textColor = $options['textColor'] ?? '#000000';
+        $align = $options['align'] ?? 0; // 0=left, 1=center, 2=right
+
+        // Create Default Appearance string
+        $da = RichText::createDA($fontKey, $fontSize, $textColor);
+
+        // Build annotation options
+        $opt = [
+            'subtype' => 'FreeText',
+            'da' => $da,
+            'q' => $align,
+            'rc' => $richContent,
+        ];
+
+        // Add border if specified
+        if (isset($options['borderColor']) || isset($options['borderWidth'])) {
+            $opt['bs'] = [
+                's' => 'S',
+                'w' => $options['borderWidth'] ?? 1,
+            ];
+        }
+
+        // Add background color
+        if (isset($options['backgroundColor'])) {
+            $hex = ltrim($options['backgroundColor'], '#');
+            $opt['ic'] = [
+                hexdec(substr($hex, 0, 2)) / 255,
+                hexdec(substr($hex, 2, 2)) / 255,
+                hexdec(substr($hex, 4, 2)) / 255,
+                1.0
+            ];
+        }
+
+        return $this->setAnnotation($x, $y, $w, $h, $plainText, $opt);
+    }
+
+    /**
+     * Add a rich text form field (text field with formatting support).
+     *
+     * Creates a text field that supports rich text input and display.
+     *
+     * Usage:
+     * ```php
+     * $rt = $pdf->createRichText();
+     * $rt->addBold('Default ')
+     *    ->addItalic('formatted ')
+     *    ->addText('text');
+     *
+     * $pdf->addRichTextField(
+     *     'notes',
+     *     20, 100, 100, 30,
+     *     $rt->build(),
+     *     ['multiline' => true]
+     * );
+     * ```
+     *
+     * @param string $name Field name
+     * @param float $x X position in user units
+     * @param float $y Y position in user units
+     * @param float $w Width in user units
+     * @param float $h Height in user units
+     * @param string $richValue Initial rich text value
+     * @param array{
+     *     'fontKey'?: string,
+     *     'fontSize'?: float,
+     *     'textColor'?: string,
+     *     'borderColor'?: string,
+     *     'backgroundColor'?: string,
+     *     'multiline'?: bool,
+     *     'readonly'?: bool,
+     * } $options Field options
+     *
+     * @return int Field object ID
+     */
+    public function addRichTextField(
+        string $name,
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        string $richValue = '',
+        array $options = []
+    ): int {
+        $fontKey = $options['fontKey'] ?? 'Helv';
+        $fontSize = $options['fontSize'] ?? 12;
+        $textColor = $options['textColor'] ?? '#000000';
+
+        // Build field properties
+        $prop = [
+            'richText' => 'true',
+            'richValue' => $richValue,
+        ];
+
+        if (!empty($options['multiline'])) {
+            $prop['multiline'] = 'true';
+        }
+
+        if (!empty($options['readonly'])) {
+            $prop['readonly'] = 'true';
+        }
+
+        // Border styling
+        if (isset($options['borderColor'])) {
+            $prop['strokeColor'] = $options['borderColor'];
+        }
+
+        // Background styling
+        if (isset($options['backgroundColor'])) {
+            $prop['fillColor'] = $options['backgroundColor'];
+        }
+
+        // Default appearance
+        $da = RichText::createDA($fontKey, $fontSize, $textColor);
+
+        return $this->setFormField(
+            'text',
+            $name,
+            $x,
+            $y,
+            $w,
+            $h,
+            $prop,
+            [], // styles
+            '', // javascript action
+            $da
+        );
     }
 }
