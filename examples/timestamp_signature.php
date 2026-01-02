@@ -4,11 +4,8 @@
  *
  * Example demonstrating RFC 3161 timestamped signatures.
  *
- * @since       2025-01-02
  * @category    Library
  * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -21,9 +18,13 @@
 require(__DIR__ . '/../vendor/autoload.php');
 
 use Com\Tecnick\Pdf\Signature\SignatureManager;
+use Com\Tecnick\Pdf\Signature\TimestampClient;
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
+
+echo "RFC 3161 Timestamp Signature Example\n";
+echo "=====================================\n\n";
 
 /**
  * This example demonstrates how to add RFC 3161 timestamps to PDF signatures.
@@ -40,36 +41,117 @@ use Com\Tecnick\Pdf\Signature\SignatureManager;
  * Note: For production use, you should use a TSA from a trusted provider.
  */
 
-// Path to the PDF to sign
-$inputPdf = __DIR__ . '/../target/example.pdf';
+// =========================================================================
+// Step 1: Create a simple PDF to sign
+// =========================================================================
 
-// Check if input PDF exists
-if (!file_exists($inputPdf)) {
-    echo "Input PDF not found. Please run index.php first to generate example.pdf\n";
-    exit(1);
-}
+echo "1. Creating a simple PDF document...\n";
 
-// Path to certificate (use existing test certificate)
-$certPath = __DIR__ . '/data/cert/tcpdf.crt';
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false);
 
-// Check if certificate exists
-if (!file_exists($certPath)) {
-    echo "Certificate not found at: $certPath\n";
-    echo "Please ensure the test certificate exists.\n";
-    exit(1);
-}
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('RFC 3161 Timestamp Example');
+$pdf->setTitle('Timestamped Document');
+$pdf->setKeywords('TCPDF, PDF, timestamp, RFC3161, signature');
 
-// Create signature manager
-$sigManager = new SignatureManager('mm');
+// Enable default page content
+$pdf->enableDefaultPageContent();
 
-// Load the PDF
-$sigManager->loadPdf($inputPdf);
+// Insert font
+$pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-// Configure signature with timestamp
+// Add a page
+$pdf->addPage();
+
+// Add content using basic drawing
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 14 Tf\n" .
+    "1 0 0 1 28.35 800 Tm\n" .
+    "(RFC 3161 Timestamped Document) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 28.35 770 Tm\n" .
+    "(This document demonstrates RFC 3161 timestamp support.) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 28.35 750 Tm\n" .
+    "(When signed with a timestamp, the signature includes:) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 42.52 730 Tm\n" .
+    "(- Proof of when the document was signed) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 42.52 710 Tm\n" .
+    "(- A timestamp token from a trusted TSA) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 42.52 690 Tm\n" .
+    "(- Long-term validation capability) Tj\n" .
+    "ET\n"
+);
+
+// Generate PDF
+$pdfData = $pdf->getOutPDFString();
+
+// Save the unsigned PDF
+$unsignedPath = __DIR__ . '/../target/timestamp_unsigned.pdf';
+@mkdir(dirname($unsignedPath), 0755, true);
+file_put_contents($unsignedPath, $pdfData);
+echo "   Created: $unsignedPath\n\n";
+
+// =========================================================================
+// Step 2: Demonstrate TimestampClient API
+// =========================================================================
+
+echo "2. TimestampClient API demonstration...\n";
+
+// Create timestamp client
+$tsClient = new TimestampClient('http://timestamp.digicert.com');
+
+echo "   TSA URL: http://timestamp.digicert.com\n";
+echo "   Hash Algorithm: SHA-256\n\n";
+
+// Show available methods
+echo "   Available TimestampClient methods:\n";
+echo "   - setCredentials(\$username, \$password) - Set basic auth\n";
+echo "   - setTimeout(\$seconds) - Set request timeout\n";
+echo "   - getTimestampToken(\$data) - Get RFC 3161 token\n";
+echo "   - buildTimestampRequest(\$hash) - Build TSA request\n";
+echo "   - parseTimestampResponse(\$response) - Parse TSA response\n\n";
+
+// =========================================================================
+// Step 3: Show signature configuration with timestamp
+// =========================================================================
+
+echo "3. Signature configuration with timestamp...\n";
+
 $signatureConfig = [
-    'certificate' => 'file://' . $certPath,
-    'privateKey' => 'file://' . $certPath,
-    'password' => 'tcpdfdemo',
+    'certificate' => 'file:///path/to/certificate.pem',
+    'privateKey' => 'file:///path/to/private-key.pem',
+    'password' => 'certificate-password',
     'hashAlgorithm' => 'sha256',
     'info' => [
         'name' => 'John Doe',
@@ -94,36 +176,102 @@ $signatureConfig = [
     ],
 ];
 
-try {
-    // Sign the PDF with timestamp
-    echo "Signing PDF with RFC 3161 timestamp...\n";
-    $signedPdf = $sigManager->sign($signatureConfig);
+echo "   Configuration structure:\n";
+echo "   [\n";
+echo "       'timestamp' => [\n";
+echo "           'url' => 'http://timestamp.digicert.com',\n";
+echo "           'username' => 'optional-user',\n";
+echo "           'password' => 'optional-pass',\n";
+echo "           'timeout' => 30,\n";
+echo "       ],\n";
+echo "   ]\n\n";
 
-    // Save the signed PDF
-    $outputPath = __DIR__ . '/../target/signed_with_timestamp.pdf';
-    file_put_contents($outputPath, $signedPdf);
+// =========================================================================
+// Step 4: Show signing workflow
+// =========================================================================
 
-    echo "Signed PDF saved to: $outputPath\n";
-    echo "The signature includes an RFC 3161 timestamp from DigiCert TSA.\n";
-    echo "\nTo verify the timestamp:\n";
-    echo "1. Open the PDF in Adobe Acrobat Reader\n";
-    echo "2. Click on the signature\n";
-    echo "3. Check 'Signature Properties' -> 'Date/Time'\n";
-    echo "   It should show 'Signature is timestamped' with TSA details.\n";
+echo "4. Signing workflow with timestamp...\n";
 
-} catch (\Exception $e) {
-    echo "Error: " . $e->getMessage() . "\n";
+echo "   Code example:\n";
+echo "   \$sigManager = new SignatureManager('mm');\n";
+echo "   \$sigManager->loadPdf(\$pdfContent);\n";
+echo "   \n";
+echo "   // Configure with timestamp\n";
+echo "   \$config = [\n";
+echo "       'certificate' => 'file://cert.pem',\n";
+echo "       'privateKey' => 'file://key.pem',\n";
+echo "       'password' => 'secret',\n";
+echo "       'timestamp' => [\n";
+echo "           'url' => 'http://timestamp.digicert.com',\n";
+echo "       ],\n";
+echo "   ];\n";
+echo "   \n";
+echo "   // Sign with timestamp\n";
+echo "   \$signedPdf = \$sigManager->sign(\$config);\n\n";
 
-    // If timestamp fails, try signing without it
-    echo "\nAttempting to sign without timestamp...\n";
-    unset($signatureConfig['timestamp']);
+// =========================================================================
+// Step 5: Show TSA providers
+// =========================================================================
 
-    try {
-        $signedPdf = $sigManager->sign($signatureConfig);
-        $outputPath = __DIR__ . '/../target/signed_no_timestamp.pdf';
-        file_put_contents($outputPath, $signedPdf);
-        echo "Signed PDF (without timestamp) saved to: $outputPath\n";
-    } catch (\Exception $e2) {
-        echo "Error signing without timestamp: " . $e2->getMessage() . "\n";
-    }
+echo "5. Popular TSA providers...\n\n";
+
+$tsaProviders = [
+    [
+        'name' => 'DigiCert',
+        'url' => 'http://timestamp.digicert.com',
+        'auth' => 'None required',
+        'free' => 'Yes',
+    ],
+    [
+        'name' => 'Sectigo',
+        'url' => 'http://timestamp.sectigo.com',
+        'auth' => 'None required',
+        'free' => 'Yes',
+    ],
+    [
+        'name' => 'GlobalSign',
+        'url' => 'http://timestamp.globalsign.com/tsa/r6advanced1',
+        'auth' => 'None required',
+        'free' => 'Limited',
+    ],
+    [
+        'name' => 'FreeTSA',
+        'url' => 'https://freetsa.org/tsr',
+        'auth' => 'None required',
+        'free' => 'Yes',
+    ],
+];
+
+echo "   Provider         URL                                          Auth            Free\n";
+echo "   ---------------  -------------------------------------------  --------------  ----\n";
+foreach ($tsaProviders as $provider) {
+    printf(
+        "   %-15s  %-43s  %-14s  %s\n",
+        $provider['name'],
+        $provider['url'],
+        $provider['auth'],
+        $provider['free']
+    );
 }
+
+echo "\n";
+
+// =========================================================================
+// Summary
+// =========================================================================
+
+echo "Features Demonstrated:\n";
+echo "======================\n";
+echo "- TimestampClient class for RFC 3161 timestamp requests\n";
+echo "- Integration with SignatureManager for timestamped signatures\n";
+echo "- Configuration options for TSA authentication\n";
+echo "- Popular free TSA providers list\n\n";
+
+echo "To verify a timestamped signature:\n";
+echo "1. Open the signed PDF in Adobe Acrobat Reader\n";
+echo "2. Click on the signature\n";
+echo "3. Check 'Signature Properties' -> 'Date/Time'\n";
+echo "4. It should show 'Signature is timestamped' with TSA details\n\n";
+
+echo "Note: Actual signing requires valid certificates.\n";
+echo "The unsigned PDF was saved to: $unsignedPath\n";

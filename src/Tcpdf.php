@@ -26,6 +26,7 @@ use Com\Tecnick\Pdf\Font\VariableFont;
 use Com\Tecnick\Pdf\Forms\FieldCalculation;
 use Com\Tecnick\Pdf\Forms\FieldValidator;
 use Com\Tecnick\Pdf\Forms\ConditionalVisibility;
+use Com\Tecnick\Pdf\Manipulate;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -1399,5 +1400,122 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             ['\\\\', '\\(', '\\)', '\\r', '\\n'],
             $js
         );
+    }
+
+    // ===| PDF MANIPULATION |=================================================
+
+    /**
+     * Create a new PDF Merger instance.
+     *
+     * The merger allows combining multiple PDF files into one.
+     *
+     * Usage:
+     * ```php
+     * $merger = $pdf->createMerger();
+     * $merger->addFile('document1.pdf')
+     *        ->addFile('document2.pdf', [1, 3, 5]) // specific pages
+     *        ->addFile('document3.pdf', '1-5');    // page range
+     * $merged = $merger->merge();
+     * ```
+     *
+     * @return Manipulate\PdfMerger
+     */
+    public function createMerger(): Manipulate\PdfMerger
+    {
+        return new Manipulate\PdfMerger();
+    }
+
+    /**
+     * Create a new PDF Splitter instance.
+     *
+     * The splitter allows extracting pages from a PDF document.
+     *
+     * Usage:
+     * ```php
+     * $splitter = $pdf->createSplitter();
+     * $splitter->loadFile('document.pdf');
+     * $page1 = $splitter->extractPage(1);
+     * $pages = $splitter->extractPages([1, 3, 5]);
+     * $chunks = $splitter->splitByPageCount(10);
+     * ```
+     *
+     * @return Manipulate\PdfSplitter
+     */
+    public function createSplitter(): Manipulate\PdfSplitter
+    {
+        return new Manipulate\PdfSplitter();
+    }
+
+    /**
+     * Create a new PDF Stamper instance.
+     *
+     * The stamper allows adding watermarks, stamps, and overlays to PDFs.
+     *
+     * Usage:
+     * ```php
+     * $stamper = $pdf->createStamper();
+     * $stamper->loadFile('document.pdf')
+     *         ->addWatermark('CONFIDENTIAL')
+     *         ->addPageNumbers('Page {page} of {total}')
+     *         ->addDateStamp();
+     * $stamped = $stamper->apply();
+     * ```
+     *
+     * @return Manipulate\PdfStamper
+     */
+    public function createStamper(): Manipulate\PdfStamper
+    {
+        return new Manipulate\PdfStamper();
+    }
+
+    /**
+     * Merge multiple PDF files into one.
+     *
+     * Convenience method that creates a merger, adds files, and returns result.
+     *
+     * @param array<string> $files Array of PDF file paths
+     * @return string Merged PDF content
+     * @throws Exception If merge fails
+     */
+    public function mergePdfFiles(array $files): string
+    {
+        $merger = $this->createMerger();
+        foreach ($files as $file) {
+            $merger->addFile($file);
+        }
+        return $merger->merge();
+    }
+
+    /**
+     * Split a PDF file into individual pages.
+     *
+     * @param string $filePath Path to source PDF
+     * @param string $outputDir Output directory for split pages
+     * @param string $prefix Filename prefix
+     * @return array<string> Array of created file paths
+     * @throws Exception If split fails
+     */
+    public function splitPdfFile(string $filePath, string $outputDir, string $prefix = 'page_'): array
+    {
+        $splitter = $this->createSplitter();
+        $splitter->loadFile($filePath);
+        return $splitter->splitToFiles($outputDir, $prefix);
+    }
+
+    /**
+     * Add a watermark to a PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param string $watermarkText Watermark text
+     * @param string $outputPath Output file path
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function addWatermarkToFile(string $filePath, string $watermarkText, string $outputPath): bool
+    {
+        $stamper = $this->createStamper();
+        $stamper->loadFile($filePath)
+                ->addWatermark($watermarkText);
+        return $stamper->applyToFile($outputPath);
     }
 }

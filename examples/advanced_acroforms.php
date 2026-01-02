@@ -7,11 +7,8 @@
  * - Field validation (required, email, number, range)
  * - Conditional visibility (show/hide based on field values)
  *
- * @since       2025-01-02
  * @category    Library
  * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -155,48 +152,82 @@ $pdf->setSubject('Advanced AcroForms Example');
 $pdf->setTitle('Advanced AcroForms');
 $pdf->setKeywords('TCPDF, PDF, forms, calculations, validation, example');
 
+// Enable default page content
+$pdf->enableDefaultPageContent();
+
+// Insert font
+$pdf->font->insert($pdf->pon, 'helvetica', '', 12);
+
 // Add a page
-$pdf->page->add();
-$pdf->setDefaultCellPadding(0, 0, 0, 0);
-$pdf->setDefaultCellMargin(0, 0, 0, 0);
+$pdf->addPage();
 
-// Set font
-$pdf->font->add($pdf->pon, 'helvetica', 'B');
-$pdf->page->addContent($pdf->font->getOutCurrentFont());
-
-// Title
-$pdf->addTextCell('Advanced AcroForms Example', -1, 10, 10, 0, 0, 0, 0, 'T', 'L');
-
-// Regular font
-$pdf->font->add($pdf->pon, 'helvetica', '');
-$pdf->page->addContent($pdf->font->getOutCurrentFont());
+// Add title using PDF operators
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 14 Tf\n" .
+    "1 0 0 1 28.35 800 Tm\n" .
+    "(Advanced AcroForms Example) Tj\n" .
+    "ET\n"
+);
 
 // Section 1: Calculated Fields
-$pdf->addTextCell('1. Calculated Fields', -1, 10, 25, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n/F1 12 Tf\n1 0 0 1 28.35 770 Tm\n(1. Calculated Fields) Tj\nET\n"
+);
 
-$pdf->addTextCell('Item 1:', -1, 15, 35, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('Item 2:', -1, 15, 45, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('Item 3:', -1, 15, 55, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('Total (auto-calculated):', -1, 15, 65, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 750 Tm\n(Item 1:) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 735 Tm\n(Item 2:) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 720 Tm\n(Item 3:) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 705 Tm\n(Total \\(auto-calculated\\):) Tj\nET\n"
+);
 
 // Section 2: Validated Fields
-$pdf->addTextCell('2. Validated Fields', -1, 10, 85, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n/F1 12 Tf\n1 0 0 1 28.35 675 Tm\n(2. Validated Fields) Tj\nET\n"
+);
 
-$pdf->addTextCell('Email (required, email format):', -1, 15, 95, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('Age (18-120, integer only):', -1, 15, 105, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 655 Tm\n(Email \\(required, email format\\):) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 640 Tm\n(Age \\(18-120, integer only\\):) Tj\nET\n"
+);
 
 // Section 3: Conditional Visibility
-$pdf->addTextCell('3. Conditional Visibility', -1, 10, 125, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n/F1 12 Tf\n1 0 0 1 28.35 610 Tm\n(3. Conditional Visibility) Tj\nET\n"
+);
 
-$pdf->addTextCell('Enable details checkbox:', -1, 15, 135, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('Details field (shows when checked):', -1, 15, 145, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 590 Tm\n(Enable details checkbox:) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 575 Tm\n(Details field \\(shows when checked\\):) Tj\nET\n"
+);
 
 // Usage instructions
-$pdf->addTextCell('Instructions:', -1, 10, 165, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- Open in Adobe Acrobat for full JavaScript support', -1, 15, 175, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- Enter values in Item 1-3 to see total calculation', -1, 15, 182, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- Try invalid email/age to see validation', -1, 15, 189, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- Check the checkbox to show the details field', -1, 15, 196, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n/F1 12 Tf\n1 0 0 1 28.35 545 Tm\n(Instructions:) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 525 Tm\n(- Open in Adobe Acrobat for full JavaScript support) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 510 Tm\n(- Enter values in Item 1-3 to see total calculation) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 495 Tm\n(- Try invalid email/age to see validation) Tj\nET\n"
+);
+$pdf->page->addContent(
+    "BT\n/F1 10 Tf\n1 0 0 1 42.52 480 Tm\n(- Check the checkbox to show the details field) Tj\nET\n"
+);
 
 // Output PDF
 $pdfData = $pdf->getOutPDFString();

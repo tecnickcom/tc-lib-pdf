@@ -4,11 +4,8 @@
  *
  * Example demonstrating rich text support in annotations and form fields.
  *
- * @since       2025-01-02
  * @category    Library
  * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2025 Nicola Asuni - Tecnick.com LTD
  * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
@@ -31,21 +28,23 @@ $pdf->setSubject('Rich Text Example');
 $pdf->setTitle('Rich Text in Annotations');
 $pdf->setKeywords('TCPDF, PDF, rich text, annotations, example');
 
+// Enable default page content
+$pdf->enableDefaultPageContent();
+
+// Insert font
+$pdf->font->insert($pdf->pon, 'helvetica', '', 12);
+
 // Add a page
-$pdf->page->add();
-$pdf->setDefaultCellPadding(0, 0, 0, 0);
-$pdf->setDefaultCellMargin(0, 0, 0, 0);
+$pdf->addPage();
 
-// Set font
-$pdf->font->add($pdf->pon, 'helvetica', 'BI');
-$pdf->page->addContent($pdf->font->getOutCurrentFont());
-
-// Title
-$pdf->addTextCell('Rich Text in Annotations Example', -1, 10, 10, 0, 0, 0, 0, 'T', 'L');
-
-// Set regular font
-$pdf->font->add($pdf->pon, 'helvetica', '');
-$pdf->page->addContent($pdf->font->getOutCurrentFont());
+// Add title
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 14 Tf\n" .
+    "1 0 0 1 28.35 800 Tm\n" .
+    "(Rich Text in Annotations Example) Tj\n" .
+    "ET\n"
+);
 
 echo "Rich Text in Annotations Example\n";
 echo "=================================\n\n";
@@ -184,21 +183,102 @@ echo "1. Create the PDF with addRichTextAnnotation()\n";
 echo "2. Open in Adobe Acrobat Reader\n";
 echo "3. Rich text formatting will be visible in annotations\n";
 
-// Add descriptive text to the PDF
-$pdf->addTextCell('This PDF demonstrates the RichText class for creating', -1, 10, 25, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('formatted text content in annotations and form fields.', -1, 10, 32, 0, 0, 0, 0, 'T', 'L');
+// Add descriptive text to the PDF using PDF operators
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 28.35 770 Tm\n" .
+    "(This PDF demonstrates the RichText class for creating) Tj\n" .
+    "ET\n"
+);
 
-$pdf->addTextCell('RichText Builder Features:', -1, 10, 45, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- addBold(), addItalic(), addBoldItalic()', -1, 15, 52, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- addColored() for colored text', -1, 15, 59, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- addSized() for custom font sizes', -1, 15, 66, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- addStyled() for custom CSS styles', -1, 15, 73, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- addParagraph() with alignment', -1, 15, 80, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('- fromMarkup() for HTML conversion', -1, 15, 87, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 28.35 755 Tm\n" .
+    "(formatted text content in annotations and form fields.) Tj\n" .
+    "ET\n"
+);
 
-$pdf->addTextCell('PDF Rich Text uses XHTML subset:', -1, 10, 100, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('Allowed tags: <p>, <span>, <b>, <i>, <br>, <font>', -1, 15, 107, 0, 0, 0, 0, 'T', 'L');
-$pdf->addTextCell('Supported CSS: color, font-size, font-family, text-align', -1, 15, 114, 0, 0, 0, 0, 'T', 'L');
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 28.35 730 Tm\n" .
+    "(RichText Builder Features:) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 715 Tm\n" .
+    "(- addBold\\(\\), addItalic\\(\\), addBoldItalic\\(\\)) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 700 Tm\n" .
+    "(- addColored\\(\\) for colored text) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 685 Tm\n" .
+    "(- addSized\\(\\) for custom font sizes) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 670 Tm\n" .
+    "(- addStyled\\(\\) for custom CSS styles) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 655 Tm\n" .
+    "(- addParagraph\\(\\) with alignment) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 640 Tm\n" .
+    "(- fromMarkup\\(\\) for HTML conversion) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 11 Tf\n" .
+    "1 0 0 1 28.35 615 Tm\n" .
+    "(PDF Rich Text uses XHTML subset:) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 600 Tm\n" .
+    "(Allowed tags: <p>, <span>, <b>, <i>, <br>, <font>) Tj\n" .
+    "ET\n"
+);
+
+$pdf->page->addContent(
+    "BT\n" .
+    "/F1 10 Tf\n" .
+    "1 0 0 1 42.52 585 Tm\n" .
+    "(Supported CSS: color, font-size, font-family, text-align) Tj\n" .
+    "ET\n"
+);
 
 // Output PDF
 $pdfData = $pdf->getOutPDFString();
