@@ -19,6 +19,8 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Barcode\Exception as BarcodeException;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\Table\Table;
+use Com\Tecnick\Pdf\Table\TableCell;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -777,5 +779,79 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             // Move to the next line.
             $posy = $bbox['y'] + $bbox['h'] + $cellSpaceB;
         }
+    }
+
+    // ===| TABLE |=========================================================
+
+    /**
+     * Create a new table object.
+     *
+     * Usage:
+     * ```php
+     * $table = $pdf->createTable(['borderWidth' => 0.3, 'cellPadding' => 2]);
+     * $table->setPosition(10, 50);
+     * $table->setWidth(190);
+     * $table->addHeaderRow(['Name', 'Age', 'City']);
+     * $table->addRow(['John Doe', '30', 'New York']);
+     * $table->addRow(['Jane Smith', '25', 'Los Angeles']);
+     * $table->render();
+     * ```
+     *
+     * @param array{
+     *     'borderWidth'?: float,
+     *     'borderColor'?: string,
+     *     'backgroundColor'?: string,
+     *     'headerBackgroundColor'?: string,
+     *     'headerTextColor'?: string,
+     *     'cellPadding'?: float,
+     *     'width'?: float,
+     * } $style Table style options
+     *
+     * @return Table
+     */
+    public function createTable(array $style = []): Table
+    {
+        return new Table($this, $style);
+    }
+
+    /**
+     * Create a new table cell with custom properties.
+     *
+     * Usage:
+     * ```php
+     * $cell = $pdf->createTableCell('Content', 2, 1, ['backgroundColor' => '#ffff00']);
+     * $table->addRow([$cell, 'Other content']);
+     * ```
+     *
+     * @param string $content Cell content
+     * @param int $colspan Number of columns to span
+     * @param int $rowspan Number of rows to span
+     * @param array{
+     *     'backgroundColor'?: string,
+     *     'borderColor'?: string,
+     *     'borderWidth'?: float,
+     *     'borderTop'?: bool,
+     *     'borderRight'?: bool,
+     *     'borderBottom'?: bool,
+     *     'borderLeft'?: bool,
+     *     'paddingTop'?: float,
+     *     'paddingRight'?: float,
+     *     'paddingBottom'?: float,
+     *     'paddingLeft'?: float,
+     *     'textColor'?: string,
+     *     'fontFamily'?: string,
+     *     'fontSize'?: float,
+     *     'fontStyle'?: string,
+     * } $style Cell style options
+     *
+     * @return TableCell
+     */
+    public function createTableCell(
+        string $content = '',
+        int $colspan = 1,
+        int $rowspan = 1,
+        array $style = []
+    ): TableCell {
+        return new TableCell($content, $colspan, $rowspan, $style);
     }
 }
