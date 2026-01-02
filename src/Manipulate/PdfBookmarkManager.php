@@ -72,6 +72,11 @@ class PdfBookmarkManager
     protected string $pdfVersion = '1.7';
 
     /**
+     * Resources dictionary content (ColorSpace, XObject, etc.)
+     */
+    protected string $resourcesContent = '';
+
+    /**
      * Load a PDF file
      *
      * @param string $filePath Path to PDF file
@@ -124,8 +129,32 @@ class PdfBookmarkManager
         // Extract all objects
         $this->objects = $this->extractObjects($this->pdfContent);
 
+        // Extract shared Resources dictionary
+        $this->extractResources();
+
         // Find and parse /Outlines
         $this->parseOutlines();
+    }
+
+    /**
+     * Extract shared Resources dictionary from PDF
+     */
+    protected function extractResources(): void
+    {
+        // Look for a shared Resources object referenced by pages
+        // Pattern: /Resources N 0 R where N is an object number
+        foreach ($this->objects as $objNum => $objContent) {
+            // Check if this is a Page object with a Resources reference
+            if ($this->isPageObject($objContent)) {
+                if (preg_match('/\/Resources\s+(\d+)\s+0\s+R/', $objContent, $match)) {
+                    $resObjNum = (int)$match[1];
+                    if (isset($this->objects[$resObjNum])) {
+                        $this->resourcesContent = $this->objects[$resObjNum];
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -456,6 +485,19 @@ class PdfBookmarkManager
         // Font object
         $fontObjNum = $this->objectNumber++;
 
+        // ColorSpace object (if present in original)
+        $colorSpaceObjNum = null;
+        $colorSpaceContent = '';
+        if (!empty($this->resourcesContent)) {
+            if (preg_match('/\/ColorSpace\s*<<\s*\/CS1\s+(\d+)\s+0\s+R/', $this->resourcesContent, $csMatch)) {
+                $origCsObjNum = (int)$csMatch[1];
+                if (isset($this->objects[$origCsObjNum])) {
+                    $colorSpaceObjNum = $this->objectNumber++;
+                    $colorSpaceContent = $this->objects[$origCsObjNum];
+                }
+            }
+        }
+
         // Allocate bookmark objects if any
         $bookmarkObjNums = [];
         foreach ($this->bookmarks as $index => $bookmark) {
@@ -503,6 +545,14 @@ class PdfBookmarkManager
         $pdf .= "<<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n/Encoding /WinAnsiEncoding\n>>\n";
         $pdf .= "endobj\n";
 
+        // Write ColorSpace if present
+        if ($colorSpaceObjNum !== null && !empty($colorSpaceContent)) {
+            $offsets[$colorSpaceObjNum] = strlen($pdf);
+            $pdf .= "{$colorSpaceObjNum} 0 obj\n";
+            $pdf .= $colorSpaceContent . "\n";
+            $pdf .= "endobj\n";
+        }
+
         // Write pages and content
         foreach ($pages as $index => $page) {
             $pageObjNum = $pageObjNums[$index];
@@ -525,6 +575,9 @@ class PdfBookmarkManager
             $pdf .= "/Resources <<\n";
             $pdf .= "  /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]\n";
             $pdf .= "  /Font << /F1 {$fontObjNum} 0 R >>\n";
+            if ($colorSpaceObjNum !== null) {
+                $pdf .= "  /ColorSpace << /CS1 {$colorSpaceObjNum} 0 R >>\n";
+            }
             $pdf .= ">>\n";
             $pdf .= "/Contents {$contentObjNum} 0 R\n";
             $pdf .= ">>\n";
