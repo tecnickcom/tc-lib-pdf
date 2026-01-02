@@ -23,6 +23,9 @@ use Com\Tecnick\Pdf\Table\Table;
 use Com\Tecnick\Pdf\Table\TableCell;
 use Com\Tecnick\Pdf\RichText;
 use Com\Tecnick\Pdf\Font\VariableFont;
+use Com\Tecnick\Pdf\Forms\FieldCalculation;
+use Com\Tecnick\Pdf\Forms\FieldValidator;
+use Com\Tecnick\Pdf\Forms\ConditionalVisibility;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -1134,5 +1137,267 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             'axes' => $vf->getAxes(),
             'instances' => $vf->getInstances(),
         ];
+    }
+
+    // =========================================================================
+    // ADVANCED ACROFORMS - Calculated Fields, Validation, Conditional Visibility
+    // =========================================================================
+
+    /**
+     * Create a field calculation builder.
+     *
+     * Field calculations allow automatic computation of values based on
+     * other form fields. Common uses include:
+     * - Sum totals (e.g., invoice line items)
+     * - Averages (e.g., grade calculations)
+     * - Products (e.g., quantity * price)
+     * - Custom formulas
+     *
+     * Example:
+     * ```php
+     * // Sum of multiple fields
+     * $calc = $pdf->createFieldCalculation('total', FieldCalculation::TYPE_SUM)
+     *     ->setSourceFields(['item1', 'item2', 'item3']);
+     *
+     * // Or use static factory methods
+     * $calc = FieldCalculation::sum('total', ['item1', 'item2', 'item3']);
+     * $calc = FieldCalculation::product('lineTotal', ['quantity', 'price']);
+     * $calc = FieldCalculation::average('avgScore', ['score1', 'score2', 'score3']);
+     *
+     * // Custom JavaScript expression
+     * $calc = FieldCalculation::custom('tax', 'subtotal * 0.1', ['subtotal']);
+     * ```
+     *
+     * @param string $targetField Name of the field to receive calculated value
+     * @param array<string> $sourceFields Source field names
+     * @param string $type Calculation type (use FieldCalculation::TYPE_* constants)
+     * @return FieldCalculation
+     */
+    public function createFieldCalculation(
+        string $targetField,
+        array $sourceFields = [],
+        string $type = FieldCalculation::TYPE_SUM
+    ): FieldCalculation {
+        return match ($type) {
+            FieldCalculation::TYPE_SUM => FieldCalculation::sum($targetField, $sourceFields),
+            FieldCalculation::TYPE_PRODUCT => FieldCalculation::product($targetField, $sourceFields),
+            FieldCalculation::TYPE_AVERAGE => FieldCalculation::average($targetField, $sourceFields),
+            FieldCalculation::TYPE_MIN => FieldCalculation::min($targetField, $sourceFields),
+            FieldCalculation::TYPE_MAX => FieldCalculation::max($targetField, $sourceFields),
+            default => FieldCalculation::sum($targetField, $sourceFields),
+        };
+    }
+
+    /**
+     * Create a field validator builder.
+     *
+     * Field validators define validation rules for form fields.
+     * Validation is performed via JavaScript when the user exits
+     * the field or submits the form.
+     *
+     * Example:
+     * ```php
+     * // Create validator with multiple rules
+     * $validator = $pdf->createFieldValidator('email')
+     *     ->required('Email is required')
+     *     ->email('Please enter a valid email');
+     *
+     * // Numeric validation with range
+     * $validator = $pdf->createFieldValidator('age')
+     *     ->required()
+     *     ->integer('Please enter a whole number')
+     *     ->range(18, 120, 'Age must be between 18 and 120');
+     *
+     * // Custom validation
+     * $validator = $pdf->createFieldValidator('username')
+     *     ->required()
+     *     ->length(3, 20, 'Username must be 3-20 characters')
+     *     ->regex('^[a-zA-Z0-9_]+$', 'Only letters, numbers, and underscores allowed');
+     * ```
+     *
+     * @param string $fieldName Name of the field to validate
+     * @return FieldValidator
+     */
+    public function createFieldValidator(string $fieldName): FieldValidator
+    {
+        return FieldValidator::forField($fieldName);
+    }
+
+    /**
+     * Create a conditional visibility rule builder.
+     *
+     * Conditional visibility allows showing or hiding form fields
+     * based on the values of other fields. This is useful for:
+     * - Progressive disclosure forms
+     * - Conditional sections
+     * - Dynamic form layouts
+     *
+     * Example:
+     * ```php
+     * // Show field when checkbox is checked
+     * $visibility = $pdf->createConditionalVisibility('otherDetails')
+     *     ->showWhenChecked('hasOther');
+     *
+     * // Show multiple fields when dropdown equals value
+     * $visibility = $pdf->createConditionalVisibility(['address', 'city', 'zip'])
+     *     ->showWhenEquals('contactMethod', 'mail');
+     *
+     * // Complex conditions
+     * $visibility = $pdf->createConditionalVisibility('discountField')
+     *     ->showWhenGreaterThan('orderTotal', 100)
+     *     ->andWhen('memberStatus', ConditionalVisibility::OP_EQUALS, 'premium');
+     * ```
+     *
+     * @param string|array<string> $targetFields Field(s) to show/hide
+     * @return ConditionalVisibility
+     */
+    public function createConditionalVisibility(string|array $targetFields): ConditionalVisibility
+    {
+        return ConditionalVisibility::forFields($targetFields);
+    }
+
+    /**
+     * Add a text field with calculation.
+     *
+     * Creates a text field that automatically calculates its value
+     * from other fields.
+     *
+     * @param string $name Field name
+     * @param float $x X position
+     * @param float $y Y position
+     * @param float $w Width
+     * @param float $h Height
+     * @param FieldCalculation $calculation Calculation definition
+     * @param array<string, mixed> $options Additional field options
+     * @return int Field object number
+     */
+    public function addCalculatedField(
+        string $name,
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        FieldCalculation $calculation,
+        array $options = []
+    ): int {
+        // Generate JavaScript for calculation
+        $jsCode = $calculation->toJavaScript();
+
+        // Set up the field with calculation action
+        $options['aa'] = ($options['aa'] ?? '') . '/C << /S /JavaScript /JS (' . $this->escapeJavaScript($jsCode) . ') >>';
+
+        // Make field read-only by default for calculated fields
+        if (!isset($options['readonly'])) {
+            $options['readonly'] = true;
+        }
+
+        return $this->form->addTextField(
+            $this->pon,
+            $name,
+            $this->toPoints($x),
+            $this->toYPoints($y, $h),
+            $this->toPoints($w),
+            $this->toPoints($h),
+            $options
+        );
+    }
+
+    /**
+     * Add a text field with validation.
+     *
+     * Creates a text field with JavaScript validation rules.
+     *
+     * @param string $name Field name
+     * @param float $x X position
+     * @param float $y Y position
+     * @param float $w Width
+     * @param float $h Height
+     * @param FieldValidator $validator Validation rules
+     * @param array<string, mixed> $options Additional field options
+     * @return int Field object number
+     */
+    public function addValidatedField(
+        string $name,
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        FieldValidator $validator,
+        array $options = []
+    ): int {
+        // Generate JavaScript for validation
+        $validateJs = $validator->toJavaScript();
+        $keystrokeJs = $validator->toKeystrokeJavaScript();
+
+        // Add validation actions
+        $aa = $options['aa'] ?? '';
+        if ($validateJs !== '') {
+            $aa .= '/V << /S /JavaScript /JS (' . $this->escapeJavaScript($validateJs) . ') >>';
+        }
+        if ($keystrokeJs !== '') {
+            $aa .= '/K << /S /JavaScript /JS (' . $this->escapeJavaScript($keystrokeJs) . ') >>';
+        }
+        $options['aa'] = $aa;
+
+        return $this->form->addTextField(
+            $this->pon,
+            $name,
+            $this->toPoints($x),
+            $this->toYPoints($y, $h),
+            $this->toPoints($w),
+            $this->toPoints($h),
+            $options
+        );
+    }
+
+    /**
+     * Apply conditional visibility to fields.
+     *
+     * This adds the necessary JavaScript to show/hide fields based
+     * on conditions. The JavaScript is added to the source field(s)
+     * as a change action.
+     *
+     * @param ConditionalVisibility $visibility Visibility rules
+     * @return self
+     */
+    public function applyConditionalVisibility(ConditionalVisibility $visibility): self
+    {
+        $jsCode = $visibility->toJavaScript();
+        if ($jsCode === '') {
+            return $this;
+        }
+
+        // Add the visibility script to document-level JavaScript
+        $this->addJavaScript('visibility_' . implode('_', $visibility->getTargetFields()), $jsCode);
+
+        return $this;
+    }
+
+    /**
+     * Add document-level JavaScript.
+     *
+     * @param string $name Script name
+     * @param string $script JavaScript code
+     * @return self
+     */
+    public function addJavaScript(string $name, string $script): self
+    {
+        $this->jsobjects[$name] = $script;
+        return $this;
+    }
+
+    /**
+     * Escape JavaScript string for PDF.
+     *
+     * @param string $js JavaScript code
+     * @return string Escaped JavaScript
+     */
+    protected function escapeJavaScript(string $js): string
+    {
+        return str_replace(
+            ['\\', '(', ')', "\r", "\n"],
+            ['\\\\', '\\(', '\\)', '\\r', '\\n'],
+            $js
+        );
     }
 }
