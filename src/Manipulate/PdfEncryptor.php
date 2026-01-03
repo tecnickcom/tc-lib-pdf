@@ -149,6 +149,20 @@ class PdfEncryptor
     protected array $objects = [];
 
     /**
+     * Encrypt object for key derivation
+     *
+     * @var ?Encrypt
+     */
+    protected ?Encrypt $encryptObj = null;
+
+    /**
+     * AES-256 encryption data (custom implementation)
+     *
+     * @var array<string, mixed>
+     */
+    protected array $aes256Data = [];
+
+    /**
      * Load PDF from file
      *
      * @param string $filePath Path to PDF file
@@ -629,26 +643,36 @@ class PdfEncryptor
         // Determine permissions to BLOCK (inverse of what we allow)
         $blockedPermissions = array_diff(self::ALL_PERMISSIONS, $this->permissions);
 
-        // Create encryption object
-        $encrypt = new Encrypt(
-            true, // enabled
-            $fileId,
-            $this->encryptionMode,
-            $blockedPermissions,
-            $this->userPassword,
-            $this->ownerPassword ?: $this->generateRandomPassword()
-        );
+        // For AES-256, use custom implementation to work around library bug
+        if ($this->encryptionMode === self::AES_256) {
+            $encData = $this->generateAes256EncryptionData($fileId, $blockedPermissions);
+            $this->encryptObj = null; // Not used for AES-256
+        } else {
+            // Create encryption object and store for key derivation
+            $this->encryptObj = new Encrypt(
+                true, // enabled
+                $fileId,
+                $this->encryptionMode,
+                $blockedPermissions,
+                $this->userPassword,
+                $this->ownerPassword ?: $this->generateRandomPassword()
+            );
 
-        // Get encryption data
-        $encData = $encrypt->getEncryptionData();
+            // Get encryption data
+            $encData = $this->encryptObj->getEncryptionData();
+        }
 
         // Adjust PDF version based on encryption mode
         $pdfVersion = $this->pdfVersion;
+        $useAdobeExtension = false;
         if ($this->encryptionMode >= self::AES_128) {
             $pdfVersion = max('1.5', $pdfVersion);
         }
         if ($this->encryptionMode >= self::AES_256) {
-            $pdfVersion = max('1.7', $pdfVersion);
+            // AES-256 with R=6 uses PDF 1.7 with Adobe Extension Level 8
+            // (better compatibility than PDF 2.0 with older readers like Adobe Acrobat)
+            $pdfVersion = '1.7';
+            $useAdobeExtension = true;
         }
 
         $this->objectNumber = 1;
@@ -691,7 +715,12 @@ class PdfEncryptor
         // Catalog
         $offsets[$catalogObjNum] = strlen($pdf);
         $pdf .= "{$catalogObjNum} 0 obj\n";
-        $pdf .= "<<\n/Type /Catalog\n/Pages {$pagesObjNum} 0 R\n>>\n";
+        $pdf .= "<<\n/Type /Catalog\n/Pages {$pagesObjNum} 0 R\n";
+        if ($useAdobeExtension) {
+            // Add Adobe Extension Level 8 for AES-256 compatibility
+            $pdf .= "/Extensions << /ADBE << /BaseVersion /1.7 /ExtensionLevel 8 >> >>\n";
+        }
+        $pdf .= ">>\n";
         $pdf .= "endobj\n";
 
         // Pages
@@ -741,18 +770,26 @@ class PdfEncryptor
             $pdf .= "endobj\n";
 
             // Content stream (encrypted)
+            // PDF encryption order: compress first, then encrypt
             $content = $page['content'];
             if (!empty($content)) {
-                // Decompress if needed
+                // Decompress if original was compressed (to get plaintext)
                 $decompressed = @gzuncompress($content);
                 if ($decompressed !== false) {
                     $content = $decompressed;
                 }
             }
 
-            // Encrypt content
-            $encryptedContent = $encrypt->encryptString($content, $contentObjNum);
-            $encryptedContent = gzcompress($encryptedContent, 9);
+            // Step 1: Compress the plaintext content
+            $compressedContent = gzcompress($content, 9);
+
+            // Step 2: Encrypt the compressed content
+            $encryptedContent = $this->encryptContentStream(
+                $compressedContent,
+                $contentObjNum,
+                $this->encryptionMode
+            );
+
             $streamLen = strlen($encryptedContent);
 
             $offsets[$contentObjNum] = strlen($pdf);
@@ -798,10 +835,12 @@ class PdfEncryptor
         $dict .= "/Filter /Standard\n";
 
         if ($this->encryptionMode <= self::RC4_128) {
+            // RC4 40-bit or 128-bit
             $dict .= "/V " . ($this->encryptionMode === self::RC4_40 ? '1' : '2') . "\n";
             $dict .= "/R " . ($this->encryptionMode === self::RC4_40 ? '2' : '3') . "\n";
             $dict .= "/Length " . ($this->encryptionMode === self::RC4_40 ? '40' : '128') . "\n";
-        } else {
+        } elseif ($this->encryptionMode === self::AES_128) {
+            // AES 128-bit
             $dict .= "/V 4\n";
             $dict .= "/R 4\n";
             $dict .= "/Length 128\n";
@@ -813,6 +852,14 @@ class PdfEncryptor
             $dict .= ">>\n";
             $dict .= "/StmF /StdCF\n";
             $dict .= "/StrF /StdCF\n";
+        } else {
+            // AES 256-bit (PDF 2.0 / ISO 32000-2)
+            $dict .= "/V 5\n";
+            $dict .= "/R 6\n";
+            $dict .= "/Length 256\n";
+            $dict .= "/CF << /StdCF << /AuthEvent /DocOpen /CFM /AESV3 /Length 32 >> >>\n";
+            $dict .= "/StmF /StdCF\n";
+            $dict .= "/StrF /StdCF\n";
         }
 
         // Add O, U, and P values
@@ -821,6 +868,18 @@ class PdfEncryptor
         }
         if (isset($encData['U'])) {
             $dict .= "/U <" . bin2hex($encData['U']) . ">\n";
+        }
+        // Add OE and UE for AES-256
+        if ($this->encryptionMode === self::AES_256) {
+            if (isset($encData['OE'])) {
+                $dict .= "/OE <" . bin2hex($encData['OE']) . ">\n";
+            }
+            if (isset($encData['UE'])) {
+                $dict .= "/UE <" . bin2hex($encData['UE']) . ">\n";
+            }
+            if (isset($encData['perms'])) {
+                $dict .= "/Perms <" . bin2hex($encData['perms']) . ">\n";
+            }
         }
         if (isset($encData['P'])) {
             $dict .= "/P " . $encData['P'] . "\n";
@@ -842,6 +901,114 @@ class PdfEncryptor
     }
 
     /**
+     * Encrypt content stream using proper AES/RC4 encryption
+     *
+     * This method properly handles encryption of arbitrary length content,
+     * working around a bug in tc-lib-pdf-encrypt that truncates data.
+     *
+     * @param string $content Content to encrypt
+     * @param int $objNum Object number for key derivation
+     * @param int $mode Encryption mode
+     * @return string Encrypted content
+     */
+    protected function encryptContentStream(
+        string $content,
+        int $objNum,
+        int $mode
+    ): string {
+        if (empty($content)) {
+            return $content;
+        }
+
+        // Get object-specific key
+        if ($mode === self::AES_256) {
+            // AES-256 uses the file encryption key directly (no per-object derivation)
+            $objKey = $this->aes256Data['key'] ?? '';
+        } elseif ($this->encryptObj !== null) {
+            // Use library's getObjectKey for proper derivation
+            $objKey = $this->encryptObj->getObjectKey($objNum);
+        } else {
+            return $content;
+        }
+
+        if ($mode <= self::RC4_128) {
+            // RC4 encryption
+            return $this->rc4Encrypt($content, $objKey);
+        }
+
+        // AES encryption - use our own to work around library's padding bug
+        return $this->aesEncrypt($content, $objKey, $mode);
+    }
+
+    /**
+     * RC4 encryption
+     *
+     * @param string $data Data to encrypt
+     * @param string $key Encryption key
+     * @return string Encrypted data
+     */
+    protected function rc4Encrypt(string $data, string $key): string
+    {
+        // Initialize S-box
+        $s = range(0, 255);
+        $j = 0;
+        $keyLen = strlen($key);
+
+        for ($i = 0; $i < 256; $i++) {
+            $j = ($j + $s[$i] + ord($key[$i % $keyLen])) % 256;
+            [$s[$i], $s[$j]] = [$s[$j], $s[$i]];
+        }
+
+        // Encrypt
+        $result = '';
+        $i = $j = 0;
+        $dataLen = strlen($data);
+
+        for ($k = 0; $k < $dataLen; $k++) {
+            $i = ($i + 1) % 256;
+            $j = ($j + $s[$i]) % 256;
+            [$s[$i], $s[$j]] = [$s[$j], $s[$i]];
+            $result .= chr(ord($data[$k]) ^ $s[($s[$i] + $s[$j]) % 256]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * AES encryption with proper padding
+     *
+     * @param string $data Data to encrypt
+     * @param string $key Encryption key
+     * @param int $mode Encryption mode (AES_128 or AES_256)
+     * @return string Encrypted data with IV prepended
+     */
+    protected function aesEncrypt(string $data, string $key, int $mode): string
+    {
+        $cipher = ($mode == self::AES_256) ? 'aes-256-cbc' : 'aes-128-cbc';
+
+        // Generate random IV
+        $ivLen = openssl_cipher_iv_length($cipher);
+        if ($ivLen === false) {
+            $ivLen = 16;
+        }
+        $iv = openssl_random_pseudo_bytes($ivLen);
+
+        // Pad key to required length
+        $keyLen = ($mode == self::AES_256) ? 32 : 16;
+        $key = str_pad(substr($key, 0, $keyLen), $keyLen, "\x00");
+
+        // Encrypt with PKCS7 padding (OpenSSL default)
+        $encrypted = openssl_encrypt($data, $cipher, $key, OPENSSL_RAW_DATA, $iv);
+
+        if ($encrypted === false) {
+            return $data; // Fallback to unencrypted on error
+        }
+
+        // PDF spec requires IV prepended to encrypted data
+        return $iv . $encrypted;
+    }
+
+    /**
      * Get encryption mode constant from name
      *
      * @param string $name Mode name
@@ -858,5 +1025,242 @@ class PdfEncryptor
             'AES256', 'AES_256', 'AES256BIT' => self::AES_256,
             default => throw new PdfException("Unknown encryption mode: {$name}"),
         };
+    }
+
+    /**
+     * Generate AES-256 encryption data (custom implementation)
+     *
+     * This bypasses the tc-lib-pdf-encrypt library bug that truncates
+     * the encryption key to 16 bytes in AESnopad.pad().
+     *
+     * Implements PDF 2.0 / ISO 32000-2 encryption algorithm.
+     *
+     * @param string $fileId File identifier (hex string)
+     * @param array<string> $blockedPermissions Permissions to block
+     * @return array<string, mixed> Encryption data
+     */
+    protected function generateAes256EncryptionData(string $fileId, array $blockedPermissions): array
+    {
+        // Generate random 32-byte file encryption key
+        $fileKey = random_bytes(32);
+
+        // Truncate passwords to 127 bytes (PDF 2.0 spec)
+        $userPwd = substr($this->userPassword, 0, 127);
+        $ownerPwd = substr($this->ownerPassword ?: $this->generateRandomPassword(), 0, 127);
+
+        // Calculate permission value
+        $protection = $this->calculatePermissionValue($blockedPermissions);
+
+        // Generate random salts (8 bytes each)
+        $userValidationSalt = random_bytes(8);
+        $userKeySalt = random_bytes(8);
+        $ownerValidationSalt = random_bytes(8);
+        $ownerKeySalt = random_bytes(8);
+
+        // Compute U value using Algorithm 2.B (R=6 iterative hash)
+        // U = hash_r6(password, validation_salt, "") || validation_salt || key_salt
+        $uHash = $this->computeHashR6($userPwd, $userValidationSalt, '');
+        $U = $uHash . $userValidationSalt . $userKeySalt;
+
+        // Compute UE value: AES-256-CBC encrypt file key with hash_r6(password, key_salt, "")
+        $ueKeyHash = $this->computeHashR6($userPwd, $userKeySalt, '');
+        $UE = $this->aes256EncryptNoPadding($fileKey, $ueKeyHash);
+
+        // Compute O value using Algorithm 2.B (R=6 iterative hash)
+        // O = hash_r6(password, validation_salt, U) || validation_salt || key_salt
+        $oHash = $this->computeHashR6($ownerPwd, $ownerValidationSalt, $U);
+        $O = $oHash . $ownerValidationSalt . $ownerKeySalt;
+
+        // Compute OE value: AES-256-CBC encrypt file key with hash_r6(password, key_salt, U)
+        $oeKeyHash = $this->computeHashR6($ownerPwd, $ownerKeySalt, $U);
+        $OE = $this->aes256EncryptNoPadding($fileKey, $oeKeyHash);
+
+        // Compute Perms value (16 bytes)
+        $perms = $this->computePermsValue($protection, $fileKey);
+
+        // Store data for content encryption
+        $this->aes256Data = [
+            'key' => $fileKey,
+            'U' => $U,
+            'UE' => $UE,
+            'O' => $O,
+            'OE' => $OE,
+            'P' => $protection,
+            'perms' => $perms,
+        ];
+
+        return $this->aes256Data;
+    }
+
+    /**
+     * Compute hash using Algorithm 2.B (R=6 iterative hash)
+     *
+     * This implements the PDF 2.0 / ISO 32000-2 hash algorithm for R=6 encryption.
+     * It uses iterative SHA-256/384/512 hashing with AES encryption.
+     *
+     * @param string $password Password (max 127 bytes UTF-8)
+     * @param string $salt 8-byte salt
+     * @param string $udata User data (empty for user password, U value for owner password)
+     * @return string 32-byte hash
+     */
+    protected function computeHashR6(string $password, string $salt, string $udata): string
+    {
+        // Initial hash: SHA-256(password || salt || udata)
+        $k = hash('sha256', $password . $salt . $udata, true);
+
+        // Iterative processing for R=6 (Algorithm 2.B from ISO 32000-2)
+        $roundNumber = 0;
+        $done = false;
+
+        while (!$done) {
+            $roundNumber++;
+
+            // K1 = repeat(password || K || udata, 64)
+            $k1Block = $password . $k . $udata;
+            $k1 = str_repeat($k1Block, 64);
+
+            // Use first 16 bytes of K as AES-128-CBC key
+            $aesKey = substr($k, 0, 16);
+            // Use bytes 16-31 of K as IV
+            $aesIv = substr($k, 16, 16);
+
+            // Encrypt K1 with AES-128-CBC
+            $e = openssl_encrypt($k1, 'aes-128-cbc', $aesKey, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING, $aesIv);
+
+            // Hash selection: SUM of first 16 bytes of E, mod 3
+            $eMod3 = 0;
+            for ($i = 0; $i < 16; $i++) {
+                $eMod3 += ord($e[$i]);
+            }
+            $eMod3 = $eMod3 % 3;
+
+            switch ($eMod3) {
+                case 0:
+                    $k = hash('sha256', $e, true);
+                    break;
+                case 1:
+                    $k = hash('sha384', $e, true);
+                    break;
+                case 2:
+                    $k = hash('sha512', $e, true);
+                    break;
+            }
+
+            // Termination condition: roundNumber >= 64 AND last byte of E <= (roundNumber - 32)
+            if ($roundNumber >= 64) {
+                $lastByte = ord($e[strlen($e) - 1]);
+                if ($lastByte <= ($roundNumber - 32)) {
+                    $done = true;
+                }
+            }
+        }
+
+        // Return first 32 bytes
+        return substr($k, 0, 32);
+    }
+
+    /**
+     * AES-256-CBC encryption without padding (for UE/OE values)
+     *
+     * @param string $data Data to encrypt (must be multiple of 16 bytes)
+     * @param string $key 32-byte encryption key
+     * @return string Encrypted data
+     */
+    protected function aes256EncryptNoPadding(string $data, string $key): string
+    {
+        // Zero IV as per PDF spec for UE/OE
+        $iv = str_repeat("\x00", 16);
+
+        // Ensure key is 32 bytes
+        $key = str_pad(substr($key, 0, 32), 32, "\x00");
+
+        // Pad data to multiple of 16 bytes if needed
+        $padLen = 16 - (strlen($data) % 16);
+        if ($padLen < 16) {
+            $data .= str_repeat("\x00", $padLen);
+        }
+
+        $encrypted = openssl_encrypt(
+            $data,
+            'aes-256-cbc',
+            $key,
+            OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,
+            $iv
+        );
+
+        return $encrypted !== false ? $encrypted : '';
+    }
+
+    /**
+     * Calculate permission value from blocked permissions
+     *
+     * @param array<string> $blockedPermissions Permissions to block
+     * @return int Permission value (P)
+     */
+    protected function calculatePermissionValue(array $blockedPermissions): int
+    {
+        // Permission bits mapping (bit positions, 1-indexed as per PDF spec)
+        $permBits = [
+            'print' => 3,       // Bit 3
+            'modify' => 4,      // Bit 4
+            'copy' => 5,        // Bit 5
+            'annot-forms' => 6, // Bit 6
+            'fill-forms' => 9,  // Bit 9
+            'extract' => 10,    // Bit 10
+            'assemble' => 11,   // Bit 11
+            'print-high' => 12, // Bit 12
+        ];
+
+        // Start with all permissions allowed: 0xFFFFFFFC
+        // This is -4 as signed 32-bit int (bits 1-2 are 0, all others are 1)
+        $protection = -4;
+
+        // Clear bits for blocked permissions
+        foreach ($blockedPermissions as $perm) {
+            if (isset($permBits[$perm])) {
+                // Clear the bit (bit positions are 1-indexed, so subtract 1 for shift)
+                $protection &= ~(1 << ($permBits[$perm] - 1));
+            }
+        }
+
+        return $protection;
+    }
+
+    /**
+     * Compute Perms value for AES-256
+     *
+     * @param int $protection Permission value
+     * @param string $fileKey 32-byte file encryption key
+     * @return string 16-byte Perms value
+     */
+    protected function computePermsValue(int $protection, string $fileKey): string
+    {
+        // Build 16-byte perms input
+        // Bytes 0-3: permission value (little-endian)
+        $perms = pack('V', $protection);
+
+        // Bytes 4-7: 0xFFFFFFFF
+        $perms .= "\xFF\xFF\xFF\xFF";
+
+        // Byte 8: 'T' if encrypting metadata, 'F' otherwise (we always encrypt)
+        $perms .= 'T';
+
+        // Bytes 9-11: 'adb'
+        $perms .= 'adb';
+
+        // Bytes 12-15: random
+        $perms .= random_bytes(4);
+
+        // Encrypt with file key using AES-256-ECB (no IV needed for ECB mode)
+        $key = str_pad(substr($fileKey, 0, 32), 32, "\x00");
+
+        $encrypted = openssl_encrypt(
+            $perms,
+            'aes-256-ecb',
+            $key,
+            OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING
+        );
+
+        return $encrypted !== false ? $encrypted : '';
     }
 }
