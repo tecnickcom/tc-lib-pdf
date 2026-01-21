@@ -179,13 +179,17 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     /**
      * Returns a formatted date for meta information
      *
+     * The PDF spec uses the following strange DATETIME format: D:YYYYMMDDHHmmSSOHH'mm'
+     * For example, D:20260119130959-05'00' OR D:20260119180959Z
+     *
      * @param int $time Time in seconds.
      *
      * @return string date-time string.
      */
     protected function getFormattedDate(int $time): string
     {
-        return \substr_replace(\date('YmdHisO', $time), "'", (-2), 0) . "'";
+        $t = new \DateTimeImmutable()->setTimestamp($time)->format('YmdHisp');
+        return \str_ends_with($t, 'Z') ? $t : \substr_replace($t, "'", -3, 1) . "'";
     }
 
     /**
@@ -197,7 +201,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     protected function getXMPFormattedDate(int $time): string
     {
-        return \date('Y-m-dTH:i:sP', $time);
+        return new \DateTimeImmutable()->setTimestamp($time)->format('Y-m-d\TH:i:sp');
     }
 
     /**
