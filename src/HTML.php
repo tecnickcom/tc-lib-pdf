@@ -1398,7 +1398,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $dom[$key]['fontstyle'] .= match ($dec[0]) {
                         'u' => 'U',
                         'l' => 'D',
-                        'o '=> 'O',
+                        'o' => 'O',
                         default => '',
                     };
                 }
