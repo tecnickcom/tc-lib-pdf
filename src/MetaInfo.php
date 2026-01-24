@@ -166,7 +166,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     }
 
     /**
-     * Set the sRGB mode
+     * Set the sRGB mode.
      *
      * @param bool $enabled Set to true to add the default sRGB ICC color profile
      */
@@ -177,7 +177,8 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     }
 
     /**
-     * Returns a formatted date for meta information
+     * Returns a formatted date for meta information.
+     * (ref. Chapter 7.9.4 Dates of PDF32000_2008.pdf).
      *
      * @param int $time Time in seconds.
      *
@@ -185,11 +186,12 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     protected function getFormattedDate(int $time): string
     {
-        return \substr_replace(\date('YmdHisO', $time), "'", (-2), 0) . "'";
+        $date = \date('YmdHisp', $time);
+        return \str_ends_with($date, 'Z') ? $date : \substr_replace($date, "'", -3, 1) . "'";
     }
 
     /**
-     * Returns a formatted date for XMP meta information
+     * Returns a formatted date for XMP meta information.
      *
      * @param int $time Time in seconds.
      *
@@ -197,11 +199,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     protected function getXMPFormattedDate(int $time): string
     {
-        return \date('Y-m-dTH:i:sP', $time);
+        return \date('Y-m-d\TH:i:sp', $time);
     }
 
     /**
-     * Returns the producer string
+     * Returns the producer string.
      */
     protected function getProducer(): string
     {
@@ -212,7 +214,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     }
 
     /**
-     * Returns a formatted date for meta information
+     * Returns a formatted date for meta information.
      *
      * @param int $time Time in seconds.
      * @param int $oid  Current PDF object number.
@@ -230,7 +232,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
 
     /**
      * Get the PDF output string for the Document Information Dictionary.
-     * (ref. Chapter 14.3.3 Document Information Dictionary of PDF32000_2008.pdf)
+     * (ref. Chapter 14.3.3 Document Information Dictionary of PDF32000_2008.pdf).
      */
     protected function getOutMetaInfo(): string
     {
