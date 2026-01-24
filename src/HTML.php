@@ -7,8 +7,8 @@
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
@@ -27,15 +27,14 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
- * @//phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base as BorderStyleOpt
  *
  * @phpstan-type THTMLAttrib array{
  *     'align': string,
@@ -77,6 +76,8 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'trids': array<int>,
  *     'value': string,
  *     'width': float,
+ *     'x': float,
+ *     'y': float,
  * }
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
@@ -536,7 +537,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $html,
         ) ?? '';
         $html = \preg_replace(
-            '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|dt|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
+            '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
             '</\\1><',
             $html,
         ) ?? '';
@@ -705,6 +706,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'widows' => '',//
             'width' => 0.0,
             //'word-spacing' => 0.0,//
+            'x' => 0.0,
+            'y' => 0.0,
+
         ];
     }
 
@@ -1398,7 +1402,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $dom[$key]['fontstyle'] .= match ($dec[0]) {
                         'u' => 'U',
                         'l' => 'D',
-                        'o '=> 'O',
+                        'o' => 'O',
                         default => '',
                     };
                 }
@@ -2104,33 +2108,248 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         return $this->getTextLine($txti, $posx, $posy);
     }
 
-    //  /**
-    //   * @TODO - EXPERIMENTAL - DRAFT
-    //   * Returns the PDF code to render an HTML block inside a rectangular cell.
-    //   *
-    //   * @param string      $html        HTML code to be processed.
-    //   * @param float       $posx        Abscissa of upper-left corner.
-    //   * @param float       $posy        Ordinate of upper-left corner.
-    //   * @param float       $width       Width.
-    //   * @param float       $height      Height.
-    //   * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-    //   * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
-    //   *
-    //   * @return string
-    //   */
-    //  public function getHTMLCell(
-    //     string $html,
-    //     float $posx = 0,
-    //     float $posy = 0,
-    //     float $width = 0,
-    //     float $height = 0,
-    //     ?array $cell = null,
-    //     array $styles = [],
-    // ): string {
-    //     $dom = $this->getHTMLDOM($html);
-    //
-    //     var_export($dom); exit(); //DEBUG
-    //
-    //     return '';
-    // }
+    /**
+     * Move to the next page region and returns the page ID.
+     */
+    protected function pageBreak(): int
+    {
+        $pid = $this->page->getPageId();
+        $this->page->getNextRegion($pid);
+        $cpid = $this->page->getPageId();
+        if ($cpid > $pid) {
+            $pid = $cpid;
+            $this->setPageContext($pid);
+        }
+        return $pid;
+    }
+
+    /**
+     * @TODO - EXPERIMENTAL - DRAFT - IN PROGRESS
+     *
+     * Returns the PDF code to render an HTML block inside a rectangular cell.
+     *
+     * @param string      $html        HTML code to be processed.
+     * @param float       $posx        Abscissa of upper-left corner.
+     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $width       Width.
+     * @param float       $height      Height.
+     * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
+     *
+     * @return string
+     */
+    public function getHTMLCell(
+        string $html,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        ?array $cell = null,
+        array $styles = [],
+    ): string {
+        $out = '';
+        $dom = $this->getHTMLDOM($html);
+        $numel = \count($dom);
+        $key = 0;
+
+        $tpx = $posx;
+        $tpy = $posy;
+        $tpw = $width;
+        $tph = $height;
+
+        $cell = $cell; // @TODO
+        $styles = $styles; // @TODO
+
+        while ($key < $numel) {
+            $elm = $dom[$key];
+
+            if ($elm['tag']) { // HTML TAG
+                if ($elm['opening']) { // opening tag
+                    if ($elm['hide']) {
+                        $hidden_node_key = $key;
+                        if ($elm['self']) {
+                            ++$key; // skip just this self-closing tag
+                        } else {
+                            // skip this and all children tags
+                            while (
+                                ($key < $numel) && (
+                                    !$dom[$key]['tag']
+                                    || $dom[$key]['opening']
+                                    || ($dom[$key]['parent'] != $hidden_node_key)
+                                )
+                            ) {
+                                ++$key; // skip hidden objects
+                            }
+                            ++$key;
+                        }
+                        if ($key >= $numel) {
+                            break;
+                        }
+                        $elm = $dom[$key];
+                    }
+
+                    if (!empty($elm['attribute']['pagebreak'])) {
+                        $pid = $this->pageBreak();
+                        if ($elm['attribute']['pagebreak'] != 'true') {
+                            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+                            if (
+                                (($elm['attribute']['pagebreak'] == 'left') && $leftmode)
+                                || (($elm['attribute']['pagebreak'] == 'right') && !$leftmode)
+                            ) {
+                                $this->pageBreak();
+                            }
+                        }
+                    }
+
+                    // if (!empty($elm['attribute']['nobr'])) {
+                    //     if (!empty($dom[($dom[$key]['parent'])]['attribute']['nobr'])) {
+                    //         $dom[$key]['attribute']['nobr'] = '';
+                    //     }
+                    // }
+
+                    $out .= match ($elm['value']) {
+                        // 'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'blockquote' => $this->parseHTMLTagOPENblockquote($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'body'       => $this->parseHTMLTagOPENbody($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'br'         => $this->parseHTMLTagOPENbr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dd'         => $this->parseHTMLTagOPENdd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'del'        => $this->parseHTMLTagOPENdel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'div'        => $this->parseHTMLTagOPENdiv($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dl'         => $this->parseHTMLTagOPENdl($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dt'         => $this->parseHTMLTagOPENdt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'em'         => $this->parseHTMLTagOPENem($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'font'       => $this->parseHTMLTagOPENfont($elm, $tpx, $tpy, $tpw, $tph)
+                        // 'form'       => $this->parseHTMLTagOPENform($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h1'         => $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h2'         => $this->parseHTMLTagOPENh2($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h3'         => $this->parseHTMLTagOPENh3($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h4'         => $this->parseHTMLTagOPENh4($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h5'         => $this->parseHTMLTagOPENh5($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h6'         => $this->parseHTMLTagOPENh6($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'hr'         => $this->parseHTMLTagOPENhr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'i'          => $this->parseHTMLTagOPENi($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'img'        => $this->parseHTMLTagOPENimg($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'input'      => $this->parseHTMLTagOPENinput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'label'      => $this->parseHTMLTagOPENlabel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'li'         => $this->parseHTMLTagOPENli($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'marker'     => $this->parseHTMLTagOPENmarker($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ol'         => $this->parseHTMLTagOPENol($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'option'     => $this->parseHTMLTagOPENoption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'output'     => $this->parseHTMLTagOPENoutput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'p'          => $this->parseHTMLTagOPENp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'pre'        => $this->parseHTMLTagOPENpre($elm, $tpx, $tpy, $tpw, $tph),
+                        // 's'          => $this->parseHTMLTagOPENs($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'select'     => $this->parseHTMLTagOPENselect($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'small'      => $this->parseHTMLTagOPENsmall($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'span'       => $this->parseHTMLTagOPENspan($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'strike'     => $this->parseHTMLTagOPENstrike($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'strong'     => $this->parseHTMLTagOPENstrong($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'sub'        => $this->parseHTMLTagOPENsub($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'table'      => $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tablehead'  => $this->parseHTMLTagOPENtablehead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tcpdf'      => $this->parseHTMLTagOPENtcpdf($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'td'         => $this->parseHTMLTagOPENtd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'textarea'   => $this->parseHTMLTagOPENtextarea($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'th'         => $this->parseHTMLTagOPENth($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'thead'      => $this->parseHTMLTagOPENthead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tr'         => $this->parseHTMLTagOPENtr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tt'         => $this->parseHTMLTagOPENtt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'u'          => $this->parseHTMLTagOPENu($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ul'         => $this->parseHTMLTagOPENul($elm, $tpx, $tpy, $tpw, $tph),
+                        default      => '',
+                    };
+                } else { // closing tag
+                    $out .= match ($elm['value']) {
+                        // 'a'          => $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'b'          => $this->parseHTMLTagCLOSEb($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'blockquote' => $this->parseHTMLTagCLOSEblockquote($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'body'       => $this->parseHTMLTagCLOSEbody($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'br'         => $this->parseHTMLTagCLOSEbr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dd'         => $this->parseHTMLTagCLOSEdd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'del'        => $this->parseHTMLTagCLOSEdel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'div'        => $this->parseHTMLTagCLOSEdiv($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dl'         => $this->parseHTMLTagCLOSEdl($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'dt'         => $this->parseHTMLTagCLOSEdt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'em'         => $this->parseHTMLTagCLOSEem($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'font'       => $this->parseHTMLTagCLOSEfont($elm, $tpx, $tpy, $tpw, $tph)
+                        // 'form'       => $this->parseHTMLTagCLOSEform($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h1'         => $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h2'         => $this->parseHTMLTagCLOSEh2($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h3'         => $this->parseHTMLTagCLOSEh3($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h4'         => $this->parseHTMLTagCLOSEh4($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h5'         => $this->parseHTMLTagCLOSEh5($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'h6'         => $this->parseHTMLTagCLOSEh6($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'hr'         => $this->parseHTMLTagCLOSEhr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'i'          => $this->parseHTMLTagCLOSEi($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'img'        => $this->parseHTMLTagCLOSEimg($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'input'      => $this->parseHTMLTagCLOSEinput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'label'      => $this->parseHTMLTagCLOSElabel($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'li'         => $this->parseHTMLTagCLOSEli($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'marker'     => $this->parseHTMLTagCLOSEmarker($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ol'         => $this->parseHTMLTagCLOSEol($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'option'     => $this->parseHTMLTagCLOSEoption($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'output'     => $this->parseHTMLTagCLOSEoutput($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'p'          => $this->parseHTMLTagCLOSEp($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'pre'        => $this->parseHTMLTagCLOSEpre($elm, $tpx, $tpy, $tpw, $tph),
+                        // 's'          => $this->parseHTMLTagCLOSEs($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'select'     => $this->parseHTMLTagCLOSEselect($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'small'      => $this->parseHTMLTagCLOSEsmall($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'span'       => $this->parseHTMLTagCLOSEspan($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'strike'     => $this->parseHTMLTagCLOSEstrike($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'strong'     => $this->parseHTMLTagCLOSEstrong($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'sub'        => $this->parseHTMLTagCLOSEsub($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'table'      => $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tablehead'  => $this->parseHTMLTagCLOSEtablehead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tcpdf'      => $this->parseHTMLTagCLOSEtcpdf($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'td'         => $this->parseHTMLTagCLOSEtd($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'textarea'   => $this->parseHTMLTagCLOSEtextarea($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'th'         => $this->parseHTMLTagCLOSEth($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'thead'      => $this->parseHTMLTagCLOSEthead($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tr'         => $this->parseHTMLTagCLOSEtr($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'tt'         => $this->parseHTMLTagCLOSEtt($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'u'          => $this->parseHTMLTagCLOSEu($elm, $tpx, $tpy, $tpw, $tph),
+                        // 'ul'         => $this->parseHTMLTagCLOSEul($elm, $tpx, $tpy, $tpw, $tph),
+                        default      => '',
+                    };
+                }
+            } else { // Text Content
+                $out .= $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Process HTML Text (content between tags).
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx  Abscissa of upper-left corner.
+     * @param float  $tpy  Ordinate of upper-left corner.
+     * @param float  $tpw  Width.
+     * @param float  $tph  Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLText(
+        array $elm,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        $elm = $elm; // @TODO
+        $tpx = $tpx; // @TODO
+        $tpy = $tpy; // @TODO
+        $tpw = $tpw; // @TODO
+        $tph = $tph; // @TODO
+        return '';
+    }
+
+    // FUNCTIONS TO PROCESS HTML OPENING TAGS
+    // @TODO
+
+    // FUNCTIONS TO PROCESS HTML CLOSING TAGS
+    // @TODO
 }
