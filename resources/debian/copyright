@@ -1,9 +1,9 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ~#PROJECT#~
 Source: https://github.com/~#VENDOR#~/~#PROJECT#~
 
 Files: *
-Copyright: Copyright 2001-2025 Nicola Asuni <info@tecnick.com>
+Copyright: Copyright 2001-2026 Nicola Asuni <info@tecnick.com>
 License: LGPL-3
 
 License: LGPL-3
@@ -16,5 +16,5 @@ License: LGPL-3
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
  You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/> or
+ along with this program. If not, see <https://www.gnu.org/licenses/> or
  /usr/share/common-licenses/LGPL-3

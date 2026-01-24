@@ -7,8 +7,8 @@
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
@@ -29,8 +29,8 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base
@@ -51,7 +51,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * @param string      $unit       Unit of measure ('pt', 'mm', 'cm', 'in').
      * @param bool        $isunicode  True if the document is in Unicode mode.
-     * @param bool        $subsetfont If true subset the embedded fonts to remove the unused characters.
+     * @param bool        $subsetfont If true subset the embeded fonts to remove the unused characters.
      * @param bool        $compress   Set to false to disable stream compression.
      * @param string      $mode       PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx" or empty.
      * @param ?ObjEncrypt $objEncrypt Encryption object.
@@ -286,9 +286,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *        - document (string) Names specifying additional document-wide usage rights for the document.
      *          The only defined value is "/FullSave", which permits a user to save the document along with
      *          modified form and/or annotation data.
-     *        - ef (string) Names specifying additional usage rights for named embedded files in the document.
+     *        - ef (string) Names specifying additional usage rights for named embeded files in the document.
      *          Valid names are /Create/Delete/Modify/Import, which permit the user to perform the named
-     *          operation on named embedded files Names specifying additional embedded-files-related usage
+     *          operation on named embeded files Names specifying additional embeded-files-related usage
      *          rights for the document.
      *        - enabled (bool) If true enable user's rights on PDF reader.
      *        - form (string) Names specifying additional form-field-related usage rights for the document.

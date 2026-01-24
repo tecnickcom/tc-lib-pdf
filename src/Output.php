@@ -7,8 +7,8 @@
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
@@ -28,8 +28,8 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-type TFourFloat array{
@@ -735,10 +735,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /JavaScript ' . $this->jstree;
         }
 
-        if ($this->embeddedfiles !== []) {
+        if ($this->embededfiles !== []) {
             $afnames = [];
             $afobjs = [];
-            foreach ($this->embeddedfiles as $efname => $efdata) {
+            foreach ($this->embededfiles as $efname => $efdata) {
                 $afnames[] = $this->getOutTextString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
                 $afobjs[] = $efdata['f'] . ' 0 R';
             }
@@ -1104,13 +1104,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutEmbeddedFiles(): string
     {
         if (($this->pdfa == 1) || ($this->pdfa == 2)) {
-            // embedded files are not allowed in PDF/A mode version 1 and 2
+            // embeded files are not allowed in PDF/A mode version 1 and 2
             return '';
         }
 
         $out = '';
-        \reset($this->embeddedfiles);
-        foreach ($this->embeddedfiles as $name => $data) {
+        \reset($this->embededfiles);
+        foreach ($this->embededfiles as $name => $data) {
             if (!empty($data['content'])) {
                 // if content is already set, use it
                 $content = $data['content'];
@@ -1129,7 +1129,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             // update name tree
             $oid = $data['f'];
-            // embedded file specification object
+            // embeded file specification object
             $out .= $oid . ' 0 obj' . "\n"
                 . '<<'
                 . ' /Type /Filespec /F ' . $this->getOutTextString($name, $oid)
@@ -1138,7 +1138,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' /EF <</F ' . $data['n'] . ' 0 R>>'
                 . ' >>' . "\n"
                 . 'endobj' . "\n";
-            // embedded file object
+            // embeded file object
             $filter = '';
             if ($this->pdfa == 3) {
                 $filter = ' /Subtype /text#2Fxml';
@@ -1733,14 +1733,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         $y = $this->toYPoints($l['y'], $page['pheight']);
                         $out .= \sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                     break;
-                case '%': // embedded PDF file
+                case '%': // embeded PDF file
                     $filename = \basename(\substr($annot['txt'], 1));
                     $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P ' . ($pagenum - 1)
-                        . ' /A ' . $this->embeddedfiles[$filename]['a']
+                        . ' /A ' . $this->embededfiles[$filename]['a']
                         . ' >>'
                         . ' >>';
                     break;
-                case '*': // embedded generic file
+                case '*': // embeded generic file
                     $filename = \basename(\substr($annot['txt'], 1));
                     $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
@@ -2025,16 +2025,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         int $key
     ): string {
         if (($this->pdfa == 1) || ($this->pdfa == 2) || ! isset($annot['opt']['fs'])) {
-            // embedded files are not allowed in PDF/A mode version 1 and 2
+            // embeded files are not allowed in PDF/A mode version 1 and 2
             return '';
         }
 
         $filename = \basename($annot['opt']['fs']);
-        if (! isset($this->embeddedfiles[$filename]['f'])) {
+        if (! isset($this->embededfiles[$filename]['f'])) {
             return '';
         }
 
-        $out = ' /FS ' . $this->embeddedfiles[$filename]['f'] . ' 0 R';
+        $out = ' /FS ' . $this->embededfiles[$filename]['f'] . ' 0 R';
         $iconsapp = ['Graph', 'Paperclip', 'PushPin', 'Tag'];
         if (isset($annot['opt']['name']) && \in_array($annot['opt']['name'], $iconsapp)) {
             $out .= ' /Name /' . $annot['opt']['name'];
@@ -2043,7 +2043,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // index (zero-based) of the annotation in the Annots array of this page
-        $this->embeddedfiles[$filename]['a'] = $key;
+        $this->embededfiles[$filename]['a'] = $key;
         return $out;
     }
 
@@ -2060,13 +2060,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $filename = \basename($annot['opt']['fs']);
-        if (! isset($this->embeddedfiles[$filename]['f'])) {
+        if (! isset($this->embededfiles[$filename]['f'])) {
             return '';
         }
 
         // ... TO BE COMPLETED ...
         // /R /C /B /E /CO /CP
-        $out = ' /Sound ' . $this->embeddedfiles[$filename]['f'] . ' 0 R';
+        $out = ' /Sound ' . $this->embededfiles[$filename]['f'] . ' 0 R';
         $iconsapp = ['Speaker', 'Mic'];
         if (isset($annot['opt']['name']) && \in_array($annot['opt']['name'], $iconsapp)) {
             $out .= ' /Name /' . $annot['opt']['name'];
@@ -2608,15 +2608,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                             $out .= \sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                         break;
                     case '%':
-                        // embedded PDF file
+                        // embeded PDF file
                         $filename = \basename(\substr($outline['u'], 1));
                         $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P '
                             . ($outline['p'] - 1)
-                            . ' /A ' . $this->embeddedfiles[$filename]['a'] . ' >>'
+                            . ' /A ' . $this->embededfiles[$filename]['a'] . ' >>'
                             . ' >>';
                         break;
                     case '*':
-                        // embedded generic file
+                        // embeded generic file
                         $filename = \basename(\substr($outline['u'], 1));
                         $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;'
                         . 'for (var i in MyData) if (MyData[i].path=="'

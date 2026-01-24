@@ -7,8 +7,8 @@
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
@@ -29,8 +29,8 @@ use TSVGStyle;
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type TTMatrix from \Com\Tecnick\Pdf\Graph\Base
@@ -3555,7 +3555,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out;
         }
         if (\preg_match('/^data:image\/[^;]+;base64,/', $img, $match) > 0) {
-            // embedded image encoded as base64
+            // embeded image encoded as base64
             $img = '@' . \base64_decode(\substr($img, \strlen($match[0])));
         }
 
@@ -4053,7 +4053,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     public function getSetSVG(int $soid): string
     {
         if (empty($this->svgobjs[$soid])) {
-            throw new PdfException('Unknown SVG ID: ' . $soid);
+            throw new PdfException('Unknownn SVG ID: ' . $soid);
         }
 
         $out = $this->svgobjs[$soid]['out'];

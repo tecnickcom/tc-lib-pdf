@@ -7,8 +7,8 @@
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
@@ -27,8 +27,8 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
- * @copyright 2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license   http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type TAnnotOpts from Output
@@ -591,7 +591,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     // ===| ANNOTATION |====================================================
 
     /**
-     * Add an embedded file.
+     * Add an embeded file.
      * If a file with the same name already exists, it will be ignored.
      *
      * @param string $file File name (absolute or relative path).
@@ -610,9 +610,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $filekey = \basename((string) $file);
         if (
             ! empty($filekey)
-            && empty($this->embeddedfiles[$filekey])
+            && empty($this->embededfiles[$filekey])
         ) {
-            $this->embeddedfiles[$filekey] = [
+            $this->embededfiles[$filekey] = [
                 'a' => 0,
                 'f' => ++$this->pon,
                 'n' => ++$this->pon,
@@ -623,11 +623,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     }
 
     /**
-     * Add string content as an embedded file.
+     * Add string content as an embeded file.
      * If a file with the same name already exists, it will be ignored.
      *
-     * @param string $file File name to be used a key for the embedded file.
-     * @param string $content  Content of the embedded file.
+     * @param string $file File name to be used a key for the embeded file.
+     * @param string $content  Content of the embeded file.
      *
      * @throws PdfException in case of error.
      */
@@ -639,8 +639,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (empty($file) || empty($content)) {
             throw new PdfException('Empty file name or content');
         }
-        if (empty($this->embeddedfiles[$file])) {
-            $this->embeddedfiles[$file] = [
+        if (empty($this->embededfiles[$file])) {
+            $this->embededfiles[$file] = [
                 'a' => 0,
                 'f' => ++$this->pon,
                 'n' => ++$this->pon,
@@ -728,8 +728,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param string     $link   URL to open when the link is clicked or an identifier returned by addInternalLink().
      *                           A single character prefix may be used to specify the link action:
      *                           - '#' = internal destination
-     *                           - '%' = embedded PDF file
-     *                           - '*' = embedded generic file
+     *                           - '%' = embeded PDF file
+     *                           - '*' = embeded generic file
      *
      * @return int Object ID (Add to a page via: $pdf->page->addAnnotRef($aoid);).
      */
@@ -802,8 +802,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *                       or an identifier returned by addInternalLink().
      *                       A single character prefix may be used to specify the link action:
      *                       - '#' = internal destination
-     *                       - '%' = embedded PDF file
-     *                       - '*' = embedded generic file
+     *                       - '%' = embeded PDF file
+     *                       - '*' = embeded generic file
      * @param int    $level  Bookmark level (minimum 0).
      *
      * @param int    $page   Page number.

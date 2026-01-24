@@ -6,8 +6,8 @@
  * @category    Library
  * @package     Pdf
  * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2025 Nicola Asuni - Tecnick.com LTD
- * @license     http://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
+ * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
@@ -259,7 +259,7 @@ $pdf->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:
           <pdfaProperty:name>DocumentFileName</pdfaProperty:name>
           <pdfaProperty:valueType>Text</pdfaProperty:valueType>
           <pdfaProperty:category>external</pdfaProperty:category>
-          <pdfaProperty:description>The name of the embedded XML document</pdfaProperty:description>
+          <pdfaProperty:description>The name of the embeded XML document</pdfaProperty:description>
         </rdf:li>
         <rdf:li rdf:parseType="Resource">
           <pdfaProperty:name>DocumentType</pdfaProperty:name>
@@ -271,13 +271,13 @@ $pdf->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:
           <pdfaProperty:name>Version</pdfaProperty:name>
           <pdfaProperty:valueType>Text</pdfaProperty:valueType>
           <pdfaProperty:category>external</pdfaProperty:category>
-          <pdfaProperty:description>The actual version of the standard applying to the embedded XML document</pdfaProperty:description>
+          <pdfaProperty:description>The actual version of the standard applying to the embeded XML document</pdfaProperty:description>
         </rdf:li>
         <rdf:li rdf:parseType="Resource">
           <pdfaProperty:name>ConformanceLevel</pdfaProperty:name>
           <pdfaProperty:valueType>Text</pdfaProperty:valueType>
           <pdfaProperty:category>external</pdfaProperty:category>
-          <pdfaProperty:description>The conformance level of the embedded XML document</pdfaProperty:description>
+          <pdfaProperty:description>The conformance level of the embeded XML document</pdfaProperty:description>
         </rdf:li>
       </rdf:Seq>
     </pdfaSchema:property>
