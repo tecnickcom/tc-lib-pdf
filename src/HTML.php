@@ -537,7 +537,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $html,
         ) ?? '';
         $html = \preg_replace(
-            '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|dt|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
+            '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
             '</\\1><',
             $html,
         ) ?? '';
@@ -1402,7 +1402,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $dom[$key]['fontstyle'] .= match ($dec[0]) {
                         'u' => 'U',
                         'l' => 'D',
-                        'o '=> 'O',
+                        'o' => 'O',
                         default => '',
                     };
                 }
