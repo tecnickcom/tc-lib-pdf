@@ -735,10 +735,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /JavaScript ' . $this->jstree;
         }
 
-        if ($this->embededfiles !== []) {
+        if ($this->embeddedfiles !== []) {
             $afnames = [];
             $afobjs = [];
-            foreach ($this->embededfiles as $efname => $efdata) {
+            foreach ($this->embeddedfiles as $efname => $efdata) {
                 $afnames[] = $this->getOutTextString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
                 $afobjs[] = $efdata['f'] . ' 0 R';
             }
@@ -1104,13 +1104,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutEmbeddedFiles(): string
     {
         if (($this->pdfa == 1) || ($this->pdfa == 2)) {
-            // embeded files are not allowed in PDF/A mode version 1 and 2
+            // embedded files are not allowed in PDF/A mode version 1 and 2
             return '';
         }
 
         $out = '';
-        \reset($this->embededfiles);
-        foreach ($this->embededfiles as $name => $data) {
+        \reset($this->embeddedfiles);
+        foreach ($this->embeddedfiles as $name => $data) {
             if (!empty($data['content'])) {
                 // if content is already set, use it
                 $content = $data['content'];
@@ -1129,7 +1129,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             // update name tree
             $oid = $data['f'];
-            // embeded file specification object
+            // embedded file specification object
             $out .= $oid . ' 0 obj' . "\n"
                 . '<<'
                 . ' /Type /Filespec /F ' . $this->getOutTextString($name, $oid)
@@ -1138,7 +1138,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' /EF <</F ' . $data['n'] . ' 0 R>>'
                 . ' >>' . "\n"
                 . 'endobj' . "\n";
-            // embeded file object
+            // embedded file object
             $filter = '';
             if ($this->pdfa == 3) {
                 $filter = ' /Subtype /text#2Fxml';
@@ -1733,14 +1733,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         $y = $this->toYPoints($l['y'], $page['pheight']);
                         $out .= \sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                     break;
-                case '%': // embeded PDF file
+                case '%': // embedded PDF file
                     $filename = \basename(\substr($annot['txt'], 1));
                     $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P ' . ($pagenum - 1)
-                        . ' /A ' . $this->embededfiles[$filename]['a']
+                        . ' /A ' . $this->embeddedfiles[$filename]['a']
                         . ' >>'
                         . ' >>';
                     break;
-                case '*': // embeded generic file
+                case '*': // embedded generic file
                     $filename = \basename(\substr($annot['txt'], 1));
                     $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
@@ -2025,16 +2025,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         int $key
     ): string {
         if (($this->pdfa == 1) || ($this->pdfa == 2) || ! isset($annot['opt']['fs'])) {
-            // embeded files are not allowed in PDF/A mode version 1 and 2
+            // embedded files are not allowed in PDF/A mode version 1 and 2
             return '';
         }
 
         $filename = \basename($annot['opt']['fs']);
-        if (! isset($this->embededfiles[$filename]['f'])) {
+        if (! isset($this->embeddedfiles[$filename]['f'])) {
             return '';
         }
 
-        $out = ' /FS ' . $this->embededfiles[$filename]['f'] . ' 0 R';
+        $out = ' /FS ' . $this->embeddedfiles[$filename]['f'] . ' 0 R';
         $iconsapp = ['Graph', 'Paperclip', 'PushPin', 'Tag'];
         if (isset($annot['opt']['name']) && \in_array($annot['opt']['name'], $iconsapp)) {
             $out .= ' /Name /' . $annot['opt']['name'];
@@ -2043,7 +2043,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         // index (zero-based) of the annotation in the Annots array of this page
-        $this->embededfiles[$filename]['a'] = $key;
+        $this->embeddedfiles[$filename]['a'] = $key;
         return $out;
     }
 
@@ -2060,13 +2060,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $filename = \basename($annot['opt']['fs']);
-        if (! isset($this->embededfiles[$filename]['f'])) {
+        if (! isset($this->embeddedfiles[$filename]['f'])) {
             return '';
         }
 
         // ... TO BE COMPLETED ...
         // /R /C /B /E /CO /CP
-        $out = ' /Sound ' . $this->embededfiles[$filename]['f'] . ' 0 R';
+        $out = ' /Sound ' . $this->embeddedfiles[$filename]['f'] . ' 0 R';
         $iconsapp = ['Speaker', 'Mic'];
         if (isset($annot['opt']['name']) && \in_array($annot['opt']['name'], $iconsapp)) {
             $out .= ' /Name /' . $annot['opt']['name'];
@@ -2608,15 +2608,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                             $out .= \sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                         break;
                     case '%':
-                        // embeded PDF file
+                        // embedded PDF file
                         $filename = \basename(\substr($outline['u'], 1));
                         $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P '
                             . ($outline['p'] - 1)
-                            . ' /A ' . $this->embededfiles[$filename]['a'] . ' >>'
+                            . ' /A ' . $this->embeddedfiles[$filename]['a'] . ' >>'
                             . ' >>';
                         break;
                     case '*':
-                        // embeded generic file
+                        // embedded generic file
                         $filename = \basename(\substr($outline['u'], 1));
                         $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;'
                         . 'for (var i in MyData) if (MyData[i].path=="'

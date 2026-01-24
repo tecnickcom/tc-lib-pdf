@@ -3555,7 +3555,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out;
         }
         if (\preg_match('/^data:image\/[^;]+;base64,/', $img, $match) > 0) {
-            // embeded image encoded as base64
+            // embedded image encoded as base64
             $img = '@' . \base64_decode(\substr($img, \strlen($match[0])));
         }
 

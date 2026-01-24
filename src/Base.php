@@ -180,7 +180,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.4.6';
+    protected string $version = '8.4.7';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -438,7 +438,7 @@ abstract class Base
      *
      * @var array<string, TEmbeddedFile>
      */
-    protected array $embededfiles = [];
+    protected array $embeddedfiles = [];
 
     /**
      * Annotations indexed bu object IDs.
