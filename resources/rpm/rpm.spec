@@ -26,7 +26,7 @@ Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.3.8
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 2.1.30
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 2.6.29
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 2.6.30
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 2.2.18
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 3.0.0
@@ -38,7 +38,7 @@ Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.0.41
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 5.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.3.9
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.4.8
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.4.9
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}
