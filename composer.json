@@ -41,7 +41,7 @@
   "require-dev": {
     "pdepend/pdepend": "2.16.2",
     "phpmd/phpmd": "2.15.0",
-    "phpunit/phpunit": "12.5.6 || 11.5.44 || 10.5.58",
+    "phpunit/phpunit": "12.5.8 || 11.5.50 || 10.5.63",
     "squizlabs/php_codesniffer": "4.0.1",
     "phpcompatibility/php-compatibility": "^10.0.0@dev"
   },
