@@ -26,7 +26,7 @@
     "tecnickcom/tc-lib-color": "^2.3",
     "tecnickcom/tc-lib-pdf-image": "^2.1",
     "tecnickcom/tc-lib-pdf-font": "^2.6",
-    "tecnickcom/tc-lib-file": "^2.2",
+    "tecnickcom/tc-lib-file": "^2.3",
     "tecnickcom/tc-lib-pdf-encrypt": "^2.1",
     "tecnickcom/tc-lib-unicode-data": "^2.0",
     "tecnickcom/tc-lib-unicode": "^2.0",
@@ -41,7 +41,7 @@
   "require-dev": {
     "pdepend/pdepend": "2.16.2",
     "phpmd/phpmd": "2.15.0",
-    "phpunit/phpunit": "12.5.8 || 11.5.50 || 10.5.63",
+    "phpunit/phpunit": "13.0.5 || 12.5.14 || 11.5.55 || 10.5.63",
     "squizlabs/php_codesniffer": "4.0.1",
     "phpcompatibility/php-compatibility": "^10.0.0@dev"
   },

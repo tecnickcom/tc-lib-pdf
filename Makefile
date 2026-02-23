@@ -84,7 +84,7 @@ COMPOSER=$(PHP) -d "apc.enable_cli=0" $(shell which composer)
 PHPDOC=$(shell which phpDocumentor)
 
 # phpstan version
-PHPSTANVER=2.1.33
+PHPSTANVER=2.1.40
 
 # --- MAKE TARGETS ---
 

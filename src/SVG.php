@@ -2500,6 +2500,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             && !\in_array($name, self::SVGDEFSMODESTART)
         ) {
             if (!isset($this->svgobjs[$soid]['clippaths'])) {
+                // @phpstan-ignore assign.propertyType
                 $this->svgobjs[$soid]['clippaths'] = [];
             }
 

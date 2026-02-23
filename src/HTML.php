@@ -833,6 +833,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             $element = \preg_replace("/&NBSP;/i", "&nbsp;", $element) ?? '';
         }
+        // @phpstan-ignore parameterByRef.type
         $dom[$key]['value'] = \stripslashes($this->unhtmlentities($element));
     }
 
@@ -877,6 +878,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && (!empty($dom[$parent]['cols']))
             && (empty($dom[$granparent]['cols']))
         ) {
+            // @phpstan-ignore parameterByRef.type
             $dom[$granparent]['cols'] = $dom[$parent]['cols'];
         }
         /** @var array<int, THTMLAttrib> $dom */
@@ -893,6 +895,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $content = \str_replace('<thead>', '', $content);
             $content = \str_replace('</thead>', '', $content);
         }
+        // @phpstan-ignore parameterByRef.type
         $dom[$parent]['content'] = $content;
         /** @var array<int, THTMLAttrib> $dom */
         // store header rows on a new table
@@ -901,14 +904,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && !empty($dom[$parent]['thead'])
         ) {
             if (empty($dom[$granparent]['thead'])) {
+                // @phpstan-ignore parameterByRef.type
                 $dom[$granparent]['thead'] = $cssarray . $elm[$dom[$granparent]['elkey']];
             }
             for ($idx = $parent; $idx <= $key; ++$idx) {
                 /** @var array<int, THTMLAttrib> $dom */
+                // @phpstan-ignore parameterByRef.type
                 $dom[$granparent]['thead'] .= $elm[$dom[$idx]['elkey']];
             }
             /** @var array<int, THTMLAttrib> $dom */
             // header elements must be always contained in a single page
+            // @phpstan-ignore parameterByRef.type
             $dom[$parent]['attribute']['nobr'] = 'true';
         }
         /** @var array<int, THTMLAttrib> $dom */
@@ -942,8 +948,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         int $key,
         bool $thead,
     ): void {
+        // @phpstan-ignore parameterByRef.type
         $dom[$key]['opening'] = true;
         /** @var array<int, THTMLAttrib> $dom */
+        // @phpstan-ignore parameterByRef.type
         $dom[$key]['self'] = ((\substr($element, -1, 1) == '/')
             || (\in_array($dom[$key]['value'], self::HTML_SELF_CLOSING_TAGS)));
         if (!$dom[$key]['self']) {
@@ -964,9 +972,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 PREG_PATTERN_ORDER,
             ) > 0
         ) {
+            // @phpstan-ignore parameterByRef.type
             $dom[$key]['attribute'] = []; // reset attribute array
             foreach ($attr_array[1] as $id => $name) {
                 /** @var array<int, THTMLAttrib> $dom */
+                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['attribute'][\strtolower($name)] = (string) $attr_array[2][$id];
             }
         }
@@ -1249,6 +1259,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         foreach ($style_array[1] as $id => $name) {
             /** @var array<int, THTMLAttrib> $dom */
             // in case of duplicate attribute the last replace the previous
+            // @phpstan-ignore parameterByRef.type
             $dom[$key]['style'][\strtolower($name)] = \trim($style_array[2][$id]);
         }
         /** @var array<int, THTMLAttrib> $dom */
@@ -1427,10 +1438,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         /** @var array<int, THTMLAttrib> $dom */
         // check for CSS padding properties
+        // @phpstan-ignore parameterByRef.type
         $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ?
             self::ZEROCELLBOUND : $this->getCSSPadding($dom[$key]['style']['padding']);
         /** @var array<int, THTMLAttrib> $dom */
         // check for CSS margin properties
+        // @phpstan-ignore parameterByRef.type
         $dom[$key]['margin'] = empty($dom[$key]['style']['margin']) ?
             self::ZEROCELLBOUND : $this->getCSSMargin($dom[$key]['style']['margin']);
         /** @var array<int, THTMLAttrib> $dom */
@@ -1549,6 +1562,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             /** @var  array<string, BorderStyle> $brdr */
             if ($brdr[$bsk]['lineWidth'] > 0) {
+                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['border'][$bsk] = $brdr[$bsk];
             }
             /** @var array<int, THTMLAttrib> $dom */
@@ -1675,6 +1689,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         /** @var array<int, THTMLAttrib> $dom */
         if (empty($dom[$key]['fontstyle']) || !\is_string($dom[$key]['fontstyle'])) {
+            // @phpstan-ignore parameterByRef.type
             $dom[$key]['fontstyle'] = '';
         }
         /** @var array<int, THTMLAttrib> $dom */
@@ -1749,6 +1764,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$key]['cols'] = 0;
             /** @var array<int, THTMLAttrib> $dom */
             if ($thead) {
+                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['thead'] = 'true';
                 // rows on thead block are printed as a separate table
             } else {
@@ -1761,6 +1777,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
                 /** @var array<int, THTMLAttrib> $dom */
                 // store the number of rows on table element
+                // @phpstan-ignore parameterByRef.type
                 ++$dom[$parent]['rows'];
                 /** @var array<int, THTMLAttrib> $dom */
                 if (
@@ -1771,6 +1788,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
                 /** @var array<int, THTMLAttrib> $dom */
                 // store the TR elements IDs on table element
+                // @phpstan-ignore parameterByRef.type
                 \array_push($dom[$parent]['trids'], $key);
             }
         }

@@ -1156,6 +1156,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         if ((!$this->isunicode) || $this->font->isCurrentByteFont()) {
             if ($this->isunicode) {
+                // @phpstan-ignore argument.type
                 $txt = $this->uniconv->latinArrToStr($this->uniconv->uniArrToLatinArr($ordarr));
             }
             $txt = $this->encrypt->escapeString($txt);
