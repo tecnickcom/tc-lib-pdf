@@ -2076,12 +2076,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'a':
             case 'lower-alpha':
             case 'lower-latin':
-                $txti = \chr(97 + $count - 1);
+                $txti = \chr((97 + $count - 1) & 0xFF);
                 break;
             case 'A':
             case 'upper-alpha':
             case 'upper-latin':
-                $txti = \chr(65 + $count - 1);
+                $txti = \chr((65 + $count - 1) & 0xFF);
                 break;
             case 'lower-greek':
                 $txti = $this->uniconv->chr(945 + $count - 1);
