@@ -123,6 +123,7 @@ use TSVGStyle;
  *    'marker-mid': string,
  *    'marker-start': string,
  *    'mask': string,
+ *    'mix-blend-mode': string,
  *    'objstyle': string,
  *    'opacity': float,
  *    'overflow': string,
@@ -470,6 +471,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'marker-end',
         'marker-mid',
         'marker-start',
+        'mix-blend-mode',
         'pointer-events',
         'shape-rendering',
         'stroke',
@@ -537,6 +539,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'marker-mid' => 'none',
         'marker-start' => 'none',
         'mask' => 'none',
+        'mix-blend-mode' => 'normal',
         'objstyle' => '',
         'opacity' => 1.0,
         'overflow' => 'auto',
@@ -1634,6 +1637,76 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Normalize a CSS mix-blend-mode value to the PDF blend mode name.
+     *
+     * CSS uses kebab-case; PDF uses CamelCase. Unknown values fall back to 'Normal'.
+     *
+     * @param string $cssMode CSS blend mode value (e.g. 'multiply', 'color-dodge').
+     *
+     * @return string PDF blend mode name (e.g. 'Multiply', 'ColorDodge').
+     */
+    protected function normalizeSVGBlendMode(string $cssMode): string
+    {
+        $map = [
+            'color-dodge' => 'ColorDodge',
+            'color-burn'  => 'ColorBurn',
+            'hard-light'  => 'HardLight',
+            'soft-light'  => 'SoftLight',
+        ];
+        $lower = \strtolower(\trim($cssMode));
+        if (isset($map[$lower])) {
+            return $map[$lower];
+        }
+
+        $camel = \ucfirst($lower);
+        $valid = [
+            'Normal', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten',
+            'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
+        ];
+        return \in_array($camel, $valid, true) ? $camel : 'Normal';
+    }
+
+    /**
+     * Normalize an SVG opacity value to the 0..1 range.
+     *
+     * @param string|float|int $alpha Opacity value from parsed SVG style.
+     */
+    protected function normalizeSVGAlphaValue(string|float|int $alpha): float
+    {
+        return \max(0.0, \min(1.0, (float) $alpha));
+    }
+
+    /**
+     * Emit a partial graphics state update for SVG alpha/blend settings.
+     *
+     * @param ?float  $strokingAlpha    Stroked alpha (CA), when provided.
+     * @param ?float  $nonstrokingAlpha Non-stroked alpha (ca), when provided.
+     * @param string  $blendMode        PDF blend mode name.
+     */
+    protected function getSVGExtGState(
+        ?float $strokingAlpha = null,
+        ?float $nonstrokingAlpha = null,
+        string $blendMode = 'Normal',
+    ): string {
+        $parms = [];
+        if ($strokingAlpha !== null) {
+            $parms['CA'] = $strokingAlpha;
+        }
+        if ($nonstrokingAlpha !== null) {
+            $parms['ca'] = $nonstrokingAlpha;
+        }
+        if ($blendMode !== '') {
+            $parms['BM'] = '/' . $blendMode;
+        }
+
+        if ($parms === []) {
+            return '';
+        }
+
+        return $this->graph->getExtGState($parms);
+    }
+
+    /**
      * Parse the SVG style font attributes.
      *
      * @param string $tag Font tag content.
@@ -1743,14 +1816,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $out = '';
+        $blendMode = $this->normalizeSVGBlendMode($svgstyle['mix-blend-mode']);
+        $baseOpacity = $this->normalizeSVGAlphaValue($svgstyle['opacity']);
+        $strokeOpacity = $this->normalizeSVGAlphaValue($svgstyle['stroke-opacity']);
+        $strokeAlpha = $baseOpacity * $strokeOpacity;
+        $rgba = $col->toRgbArray();
+        if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
+            $strokeAlpha *= $this->normalizeSVGAlphaValue($rgba['alpha']);
+        }
 
-        if ($svgstyle['stroke-opacity'] < 1) {
-            $out .= $this->graph->getAlpha($svgstyle['stroke-opacity']);
-        } else {
-            $rgba = $col->toRgbArray();
-            if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
-                $out .= $this->graph->getAlpha($rgba['alpha']);
-            }
+        if (\abs($strokeAlpha - $baseOpacity) > 0.00001) {
+            $out .= $this->getSVGExtGState($strokeAlpha, null, $blendMode);
         }
 
         $ref = $this->svgobjs[$soid]['refunitval'];
@@ -1795,9 +1871,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array &$svgstyle,
     ): string {
         $out = '';
+        $blendMode = $this->normalizeSVGBlendMode($svgstyle['mix-blend-mode']);
 
-        if ($svgstyle['opacity'] < 1) {
-            $out .= $this->graph->getAlpha($svgstyle['opacity']);
+        if ($svgstyle['opacity'] < 1 || $blendMode !== 'Normal') {
+            $out .= $this->graph->getAlpha($svgstyle['opacity'], $blendMode);
         }
 
         if (!empty($svgstyle['color'])) {
@@ -2092,9 +2169,19 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
+        $out = '';
+        $blendMode = $this->normalizeSVGBlendMode($svgstyle['mix-blend-mode']);
+        $baseOpacity = $this->normalizeSVGAlphaValue($svgstyle['opacity']);
+        $fillOpacity = $this->normalizeSVGAlphaValue($svgstyle['fill-opacity']);
+        $fillAlpha = $baseOpacity * $fillOpacity;
+
         $regs = [];
         if (\preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
-            return $this->parseSVGStyleGradient(
+            if (\abs($fillAlpha - $baseOpacity) > 0.00001) {
+                $out .= $this->getSVGExtGState(null, $fillAlpha, $blendMode);
+            }
+
+            return $out . $this->parseSVGStyleGradient(
                 $soid,
                 $gradients,
                 $regs[1],
@@ -2109,18 +2196,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $col = $this->color->getColorObj($svgstyle['fill']);
         if ($col == null) {
-            return '';
+            return $out;
         }
 
-        $out = '';
+        $rgba = $col->toRgbArray();
+        if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
+            $fillAlpha *= $this->normalizeSVGAlphaValue($rgba['alpha']);
+        }
 
-        if ($svgstyle['fill-opacity'] < 1) {
-            $out .= $this->graph->getAlpha($svgstyle['fill-opacity']);
-        } else {
-            $rgba = $col->toRgbArray();
-            if (isset($rgba['alpha']) && ($rgba['alpha'] < 1)) {
-                $out .= $this->graph->getAlpha($rgba['alpha']);
-            }
+        if (\abs($fillAlpha - $baseOpacity) > 0.00001) {
+            $out .= $this->getSVGExtGState(null, $fillAlpha, $blendMode);
         }
 
         $objstyle = ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
@@ -3005,6 +3090,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ): string {
         $offset = isset($attr['offset']) ? $this->svgUnitToUnit($attr['offset'], $soid) : 0.0;
         $stop_color = $svgstyle['stop-color'] ?? 'black';
+        // Normalize stop colors to hex RGB so all gradient stops share one
+        // color space. Without this, named colors (e.g. "white") resolve to
+        // CMYK while hex colors resolve to RGB, producing corrupt gradients.
+        $colobj = $this->color->getColorObj($stop_color);
+        if ($colobj !== null) {
+            $stop_color = $colobj->getRgbHexColor();
+        }
         $opacity = isset($svgstyle['stop-opacity']) ? \max(
             0.0,
             \min(
@@ -3857,6 +3949,132 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Pre-scan SVG data to collect gradient definitions before the main parse.
+     *
+     * SVG allows forward references — elements can reference gradients defined
+     * later in <defs>. Because the main parser generates PDF commands in a
+     * single pass, gradients must be registered first. This lightweight scan
+     * extracts <linearGradient>, <radialGradient> and <stop> elements and
+     * feeds them through the existing tag handlers so the gradient arrays are
+     * populated before any drawing element needs them.
+     *
+     * @param string $data Raw SVG XML string.
+     * @param int    $soid SVG object ID.
+     */
+    protected function prescanSVGGradients(string $data, int $soid): void
+    {
+        $inGradient = false;
+        $startHandler = function (
+            \XMLParser $xmlParser,
+            string $name,
+            array $attr
+        ) use ($soid, &$inGradient): void {
+            unset($xmlParser);
+            $attr = $this->getSVGPrescanAttributes($attr);
+            $name = $this->removeTagNamespace($name);
+            if ($name === 'linearGradient') {
+                $this->parseSVGTagSTARTlinearGradient($soid, $attr);
+                $inGradient = true;
+            } elseif ($name === 'radialGradient') {
+                $this->parseSVGTagSTARTradialGradient($soid, $attr);
+                $inGradient = true;
+            } elseif ($name === 'stop' && $inGradient) {
+                $svgstyle = $this->getSVGPrescanStopStyle($attr);
+                $this->parseSVGTagSTARTstop($soid, $attr, $svgstyle);
+            }
+        };
+        $endHandler = function (\XMLParser $xmlParser, string $name) use (&$inGradient): void {
+            unset($xmlParser);
+            $name = $this->removeTagNamespace($name);
+            if ($name === 'linearGradient' || $name === 'radialGradient') {
+                $inGradient = false;
+            }
+        };
+
+        $scanner = \xml_parser_create('UTF-8');
+        \xml_parser_set_option($scanner, XML_OPTION_CASE_FOLDING, 0);
+        \xml_set_element_handler($scanner, $startHandler, $endHandler);
+        \xml_parse($scanner, $data);
+        unset($scanner);
+    }
+
+    /**
+     * Normalize XML parser callback attributes for gradient prescan handlers.
+     *
+     * @param array<int|string, mixed> $xmlAttr Raw XML callback attributes.
+     *
+     * @return TSVGAttributes
+     */
+    protected function getSVGPrescanAttributes(array $xmlAttr): array
+    {
+        /** @var TSVGAttributes $attr */
+        $attr = [];
+
+        foreach (
+            [
+                'id',
+                'x1',
+                'y1',
+                'x2',
+                'y2',
+                'cx',
+                'cy',
+                'fx',
+                'fy',
+                'r',
+                'offset',
+                'gradientUnits',
+                'gradientTransform',
+                'xlink:href',
+                'stop-color',
+                'stop-opacity',
+                'style',
+            ] as $key
+        ) {
+            if (!isset($xmlAttr[$key])) {
+                continue;
+            }
+
+            if (\is_scalar($xmlAttr[$key])) {
+                $attr[$key] = (string) $xmlAttr[$key];
+            }
+        }
+
+        return $attr;
+    }
+
+    /**
+     * Build the minimal typed style array needed to parse a gradient stop.
+     *
+     * @param TSVGAttributes $attr Prescanned stop tag attributes.
+     *
+     * @return TSVGStyle
+     */
+    protected function getSVGPrescanStopStyle(array $attr): array
+    {
+        $svgstyle = self::DEFSVGSTYLE;
+
+        if (isset($attr['stop-color'])) {
+            $svgstyle['stop-color'] = $attr['stop-color'];
+        }
+        if (isset($attr['stop-opacity'])) {
+            $svgstyle['stop-opacity'] = $this->normalizeSVGAlphaValue($attr['stop-opacity']);
+        }
+
+        // Check inline style attribute for stop-color / stop-opacity.
+        if (isset($attr['style'])) {
+            if (\preg_match('/stop-color\s*:\s*([^;]+)/i', $attr['style'], $matches)) {
+                $svgstyle['stop-color'] = \trim($matches[1]);
+            }
+            if (\preg_match('/stop-opacity\s*:\s*([^;]+)/i', $attr['style'], $matches)) {
+                $svgstyle['stop-opacity'] = $this->normalizeSVGAlphaValue($matches[1]);
+            }
+        }
+
+        return $svgstyle;
+    }
+
+    /**
      * Add a new SVG image and return its object ID.
      *
      * @param string $img The string containing the SVG image data or the path to the SVG file.
@@ -4013,6 +4231,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $this->svgobjs[$soid]['out'] .= $out;
 
+        // Pre-scan SVG to collect gradient definitions so that forward
+        // references (e.g. <defs> at the end of the file) are available
+        // when elements that use them are processed during the main parse.
+        $this->prescanSVGGradients($data, $soid);
+
         // creates a new XML parser to be used by the other XML functions
         $parser = \xml_parser_create('UTF-8');
         // disable case-folding for this XML parser
@@ -4038,7 +4261,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // >= PHP 7.0.0 "explicitly unset the reference to parser to avoid memory leaks"
         unset($parser);
 
-        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform();
+        $this->svgobjs[$soid]['out'] .= $this->graph->getStopTransform(); // @phpstan-ignore assign.propertyType
         $this->graph->setPageHeight($prevPageHeight);
 
         return $soid;
