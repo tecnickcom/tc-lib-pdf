@@ -101,9 +101,9 @@ class SvgBlendModeTest extends TestUtil
 
     public function testNormalizeMixedCaseHandledGracefully(): void
     {
-        $this->assertEquals('Multiply',   $this->pdf->normalizeBlendMode('Multiply'));
-        $this->assertEquals('Multiply',   $this->pdf->normalizeBlendMode('MULTIPLY'));
-        $this->assertEquals('Screen',     $this->pdf->normalizeBlendMode('Screen'));
+        $this->assertEquals('Multiply', $this->pdf->normalizeBlendMode('Multiply'));
+        $this->assertEquals('Multiply', $this->pdf->normalizeBlendMode('MULTIPLY'));
+        $this->assertEquals('Screen', $this->pdf->normalizeBlendMode('Screen'));
         $this->assertEquals('ColorDodge', $this->pdf->normalizeBlendMode('Color-Dodge'));
     }
 
