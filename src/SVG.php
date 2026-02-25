@@ -673,6 +673,31 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ];
 
     /**
+     * SVG gradient attributes.
+     *
+     * @var array<string>
+     */
+    protected const SVGGRADIENTATTRIB = [
+        'id',
+        'x1',
+        'y1',
+        'x2',
+        'y2',
+        'cx',
+        'cy',
+        'fx',
+        'fy',
+        'r',
+        'offset',
+        'gradientUnits',
+        'gradientTransform',
+        'xlink:href',
+        'stop-color',
+        'stop-opacity',
+        'style',
+    ];
+
+    /**
      * SVG object properties.
      *
      * @var array<int, TSVGObj>
@@ -4036,27 +4061,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         /** @var TSVGAttributes $attr */
         $attr = [];
 
-        foreach (
-            [
-                'id',
-                'x1',
-                'y1',
-                'x2',
-                'y2',
-                'cx',
-                'cy',
-                'fx',
-                'fy',
-                'r',
-                'offset',
-                'gradientUnits',
-                'gradientTransform',
-                'xlink:href',
-                'stop-color',
-                'stop-opacity',
-                'style',
-            ] as $key
-        ) {
+        foreach (self::SVGGRADIENTATTRIB as $key) {
             if (!isset($xmlAttr[$key])) {
                 continue;
             }
