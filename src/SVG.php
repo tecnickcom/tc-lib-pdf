@@ -3987,19 +3987,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         ) use (
             $soid,
             &$inGradient
-): void {
+        ): void {
             unset($xmlParser);
             $attr = $this->getSVGPrescanAttributes($attr);
             $name = $this->removeTagNamespace($name);
-            if ($name === 'linearGradient') {
-                $this->parseSVGTagSTARTlinearGradient($soid, $attr);
-                $inGradient = true;
-            } elseif ($name === 'radialGradient') {
-                $this->parseSVGTagSTARTradialGradient($soid, $attr);
-                $inGradient = true;
-            } elseif ($name === 'stop' && $inGradient) {
-                $svgstyle = $this->getSVGPrescanStopStyle($attr);
-                $this->parseSVGTagSTARTstop($soid, $attr, $svgstyle);
+            switch ($name) {
+                case 'linearGradient':
+                    $this->parseSVGTagSTARTlinearGradient($soid, $attr);
+                    $inGradient = true;
+                    break;
+                case 'radialGradient':
+                    $this->parseSVGTagSTARTradialGradient($soid, $attr);
+                    $inGradient = true;
+                    break;
+                case 'stop':
+                    if (!$inGradient) {
+                        break;
+                    }
+                    $svgstyle = $this->getSVGPrescanStopStyle($attr);
+                    $this->parseSVGTagSTARTstop($soid, $attr, $svgstyle);
+                    break;
             }
         };
         $endHandler = function (\XMLParser $xmlParser, string $name) use (&$inGradient): void {
