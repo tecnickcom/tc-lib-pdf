@@ -642,6 +642,30 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ];
 
     /**
+     * Map SVG blend mode names to PDF names.
+     *
+     * @var array<string, string>
+     */
+    protected const SVGBLENDMODE = [
+        'color-dodge' => 'ColorDodge',
+        'color-burn'  => 'ColorBurn',
+        'hard-light'  => 'HardLight',
+        'soft-light'  => 'SoftLight',
+        'normal'      => 'Normal',
+        'multiply'    => 'Multiply',
+        'screen'      => 'Screen',
+        'overlay'     => 'Overlay',
+        'darken'      => 'Darken',
+        'lighten'     => 'Lighten',
+        'difference'  => 'Difference',
+        'exclusion'   => 'Exclusion',
+        'hue'         => 'Hue',
+        'saturation'  => 'Saturation',
+        'color'       => 'Color',
+        'luminosity'  => 'Luminosity',
+    ];
+
+    /**
      * SVG object properties.
      *
      * @var array<int, TSVGObj>
@@ -1641,29 +1665,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * CSS uses kebab-case; PDF uses CamelCase. Unknown values fall back to 'Normal'.
      *
-     * @param string $cssMode CSS blend mode value (e.g. 'multiply', 'color-dodge').
+     * @param string $mode CSS blend mode value (e.g. 'multiply', 'color-dodge').
      *
      * @return string PDF blend mode name (e.g. 'Multiply', 'ColorDodge').
      */
-    protected function normalizeSVGBlendMode(string $cssMode): string
+    protected function normalizeSVGBlendMode(string $mode): string
     {
-        $map = [
-            'color-dodge' => 'ColorDodge',
-            'color-burn'  => 'ColorBurn',
-            'hard-light'  => 'HardLight',
-            'soft-light'  => 'SoftLight',
-        ];
-        $lower = \strtolower(\trim($cssMode));
-        if (isset($map[$lower])) {
-            return $map[$lower];
-        }
-
-        $camel = \ucfirst($lower);
-        $valid = [
-            'Normal', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten',
-            'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity',
-        ];
-        return \in_array($camel, $valid, true) ? $camel : 'Normal';
+        $mode = \strtolower(\trim($mode));
+        return (isset(self::SVGBLENDMODE[$mode])) ? self::SVGBLENDMODE[$mode] : 'Normal';
     }
 
     /**
@@ -3968,7 +3977,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             \XMLParser $xmlParser,
             string $name,
             array $attr
-        ) use ($soid, &$inGradient): void {
+        ) use (
+            $soid,
+            &$inGradient
+): void {
             unset($xmlParser);
             $attr = $this->getSVGPrescanAttributes($attr);
             $name = $this->removeTagNamespace($name);
