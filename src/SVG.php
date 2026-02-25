@@ -422,6 +422,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected const SVGMINPNTLEN = 0.01;
 
+    /**
+     * Default SVG minimum float diff.
+     *
+     * @var float
+     */
+    protected const SVGMINFLOATDIFF = 0.00001;
+
    /**
      * Default SVG maximum value for float.
      *
@@ -1834,7 +1841,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $strokeAlpha *= $this->normalizeSVGAlphaValue($rgba['alpha']);
         }
 
-        if (\abs($strokeAlpha - $baseOpacity) > 0.00001) {
+        if (\abs($strokeAlpha - $baseOpacity) > self::SVGMINFLOATDIFF) {
             $out .= $this->getSVGExtGState($strokeAlpha, null, $blendMode);
         }
 
@@ -1882,7 +1889,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out = '';
         $blendMode = $this->normalizeSVGBlendMode($svgstyle['mix-blend-mode']);
 
-        if ($svgstyle['opacity'] < 1 || $blendMode !== 'Normal') {
+        if (($svgstyle['opacity'] < 1) || ($blendMode !== 'Normal')) {
             $out .= $this->graph->getAlpha($svgstyle['opacity'], $blendMode);
         }
 
@@ -2186,7 +2193,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $regs = [];
         if (\preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
-            if (\abs($fillAlpha - $baseOpacity) > 0.00001) {
+            if (\abs($fillAlpha - $baseOpacity) > self::SVGMINFLOATDIFF) {
                 $out .= $this->getSVGExtGState(null, $fillAlpha, $blendMode);
             }
 
@@ -2213,7 +2220,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $fillAlpha *= $this->normalizeSVGAlphaValue($rgba['alpha']);
         }
 
-        if (\abs($fillAlpha - $baseOpacity) > 0.00001) {
+        if (\abs($fillAlpha - $baseOpacity) > self::SVGMINFLOATDIFF) {
             $out .= $this->getSVGExtGState(null, $fillAlpha, $blendMode);
         }
 
