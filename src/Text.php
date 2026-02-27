@@ -882,7 +882,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @return array<int, TextLinePos> Array of lines metrics.
      */
-    protected function splitLines(
+    public function splitLines(
         array $ordarr,
         array $dim,
         float $pwidth,
@@ -1672,7 +1672,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @return void
      */
-    protected function setPageContext(int $pid = -1): void
+    public function setPageContext(int $pid = -1): void
     {
         $this->page->addContent($this->font->getOutCurrentFont(), $pid);
         if ($this->defPageContentEnabled) {

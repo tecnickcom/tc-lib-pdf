@@ -530,7 +530,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @return string
      */
-    protected function drawCell(
+    public function drawCell(
         float $pntx,
         float $pnty,
         float $pwidth,

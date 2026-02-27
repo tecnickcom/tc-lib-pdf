@@ -118,11 +118,12 @@ $iid12_out = $pdf->image->getSetImage($iid12, 40, 40, 40, 20, $page01['height'])
 $pdf->page->addContent($iid12_out);
 
 // test SVG
-$svgid01 = $pdf->addSVG('./images/tcpdf_box.svg', 10, 80, 120, 80, $page01['height']);
+$svgdir = __DIR__ . '/images';
+$svgid01 = $pdf->addSVG($svgdir . '/tcpdf_box.svg', 10, 80, 120, 80, $page01['height']);
 $svgid01_out = $pdf->getSetSVG($svgid01);
 $pdf->page->addContent($svgid01_out);
 
-$svgid02 = $pdf->addSVG('./images/testsvg.svg', 10, 160, 120, 60, $page01['height']);
+$svgid02 = $pdf->addSVG($svgdir . '/testsvg.svg', 10, 160, 120, 60, $page01['height']);
 $svgid02_out = $pdf->getSetSVG($svgid02);
 $pdf->page->addContent($svgid02_out);
 
@@ -133,7 +134,7 @@ $pdf->page->addContent($svgid03_out);
 // The copyright holder of the tux.svg image is Larry Ewing,
 // allows anyone to use it for any purpose, provided that the copyright holder is properly attributed.
 // Redistribution, derivative work, commercial use, and all other use is permitted.
-$svgid03 = $pdf->addSVG('./images/tux.svg', 130, 80, 62, 75, $page01['height']);
+$svgid03 = $pdf->addSVG($svgdir . '/tux.svg', 130, 80, 62, 75, $page01['height']);
 $svgid03_out = $pdf->getSetSVG($svgid03);
 $pdf->page->addContent($svgid03_out);
 
@@ -1141,7 +1142,7 @@ $txt3 = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
 $col = $pdf->color->getPdfColor('blue');
 $pdf->page->addContent($col);
 
-// single block of text 
+// single block of text
 $txtbox = $pdf->getTextCell(
     $txt3, // string $txt,
     20, // float $posx = 0,
@@ -1583,7 +1584,7 @@ $sigdata = [
 
 $pdf->setSignature($sigdata);
 
-$sigimg = $pdf->image->add('./images/tcpdf_signature.png');
+$sigimg = $pdf->image->add(__DIR__ . '/images/tcpdf_signature.png');
 $sigimg_out = $pdf->image->getSetImage($sigimg, 30, 30, 20, 20, $pageC01['height']);
 $pdf->page->addContent($sigimg_out);
 
@@ -1665,8 +1666,8 @@ $fflsbxid1 = $pdf->addFFListBox('test_listbox', 20, 70, 50, 15,
 $pdf->page->addAnnotRef($fflsbxid1);
 
 // button - reset form
-$ffbtnid1 = $pdf->addFFButton('reset', 20, 90, 20, 5, 
-    "Reset", 
+$ffbtnid1 = $pdf->addFFButton('reset', 20, 90, 20, 5,
+    "Reset",
     ['S'=>'ResetForm'],
     ['subtype' => 'Widget'],
     [
@@ -1679,8 +1680,8 @@ $ffbtnid1 = $pdf->addFFButton('reset', 20, 90, 20, 5,
 $pdf->page->addAnnotRef($ffbtnid1);
 
 // button - print document
-$ffbtnid2 = $pdf->addFFButton('print', 40, 90, 20, 5, 
-    'Print', 
+$ffbtnid2 = $pdf->addFFButton('print', 40, 90, 20, 5,
+    'Print',
     'Print()',
     ['subtype' => 'Widget'],
     [
@@ -1693,8 +1694,8 @@ $ffbtnid2 = $pdf->addFFButton('print', 40, 90, 20, 5,
 $pdf->page->addAnnotRef($ffbtnid2);
 
 // button - submit form
-$ffbtnid3 = $pdf->addFFButton('submit', 60, 90, 20, 5, 
-    'Submit', 
+$ffbtnid3 = $pdf->addFFButton('submit', 60, 90, 20, 5,
+    'Submit',
     [
         'S'=>'SubmitForm',
         'F'=>'http://localhost/printvars.php',
@@ -1843,7 +1844,8 @@ $rawpdf = $pdf->getOutPDFString();
 
 // Various output modes:
 
-//$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+file_put_contents(OUTPUT_FILE, $rawpdf);
+echo "PDF saved to: " . OUTPUT_FILE . "\n";
+//$pdf->renderPDF($rawpdf);
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

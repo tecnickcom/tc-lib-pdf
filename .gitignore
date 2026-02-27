@@ -19,3 +19,4 @@ phpunit.xml
 rector.php
 target
 vendor
+/CLAUDE.md

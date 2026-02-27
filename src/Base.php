@@ -374,6 +374,14 @@ abstract class Base
     protected int $pdfa = 0;
 
     /**
+     * PDF/A conformance level: 'A', 'B', or 'U'.
+     * - 'A' (Accessible): Full compliance including tagged PDF and Unicode mapping
+     * - 'B' (Basic): Visual appearance preservation
+     * - 'U' (Unicode): Basic + Unicode character mapping (PDF/A-2 and PDF/A-3 only)
+     */
+    protected string $pdfaConformance = 'B';
+
+    /**
      * Enable stream compression.
      */
     protected bool $compress = true;
