@@ -19,6 +19,15 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Barcode\Exception as BarcodeException;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\Table\Table;
+use Com\Tecnick\Pdf\Table\TableCell;
+use Com\Tecnick\Pdf\RichText;
+use Com\Tecnick\Pdf\Font\VariableFont;
+use Com\Tecnick\Pdf\Forms\FieldCalculation;
+use Com\Tecnick\Pdf\Forms\FieldValidator;
+use Com\Tecnick\Pdf\Forms\ConditionalVisibility;
+use Com\Tecnick\Pdf\Manipulate;
+use Com\Tecnick\Pdf\Html\HtmlRenderer;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -82,15 +91,39 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     /**
      * Set the pdf mode.
      *
-     * @param string $mode Input PDFA mode.
+     * Supported modes:
+     * - 'pdfa1', 'pdfa1a', 'pdfa1b': PDF/A-1 with optional conformance level
+     * - 'pdfa2', 'pdfa2a', 'pdfa2b', 'pdfa2u': PDF/A-2 with optional conformance level
+     * - 'pdfa3', 'pdfa3a', 'pdfa3b', 'pdfa3u': PDF/A-3 with optional conformance level
+     * - 'pdfx': PDF/X mode
+     *
+     * Conformance levels:
+     * - 'a': Accessible (tagged PDF + Unicode)
+     * - 'b': Basic (visual appearance only)
+     * - 'u': Unicode (basic + Unicode mapping, PDF/A-2 and PDF/A-3 only)
+     *
+     * @param string $mode Input PDF/A mode.
      */
     protected function setPDFMode(string $mode): void
     {
         $this->pdfx = ($mode == 'pdfx');
         $this->pdfa = 0;
-        $matches = ['', '0'];
-        if (\preg_match('/^pdfa([1-3])$/', $mode, $matches) === 1) {
+        $this->pdfaConformance = 'B';
+
+        // Match pdfa1, pdfa2, pdfa3 with optional conformance level (a, b, u)
+        $matches = [];
+        if (\preg_match('/^pdfa([1-3])([abu])?$/i', $mode, $matches) === 1) {
             $this->pdfa = (int) $matches[1];
+
+            // Set conformance level if specified
+            if (isset($matches[2]) && $matches[2] !== '') {
+                $conformance = \strtoupper($matches[2]);
+                // 'U' conformance only valid for PDF/A-2 and PDF/A-3
+                if ($conformance === 'U' && $this->pdfa === 1) {
+                    $conformance = 'B'; // Fallback to 'B' for PDF/A-1
+                }
+                $this->pdfaConformance = $conformance;
+            }
         }
     }
 
@@ -753,5 +786,1272 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             // Move to the next line.
             $posy = $bbox['y'] + $bbox['h'] + $cellSpaceB;
         }
+    }
+
+    // ===| TABLE |=========================================================
+
+    /**
+     * Create a new table object.
+     *
+     * Usage:
+     * ```php
+     * $table = $pdf->createTable(['borderWidth' => 0.3, 'cellPadding' => 2]);
+     * $table->setPosition(10, 50);
+     * $table->setWidth(190);
+     * $table->addHeaderRow(['Name', 'Age', 'City']);
+     * $table->addRow(['John Doe', '30', 'New York']);
+     * $table->addRow(['Jane Smith', '25', 'Los Angeles']);
+     * $table->render();
+     * ```
+     *
+     * @param array{
+     *     'borderWidth'?: float,
+     *     'borderColor'?: string,
+     *     'backgroundColor'?: string,
+     *     'headerBackgroundColor'?: string,
+     *     'headerTextColor'?: string,
+     *     'cellPadding'?: float,
+     *     'width'?: float,
+     * } $style Table style options
+     *
+     * @return Table
+     */
+    public function createTable(array $style = []): Table
+    {
+        return new Table($this, $style);
+    }
+
+    /**
+     * Create a new table cell with custom properties.
+     *
+     * Usage:
+     * ```php
+     * $cell = $pdf->createTableCell('Content', 2, 1, ['backgroundColor' => '#ffff00']);
+     * $table->addRow([$cell, 'Other content']);
+     * ```
+     *
+     * @param string $content Cell content
+     * @param int $colspan Number of columns to span
+     * @param int $rowspan Number of rows to span
+     * @param array{
+     *     'backgroundColor'?: string,
+     *     'borderColor'?: string,
+     *     'borderWidth'?: float,
+     *     'borderTop'?: bool,
+     *     'borderRight'?: bool,
+     *     'borderBottom'?: bool,
+     *     'borderLeft'?: bool,
+     *     'paddingTop'?: float,
+     *     'paddingRight'?: float,
+     *     'paddingBottom'?: float,
+     *     'paddingLeft'?: float,
+     *     'textColor'?: string,
+     *     'fontFamily'?: string,
+     *     'fontSize'?: float,
+     *     'fontStyle'?: string,
+     * } $style Cell style options
+     *
+     * @return TableCell
+     */
+    public function createTableCell(
+        string $content = '',
+        int $colspan = 1,
+        int $rowspan = 1,
+        array $style = []
+    ): TableCell {
+        return new TableCell($content, $colspan, $rowspan, $style);
+    }
+
+    // ===| RICH TEXT |=====================================================
+
+    /**
+     * Create a new RichText builder object.
+     *
+     * Rich text content can be used in FreeText annotations and form fields.
+     * It uses a subset of XHTML for formatting.
+     *
+     * Usage:
+     * ```php
+     * $rt = $pdf->createRichText();
+     * $rt->addBold('Important: ')
+     *    ->addText('This is a message with ')
+     *    ->addColored('colored text', '#ff0000')
+     *    ->addText(' and ')
+     *    ->addItalic('italic text');
+     * $content = $rt->build();
+     * ```
+     *
+     * @param string $fontFamily Default font family
+     * @param float $fontSize Default font size in points
+     * @param string $textColor Default text color (hex format)
+     *
+     * @return RichText
+     */
+    public function createRichText(
+        string $fontFamily = 'Helvetica',
+        float $fontSize = 12,
+        string $textColor = '#000000'
+    ): RichText {
+        return new RichText($fontFamily, $fontSize, $textColor);
+    }
+
+    /**
+     * Add a FreeText annotation with rich text content.
+     *
+     * FreeText annotations display text directly on the page without
+     * requiring the user to open a popup. Rich text allows formatting.
+     *
+     * Usage:
+     * ```php
+     * $rt = $pdf->createRichText();
+     * $rt->addBold('Note: ')->addText('Review this section');
+     *
+     * $pdf->addRichTextAnnotation(
+     *     20, 100, 80, 20,
+     *     $rt->build(),
+     *     'Note: Review this section',  // Plain text fallback
+     *     ['borderColor' => '#ff0000']
+     * );
+     * ```
+     *
+     * @param float $x X position in user units
+     * @param float $y Y position in user units
+     * @param float $w Width in user units
+     * @param float $h Height in user units
+     * @param string $richContent Rich text XHTML content
+     * @param string $plainText Plain text fallback
+     * @param array{
+     *     'fontKey'?: string,
+     *     'fontSize'?: float,
+     *     'textColor'?: string,
+     *     'borderColor'?: string,
+     *     'borderWidth'?: float,
+     *     'backgroundColor'?: string,
+     *     'align'?: int,
+     * } $options Additional options
+     *
+     * @return int Annotation object ID
+     */
+    public function addRichTextAnnotation(
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        string $richContent,
+        string $plainText = '',
+        array $options = []
+    ): int {
+        $fontKey = $options['fontKey'] ?? 'Helv';
+        $fontSize = $options['fontSize'] ?? 12;
+        $textColor = $options['textColor'] ?? '#000000';
+        $align = $options['align'] ?? 0; // 0=left, 1=center, 2=right
+
+        // Create Default Appearance string
+        $da = RichText::createDA($fontKey, $fontSize, $textColor);
+
+        // Build annotation options
+        $opt = [
+            'subtype' => 'FreeText',
+            'da' => $da,
+            'q' => $align,
+            'rc' => $richContent,
+        ];
+
+        // Add border if specified
+        if (isset($options['borderColor']) || isset($options['borderWidth'])) {
+            $opt['bs'] = [
+                's' => 'S',
+                'w' => $options['borderWidth'] ?? 1,
+            ];
+        }
+
+        // Add background color
+        if (isset($options['backgroundColor'])) {
+            $hex = ltrim($options['backgroundColor'], '#');
+            $opt['ic'] = [
+                hexdec(substr($hex, 0, 2)) / 255,
+                hexdec(substr($hex, 2, 2)) / 255,
+                hexdec(substr($hex, 4, 2)) / 255,
+                1.0
+            ];
+        }
+
+        return $this->setAnnotation($x, $y, $w, $h, $plainText, $opt);
+    }
+
+    /**
+     * Add a rich text form field (text field with formatting support).
+     *
+     * Creates a text field that supports rich text input and display.
+     *
+     * Usage:
+     * ```php
+     * $rt = $pdf->createRichText();
+     * $rt->addBold('Default ')
+     *    ->addItalic('formatted ')
+     *    ->addText('text');
+     *
+     * $pdf->addRichTextField(
+     *     'notes',
+     *     20, 100, 100, 30,
+     *     $rt->build(),
+     *     ['multiline' => true]
+     * );
+     * ```
+     *
+     * @param string $name Field name
+     * @param float $x X position in user units
+     * @param float $y Y position in user units
+     * @param float $w Width in user units
+     * @param float $h Height in user units
+     * @param string $richValue Initial rich text value
+     * @param array{
+     *     'fontKey'?: string,
+     *     'fontSize'?: float,
+     *     'textColor'?: string,
+     *     'borderColor'?: string,
+     *     'backgroundColor'?: string,
+     *     'multiline'?: bool,
+     *     'readonly'?: bool,
+     * } $options Field options
+     *
+     * @return int Field object ID
+     */
+    public function addRichTextField(
+        string $name,
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        string $richValue = '',
+        array $options = []
+    ): int {
+        $fontKey = $options['fontKey'] ?? 'Helv';
+        $fontSize = $options['fontSize'] ?? 12;
+        $textColor = $options['textColor'] ?? '#000000';
+
+        // Build field properties
+        $prop = [
+            'richText' => 'true',
+            'richValue' => $richValue,
+        ];
+
+        if (!empty($options['multiline'])) {
+            $prop['multiline'] = 'true';
+        }
+
+        if (!empty($options['readonly'])) {
+            $prop['readonly'] = 'true';
+        }
+
+        // Border styling
+        if (isset($options['borderColor'])) {
+            $prop['strokeColor'] = $options['borderColor'];
+        }
+
+        // Background styling
+        if (isset($options['backgroundColor'])) {
+            $prop['fillColor'] = $options['backgroundColor'];
+        }
+
+        // Default appearance
+        $da = RichText::createDA($fontKey, $fontSize, $textColor);
+
+        return $this->setFormField(
+            'text',
+            $name,
+            $x,
+            $y,
+            $w,
+            $h,
+            $prop,
+            [], // styles
+            '', // javascript action
+            $da
+        );
+    }
+
+    // ===| VARIABLE FONTS |================================================
+
+    /**
+     * Create a VariableFont analyzer for a font file.
+     *
+     * Variable fonts contain multiple styles in a single file with
+     * continuous variation along axes (weight, width, slant, etc.).
+     *
+     * Usage:
+     * ```php
+     * $vf = $pdf->analyzeVariableFont('/path/to/font.ttf');
+     *
+     * if ($vf->isVariableFont()) {
+     *     // Get available axes
+     *     $axes = $vf->getAxes();
+     *     foreach ($axes as $tag => $axis) {
+     *         echo "{$axis['name']}: {$axis['minValue']} - {$axis['maxValue']}\n";
+     *     }
+     *
+     *     // Set specific values
+     *     $vf->setWeight(600);  // Semi-bold
+     *     $vf->setWidth(75);    // Condensed
+     *
+     *     // Get CSS font-variation-settings string
+     *     echo $vf->getVariationSettings();
+     * }
+     * ```
+     *
+     * Note: Full variable font rendering requires PDF 2.0 and compatible
+     * viewers. For maximum compatibility, use static font instances or
+     * the web font CSS approach with font-variation-settings.
+     *
+     * @param string $fontPath Path to the font file
+     * @return VariableFont
+     */
+    public function analyzeVariableFont(string $fontPath): VariableFont
+    {
+        return new VariableFont($fontPath);
+    }
+
+    /**
+     * Get information about a variable font's axes.
+     *
+     * @param string $fontPath Path to the font file
+     * @return array{
+     *     'isVariable': bool,
+     *     'axes': array<string, array{
+     *         'tag': string,
+     *         'name': string,
+     *         'minValue': float,
+     *         'defaultValue': float,
+     *         'maxValue': float,
+     *     }>,
+     *     'instances': array<string, array{
+     *         'name': string,
+     *         'coordinates': array<string, float>,
+     *     }>,
+     * }
+     */
+    public function getVariableFontInfo(string $fontPath): array
+    {
+        $vf = new VariableFont($fontPath);
+
+        return [
+            'isVariable' => $vf->isVariableFont(),
+            'axes' => $vf->getAxes(),
+            'instances' => $vf->getInstances(),
+        ];
+    }
+
+    // =========================================================================
+    // ADVANCED ACROFORMS - Calculated Fields, Validation, Conditional Visibility
+    // =========================================================================
+
+    /**
+     * Create a field calculation builder.
+     *
+     * Field calculations allow automatic computation of values based on
+     * other form fields. Common uses include:
+     * - Sum totals (e.g., invoice line items)
+     * - Averages (e.g., grade calculations)
+     * - Products (e.g., quantity * price)
+     * - Custom formulas
+     *
+     * Example:
+     * ```php
+     * // Sum of multiple fields
+     * $calc = $pdf->createFieldCalculation('total', FieldCalculation::TYPE_SUM)
+     *     ->setSourceFields(['item1', 'item2', 'item3']);
+     *
+     * // Or use static factory methods
+     * $calc = FieldCalculation::sum('total', ['item1', 'item2', 'item3']);
+     * $calc = FieldCalculation::product('lineTotal', ['quantity', 'price']);
+     * $calc = FieldCalculation::average('avgScore', ['score1', 'score2', 'score3']);
+     *
+     * // Custom JavaScript expression
+     * $calc = FieldCalculation::custom('tax', 'subtotal * 0.1', ['subtotal']);
+     * ```
+     *
+     * @param string $targetField Name of the field to receive calculated value
+     * @param array<string> $sourceFields Source field names
+     * @param string $type Calculation type (use FieldCalculation::TYPE_* constants)
+     * @return FieldCalculation
+     */
+    public function createFieldCalculation(
+        string $targetField,
+        array $sourceFields = [],
+        string $type = FieldCalculation::TYPE_SUM
+    ): FieldCalculation {
+        return match ($type) {
+            FieldCalculation::TYPE_SUM => FieldCalculation::sum($targetField, $sourceFields),
+            FieldCalculation::TYPE_PRODUCT => FieldCalculation::product($targetField, $sourceFields),
+            FieldCalculation::TYPE_AVERAGE => FieldCalculation::average($targetField, $sourceFields),
+            FieldCalculation::TYPE_MIN => FieldCalculation::min($targetField, $sourceFields),
+            FieldCalculation::TYPE_MAX => FieldCalculation::max($targetField, $sourceFields),
+            default => FieldCalculation::sum($targetField, $sourceFields),
+        };
+    }
+
+    /**
+     * Create a field validator builder.
+     *
+     * Field validators define validation rules for form fields.
+     * Validation is performed via JavaScript when the user exits
+     * the field or submits the form.
+     *
+     * Example:
+     * ```php
+     * // Create validator with multiple rules
+     * $validator = $pdf->createFieldValidator('email')
+     *     ->required('Email is required')
+     *     ->email('Please enter a valid email');
+     *
+     * // Numeric validation with range
+     * $validator = $pdf->createFieldValidator('age')
+     *     ->required()
+     *     ->integer('Please enter a whole number')
+     *     ->range(18, 120, 'Age must be between 18 and 120');
+     *
+     * // Custom validation
+     * $validator = $pdf->createFieldValidator('username')
+     *     ->required()
+     *     ->length(3, 20, 'Username must be 3-20 characters')
+     *     ->regex('^[a-zA-Z0-9_]+$', 'Only letters, numbers, and underscores allowed');
+     * ```
+     *
+     * @param string $fieldName Name of the field to validate
+     * @return FieldValidator
+     */
+    public function createFieldValidator(string $fieldName): FieldValidator
+    {
+        return FieldValidator::forField($fieldName);
+    }
+
+    /**
+     * Create a conditional visibility rule builder.
+     *
+     * Conditional visibility allows showing or hiding form fields
+     * based on the values of other fields. This is useful for:
+     * - Progressive disclosure forms
+     * - Conditional sections
+     * - Dynamic form layouts
+     *
+     * Example:
+     * ```php
+     * // Show field when checkbox is checked
+     * $visibility = $pdf->createConditionalVisibility('otherDetails')
+     *     ->showWhenChecked('hasOther');
+     *
+     * // Show multiple fields when dropdown equals value
+     * $visibility = $pdf->createConditionalVisibility(['address', 'city', 'zip'])
+     *     ->showWhenEquals('contactMethod', 'mail');
+     *
+     * // Complex conditions
+     * $visibility = $pdf->createConditionalVisibility('discountField')
+     *     ->showWhenGreaterThan('orderTotal', 100)
+     *     ->andWhen('memberStatus', ConditionalVisibility::OP_EQUALS, 'premium');
+     * ```
+     *
+     * @param string|array<string> $targetFields Field(s) to show/hide
+     * @return ConditionalVisibility
+     */
+    public function createConditionalVisibility(string|array $targetFields): ConditionalVisibility
+    {
+        return ConditionalVisibility::forFields($targetFields);
+    }
+
+    /**
+     * Add a text field with calculation.
+     *
+     * Creates a text field that automatically calculates its value
+     * from other fields.
+     *
+     * @param string $name Field name
+     * @param float $x X position
+     * @param float $y Y position
+     * @param float $w Width
+     * @param float $h Height
+     * @param FieldCalculation $calculation Calculation definition
+     * @param array<string, mixed> $options Additional field options
+     * @return int Field object number
+     */
+    public function addCalculatedField(
+        string $name,
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        FieldCalculation $calculation,
+        array $options = []
+    ): int {
+        // Generate JavaScript for calculation
+        $jsCode = $calculation->toJavaScript();
+
+        // Set up the field with calculation action
+        $options['aa'] = ($options['aa'] ?? '') . '/C << /S /JavaScript /JS (' . $this->escapeJavaScript($jsCode) . ') >>';
+
+        // Make field read-only by default for calculated fields
+        if (!isset($options['readonly'])) {
+            $options['readonly'] = true;
+        }
+
+        return $this->form->addTextField(
+            $this->pon,
+            $name,
+            $this->toPoints($x),
+            $this->toYPoints($y, $h),
+            $this->toPoints($w),
+            $this->toPoints($h),
+            $options
+        );
+    }
+
+    /**
+     * Add a text field with validation.
+     *
+     * Creates a text field with JavaScript validation rules.
+     *
+     * @param string $name Field name
+     * @param float $x X position
+     * @param float $y Y position
+     * @param float $w Width
+     * @param float $h Height
+     * @param FieldValidator $validator Validation rules
+     * @param array<string, mixed> $options Additional field options
+     * @return int Field object number
+     */
+    public function addValidatedField(
+        string $name,
+        float $x,
+        float $y,
+        float $w,
+        float $h,
+        FieldValidator $validator,
+        array $options = []
+    ): int {
+        // Generate JavaScript for validation
+        $validateJs = $validator->toJavaScript();
+        $keystrokeJs = $validator->toKeystrokeJavaScript();
+
+        // Add validation actions
+        $aa = $options['aa'] ?? '';
+        if ($validateJs !== '') {
+            $aa .= '/V << /S /JavaScript /JS (' . $this->escapeJavaScript($validateJs) . ') >>';
+        }
+        if ($keystrokeJs !== '') {
+            $aa .= '/K << /S /JavaScript /JS (' . $this->escapeJavaScript($keystrokeJs) . ') >>';
+        }
+        $options['aa'] = $aa;
+
+        return $this->form->addTextField(
+            $this->pon,
+            $name,
+            $this->toPoints($x),
+            $this->toYPoints($y, $h),
+            $this->toPoints($w),
+            $this->toPoints($h),
+            $options
+        );
+    }
+
+    /**
+     * Apply conditional visibility to fields.
+     *
+     * This adds the necessary JavaScript to show/hide fields based
+     * on conditions. The JavaScript is added to the source field(s)
+     * as a change action.
+     *
+     * @param ConditionalVisibility $visibility Visibility rules
+     * @return self
+     */
+    public function applyConditionalVisibility(ConditionalVisibility $visibility): self
+    {
+        $jsCode = $visibility->toJavaScript();
+        if ($jsCode === '') {
+            return $this;
+        }
+
+        // Add the visibility script to document-level JavaScript
+        $this->addJavaScript('visibility_' . implode('_', $visibility->getTargetFields()), $jsCode);
+
+        return $this;
+    }
+
+    /**
+     * Add document-level JavaScript.
+     *
+     * @param string $name Script name
+     * @param string $script JavaScript code
+     * @return self
+     */
+    public function addJavaScript(string $name, string $script): self
+    {
+        $this->jsobjects[$name] = $script;
+        return $this;
+    }
+
+    /**
+     * Escape JavaScript string for PDF.
+     *
+     * @param string $js JavaScript code
+     * @return string Escaped JavaScript
+     */
+    protected function escapeJavaScript(string $js): string
+    {
+        return str_replace(
+            ['\\', '(', ')', "\r", "\n"],
+            ['\\\\', '\\(', '\\)', '\\r', '\\n'],
+            $js
+        );
+    }
+
+    // ===| PDF MANIPULATION |=================================================
+
+    /**
+     * Create a new PDF Merger instance.
+     *
+     * The merger allows combining multiple PDF files into one.
+     *
+     * Usage:
+     * ```php
+     * $merger = $pdf->createMerger();
+     * $merger->addFile('document1.pdf')
+     *        ->addFile('document2.pdf', [1, 3, 5]) // specific pages
+     *        ->addFile('document3.pdf', '1-5');    // page range
+     * $merged = $merger->merge();
+     * ```
+     *
+     * @return Manipulate\PdfMerger
+     */
+    public function createMerger(): Manipulate\PdfMerger
+    {
+        return new Manipulate\PdfMerger();
+    }
+
+    /**
+     * Create a new PDF Splitter instance.
+     *
+     * The splitter allows extracting pages from a PDF document.
+     *
+     * Usage:
+     * ```php
+     * $splitter = $pdf->createSplitter();
+     * $splitter->loadFile('document.pdf');
+     * $page1 = $splitter->extractPage(1);
+     * $pages = $splitter->extractPages([1, 3, 5]);
+     * $chunks = $splitter->splitByPageCount(10);
+     * ```
+     *
+     * @return Manipulate\PdfSplitter
+     */
+    public function createSplitter(): Manipulate\PdfSplitter
+    {
+        return new Manipulate\PdfSplitter();
+    }
+
+    /**
+     * Create a new PDF Stamper instance.
+     *
+     * The stamper allows adding watermarks, stamps, and overlays to PDFs.
+     *
+     * Usage:
+     * ```php
+     * $stamper = $pdf->createStamper();
+     * $stamper->loadFile('document.pdf')
+     *         ->addWatermark('CONFIDENTIAL')
+     *         ->addPageNumbers('Page {page} of {total}')
+     *         ->addDateStamp();
+     * $stamped = $stamper->apply();
+     * ```
+     *
+     * @return Manipulate\PdfStamper
+     */
+    public function createStamper(): Manipulate\PdfStamper
+    {
+        return new Manipulate\PdfStamper();
+    }
+
+    /**
+     * Merge multiple PDF files into one.
+     *
+     * Convenience method that creates a merger, adds files, and returns result.
+     *
+     * @param array<string> $files Array of PDF file paths
+     * @return string Merged PDF content
+     * @throws Exception If merge fails
+     */
+    public function mergePdfFiles(array $files): string
+    {
+        $merger = $this->createMerger();
+        foreach ($files as $file) {
+            $merger->addFile($file);
+        }
+        return $merger->merge();
+    }
+
+    /**
+     * Split a PDF file into individual pages.
+     *
+     * @param string $filePath Path to source PDF
+     * @param string $outputDir Output directory for split pages
+     * @param string $prefix Filename prefix
+     * @return array<string> Array of created file paths
+     * @throws Exception If split fails
+     */
+    public function splitPdfFile(string $filePath, string $outputDir, string $prefix = 'page_'): array
+    {
+        $splitter = $this->createSplitter();
+        $splitter->loadFile($filePath);
+        return $splitter->splitToFiles($outputDir, $prefix);
+    }
+
+    /**
+     * Add a watermark to a PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param string $watermarkText Watermark text
+     * @param string $outputPath Output file path
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function addWatermarkToFile(string $filePath, string $watermarkText, string $outputPath): bool
+    {
+        $stamper = $this->createStamper();
+        $stamper->loadFile($filePath)
+                ->addWatermark($watermarkText);
+        return $stamper->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PDF Metadata Editor instance.
+     *
+     * The metadata editor allows modifying PDF document information properties.
+     *
+     * Usage:
+     * ```php
+     * $editor = $pdf->createMetadataEditor();
+     * $editor->loadFile('document.pdf')
+     *        ->setTitle('New Title')
+     *        ->setAuthor('John Doe')
+     *        ->setSubject('Document Subject')
+     *        ->setKeywords('pdf, document, keywords');
+     * $modified = $editor->apply();
+     * ```
+     *
+     * @return Manipulate\PdfMetadataEditor
+     */
+    public function createMetadataEditor(): Manipulate\PdfMetadataEditor
+    {
+        return new Manipulate\PdfMetadataEditor();
+    }
+
+    /**
+     * Edit metadata of an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param array<string, string> $metadata Associative array of metadata fields
+     * @param string $outputPath Output file path
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function editPdfMetadata(string $filePath, array $metadata, string $outputPath): bool
+    {
+        $editor = $this->createMetadataEditor();
+        $editor->loadFile($filePath)->setMetadata($metadata);
+        return $editor->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PDF Bookmark Manager instance.
+     *
+     * The bookmark manager allows adding, editing, and removing PDF bookmarks (outlines).
+     *
+     * Usage:
+     * ```php
+     * $manager = $pdf->createBookmarkManager();
+     * $manager->loadFile('document.pdf')
+     *         ->addBookmark('Chapter 1', 1)
+     *         ->addBookmark('Section 1.1', 2, 1)
+     *         ->addBookmark('Chapter 2', 5);
+     * $modified = $manager->apply();
+     * ```
+     *
+     * @return Manipulate\PdfBookmarkManager
+     */
+    public function createBookmarkManager(): Manipulate\PdfBookmarkManager
+    {
+        return new Manipulate\PdfBookmarkManager();
+    }
+
+    /**
+     * Add bookmarks to an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param array<array{title: string, page: int, level?: int}> $bookmarks Bookmarks to add
+     * @param string $outputPath Output file path
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function addPdfBookmarks(string $filePath, array $bookmarks, string $outputPath): bool
+    {
+        $manager = $this->createBookmarkManager();
+        $manager->loadFile($filePath)->addBookmarks($bookmarks);
+        return $manager->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PDF Barcode Stamper instance.
+     *
+     * The barcode stamper allows adding barcodes and QR codes to PDF documents.
+     *
+     * Usage:
+     * ```php
+     * $stamper = $pdf->createBarcodeStamper();
+     * $stamper->loadFile('document.pdf')
+     *         ->addQRCode('https://example.com', 50, 700, 100)
+     *         ->addCode128('ABC123', 50, 600, 150, 50);
+     * $modified = $stamper->apply();
+     * ```
+     *
+     * @return Manipulate\PdfBarcodeStamper
+     */
+    public function createBarcodeStamper(): Manipulate\PdfBarcodeStamper
+    {
+        return new Manipulate\PdfBarcodeStamper();
+    }
+
+    /**
+     * Add a QR code to an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param string $content QR code content
+     * @param float $x X position
+     * @param float $y Y position
+     * @param float $size Size
+     * @param string $outputPath Output file path
+     * @param array<int>|string $pages Pages to add to
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function addQRCodeToPdf(
+        string $filePath,
+        string $content,
+        float $x,
+        float $y,
+        float $size,
+        string $outputPath,
+        array|string $pages = 'all'
+    ): bool {
+        $stamper = $this->createBarcodeStamper();
+        $stamper->loadFile($filePath)
+                ->addQRCode($content, $x, $y, $size, $pages);
+        return $stamper->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PDF Page Rotator instance.
+     *
+     * The rotator allows rotating pages in PDF documents.
+     *
+     * Usage:
+     * ```php
+     * $rotator = $pdf->createPageRotator();
+     * $rotator->loadFile('document.pdf')
+     *         ->rotatePage(1, 90)
+     *         ->rotatePages(180, [2, 4]);
+     * $modified = $rotator->apply();
+     * ```
+     *
+     * @return Manipulate\PdfPageRotator
+     */
+    public function createPageRotator(): Manipulate\PdfPageRotator
+    {
+        return new Manipulate\PdfPageRotator();
+    }
+
+    /**
+     * Rotate pages in an existing PDF file.
+     *
+     * @param string $filePath Path to source PDF
+     * @param int $degrees Rotation in degrees (0, 90, 180, 270)
+     * @param string $outputPath Output file path
+     * @param array<int>|string $pages Pages to rotate
+     * @return bool True on success
+     * @throws Exception If operation fails
+     */
+    public function rotatePdfPages(
+        string $filePath,
+        int $degrees,
+        string $outputPath,
+        array|string $pages = 'all'
+    ): bool {
+        $rotator = $this->createPageRotator();
+        $rotator->loadFile($filePath)->rotatePages($degrees, $pages);
+        return $rotator->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PdfPageBoxEditor instance.
+     *
+     * The page box editor allows modifying page boxes (MediaBox, CropBox, etc.)
+     * to crop or resize PDF pages.
+     *
+     * Example:
+     * ```php
+     * $editor = $pdf->createPageBoxEditor();
+     * $editor->loadFile('document.pdf')
+     *        ->cropTo('A5', 'all')
+     *        ->addMargin(10, 'all');
+     * $modified = $editor->apply();
+     * ```
+     *
+     * @return Manipulate\PdfPageBoxEditor
+     */
+    public function createPageBoxEditor(): Manipulate\PdfPageBoxEditor
+    {
+        return new Manipulate\PdfPageBoxEditor();
+    }
+
+    /**
+     * Crop or resize pages in a PDF file.
+     *
+     * @param string       $filePath   Path to source PDF
+     * @param string       $size       Target size (A4, LETTER, etc.) or 'custom'
+     * @param string       $outputPath Path to save the modified PDF
+     * @param array|string $pages      Page numbers or 'all'
+     * @param float|null   $width      Custom width in points (if size is 'custom')
+     * @param float|null   $height     Custom height in points (if size is 'custom')
+     *
+     * @return bool True on success
+     */
+    public function cropPdfPages(
+        string $filePath,
+        string $size,
+        string $outputPath,
+        array|string $pages = 'all',
+        ?float $width = null,
+        ?float $height = null
+    ): bool {
+        $editor = $this->createPageBoxEditor();
+        $editor->loadFile($filePath);
+        if ($size === 'custom' && $width !== null && $height !== null) {
+            $editor->resizeToCustom($width, $height, $pages);
+        } else {
+            $editor->resizeTo($size, $pages);
+        }
+        return $editor->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PdfFormFiller instance.
+     *
+     * The form filler allows reading and filling PDF form fields.
+     *
+     * Example:
+     * ```php
+     * $filler = $pdf->createFormFiller();
+     * $filler->loadFile('form.pdf')
+     *        ->setFieldValue('name', 'John Doe')
+     *        ->setFieldValue('email', 'john@example.com');
+     * $modified = $filler->apply();
+     * ```
+     *
+     * @return Manipulate\PdfFormFiller
+     */
+    public function createFormFiller(): Manipulate\PdfFormFiller
+    {
+        return new Manipulate\PdfFormFiller();
+    }
+
+    /**
+     * Fill PDF form fields and save to file.
+     *
+     * @param string              $filePath   Path to source PDF with form
+     * @param array<string,mixed> $values     Field values to set
+     * @param string              $outputPath Path to save the filled PDF
+     * @param bool                $flatten    Whether to flatten fields
+     *
+     * @return bool True on success
+     */
+    public function fillPdfForm(
+        string $filePath,
+        array $values,
+        string $outputPath,
+        bool $flatten = false
+    ): bool {
+        $filler = $this->createFormFiller();
+        $filler->loadFile($filePath)
+               ->setFieldValues($values)
+               ->flattenFields($flatten);
+        return $filler->applyToFile($outputPath);
+    }
+
+    /**
+     * Create a new PdfEncryptor instance.
+     *
+     * The encryptor allows adding password protection and encryption to PDFs.
+     *
+     * Example:
+     * ```php
+     * $encryptor = $pdf->createEncryptor();
+     * $encryptor->loadFile('document.pdf')
+     *           ->setUserPassword('user123')
+     *           ->setOwnerPassword('owner456')
+     *           ->setPermissions(['print', 'copy']);
+     * $encryptor->encryptToFile('protected.pdf');
+     * ```
+     *
+     * @return Manipulate\PdfEncryptor
+     */
+    public function createEncryptor(): Manipulate\PdfEncryptor
+    {
+        return new Manipulate\PdfEncryptor();
+    }
+
+    /**
+     * Encrypt a PDF file with password protection.
+     *
+     * @param string        $filePath     Path to source PDF
+     * @param string        $userPassword Password to open document
+     * @param string        $outputPath   Path to save encrypted PDF
+     * @param string        $ownerPassword Owner password (optional, auto-generated if empty)
+     * @param int           $mode         Encryption mode (0=RC4_40, 1=RC4_128, 2=AES_128, 3=AES_256)
+     * @param array<string> $permissions  Permissions to allow
+     *
+     * @return bool True on success
+     */
+    public function encryptPdf(
+        string $filePath,
+        string $userPassword,
+        string $outputPath,
+        string $ownerPassword = '',
+        int $mode = Manipulate\PdfEncryptor::AES_128,
+        array $permissions = ['print', 'copy']
+    ): bool {
+        $encryptor = $this->createEncryptor();
+        $encryptor->loadFile($filePath)
+                  ->setUserPassword($userPassword)
+                  ->setOwnerPassword($ownerPassword)
+                  ->setEncryptionMode($mode)
+                  ->setPermissions($permissions);
+        return $encryptor->encryptToFile($outputPath);
+    }
+
+    /**
+     * Create a new PdfOptimizer instance.
+     *
+     * The optimizer allows compressing and reducing PDF file size.
+     *
+     * Example:
+     * ```php
+     * $optimizer = $pdf->createOptimizer();
+     * $optimizer->loadFile('large.pdf')
+     *           ->setOptimizationLevel(PdfOptimizer::LEVEL_MAXIMUM);
+     * echo "Saved: " . $optimizer->getCompressionRatio() . "%";
+     * $optimizer->optimizeToFile('small.pdf');
+     * ```
+     *
+     * @return Manipulate\PdfOptimizer
+     */
+    public function createOptimizer(): Manipulate\PdfOptimizer
+    {
+        return new Manipulate\PdfOptimizer();
+    }
+
+    /**
+     * Optimize a PDF file and save to output.
+     *
+     * @param string $filePath   Path to source PDF
+     * @param string $outputPath Path to save optimized PDF
+     * @param int    $level      Optimization level (1=minimal, 2=standard, 3=maximum)
+     *
+     * @return bool True on success
+     */
+    public function optimizePdf(
+        string $filePath,
+        string $outputPath,
+        int $level = Manipulate\PdfOptimizer::LEVEL_STANDARD
+    ): bool {
+        $optimizer = $this->createOptimizer();
+        $optimizer->loadFile($filePath)
+                  ->setOptimizationLevel($level);
+        return $optimizer->optimizeToFile($outputPath);
+    }
+
+    /**
+     * Create a new PdfToImage instance.
+     *
+     * The converter allows rendering PDF pages as images.
+     * Requires either Imagick extension or Ghostscript.
+     *
+     * Example:
+     * ```php
+     * $converter = $pdf->createImageConverter();
+     * $converter->loadFile('document.pdf')
+     *           ->setFormat('png')
+     *           ->setResolution(150);
+     * $converter->saveAllPagesToDirectory('./images');
+     * ```
+     *
+     * @return Manipulate\PdfToImage
+     */
+    public function createImageConverter(): Manipulate\PdfToImage
+    {
+        return new Manipulate\PdfToImage();
+    }
+
+    /**
+     * Convert a PDF page to an image file.
+     *
+     * @param string $filePath   Path to source PDF
+     * @param int    $pageNum    Page number to convert (1-based)
+     * @param string $outputPath Path to save image
+     * @param string $format     Image format (png, jpeg, webp)
+     * @param int    $resolution Resolution in DPI
+     *
+     * @return bool True on success
+     */
+    public function pdfPageToImage(
+        string $filePath,
+        int $pageNum,
+        string $outputPath,
+        string $format = 'png',
+        int $resolution = 150
+    ): bool {
+        $converter = $this->createImageConverter();
+        $converter->loadFile($filePath)
+                  ->setFormat($format)
+                  ->setResolution($resolution);
+        return $converter->savePageToFile($pageNum, $outputPath);
+    }
+
+    /**
+     * Create a new PDF Linearizer instance.
+     *
+     * The linearizer optimizes PDF files for fast web view (linearization).
+     * Linearized PDFs can display the first page before the entire document
+     * has been downloaded, improving user experience for web-served documents.
+     *
+     * Usage:
+     * ```php
+     * $linearizer = $pdf->createLinearizer();
+     * $linearizer->loadFile('document.pdf');
+     * if (!$linearizer->isLinearized()) {
+     *     $linearizer->linearizeToFile('document_web.pdf');
+     * }
+     * ```
+     *
+     * @return Manipulate\PdfLinearizer
+     */
+    public function createLinearizer(): Manipulate\PdfLinearizer
+    {
+        return new Manipulate\PdfLinearizer();
+    }
+
+    /**
+     * Linearize a PDF file for fast web view.
+     *
+     * @param string $filePath   Path to source PDF
+     * @param string $outputPath Path to save linearized PDF
+     *
+     * @return bool True on success
+     */
+    public function linearizePdf(string $filePath, string $outputPath): bool
+    {
+        $linearizer = $this->createLinearizer();
+        $linearizer->loadFile($filePath);
+        return $linearizer->linearizeToFile($outputPath);
+    }
+
+    /**
+     * Check if a PDF file is already linearized.
+     *
+     * @param string $filePath Path to PDF file
+     *
+     * @return bool True if linearized
+     */
+    public function isPdfLinearized(string $filePath): bool
+    {
+        $linearizer = $this->createLinearizer();
+        $linearizer->loadFile($filePath);
+        return $linearizer->isLinearized();
+    }
+
+    // ===| HTML RENDERING |=================================================
+
+    /**
+     * Create a new HTML renderer instance.
+     *
+     * The HTML renderer converts HTML content with CSS styling to PDF output.
+     *
+     * Supported HTML elements:
+     * - Block elements: p, div, h1-h6, blockquote, pre
+     * - Inline elements: span, b, strong, i, em, u, s, strike
+     * - Lists: ul, ol, li
+     * - Tables: table, tr, th, td
+     * - Links: a
+     * - Images: img
+     * - Line breaks: br, hr
+     *
+     * Supported CSS properties:
+     * - Font: font-family, font-size, font-weight, font-style
+     * - Color: color, background-color
+     * - Text: text-align, text-decoration, line-height
+     *
+     * Usage:
+     * ```php
+     * $renderer = $pdf->createHtmlRenderer();
+     * $renderer->setMargins(15, 15, 15);
+     * $renderer->render('<h1>Title</h1><p>Paragraph content</p>');
+     * ```
+     *
+     * @return HtmlRenderer
+     */
+    public function createHtmlRenderer(): HtmlRenderer
+    {
+        return new HtmlRenderer($this);
+    }
+
+    /**
+     * Write HTML content directly to the current page.
+     *
+     * This is a convenience method that creates an HTML renderer
+     * and renders the content at the specified position.
+     *
+     * Usage:
+     * ```php
+     * $pdf->addPage();
+     * $y = $pdf->writeHTML('<h1>Welcome</h1><p>This is a test.</p>');
+     * // $y contains the final Y position after rendering
+     * ```
+     *
+     * @param string $html HTML content to render
+     * @param float $x X position (0 = use left margin)
+     * @param float $y Y position (0 = current position)
+     * @param float $width Content width (0 = auto)
+     * @return float Final Y position after rendering
+     */
+    public function writeHTML(string $html, float $x = 0, float $y = 0, float $width = 0): float
+    {
+        $renderer = $this->createHtmlRenderer();
+        return $renderer->render($html, $x, $y, $width);
+    }
+
+    /**
+     * Write HTML content with custom margins.
+     *
+     * @param string $html HTML content to render
+     * @param float $marginLeft Left margin
+     * @param float $marginTop Top margin
+     * @param float $marginRight Right margin
+     * @return float Final Y position after rendering
+     */
+    public function writeHTMLWithMargins(
+        string $html,
+        float $marginLeft = 10,
+        float $marginTop = 10,
+        float $marginRight = 10
+    ): float {
+        $renderer = $this->createHtmlRenderer();
+        $renderer->setMargins($marginLeft, $marginTop, $marginRight);
+        return $renderer->render($html);
     }
 }

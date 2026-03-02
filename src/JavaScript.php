@@ -591,15 +591,35 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     // ===| ANNOTATION |====================================================
 
     /**
+     * Valid AFRelationship values for PDF/A-3 embedded files.
+     *
+     * @var array<string>
+     */
+    protected const VALID_AF_RELATIONSHIPS = [
+        'Source',
+        'Data',
+        'Alternative',
+        'Supplement',
+        'Unspecified',
+    ];
+
+    /**
      * Add an embedded file.
      * If a file with the same name already exists, it will be ignored.
      *
      * @param string $file File name (absolute or relative path).
+     * @param string $mimeType MIME type of the file (e.g., 'application/xml').
+     * @param string $afRelationship AFRelationship value (Source, Data, Alternative, Supplement, Unspecified).
+     * @param string $description Optional description of the file.
      *
      * @throws PdfException in case of error.
      */
-    public function addEmbeddedFile(string $file): void
-    {
+    public function addEmbeddedFile(
+        string $file,
+        string $mimeType = 'application/octet-stream',
+        string $afRelationship = 'Source',
+        string $description = ''
+    ): void {
         if (($this->pdfa == 1) || ($this->pdfa == 2)) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
@@ -607,6 +627,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (empty($file)) {
             throw new PdfException('Empty file name');
         }
+
+        // Validate AFRelationship for PDF/A-3
+        if ($this->pdfa === 3 && !\in_array($afRelationship, self::VALID_AF_RELATIONSHIPS)) {
+            throw new PdfException('Invalid AFRelationship value. Must be one of: ' . \implode(', ', self::VALID_AF_RELATIONSHIPS));
+        }
+
         $filekey = \basename((string) $file);
         if (
             ! empty($filekey)
@@ -618,6 +644,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 'n' => ++$this->pon,
                 'file' => (string) $file,
                 'content' => '',
+                'mimeType' => $mimeType,
+                'afRelationship' => $afRelationship,
+                'description' => $description,
+                'creationDate' => \time(),
+                'modDate' => \time(),
             ];
         }
     }
@@ -627,18 +658,32 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * If a file with the same name already exists, it will be ignored.
      *
      * @param string $file File name to be used a key for the embedded file.
-     * @param string $content  Content of the embedded file.
+     * @param string $content Content of the embedded file.
+     * @param string $mimeType MIME type of the file (e.g., 'application/xml').
+     * @param string $afRelationship AFRelationship value (Source, Data, Alternative, Supplement, Unspecified).
+     * @param string $description Optional description of the file.
      *
      * @throws PdfException in case of error.
      */
-    public function addContentAsEmbeddedFile(string $file, string $content): void
-    {
+    public function addContentAsEmbeddedFile(
+        string $file,
+        string $content,
+        string $mimeType = 'application/octet-stream',
+        string $afRelationship = 'Source',
+        string $description = ''
+    ): void {
         if (($this->pdfa == 1) || ($this->pdfa == 2)) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
         if (empty($file) || empty($content)) {
             throw new PdfException('Empty file name or content');
         }
+
+        // Validate AFRelationship for PDF/A-3
+        if ($this->pdfa === 3 && !\in_array($afRelationship, self::VALID_AF_RELATIONSHIPS)) {
+            throw new PdfException('Invalid AFRelationship value. Must be one of: ' . \implode(', ', self::VALID_AF_RELATIONSHIPS));
+        }
+
         if (empty($this->embeddedfiles[$file])) {
             $this->embeddedfiles[$file] = [
                 'a' => 0,
@@ -646,8 +691,43 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 'n' => ++$this->pon,
                 'file' => $file,
                 'content' => $content,
+                'mimeType' => $mimeType,
+                'afRelationship' => $afRelationship,
+                'description' => $description,
+                'creationDate' => \time(),
+                'modDate' => \time(),
             ];
         }
+    }
+
+    /**
+     * Add an XML file as an embedded file for PDF/A-3 (e.g., ZUGFeRD/Factur-X invoice).
+     * This is a convenience method that sets appropriate defaults for XML files.
+     *
+     * @param string $filename File name for the embedded file (e.g., 'factur-x.xml').
+     * @param string $xmlContent XML content to embed.
+     * @param string $afRelationship AFRelationship value (default: 'Data' for invoice data).
+     * @param string $description Optional description of the file.
+     *
+     * @throws PdfException in case of error.
+     */
+    public function addXmlEmbeddedFile(
+        string $filename,
+        string $xmlContent,
+        string $afRelationship = 'Data',
+        string $description = ''
+    ): void {
+        if ($this->pdfa !== 3) {
+            throw new PdfException('XML embedded files with AFRelationship require PDF/A-3 mode');
+        }
+
+        $this->addContentAsEmbeddedFile(
+            $filename,
+            $xmlContent,
+            'text/xml',
+            $afRelationship,
+            $description
+        );
     }
 
     /**
