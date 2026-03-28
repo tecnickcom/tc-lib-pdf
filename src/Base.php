@@ -180,7 +180,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.4.14';
+    protected string $version = '8.4.15';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -372,6 +372,14 @@ abstract class Base
      * Version of the PDF/A mode or 0 otherwise.
      */
     protected int $pdfa = 0;
+
+    /**
+     * PDF/A conformance level:
+     * - 'A' (Accessible): Full compliance including tagged PDF and Unicode mapping.
+     * - 'B' (Basic): Visual appearance preservation.
+     * - 'U' (Unicode): Basic + Unicode character mapping (PDF/A-2 and PDF/A-3 only).
+     */
+    protected string $pdfaConformance = 'B';
 
     /**
      * Enable stream compression.

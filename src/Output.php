@@ -422,6 +422,11 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'n': int,
  *        'file': string,
  *        'content': string,
+ *        'mimeType': string,
+ *        'afRelationship': string,
+ *        'description': string,
+ *        'creationDate': int,
+ *        'modDate': int,
  *    }
  *
  * @phpstan-type TObjID array{
@@ -665,7 +670,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         if ($this->pdfx) {
-            $this->getOutputIntentsPdfX();
+            return $this->getOutputIntentsPdfX();
         }
 
         return $this->getOutputIntentsSrgb();
@@ -1120,6 +1125,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 } catch (Exception) {
                     continue; // silently skip the file
                 }
+
+                $ctime = \filectime($data['file']);
+                if ($ctime !== false) {
+                    $data['creationDate'] = $ctime;
+                }
+
+                $mtime = \filemtime($data['file']);
+                if ($mtime !== false) {
+                    $data['modDate'] = $mtime;
+                }
             }
 
             $rawsize = \strlen($content);
@@ -1134,14 +1149,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . '<<'
                 . ' /Type /Filespec /F ' . $this->getOutTextString($name, $oid)
                 . ' /UF ' . $this->getOutTextString($name, $oid)
-                . ' /AFRelationship /Source'
+                . ' /AFRelationship /' . ($data['afRelationship'] ?? 'Source')
+                . ' /Desc ' . $this->getOutTextString(($data['description'] ?? '-'), $data['f'])
                 . ' /EF <</F ' . $data['n'] . ' 0 R>>'
                 . ' >>' . "\n"
                 . 'endobj' . "\n";
+
             // embedded file object
             $filter = '';
             if ($this->pdfa == 3) {
-                $filter = ' /Subtype /text#2Fxml';
+                $filter = ' /Subtype /' . \str_replace(['/', '+'], ['#2F', '#2B'], ($data['mimeType'] ?? 'application/octet-stream'));
             } elseif ($this->compress) {
                 $content = \gzcompress($content);
                 if ($content === false) {
@@ -1157,7 +1174,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' /Type /EmbeddedFile'
                 . $filter
                 . ' /Length ' . \strlen($stream)
-                . ' /Params <</Size ' . $rawsize . '>>'
+                . ' /Params <<'
+                . ' /Size ' . $rawsize
+                . ' /CreationDate ' . $this->getOutDateTimeString($data['creationDate'], $data['n'])
+                . ' /ModDate ' . $this->getOutDateTimeString($data['modDate'], $data['n'])
+                . ' >>'
                 . ' >>'
                 . ' stream' . "\n"
                 . $stream . "\n"

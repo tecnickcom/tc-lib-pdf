@@ -101,6 +101,19 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     protected array $jsobjects = [];
 
     /**
+     * Valid AFRelationship values for PDF/A-3 embedded files.
+     *
+     * @var array<string>
+     */
+    protected const VALID_AF_RELATIONSHIPS = [
+        'Source',
+        'Data',
+        'Alternative',
+        'Supplement',
+        'Unspecified',
+    ];
+
+    /**
      * Deafult Javascript Annotation properties.
      * Possible values are described on official Javascript for Acrobat API reference.
      * Annotation options can be directly specified using the 'aopt' entry.
@@ -594,12 +607,19 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * Add an embedded file.
      * If a file with the same name already exists, it will be ignored.
      *
-     * @param string $file File name (absolute or relative path).
+     * @param string $file  File name (absolute or relative path).
+     * @param string $mime  MIME type of the file (e.g., 'application/xml').
+     * @param string $afrel AFRelationship value (Source, Data, Alternative, Supplement, Unspecified).
+     * @param string $desc  Optional description of the file.
      *
      * @throws PdfException in case of error.
      */
-    public function addEmbeddedFile(string $file): void
-    {
+    public function addEmbeddedFile(
+        string $file,
+        string $mime = 'application/octet-stream',
+        string $afrel = 'Source',
+        string $desc = ''
+    ): void {
         if (($this->pdfa == 1) || ($this->pdfa == 2)) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
@@ -607,6 +627,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (empty($file)) {
             throw new PdfException('Empty file name');
         }
+
+        if ($this->pdfa === 3 && !\in_array($afrel, self::VALID_AF_RELATIONSHIPS)) {
+            throw new PdfException('afrel must be one of: ' . \implode(', ', self::VALID_AF_RELATIONSHIPS));
+        }
+
         $filekey = \basename((string) $file);
         if (
             ! empty($filekey)
@@ -618,6 +643,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 'n' => ++$this->pon,
                 'file' => (string) $file,
                 'content' => '',
+                'mimeType' => $mime,
+                'afRelationship' => $afrel,
+                'description' => $desc,
+                'creationDate' => \time(),
+                'modDate' => \time(),
             ];
         }
     }
@@ -626,13 +656,21 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * Add string content as an embedded file.
      * If a file with the same name already exists, it will be ignored.
      *
-     * @param string $file File name to be used a key for the embedded file.
-     * @param string $content  Content of the embedded file.
+     * @param string $file    File name to be used a key for the embedded file.
+     * @param string $content Content of the embedded file.
+     * @param string $mime  MIME type of the file (e.g., 'application/xml').
+     * @param string $afrel AFRelationship value (Source, Data, Alternative, Supplement, Unspecified).
+     * @param string $desc  Optional description of the file.
      *
      * @throws PdfException in case of error.
      */
-    public function addContentAsEmbeddedFile(string $file, string $content): void
-    {
+    public function addContentAsEmbeddedFile(
+        string $file,
+        string $content,
+        string $mime = 'application/octet-stream',
+        string $afrel = 'Source',
+        string $desc = ''
+    ): void {
         if (($this->pdfa == 1) || ($this->pdfa == 2)) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
@@ -646,6 +684,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 'n' => ++$this->pon,
                 'file' => $file,
                 'content' => $content,
+                'mimeType' => $mime,
+                'afRelationship' => $afrel,
+                'description' => $desc,
+                'creationDate' => \time(),
+                'modDate' => \time(),
             ];
         }
     }

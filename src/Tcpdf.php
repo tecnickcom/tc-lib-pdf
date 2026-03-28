@@ -80,17 +80,36 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
-     * Set the pdf mode.
+     * Set the PDF mode.
      *
-     * @param string $mode Input PDFA mode.
+     * Supported modes:
+     * - 'pdfa1', 'pdfa1a', 'pdfa1b': PDF/A-1 with optional conformance level
+     * - 'pdfa2', 'pdfa2a', 'pdfa2b', 'pdfa2u': PDF/A-2 with optional conformance level
+     * - 'pdfa3', 'pdfa3a', 'pdfa3b', 'pdfa3u': PDF/A-3 with optional conformance level
+     * - 'pdfx': PDF/X mode
+     *
+     * Conformance levels:
+     * - 'a': Accessible (tagged PDF + Unicode)
+     * - 'b': Basic (visual appearance only)
+     * - 'u': Unicode (basic + Unicode mapping, PDF/A-2 and PDF/A-3 only)
+     *
+     * @param string $mode Input PDF/A mode.
      */
     protected function setPDFMode(string $mode): void
     {
         $this->pdfx = ($mode == 'pdfx');
         $this->pdfa = 0;
-        $matches = ['', '0'];
-        if (\preg_match('/^pdfa([1-3])$/', $mode, $matches) === 1) {
+        $this->pdfaConformance = 'B';
+        $matches = [];
+        if (\preg_match('/^pdfa([1-3])([abu])?$/i', $mode, $matches) === 1) {
             $this->pdfa = (int) $matches[1];
+            if (!empty($matches[2])) {
+                $conf = \strtoupper($matches[2]);
+                if (($conf === 'U') && ($this->pdfa === 1)) {
+                    $conf = 'B';
+                }
+                $this->pdfaConformance = $conf;
+            }
         }
     }
 
