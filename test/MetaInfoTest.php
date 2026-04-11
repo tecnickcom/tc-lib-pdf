@@ -79,6 +79,20 @@ class TestablMetaInfo extends \Com\Tecnick\Pdf\Tcpdf
     }
 }
 
+class TestableObjPageForMetaInfo extends \Com\Tecnick\Pdf\Page\Page
+{
+    /**
+     * @var array<string, string>
+     */
+    public array $CropBox = [
+        'MediaBox' => 'MediaBox',
+    ];
+
+    public function __construct()
+    {
+    }
+}
+
 class MetaInfoTest extends TestUtil
 {
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
@@ -205,12 +219,13 @@ class MetaInfoTest extends TestUtil
         $this->assertSame('2.0', $this->getObjectProperty($obj, 'pdfver'));
     }
 
-    public function testSetPDFVersionStoresValueEvenWhenPatternDoesNotMatch(): void
+    public function testSetPDFVersionThrowsOnInvalidFormat(): void
     {
         $obj = $this->getTestObject();
-        $obj->setPDFVersion('1.A');
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $this->expectExceptionMessage('Invalid PDF version format');
 
-        $this->assertSame('1.A', $this->getObjectProperty($obj, 'pdfver'));
+        $obj->setPDFVersion('1.A');
     }
 
     public function testSetSRGBTogglesFlag(): void
@@ -294,6 +309,17 @@ class MetaInfoTest extends TestUtil
         $result = $obj->exposeGetDuplexMode();
 
         $this->assertStringContainsString('/Duplex /DuplexFlipShortEdge', $result);
+    }
+
+    public function testGetPageBoxNameReturnsMappedValueWhenAvailable(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'page', new TestableObjPageForMetaInfo());
+        $this->setObjectProperty($obj, 'viewerpref', ['ViewArea' => 'MediaBox']);
+
+        $result = $obj->exposeGetPageBoxName('ViewArea');
+
+        $this->assertSame(' /ViewArea /MediaBox', $result);
     }
 
     public function testGetBooleanModeReturnsEmptyWhenNotSet(): void

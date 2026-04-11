@@ -171,7 +171,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
         }
 
         $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
-        if ($isvalid === false) {
+        if ($isvalid !== 1) {
             throw new PdfException('Invalid PDF version format');
         }
 
