@@ -103,8 +103,8 @@ help:
 	@echo ""
 	@awk '/^## /{desc=substr($$0,4)} /^\.PHONY:/{if(NF>1) {target=$$2; if(desc) printf "  make %-15s: %s\n",target,desc; desc=""}}' Makefile
 	@echo ""
-	@echo "To test and build everything from scratch:"
-	@echo "make buildall"
+	@echo "To test and build everything from scratch, use the shortcut:"
+	@echo "    make x"
 	@echo ""
 
 # alias for help target
@@ -285,4 +285,3 @@ version:
 versionup:
 	echo ${VERSION} | gawk -F. '{printf("%d.%d.%d\n",$$1,$$2,(($$3+1)));}' > VERSION
 	$(MAKE) version
-
