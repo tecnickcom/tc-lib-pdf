@@ -965,6 +965,41 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /H /I', $out);
     }
 
+    public function testGetOutAnnotationOptSubtypeLinkHandlesInternalAndEmbeddedTargets(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'sample.pdf' => ['a' => 4],
+            'attach.bin' => ['a' => 2],
+        ]);
+
+        $namedDest = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '#dest-1', 'opt' => ['h' => 'N']], 2, 10);
+        $embeddedPdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '%sample.pdf', 'opt' => []], 3, 11);
+        $embeddedFile = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '*attach.bin', 'opt' => []], 1, 12);
+
+        $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
+        $this->assertStringContainsString(' /H /N', $namedDest);
+
+        $this->assertStringContainsString(' /S /GoToE', $embeddedPdf);
+        $this->assertStringContainsString(' /P 2 /A 4', $embeddedPdf);
+
+        $this->assertStringContainsString(' /S /JavaScript /JS ', $embeddedFile);
+        $this->assertStringContainsString(' /H /I', $embeddedFile);
+    }
+
+    public function testGetOutAnnotationOptSubtypeLinkBuildsGoToRForRelativePdfTarget(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []], 1, 22);
+
+        $this->assertStringContainsString(' /S /GoToR', $out);
+        $this->assertStringContainsString(' /D (Section2)', $out);
+        $this->assertStringContainsString(' /F ', $out);
+        $this->assertStringContainsString(' /NewWindow true', $out);
+        $this->assertStringContainsString(' /H /I', $out);
+    }
+
     public function testGetOutAnnotationOptSubtypeFreetextFormatsKnownOptions(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1043,6 +1078,55 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /MaxLen 12', $out);
         $this->assertStringContainsString(' /Q 1', $out);
         $this->assertStringContainsString(' /DA ', $out);
+    }
+
+    public function testGetOutAnnotationOptSubtypeWidgetIncludesAppearanceAndChoiceOptions(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $annot = [
+            'txt' => 'field-choice',
+            'opt' => [
+                'h' => 'T',
+                'ff' => 5,
+                'v' => ['One', 2],
+                'dv' => ['Two', 3],
+                'rv' => ['Three', 4],
+                'a' => '/S /ResetForm',
+                'aa' => '/E << /S /JavaScript /JS (x) >>',
+                'opt' => ['one', ['v2', 'Label Two'], 3],
+                'ti' => 1,
+                'i' => [0, 2, 'x'],
+                'mk' => [
+                    'r' => 90,
+                    'bc' => [0.1, 0.2, 0.3],
+                    'bg' => [0.9],
+                    'ca' => '(CA)',
+                    'rc' => '(RC)',
+                    'ac' => '(AC)',
+                    'if' => [
+                        'sw' => 'B',
+                        's' => 'P',
+                        'a' => [0.2, 0.8],
+                        'fb' => true,
+                    ],
+                    'tp' => 3,
+                ],
+            ],
+        ];
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeWidget($annot, 31);
+
+        $this->assertStringContainsString(' /H /T', $out);
+        $this->assertStringContainsString(' /MK <<', $out);
+        $this->assertStringContainsString(' /R 90', $out);
+        $this->assertStringContainsString(' /IF << /SW /B /S /P /A [0.200000 0.800000] /FB true>>', $out);
+        $this->assertStringContainsString(' /TP 3', $out);
+        $this->assertStringContainsString(' /Ff 5', $out);
+        $this->assertStringContainsString(' /A << /S /ResetForm >>', $out);
+        $this->assertStringContainsString(' /AA << /E << /S /JavaScript /JS (x) >> >>', $out);
+        $this->assertStringContainsString(' /Opt [', $out);
+        $this->assertStringContainsString(' /TI 1', $out);
+        $this->assertStringContainsString(' /I [0 2 ]', $out);
     }
 
     public function testGetOutAnnotationOptSubtypeDispatcherRoutesKnownAndUnknownSubtypes(): void
