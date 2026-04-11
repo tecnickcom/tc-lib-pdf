@@ -1133,18 +1133,13 @@ class SVGTest extends TestUtil
         $this->assertSame('', $fillUrlOut);
 
         $parser = \xml_parser_create();
-        try {
-            $obj->exposeParseSVGStyleClipPath($parser, 3, []);
+        $obj->exposeParseSVGStyleClipPath($parser, 3, []);
 
-            $earlyStyle = $base;
-            $earlyStyle['opacity'] = 0;
-            [$styleOut, $objstyle] = $obj->exposeParseSVGStyle($parser, 3, $earlyStyle, $base);
-            $this->assertSame('', $styleOut);
-            $this->assertSame('', $objstyle);
-        } finally {
-            // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions.xml_parser_freeDeprecated
-            \xml_parser_free($parser);
-        }
+        $earlyStyle = $base;
+        $earlyStyle['opacity'] = 0;
+        [$styleOut, $objstyle] = $obj->exposeParseSVGStyle($parser, 3, $earlyStyle, $base);
+        $this->assertSame('', $styleOut);
+        $this->assertSame('', $objstyle);
     }
 
     public function testSvgRawSizeAndPrescanHelpers(): void
@@ -1195,43 +1190,38 @@ class SVGTest extends TestUtil
         $obj->initSvgObjForHandlers(41);
 
         $parser = \xml_parser_create('UTF-8');
-        try {
-            $obj->exposeHandlerSVGCharacter($parser, 'Hello');
-            $svgobj = $obj->getSvgObj(41);
-            $this->assertSame('Hello', $svgobj['text']);
+        $obj->exposeHandlerSVGCharacter($parser, 'Hello');
+        $svgobj = $obj->getSvgObj(41);
+        $this->assertSame('Hello', $svgobj['text']);
 
-            $obj->exposeParseSVGTagSTARTdefs(41);
-            $this->assertTrue($obj->getSvgObj(41)['defsmode']);
-            $obj->exposeParseSVGTagENDdefs(41);
-            $this->assertFalse($obj->getSvgObj(41)['defsmode']);
+        $obj->exposeParseSVGTagSTARTdefs(41);
+        $this->assertTrue($obj->getSvgObj(41)['defsmode']);
+        $obj->exposeParseSVGTagENDdefs(41);
+        $this->assertFalse($obj->getSvgObj(41)['defsmode']);
 
-            $obj->exposeParseSVGTagSTARTclipPath(41, [1, 0, 0, 1, 0, 0]);
-            $this->assertTrue($obj->getSvgObj(41)['clipmode']);
-            $obj->exposeParseSVGTagENDclipPath(41);
-            $this->assertFalse($obj->getSvgObj(41)['clipmode']);
+        $obj->exposeParseSVGTagSTARTclipPath(41, [1, 0, 0, 1, 0, 0]);
+        $this->assertTrue($obj->getSvgObj(41)['clipmode']);
+        $obj->exposeParseSVGTagENDclipPath(41);
+        $this->assertFalse($obj->getSvgObj(41)['clipmode']);
 
-            $obj->patchSvgObj(41, ['styles' => [$obj->exposeDefaultSVGStyle(), $obj->exposeDefaultSVGStyle()]]);
-            $this->assertSame('', $obj->exposeParseSVGTagENDg(41));
-            $this->assertCount(1, $obj->getSvgObj(41)['styles']);
+        $obj->patchSvgObj(41, ['styles' => [$obj->exposeDefaultSVGStyle(), $obj->exposeDefaultSVGStyle()]]);
+        $this->assertSame('', $obj->exposeParseSVGTagENDg(41));
+        $this->assertCount(1, $obj->getSvgObj(41)['styles']);
 
-            $obj->patchSvgObj(41, ['textmode' => ['invisible' => true]]);
-            $this->assertSame('', $obj->exposeParseSVGTagENDtext(41));
-            $this->assertSame('', $obj->exposeParseSVGTagENDtspan(41));
+        $obj->patchSvgObj(41, ['textmode' => ['invisible' => true]]);
+        $this->assertSame('', $obj->exposeParseSVGTagENDtext(41));
+        $this->assertSame('', $obj->exposeParseSVGTagENDtspan(41));
 
-            $obj->patchSvgObj(41, ['tagdepth' => 1]);
-            $this->assertSame('', $obj->exposeParseSVGTagENDsvg(41));
+        $obj->patchSvgObj(41, ['tagdepth' => 1]);
+        $this->assertSame('', $obj->exposeParseSVGTagENDsvg(41));
 
-            $obj->patchSvgObj(41, ['clipmode' => true, 'cliptm' => [1, 0, 0, 1, 0, 0]]);
-            $obj->exposeHandleSVGTagStart($parser, 'rect', ['x' => '1', 'y' => '2'], 41, false, [1, 0, 0, 1, 0, 0]);
-            $this->assertNotEmpty($obj->getSvgObj(41)['clippaths']);
+        $obj->patchSvgObj(41, ['clipmode' => true, 'cliptm' => [1, 0, 0, 1, 0, 0]]);
+        $obj->exposeHandleSVGTagStart($parser, 'rect', ['x' => '1', 'y' => '2'], 41, false, [1, 0, 0, 1, 0, 0]);
+        $this->assertNotEmpty($obj->getSvgObj(41)['clippaths']);
 
-            $obj->patchSvgObj(41, ['defsmode' => false]);
-            $obj->exposeHandleSVGTagEnd($parser, 'defs');
-            $this->assertFalse($obj->getSvgObj(41)['defsmode']);
-        } finally {
-            // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions.xml_parser_freeDeprecated
-            \xml_parser_free($parser);
-        }
+        $obj->patchSvgObj(41, ['defsmode' => false]);
+        $obj->exposeHandleSVGTagEnd($parser, 'defs');
+        $this->assertFalse($obj->getSvgObj(41)['defsmode']);
     }
 
     public function testSvgRemainingStartTagMethodsCoveredViaGuardBranches(): void
@@ -1242,40 +1232,35 @@ class SVGTest extends TestUtil
         $base = $obj->exposeDefaultSVGStyle();
 
         $parser = \xml_parser_create('UTF-8');
-        try {
-            // Root svg branch exits immediately.
-            $obj->patchSvgObj(42, ['tagdepth' => 0]);
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTsvg($parser, 42, [], $base, $base));
+        // Root svg branch exits immediately.
+        $obj->patchSvgObj(42, ['tagdepth' => 0]);
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTsvg($parser, 42, [], $base, $base));
 
-            // Group start path should return a transform block.
-            $gOut = $obj->exposeParseSVGTagSTARTg($parser, 42, [], $base, $base);
-            $this->assertNotSame('', $gOut);
+        // Group start path should return a transform block.
+        $gOut = $obj->exposeParseSVGTagSTARTg($parser, 42, [], $base, $base);
+        $this->assertNotSame('', $gOut);
 
-            // Gradient starts and stop insertion.
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTlinearGradient(42, ['id' => 'lg2']));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTradialGradient(42, ['id' => 'rg2']));
-            $obj->patchSvgObj(42, ['gradientid' => 'lg2']);
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTstop(42, ['offset' => '50%'], $base));
-            $this->assertNotEmpty($obj->getSvgObj(42)['gradients']['lg2']['stops']);
+        // Gradient starts and stop insertion.
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTlinearGradient(42, ['id' => 'lg2']));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTradialGradient(42, ['id' => 'rg2']));
+        $obj->patchSvgObj(42, ['gradientid' => 'lg2']);
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTstop(42, ['offset' => '50%'], $base));
+        $this->assertNotEmpty($obj->getSvgObj(42)['gradients']['lg2']['stops']);
 
-            // Invisibility/clip guards for shape and text tags.
-            $obj->patchSvgObj(42, ['textmode' => ['invisible' => true], 'clipmode' => false]);
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTpath($parser, 42, ['d' => 'M 0 0 L 1 1'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTrect($parser, 42, ['width' => '1', 'height' => '1'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTcircle($parser, 42, ['r' => '1'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTellipse($parser, 42, ['rx' => '1', 'ry' => '1'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTline($parser, 42, ['x1' => '0', 'y1' => '0', 'x2' => '1', 'y2' => '1'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTpolygon($parser, 42, ['points' => '0,0 1,1'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTimage($parser, 42, ['xlink:href' => 'x.png'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTtext($parser, 42, ['x' => '0', 'y' => '0'], $base, $base));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTtspan($parser, 42, ['dx' => '1'], $base, $base));
+        // Invisibility/clip guards for shape and text tags.
+        $obj->patchSvgObj(42, ['textmode' => ['invisible' => true], 'clipmode' => false]);
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTpath($parser, 42, ['d' => 'M 0 0 L 1 1'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTrect($parser, 42, ['width' => '1', 'height' => '1'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTcircle($parser, 42, ['r' => '1'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTellipse($parser, 42, ['rx' => '1', 'ry' => '1'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTline($parser, 42, ['x1' => '0', 'y1' => '0', 'x2' => '1', 'y2' => '1'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTpolygon($parser, 42, ['points' => '0,0 1,1'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTimage($parser, 42, ['xlink:href' => 'x.png'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTtext($parser, 42, ['x' => '0', 'y' => '0'], $base, $base));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTtspan($parser, 42, ['dx' => '1'], $base, $base));
 
-            // use tag guards when href is missing or unknown.
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 42, []));
-            $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 42, ['xlink:href' => '#missing']));
-        } finally {
-            // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions.xml_parser_freeDeprecated
-            \xml_parser_free($parser);
-        }
+        // use tag guards when href is missing or unknown.
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 42, []));
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 42, ['xlink:href' => '#missing']));
     }
 }
