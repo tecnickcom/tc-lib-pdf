@@ -851,6 +851,34 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    public function testGetXObjectDictIncludesCustomObjectEntries(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XO1' => ['n' => 21],
+            'XO2' => ['n' => 22],
+        ]);
+
+        $out = $obj->exposeGetXObjectDict();
+
+        $this->assertStringContainsString('/XO1 21 0 R', $out);
+        $this->assertStringContainsString('/XO2 22 0 R', $out);
+    }
+
+    public function testGetLayerDictIncludesLayerReferences(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdflayer', [
+            ['layer' => 'L1', 'objid' => 31],
+            ['layer' => 'L2', 'objid' => 32],
+        ]);
+
+        $out = $obj->exposeGetLayerDict();
+
+        $this->assertStringContainsString('/L1 31 0 R', $out);
+        $this->assertStringContainsString('/L2 32 0 R', $out);
+    }
+
     public function testGetOutResourcesDictIncludesProcSetAndEmptyFontDict(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1138,6 +1166,44 @@ class OutputTest extends TestUtil
 
         $this->assertStringContainsString(' /Name /Note', $textOut);
         $this->assertSame('', $unkOut);
+    }
+
+    public function testGetOutAnnotationOptSubtypeDispatcherCoversRemainingKnownSubtypes(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $subtypes = [
+            '3D',
+            'Caret',
+            'Circle',
+            'FileAttachment',
+            'FreeText',
+            'Highlight',
+            'Ink',
+            'Line',
+            'Link',
+            'Movie',
+            'Polygon',
+            'Polyline',
+            'Popup',
+            'PrinterMark',
+            'Redact',
+            'Screen',
+            'Sound',
+            'Square',
+            'Squiggly',
+            'Stamp',
+            'StrikeOut',
+            'TrapNet',
+            'Underline',
+            'Watermark',
+            'Widget',
+        ];
+
+        foreach ($subtypes as $subtype) {
+            $out = $obj->exposeGetOutAnnotationOptSubtype(['opt' => ['subtype' => $subtype]], 1, 10, 0);
+            $this->assertGreaterThanOrEqual(0, \strlen($out));
+        }
     }
 
     public function testGetOutPDFHeaderReturnsVersionedHeader(): void
@@ -1511,6 +1577,7 @@ class OutputTest extends TestUtil
             'n' => 10,
             'opt' => [
                 'da' => '/F1 12 Tf',
+                'rc' => '<p>Rich</p>',
                 'ds' => 'font: Arial 12pt',
                 'cl' => [10.0, 20.0, 30.0],
             ],
@@ -1518,9 +1585,32 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutAnnotationOptSubtypeFreetext($annot, 10);
 
+        $this->assertStringContainsString(' /RC ', $out);
         $this->assertStringContainsString(' /DS ', $out);
         $this->assertStringContainsString(' /CL [', $out);
     }
+
+    public function testGetOutAnnotationOptSubtypeWidgetImageLookupsWithMkIcons(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        foreach (['i', 'ri', 'ix'] as $ikey) {
+            try {
+                $obj->exposeGetOutAnnotationOptSubtypeWidget([
+                    'txt' => 'mk-icons',
+                    'opt' => [
+                        'mk' => [
+                            $ikey => 'non-existent-icon',
+                        ],
+                    ],
+                ], 77);
+                $this->fail('Expected missing image key exception for mk.' . $ikey);
+            } catch (\Com\Tecnick\Pdf\Image\Exception $e) {
+                $this->assertStringContainsString('Unknownn key', $e->getMessage());
+            }
+        }
+    }
+
 
     public function testGetOutAnnotationOptSubtypeWidgetWithTuTmAndScalarValues(): void
     {
@@ -1678,6 +1768,53 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Fields [', $out);
         $this->assertStringContainsString(' 5 0 R', $out);
         $this->assertStringContainsString('/NeedAppearances false', $out);
+    }
+
+    public function testGetOutCatalogWithSignatureAcroformVariants(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $pageInfo = $this->initFontAndPage($obj);
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, array<string, mixed>> $pgdata */
+        $pgdata = $this->getObjectProperty($pageObj, 'page');
+        $pgdata[$pageInfo['pid']]['n'] = 6;
+        $pgdata[$pageInfo['pid']]['num'] = 1;
+        $this->setObjectProperty($pageObj, 'page', $pgdata);
+        $this->addRawPageWithObjectNumber($obj, 6);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4, 'signature' => 40, 'form' => [51]]);
+
+        $this->setObjectProperty($obj, 'sign', true);
+        $this->setObjectProperty($obj, 'annotation_fonts', ['helvetica' => 1]);
+        $this->setObjectProperty($obj, 'signature', [
+            'cert_type' => 0,
+            'approval' => 'P',
+            'appearance' => [
+                'empty' => [
+                    ['objid' => 41],
+                ],
+            ],
+        ]);
+
+        $ur3Out = $obj->exposeGetOutCatalog();
+        $this->assertStringContainsString('/Fields [40 0 R 41 0 R 51 0 R]', $ur3Out);
+        $this->assertStringContainsString('/SigFlags 1', $ur3Out);
+        $this->assertStringContainsString('/Perms << /UR3 41 0 R >>', $ur3Out);
+        $this->assertStringContainsString('/DR << /Font <<', $ur3Out);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'cert_type' => 2,
+            'approval' => 'P',
+            'appearance' => [
+                'empty' => [
+                    ['objid' => 41],
+                ],
+            ],
+        ]);
+
+        $docmdpOut = $obj->exposeGetOutCatalog();
+        $this->assertStringContainsString('/SigFlags 3', $docmdpOut);
+        $this->assertStringContainsString('/Perms << /DocMDP 41 0 R >>', $docmdpOut);
     }
 
     public function testGetPDFLayersWithViewFalseAndLockTrue(): void
@@ -2026,6 +2163,48 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/S /JavaScript', $out);
     }
 
+    public function testGetOutBookmarksWithPercentEmbeddedPdfLink(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 7);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'manual.pdf' => [
+                'a' => 5,
+                'f' => 3,
+                'n' => 4,
+                'file' => '',
+                'content' => 'data',
+                'mimeType' => 'application/pdf',
+                'afRelationship' => 'Source',
+                'description' => 'Embedded PDF',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+        $obj->setBookmark('Embedded PDF', '%manual.pdf', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringContainsString('/S /GoToE', $out);
+        $this->assertStringContainsString('/A 5', $out);
+    }
+
+    public function testGetOutBookmarksWithExternalUriLink(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+
+        $obj->setBookmark('External Site', 'https://example.com/docs?a=1&b=2', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringContainsString('/S /URI', $out);
+        $this->assertStringContainsString('/URI ', $out);
+    }
+
     public function testGetOutBookmarksWithNoUrlUsesPageDest(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2038,6 +2217,22 @@ class OutputTest extends TestUtil
 
         $this->assertStringContainsString('/Dest [', $out);
         $this->assertStringContainsString('/XYZ ', $out);
+    }
+
+    public function testGetOutBookmarksIncludesFirstAndLastForParentsWithChildren(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 10);
+
+        $obj->setBookmark('Parent', '', 0, $page['pid']);
+        $obj->setBookmark('Child 1', '', 1, $page['pid']);
+        $obj->setBookmark('Child 2', '', 1, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringContainsString('/First ', $out);
+        $this->assertStringContainsString('/Last ', $out);
     }
 
     public function testGetOutJavascriptWithAddFieldTriggersWrapper(): void
@@ -2077,6 +2272,145 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/EF[/Create /Delete /Modify /Import]', $out);
     }
 
+    public function testGetOutSignatureFieldsWithAppearanceEntries(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 9);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'appearance' => [
+                'empty' => [[
+                    'page' => $page['pid'],
+                    'name' => 'ApprovalSig',
+                    'objid' => 91,
+                    'rect' => '10 20 30 40',
+                ]],
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignatureFields();
+
+        $this->assertStringContainsString('/Subtype /Widget', $out);
+        $this->assertStringContainsString('/FT /Sig', $out);
+        $this->assertStringContainsString('/T ', $out);
+    }
+
+    public function testGetOutSignatureFieldsReturnsEmptyWithEmptySignatureArray(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'signature', []);
+
+        $this->assertSame('', $obj->exposeGetOutSignatureFields());
+    }
+
+    public function testGetOutSignatureWithDocMdpAndApprovalModes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 11);
+
+        $this->setObjectProperty($obj, 'sign', true);
+        $this->setObjectProperty($obj, 'objid', ['signature' => 70]);
+        $this->setObjectProperty($obj, 'signature', [
+            'cert_type' => 2,
+            'approval' => 'P',
+            'appearance' => [
+                'page' => $page['pid'],
+                'rect' => '5 15 45 25',
+                'name' => 'SigMain',
+            ],
+            'info' => ['Name' => 'Tester'],
+        ]);
+
+        $outWithRef = $obj->exposeGetOutSignature();
+        $this->assertStringContainsString('/Type /Sig', $outWithRef);
+        $this->assertStringContainsString('/TransformMethod /DocMDP', $outWithRef);
+        $this->assertStringContainsString('/Reference [ << /Type /SigRef', $outWithRef);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'cert_type' => 2,
+            'approval' => 'A',
+            'appearance' => [
+                'page' => $page['pid'],
+                'rect' => '5 15 45 25',
+                'name' => 'SigMain',
+            ],
+        ]);
+
+        $outApproval = $obj->exposeGetOutSignature();
+        $this->assertStringNotContainsString('/Reference [ << /Type /SigRef', $outApproval);
+    }
+
+    public function testGetOutSignatureWithUserRightsReferenceWhenCertTypeZero(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 13);
+
+        $this->setObjectProperty($obj, 'sign', true);
+        $this->setObjectProperty($obj, 'objid', ['signature' => 80]);
+        $this->setObjectProperty($obj, 'signature', [
+            'cert_type' => -1,
+            'approval' => 'P',
+            'appearance' => [
+                'page' => $page['pid'],
+                'rect' => '6 16 46 26',
+                'name' => 'SigUR3',
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignature();
+
+        $this->assertStringContainsString('/TransformMethod /UR3', $out);
+    }
+
+    public function testGetOutSignatureDocMDPReturnsEmptyWhenCertTypeMissing(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'signature', []);
+
+        $this->assertSame('', $obj->exposeGetOutSignatureDocMDP());
+    }
+
+    public function testGetOutSignatureUserRightsWithFormExField(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'userrights', [
+            'enabled' => true,
+            'document' => '',
+            'form' => '',
+            'signature' => '',
+            'annots' => '',
+            'ef' => '',
+            'formex' => '/BarcodePlaintext',
+        ]);
+
+        $out = $obj->exposeGetOutSignatureUserRights();
+
+        $this->assertStringContainsString('/FormEX[/BarcodePlaintext]', $out);
+    }
+
+    public function testGetOutSignatureInfoWithAllOptionalFields(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'signature', [
+            'info' => [
+                'Name' => 'N',
+                'Location' => 'L',
+                'Reason' => 'R',
+                'ContactInfo' => 'C',
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignatureInfo(33);
+
+        $this->assertStringContainsString('/Name ', $out);
+        $this->assertStringContainsString('/Location ', $out);
+        $this->assertStringContainsString('/Reason ', $out);
+        $this->assertStringContainsString('/ContactInfo ', $out);
+    }
+
     public function testSavePDFThrowsWhenDirectoryDoesNotExist(): void
     {
         $obj = $this->getTestObject();
@@ -2112,5 +2446,259 @@ class OutputTest extends TestUtil
         ], 5);
 
         $this->assertSame('', $out);
+    }
+
+    public function testOutputAdditionalAnnotationBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $pageInfo = $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $pageObj->addAnnotRef(999, $pageInfo['pid']);
+        $this->assertSame('', $obj->exposeGetOutAnnotations());
+
+        $missingAttachment = $obj->exposeGetOutAnnotationOptSubtypeFileattachment([
+            'opt' => ['fs' => 'missing.bin'],
+        ], 1);
+        $this->assertSame('', $missingAttachment);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', ['doc.txt' => ['f' => 7]]);
+        $defaultAttachIcon = $obj->exposeGetOutAnnotationOptSubtypeFileattachment([
+            'opt' => ['fs' => 'doc.txt', 'name' => 'UnknownIcon'],
+        ], 2);
+        $this->assertStringContainsString(' /FS 7 0 R', $defaultAttachIcon);
+        $this->assertStringContainsString(' /Name /PushPin', $defaultAttachIcon);
+
+        $missingSound = $obj->exposeGetOutAnnotationOptSubtypeSound([
+            'opt' => ['fs' => 'missing.wav'],
+        ]);
+        $this->assertSame('', $missingSound);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', ['snd.wav' => ['f' => 9]]);
+        $defaultSoundIcon = $obj->exposeGetOutAnnotationOptSubtypeSound([
+            'opt' => ['fs' => 'snd.wav', 'name' => 'UnknownMic'],
+        ]);
+        $this->assertStringContainsString(' /Sound 9 0 R', $defaultSoundIcon);
+        $this->assertStringContainsString(' /Name /Speaker', $defaultSoundIcon);
+
+        $widget = $obj->exposeGetOutAnnotationOptSubtypeWidget([
+            'txt' => 'field-mixed',
+            'opt' => [
+                'h' => 'I',
+                'v' => ['A', new \stdClass(), 1],
+                'dv' => ['B', new \stdClass(), 2],
+                'rv' => ['C', new \stdClass(), 3],
+            ],
+        ], 31);
+        $this->assertStringContainsString(' /V A 1.000000', $widget);
+        $this->assertStringContainsString(' /DV B 2.000000', $widget);
+        $this->assertStringContainsString(' /RV C 3.000000', $widget);
+
+        [$appearanceState, $appearanceXObject] = $obj->exposeGetAnnotationAppearanceStream([
+            'opt' => [
+                'ap' => [
+                    'n' => ['On' => 123, 'Off' => 'q 1 0 0 1 0 0 cm Q'],
+                ],
+            ],
+        ], 10, 5);
+        $this->assertStringContainsString(' /AP <<', $appearanceState);
+        $this->assertStringContainsString('/Off', $appearanceState);
+        $this->assertStringContainsString('/Subtype /Form', $appearanceXObject);
+    }
+
+    public function testOutputAdditionalEmbeddedFileBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $tmpFile = \tempnam(\sys_get_temp_dir(), 'tc-out-ef-');
+        $this->assertNotFalse($tmpFile);
+        \file_put_contents((string) $tmpFile, 'embedded-content');
+
+        try {
+            $this->setPdfaModeOnObject($obj, 3);
+            $this->setObjectProperty($obj, 'embeddedfiles', [
+                'plain.txt' => [
+                    'a' => 0,
+                    'f' => 11,
+                    'n' => 12,
+                    'file' => (string) $tmpFile,
+                    'content' => '',
+                    'mimeType' => 'text/plain',
+                    'afRelationship' => 'Source',
+                    'description' => 'desc',
+                    'creationDate' => \time(),
+                    'modDate' => \time(),
+                ],
+            ]);
+            $pdfa3Out = $obj->exposeGetOutEmbeddedFiles();
+            $this->assertStringContainsString('/Subtype /text#2Fplain', $pdfa3Out);
+
+            $this->setPdfaModeOnObject($obj, 0);
+            $this->setObjectProperty($obj, 'embeddedfiles', [
+                'plain2.txt' => [
+                    'a' => 0,
+                    'f' => 21,
+                    'n' => 22,
+                    'file' => (string) $tmpFile,
+                    'content' => '',
+                    'mimeType' => 'text/plain',
+                    'afRelationship' => 'Source',
+                    'description' => 'desc2',
+                    'creationDate' => \time(),
+                    'modDate' => \time(),
+                ],
+            ]);
+            $compressedOut = $obj->exposeGetOutEmbeddedFiles();
+            $this->assertStringContainsString('/Filter /FlateDecode', $compressedOut);
+        } finally {
+            @\unlink((string) $tmpFile);
+        }
+    }
+
+    public function testGetOutEmbeddedFilesSkipsEmptyFiles(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $tmpFile = \tempnam(\sys_get_temp_dir(), 'tc-out-empty-');
+        $this->assertNotFalse($tmpFile);
+        \file_put_contents((string) $tmpFile, '');
+
+        try {
+            $this->setObjectProperty($obj, 'embeddedfiles', [
+                'empty.bin' => [
+                    'a' => 0,
+                    'f' => 63,
+                    'n' => 64,
+                    'file' => (string) $tmpFile,
+                    'content' => '',
+                    'mimeType' => 'application/octet-stream',
+                    'afRelationship' => 'Source',
+                    'description' => '',
+                    'creationDate' => 0,
+                    'modDate' => 0,
+                ],
+            ]);
+
+            $this->assertSame('', $obj->exposeGetOutEmbeddedFiles());
+        } finally {
+            @\unlink((string) $tmpFile);
+        }
+    }
+
+    public function testGetOutXObjectsIncludesNestedXObjectReferences(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XO1' => [
+                'n' => 101,
+                'x' => 0,
+                'y' => 0,
+                'w' => 10,
+                'h' => 10,
+                'outdata' => 'q Q',
+                'spot_colors' => [],
+                'extgstate' => [],
+                'gradient' => [],
+                'font' => [],
+                'image' => [],
+                'xobject' => ['XO2'],
+                'annotations' => [],
+                'id' => 'XO1',
+                'pheight' => 0,
+                'gheight' => 0,
+            ],
+            'XO2' => [
+                'n' => 102,
+                'x' => 0,
+                'y' => 0,
+                'w' => 10,
+                'h' => 10,
+                'outdata' => '',
+                'spot_colors' => [],
+                'extgstate' => [],
+                'gradient' => [],
+                'font' => [],
+                'image' => [],
+                'xobject' => [],
+                'annotations' => [],
+                'id' => 'XO2',
+                'pheight' => 0,
+                'gheight' => 0,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutXObjects();
+
+        $this->assertStringContainsString('/XObject <<', $out);
+        $this->assertStringContainsString('/XO2 102 0 R', $out);
+    }
+
+    public function testGetOutAnnotationsSkipsFormRegistrationForKnownRadioButtonGroup(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $pageInfo = $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, array<string, mixed>> $pgdata */
+        $pgdata = $this->getObjectProperty($pageObj, 'page');
+        $pgdata[$pageInfo['pid']]['n'] = 12;
+        $pgdata[$pageInfo['pid']]['num'] = 1;
+        $pgdata[$pageInfo['pid']]['annotrefs'] = [77];
+        $this->setObjectProperty($pageObj, 'page', $pgdata);
+
+        $this->setObjectProperty($obj, 'radiobuttons', [
+            'rb-direct' => [
+                'n' => 88,
+                '#readonly#' => false,
+                'kids' => [
+                    ['n' => 89, 'def' => 'Off'],
+                ],
+            ],
+        ]);
+
+        $this->setObjectProperty($obj, 'annotation', [
+            77 => [
+                'n' => 77,
+                'x' => 5.0,
+                'y' => 10.0,
+                'w' => 40.0,
+                'h' => 8.0,
+                'txt' => 'rb-direct',
+                'opt' => [
+                    'subtype' => 'Widget',
+                    'ft' => 'Btn',
+                ],
+            ],
+        ]);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $out = $obj->exposeGetOutAnnotations();
+
+        $this->assertStringContainsString('/FT /Btn', $out);
+        $this->assertStringContainsString('/Parent 88 0 R', $out);
+    }
+
+    private function setPdfaModeOnObject(TestableOutput $obj, int $pdfa): void
+    {
+        $obj->setPdfaMode($pdfa);
     }
 }
