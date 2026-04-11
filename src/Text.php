@@ -927,8 +927,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 // the current word is a line break or does not fit in the current line
                 if ($overline && ($word > 0)) {
                     // the current word does not fit in the current line
-                    $data = $dim['split'][($word - 1)];
-                    --$word;
+                    $prevword = ($word - 1);
+                    // avoid looping forever when moving back would not advance the line start
+                    if ($dim['split'][$prevword]['pos'] >= $posstart) {
+                        $data = $dim['split'][$prevword];
+                        --$word;
+                    }
                 }
 
                 $posend = $data['pos'];

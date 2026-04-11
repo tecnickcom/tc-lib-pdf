@@ -2334,6 +2334,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } else { // Text Content
                 $out .= $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
             }
+
+            ++$key;
         }
 
         return $out;
