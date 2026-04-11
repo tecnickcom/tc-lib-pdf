@@ -49,6 +49,8 @@ jobs:
                   key: composer-cache
             - name: Install dependencies
               run: make deps
+            - name: Make fonts
+              run: cd vendor/tecnickcom/tc-lib-pdf-font/ && make deps fonts
             - name: Run all tests
               run: make qa
             - name: Send coverage
