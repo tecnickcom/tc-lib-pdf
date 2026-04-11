@@ -773,8 +773,8 @@ class HTMLTest extends TestUtil
         $this->assertSame('true', $dom[1]['attribute']['nobr']);
         $this->assertSame('left', $dom[1]['attribute']['pagebreak']);
         $this->assertSame('right', $dom[1]['attribute']['pagebreakafter']);
-        $this->assertNotEmpty($dom[1]['padding']);
-        $this->assertNotEmpty($dom[1]['margin']);
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['padding']);
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['margin']);
         $this->assertNotEmpty($dom[1]['border']);
     }
 
