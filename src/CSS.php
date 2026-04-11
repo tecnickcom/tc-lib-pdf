@@ -257,13 +257,13 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     protected function getCSSBorderStyle(string $cssborder): array
     {
         $border = $this->getCSSDefaultBorderStyle();
-        $bprop = \preg_split('/[\s]+/', \trim($cssborder));
-        if ($bprop === false) {
-            return $border;
-        }
+        /** @var list<string> $bprop */
+        $bprop = \preg_split('/[\s]+/', \trim($cssborder)) ?: [''];
         $count = \count($bprop);
         if (($count > 0) && ($bprop[$count - 1] === '!important')) {
             unset($bprop[$count - 1]);
+            /** @var list<string> $bprop */
+            $bprop = \array_values($bprop);
             --$count;
         }
         switch ($count) {
@@ -314,10 +314,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         /** @var TCellBound $cellpad */
         $cellpad = $this->defCSSCellPadding;
-        $pad = \preg_split('/[\s]+/', \trim($csspadding));
-        if ($pad === false) {
-            return $cellpad;
-        }
+        /** @var list<string> $pad */
+        $pad = \preg_split('/[\s]+/', \trim($csspadding)) ?: [''];
         switch (\count($pad)) {
             case 4:
                 $cellpad['T'] = $pad[0];
@@ -371,10 +369,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         /** @var TCellBound $cellmrg */
         $cellmrg = $this->defCSSCellMargin;
-        $mrg = \preg_split('/[\s]+/', \trim($cssmargin));
-        if ($mrg === false) {
-            return $cellmrg;
-        }
+        /** @var list<string> $mrg */
+        $mrg = \preg_split('/[\s]+/', \trim($cssmargin)) ?: [''];
         switch (\count($mrg)) {
             case 4:
                 $cellmrg['T'] = $mrg[0];
@@ -432,10 +428,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         /** @var TCSSBorderSpacing $bsp */
         $bsp = $this->defCSSBorderSpacing;
-        $space = \preg_split('/[\s]+/', \trim($cssbspace));
-        if ($space === false) {
-            return $bsp;
-        }
+        /** @var list<string> $space */
+        $space = \preg_split('/[\s]+/', \trim($cssbspace)) ?: [''];
         switch (\count($space)) {
             case 2:
                 $bsp['H'] = $space[0];

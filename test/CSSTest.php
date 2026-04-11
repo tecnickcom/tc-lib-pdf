@@ -151,6 +151,22 @@ class CSSTest extends TestUtil
         $this->fail('Property not found: ' . $name);
     }
 
+    private function initFont(\Com\Tecnick\Pdf\Tcpdf $obj): void
+    {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
+        $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
+    }
+
+    private function initPageContext(TestableCSS $obj): void
+    {
+        $this->initFont($obj);
+        $obj->addPage();
+    }
+
     public function testSetDefaultCSSMarginStoresPointValues(): void
     {
         $obj = $this->getTestObject();
@@ -196,6 +212,7 @@ class CSSTest extends TestUtil
         $this->assertSame(2.0, $obj->exposeGetCSSBorderWidthPoints('thin'));
         $this->assertSame(4.0, $obj->exposeGetCSSBorderWidthPoints('medium'));
         $this->assertSame(6.0, $obj->exposeGetCSSBorderWidthPoints('thick'));
+        $this->assertGreaterThan(0.0, $obj->exposeGetCSSBorderWidthPoints('8px'));
     }
 
     public function testGetCSSBorderWidthConvertsToUserUnits(): void
@@ -212,9 +229,16 @@ class CSSTest extends TestUtil
         $obj = $this->getInternalTestObject();
 
         $this->assertSame(-1, $obj->exposeGetCSSBorderDashStyle('none'));
+        $this->assertSame(-1, $obj->exposeGetCSSBorderDashStyle('hidden'));
         $this->assertSame(1, $obj->exposeGetCSSBorderDashStyle('dotted'));
         $this->assertSame(3, $obj->exposeGetCSSBorderDashStyle('dashed'));
+        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('double'));
+        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('groove'));
+        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('ridge'));
+        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('inset'));
+        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('outset'));
         $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('solid'));
+        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('custom'));
     }
 
     public function testGetCSSDefaultBorderStyleProvidesDefaults(): void
@@ -240,6 +264,47 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('rgba(', $out['lineColor']);
     }
 
+    public function testGetCSSBorderStyleCoversFallbackBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $two = $obj->exposeGetCSSBorderStyle('dotted blue !important');
+        $this->assertSame(1, $two['dashPhase']);
+        $this->assertGreaterThan(0.0, $two['lineWidth']);
+        $this->assertIsString($two['lineColor']);
+        /** @var string $twoLineColor */
+        $twoLineColor = $two['lineColor'];
+        $this->assertStringContainsString('rgba(', $twoLineColor);
+
+        $one = $obj->exposeGetCSSBorderStyle('solid');
+        $this->assertSame(0, $one['dashPhase']);
+        $this->assertGreaterThan(0.0, $one['lineWidth']);
+        $this->assertIsString($one['lineColor']);
+        /** @var string $oneLineColor */
+        $oneLineColor = $one['lineColor'];
+        $this->assertStringContainsString('rgba(', $oneLineColor);
+
+        $none = $obj->exposeGetCSSBorderStyle('none');
+        $this->assertSame(0, $none['lineWidth']);
+        $this->assertSame('black', $none['lineColor']);
+
+        $hidden = $obj->exposeGetCSSBorderStyle('hidden red');
+        $this->assertSame(0, $hidden['lineWidth']);
+        $this->assertSame([], $hidden['dashArray']);
+        $this->assertSame('black', $hidden['lineColor']);
+
+        $invalidColor = $obj->exposeGetCSSBorderStyle('1px solid transparent');
+        $this->assertSame('black', $invalidColor['lineColor']);
+
+        $importantOnly = $obj->exposeGetCSSBorderStyle('!important');
+        $this->assertSame(0, $importantOnly['dashPhase']);
+        $this->assertGreaterThan(0.0, $importantOnly['lineWidth']);
+        $this->assertIsString($importantOnly['lineColor']);
+        /** @var string $lineColor */
+        $lineColor = $importantOnly['lineColor'];
+        $this->assertStringContainsString('rgba(', $lineColor);
+    }
+
     public function testGetCSSPaddingParsesFourValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -250,6 +315,29 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['R']);
         $this->assertGreaterThan(0.0, $out['B']);
         $this->assertGreaterThan(0.0, $out['L']);
+    }
+
+    public function testGetCSSPaddingCoversRemainingForms(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initPageContext($obj);
+
+        $three = $obj->exposeGetCSSPadding('10% 20% 30%');
+        $this->assertGreaterThan(0.0, $three['T']);
+        $this->assertGreaterThan(0.0, $three['R']);
+        $this->bcAssertEqualsWithDelta($three['R'], $three['L']);
+
+        $two = $obj->exposeGetCSSPadding('1 2', 100.0);
+        $this->bcAssertEqualsWithDelta($two['T'], $two['B']);
+        $this->bcAssertEqualsWithDelta($two['R'], $two['L']);
+
+        $one = $obj->exposeGetCSSPadding('3', 100.0);
+        $this->bcAssertEqualsWithDelta($one['T'], $one['R']);
+        $this->bcAssertEqualsWithDelta($one['R'], $one['B']);
+        $this->bcAssertEqualsWithDelta($one['B'], $one['L']);
+
+        $defaults = $obj->exposeGetCSSPadding('1 2 3 4 5', 100.0);
+        $this->assertSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $defaults);
     }
 
     public function testGetCSSMarginConvertsAutoToZero(): void
@@ -264,6 +352,31 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['L']);
     }
 
+    public function testGetCSSMarginCoversRemainingForms(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initPageContext($obj);
+
+        $three = $obj->exposeGetCSSMargin('1 auto 3');
+        $this->assertGreaterThan(0.0, $three['T']);
+        $this->assertSame(0.0, $three['R']);
+        $this->assertGreaterThan(0.0, $three['B']);
+        $this->assertSame(0.0, $three['L']);
+
+        $two = $obj->exposeGetCSSMargin('2 4', 100.0);
+        $this->bcAssertEqualsWithDelta($two['T'], $two['B']);
+        $this->bcAssertEqualsWithDelta($two['R'], $two['L']);
+
+        $one = $obj->exposeGetCSSMargin('auto', 100.0);
+        $this->assertSame(0.0, $one['T']);
+        $this->assertSame(0.0, $one['R']);
+        $this->assertSame(0.0, $one['B']);
+        $this->assertSame(0.0, $one['L']);
+
+        $defaults = $obj->exposeGetCSSMargin('1 2 3 4 5', 100.0);
+        $this->assertSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $defaults);
+    }
+
     public function testGetCSSBorderMarginParsesTwoValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -274,6 +387,19 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['V']);
     }
 
+    public function testGetCSSBorderMarginCoversSingleValueAndDefault(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initPageContext($obj);
+
+        $one = $obj->exposeGetCSSBorderMargin('5');
+        $this->assertGreaterThan(0.0, $one['H']);
+        $this->bcAssertEqualsWithDelta($one['H'], $one['V']);
+
+        $defaults = $obj->exposeGetCSSBorderMargin('1 2 3', 100.0);
+        $this->assertSame(['H' => 0, 'V' => 0], $defaults);
+    }
+
     public function testIntToRomanConvertsTypicalNumber(): void
     {
         $obj = $this->getInternalTestObject();
@@ -281,6 +407,7 @@ class CSSTest extends TestUtil
         $out = $obj->exposeIntToRoman(14);
 
         $this->assertSame('XIV', $out);
+        $this->assertSame('I', $obj->exposeIntToRoman(1));
     }
 
     public function testIntToRomanReturnsDecimalAboveLimit(): void
@@ -313,6 +440,17 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('p{color:blue;}', $out);
     }
 
+    public function testTidyCSSHandlesEmptyInputAndAllMedia(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame('', $obj->exposeTidyCSS(''));
+
+        $out = $obj->exposeTidyCSS('@media all { h2 { color : green ; } }');
+
+        $this->assertSame('h2{color:green;}', $out);
+    }
+
     public function testExtractCSSpropertiesParsesSelectorsAndValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -323,6 +461,18 @@ class CSSTest extends TestUtil
         $vals = \array_values($out);
         $this->assertContains('color:red;', $vals);
         $this->assertContains('margin:0;', $vals);
+    }
+
+    public function testExtractCSSpropertiesHandlesEmptyAndOrphanBlocks(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame([], $obj->exposeExtractCSSproperties(''));
+
+        $out = $obj->exposeExtractCSSproperties('a{color:red;} orphan');
+
+        $this->assertCount(1, $out);
+        $this->assertContains('color:red;', \array_values($out));
     }
 
     public function testImplodeCSSDataPrefersLastDuplicateCommand(): void
@@ -339,6 +489,23 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('color:red', $out);
     }
 
+    public function testImplodeCSSDataSkipsEmptyEntriesAndInvalidCommands(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = [
+            ['c' => ''],
+            ['c' => 'broken;color:red;;margin:1px'],
+            ['c' => 'color:blue'],
+        ];
+
+        $out = $obj->exposeImplodeCSSData($css);
+
+        $this->assertStringContainsString('margin:1px', $out);
+        $this->assertStringContainsString('color:blue', $out);
+        $this->assertStringNotContainsString('color:red', $out);
+        $this->assertStringNotContainsString(';;', $out);
+    }
+
     public function testGetCSSArrayFromHTMLExtractsAndRemovesCssarrayTag(): void
     {
         $obj = $this->getInternalTestObject();
@@ -350,6 +517,25 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('<cssarray>', $html);
     }
 
+    public function testGetCSSArrayFromHTMLExtractsExternalAndInlineCss(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $cssfile = (string) \realpath(__DIR__ . '/fixtures/css/external.css');
+        $html = '<link rel="stylesheet" type="text/css" media="screen" href="skip.css">'
+            . '<link rel="stylesheet" type="text/css" media="print" href="' . $cssfile . '">'
+            . '<style media="screen">ignored{color:red;}</style>'
+            . '<style media="all">h4{font-weight:bold;}</style>'
+            . '<style media="print">h5{margin:0;}</style>';
+
+        $out = $obj->exposeGetCSSArrayFromHTML($html);
+        $vals = \array_values($out);
+
+        $this->assertContains('color:green;', $vals);
+        $this->assertContains('font-weight:bold;', $vals);
+        $this->assertContains('margin:0;', $vals);
+        $this->assertNotContains('color:red;', $vals);
+    }
+
     public function testGetCSSColorNormalizesValidColor(): void
     {
         $obj = $this->getInternalTestObject();
@@ -358,5 +544,12 @@ class CSSTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('rgba(', $out);
+    }
+
+    public function testGetCSSColorReturnsEmptyStringForInvalidColor(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame('', $obj->exposeGetCSSColor(''));
     }
 }
