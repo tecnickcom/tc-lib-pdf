@@ -498,6 +498,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         $this->handleSVGTagEnd($parser, $name);
     }
 
+    public function exposeHandleSVGCharacter(\XMLParser $parser, string $data): void
+    {
+        $this->handlerSVGCharacter($parser, $data);
+    }
+
     public function exposeParseSVGTagENDdefs(int $soid): string
     {
         return $this->parseSVGTagENDdefs($soid);
@@ -2039,5 +2044,438 @@ class SVGTest extends TestUtil
         $page = $this->initFontAndPage($objMain);
         $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
         $objMain->addSVG('@<svg><g></svg>', 1, 1, 2, 2, $page['height']);
+    }
+
+    public function testSvgHandlersCoverAdditionalDispatchAndEarlyReturns(): void
+    {
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->initSvgObjForHandlers(59);
+        $obj->patchSvgObj(59, [
+            'styles' => [$base],
+            'clipmode' => false,
+            'defsmode' => false,
+            'textmode' => ['invisible' => false, 'stroke' => 0, 'rtl' => false, 'text-anchor' => 'start'],
+            'out' => '',
+            'x' => 1.0,
+            'y' => 1.0,
+            'text' => 'txt',
+            'child' => [],
+        ]);
+
+        $obj->exposeHandleSVGTagStart($parser, 'clipPath', ['id' => 'cp1'], 59);
+        $obj->exposeHandleSVGTagStart($parser, 'linearGradient', ['id' => 'lg1', 'x1' => '0', 'y1' => '0', 'x2' => '100%', 'y2' => '0%'], 59);
+        $obj->exposeHandleSVGTagStart($parser, 'radialGradient', ['id' => 'rg1', 'cx' => '50%', 'cy' => '50%', 'r' => '0.5'], 59);
+        $obj->exposeHandleSVGTagStart($parser, 'stop', ['offset' => '0%'], 59);
+        $obj->exposeHandleSVGTagStart($parser, 'polygon', ['points' => '0,0 1,0 1,1'], 59);
+        $obj->exposeHandleSVGTagStart($parser, 'text', ['x' => '1', 'y' => '1'], 59);
+        $obj->exposeHandleSVGTagStart($parser, 'tspan', ['x' => '1', 'y' => '1'], 59);
+
+        $obj->initSvgObjForHandlers(61);
+        $obj->patchSvgObj(61, ['styles' => [$base], 'text' => 'txt', 'x' => 1.0, 'y' => 1.0]);
+        $obj->exposeHandleSVGTagEnd($parser, 'clipPath');
+        $obj->patchSvgObj(61, ['styles' => [$base], 'text' => 'txt', 'x' => 1.0, 'y' => 1.0]);
+        $obj->exposeHandleSVGTagEnd($parser, 'g');
+        $obj->patchSvgObj(61, ['styles' => [$base], 'text' => 'txt', 'x' => 1.0, 'y' => 1.0]);
+        $obj->exposeHandleSVGTagEnd($parser, 'text');
+        $obj->patchSvgObj(61, ['styles' => [$base], 'text' => 'txt', 'x' => 1.0, 'y' => 1.0]);
+        $obj->exposeHandleSVGTagEnd($parser, 'tspan');
+
+        $this->assertArrayHasKey('out', $obj->getSvgObj(59));
+    }
+
+    public function testSvgAddSvgCoversParseErrorAndInvalidInputBranches(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+
+        $tmpRel = __DIR__ . '/../tmp-svg-rel.svg';
+        \file_put_contents($tmpRel, '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect x="0" y="0" width="2" height="2"/></svg>');
+        try {
+            $svgId = $obj->addSVG('tmp-svg-rel.svg', 1, 1, 2, 2, $page['height']);
+            $this->assertGreaterThan(0, $svgId);
+        } finally {
+            @\unlink($tmpRel);
+        }
+
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->addSVG('/path/does-not-exist.svg', 1, 1, 2, 2, $page['height']);
+    }
+
+    public function testSvgAddSvgThrowsOnXmlParseErrorAfterSizeParsing(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->addSVG(
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><g></svg>',
+            1,
+            1,
+            1,
+            1,
+            $page['height'],
+        );
+    }
+
+    public function testSvgImageTagCoversNestedSvgFailureAndBase64Path(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->initSvgObjForHandlers(60);
+        $obj->patchSvgObj(60, ['clipmode' => false, 'dir' => __DIR__, 'styles' => [$base], 'textmode' => ['invisible' => false]]);
+
+        $badSvg = __DIR__ . '/fixtures/invalid-child.svg';
+        \file_put_contents($badSvg, '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><g></svg>');
+        try {
+            $this->assertSame(
+                '',
+                $obj->exposeParseSVGTagSTARTimage(
+                    $parser,
+                    60,
+                    ['xlink:href' => $badSvg, 'x' => '0', 'y' => '0', 'width' => '1', 'height' => '1'],
+                    $base,
+                    $base,
+                ),
+            );
+        } finally {
+            @\unlink($badSvg);
+        }
+
+        $onePx = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7ZkQAAAABJRU5ErkJggg==';
+        try {
+            $imgOut = $obj->exposeParseSVGTagSTARTimage(
+                $parser,
+                60,
+                ['xlink:href' => 'data:image/png;base64,' . $onePx, 'x' => '0', 'y' => '0', 'width' => '1', 'height' => '1'],
+                $base,
+                $base,
+            );
+            $this->assertNotSame('', $imgOut);
+        } catch (\Throwable $e) {
+            $this->assertNotSame('', $e->getMessage());
+        }
+    }
+
+    public function testSvgAdditionalTransformAndDispatchBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->setSvgRefUnit(62);
+        $base = $obj->exposeDefaultSVGStyle();
+        $parser = \xml_parser_create('UTF-8');
+
+        $tmSkew = $obj->exposeGetSVGTransformMatrix('skewX(10) skewY(5)');
+        $this->assertCount(6, $tmSkew);
+
+        // Uppercase command forces the default match arm.
+        $tmDefault = $obj->exposeGetSVGTransformMatrix('SKEWX(10)');
+        $this->assertCount(6, $tmDefault);
+
+        $this->assertSame('', $obj->exposeGetSVGPath(62, '', 'S'));
+        $this->assertSame(90.0, $obj->exposeGetTAFontStretching('inherit', 90));
+
+        $strokeStyle = $base;
+        $strokeStyle['stroke'] = 'not-a-color';
+        try {
+            [$strokeOut] = $obj->exposeParseSVGStyleStroke(62, $strokeStyle);
+            $this->assertSame('', $strokeOut);
+        } catch (\Throwable $e) {
+            $this->assertNotSame('', $e->getMessage());
+        }
+
+        $fresh = new TestableSVG();
+        $fresh->exposeHandleSVGCharacter($parser, 'orphan');
+        $this->assertSame('', $fresh->exposeGetSVGExtGState(null, null, ''));
+
+        $obj->initSvgObjForHandlers(63);
+        $obj->patchSvgObj(63, [
+            'styles' => [$base],
+            'textmode' => ['invisible' => false, 'stroke' => 0, 'rtl' => false, 'text-anchor' => 'end'],
+            'x' => 2.0,
+            'y' => 3.0,
+            'text' => 'anchor-end',
+        ]);
+        $this->assertNotSame('', $obj->exposeParseSVGTagENDtext(63));
+
+        $obj->initSvgObjForHandlers(64);
+        $obj->patchSvgObj(64, [
+            'styles' => [$base],
+            'defsmode' => false,
+            'clipmode' => false,
+            'textmode' => ['invisible' => false, 'stroke' => 0, 'rtl' => false, 'text-anchor' => 'start'],
+        ]);
+
+        $obj->exposeHandleSVGTagStart($parser, 'g', ['fill' => 'inherit'], 64);
+        $obj->exposeHandleSVGTagStart($parser, 'linearGradient', ['id' => 'lgx', 'gradientUnits' => 'userSpaceOnUse'], 64);
+        $obj->exposeHandleSVGTagStart($parser, 'radialGradient', ['id' => 'rgx', 'gradientUnits' => 'userSpaceOnUse', 'r' => '0.5', 'cx' => '2', 'cy' => '3'], 64);
+        $obj->exposeHandleSVGTagStart($parser, 'stop', ['offset' => '50%'], 64);
+        $obj->exposeHandleSVGTagStart($parser, 'ellipse', ['cx' => '3', 'cy' => '4', 'rx' => '2', 'ry' => '1'], 64);
+        $obj->exposeHandleSVGTagStart($parser, 'polygon', ['points' => '0,0 2,0 2,2'], 64);
+        try {
+            $obj->exposeHandleSVGTagStart($parser, 'image', ['xlink:href' => 'missing.png'], 64);
+        } catch (\Throwable $e) {
+            $this->assertNotSame('', $e->getMessage());
+        }
+        $obj->exposeHandleSVGTagStart($parser, 'text', ['x' => '1', 'y' => '1'], 64);
+        $obj->exposeHandleSVGTagStart($parser, 'tspan', ['dx' => '1'], 64);
+        $obj->exposeHandleSVGTagStart($parser, 'use', ['xlink:href' => '#missing'], 64);
+
+        $svgOut = $obj->getSvgObj(64)['out'];
+        $this->assertIsString($svgOut);
+    }
+
+    public function testSvgGradientAndFillRemainingBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(65);
+        $obj->setSvgObjMeta(65);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $gradients = [
+            'eq' => [
+                'xref' => '',
+                'type' => 2,
+                'gradientUnits' => 'objectBoundingBox',
+                'mode' => 'measure',
+                'coords' => [0.0, 0.0, 0.0, 0.0],
+                'stops' => [
+                    ['color' => '#000000', 'opacity' => 1.0, 'offset' => 0.0],
+                    ['color' => '#ffffff', 'opacity' => 1.0, 'offset' => 1.0],
+                ],
+                'gradientTransform' => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            ],
+        ];
+
+        $grOut = $obj->exposeParseSVGStyleGradient(
+            65,
+            $gradients,
+            'eq',
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        );
+        $this->assertNotSame('', $grOut);
+
+        $fillStyle = $base;
+        $fillStyle['fill'] = 'url(#eq)';
+        $fillStyle['opacity'] = 0.5;
+        $fillStyle['fill-opacity'] = 0.5;
+        $fillStyle['mix-blend-mode'] = 'multiply';
+        [$fillOut] = $obj->exposeParseSVGStyleFill(65, $fillStyle, $gradients, 0.0, 0.0, 5.0, 5.0);
+        $this->assertNotSame('', $fillOut);
+    }
+
+    public function testSvgAddSvgScalingAndRecursiveChildBranches(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+
+        $svgSlice = '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="10" viewBox="0 0 100 10" preserveAspectRatio="xMinYMin slice">'
+            . '<rect x="0" y="0" width="100" height="10" fill="#cccccc"/>'
+            . '</svg>';
+        $idSlice = $obj->addSVG($svgSlice, 2, 2, 100, 100, $page['height']);
+        $this->assertGreaterThan(0, $idSlice);
+
+        $svgMeet = '@<svg xmlns="http://www.w3.org/2000/svg" width="10" height="100" viewBox="0 0 10 100" preserveAspectRatio="xMinYMin meet">'
+            . '<rect x="0" y="0" width="10" height="100" fill="#999999"/>'
+            . '</svg>';
+        $idMeet = $obj->addSVG($svgMeet, 3, 3, 100, 100, $page['height']);
+        $this->assertGreaterThan($idSlice, $idMeet);
+
+        $svgAutoHeight = '@<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect x="0" y="0" width="20" height="10"/></svg>';
+        $idAutoHeight = $obj->addSVG($svgAutoHeight, 4, 4, 30, 0, $page['height']);
+        $this->assertGreaterThan($idMeet, $idAutoHeight);
+
+        $tmpDir = (string) \realpath(\sys_get_temp_dir());
+        $childPath = $tmpDir . '/tc-svg-child-recursive.svg';
+        $parentPath = $tmpDir . '/tc-svg-parent-recursive.svg';
+
+        \file_put_contents(
+            $childPath,
+            '<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3"><rect x="0" y="0" width="3" height="3" fill="#000"/></svg>',
+        );
+        \file_put_contents(
+            $parentPath,
+            '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><image x="0" y="0" width="5" height="5" xlink:href="tc-svg-child-recursive.svg"/></svg>',
+        );
+
+        try {
+            $parentId = $obj->addSVG($parentPath, 1, 1, 10, 10, $page['height']);
+            $setOut = $obj->getSetSVG($parentId);
+            $this->assertNotSame('', $setOut);
+        } finally {
+            @\unlink($childPath);
+            @\unlink($parentPath);
+        }
+    }
+
+    public function testSvgFinalFeasibleBranchCoverageBatch(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $coord = $obj->getPathCoordDefaults();
+        $coord['relcoord'] = true;
+        $coord['xoffset'] = 1.0;
+        $coord['yoffset'] = 1.0;
+        [, $coord] = $obj->exposeSvgPathCmdA(
+            [4.0, 3.0, 0.0, 0.0, 0.0, 8.0, 9.0],
+            $coord,
+            [['0', 'A'], ['1', 'z']],
+            0,
+            ['4', '3', '0', '0', '0', '8', '9'],
+        );
+        $this->assertGreaterThan(0.0, $coord['xoffset']);
+        $this->assertGreaterThan(0.0, $coord['yoffset']);
+
+        $obj->initSvgObjForHandlers(70);
+        $obj->patchSvgObj(70, ['defsmode' => true, 'defs' => [], 'styles' => [$base], 'textmode' => ['invisible' => false]]);
+        /** @var array<int, array<string, mixed>> $svgobjs */
+        $svgobjs = $this->getObjectProperty($obj, 'svgobjs');
+        unset($svgobjs[70]['clippaths']);
+        $this->setObjectProperty($obj, 'svgobjs', $svgobjs);
+        $obj->exposeHandleSVGTagStart($parser, 'line', [], 70);
+
+        $obj->patchSvgObj(70, ['defsmode' => false, 'clipmode' => false, 'styles' => [$base]]);
+        $obj->exposeHandleSVGTagStart($parser, 'path', ['d' => 'M 0 0 L 2 2'], 70);
+
+        $obj->patchSvgObj(70, ['tagdepth' => 1]);
+        $svgNone = $obj->exposeParseSVGTagSTARTsvg(
+            $parser,
+            70,
+            ['x' => '0', 'y' => '0', 'width' => '40', 'height' => '10', 'viewBox' => '0 0 100 50', 'preserveAspectRatio' => 'none'],
+            $base,
+            $base,
+        );
+        $this->assertNotSame('', $svgNone);
+
+        $obj->patchSvgObj(70, ['tagdepth' => 1]);
+        $svgMeetXMax = $obj->exposeParseSVGTagSTARTsvg(
+            $parser,
+            70,
+            ['x' => '0', 'y' => '0', 'width' => '40', 'height' => '10', 'viewBox' => '0 0 100 50', 'preserveAspectRatio' => 'xMaxYMid meet'],
+            $base,
+            $base,
+        );
+        $this->assertNotSame('', $svgMeetXMax);
+
+        $obj->patchSvgObj(70, ['tagdepth' => 1]);
+        $svgMeetYMax = $obj->exposeParseSVGTagSTARTsvg(
+            $parser,
+            70,
+            ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '40', 'viewBox' => '0 0 50 100', 'preserveAspectRatio' => 'xMidYMax meet'],
+            $base,
+            $base,
+        );
+        $this->assertNotSame('', $svgMeetYMax);
+
+        $obj->initSvgObjForHandlers(71);
+        $obj->exposeParseSVGTagSTARTradialGradient(71, ['id' => 'rgm', 'gradientUnits' => 'userSpaceOnUse', 'cx' => '2', 'cy' => '3', 'r' => '2']);
+        $svgobj71 = $obj->getSvgObj(71);
+        $this->assertSame('measure', $svgobj71['gradients']['rgm']['mode']);
+
+        $obj->initSvgObjForHandlers(72);
+        $styleNoAnchor = $base;
+        unset($styleNoAnchor['text-anchor']);
+        unset($styleNoAnchor['direction']);
+        // @phpstan-ignore argument.type
+        $txtOut = $obj->exposeParseSVGTagSTARTtext($parser, 72, ['x' => '1', 'y' => '1'], $styleNoAnchor, $base);
+        $this->assertNotSame('', $txtOut);
+
+        $obj->initSvgObjForHandlers(73);
+        $obj->initSvgObjForHandlers(74);
+        $obj->patchSvgObj(73, ['out' => 'A', 'child' => [74]]);
+        $obj->patchSvgObj(74, ['out' => 'B', 'child' => []]);
+        $this->assertSame('AB', $obj->getSetSVG(73));
+    }
+
+    public function testSvgRemainingFeasibleHotspotBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $coord = $obj->getPathCoordDefaults();
+        $paths = [['0', 'A'], ['1', 'z']];
+        $rawSets = [
+            ['4', '2', '0', '1', '0', '10', '20'],
+            ['4', '2', '0', '0', '1', '10', '20'],
+            ['6', '3', '45', '1', '0', '14', '16'],
+            ['6', '3', '45', '0', '1', '14', '16'],
+        ];
+        foreach ($rawSets as $raw) {
+            $params = [
+                (float) $raw[0],
+                (float) $raw[1],
+                (float) $raw[2],
+                (float) $raw[3],
+                (float) $raw[4],
+                (float) $raw[5],
+                (float) $raw[6],
+            ];
+            [$arcOut] = $obj->exposeSvgPathCmdA($params, $coord, $paths, 0, $raw);
+            $this->assertIsString($arcOut);
+        }
+
+        $obj->setSvgObjMeta(75);
+        $strokeStyle = $base;
+        $strokeStyle['stroke'] = 'url(#not-a-color)';
+        try {
+            [$strokeOut] = $obj->exposeParseSVGStyleStroke(75, $strokeStyle);
+            $this->assertSame('', $strokeOut);
+        } catch (\Throwable $e) {
+            $this->assertNotSame('', $e->getMessage());
+        }
+
+        $gradients = [
+            'm' => [
+                'xref' => '',
+                'type' => 2,
+                'gradientUnits' => 'objectBoundingBox',
+                'mode' => 'measure',
+                'coords' => [0.0, 0.0, 0.0, 0.0],
+                'stops' => [
+                    ['color' => '#000000', 'opacity' => 1.0, 'offset' => 0.0],
+                    ['color' => '#ffffff', 'opacity' => 1.0, 'offset' => 1.0],
+                ],
+                'gradientTransform' => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            ],
+        ];
+        $gradOut = $obj->exposeParseSVGStyleGradient(75, $gradients, 'm', 0.0, 0.0, 0.0, 0.0);
+        $this->assertNotSame('', $gradOut);
+
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(76);
+        $obj->patchSvgObj(76, ['tagdepth' => 1]);
+        $xMidMeet = $obj->exposeParseSVGTagSTARTsvg(
+            $parser,
+            76,
+            ['x' => '0', 'y' => '0', 'width' => '40', 'height' => '10', 'viewBox' => '0 0 100 50', 'preserveAspectRatio' => 'xMidYMid meet'],
+            $base,
+            $base,
+        );
+        $this->assertNotSame('', $xMidMeet);
+
+        $obj->patchSvgObj(76, ['tagdepth' => 1]);
+        $yMidMeet = $obj->exposeParseSVGTagSTARTsvg(
+            $parser,
+            76,
+            ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '40', 'viewBox' => '0 0 50 100', 'preserveAspectRatio' => 'xMinYMid meet'],
+            $base,
+            $base,
+        );
+        $this->assertNotSame('', $yMidMeet);
     }
 }

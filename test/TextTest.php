@@ -97,6 +97,14 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutTextPosMatrix($raw, $textMatrix);
     }
 
+    /** @phpstan-param array<int, int|float> $matrix */
+    public function exposeRawGetOutTextPosMatrix(string $raw, array $matrix): string
+    {
+        /** @var array{float, float, float, float, float, float}|array<int, int|float> $matrix */
+        // @phpstan-ignore argument.type
+        return $this->getOutTextPosMatrix($raw, $matrix);
+    }
+
     public function exposeGetOutTextShowing(string $str, string $mode = 'Tj'): string
     {
         return $this->getOutTextShowing($str, $mode);
@@ -218,6 +226,34 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims|array{} $dim
+     * @phpstan-param TextShadow|null $shadow
+     */
+    public function exposeRawGetOutTextLine(
+        string $txt,
+        array $ordarr,
+        array $dim,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $strokewidth = 0,
+        float $wordspacing = 0,
+        float $leading = 0,
+        float $rise = 0,
+        bool $fill = true,
+        bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
+        bool $clip = false,
+        ?array $shadow = null,
+    ): string {
+        // @phpstan-ignore argument.type
+        return $this->getOutTextLine($txt, $ordarr, $dim, $posx, $posy, $width, $strokewidth, $wordspacing, $leading, $rise, $fill, $stroke, $underline, $linethrough, $overline, $clip, $shadow);
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
         * @phpstan-param TTextDims|array{} $dim
      */
     public function exposeOutTextLine(
@@ -259,6 +295,32 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
             $overline,
             $clip,
         );
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims|array{} $dim
+     */
+    public function exposeRawOutTextLine(
+        string $txt,
+        array $ordarr,
+        array $dim,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $strokewidth = 0,
+        float $wordspacing = 0,
+        float $leading = 0,
+        float $rise = 0,
+        bool $fill = true,
+        bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
+        bool $clip = false,
+    ): string {
+        // @phpstan-ignore argument.type
+        return $this->outTextLine($txt, $ordarr, $dim, $posx, $posy, $width, $strokewidth, $wordspacing, $leading, $rise, $fill, $stroke, $underline, $linethrough, $overline, $clip);
     }
 
     /**
@@ -319,11 +381,73 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param array<int, TextLinePos> $lines
+     * @phpstan-param TextShadow|null $shadow
+     */
+    public function exposeRawOutTextLines(
+        array $ordarr,
+        array $lines,
+        float $posx,
+        float $posy,
+        float $width,
+        float $offset,
+        float $fontascent,
+        float $linespace = 0,
+        float $strokewidth = 0,
+        float $wordspacing = 0,
+        float $leading = 0,
+        float $rise = 0,
+        string $halign = '',
+        bool $jlast = true,
+        bool $fill = true,
+        bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
+        bool $clip = false,
+        ?array $shadow = null,
+    ): string {
+        return $this->outTextLines(
+            $ordarr,
+            $lines,
+            $posx,
+            $posy,
+            $width,
+            $offset,
+            $fontascent,
+            $linespace,
+            $strokewidth,
+            $wordspacing,
+            $leading,
+            $rise,
+            $halign,
+            $jlast,
+            $fill,
+            $stroke,
+            $underline,
+            $linethrough,
+            $overline,
+            $clip,
+            $shadow,
+        );
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims $dim
      */
     public function exposeGetJustifiedString(string $txt, array $ordarr, array $dim, float $width = 0): string
     {
         return $this->getJustifiedString($txt, $ordarr, $dim, $width);
+    }
+
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-return TTextDims
+     */
+    public function exposeGetOrdArrDims(array $ordarr): array
+    {
+        return $this->font->getOrdArrDims($ordarr); // @phpstan-ignore argument.type
     }
 
     /**
@@ -400,6 +524,22 @@ class TextTest extends TestUtil
         $this->fail('Property not found: ' . $name);
     }
 
+    private function setObjectProperty(object $obj, string $name, mixed $value): void
+    {
+        $ref = new \ReflectionClass($obj);
+        while ($ref !== false) {
+            if ($ref->hasProperty($name)) {
+                $prop = $ref->getProperty($name);
+                $prop->setAccessible(true);
+                $prop->setValue($obj, $value);
+                return;
+            }
+            $ref = $ref->getParentClass();
+        }
+
+        $this->fail('Property not found: ' . $name);
+    }
+
     private function initFont(\Com\Tecnick\Pdf\Tcpdf $obj): void
     {
         /** @var \Com\Tecnick\Pdf\Font\Stack $font */
@@ -408,6 +548,16 @@ class TextTest extends TestUtil
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
+    }
+
+    private function initUnicodeFont(\Com\Tecnick\Pdf\Tcpdf $obj): void
+    {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font->insert($pon, 'dejavusans', '', 10, null, null, $fontfile);
     }
 
     public function testGetLastBBoxDefaultsToZeroBox(): void
@@ -528,6 +678,7 @@ class TextTest extends TestUtil
         $this->assertSame(7, $obj->exposeGetTextRenderingMode(false, false, true));
 
         $this->assertStringContainsString('Td raw', $obj->exposeGetOutTextPosXY('raw', 1, 2, 'Td'));
+        $this->assertStringContainsString('TD raw', $obj->exposeGetOutTextPosXY('raw', 1, 2, 'TD'));
         $this->assertSame('T* raw', $obj->exposeGetOutTextPosXY('raw', 0, 0, 'T*'));
         $this->assertSame('', $obj->exposeGetOutTextPosXY('raw', 0, 0, 'NOPE'));
 
@@ -647,5 +798,122 @@ class TextTest extends TestUtil
         $this->assertNotEmpty($hypWord);
         $this->assertNotEmpty($hypText);
         $this->assertSame($word, $obj->exposeHyphenateWordOrdArr([], $word));
+    }
+
+    public function testTextAdditionalBranchesForCoverage(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+
+        $cellNoBox = $obj->getTextCell('NoBox', 1, 2, 0, 0, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
+        $this->assertNotSame('', $cellNoBox);
+
+        $obj->addTextCell('', -1, 1, 1, 0, 0, 0, 0, 'T', '');
+        $obj->addTextCell('AutoAlign', -1, 1, 1, 0, 0, 0, 0, 'T', '');
+
+        $this->assertSame('', $obj->exposeRawOutTextLines([], [], 0, 0, 0, 0, 0));
+
+        $obj->setTexHyphenPatterns(['hyphen' => 'hy3phen']);
+        $obj->enableZeroWidthBreakPoints(true);
+        [, $ordarrPrepared] = $obj->exposePrepareText('hyphen,word');
+        $this->assertNotEmpty($ordarrPrepared);
+
+        $ordarr = $obj->exposeHyphenateWordOrdArr(['testing' => 'te3st2ing'], $obj->exposeStrToOrdArr('testing'));
+        $dim = $obj->exposeGetOrdArrDims($ordarr);
+        // @phpstan-ignore argument.type
+        $lines = $obj->exposeSplitLines($ordarr, $dim, 5);
+        $this->assertNotEmpty($lines);
+
+        $this->setObjectProperty($obj, 'isunicode', true);
+        $justOrdArr = $obj->exposeStrToOrdArr('word word');
+        $justDim = $obj->exposeGetOrdArrDims($justOrdArr);
+        // @phpstan-ignore argument.type
+        $just = $obj->exposeGetJustifiedString('word word', $justOrdArr, $justDim, 20);
+        $this->assertNotSame('', $just);
+
+        $tmp = \tempnam(\sys_get_temp_dir(), 'tc-hyp-');
+        $this->assertNotFalse($tmp);
+        \file_put_contents((string) $tmp, "\\patterns{\n\n hy4phen   test1ing \n}");
+        $parsed = $obj->loadTexHyphenPatterns((string) $tmp);
+        @\unlink((string) $tmp);
+        $this->assertArrayHasKey('hyphen', $parsed);
+
+        $this->setObjectProperty($obj, 'defPageContentEnabled', true);
+        $obj->exposeSetPageContext($page['pid']);
+        $defaultOut = $obj->defaultPageContent();
+        $this->assertStringContainsString('BT', $defaultOut);
+    }
+
+    public function testTextRemainingBranchCoverageBatch(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $obj->getTextLine('Hello', 10, 20, 0, 0, 0, 0, 0, true, false, false, false, false, false, '', 'M');
+        $middleLtr = $obj->getLastBBox();
+        $obj->getTextLine('Hello', 10, 20, 0, 0, 0, 0, 0, true, false, false, false, false, false, 'R', 'M');
+        $middleRtl = $obj->getLastBBox();
+        $obj->getTextLine('Hello', 10, 20, 0, 0, 0, 0, 0, true, false, false, false, false, false, '', 'E');
+        $endLtr = $obj->getLastBBox();
+        $obj->getTextLine('Hello', 10, 20, 0, 0, 0, 0, 0, true, false, false, false, false, false, 'R', 'E');
+        $endRtl = $obj->getLastBBox();
+
+        $this->assertLessThan(10, $middleLtr['x']);
+        $this->assertGreaterThan(10, $middleRtl['x']);
+        $this->assertLessThan(10, $endLtr['x']);
+        $this->assertGreaterThan(10, $endRtl['x']);
+
+        $shadow = [
+            'xoffset' => -1.5,
+            'yoffset' => -2.0,
+            'opacity' => 0.5,
+            'mode' => 'Normal',
+            'color' => 'gray',
+        ];
+        $shadowOut = $obj->getTextLine('Hello world', 5, 6, 0, 0, 0, 0, 0, true, false, false, false, false, false, '', '', $shadow);
+        $this->assertSame(2, \substr_count($shadowOut, 'BT '));
+        $this->assertStringContainsString('/GS', $shadowOut);
+
+        $soft = $obj->exposeStrToOrdArr("test\u{00AD}ing words");
+        $softDim = $obj->exposeGetOrdArrDims($soft);
+        $softLines = $obj->exposeSplitLines($soft, $softDim, 5);
+        $this->assertGreaterThan(1, \count($softLines));
+        $lastKey = \array_key_last($softLines);
+        $this->assertNotNull($lastKey);
+        $lastLine = $softLines[$lastKey];
+        $this->assertGreaterThan(0, $lastLine['chars']);
+
+        $this->assertSame('', $obj->exposeRawGetOutTextLine('Hello', [], []));
+        $this->assertSame('', $obj->exposeRawOutTextLine('Hello', [], []));
+        $this->assertSame('', $obj->exposeRawGetOutTextPosMatrix('raw', [1, 2]));
+
+        $unicode = $this->getInternalTestObject();
+        $this->initUnicodeFont($unicode);
+        $unicode->addPage();
+        $this->setObjectProperty($unicode, 'isunicode', true);
+
+        [$unicodeText, $unicodeOrdArr, $unicodeDim] = $unicode->exposePrepareText("A \u{05D0} B", 'R');
+        $this->assertNotEmpty($unicodeOrdArr);
+        $this->assertGreaterThan(0, $unicodeDim['totwidth']);
+
+        $unicodePlain = $unicode->exposeGetJustifiedString($unicodeText, $unicodeOrdArr, $unicodeDim, 0);
+        $unicodeJustified = $unicode->exposeGetJustifiedString($unicodeText, $unicodeOrdArr, $unicodeDim, 40);
+        $this->assertStringContainsString('Tj', $unicodePlain);
+        $this->assertStringContainsString('TJ', $unicodeJustified);
+
+        $invalid = \tempnam(\sys_get_temp_dir(), 'tc-hyp-invalid-');
+        $this->assertNotFalse($invalid);
+        \file_put_contents((string) $invalid, "% comment only\n\\patternsMissing{hy4phen}");
+
+        try {
+            $obj->loadTexHyphenPatterns((string) $invalid);
+            $this->fail('Expected invalid hyphenation pattern section exception');
+        } catch (\Com\Tecnick\Pdf\Exception $e) {
+            $this->assertStringContainsString('Invalid hyphenation pattern section', $e->getMessage());
+        } finally {
+            @\unlink((string) $invalid);
+        }
     }
 }
