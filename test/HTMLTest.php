@@ -16,6 +16,9 @@
 
 namespace Test;
 
+/**
+ * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
+ */
 class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 {
     public function exposeSanitizeHTML(string $html): string
@@ -23,11 +26,13 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->sanitizeHTML($html);
     }
 
+    /** @phpstan-return THTMLAttrib */
     public function exposeGetHTMLRootProperties(): array
     {
         return $this->getHTMLRootProperties();
     }
 
+    /** @phpstan-return array<int, THTMLAttrib> */
     public function exposeGetHTMLDOM(string $html): array
     {
         return $this->getHTMLDOM($html);
@@ -48,16 +53,22 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->pageBreak();
     }
 
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeProcessHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
     {
         $this->processHTMLDOMText($dom, $element, $key, $parent);
     }
 
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeInheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
         $this->inheritHTMLProperties($dom, $key, $parent);
     }
 
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<int, string> $elm
+     */
     public function exposeProcessHTMLDOMClosingTag(
         array &$dom,
         array $elm,
@@ -68,6 +79,11 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->processHTMLDOMClosingTag($dom, $elm, $key, $parent, $cssarray);
     }
 
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<string, string> $css
+     * @phpstan-param array<int> $level
+     */
     public function exposeProcessHTMLDOMOpeningTag(
         array &$dom,
         array $css,
@@ -79,6 +95,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->processHTMLDOMOpeningTag($dom, $css, $level, $element, $key, $thead);
     }
 
+    /** @phpstan-param THTMLAttrib $elm */
     public function exposeParseHTMLText(
         array $elm,
         float &$tpx,
@@ -90,6 +107,9 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 }
 
+/**
+ * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
+ */
 class HTMLTest extends TestUtil
 {
     public static function setUpBeforeClass(): void
@@ -127,11 +147,69 @@ class HTMLTest extends TestUtil
 
     private function initFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): void
     {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
         $obj->addPage();
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     *
+     * @phpstan-return THTMLAttrib
+     */
+    private function makeHtmlNode(array $overrides = []): array
+    {
+        $node = [
+            'align' => '',
+            'attribute' => [],
+            'bgcolor' => '',
+            'block' => false,
+            'border' => [],
+            'clip' => false,
+            'cols' => 0,
+            'content' => '',
+            'cssdata' => [],
+            'csssel' => [],
+            'dir' => 'ltr',
+            'elkey' => 0,
+            'fgcolor' => 'black',
+            'fill' => false,
+            'font-stretch' => 100.0,
+            'fontname' => 'helvetica',
+            'fontsize' => 10.0,
+            'fontstyle' => '',
+            'height' => 0.0,
+            'hide' => false,
+            'letter-spacing' => 0.0,
+            'line-height' => 1.0,
+            'listtype' => '',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'opening' => false,
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'parent' => 0,
+            'rows' => 0,
+            'self' => false,
+            'stroke' => 0.0,
+            'strokecolor' => '',
+            'style' => [],
+            'tag' => true,
+            'text-indent' => 0.0,
+            'text-transform' => '',
+            'thead' => '',
+            'trids' => [],
+            'value' => '',
+            'width' => 0.0,
+            'x' => 0.0,
+            'y' => 0.0,
+        ];
+        /** @var THTMLAttrib $typed */
+        $typed = \array_replace($node, $overrides);
+
+        return $typed;
     }
 
     public function testStrTrimHelpers(): void
@@ -178,8 +256,8 @@ class HTMLTest extends TestUtil
     {
         $obj = $this->getTestObject();
         $dom = [
-            0 => ['value' => 'root', 'attribute' => [], 'parent' => 0],
-            1 => ['value' => 'div', 'attribute' => ['id' => 'main', 'class' => 'hero card'], 'parent' => 0],
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode(['value' => 'div', 'attribute' => ['id' => 'main', 'class' => 'hero card']]),
         ];
 
         $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 1, ' div.hero'));
@@ -191,8 +269,8 @@ class HTMLTest extends TestUtil
     {
         $obj = $this->getTestObject();
         $dom = [
-            0 => ['parent' => 0, 'value' => 'root', 'attribute' => [], 'csssel' => [], 'cssdata' => []],
-            1 => ['parent' => 0, 'value' => 'p', 'attribute' => ['class' => 'x', 'style' => 'font-weight:bold;'], 'csssel' => [], 'cssdata' => []],
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode(['value' => 'p', 'attribute' => ['class' => 'x', 'style' => 'font-weight:bold;']]),
         ];
         $css = [
             '0010 p.x' => 'color:red;',
@@ -214,22 +292,11 @@ class HTMLTest extends TestUtil
     {
         $obj = $this->getTestObject();
         $dom = [
-            0 => [
-                'style' => [], 'attribute' => [], 'dir' => 'ltr', 'hide' => false, 'fontname' => 'helvetica',
-                'listtype' => '', 'text-indent' => 0.0, 'text-transform' => '', 'fontsize' => 10.0,
-                'font-stretch' => 100.0, 'letter-spacing' => 0.0, 'line-height' => 1.0, 'fontstyle' => '',
-                'fgcolor' => 'black', 'bgcolor' => '', 'align' => '', 'padding' => ['T' => 0.0,'R' => 0.0,'B' => 0.0,'L' => 0.0],
-                'margin' => ['T' => 0.0,'R' => 0.0,'B' => 0.0,'L' => 0.0], 'border' => [], 'value' => 'root',
-            ],
-            1 => [
-                'style' => [],
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode([
+                'value' => 'div',
                 'attribute' => ['style' => 'direction:rtl;display:none;text-transform:uppercase;text-align:center;'],
-                'dir' => 'ltr', 'hide' => false, 'fontname' => 'helvetica', 'listtype' => '', 'text-indent' => 0.0,
-                'text-transform' => '', 'fontsize' => 10.0, 'font-stretch' => 100.0, 'letter-spacing' => 0.0,
-                'line-height' => 1.0, 'fontstyle' => '', 'fgcolor' => 'black', 'bgcolor' => '', 'align' => '',
-                'padding' => ['T' => 0.0,'R' => 0.0,'B' => 0.0,'L' => 0.0], 'margin' => ['T' => 0.0,'R' => 0.0,'B' => 0.0,'L' => 0.0],
-                'border' => [], 'value' => 'div',
-            ],
+            ]),
         ];
 
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
@@ -244,8 +311,8 @@ class HTMLTest extends TestUtil
     {
         $obj = $this->getTestObject();
         $dom = [
-            0 => ['fontsize' => 10.0, 'fontstyle' => '', 'rtl' => false],
-            1 => [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
                 'value' => 'a',
                 'attribute' => [],
                 'style' => [],
@@ -254,8 +321,7 @@ class HTMLTest extends TestUtil
                 'parent' => 0,
                 'align' => '',
                 'hide' => false,
-                'border' => [],
-            ],
+            ]),
         ];
 
         $obj->parseHTMLAttributes($dom, 1, false);
@@ -268,7 +334,7 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $out = $obj->getHTMLCell('<p>Hello</p>', 0, 0, 20, 6);
-        $this->assertIsString($out);
+        $this->assertSame('', $out);
     }
 
     public function testSanitizeHTMLRemovesHeadAndStyleBlocks(): void
@@ -322,7 +388,9 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $before = $this->getObjectProperty($obj, 'page')->getPageId();
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $before = $page->getPageId();
         $after = $obj->exposePageBreak();
 
         $this->assertGreaterThanOrEqual($before, $after);
@@ -332,8 +400,8 @@ class HTMLTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $dom = [
-            0 => ['text-transform' => 'uppercase'],
-            1 => ['value' => ''],
+            0 => $this->makeHtmlNode(['text-transform' => 'uppercase']),
+            1 => $this->makeHtmlNode(['value' => '']),
         ];
 
         $obj->exposeProcessHTMLDOMText($dom, 'a&amp;b', 1, 0);
@@ -345,8 +413,8 @@ class HTMLTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $dom = [
-            0 => ['align' => 'L', 'fontname' => 'helvetica'],
-            1 => ['align' => 'R'],
+            0 => $this->makeHtmlNode(['align' => 'L', 'fontname' => 'helvetica']),
+            1 => $this->makeHtmlNode(['align' => 'R']),
         ];
 
         $obj->exposeInheritHTMLProperties($dom, 1, 0);
@@ -360,6 +428,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
+        /** @var THTMLAttrib $root */
+        $root = $root;
         $root['parent'] = 0;
         $root['value'] = 'root';
         $dom = [
@@ -379,6 +449,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
+        /** @var THTMLAttrib $root */
+        $root = $root;
         $root['parent'] = 0;
         $dom = [
             0 => $root,
@@ -396,7 +468,7 @@ class HTMLTest extends TestUtil
     public function testParseHTMLTextReturnsEmptyString(): void
     {
         $obj = $this->getInternalTestObject();
-        $elm = ['value' => 'x'];
+        $elm = $this->makeHtmlNode(['value' => 'x']);
         $tpx = 1.0;
         $tpy = 2.0;
         $tpw = 3.0;

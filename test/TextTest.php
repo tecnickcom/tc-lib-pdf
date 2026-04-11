@@ -16,6 +16,12 @@
 
 namespace Test;
 
+/**
+ * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
+ * @phpstan-import-type TTMatrix from \Com\Tecnick\Pdf\Graph\Base
+ * @phpstan-import-type TextShadow from \Com\Tecnick\Pdf\Text
+ * @phpstan-import-type TextLinePos from \Com\Tecnick\Pdf\Text
+ */
 class TestableText extends \Com\Tecnick\Pdf\Tcpdf
 {
     public function exposeGetOutUTOLine(float $pntx, float $pnty, float $pwidth, float $psize): string
@@ -73,9 +79,22 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutTextStateOperatorw($raw, $value);
     }
 
+    /** @phpstan-param array<int, int|float> $matrix */
     public function exposeGetOutTextPosMatrix(string $raw, array $matrix = [1, 0, 0, 1, 0, 0]): string
     {
-        return $this->getOutTextPosMatrix($raw, $matrix);
+        if (\count($matrix) !== 6) {
+            return '';
+        }
+        /** @var TTMatrix $textMatrix */
+        $textMatrix = [
+            (float) $matrix[0],
+            (float) $matrix[1],
+            (float) $matrix[2],
+            (float) $matrix[3],
+            (float) $matrix[4],
+            (float) $matrix[5],
+        ];
+        return $this->getOutTextPosMatrix($raw, $textMatrix);
     }
 
     public function exposeGetOutTextShowing(string $str, string $mode = 'Tj'): string
@@ -88,16 +107,28 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutTextObject($raw);
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-return array<int, int>
+     */
     public function exposeReplaceUnicodeChars(array $ordarr): array
     {
         return $this->replaceUnicodeChars($ordarr);
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-return array<int, int>
+     */
     public function exposeRemoveOrdArrSoftHyphens(array $ordarr): array
     {
         return $this->removeOrdArrSoftHyphens($ordarr);
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-return array<int, int>
+     */
     public function exposeAddOrdArrBreakPoints(array $ordarr): array
     {
         return $this->addOrdArrBreakPoints($ordarr);
@@ -118,6 +149,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getStringWidth($str);
     }
 
+    /** @phpstan-return array{0: string, 1: array<int, int>, 2: TTextDims} */
     public function exposePrepareText(string $txt, string $forcedir = ''): array
     {
         $ordarr = [];
@@ -126,11 +158,21 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return [$txt, $ordarr, $dim];
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims $dim
+     * @phpstan-return array<int, TextLinePos>
+     */
     public function exposeSplitLines(array $ordarr, array $dim, float $pwidth, float $poffset = 0): array
     {
         return $this->splitLines($ordarr, $dim, $pwidth, $poffset);
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+        * @phpstan-param TTextDims|array{} $dim
+     * @phpstan-param TextShadow|null $shadow
+     */
     public function exposeGetOutTextLine(
         string $txt,
         array $ordarr,
@@ -150,6 +192,9 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $clip = false,
         ?array $shadow = null,
     ): string {
+        if (($txt === '') || ($dim === [])) {
+            return '';
+        }
         return $this->getOutTextLine(
             $txt,
             $ordarr,
@@ -171,6 +216,10 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         );
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+        * @phpstan-param TTextDims|array{} $dim
+     */
     public function exposeOutTextLine(
         string $txt,
         array $ordarr,
@@ -189,6 +238,9 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $overline = false,
         bool $clip = false,
     ): string {
+        if (($txt === '') || ($dim === [])) {
+            return '';
+        }
         return $this->outTextLine(
             $txt,
             $ordarr,
@@ -209,6 +261,11 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         );
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param array<int, TextLinePos> $lines
+     * @phpstan-param TextShadow|null $shadow
+     */
     public function exposeOutTextLines(
         array $ordarr,
         array $lines,
@@ -232,6 +289,9 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $clip = false,
         ?array $shadow = null,
     ): string {
+        if (($ordarr === []) || ($lines === [])) {
+            return '';
+        }
         return $this->outTextLines(
             $ordarr,
             $lines,
@@ -257,16 +317,30 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         );
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims $dim
+     */
     public function exposeGetJustifiedString(string $txt, array $ordarr, array $dim, float $width = 0): string
     {
         return $this->getJustifiedString($txt, $ordarr, $dim, $width);
     }
 
+    /**
+     * @phpstan-param array<string, string> $phyphens
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-return array<int, int>
+     */
     public function exposeHyphenateTextOrdArr(array $phyphens, array $ordarr): array
     {
         return $this->hyphenateTextOrdArr($phyphens, $ordarr);
     }
 
+    /**
+     * @phpstan-param array<string, string> $phyphens
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-return array<int, int>
+     */
     public function exposeHyphenateWordOrdArr(
         array $phyphens,
         array $ordarr,
@@ -278,9 +352,16 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->hyphenateWordOrdArr($phyphens, $ordarr, $leftmin, $rightmin, $charmin, $charmax);
     }
 
+    /** @phpstan-return array<int, int> */
     public function exposeStrToOrdArr(string $txt): array
     {
-        return $this->uniconv->strToOrdArr($txt);
+        $ords = [];
+        foreach ($this->uniconv->strToOrdArr($txt) as $key => $ord) {
+            $ords[$key] = (int) $ord;
+        }
+
+        /** @var array<int, int> $ords */
+        return $ords;
     }
 }
 
@@ -321,7 +402,9 @@ class TextTest extends TestUtil
 
     private function initFont(\Com\Tecnick\Pdf\Tcpdf $obj): void
     {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
@@ -378,7 +461,9 @@ class TextTest extends TestUtil
         $page = $obj->addPage();
 
         $this->assertArrayHasKey('pid', $page);
-        $this->assertSame($page['pid'], $this->getObjectProperty($obj, 'page')->getPageId());
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $this->assertSame($page['pid'], $pageObj->getPageId());
     }
 
     public function testDefaultPageContentReturnsPdfCommands(): void
@@ -415,15 +500,20 @@ class TextTest extends TestUtil
         $this->initFont($obj);
         $page = $obj->addPage();
 
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
         $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, string> $before */
         $before = $pageObj->getPage($page['pid'])['content'];
 
         $obj->addTextCell('Hello', $page['pid'], 1, 2, 20, 6, 0, 0, 'T', 'L');
 
+        /** @var array<int, string> $after */
         $after = $pageObj->getPage($page['pid'])['content'];
         $this->assertGreaterThan(\count($before), \count($after));
-        $this->assertIsString($after[\array_key_last($after)]);
-        $this->assertNotSame('', $after[\array_key_last($after)]);
+        $lastKey = \array_key_last($after);
+        $this->assertNotNull($lastKey);
+        $this->assertIsString($after[$lastKey]);
+        $this->assertNotSame('', $after[$lastKey]);
     }
 
     public function testTextOperatorHelpersCoverModesAndFormatting(): void
@@ -481,9 +571,12 @@ class TextTest extends TestUtil
         $this->initFont($obj);
         $page = $obj->addPage();
 
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
         $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, string> $before */
         $before = $pageObj->getPage($page['pid'])['content'];
         $obj->exposeSetPageContext($page['pid']);
+        /** @var array<int, string> $after */
         $after = $pageObj->getPage($page['pid'])['content'];
 
         $this->assertGreaterThan(\count($before), \count($after));

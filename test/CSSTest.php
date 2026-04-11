@@ -16,6 +16,12 @@
 
 namespace Test;
 
+/**
+ * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base
+ * @phpstan-import-type TCSSBorderSpacing from \Com\Tecnick\Pdf\CSS
+ * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
+ */
 class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
 {
     public function exposeGetCSSBorderWidthPoints(string $width): float
@@ -33,34 +39,52 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getCSSBorderDashStyle($style);
     }
 
+    /** @phpstan-return StyleData */
     public function exposeGetCSSDefaultBorderStyle(): array
     {
         return $this->getCSSDefaultBorderStyle();
     }
 
+    /** @phpstan-return StyleData */
     public function exposeGetCSSBorderStyle(string $cssborder): array
     {
         return $this->getCSSBorderStyle($cssborder);
     }
 
+    /** @phpstan-return TCellBound */
     public function exposeGetCSSPadding(string $csspadding, float $width = 0.0): array
     {
         return $this->getCSSPadding($csspadding, $width);
     }
 
+    /** @phpstan-return TCellBound */
     public function exposeGetCSSMargin(string $cssmargin, float $width = 0.0): array
     {
         return $this->getCSSMargin($cssmargin, $width);
     }
 
+    /** @phpstan-return TCSSBorderSpacing */
     public function exposeGetCSSBorderMargin(string $cssbspace, float $width = 0.0): array
     {
         return $this->getCSSBorderMargin($cssbspace, $width);
     }
 
+    /** @phpstan-param array<int, array{c: string}> $css */
     public function exposeImplodeCSSData(array $css): string
     {
-        return $this->implodeCSSData($css);
+        /** @var array<string, TCSSData> $normalized */
+        $normalized = [];
+        foreach ($css as $index => $style) {
+            $key = (string) $index;
+            $normalized[$key] = [
+                'k' => $key,
+                'c' => $style['c'],
+                's' => $key,
+            ];
+        }
+        /** @var array<string, TCSSData> $normalized */
+
+        return $this->implodeCSSData($normalized);
     }
 
     public function exposeTidyCSS(string $css): string
@@ -68,6 +92,7 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
         return $this->tidyCSS($css);
     }
 
+    /** @phpstan-return array<string, string> */
     public function exposeExtractCSSproperties(string $css): array
     {
         return $this->extractCSSproperties($css);
@@ -83,6 +108,7 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
         return $this->unhtmlentities($text);
     }
 
+    /** @phpstan-return array<string, string> */
     public function exposeGetCSSArrayFromHTML(string &$html): array
     {
         return $this->getCSSArrayFromHTML($html);
@@ -94,6 +120,10 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
     }
 }
 
+/**
+ * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TCSSBorderSpacing from \Com\Tecnick\Pdf\CSS
+ */
 class CSSTest extends TestUtil
 {
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
@@ -126,6 +156,7 @@ class CSSTest extends TestUtil
         $obj = $this->getTestObject();
         $obj->setDefaultCSSMargin(1.0, 2.0, 3.0, 4.0);
 
+        /** @var TCellBound $margin */
         $margin = $this->getObjectProperty($obj, 'defCSSCellMargin');
         $this->bcAssertEqualsWithDelta($obj->toPoints(1.0), $margin['T']);
         $this->bcAssertEqualsWithDelta($obj->toPoints(2.0), $margin['R']);
@@ -138,6 +169,7 @@ class CSSTest extends TestUtil
         $obj = $this->getTestObject();
         $obj->setDefaultCSSPadding(0.5, 1.5, 2.5, 3.5);
 
+        /** @var TCellBound $padding */
         $padding = $this->getObjectProperty($obj, 'defCSSCellPadding');
         $this->bcAssertEqualsWithDelta($obj->toPoints(0.5), $padding['T']);
         $this->bcAssertEqualsWithDelta($obj->toPoints(1.5), $padding['R']);
@@ -150,6 +182,7 @@ class CSSTest extends TestUtil
         $obj = $this->getTestObject();
         $obj->setDefaultCSSBorderSpacing(1.25, 2.75);
 
+        /** @var TCSSBorderSpacing $spacing */
         $spacing = $this->getObjectProperty($obj, 'defCSSBorderSpacing');
         $this->bcAssertEqualsWithDelta($obj->toPoints(1.25), $spacing['V']);
         $this->bcAssertEqualsWithDelta($obj->toPoints(2.75), $spacing['H']);
@@ -203,6 +236,7 @@ class CSSTest extends TestUtil
 
         $this->assertGreaterThan(0.0, $out['lineWidth']);
         $this->assertSame(3, $out['dashPhase']);
+        $this->assertIsString($out['lineColor']);
         $this->assertStringContainsString('rgba(', $out['lineColor']);
     }
 

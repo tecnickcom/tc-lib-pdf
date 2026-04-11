@@ -49,15 +49,21 @@ class TcpdfTest extends TestUtil
         $this->fail('Property not found: ' . $name);
     }
 
+    /** @return array{pid: int} */
     private function initFontAndAddRawPage(\Com\Tecnick\Pdf\Tcpdf $obj): array
     {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
 
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
-        return $page->add([]);
+        /** @var array{pid: int} $rawPage */
+        $rawPage = $page->add([]);
+        return $rawPage;
     }
 
     public function testSetPDFFilenameAcceptsValidPdfName(): void
@@ -84,6 +90,7 @@ class TcpdfTest extends TestUtil
         $obj = $this->getTestObject();
         $obj->setSpaceRegexp('/abc/i');
 
+        /** @var array{r: string, p: string, m: string} $regexp */
         $regexp = $this->getObjectProperty($obj, 'spaceregexp');
         $this->assertSame('/abc/i', $regexp['r']);
         $this->assertSame('abc', $regexp['p']);
@@ -95,6 +102,7 @@ class TcpdfTest extends TestUtil
         $obj = $this->getTestObject();
         $ret = $obj->setDisplayMode('invalid-zoom-token');
 
+        /** @var array{zoom: string|int|float} $display */
         $display = $this->getObjectProperty($obj, 'display');
         $this->assertSame($obj, $ret);
         $this->assertSame('default', $display['zoom']);
@@ -105,6 +113,7 @@ class TcpdfTest extends TestUtil
         $obj = $this->getTestObject();
         $obj->setDisplayMode(125);
 
+        /** @var array{zoom: string|int|float} $display */
         $display = $this->getObjectProperty($obj, 'display');
         $this->assertSame(125, $display['zoom']);
     }
@@ -112,8 +121,17 @@ class TcpdfTest extends TestUtil
     public function testSetUserRightsMergesValues(): void
     {
         $obj = $this->getTestObject();
-        $obj->setUserRights(['enabled' => true, 'document' => '/FullSave']);
+        $obj->setUserRights([
+            'annots' => '/All',
+            'document' => '/FullSave',
+            'ef' => '/All',
+            'enabled' => true,
+            'form' => '/All',
+            'formex' => '/All',
+            'signature' => '/All',
+        ]);
 
+        /** @var array{enabled: bool, document: string} $rights */
         $rights = $this->getObjectProperty($obj, 'userrights');
         $this->assertTrue($rights['enabled']);
         $this->assertSame('/FullSave', $rights['document']);
@@ -124,17 +142,30 @@ class TcpdfTest extends TestUtil
         $obj = $this->getTestObject();
         $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
 
-        $obj->setSignTimeStamp(['enabled' => true, 'host' => '']);
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => '',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+        ]);
     }
 
     public function testSetSignTimeStampStoresDataWhenHostProvided(): void
     {
         $obj = $this->getTestObject();
-        $obj->setSignTimeStamp(['enabled' => true, 'host' => 'https://tsa.example.test']);
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+        ]);
 
-        $ts = $this->getObjectProperty($obj, 'sigtimestamp');
-        $this->assertTrue($ts['enabled']);
-        $this->assertSame('https://tsa.example.test', $ts['host']);
+        /** @var array{enabled: bool, host: string} $timeStamp */
+        $timeStamp = $this->getObjectProperty($obj, 'sigtimestamp');
+        $this->assertTrue($timeStamp['enabled']);
+        $this->assertSame('https://tsa.example.test', $timeStamp['host']);
     }
 
     public function testSetSignatureThrowsOnMissingSigningCertificate(): void
@@ -142,7 +173,16 @@ class TcpdfTest extends TestUtil
         $obj = $this->getTestObject();
         $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
 
-        $obj->setSignature(['signcert' => '']);
+        $obj->setSignature([
+            'appearance' => ['empty' => [], 'name' => '', 'page' => 0, 'rect' => ''],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => '',
+        ]);
     }
 
     public function testGetBarcodeReturnsDrawingCommands(): void
@@ -168,6 +208,7 @@ class TcpdfTest extends TestUtil
         $page = $this->initFontAndAddRawPage($obj);
         $obj->setSignatureAppearance(10, 20, 30, 15, $page['pid'], 'MainSig');
 
+        /** @var array{appearance: array{page: int, name: string, rect: string}} $signature */
         $signature = $this->getObjectProperty($obj, 'signature');
         $appearance = $signature['appearance'];
 
@@ -182,6 +223,7 @@ class TcpdfTest extends TestUtil
         $page = $this->initFontAndAddRawPage($obj);
         $obj->addEmptySignatureAppearance(5, 6, 20, 10, $page['pid'], 'EmptySig');
 
+        /** @var array{appearance: array{empty: array<int, array{name: string, page: int, objid: int}>}} $signature */
         $signature = $this->getObjectProperty($obj, 'signature');
         $this->assertNotEmpty($signature['appearance']['empty']);
         $entry = $signature['appearance']['empty'][0];
@@ -196,6 +238,7 @@ class TcpdfTest extends TestUtil
         $this->initFontAndAddRawPage($obj);
         $obj->addTOC();
 
+        /** @var array<int, array<string, mixed>> $outlines */
         $outlines = $this->getObjectProperty($obj, 'outlines');
         $this->assertCount(0, $outlines);
     }
@@ -207,6 +250,7 @@ class TcpdfTest extends TestUtil
         $obj->setBookmark('Section 1', '', 0, $page['pid']);
         $obj->addTOC($page['pid']);
 
+        /** @var array<int, array{t: string, p: int}> $outlines */
         $outlines = $this->getObjectProperty($obj, 'outlines');
         $this->assertCount(1, $outlines);
         $this->assertSame('Section 1', $outlines[0]['t']);
@@ -218,6 +262,7 @@ class TcpdfTest extends TestUtil
         $obj = $this->getTestObject();
         $out = $obj->newLayer('Layer 1', ['view' => true], true, true, true);
 
+        /** @var array<int, array{name: string, intent: string}> $layers */
         $layers = $this->getObjectProperty($obj, 'pdflayer');
         $this->assertSame(" /OC /LYR001 BDC\n", $out);
         $this->assertCount(1, $layers);

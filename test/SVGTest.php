@@ -16,63 +16,94 @@
 
 namespace Test;
 
+/**
+ * @phpstan-import-type TTMatrix from \Com\Tecnick\Pdf\Graph\Base
+ * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TSVGSize from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSCGCoord from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGGradient from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGStyle from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGTextMode from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGAttributes from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGAttribChild from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGAttribs from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGObj from \Com\Tecnick\Pdf\SVG
+ */
 class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 {
+    /** @phpstan-return array<float> */
     public function exposeParseSVGTMtranslate(string $val): array
     {
         return $this->parseSVGTMtranslate($val);
     }
 
+    /** @phpstan-return array<float> */
     public function exposeParseSVGTMscale(string $val): array
     {
         return $this->parseSVGTMscale($val);
     }
 
+    /** @phpstan-return array<float> */
     public function exposeParseSVGTMrotate(string $val): array
     {
         return $this->parseSVGTMrotate($val);
     }
 
+    /** @phpstan-return array<float> */
     public function exposeParseSVGTMskewX(string $val): array
     {
         return $this->parseSVGTMskewX($val);
     }
 
+    /** @phpstan-return array<float> */
     public function exposeParseSVGTMskewY(string $val): array
     {
         return $this->parseSVGTMskewY($val);
     }
 
+    /** @phpstan-return array<float> */
     public function exposeParseSVGTMmatrix(string $val): array
     {
         return $this->parseSVGTMmatrix($val);
     }
 
+    /** @phpstan-param TRefUnitValues|null $ref */
     public function setSvgRefUnit(int $soid, ?array $ref = null): void
     {
-        $this->svgobjs[$soid]['refunitval'] = $ref ?? self::REFUNITVAL;
+        if (!isset($this->svgobjs[$soid])) {
+            $this->initSvgObjForHandlers($soid);
+        }
+        $this->patchSvgObj($soid, ['refunitval' => $ref ?? self::REFUNITVAL]);
     }
 
+    /** @phpstan-param TRefUnitValues|null $ref */
     public function exposeSvgUnitToPoints(string|float|int $val, int $soid = -1, ?array $ref = null): float
     {
         return $this->svgUnitToPoints($val, $soid, $ref);
     }
 
+    /** @phpstan-param TRefUnitValues|null $ref */
     public function exposeSvgUnitToUnit(string|float|int $val, int $soid = -1, ?array $ref = null): float
     {
         return $this->svgUnitToUnit($val, $soid, $ref);
     }
 
+    /** @phpstan-return TTMatrix */
     public function exposeGetSVGTransformMatrix(string $attr): array
     {
         return $this->getSVGTransformMatrix($attr);
     }
 
+    /**
+     * @phpstan-param TTMatrix $trm
+     * @phpstan-return TTMatrix
+     */
     public function exposeConvertSVGMatrix(array $trm, int $soid = 0): array
     {
         return $this->convertSVGMatrix($trm, $soid);
     }
 
+    /** @phpstan-param TTMatrix $trm */
     public function exposeGetOutSVGTransformation(array $trm, int $soid = 0): string
     {
         return $this->getOutSVGTransformation($trm, $soid);
@@ -133,6 +164,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseCSSAttrib($tag, $attr, $default);
     }
 
+    /** @phpstan-return TSCGCoord */
     public function getPathCoordDefaults(): array
     {
         return [
@@ -153,102 +185,186 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         ];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-param array<array<string>> $paths
+     * @phpstan-param array<string> $rawparams
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdA(array $prm, array $crd, array $paths, int $key, array $rawparams): array
     {
         $out = $this->svgPathCmdA($prm, $crd, $paths, $key, $rawparams);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdC(array $prm, array $crd): array
     {
         $out = $this->svgPathCmdC($prm, $crd);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdH(array $prm, array $crd): array
     {
         $out = $this->svgPathCmdH($prm, $crd);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdL(array $prm, array $crd): array
     {
         $out = $this->svgPathCmdL($prm, $crd);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdM(array $prm, array $crd): array
     {
         $out = $this->svgPathCmdM($prm, $crd);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdQ(array $prm, array $crd): array
     {
         $out = $this->svgPathCmdQ($prm, $crd);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-param array<array<string>> $paths
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdS(array $prm, array $crd, array $paths, int $key): array
     {
         $out = $this->svgPathCmdS($prm, $crd, $paths, $key);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-param array<array<string>> $paths
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdT(array $prm, array $crd, array $paths, int $key): array
     {
         $out = $this->svgPathCmdT($prm, $crd, $paths, $key);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param array<float> $prm
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdV(array $prm, array $crd): array
     {
         $out = $this->svgPathCmdV($prm, $crd);
         return [$out, $crd];
     }
 
+    /**
+     * @phpstan-param TSCGCoord $crd
+     * @phpstan-return array{0: string, 1: TSCGCoord}
+     */
     public function exposeSvgPathCmdZ(array $crd): array
     {
         $out = $this->svgPathCmdZ($crd);
         return [$out, $crd];
     }
 
+    /** @phpstan-return TSVGStyle */
     public function exposeDefaultSVGStyle(): array
     {
         return self::DEFSVGSTYLE;
     }
 
+    /**
+     * @phpstan-param array<string, TSVGGradient> $gradients
+     * @phpstan-param array<string, TSVGAttribs> $clippaths
+     */
     public function setSvgObjMeta(int $soid, array $gradients = [], array $clippaths = []): void
     {
-        $this->svgobjs[$soid]['refunitval'] = self::REFUNITVAL;
-        $this->svgobjs[$soid]['gradients'] = $gradients;
-        $this->svgobjs[$soid]['clippaths'] = $clippaths;
+        if (!isset($this->svgobjs[$soid])) {
+            $this->initSvgObjForHandlers($soid);
+        }
+        $this->patchSvgObj($soid, [
+            'refunitval' => self::REFUNITVAL,
+            'gradients' => $gradients,
+            'clippaths' => $clippaths,
+        ]);
     }
 
+    /**
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $parent
+     * @phpstan-return array{0: string, 1: TSVGStyle}
+     */
     public function exposeParseSVGStyleFont(array $svgstyle, array $parent): array
     {
         $out = $this->parseSVGStyleFont($svgstyle, $parent);
         return [$out, $svgstyle];
     }
 
+    /**
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-return array{0: string, 1: TSVGStyle}
+     */
     public function exposeParseSVGStyleStroke(int $soid, array $svgstyle): array
     {
         $out = $this->parseSVGStyleStroke($soid, $svgstyle);
         return [$out, $svgstyle];
     }
 
+    /**
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-return array{0: string, 1: TSVGStyle}
+     */
     public function exposeParseSVGStyleColor(array $svgstyle): array
     {
         $out = $this->parseSVGStyleColor($svgstyle);
         return [$out, $svgstyle];
     }
 
+    /**
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-return array{0: string, 1: TSVGStyle}
+     */
     public function exposeParseSVGStyleClip(array $svgstyle, float $posx, float $posy, float $width, float $height): array
     {
         $out = $this->parseSVGStyleClip($svgstyle, $posx, $posy, $width, $height);
         return [$out, $svgstyle];
     }
 
+    /**
+     * @phpstan-param array<string, TSVGGradient> $gradients
+     * @phpstan-param array<float> $clip_par
+     */
     public function exposeParseSVGStyleGradient(
         int $soid,
         array $gradients,
@@ -263,6 +379,12 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGStyleGradient($soid, $gradients, $xref, $grx, $gry, $grw, $grh, $clip_fnc, $clip_par);
     }
 
+    /**
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param array<string, TSVGGradient> $gradients
+     * @phpstan-param array<float> $clip_par
+     * @phpstan-return array{0: string, 1: TSVGStyle}
+     */
     public function exposeParseSVGStyleFill(
         int $soid,
         array $svgstyle,
@@ -278,11 +400,18 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return [$out, $svgstyle];
     }
 
+    /** @phpstan-param array<string, TSVGAttribs> $clippaths */
     public function exposeParseSVGStyleClipPath(\XMLParser $parser, int $soid, array $clippaths = []): void
     {
         $this->parseSVGStyleClipPath($parser, $soid, $clippaths);
     }
 
+    /**
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     * @phpstan-param array<float> $clip_par
+     * @phpstan-return array{0: string, 1: string}
+     */
     public function exposeParseSVGStyle(
         \XMLParser $parser,
         int $soid,
@@ -314,7 +443,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     public function initSvgObjForHandlers(int $soid): void
     {
-        $this->svgobjs[$soid] = [
+        /** @var array{defsmode: bool, clipmode: bool, clipid: int, tagdepth: int, x0: float, y0: float, x: float, y: float, refunitval: TRefUnitValues, gradientid: string, gradients: array<string, TSVGGradient>, clippaths: array<string, TSVGAttribs>, defs: array<string, TSVGAttribs>, cliptm: array<float>, styles: array<int, TSVGStyle>, child: array<string, TSVGAttribChild>, textmode: TSVGTextMode, text: string, dir: string, out: string} $svgobj */
+        $svgobj = [
             'defsmode' => false,
             'clipmode' => false,
             'clipid' => 0,
@@ -341,13 +471,18 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             'dir' => '',
             'out' => '',
         ];
+        $this->svgobjs[$soid] = $svgobj;
     }
 
+    /** @phpstan-param array<string, mixed> $patch */
     public function patchSvgObj(int $soid, array $patch): void
     {
-        $this->svgobjs[$soid] = \array_replace_recursive($this->svgobjs[$soid], $patch);
+        /** @var array{defsmode: bool, clipmode: bool, clipid: int, tagdepth: int, x0: float, y0: float, x: float, y: float, refunitval: TRefUnitValues, gradientid: string, gradients: array<string, TSVGGradient>, clippaths: array<string, TSVGAttribs>, defs: array<string, TSVGAttribs>, cliptm: array<float>, styles: array<int, TSVGStyle>, child: array<string, TSVGAttribChild>, textmode: TSVGTextMode, text: string, dir: string, out: string} $svgobj */
+        $svgobj = \array_replace_recursive($this->svgobjs[$soid], $patch);
+        $this->svgobjs[$soid] = $svgobj;
     }
 
+    /** @phpstan-return TSVGObj */
     public function getSvgObj(int $soid): array
     {
         return $this->svgobjs[$soid];
@@ -393,6 +528,10 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagENDtext($soid);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TTMatrix $ctm
+     */
     public function exposeHandleSVGTagStart(
         \XMLParser $parser,
         string $name,
@@ -409,7 +548,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTdefs($soid);
     }
 
-    public function exposeParseSVGTagSTARTclipPath(int $soid, array $tmx = []): string
+    /** @phpstan-param TTMatrix $tmx */
+    public function exposeParseSVGTagSTARTclipPath(int $soid, array $tmx = self::TMXID): string
     {
         return $this->parseSVGTagSTARTclipPath($soid, $tmx);
     }
@@ -419,6 +559,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getRawSVGData($img);
     }
 
+    /** @phpstan-return TSVGSize */
     public function exposeGetSVGSize(string $data): array
     {
         return $this->getSVGSize($data);
@@ -429,16 +570,29 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         $this->prescanSVGGradients($data, $soid);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $xmlAttr
+     * @phpstan-return TSVGAttributes
+     */
     public function exposeGetSVGPrescanAttributes(array $xmlAttr): array
     {
         return $this->getSVGPrescanAttributes($xmlAttr);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-return TSVGStyle
+     */
     public function exposeGetSVGPrescanStopStyle(array $attr): array
     {
         return $this->getSVGPrescanStopStyle($attr);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTsvg(
         \XMLParser $parser,
         int $soid,
@@ -449,6 +603,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTsvg($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTg(
         \XMLParser $parser,
         int $soid,
@@ -459,21 +618,32 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTg($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /** @phpstan-param TSVGAttributes $attr */
     public function exposeParseSVGTagSTARTlinearGradient(int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTlinearGradient($soid, $attr);
     }
 
+    /** @phpstan-param TSVGAttributes $attr */
     public function exposeParseSVGTagSTARTradialGradient(int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTradialGradient($soid, $attr);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     */
     public function exposeParseSVGTagSTARTstop(int $soid, array $attr, array $svgstyle): string
     {
         return $this->parseSVGTagSTARTstop($soid, $attr, $svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTpath(
         \XMLParser $parser,
         int $soid,
@@ -484,6 +654,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTpath($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTrect(
         \XMLParser $parser,
         int $soid,
@@ -494,6 +669,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTrect($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTcircle(
         \XMLParser $parser,
         int $soid,
@@ -504,6 +684,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTcircle($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTellipse(
         \XMLParser $parser,
         int $soid,
@@ -514,6 +699,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTellipse($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTline(
         \XMLParser $parser,
         int $soid,
@@ -524,6 +714,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTline($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTpolygon(
         \XMLParser $parser,
         int $soid,
@@ -534,6 +729,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTimage(
         \XMLParser $parser,
         int $soid,
@@ -544,6 +744,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTimage($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTtext(
         \XMLParser $parser,
         int $soid,
@@ -555,6 +760,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTtext($parser, $soid, $attr, $svgstyle, $prev_svgstyle, $is_tspan);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
     public function exposeParseSVGTagSTARTtspan(
         \XMLParser $parser,
         int $soid,
@@ -565,6 +775,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTtspan($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /** @phpstan-param TSVGAttributes $attr */
     public function exposeParseSVGTagSTARTuse(\XMLParser $parser, int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTuse($parser, $soid, $attr);
@@ -606,13 +817,18 @@ class SVGTest extends TestUtil
         $this->fail('Property not found: ' . $name);
     }
 
+    /** @return array{pid: int, height: float} */
     private function initFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): array
     {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
-        return $obj->addPage();
+        /** @var array{pid: int, height: float} $page */
+        $page = $obj->addPage();
+        return $page;
     }
 
     public function testAddSVGStoresInlineSvgObject(): void
@@ -626,6 +842,7 @@ class SVGTest extends TestUtil
         $soid = $obj->addSVG($svg, 10, 20, 40, 20, $page['height']);
 
         $this->assertSame(1, $soid);
+        /** @var array<int, array<string, mixed>> $svgobjs */
         $svgobjs = $this->getObjectProperty($obj, 'svgobjs');
         $this->assertArrayHasKey($soid, $svgobjs);
         $this->assertNotSame('', $svgobjs[$soid]['out']);
@@ -707,7 +924,6 @@ class SVGTest extends TestUtil
 
         $result = $obj->exposeParseSVGTMrotate('45');
 
-        $this->assertIsArray($result);
         $this->assertCount(6, $result);
         // Rotation matrix has cos and sin components that can be floating point
         $this->assertNotSame([1.0, 0.0, 0.0, 1.0, 0.0, 0.0], $result);
@@ -719,7 +935,6 @@ class SVGTest extends TestUtil
 
         $result = $obj->exposeParseSVGTMskewX('30');
 
-        $this->assertIsArray($result);
         $this->assertCount(6, $result);
         $this->assertNotSame([1.0, 0.0, 0.0, 1.0, 0.0, 0.0], $result);
     }
@@ -730,7 +945,6 @@ class SVGTest extends TestUtil
 
         $result = $obj->exposeParseSVGTMskewY('30');
 
-        $this->assertIsArray($result);
         $this->assertCount(6, $result);
         $this->assertNotSame([1.0, 0.0, 0.0, 1.0, 0.0, 0.0], $result);
     }
@@ -761,9 +975,8 @@ class SVGTest extends TestUtil
         $this->assertSame(72.0, $obj->exposeSvgUnitToPoints('1in', 1));
         $this->assertEqualsWithDelta(25.4, $obj->exposeSvgUnitToUnit('25.4mm', 1), 0.0001);
 
-        $tm = $obj->exposeGetSVGTransformMatrix('translate(10,20) scale(2) rotate(0)');
-        $this->assertIsArray($tm);
-        $this->assertCount(6, $tm);
+        $transformMatrix = $obj->exposeGetSVGTransformMatrix('translate(10,20) scale(2) rotate(0)');
+        $this->assertCount(6, $transformMatrix);
 
         $converted = $obj->exposeConvertSVGMatrix([1, 0, 0, 1, 10, 20], 1);
         $this->assertCount(6, $converted);
@@ -848,15 +1061,15 @@ class SVGTest extends TestUtil
         [$qout, $coord] = $obj->exposeSvgPathCmdQ([19, 20, 21, 22], $coord);
         $this->assertStringContainsString('c', $qout);
 
-        $spaths = [[0, 'C'], [1, 'S']];
+        $spaths = [['0', 'C'], ['1', 'S']];
         [$sout, $coord] = $obj->exposeSvgPathCmdS([23, 24, 25, 26], $coord, $spaths, 1);
         $this->assertStringContainsString('c', $sout);
 
-        $tpaths = [[0, 'Q'], [1, 'T']];
+        $tpaths = [['0', 'Q'], ['1', 'T']];
         [$tout, $coord] = $obj->exposeSvgPathCmdT([27, 28], $coord, $tpaths, 1);
         $this->assertStringContainsString('c', $tout);
 
-        $arcPaths = [[0, 'A'], [1, 'z']];
+        $arcPaths = [['0', 'A'], ['1', 'z']];
         [$aout, $coord] = $obj->exposeSvgPathCmdA([5, 5, 0, 0, 1, 30, 35], $coord, $arcPaths, 0, ['5', '5', '0', '0', '1', '30', '35']);
         $this->assertNotSame('', $aout);
 
@@ -880,7 +1093,7 @@ class SVGTest extends TestUtil
 
         $strokeStyle = $base;
         $strokeStyle['stroke'] = '#112233';
-        $strokeStyle['stroke-width'] = '1px';
+        $strokeStyle['stroke-width'] = 1.0;
         $strokeStyle['stroke-linecap'] = 'butt';
         $strokeStyle['stroke-linejoin'] = 'miter';
         $strokeStyle['stroke-opacity'] = 1.0;
@@ -929,6 +1142,7 @@ class SVGTest extends TestUtil
             $this->assertSame('', $styleOut);
             $this->assertSame('', $objstyle);
         } finally {
+            // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions.xml_parser_freeDeprecated
             \xml_parser_free($parser);
         }
     }
@@ -997,7 +1211,7 @@ class SVGTest extends TestUtil
             $this->assertFalse($obj->getSvgObj(41)['clipmode']);
 
             $obj->patchSvgObj(41, ['styles' => [$obj->exposeDefaultSVGStyle(), $obj->exposeDefaultSVGStyle()]]);
-            $this->assertIsString($obj->exposeParseSVGTagENDg(41));
+            $this->assertSame('', $obj->exposeParseSVGTagENDg(41));
             $this->assertCount(1, $obj->getSvgObj(41)['styles']);
 
             $obj->patchSvgObj(41, ['textmode' => ['invisible' => true]]);
@@ -1015,6 +1229,7 @@ class SVGTest extends TestUtil
             $obj->exposeHandleSVGTagEnd($parser, 'defs');
             $this->assertFalse($obj->getSvgObj(41)['defsmode']);
         } finally {
+            // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions.xml_parser_freeDeprecated
             \xml_parser_free($parser);
         }
     }
@@ -1034,7 +1249,7 @@ class SVGTest extends TestUtil
 
             // Group start path should return a transform block.
             $gOut = $obj->exposeParseSVGTagSTARTg($parser, 42, [], $base, $base);
-            $this->assertIsString($gOut);
+            $this->assertNotSame('', $gOut);
 
             // Gradient starts and stop insertion.
             $this->assertSame('', $obj->exposeParseSVGTagSTARTlinearGradient(42, ['id' => 'lg2']));
@@ -1059,6 +1274,7 @@ class SVGTest extends TestUtil
             $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 42, []));
             $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 42, ['xlink:href' => '#missing']));
         } finally {
+            // phpcs:ignore PHPCompatibility.FunctionUse.RemovedFunctions.xml_parser_freeDeprecated
             \xml_parser_free($parser);
         }
     }

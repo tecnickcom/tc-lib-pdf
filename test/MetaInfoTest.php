@@ -190,10 +190,12 @@ class MetaInfoTest extends TestUtil
         $obj = $this->getTestObject();
         $this->assertSame($obj, $obj->setCustomXMP('x:xmpmeta', '<custom/>'));
 
+        /** @var array<string, string> $custom */
         $custom = $this->getObjectProperty($obj, 'custom_xmp');
         $this->assertSame('<custom/>', $custom['x:xmpmeta']);
 
         $obj->setCustomXMP('unknown-key', '<ignored/>');
+        /** @var array<string, string> $custom */
         $custom = $this->getObjectProperty($obj, 'custom_xmp');
         $this->assertArrayNotHasKey('unknown-key', $custom);
     }

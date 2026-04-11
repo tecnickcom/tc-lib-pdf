@@ -16,13 +16,41 @@
 
 namespace Test;
 
+/**
+ * @phpstan-import-type TAnnot from \Com\Tecnick\Pdf\Output
+ * @phpstan-import-type TObjID from \Com\Tecnick\Pdf\Output
+ * @phpstan-import-type TOutline from \Com\Tecnick\Pdf\Output
+ */
 class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
 {
+    /**
+     * @phpstan-param array<string, mixed> $annotData
+     * @phpstan-return TAnnot
+     */
+    private function toAnnot(array $annotData): array
+    {
+        $base = [
+            'n' => 1,
+            'x' => 0.0,
+            'y' => 0.0,
+            'w' => 0.0,
+            'h' => 0.0,
+            'txt' => '',
+            'opt' => ['subtype' => 'text'],
+        ];
+
+        /** @var TAnnot $annot */
+        $annot = \array_replace_recursive($base, $annotData);
+        return $annot;
+    }
+
+    /** @phpstan-return array<int> */
     public function exposeGetPDFObjectOffsets(string $data): array
     {
         return $this->getPDFObjectOffsets($data);
     }
 
+    /** @phpstan-param array<int> $offset */
     public function exposeGetOutPDFXref(array $offset): string
     {
         return $this->getOutPDFXref($offset);
@@ -33,21 +61,25 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutPDFTrailer();
     }
 
+    /** @phpstan-param array<float|int> $color */
     public function exposeGetColorStringFromPercArray(array $color): string
     {
         return self::getColorStringFromPercArray($color);
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetAnnotationBorder(array $annot): string
     {
-        return $this->getAnnotationBorder($annot);
+        return $this->getAnnotationBorder($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationFlags(array $annot): string
     {
-        return $this->getOutAnnotationFlags($annot);
+        return $this->getOutAnnotationFlags($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string>|int $flags */
     public function exposeGetAnnotationFlagsCode(int|array $flags): int
     {
         return $this->getAnnotationFlagsCode($flags);
@@ -98,154 +130,187 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutResourcesDict();
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeLine(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeLine($annot);
+        return $this->getOutAnnotationOptSubtypeLine($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeSquare(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeSquare($annot);
+        return $this->getOutAnnotationOptSubtypeSquare($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeCircle(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeCircle($annot);
+        return $this->getOutAnnotationOptSubtypeCircle($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypePolygon(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypePolygon($annot);
+        return $this->getOutAnnotationOptSubtypePolygon($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypePolyline(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypePolyline($annot);
+        return $this->getOutAnnotationOptSubtypePolyline($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeHighlight(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeHighlight($annot);
+        return $this->getOutAnnotationOptSubtypeHighlight($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeUnderline(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeUnderline($annot);
+        return $this->getOutAnnotationOptSubtypeUnderline($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeSquiggly(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeSquiggly($annot);
+        return $this->getOutAnnotationOptSubtypeSquiggly($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeStrikeout(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeStrikeout($annot);
+        return $this->getOutAnnotationOptSubtypeStrikeout($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeStamp(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeStamp($annot);
+        return $this->getOutAnnotationOptSubtypeStamp($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeCaret(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeCaret($annot);
+        return $this->getOutAnnotationOptSubtypeCaret($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeInk(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeInk($annot);
+        return $this->getOutAnnotationOptSubtypeInk($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypePopup(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypePopup($annot);
+        return $this->getOutAnnotationOptSubtypePopup($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeMovie(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeMovie($annot);
+        return $this->getOutAnnotationOptSubtypeMovie($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeScreen(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeScreen($annot);
+        return $this->getOutAnnotationOptSubtypeScreen($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypePrintermark(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypePrintermark($annot);
+        return $this->getOutAnnotationOptSubtypePrintermark($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeRedact(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeRedact($annot);
+        return $this->getOutAnnotationOptSubtypeRedact($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeTrapnet(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeTrapnet($annot);
+        return $this->getOutAnnotationOptSubtypeTrapnet($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeWatermark(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeWatermark($annot);
+        return $this->getOutAnnotationOptSubtypeWatermark($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtype3D(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtype3D($annot);
+        return $this->getOutAnnotationOptSubtype3D($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetAnnotationRadioButtons(array $annot): string
     {
-        return $this->getAnnotationRadioButtons($annot);
+        return $this->getAnnotationRadioButtons($this->toAnnot($annot));
     }
 
+    /**
+     * @phpstan-param array<string, mixed> $annot
+     * @phpstan-return array{string, string}
+     */
     public function exposeGetAnnotationAppearanceStream(array $annot, float $width = 0, float $height = 0): array
     {
-        return $this->getAnnotationAppearanceStream($annot, $width, $height);
+        return $this->getAnnotationAppearanceStream($this->toAnnot($annot), $width, $height);
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationMarkups(array $annot, int $oid): string
     {
-        return $this->getOutAnnotationMarkups($annot, $oid);
+        return $this->getOutAnnotationMarkups($this->toAnnot($annot), $oid);
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtype(array $annot, int $pagenum, int $oid, int $key): string
     {
-        return $this->getOutAnnotationOptSubtype($annot, $pagenum, $oid, $key);
+        return $this->getOutAnnotationOptSubtype($this->toAnnot($annot), $pagenum, $oid, $key);
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeText(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeText($annot);
+        return $this->getOutAnnotationOptSubtypeText($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeLink(array $annot, int $pagenum, int $oid): string
     {
-        return $this->getOutAnnotationOptSubtypeLink($annot, $pagenum, $oid);
+        return $this->getOutAnnotationOptSubtypeLink($this->toAnnot($annot), $pagenum, $oid);
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeFreetext(array $annot, int $oid): string
     {
-        return $this->getOutAnnotationOptSubtypeFreetext($annot, $oid);
+        return $this->getOutAnnotationOptSubtypeFreetext($this->toAnnot($annot), $oid);
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeFileattachment(array $annot, int $key): string
     {
-        return $this->getOutAnnotationOptSubtypeFileattachment($annot, $key);
+        return $this->getOutAnnotationOptSubtypeFileattachment($this->toAnnot($annot), $key);
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeSound(array $annot): string
     {
-        return $this->getOutAnnotationOptSubtypeSound($annot);
+        return $this->getOutAnnotationOptSubtypeSound($this->toAnnot($annot));
     }
 
+    /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeWidget(array $annot, int $oid): string
     {
-        return $this->getOutAnnotationOptSubtypeWidget($annot, $oid);
+        return $this->getOutAnnotationOptSubtypeWidget($this->toAnnot($annot), $oid);
     }
 
     public function exposeGetOutPDFHeader(): string
@@ -348,15 +413,35 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutSignatureInfo($oid);
     }
 
+    /** @phpstan-param array<string, int|array<int>> $objid */
     public function setOutputState(int $pon, array $objid, string $fileid = 'ABC123', int $encryptObjId = 0): void
     {
         $this->pon = $pon;
-        $this->objid = \array_replace($this->objid, $objid);
+        foreach ($objid as $key => $value) {
+            if (!\array_key_exists($key, $this->objid)) {
+                continue;
+            }
+
+            if ($key === 'form') {
+                if (\is_array($value)) {
+                    /** @var array<int> $form */
+                    $form = \array_map(static fn ($objId): int => (int) $objId, $value);
+                    $this->objid['form'] = $form;
+                }
+
+                continue;
+            }
+
+            if (\is_int($value)) {
+                $this->objid[$key] = $value;
+            }
+        }
         $this->fileid = $fileid;
 
         $ref = new \ReflectionObject($this->encrypt);
         $prop = $ref->getProperty('encryptdata');
         $prop->setAccessible(true);
+        /** @var array<string, mixed> $data */
         $data = $prop->getValue($this->encrypt);
         $data['objid'] = $encryptObjId;
         $prop->setValue($this->encrypt, $data);
@@ -367,6 +452,7 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         $this->pdfa = $pdfa;
     }
 
+    /** @phpstan-return array<int, TOutline> */
     public function getOutlinesState(): array
     {
         return $this->outlines;
@@ -429,23 +515,34 @@ class OutputTest extends TestUtil
         $this->fail('Property not found: ' . $name);
     }
 
+    /** @return array{pid:int,height:float} */
     private function initFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): array
     {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
-        return $obj->addPage();
+        /** @var array{pid:int,height:float} $page */
+        $page = $obj->addPage();
+        return $page;
     }
 
+    /** @return array{pid:int,n:int,content:array<int,string>} */
     private function addRawPageWithObjectNumber(\Com\Tecnick\Pdf\Tcpdf $obj, int $objectNumber): array
     {
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
+        /** @var array{pid:int} $data */
         $data = $page->add([]);
+        /** @var array<int, array<string, mixed>> $pages */
         $pages = $this->getObjectProperty($page, 'page');
         $pages[$data['pid']]['n'] = $objectNumber;
         $this->setObjectProperty($page, 'page', $pages);
-        return $page->getPage($data['pid']);
+        /** @var array{pid:int,n:int,content:array<int,string>} $pageData */
+        $pageData = $page->getPage($data['pid']);
+        return $pageData;
     }
 
     public function testGetOutPDFStringReturnsRawPdfDocument(): void
@@ -760,8 +857,11 @@ class OutputTest extends TestUtil
         $this->initFontAndPage($obj);
 
         // Initialize outfont property (normally done in getOutPDFBody)
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
         $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
         $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
         $this->setObjectProperty($obj, 'outfont', $outfont);
@@ -981,7 +1081,9 @@ class OutputTest extends TestUtil
     public function testGetOutCatalogIncludesRequiredEntries(): void
     {
         $obj = $this->getInternalTestObject();
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
@@ -1079,8 +1181,8 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutSignature());
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
 
-        $ur = $obj->exposeGetOutSignatureUserRights();
-        $this->assertStringContainsString('/TransformMethod /UR3', $ur);
+        $userRightsOut = $obj->exposeGetOutSignatureUserRights();
+        $this->assertStringContainsString('/TransformMethod /UR3', $userRightsOut);
 
         $this->assertSame('', $obj->exposeGetOutSignatureInfo(11));
         $this->setObjectProperty($obj, 'signature', ['info' => ['Name' => 'John', 'Reason' => 'Approval']]);

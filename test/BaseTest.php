@@ -16,8 +16,10 @@
 
 namespace Test;
 
+/** @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base */
 class TestableBase extends \Com\Tecnick\Pdf\Tcpdf
 {
+    /** @phpstan-param TRefUnitValues $ref */
     public function exposeGetUnitValuePoints(
         string|float|int $val,
         array $ref = self::REFUNITVAL,
@@ -26,6 +28,7 @@ class TestableBase extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getUnitValuePoints($val, $ref, $defunit);
     }
 
+    /** @phpstan-param TRefUnitValues $ref */
     public function exposeGetFontValuePoints(
         string|float|int $val,
         array $ref = self::REFUNITVAL,
@@ -88,11 +91,11 @@ class BaseTest extends TestUtil
         $usr = 10.0;
         $pageh = 200.0;
 
-        $yp = $obj->toYPoints($usr, $pageh);
-        $this->bcAssertEqualsWithDelta($pageh - $obj->toPoints($usr), $yp, 0.0001);
+        $yPoints = $obj->toYPoints($usr, $pageh);
+        $this->bcAssertEqualsWithDelta($pageh - $obj->toPoints($usr), $yPoints, 0.0001);
 
-        $yu = $obj->toYUnit($yp, $pageh);
-        $this->bcAssertEqualsWithDelta($usr, $yu, 0.0001);
+        $yUnit = $obj->toYUnit($yPoints, $pageh);
+        $this->bcAssertEqualsWithDelta($usr, $yUnit, 0.0001);
     }
 
     public function testEnableDefaultPageContentTogglesFlag(): void
@@ -124,7 +127,6 @@ class BaseTest extends TestUtil
         $result = $obj->exposeGetUnitValuePoints('10px');
 
         $this->assertGreaterThan(0, $result);
-        $this->assertIsFloat($result);
     }
 
     public function testGetUnitValuePointsConvertsPoints(): void
@@ -163,7 +165,6 @@ class BaseTest extends TestUtil
         $result = $obj->exposeGetUnitValuePoints(5.5);
 
         $this->assertGreaterThan(0, $result);
-        $this->assertIsFloat($result);
     }
 
     public function testGetUnitValuePointsThrowsForInvalidValue(): void
@@ -181,6 +182,7 @@ class BaseTest extends TestUtil
             'parent' => 12.0,
             'font' => ['size' => 12.0, 'xheight' => 1.0, 'zerowidth' => 1.0, 'rootsize' => 16.0],
             'viewport' => ['width' => 800.0, 'height' => 600.0],
+            'page' => ['width' => 800.0, 'height' => 600.0],
         ];
 
         $result = $obj->exposeGetFontValuePoints('larger', $ref);
