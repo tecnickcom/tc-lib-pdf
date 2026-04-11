@@ -231,6 +231,41 @@ class CellTest extends TestUtil
         $this->assertGreaterThanOrEqual(0.0, $out['padding']['R']);
     }
 
+    public function testAdjustMinCellPaddingSupportsSideSpecificWidths(): void
+    {
+        $obj = $this->getInternalTestObject();
+        /** @var TCellDef $cell */
+        $cell = $this->getObjectProperty($obj, 'defcell');
+        $cell['padding'] = ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0];
+
+        $styles = [
+            0 => ['lineWidth' => 0.5],
+            1 => ['lineWidth' => 1.0],
+            2 => ['lineWidth' => 1.5],
+            3 => ['lineWidth' => 2.0],
+        ];
+
+        $out = $obj->exposeAdjustMinCellPadding($styles, $cell);
+
+        $this->assertGreaterThan(0.0, $out['padding']['T']);
+        $this->assertGreaterThan(0.0, $out['padding']['R']);
+        $this->assertGreaterThan(0.0, $out['padding']['B']);
+        $this->assertGreaterThan(0.0, $out['padding']['L']);
+    }
+
+    public function testAdjustMinCellPaddingUsesCurrentStyleAndInvalidStyleFallback(): void
+    {
+        $obj = $this->getInternalTestObject();
+        /** @var TCellDef $cell */
+        $cell = $this->getObjectProperty($obj, 'defcell');
+
+        $outCurrent = $obj->exposeAdjustMinCellPadding([], $cell);
+        $outInvalid = $obj->exposeAdjustMinCellPadding(['all' => []], $cell);
+
+        $this->assertArrayHasKey('padding', $outCurrent);
+        $this->assertSame($cell, $outInvalid);
+    }
+
     public function testCellMinHeightReturnsPositiveForCenterAlign(): void
     {
         $obj = $this->getInternalTestObject();
@@ -277,6 +312,51 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(-1000000.0, $horizontalAlign);
     }
 
+    public function testCellAlignmentBranchesHandleAllVariants(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        /** @var TCellDef $cell */
+        $cell = $this->getObjectProperty($obj, 'defcell');
+
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellMinHeight(10.0, 'T', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellMinHeight(0.0, 'C'));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellMinHeight(10.0, 'L', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellMinHeight(10.0, 'A', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellMinHeight(10.0, 'D', $cell));
+
+        $this->assertGreaterThanOrEqual(20.0, $obj->exposeCellMinWidth(20.0, 'J'));
+
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellVPos(10.0, 5.0, 'C', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellVPos(10.0, 5.0, 'B', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellVPos(10.0, 5.0, 'X', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellVPos(10.0, 5.0, 'T'));
+
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellHPos(10.0, 5.0, 'R', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellHPos(10.0, 5.0, 'C', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellHPos(10.0, 5.0, 'J', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellHPos(10.0, 5.0, 'L'));
+
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextVAlign(20.0, 10.0, 'T', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextVAlign(20.0, 10.0, 'B', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextVAlign(20.0, 10.0, 'L', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextVAlign(20.0, 10.0, 'A', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextVAlign(20.0, 10.0, 'D', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextVAlign(20.0, 0.0, 'C'));
+
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextHAlign(30.0, 12.0, 'R', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextHAlign(30.0, 12.0, 'J', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeCellTextHAlign(30.0, 12.0, 'L'));
+
+        $this->assertGreaterThan(0.0, $obj->exposeCellMaxWidth(0.0));
+        $this->assertGreaterThan(0.0, $obj->exposeTextMaxWidth(50.0));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeTextMaxHeight(50.0, 'B', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeTextMaxHeight(50.0, 'L', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeTextMaxHeight(50.0, 'A', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeTextMaxHeight(50.0, 'D', $cell));
+        $this->assertGreaterThan(-1000000.0, $obj->exposeTextMaxHeight(50.0, 'C', $cell));
+    }
+
     public function testCellAndTextPositionConversionsAreCallable(): void
     {
         $obj = $this->getInternalTestObject();
@@ -319,6 +399,45 @@ class CellTest extends TestUtil
         $out = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, ['all' => []]);
 
         $this->assertSame('', $out);
+    }
+
+    public function testDrawCellHandlesFillAndBorderBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $fillAndBorder = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, ['all' => ['fillColor' => 'gray', 'lineWidth' => 0.2]]);
+        $this->assertNotSame('', $fillAndBorder);
+
+        $fillOnly = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, ['all' => ['fillColor' => 'gray']]);
+        $this->assertNotSame('', $fillOnly);
+
+        $perSideBorder = $obj->exposeDrawCell(
+            10.0,
+            10.0,
+            20.0,
+            8.0,
+            [
+                0 => ['lineWidth' => 0.2],
+                1 => ['lineWidth' => 0.3],
+                2 => ['lineWidth' => 0.4],
+                3 => ['lineWidth' => 0.5],
+                'all' => ['fillColor' => ''],
+            ],
+        );
+        $this->assertNotSame('', $perSideBorder);
+
+        $fallbackAdjustBorder = $obj->exposeDrawCell(
+            10.0,
+            10.0,
+            20.0,
+            8.0,
+            [
+                1 => ['lineWidth' => 0.3],
+                'all' => [],
+            ],
+        );
+        $this->assertNotSame('', $fallbackAdjustBorder);
     }
 
     public function testGetOutTextStringReturnsEscapedStringAndBomChangesOutput(): void

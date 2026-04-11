@@ -158,6 +158,28 @@ class BaseTest extends TestUtil
         $this->bcAssertEqualsWithDelta(72.0, $result, 0.1);
     }
 
+    public function testGetUnitValuePointsConvertsRelativeAndViewportUnits(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $ref = [
+            'parent' => 120.0,
+            'font' => ['size' => 12.0, 'xheight' => 5.0, 'zerowidth' => 6.0, 'rootsize' => 16.0],
+            'viewport' => ['width' => 300.0, 'height' => 200.0],
+            'page' => ['width' => 300.0, 'height' => 200.0],
+        ];
+
+        $this->bcAssertEqualsWithDelta(12.0, $obj->exposeGetUnitValuePoints('2ch', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(12.0, $obj->exposeGetUnitValuePoints('10%', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(24.0, $obj->exposeGetUnitValuePoints('2em', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(10.0, $obj->exposeGetUnitValuePoints('2ex', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(24.0, $obj->exposeGetUnitValuePoints('2pc', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(32.0, $obj->exposeGetUnitValuePoints('2rem', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(20.0, $obj->exposeGetUnitValuePoints('10vh', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(30.0, $obj->exposeGetUnitValuePoints('10vw', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(30.0, $obj->exposeGetUnitValuePoints('10vmax', $ref), 0.0001);
+        $this->bcAssertEqualsWithDelta(20.0, $obj->exposeGetUnitValuePoints('10vmin', $ref), 0.0001);
+    }
+
     public function testGetUnitValuePointsConvertsNumericDefault(): void
     {
         $obj = $this->getInternalTestObject();
