@@ -282,13 +282,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Temporary HTML cell rendering context.
      *
-     * @var array{originx: float, originy: float, maxwidth: float, maxheight: float}
+     * @var array{originx: float, originy: float, maxwidth: float, maxheight: float, basefont: string}
      */
     protected array $htmlcellctx = [
         'originx' => 0.0,
         'originy' => 0.0,
         'maxwidth' => 0.0,
         'maxheight' => 0.0,
+        'basefont' => 'helvetica',
     ];
 
     /**
@@ -708,6 +709,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLRootProperties(): array
     {
         $font = $this->font->getCurrentFont();
+        $fontname = $this->font->getFontFamilyName((string) $font['key']);
+        if ($fontname === '') {
+            $fontname = (string) $font['key'];
+        }
         return [
             'align' => '',
             'attribute' => [],
@@ -739,7 +744,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'font-style' => $font['style'],//
             //'font-variant' => '',//
             //'font-weight' => '',//
-            'fontname' => $font['key'],
+            'fontname' => $fontname,
             'fontsize' => $font['size'],
             'fontstyle' => $font['style'],
             'height' => 0.0,
@@ -2261,11 +2266,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function initHTMLCellContext(float $posx, float $posy, float $width, float $height): void
     {
+        $basefont = $this->getHTMLBaseFontName();
         $this->htmlcellctx = [
             'originx' => $posx,
             'originy' => $posy,
             'maxwidth' => $width,
             'maxheight' => $height,
+            'basefont' => $basefont,
         ];
         $this->htmlfontcache = [];
         $this->htmlliststack = [];
@@ -2285,6 +2292,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'originy' => 0.0,
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
+            'basefont' => 'helvetica',
         ];
         $this->htmlfontcache = [];
         $this->htmlliststack = [];
@@ -2787,6 +2795,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return a stable base font family name for HTML rendering.
+     */
+    protected function getHTMLBaseFontName(): string
+    {
+        $curfont = $this->font->getCurrentFont();
+        $fontname = (string) ($curfont['key'] ?? '');
+        $fontname = \preg_replace('/[biudo]+$/i', '', $fontname) ?? $fontname;
+        if ($fontname === '') {
+            return 'helvetica';
+        }
+
+        $family = $this->font->getFontFamilyName($fontname);
+        if (($family !== '') && !\preg_match('/[biudo]+$/i', $family)) {
+            return $family;
+        }
+
+        return $fontname;
+    }
+
+    /**
      * Return the metric for the specified HTML node font.
      *
      * @param THTMLAttrib $elm DOM array element.
@@ -2796,7 +2824,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLFontMetric(array $elm): array
     {
         $curfont = $this->font->getCurrentFont();
-        $fontname = empty($elm['fontname']) ? $curfont['key'] : (string) $elm['fontname'];
+        $fontname = empty($elm['fontname'])
+            ? (string) ($this->htmlcellctx['basefont'] ?? $this->getHTMLBaseFontName())
+            : (string) $elm['fontname'];
+
+        $stripped = \preg_replace('/[biudo]+$/i', '', $fontname) ?? '';
+        if (($stripped !== '') && ($stripped !== $fontname)) {
+            $strippedFamily = $this->font->getFontFamilyName($stripped);
+            if ($strippedFamily !== '') {
+                $fontname = $strippedFamily;
+            }
+        }
+
+        $family = $this->font->getFontFamilyName($fontname);
+        if (($family !== '') && !\preg_match('/[biudo]+$/i', $family)) {
+            $fontname = $family;
+        } elseif (!empty($this->htmlcellctx['basefont']) && \is_string($this->htmlcellctx['basefont'])) {
+            $fontname = $this->htmlcellctx['basefont'];
+        }
         $fontsize = (!empty($elm['fontsize']) && \is_numeric($elm['fontsize']))
             ? (int) \round((float) $elm['fontsize'])
             : (int) \round((float) $curfont['size']);
@@ -3309,32 +3354,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Returns the PDF code to render an HTML block inside a rectangular cell.
+     * Render HTML fragments for a cell and dispatch each fragment to a consumer.
      *
-     * @param string      $html        HTML code to be processed.
-     * @param float       $posx        Abscissa of upper-left corner.
-     * @param float       $posy        Ordinate of upper-left corner.
-     * @param float       $width       Width.
-     * @param float       $height      Height.
-     * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-     * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
-     *
-     * @return string
+     * @param array<int, THTMLAttrib> $dom
+     * @param callable(string):void    $appendFragment
      */
-    public function getHTMLCell(
-        string $html,
-        float $posx = 0,
-        float $posy = 0,
-        float $width = 0,
-        float $height = 0,
-        ?array $cell = null,
-        array $styles = [],
-    ): string {
-        $out = '';
-        $dom = $this->getHTMLDOM($html);
+    protected function renderHTMLCellFragments(
+        array $dom,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+        callable $appendFragment,
+    ): void {
         $numel = \count($dom);
         $key = 0;
         $tabletheadmap = [];
+        $nobrstack = [];
 
         foreach ($dom as $dnode) {
             if (
@@ -3352,47 +3388,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $tabletheadmap[$dnode['parent']] = $dnode['thead'];
         }
-
-        $drawcell = ($styles !== []);
-        $cellctx = $this->adjustMinCellPadding($styles, $cell);
-
-        $cellwidth = $width;
-        if ($cellwidth <= 0.0) {
-            $cellwidth = $this->toUnit(
-                $this->cellMaxWidth(
-                    $this->toPoints($posx),
-                    $cellctx,
-                )
-            );
-        }
-
-        $offsetx = $this->toUnit((float) $cellctx['margin']['L'] + (float) $cellctx['padding']['L']);
-        $offsety = $this->toUnit((float) $cellctx['margin']['T'] + (float) $cellctx['padding']['T']);
-        $offsetw = $this->toUnit(
-            (float) $cellctx['margin']['L']
-            + (float) $cellctx['margin']['R']
-            + (float) $cellctx['padding']['L']
-            + (float) $cellctx['padding']['R']
-        );
-        $offseth = $this->toUnit(
-            (float) $cellctx['margin']['T']
-            + (float) $cellctx['margin']['B']
-            + (float) $cellctx['padding']['T']
-            + (float) $cellctx['padding']['B']
-        );
-
-        $contentx = $posx + $offsetx;
-        $contenty = $posy + $offsety;
-        $contentw = \max(0.0, $cellwidth - $offsetw);
-        $contenth = ($height > 0) ? \max(0.0, $height - $offseth) : 0.0;
-
-        $tpx = $contentx;
-        $tpy = $contenty;
-        $tpw = $contentw;
-        $tph = $contenth;
-        $nobrstack = [];
-
-        $this->initHTMLCellContext($contentx, $contenty, $contentw, $contenth);
 
         while ($key < $numel) {
             $elm = $dom[$key];
@@ -3452,12 +3447,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
 
                         if ($theadhtml !== '') {
-                            $out .= $this->replayHTMLTableHead(
-                                $theadhtml,
-                                $tpx,
-                                $tpy,
-                                $tpw,
-                                $tph,
+                            $appendFragment(
+                                $this->replayHTMLTableHead(
+                                    $theadhtml,
+                                    $tpx,
+                                    $tpy,
+                                    $tpw,
+                                    $tph,
+                                )
                             );
                         }
                     }
@@ -3475,13 +3472,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $theadhtml = $tabletheadmap[$parent];
                         }
 
-                        $out .= $this->breakHTMLIfNeeded(
-                            $this->estimateHTMLTableRowHeight($dom, $key),
-                            $tpx,
-                            $tpy,
-                            $tpw,
-                            $tph,
-                            $theadhtml,
+                        $appendFragment(
+                            $this->breakHTMLIfNeeded(
+                                $this->estimateHTMLTableRowHeight($dom, $key),
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                                $theadhtml,
+                            )
                         );
                     }
 
@@ -3497,16 +3496,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $elm['attribute']['nobr'] = '';
                         } elseif (!$elm['self']) {
                             if ($elm['value'] !== 'tr') {
-                                $out .= $this->breakHTMLIfNeeded(
-                                    $this->estimateHTMLNobrHeight(
-                                        $dom,
-                                        $key,
-                                        ($tpw > 0.0) ? $tpw : $this->htmlcellctx['maxwidth'],
-                                    ),
-                                    $tpx,
-                                    $tpy,
-                                    $tpw,
-                                    $tph,
+                                $appendFragment(
+                                    $this->breakHTMLIfNeeded(
+                                        $this->estimateHTMLNobrHeight(
+                                            $dom,
+                                            $key,
+                                            ($tpw > 0.0) ? $tpw : $this->htmlcellctx['maxwidth'],
+                                        ),
+                                        $tpx,
+                                        $tpy,
+                                        $tpw,
+                                        $tph,
+                                    )
                                 );
                             }
                             $nobrstack[] = $elm['value'];
@@ -3567,7 +3568,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         default      => '',
                     };
                     if (!$this->captureHTMLTableCellBuffer($fragment)) {
-                        $out .= $fragment;
+                        $appendFragment($fragment);
                     }
 
                     if ($elm['self'] && !empty($elm['attribute']['pagebreakafter'])) {
@@ -3645,7 +3646,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         default      => '',
                     };
                     if (!$this->captureHTMLTableCellBuffer($fragment)) {
-                        $out .= $fragment;
+                        $appendFragment($fragment);
                     }
 
                     if (!empty($elm['attribute']['pagebreakafter'])) {
@@ -3664,12 +3665,88 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } else { // Text Content
                 $fragment = $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
                 if (!$this->captureHTMLTableCellBuffer($fragment)) {
-                    $out .= $fragment;
+                    $appendFragment($fragment);
                 }
             }
 
             ++$key;
         }
+    }
+
+    /**
+     * Returns the PDF code to render an HTML block inside a rectangular cell.
+     *
+     * @param string      $html        HTML code to be processed.
+     * @param float       $posx        Abscissa of upper-left corner.
+     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $width       Width.
+     * @param float       $height      Height.
+     * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
+     *
+     * @return string
+     */
+    public function getHTMLCell(
+        string $html,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        ?array $cell = null,
+        array $styles = [],
+    ): string {
+        $out = '';
+        $dom = $this->getHTMLDOM($html);
+
+        $drawcell = ($styles !== []);
+        $cellctx = $this->adjustMinCellPadding($styles, $cell);
+
+        $cellwidth = $width;
+        if ($cellwidth <= 0.0) {
+            $cellwidth = $this->toUnit(
+                $this->cellMaxWidth(
+                    $this->toPoints($posx),
+                    $cellctx,
+                )
+            );
+        }
+
+        $offsetx = $this->toUnit((float) $cellctx['margin']['L'] + (float) $cellctx['padding']['L']);
+        $offsety = $this->toUnit((float) $cellctx['margin']['T'] + (float) $cellctx['padding']['T']);
+        $offsetw = $this->toUnit(
+            (float) $cellctx['margin']['L']
+            + (float) $cellctx['margin']['R']
+            + (float) $cellctx['padding']['L']
+            + (float) $cellctx['padding']['R']
+        );
+        $offseth = $this->toUnit(
+            (float) $cellctx['margin']['T']
+            + (float) $cellctx['margin']['B']
+            + (float) $cellctx['padding']['T']
+            + (float) $cellctx['padding']['B']
+        );
+
+        $contentx = $posx + $offsetx;
+        $contenty = $posy + $offsety;
+        $contentw = \max(0.0, $cellwidth - $offsetw);
+        $contenth = ($height > 0) ? \max(0.0, $height - $offseth) : 0.0;
+
+        $tpx = $contentx;
+        $tpy = $contenty;
+        $tpw = $contentw;
+        $tph = $contenth;
+
+        $this->initHTMLCellContext($contentx, $contenty, $contentw, $contenth);
+        $this->renderHTMLCellFragments(
+            $dom,
+            $tpx,
+            $tpy,
+            $tpw,
+            $tph,
+            function (string $fragment) use (&$out): void {
+                $out .= $fragment;
+            },
+        );
 
         if ($drawcell) {
             $boxheight = $height;
@@ -3692,6 +3769,128 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->clearHTMLCellContext();
 
         return $out;
+    }
+
+    /**
+     * Adds an HTML block inside a rectangular cell.
+     * Accounts for automatic page and region breaks while appending
+     * page-specific content directly to each affected page stream.
+     *
+     * @param string      $html        HTML code to be processed.
+     * @param float       $posx        Abscissa of upper-left corner.
+     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $width       Width.
+     * @param float       $height      Height.
+     * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
+     */
+    public function addHTMLCell(
+        string $html,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        ?array $cell = null,
+        array $styles = [],
+    ): void {
+        $dom = $this->getHTMLDOM($html);
+        $outbypage = [];
+        $startpid = $this->page->getPageId();
+
+        $appendFragment = function (string $fragment) use (&$outbypage): void {
+            if ($fragment === '') {
+                return;
+            }
+
+            $pid = $this->page->getPageId();
+            if (!isset($outbypage[$pid])) {
+                $outbypage[$pid] = '';
+            }
+
+            $outbypage[$pid] .= $fragment;
+        };
+
+        $drawcell = ($styles !== []);
+        $cellctx = $this->adjustMinCellPadding($styles, $cell);
+
+        $cellwidth = $width;
+        if ($cellwidth <= 0.0) {
+            $cellwidth = $this->toUnit(
+                $this->cellMaxWidth(
+                    $this->toPoints($posx),
+                    $cellctx,
+                )
+            );
+        }
+
+        $offsetx = $this->toUnit((float) $cellctx['margin']['L'] + (float) $cellctx['padding']['L']);
+        $offsety = $this->toUnit((float) $cellctx['margin']['T'] + (float) $cellctx['padding']['T']);
+        $offsetw = $this->toUnit(
+            (float) $cellctx['margin']['L']
+            + (float) $cellctx['margin']['R']
+            + (float) $cellctx['padding']['L']
+            + (float) $cellctx['padding']['R']
+        );
+        $offseth = $this->toUnit(
+            (float) $cellctx['margin']['T']
+            + (float) $cellctx['margin']['B']
+            + (float) $cellctx['padding']['T']
+            + (float) $cellctx['padding']['B']
+        );
+
+        $contentx = $posx + $offsetx;
+        $contenty = $posy + $offsety;
+        $contentw = \max(0.0, $cellwidth - $offsetw);
+        $contenth = ($height > 0) ? \max(0.0, $height - $offseth) : 0.0;
+
+        $tpx = $contentx;
+        $tpy = $contenty;
+        $tpw = $contentw;
+        $tph = $contenth;
+
+        $this->initHTMLCellContext($contentx, $contenty, $contentw, $contenth);
+        $this->renderHTMLCellFragments(
+            $dom,
+            $tpx,
+            $tpy,
+            $tpw,
+            $tph,
+            $appendFragment,
+        );
+
+        $multipage = (\count($outbypage) > 1);
+        if ($drawcell && !($multipage && ($height <= 0))) {
+            $boxheight = $height;
+            if ($boxheight <= 0) {
+                $curfont = $this->font->getCurrentFont();
+                $lineh = $this->toUnit((float) $curfont['height']);
+                $boxheight = \max($lineh, ($tpy - $contenty) + $lineh + $offseth);
+            }
+
+            $cellout = $this->drawCell(
+                $this->toPoints($posx),
+                $this->toYPoints($posy),
+                $this->toPoints($cellwidth),
+                $this->toPoints($boxheight),
+                $styles,
+                $cellctx,
+            );
+
+            if (!isset($outbypage[$startpid])) {
+                $outbypage[$startpid] = '';
+            }
+            $outbypage[$startpid] = $cellout . $outbypage[$startpid];
+        }
+
+        $this->clearHTMLCellContext();
+
+        foreach ($outbypage as $pid => $pageout) {
+            if ($pageout === '') {
+                continue;
+            }
+
+            $this->page->addContent($pageout, (int) $pid);
+        }
     }
 
     /**

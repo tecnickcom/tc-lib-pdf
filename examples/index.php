@@ -1794,7 +1794,7 @@ $pdf->page->addContent($bfont5['out']);
 
 $html_01 = '<h1>HTML H1 Test</h1> hello';
 
-$htmlcell = $pdf->getHTMLCell(
+$pdf->addHTMLCell(
     $html_01, // string $html,
     20, // float $posx = 0,
     120, // float $posy = 0,
@@ -1803,7 +1803,6 @@ $htmlcell = $pdf->getHTMLCell(
     null, // ?array $cell = null,
     $style_cell, // array $styles = [],
 );
-$pdf->page->addContent($htmlcell);
 
 // ----------
 
