@@ -16,6 +16,8 @@
 
 namespace Test;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /** @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base */
 class TestableBase extends \Com\Tecnick\Pdf\Tcpdf
 {
@@ -105,42 +107,14 @@ class BaseTest extends TestUtil
         $this->assertFalse($this->getObjectProperty($obj, 'rtl'));
     }
 
-    public function testGetUnitValuePointsConvertsPixels(): void
+    #[DataProvider('unitValueConversionProvider')]
+    public function testGetUnitValuePointsConvertsCommonUnits(string $input, float $expected, float $delta): void
     {
         $obj = $this->getInternalTestObject();
 
-        $result = $obj->exposeGetUnitValuePoints('10px');
+        $result = $obj->exposeGetUnitValuePoints($input);
 
-        $this->assertGreaterThan(0, $result);
-    }
-
-    public function testGetUnitValuePointsConvertsPoints(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $result = $obj->exposeGetUnitValuePoints('12pt');
-
-        $this->assertSame(12.0, $result);
-    }
-
-    public function testGetUnitValuePointsConvertsCentimeters(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $result = $obj->exposeGetUnitValuePoints('1cm');
-
-        // 1 cm = 1 * 72 / 2.54 ≈ 28.35 points
-        $this->bcAssertEqualsWithDelta(28.35, $result, 0.1);
-    }
-
-    public function testGetUnitValuePointsConvertsInches(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $result = $obj->exposeGetUnitValuePoints('1in');
-
-        // 1 inch = 72 points (DPI_PDF)
-        $this->bcAssertEqualsWithDelta(72.0, $result, 0.1);
+        $this->bcAssertEqualsWithDelta($expected, $result, $delta);
     }
 
     public function testGetUnitValuePointsConvertsRelativeAndViewportUnits(): void
@@ -208,49 +182,54 @@ class BaseTest extends TestUtil
         $this->bcAssertEqualsWithDelta(28.35, $result, 0.1);
     }
 
-    public function testSetTmpRTLWithRMode(): void
+    #[DataProvider('tmpRtlModeProvider')]
+    public function testSetTmpRTLWithMode(string $mode, bool $expectedRtl): void
     {
         $obj = $this->getInternalTestObject();
 
-        $obj->exposeSetTmpRTL('R');
+        $obj->exposeSetTmpRTL($mode);
 
-        $this->assertTrue($obj->exposeIsRTL());
+        $this->assertSame($expectedRtl, $obj->exposeIsRTL());
     }
 
-    public function testSetTmpRTLWithLMode(): void
+    #[DataProvider('isRtlStateProvider')]
+    public function testIsRTLReturnsExpectedState(bool $globalRtl, bool $expected): void
     {
         $obj = $this->getInternalTestObject();
-
-        $obj->exposeSetTmpRTL('L');
-
-        $this->assertFalse($obj->exposeIsRTL());
-    }
-
-    public function testSetTmpRTLWithEmptyString(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $obj->exposeSetTmpRTL('');
-
-        $this->assertFalse($obj->exposeIsRTL());
-    }
-
-    public function testIsRTLReturnsFalseByDefault(): void
-    {
-        $obj = $this->getInternalTestObject();
+        $obj->setRTL($globalRtl);
 
         $result = $obj->exposeIsRTL();
 
-        $this->assertFalse($result);
+        $this->assertSame($expected, $result);
     }
 
-    public function testIsRTLReturnsTrueWhenGlobalRTLSet(): void
+    /** @return array<string, array{0: string, 1: float, 2: float}> */
+    public static function unitValueConversionProvider(): array
     {
-        $obj = $this->getInternalTestObject();
-        $obj->setRTL(true);
+        return [
+            'px' => ['96px', 72.0, 0.1],
+            'pt' => ['12pt', 12.0, 0.0001],
+            'cm' => ['1cm', 28.35, 0.1],
+            'in' => ['1in', 72.0, 0.1],
+        ];
+    }
 
-        $result = $obj->exposeIsRTL();
+    /** @return array<string, array{0: string, 1: bool}> */
+    public static function tmpRtlModeProvider(): array
+    {
+        return [
+            'R_mode' => ['R', true],
+            'L_mode' => ['L', false],
+            'empty_mode' => ['', false],
+        ];
+    }
 
-        $this->assertTrue($result);
+    /** @return array<string, array{0: bool, 1: bool}> */
+    public static function isRtlStateProvider(): array
+    {
+        return [
+            'default_false' => [false, false],
+            'global_true' => [true, true],
+        ];
     }
 }

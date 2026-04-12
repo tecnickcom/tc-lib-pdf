@@ -16,6 +16,8 @@
 
 namespace Test;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 class TestableTcpdf extends \Com\Tecnick\Pdf\Tcpdf
 {
     public function exposeEnableSignatureApproval(bool $enabled = true): static
@@ -95,25 +97,16 @@ class TcpdfTest extends TestUtil
         $this->assertSame('i', $regexp['m']);
     }
 
-    public function testSetDisplayModeDefaultsInvalidZoomToDefault(): void
+    #[DataProvider('displayModeFixtureProvider')]
+    public function testSetDisplayModeStoresExpectedZoom(string|int $inputZoom, string|int $expectedZoom): void
     {
         $obj = $this->getTestObject();
-        $ret = $obj->setDisplayMode('invalid-zoom-token');
+        $ret = $obj->setDisplayMode($inputZoom);
 
         /** @var array{zoom: string|int|float} $display */
         $display = $this->getObjectProperty($obj, 'display');
         $this->assertSame($obj, $ret);
-        $this->assertSame('default', $display['zoom']);
-    }
-
-    public function testSetDisplayModeAcceptsNumericZoom(): void
-    {
-        $obj = $this->getTestObject();
-        $obj->setDisplayMode(125);
-
-        /** @var array{zoom: string|int|float} $display */
-        $display = $this->getObjectProperty($obj, 'display');
-        $this->assertSame(125, $display['zoom']);
+        $this->assertSame($expectedZoom, $display['zoom']);
     }
 
     public function testSetUserRightsMergesValues(): void
@@ -133,6 +126,15 @@ class TcpdfTest extends TestUtil
         $rights = $this->getObjectProperty($obj, 'userrights');
         $this->assertTrue($rights['enabled']);
         $this->assertSame('/FullSave', $rights['document']);
+    }
+
+    /** @return array<string, array{0: string|int, 1: string|int}> */
+    public static function displayModeFixtureProvider(): array
+    {
+        return [
+            'invalid_token_uses_default' => ['invalid-zoom-token', 'default'],
+            'numeric_zoom_is_preserved' => [125, 125],
+        ];
     }
 
     public function testSetSignTimeStampThrowsWhenEnabledWithoutHost(): void

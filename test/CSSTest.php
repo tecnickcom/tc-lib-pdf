@@ -16,6 +16,8 @@
 
 namespace Test;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base
@@ -142,41 +144,49 @@ class CSSTest extends TestUtil
         $obj->addPage();
     }
 
-    public function testSetDefaultCSSMarginStoresPointValues(): void
+    #[DataProvider('cssDefaultSetterProvider')]
+    public function testSetDefaultCSSSettersStorePointValues(string $target): void
     {
         $obj = $this->getTestObject();
-        $obj->setDefaultCSSMargin(1.0, 2.0, 3.0, 4.0);
-
-        /** @var TCellBound $margin */
-        $margin = $this->getObjectProperty($obj, 'defCSSCellMargin');
-        $this->bcAssertEqualsWithDelta($obj->toPoints(1.0), $margin['T']);
-        $this->bcAssertEqualsWithDelta($obj->toPoints(2.0), $margin['R']);
-        $this->bcAssertEqualsWithDelta($obj->toPoints(3.0), $margin['B']);
-        $this->bcAssertEqualsWithDelta($obj->toPoints(4.0), $margin['L']);
+        switch ($target) {
+            case 'margin':
+                $obj->setDefaultCSSMargin(1.0, 2.0, 3.0, 4.0);
+                /** @var TCellBound $margin */
+                $margin = $this->getObjectProperty($obj, 'defCSSCellMargin');
+                $this->bcAssertEqualsWithDelta($obj->toPoints(1.0), $margin['T']);
+                $this->bcAssertEqualsWithDelta($obj->toPoints(2.0), $margin['R']);
+                $this->bcAssertEqualsWithDelta($obj->toPoints(3.0), $margin['B']);
+                $this->bcAssertEqualsWithDelta($obj->toPoints(4.0), $margin['L']);
+                break;
+            case 'padding':
+                $obj->setDefaultCSSPadding(0.5, 1.5, 2.5, 3.5);
+                /** @var TCellBound $padding */
+                $padding = $this->getObjectProperty($obj, 'defCSSCellPadding');
+                $this->bcAssertEqualsWithDelta($obj->toPoints(0.5), $padding['T']);
+                $this->bcAssertEqualsWithDelta($obj->toPoints(1.5), $padding['R']);
+                $this->bcAssertEqualsWithDelta($obj->toPoints(2.5), $padding['B']);
+                $this->bcAssertEqualsWithDelta($obj->toPoints(3.5), $padding['L']);
+                break;
+            case 'spacing':
+                $obj->setDefaultCSSBorderSpacing(1.25, 2.75);
+                /** @var TCSSBorderSpacing $spacing */
+                $spacing = $this->getObjectProperty($obj, 'defCSSBorderSpacing');
+                $this->bcAssertEqualsWithDelta($obj->toPoints(1.25), $spacing['V']);
+                $this->bcAssertEqualsWithDelta($obj->toPoints(2.75), $spacing['H']);
+                break;
+            default:
+                $this->fail('Unknown fixture target: ' . $target);
+        }
     }
 
-    public function testSetDefaultCSSPaddingStoresPointValues(): void
+    /** @return array<string, array{0: string}> */
+    public static function cssDefaultSetterProvider(): array
     {
-        $obj = $this->getTestObject();
-        $obj->setDefaultCSSPadding(0.5, 1.5, 2.5, 3.5);
-
-        /** @var TCellBound $padding */
-        $padding = $this->getObjectProperty($obj, 'defCSSCellPadding');
-        $this->bcAssertEqualsWithDelta($obj->toPoints(0.5), $padding['T']);
-        $this->bcAssertEqualsWithDelta($obj->toPoints(1.5), $padding['R']);
-        $this->bcAssertEqualsWithDelta($obj->toPoints(2.5), $padding['B']);
-        $this->bcAssertEqualsWithDelta($obj->toPoints(3.5), $padding['L']);
-    }
-
-    public function testSetDefaultCSSBorderSpacingStoresPointValues(): void
-    {
-        $obj = $this->getTestObject();
-        $obj->setDefaultCSSBorderSpacing(1.25, 2.75);
-
-        /** @var TCSSBorderSpacing $spacing */
-        $spacing = $this->getObjectProperty($obj, 'defCSSBorderSpacing');
-        $this->bcAssertEqualsWithDelta($obj->toPoints(1.25), $spacing['V']);
-        $this->bcAssertEqualsWithDelta($obj->toPoints(2.75), $spacing['H']);
+        return [
+            'margin' => ['margin'],
+            'padding' => ['padding'],
+            'spacing' => ['spacing'],
+        ];
     }
 
     public function testGetCSSBorderWidthPointsHandlesNamedValues(): void
@@ -199,21 +209,30 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out);
     }
 
-    public function testGetCSSBorderDashStyleMapsKnownStyles(): void
+    #[DataProvider('cssBorderDashStyleProvider')]
+    public function testGetCSSBorderDashStyleMapsKnownStyles(string $style, int $expected): void
     {
         $obj = $this->getInternalTestObject();
 
-        $this->assertSame(-1, $obj->exposeGetCSSBorderDashStyle('none'));
-        $this->assertSame(-1, $obj->exposeGetCSSBorderDashStyle('hidden'));
-        $this->assertSame(1, $obj->exposeGetCSSBorderDashStyle('dotted'));
-        $this->assertSame(3, $obj->exposeGetCSSBorderDashStyle('dashed'));
-        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('double'));
-        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('groove'));
-        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('ridge'));
-        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('inset'));
-        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('outset'));
-        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('solid'));
-        $this->assertSame(0, $obj->exposeGetCSSBorderDashStyle('custom'));
+        $this->assertSame($expected, $obj->exposeGetCSSBorderDashStyle($style));
+    }
+
+    /** @return array<string, array{0: string, 1: int}> */
+    public static function cssBorderDashStyleProvider(): array
+    {
+        return [
+            'none' => ['none', -1],
+            'hidden' => ['hidden', -1],
+            'dotted' => ['dotted', 1],
+            'dashed' => ['dashed', 3],
+            'double' => ['double', 0],
+            'groove' => ['groove', 0],
+            'ridge' => ['ridge', 0],
+            'inset' => ['inset', 0],
+            'outset' => ['outset', 0],
+            'solid' => ['solid', 0],
+            'custom' => ['custom', 0],
+        ];
     }
 
     public function testGetCSSDefaultBorderStyleProvidesDefaults(): void

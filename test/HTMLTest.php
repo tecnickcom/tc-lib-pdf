@@ -16,6 +16,8 @@
 
 namespace Test;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
  */
@@ -1153,72 +1155,18 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('B', $dom[1]['fontstyle']);
     }
 
-    public function testGetHTMLliBulletSupportsLowercaseAlphaAndLatin(): void
+    #[DataProvider('htmlLiBulletNamedTypeProvider')]
+    public function testGetHTMLliBulletSupportsNamedTypes(string $type, ?string $expectedFragment): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $lowerAlpha = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'lower-alpha');
-        $lowerLatin = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'lower-latin');
-
-        $this->assertNotSame('', $lowerAlpha);
-        $this->assertNotSame('', $lowerLatin);
-    }
-
-    public function testGetHTMLliBulletSupportsUppercaseAlphaAndLatin(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $upperAlpha = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'upper-alpha');
-        $upperLatin = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'upper-latin');
-
-        $this->assertNotSame('', $upperAlpha);
-        $this->assertNotSame('', $upperLatin);
-    }
-
-    public function testGetHTMLliBulletSupportsLowercaseRoman(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'i');
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, $type);
 
         $this->assertNotSame('', $result);
-        $this->assertStringContainsString('v', $result);
-    }
-
-    public function testGetHTMLliBulletSupportsLowercaseRomanByName(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'lower-roman');
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('v', $result);
-    }
-
-    public function testGetHTMLliBulletSupportsUppercaseRoman(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'upper-roman');
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('V', $result);
-    }
-
-    public function testGetHTMLliBulletSupportsUppercaseRomanShortForm(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'I');
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('V', $result);
+        if ($expectedFragment !== null) {
+            $this->assertStringContainsString($expectedFragment, $result);
+        }
     }
 
     public function testProcessHTMLDOMTextAppliesCapitalizeTransform(): void
@@ -1601,263 +1549,71 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $result3);
     }
 
-    public function testGetHTMLliBulletUnicodeDiscCharacter(): void
+    #[DataProvider('htmlLiBulletShapeProvider')]
+    public function testGetHTMLliBulletShapeVariants(
+        string $type,
+        bool $isunicode,
+        bool $rtl,
+        float $posx,
+        float $posy,
+    ): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', true);
+        $this->setObjectProperty($obj, 'isunicode', $isunicode);
+        $this->setObjectProperty($obj, 'rtl', $rtl);
 
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'disc');
+        $result = $obj->exposeGetHTMLliBullet(1, 1, $posx, $posy, $type);
 
         $this->assertNotSame('', $result);
         $this->assertGreaterThan(0, \strlen($result));
     }
 
-    public function testGetHTMLliBulletUnicodeCircleCharacter(): void
+    #[DataProvider('htmlLiBulletNumericFormatProvider')]
+    public function testGetHTMLliBulletNumericFormats(string $type, int $count, string $expectedFragment): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', true);
 
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'circle');
+        $result = $obj->exposeGetHTMLliBullet(1, $count, 0, 0, $type);
 
         $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
+        $this->assertStringContainsString($expectedFragment, $result);
     }
 
-    public function testGetHTMLliBulletUnicodeSquareCharacter(): void
+    #[DataProvider('htmlLiBulletTextDirectionProvider')]
+    public function testGetHTMLliBulletTextFormattingByDirection(bool $rtl, string $expectedFragment): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', true);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'square');
-
-        $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
-    }
-
-    public function testGetHTMLliBulletNonUnicodeDiscShape(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', false);
-        $this->setObjectProperty($obj, 'rtl', false);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'disc');
-
-        $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
-    }
-
-    public function testGetHTMLliBulletNonUnicodeCircleShape(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', false);
-        $this->setObjectProperty($obj, 'rtl', false);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'circle');
-
-        $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
-    }
-
-    public function testGetHTMLliBulletNonUnicodeSquareShape(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', false);
-        $this->setObjectProperty($obj, 'rtl', false);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'square');
-
-        $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
-    }
-
-    public function testGetHTMLliBulletRTLDiscShapePositioning(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', false);
-        $this->setObjectProperty($obj, 'rtl', true);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 10, 5, 'disc');
-
-        $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
-    }
-
-    public function testGetHTMLliBulletRTLCircleShapePositioning(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', false);
-        $this->setObjectProperty($obj, 'rtl', true);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 10, 5, 'circle');
-
-        $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
-    }
-
-    public function testGetHTMLliBulletRTLSquareShapePositioning(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'isunicode', false);
-        $this->setObjectProperty($obj, 'rtl', true);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 10, 5, 'square');
-
-        $this->assertNotSame('', $result);
-        $this->assertGreaterThan(0, \strlen($result));
-    }
-
-    public function testGetHTMLliBulletDecimalFormatWithDot(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 42, 0, 0, 'decimal');
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('42.', $result);
-    }
-
-    public function testGetHTMLliBulletShortFormDecimalWithDot(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 15, 0, 0, '1');
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('15.', $result);
-    }
-
-    public function testGetHTMLliBulletRTLTextFormatting(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'rtl', true);
+        $this->setObjectProperty($obj, 'rtl', $rtl);
 
         $result = $obj->exposeGetHTMLliBullet(1, 10, 0, 0, 'decimal');
 
         $this->assertNotSame('', $result);
-        $this->assertStringContainsString('.10', $result);
+        $this->assertStringContainsString($expectedFragment, $result);
     }
 
-    public function testGetHTMLliBulletLTRTextFormatting(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-        $this->setObjectProperty($obj, 'rtl', false);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 10, 0, 0, 'decimal');
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('10.', $result);
-    }
-
-    public function testGetHTMLliBulletDecimalLeadingZeroFormat(): void
+    #[DataProvider('htmlLiBulletScriptTypeProvider')]
+    public function testGetHTMLliBulletUnicodeAndScriptTypes(string $type): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'decimal-leading-zero');
+        if ($type === 'cjk-ideographic') {
+            /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+            $font = $this->getObjectProperty($obj, 'font');
+            /** @var int $pon */
+            $pon = $this->getObjectProperty($obj, 'pon');
+            $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/cid0/cid0jp.json');
+            if ($fontfile === '') {
+                $this->markTestSkipped('CID0JP font definition is not available.');
+            }
+            $font->insert($pon, 'cid0jp', '', 10, null, null, $fontfile);
+        }
 
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('05', $result);
-    }
-
-    public function testGetHTMLliBulletGreekCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'lower-greek');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletHebrewCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'hebrew');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletArmenianCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'armenian');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletGeorgianCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'georgian');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletCJKIdeographicCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'cjk-ideographic');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletHiraganaCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'hiragana');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletHiraganaIrohaCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'hiragana-iroha');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletKatakanaCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'katakana');
-
-        $this->assertNotSame('', $result);
-    }
-
-    public function testGetHTMLliBulletKatakanaIrohaCharacters(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'katakana-iroha');
+        $count = ($type === 'cjk-ideographic') ? 1 : 3;
+        $result = $obj->exposeGetHTMLliBullet(1, $count, 0, 0, $type);
 
         $this->assertNotSame('', $result);
     }
@@ -1873,54 +1629,35 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('5', $result);
     }
 
-    public function testGetHTMLliBulletCountOne(): void
+    #[DataProvider('htmlLiBulletCountProvider')]
+    public function testGetHTMLliBulletCountFormatting(int $count, string $expectedFragment): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'decimal');
+        $result = $obj->exposeGetHTMLliBullet(1, $count, 0, 0, 'decimal');
 
         $this->assertNotSame('', $result);
-        $this->assertStringContainsString('1.', $result);
+        $this->assertStringContainsString($expectedFragment, $result);
     }
 
-    public function testGetHTMLliBulletLargeCount(): void
+    #[DataProvider('htmlLiBulletAlphaBoundaryProvider')]
+    public function testGetHTMLliBulletAlphaBoundaryCase(
+        string $type,
+        string $expectedLast,
+        string $expectedFirst,
+    ): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $result = $obj->exposeGetHTMLliBullet(1, 999, 0, 0, 'decimal');
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('999', $result);
-    }
-
-    public function testGetHTMLliBulletAlphaBoundaryCase(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $resultZ = $obj->exposeGetHTMLliBullet(1, 26, 0, 0, 'lower-alpha');
-        $resultA = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'lower-alpha');
+        $resultZ = $obj->exposeGetHTMLliBullet(1, 26, 0, 0, $type);
+        $resultA = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, $type);
 
         $this->assertNotSame('', $resultZ);
         $this->assertNotSame('', $resultA);
-        $this->assertStringContainsString('z', $resultZ);
-        $this->assertStringContainsString('a', $resultA);
-    }
-
-    public function testGetHTMLliBulletUpperAlphaBoundaryCase(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
-
-        $resultZ = $obj->exposeGetHTMLliBullet(1, 26, 0, 0, 'upper-alpha');
-        $resultA = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'upper-alpha');
-
-        $this->assertNotSame('', $resultZ);
-        $this->assertNotSame('', $resultA);
-        $this->assertStringContainsString('Z', $resultZ);
-        $this->assertStringContainsString('A', $resultA);
+        $this->assertStringContainsString($expectedLast, $resultZ);
+        $this->assertStringContainsString($expectedFirst, $resultA);
     }
 
     public function testGetHTMLliBulletWithNonZeroPositions(): void
@@ -1949,6 +1686,59 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $depthSeven);
     }
 
+    /** @return array<string, array{0: string}> */
+    public static function htmlLiBulletScriptTypeProvider(): array
+    {
+        return [
+            'lower-greek' => ['lower-greek'],
+            'hebrew' => ['hebrew'],
+            'armenian' => ['armenian'],
+            'georgian' => ['georgian'],
+            'cjk-ideographic' => ['cjk-ideographic'],
+            'hiragana' => ['hiragana'],
+            'hiragana-iroha' => ['hiragana-iroha'],
+            'katakana' => ['katakana'],
+            'katakana-iroha' => ['katakana-iroha'],
+        ];
+    }
+
+    /** @return array<string, array{0: int, 1: string}> */
+    public static function htmlLiBulletCountProvider(): array
+    {
+        return [
+            'count-one' => [1, '1.'],
+            'count-large' => [999, '999'],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: int, 2: string}> */
+    public static function htmlLiBulletNumericFormatProvider(): array
+    {
+        return [
+            'decimal' => ['decimal', 42, '42.'],
+            'short-decimal' => ['1', 15, '15.'],
+            'leading-zero' => ['decimal-leading-zero', 5, '05'],
+        ];
+    }
+
+    /** @return array<string, array{0: bool, 1: string}> */
+    public static function htmlLiBulletTextDirectionProvider(): array
+    {
+        return [
+            'rtl' => [true, '.10'],
+            'ltr' => [false, '10.'],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: string, 2: string}> */
+    public static function htmlLiBulletAlphaBoundaryProvider(): array
+    {
+        return [
+            'lower-alpha' => ['lower-alpha', 'z', 'a'],
+            'upper-alpha' => ['upper-alpha', 'Z', 'A'],
+        ];
+    }
+
     public function testGetHTMLliBulletImageTypeParsing(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1958,25 +1748,55 @@ class HTMLTest extends TestUtil
         $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'img|png|10|10|/nonexistent/file.png');
     }
 
-    public function testGetHTMLliBulletLowercaseAShortForm(): void
+    #[DataProvider('htmlLiBulletShortAlphaProvider')]
+    public function testGetHTMLliBulletShortAlphaForms(string $type, string $expectedFragment): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'a');
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, $type);
 
         $this->assertNotSame('', $result);
-        $this->assertStringContainsString('e', $result);
+        $this->assertStringContainsString($expectedFragment, $result);
     }
 
-    public function testGetHTMLliBulletUppercaseAShortForm(): void
+    /** @return array<string, array{0: string, 1: ?string}> */
+    public static function htmlLiBulletNamedTypeProvider(): array
     {
-        $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
+        return [
+            'lower-alpha' => ['lower-alpha', null],
+            'lower-latin' => ['lower-latin', null],
+            'upper-alpha' => ['upper-alpha', null],
+            'upper-latin' => ['upper-latin', null],
+            'roman-lower-short' => ['i', 'v'],
+            'roman-lower-name' => ['lower-roman', 'v'],
+            'roman-upper-name' => ['upper-roman', 'V'],
+            'roman-upper-short' => ['I', 'V'],
+        ];
+    }
 
-        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'A');
+    /** @return array<string, array{0: string, 1: string}> */
+    public static function htmlLiBulletShortAlphaProvider(): array
+    {
+        return [
+            'short-lower-a' => ['a', 'e'],
+            'short-upper-a' => ['A', 'E'],
+        ];
+    }
 
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('E', $result);
+    /** @return array<string, array{0: string, 1: bool, 2: bool, 3: float, 4: float}> */
+    public static function htmlLiBulletShapeProvider(): array
+    {
+        return [
+            'unicode-disc' => ['disc', true, false, 0.0, 0.0],
+            'unicode-circle' => ['circle', true, false, 0.0, 0.0],
+            'unicode-square' => ['square', true, false, 0.0, 0.0],
+            'non-unicode-disc' => ['disc', false, false, 0.0, 0.0],
+            'non-unicode-circle' => ['circle', false, false, 0.0, 0.0],
+            'non-unicode-square' => ['square', false, false, 0.0, 0.0],
+            'rtl-disc' => ['disc', false, true, 10.0, 5.0],
+            'rtl-circle' => ['circle', false, true, 10.0, 5.0],
+            'rtl-square' => ['square', false, true, 10.0, 5.0],
+        ];
     }
 }

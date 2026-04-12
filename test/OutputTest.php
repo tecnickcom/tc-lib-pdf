@@ -16,6 +16,8 @@
 
 namespace Test;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+
 /**
  * @phpstan-import-type TAnnot from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TObjID from \Com\Tecnick\Pdf\Output
@@ -683,12 +685,12 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /BE << /S /C /I  1.500000>>', $border);
     }
 
-    public function testGetOnOffMapsTruthyAndFalsyValues(): void
+    #[DataProvider('onOffProvider')]
+    public function testGetOnOffMapsTruthyAndFalsyValues(mixed $input, string $expected): void
     {
         $obj = $this->getInternalTestObject();
 
-        $this->assertSame('ON', $obj->exposeGetOnOff(true));
-        $this->assertSame('OFF', $obj->exposeGetOnOff(0));
+        $this->assertSame($expected, $obj->exposeGetOnOff($input));
     }
 
     public function testGetOutDestinationsSerializesNamedDestinationCoordinates(): void
@@ -933,16 +935,21 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /State /Accepted', $out);
     }
 
-    public function testGetOutAnnotationOptSubtypeLinkBuildsExternalUriAndDefaultHighlight(): void
+    /**
+     * @param array<string, mixed> $annot
+     * @param list<string>         $expectedFragments
+     */
+    #[DataProvider('annotationSubtypeLinkSimpleProvider')]
+    public function testGetOutAnnotationOptSubtypeLinkSimpleTargets(array $annot, int $apid, int $oid, array $expectedFragments): void
     {
         $obj = $this->getInternalTestObject();
-        $annot = ['txt' => 'https://example.com', 'opt' => []];
 
-        $out = $obj->exposeGetOutAnnotationOptSubtypeLink($annot, 1, 10);
+        $out = $obj->exposeGetOutAnnotationOptSubtypeLink($annot, $apid, $oid);
 
-        $this->assertStringContainsString(' /S /URI', $out);
-        $this->assertStringContainsString(' /URI ', $out);
-        $this->assertStringContainsString(' /H /I', $out);
+        foreach ($expectedFragments as $fragment) {
+            $this->assertIsString($fragment);
+            $this->assertStringContainsString($fragment, $out);
+        }
     }
 
     public function testGetOutAnnotationOptSubtypeLinkHandlesInternalAndEmbeddedTargets(): void
@@ -965,19 +972,6 @@ class OutputTest extends TestUtil
 
         $this->assertStringContainsString(' /S /JavaScript /JS ', $embeddedFile);
         $this->assertStringContainsString(' /H /I', $embeddedFile);
-    }
-
-    public function testGetOutAnnotationOptSubtypeLinkBuildsGoToRForRelativePdfTarget(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $out = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []], 1, 22);
-
-        $this->assertStringContainsString(' /S /GoToR', $out);
-        $this->assertStringContainsString(' /D (Section2)', $out);
-        $this->assertStringContainsString(' /F ', $out);
-        $this->assertStringContainsString(' /NewWindow true', $out);
-        $this->assertStringContainsString(' /H /I', $out);
     }
 
     public function testGetOutAnnotationOptSubtypeFreetextFormatsKnownOptions(): void
@@ -1460,52 +1454,79 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/TU ', $out);
     }
 
-    public function testGetOutAnnotationOptSubtypeTextWithKnownIconName(): void
+    /**
+     * @param array<string, mixed> $opt
+     * @param list<string>         $expectedFragments
+     */
+    #[DataProvider('annotationSubtypeTextProvider')]
+    public function testGetOutAnnotationOptSubtypeTextVariants(array $opt, array $expectedFragments): void
     {
         $obj = $this->getInternalTestObject();
 
-        $helpOut = $obj->exposeGetOutAnnotationOptSubtypeText(['opt' => ['name' => 'Help']]);
-        $this->assertStringContainsString(' /Name /Help', $helpOut);
+        $out = $obj->exposeGetOutAnnotationOptSubtypeText(['opt' => $opt]);
 
-        $unknownOut = $obj->exposeGetOutAnnotationOptSubtypeText(['opt' => ['name' => 'Unknown']]);
-        $this->assertStringContainsString(' /Name /Note', $unknownOut);
+        foreach ($expectedFragments as $fragment) {
+            $this->assertStringContainsString((string) $fragment, $out);
+        }
     }
 
-    public function testGetOutAnnotationOptSubtypeTextInvalidStateModelFallsToMarked(): void
+    /** @return array<string, array{0: mixed, 1: string}> */
+    public static function onOffProvider(): array
     {
-        $obj = $this->getInternalTestObject();
-
-        $out = $obj->exposeGetOutAnnotationOptSubtypeText([
-            'opt' => ['statemodel' => 'Invalid', 'state' => 'SomeState'],
-        ]);
-
-        $this->assertStringContainsString(' /StateModel /Marked', $out);
-        $this->assertStringContainsString(' /State /Unmarked', $out);
+        return [
+            'true_is_on' => [true, 'ON'],
+            'zero_is_off' => [0, 'OFF'],
+        ];
     }
 
-    public function testGetOutAnnotationOptSubtypeTextReviewStateModel(): void
+    /** @return array<string, array{0: array<string, mixed>, 1: array<int, string>}> */
+    public static function annotationSubtypeTextProvider(): array
     {
-        $obj = $this->getInternalTestObject();
-
-        $accepted = $obj->exposeGetOutAnnotationOptSubtypeText([
-            'opt' => ['statemodel' => 'Review', 'state' => 'Rejected'],
-        ]);
-        $this->assertStringContainsString(' /StateModel /Review', $accepted);
-        $this->assertStringContainsString(' /State /Rejected', $accepted);
-
-        $none = $obj->exposeGetOutAnnotationOptSubtypeText([
-            'opt' => ['statemodel' => 'Review', 'state' => 'InvalidState'],
-        ]);
-        $this->assertStringContainsString(' /State /None', $none);
+        return [
+            'known_icon_name' => [
+                ['name' => 'Help'],
+                [' /Name /Help'],
+            ],
+            'unknown_icon_defaults_to_note' => [
+                ['name' => 'Unknown'],
+                [' /Name /Note'],
+            ],
+            'invalid_state_model_falls_back' => [
+                ['statemodel' => 'Invalid', 'state' => 'SomeState'],
+                [' /StateModel /Marked', ' /State /Unmarked'],
+            ],
+            'review_rejected_state' => [
+                ['statemodel' => 'Review', 'state' => 'Rejected'],
+                [' /StateModel /Review', ' /State /Rejected'],
+            ],
+            'review_invalid_state_defaults_none' => [
+                ['statemodel' => 'Review', 'state' => 'InvalidState'],
+                [' /State /None'],
+            ],
+            'open_false' => [
+                ['open' => false],
+                [' /Open false'],
+            ],
+        ];
     }
 
-    public function testGetOutAnnotationOptSubtypeTextOpenFalse(): void
+    /** @return array<string, array{0: array<string, mixed>, 1: int, 2: int, 3: list<string>}> */
+    public static function annotationSubtypeLinkSimpleProvider(): array
     {
-        $obj = $this->getInternalTestObject();
-
-        $out = $obj->exposeGetOutAnnotationOptSubtypeText(['opt' => ['open' => false]]);
-
-        $this->assertStringContainsString(' /Open false', $out);
+        return [
+            'external_uri_default_highlight' => [
+                ['txt' => 'https://example.com', 'opt' => []],
+                1,
+                10,
+                [' /S /URI', ' /URI ', ' /H /I'],
+            ],
+            'relative_pdf_gotor' => [
+                ['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []],
+                1,
+                22,
+                [' /S /GoToR', ' /D (Section2)', ' /F ', ' /NewWindow true', ' /H /I'],
+            ],
+        ];
     }
 
     public function testGetOutAnnotationOptSubtypeLinkWithAtInternalLink(): void
@@ -1662,29 +1683,27 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Dests 7 0 R', $out);
     }
 
-    public function testGetOutCatalogZoomModesFullwidthRealAndNumeric(): void
+    #[DataProvider('catalogZoomModeProvider')]
+    public function testGetOutCatalogZoomModes(string|int $zoom, string $expectedFragment): void
     {
         $obj = $this->getInternalTestObject();
-            $this->addRawPageWithObjectNumber($obj, 6);
+        $this->addRawPageWithObjectNumber($obj, 6);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
+        $this->setObjectProperty($obj, 'display', ['layout' => '', 'mode' => 'UseNone', 'zoom' => $zoom]);
 
-        $this->setObjectProperty($obj, 'display', ['layout' => '', 'mode' => 'UseNone', 'zoom' => 'fullwidth']);
-        $outFw = $obj->exposeGetOutCatalog();
-        $this->assertStringContainsString('/FitH null]', $outFw);
+        $out = $obj->exposeGetOutCatalog();
 
-        $obj = $this->getInternalTestObject();
-            $this->addRawPageWithObjectNumber($obj, 6);
-        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
-        $this->setObjectProperty($obj, 'display', ['layout' => '', 'mode' => 'UseNone', 'zoom' => 'real']);
-        $outReal = $obj->exposeGetOutCatalog();
-        $this->assertStringContainsString('/XYZ null null 1]', $outReal);
+        $this->assertStringContainsString($expectedFragment, $out);
+    }
 
-        $obj = $this->getInternalTestObject();
-            $this->addRawPageWithObjectNumber($obj, 6);
-        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
-        $this->setObjectProperty($obj, 'display', ['layout' => '', 'mode' => 'UseNone', 'zoom' => 150]);
-        $outNum = $obj->exposeGetOutCatalog();
-        $this->assertStringContainsString('/XYZ null null', $outNum);
+    /** @return array<string, array{0: string|int, 1: string}> */
+    public static function catalogZoomModeProvider(): array
+    {
+        return [
+            'fullwidth' => ['fullwidth', '/FitH null]'],
+            'real' => ['real', '/XYZ null null 1]'],
+            'numeric' => [150, '/XYZ null null'],
+        ];
     }
 
     public function testGetOutCatalogWithOutlinesAutoSetsDisplayMode(): void
