@@ -601,6 +601,60 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString(' re', $out);
     }
 
+    public function testAddHTMLCellAppendsContentToCurrentPage(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $before = $page->getPage();
+        $beforeCount = \count($before['content']);
+
+        $obj->addHTMLCell('<p>AddedByMethod</p>', 0, 0, 30, 10);
+
+        $after = $page->getPage();
+        $afterCount = \count($after['content']);
+
+        $this->assertGreaterThan($beforeCount, $afterCount);
+        $this->assertStringContainsString('AddedByMethod', \implode("\n", $after['content']));
+    }
+
+    public function testAddHTMLCellDrawsStyledOuterCell(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+
+        $cell = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+        ];
+        $styles = [
+            'all' => [
+                'lineWidth' => 0.2,
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'miterLimit' => 10,
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => 'black',
+                'fillColor' => '#eeeeee',
+            ],
+        ];
+
+        $obj->addHTMLCell('<p>StyledAdd</p>', 0, 0, 0, 0, $cell, $styles);
+
+        $after = $page->getPage();
+        $content = \implode("\n", $after['content']);
+
+        $this->assertStringContainsString('StyledAdd', $content);
+        $this->assertStringContainsString(' re', $content);
+    }
+
     public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
     {
         $obj = $this->getTestObject();
