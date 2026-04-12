@@ -557,6 +557,91 @@ class HTMLTest extends TestUtil
         $this->assertSame($page->getPageID(), $dests[$name]['p']);
     }
 
+    public function testGetHTMLCellUsesStylesToDrawOuterCell(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $cell = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+        ];
+        $styles = [
+            'all' => [
+                'lineWidth' => 0.2,
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'miterLimit' => 10,
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => 'black',
+                'fillColor' => '#eeeeee',
+            ],
+        ];
+
+        $out = $obj->getHTMLCell('<p>A</p>', 0, 0, 20, 8, $cell, $styles);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString(' re', $out);
+    }
+
+    public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $nopad = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+        ];
+        $pad = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 12.0],
+            'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+        ];
+
+        $plainOut = $obj->getHTMLCell('<p>A</p>', 0, 0, 20, 8, $nopad, []);
+        $paddedOut = $obj->getHTMLCell('<p>A</p>', 0, 0, 20, 8, $pad, []);
+
+        $this->assertNotSame('', $plainOut);
+        $this->assertNotSame('', $paddedOut);
+        $this->assertNotSame($plainOut, $paddedOut);
+    }
+
+    public function testGetHTMLCellWidthZeroUsesAvailableRegionWidthForStyledCell(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $cell = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+        ];
+        $styles = [
+            'all' => [
+                'lineWidth' => 0.2,
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'miterLimit' => 10,
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => 'black',
+                'fillColor' => '#eeeeee',
+            ],
+        ];
+
+        $out = $obj->getHTMLCell('<p>A</p>', 0, 0, 0, 8, $cell, $styles);
+
+        $this->assertNotSame('', $out);
+        $matches = [];
+        \preg_match('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re/s', $out, $matches);
+        $this->assertNotEmpty($matches);
+        $this->assertGreaterThan(0.0, \abs((float) $matches[3]));
+    }
+
     public function testGetHTMLCellCoversAllSupportedTagsWithoutErrors(): void
     {
         $obj = $this->getTestObject();
@@ -1172,6 +1257,25 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('T', $out);
     }
 
+    public function testGetHTMLCellReplaysTableHeadOnExplicitBodyRowPageBreak(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table><thead><tr><th>H</th></tr></thead>'
+            . '<tr style="page-break-before:always"><td>T</td></tr></table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(2, \substr_count($out, '(H)'));
+        $this->assertStringContainsString('(T)', $out);
+    }
+
     public function testGetHTMLCellTreatsFormAsBlockContainer(): void
     {
         $obj = $this->getTestObject();
@@ -1754,6 +1858,46 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('(AfterBreak)', $out);
+    }
+
+    public function testGetHTMLCellCoversTcpdfSerializedPageBreakData(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $before = $obj->exposePageBreak();
+        $payload = \urlencode((string) \json_encode(['m' => 'AddPage', 'p' => []]));
+        $hash = \str_repeat('a', 64);
+        $data = '64+' . $hash . '+' . $payload;
+        $html = '<tcpdf data="' . $data . '" /><p>AfterBreak</p>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
+        $after = $obj->exposePageBreak();
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(AfterBreak)', $out);
+        $this->assertGreaterThan($before, $after);
+    }
+
+    public function testGetHTMLCellIgnoresDisallowedTcpdfSerializedMethod(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var array<string, array<string, int|float>> $beforeDests */
+        $beforeDests = $this->getObjectProperty($obj, 'dests');
+
+        $payload = \urlencode((string) \json_encode([
+            'm' => 'setNamedDestination',
+            'p' => ['blocked-dest', -1, 1.0, 1.0],
+        ]));
+        $hash = \str_repeat('a', 64);
+        $data = '64+' . $hash . '+' . $payload;
+        $obj->getHTMLCell('<tcpdf data="' . $data . '" /><p>X</p>', 0, 0, 20, 6);
+
+        /** @var array<string, array<string, int|float>> $afterDests */
+        $afterDests = $this->getObjectProperty($obj, 'dests');
+        $this->assertCount(\count($beforeDests), $afterDests);
     }
 
     public function testIsValidCSSSelectorForTagRejectsPseudoClassesAndPseudoElements(): void

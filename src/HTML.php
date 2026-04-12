@@ -823,6 +823,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $maxel = \count($elm);
         $elkey = 0;
         $key = 1;
+        $inthead = false;
 
         while ($elkey < $maxel) {
             $element = $elm[$elkey];
@@ -841,10 +842,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
                 $tagname = \strtolower($tag[1]);
-                // check if we are inside a table header
-                $thead = false;
                 if ($tagname == 'thead') {
-                    $thead = ($element[0] !== '/');
+                    $inthead = ($element[0] !== '/');
                     ++$elkey;
                     continue;
                 }
@@ -868,7 +867,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $level,
                         $element,
                         $key,
-                        $thead,
+                        $inthead,
                     );
                 }
             } else {
@@ -933,7 +932,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function inheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
         $defaults = $dom[0] ?? [];
-        foreach ([
+        foreach (
+            [
             'align',
             'bgcolor',
             'border',
@@ -953,7 +953,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'strokecolor',
             'text-indent',
             'text-transform',
-        ] as $prop) {
+            ] as $prop
+        ) {
             if (!isset($dom[$parent][$prop]) || !isset($defaults[$prop])) {
                 continue;
             }
@@ -2294,6 +2295,82 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Estimate the total rendered height for rows inside a table-header fragment.
+     */
+    protected function estimateHTMLTableHeadHeight(string $thead): float
+    {
+        if ($thead === '') {
+            return 0.0;
+        }
+
+        $dom = $this->getHTMLDOM($thead);
+        $height = 0.0;
+        $rowheight = 0.0;
+        $inrow = false;
+
+        foreach ($dom as $elm) {
+            if (empty($elm['tag']) || empty($elm['value']) || !\is_string($elm['value'])) {
+                continue;
+            }
+
+            if ($elm['opening'] && ($elm['value'] === 'tr')) {
+                $inrow = true;
+                $rowheight = 0.0;
+                continue;
+            }
+
+            if ($inrow && $elm['opening'] && (($elm['value'] === 'td') || ($elm['value'] === 'th'))) {
+                $cellh = $this->getHTMLLineAdvance($elm)
+                    + (float) $elm['padding']['T']
+                    + (float) $elm['padding']['B']
+                    + (float) $elm['margin']['T']
+                    + (float) $elm['margin']['B'];
+                if (!empty($elm['height']) && \is_numeric($elm['height'])) {
+                    $cellh = \max($cellh, (float) $elm['height']);
+                }
+                $rowheight = \max($rowheight, $cellh);
+                continue;
+            }
+
+            if (!$elm['opening'] && ($elm['value'] === 'tr') && $inrow) {
+                if ($rowheight <= 0.0) {
+                    $curfont = $this->font->getCurrentFont();
+                    $rowheight = $this->toUnit((float) $curfont['height']);
+                }
+                $height += $rowheight;
+                $rowheight = 0.0;
+                $inrow = false;
+            }
+        }
+
+        return $height;
+    }
+
+    /**
+     * Replay stored table-header HTML at the current row position.
+     */
+    protected function replayHTMLTableHead(
+        string $thead,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        if ($thead === '') {
+            return '';
+        }
+
+        $out = $this->getHTMLCell($thead, $tpx, $tpy, $tpw, $tph);
+        $theadh = $this->estimateHTMLTableHeadHeight($thead);
+        if ($theadh > 0.0) {
+            $tpy += $theadh;
+            $this->resetHTMLLineCursor($tpx, $tpw);
+        }
+
+        return $out;
+    }
+
+    /**
      * Push a new active HTML link.
      */
     protected function pushHTMLLink(string $href): void
@@ -2865,8 +2942,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * @TODO - EXPERIMENTAL - DRAFT - IN PROGRESS
-     *
      * Returns the PDF code to render an HTML block inside a rectangular cell.
      *
      * @param string      $html        HTML code to be processed.
@@ -2875,7 +2950,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float       $width       Width.
      * @param float       $height      Height.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-     * @param array<int, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
+    * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
      *
      * @return string
      */
@@ -2892,22 +2967,72 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $dom = $this->getHTMLDOM($html);
         $numel = \count($dom);
         $key = 0;
+        $tabletheadmap = [];
 
-        $tpx = $posx;
-        $tpy = $posy;
-        $tpw = $width;
-        $tph = $height;
+        foreach ($dom as $dnode) {
+            if (
+                empty($dnode['tag'])
+                || !empty($dnode['opening'])
+                || empty($dnode['value'])
+                || ($dnode['value'] !== 'table')
+                || empty($dnode['parent'])
+                || !\is_int($dnode['parent'])
+                || empty($dnode['thead'])
+                || !\is_string($dnode['thead'])
+            ) {
+                continue;
+            }
+
+            $tabletheadmap[$dnode['parent']] = $dnode['thead'];
+        }
+
+        $drawcell = ($styles !== []);
+        $cellctx = $this->adjustMinCellPadding($styles, $cell);
+
+        $cellwidth = $width;
+        if ($cellwidth <= 0.0) {
+            $cellwidth = $this->toUnit(
+                $this->cellMaxWidth(
+                    $this->toPoints($posx),
+                    $cellctx,
+                )
+            );
+        }
+
+        $offsetx = $this->toUnit((float) $cellctx['margin']['L'] + (float) $cellctx['padding']['L']);
+        $offsety = $this->toUnit((float) $cellctx['margin']['T'] + (float) $cellctx['padding']['T']);
+        $offsetw = $this->toUnit(
+            (float) $cellctx['margin']['L']
+            + (float) $cellctx['margin']['R']
+            + (float) $cellctx['padding']['L']
+            + (float) $cellctx['padding']['R']
+        );
+        $offseth = $this->toUnit(
+            (float) $cellctx['margin']['T']
+            + (float) $cellctx['margin']['B']
+            + (float) $cellctx['padding']['T']
+            + (float) $cellctx['padding']['B']
+        );
+
+        $contentx = $posx + $offsetx;
+        $contenty = $posy + $offsety;
+        $contentw = \max(0.0, $cellwidth - $offsetw);
+        $contenth = ($height > 0) ? \max(0.0, $height - $offseth) : 0.0;
+
+        $tpx = $contentx;
+        $tpy = $contenty;
+        $tpw = $contentw;
+        $tph = $contenth;
         $nobrstack = [];
 
-        unset($cell, $styles);
-
-        $this->initHTMLCellContext($posx, $posy, $width, $height);
+        $this->initHTMLCellContext($contentx, $contenty, $contentw, $contenth);
 
         while ($key < $numel) {
             $elm = $dom[$key];
 
             if ($elm['tag']) { // HTML TAG
                 if ($elm['opening']) { // opening tag
+                    $didpagebreak = false;
                     if ($elm['hide']) {
                         $hidden_node_key = $key;
                         if ($elm['self']) {
@@ -2933,6 +3058,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                     if (!empty($elm['attribute']['pagebreak'])) {
                         $pid = $this->pageBreak();
+                        $didpagebreak = true;
                         if ($elm['attribute']['pagebreak'] != 'true') {
                             $leftmode = ($this->rtl ^ (($pid % 2) == 0));
                             if (
@@ -2940,7 +3066,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 || (($elm['attribute']['pagebreak'] == 'right') && !$leftmode)
                             ) {
                                 $this->pageBreak();
+                                $didpagebreak = true;
                             }
+                        }
+                    }
+
+                    if ($didpagebreak && ($elm['value'] === 'tr')) {
+                        $parent = \is_int($elm['parent']) ? $elm['parent'] : 0;
+                        $theadhtml = '';
+                        if (
+                            isset($dom[$parent])
+                            && !empty($dom[$parent]['thead'])
+                            && \is_string($dom[$parent]['thead'])
+                        ) {
+                            $theadhtml = $dom[$parent]['thead'];
+                        } elseif (!empty($tabletheadmap[$parent]) && \is_string($tabletheadmap[$parent])) {
+                            $theadhtml = $tabletheadmap[$parent];
+                        }
+
+                        if ($theadhtml !== '') {
+                            $out .= $this->replayHTMLTableHead(
+                                $theadhtml,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                            );
                         }
                     }
 
@@ -3026,9 +3177,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
                 } else { // closing tag
-                    if (!empty($nobrstack) && (
+                    if (
+                        !empty($nobrstack) && (
                         $nobrstack[\count($nobrstack) - 1] === $elm['value']
-                    )) {
+                        )
+                    ) {
                         \array_pop($nobrstack);
                     }
 
@@ -3106,6 +3259,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ++$key;
         }
 
+        if ($drawcell) {
+            $boxheight = $height;
+            if ($boxheight <= 0) {
+                $curfont = $this->font->getCurrentFont();
+                $lineh = $this->toUnit((float) $curfont['height']);
+                $boxheight = \max($lineh, ($tpy - $contenty) + $lineh + $offseth);
+            }
+
+            $out = $this->drawCell(
+                $this->toPoints($posx),
+                $this->toYPoints($posy),
+                $this->toPoints($cellwidth),
+                $this->toPoints($boxheight),
+                $styles,
+                $cellctx,
+            ) . $out;
+        }
+
         $this->clearHTMLCellContext();
 
         return $out;
@@ -3119,7 +3290,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float  $tpy  Ordinate of upper-left corner.
      * @param float  $tpw  Width.
      * @param float  $tph  Height.
-     * 
+     *
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      *
      * @return string PDF code.
@@ -3978,6 +4149,78 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Parse serialized TCPDF tag data payload.
+     *
+     * Supported format: <hlen>+<hash>+<urlencoded-json>
+     * where JSON decodes to: {'m': string, 'p': array}
+     *
+     * @return ?array{m: string, p: array<int, mixed>}
+     */
+    protected function parseHTMLTcpdfSerializedData(string $data): ?array
+    {
+        $hpos = \strpos($data, '+');
+        if (($hpos === false) || ($hpos <= 0)) {
+            return null;
+        }
+
+        $hlen = (int) \substr($data, 0, $hpos);
+        if ($hlen <= 0) {
+            return null;
+        }
+
+        $encoded = \substr($data, $hpos + 2 + $hlen);
+        if ($encoded === '') {
+            return null;
+        }
+
+        $decoded = \json_decode(\urldecode($encoded), true);
+        if (!\is_array($decoded) || empty($decoded['m']) || !\is_string($decoded['m'])) {
+            return null;
+        }
+
+        $params = [];
+        if (isset($decoded['p']) && \is_array($decoded['p'])) {
+            $params = \array_values($decoded['p']);
+        }
+
+        return [
+            'm' => $decoded['m'],
+            'p' => $params,
+        ];
+    }
+
+    /**
+     * Check if a TCPDF HTML callback method is allowed.
+     */
+    protected function isAllowedHTMLTcpdfMethod(string $method): bool
+    {
+        if (\defined('K_ALLOWED_TCPDF_TAGS')) {
+            $allowedtags = \constant('K_ALLOWED_TCPDF_TAGS');
+            if (\is_string($allowedtags)) {
+                return (\strpos($allowedtags, '|' . $method . '|') !== false);
+            }
+        }
+
+        return \in_array(\strtolower($method), ['pagebreak', 'addpage'], true);
+    }
+
+    /**
+     * Execute page-break style tcpdf callback and normalize cursor.
+     */
+    protected function executeHTMLTcpdfPageBreak(string $mode, float &$tpx, float &$tpw): void
+    {
+        $pid = $this->pageBreak();
+        if ($mode !== 'true') {
+            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+            if ((($mode == 'left') && $leftmode) || (($mode == 'right') && !$leftmode)) {
+                $this->pageBreak();
+            }
+        }
+
+        $this->resetHTMLLineCursor($tpx, $tpw);
+    }
+
+    /**
      * Process HTML opening tag <tcpdf>.
      *
      * @param THTMLAttrib $elm DOM array element.
@@ -3991,6 +4234,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagOPENtcpdf(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tpy, $tph);
+
+        if (!empty($elm['attribute']['data']) && \is_string($elm['attribute']['data'])) {
+            $tagdata = $this->parseHTMLTcpdfSerializedData($elm['attribute']['data']);
+            if (($tagdata !== null) && $this->isAllowedHTMLTcpdfMethod($tagdata['m'])) {
+                $method = \strtolower($tagdata['m']);
+                if (($method === 'pagebreak') || ($method === 'addpage')) {
+                    $mode = 'true';
+                    if (!empty($elm['attribute']['pagebreak']) && \is_string($elm['attribute']['pagebreak'])) {
+                        $mode = \strtolower(\trim($elm['attribute']['pagebreak']));
+                    }
+                    $this->executeHTMLTcpdfPageBreak($mode, $tpx, $tpw);
+                    return '';
+                }
+
+                try {
+                    $this->{$tagdata['m']}(...$tagdata['p']);
+                } catch (\Throwable) {
+                    return '';
+                }
+
+                $this->resetHTMLLineCursor($tpx, $tpw);
+            }
+
+            return '';
+        }
 
         $method = '';
         if (!empty($elm['attribute']['method']) && \is_string($elm['attribute']['method'])) {
@@ -4006,15 +4274,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $mode = \strtolower(\trim($elm['attribute']['pagebreak']));
         }
 
-        $pid = $this->pageBreak();
-        if ($mode !== 'true') {
-            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
-            if ((($mode == 'left') && $leftmode) || (($mode == 'right') && !$leftmode)) {
-                $this->pageBreak();
-            }
-        }
-
-        $this->resetHTMLLineCursor($tpx, $tpw);
+        $this->executeHTMLTcpdfPageBreak($mode, $tpx, $tpw);
 
         return '';
     }
