@@ -1015,4 +1015,1013 @@ class HTMLTest extends TestUtil
 
         $this->assertSame('', $out);
     }
+
+    public function testIsValidCSSSelectorForTagRejectsPseudoClassesAndPseudoElements(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode([
+                'value' => 'div',
+                'parent' => 0,
+                'tag' => true,
+                'opening' => true,
+            ]),
+        ];
+
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div:hover'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div:focus'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div::before'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div::after'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div:first-child'));
+    }
+
+    public function testIsValidCSSSelectorForTagHandlesInvalidSyntax(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode(['value' => 'div', 'parent' => 0]),
+        ];
+
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ''));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, '['));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ']'));
+    }
+
+    public function testSanitizeHTMLHandlesConsecutivePreTags(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<pre>line1</pre><pre>line2</pre>';
+
+        $out = $obj->exposeSanitizeHTML($html);
+
+        $this->assertStringContainsString('<pre>line1</pre>', $out);
+        $this->assertStringContainsString('<pre>line2</pre>', $out);
+    }
+
+    public function testSanitizeHTMLHandlesTextareaWithNewlineCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<textarea>line1' . "\n" . 'line2</textarea>';
+
+        $out = $obj->exposeSanitizeHTML($html);
+
+        $this->assertStringContainsString('<textarea', $out);
+        $this->assertStringContainsString('line1', $out);
+        $this->assertStringContainsString('line2', $out);
+    }
+
+    public function testSanitizeHTMLHandlesImagesWithoutSrc(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<img alt="test"><p>after</p>';
+
+        $out = $obj->exposeSanitizeHTML($html);
+
+        $this->assertStringContainsString('<img', $out);
+        $this->assertStringContainsString('<p>', $out);
+    }
+
+    public function testSanitizeHTMLHandlesEmptySelectAndOption(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<select></select>';
+
+        $out = $obj->exposeSanitizeHTML($html);
+
+        $this->assertStringContainsString('<select', $out);
+    }
+
+    public function testParseHTMLStyleAttributesHandlesLineHeightNormalValue(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['line-height' => 1.0, 'fontsize' => 10.0]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'line-height' => 1.0,
+                'attribute' => [
+                    'style' => 'line-height:normal;',
+                ],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertSame(1.0, $dom[1]['line-height']);
+    }
+
+    public function testParseHTMLStyleAttributesBorderShorthandParsing(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => [
+                    'style' => 'border:1px solid black;',
+                ],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertNotEmpty($dom[1]['border']);
+    }
+
+    public function testParseHTMLAttributesHandlesFontTagWithSizePrefix(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'value' => 'font',
+                'parent' => 0,
+                'attribute' => ['size' => '-1'],
+                'style' => [],
+                'fontstyle' => '',
+                'fontsize' => 10.0,
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertGreaterThan(0.0, $dom[1]['fontsize']);
+        $this->assertLessThan(10.0, $dom[1]['fontsize']);
+    }
+
+    public function testParseHTMLAttributesHandlesFontTagWithPlusPrefix(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'value' => 'font',
+                'parent' => 0,
+                'attribute' => ['size' => '+2'],
+                'style' => [],
+                'fontstyle' => '',
+                'fontsize' => 10.0,
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertGreaterThan(10.0, $dom[1]['fontsize']);
+    }
+
+    public function testParseHTMLAttributesHandlesHeading2Tag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'value' => 'h2',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'fontstyle' => '',
+                'fontsize' => 10.0,
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertGreaterThan(10.0, $dom[1]['fontsize']);
+        $this->assertStringContainsString('B', $dom[1]['fontstyle']);
+    }
+
+    public function testGetHTMLliBulletSupportsLowercaseAlphaAndLatin(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $lowerAlpha = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'lower-alpha');
+        $lowerLatin = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'lower-latin');
+
+        $this->assertNotSame('', $lowerAlpha);
+        $this->assertNotSame('', $lowerLatin);
+    }
+
+    public function testGetHTMLliBulletSupportsUppercaseAlphaAndLatin(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $upperAlpha = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'upper-alpha');
+        $upperLatin = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'upper-latin');
+
+        $this->assertNotSame('', $upperAlpha);
+        $this->assertNotSame('', $upperLatin);
+    }
+
+    public function testGetHTMLliBulletSupportsLowercaseRoman(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'i');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('v', $result);
+    }
+
+    public function testGetHTMLliBulletSupportsLowercaseRomanByName(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'lower-roman');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('v', $result);
+    }
+
+    public function testGetHTMLliBulletSupportsUppercaseRoman(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'upper-roman');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('V', $result);
+    }
+
+    public function testGetHTMLliBulletSupportsUppercaseRomanShortForm(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'I');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('V', $result);
+    }
+
+    public function testProcessHTMLDOMTextAppliesCapitalizeTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['text-transform' => 'capitalize']),
+            1 => $this->makeHtmlNode(['value' => '']),
+        ];
+
+        $obj->exposeProcessHTMLDOMText($dom, 'hello world', 1, 0);
+
+        $this->assertNotSame('hello world', $dom[1]['value']);
+    }
+
+    public function testProcessHTMLDOMClosingTagHandlesNonTableElements(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $root = $obj->exposeGetHTMLRootProperties();
+        /** @var THTMLAttrib $root */
+        $root = $root;
+        $dom = [
+            0 => $root,
+            1 => $root,
+        ];
+        $dom[1]['value'] = 'div';
+        $dom[1]['parent'] = 0;
+        $elm = ['<div>', '</div>'];
+
+        $obj->exposeProcessHTMLDOMClosingTag($dom, $elm, 1, 0, '');
+
+        $this->assertArrayHasKey('content', $dom[0]);
+    }
+
+    public function testProcessHTMLDOMOpeningTagDetectsSelfClosingImg(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $root = $obj->exposeGetHTMLRootProperties();
+        /** @var THTMLAttrib $root */
+        $root = $root;
+        $dom = [
+            0 => $root,
+            1 => $root,
+        ];
+        $dom[1]['parent'] = 0;
+        $dom[1]['value'] = 'img';
+
+        $obj->exposeProcessHTMLDOMOpeningTag($dom, [], [0], 'img', 1, false);
+
+        $this->assertTrue($dom[1]['self']);
+    }
+
+    public function testProcessHTMLDOMOpeningTagDetectsSelfClosingBr(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $root = $obj->exposeGetHTMLRootProperties();
+        /** @var THTMLAttrib $root */
+        $root = $root;
+        $dom = [
+            0 => $root,
+            1 => $root,
+        ];
+        $dom[1]['parent'] = 0;
+        $dom[1]['value'] = 'br';
+
+        $obj->exposeProcessHTMLDOMOpeningTag($dom, [], [0], 'br', 1, false);
+
+        $this->assertTrue($dom[1]['self']);
+    }
+
+    public function testPageBreakMovesToNextPageRegion(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $pid = $obj->exposePageBreak();
+
+        $this->assertGreaterThan(0, $pid);
+    }
+
+    public function testInheritHTMLPropertiesPreservesChildOverrides(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['align' => 'L', 'fontname' => 'helvetica', 'fontsize' => 10.0]),
+            1 => $this->makeHtmlNode(['align' => 'R', 'fontsize' => 0.0]),
+        ];
+
+        $obj->exposeInheritHTMLProperties($dom, 1, 0);
+
+        $this->assertSame('R', $dom[1]['align']);
+        $this->assertSame('helvetica', $dom[1]['fontname']);
+        $this->assertSame(0.0, $dom[1]['fontsize']);
+    }
+
+    public function testGetHTMLDOMCSSDataHandlesMultiplePriorities(): void
+    {
+        $obj = $this->getTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root', 'csssel' => ['0010 p', '0020 p.x', '0005 p']]),
+            1 => $this->makeHtmlNode([
+                'value' => 'p',
+                'parent' => 0,
+                'attribute' => ['class' => 'x'],
+            ]),
+        ];
+        $css = [
+            '0010 p' => 'color:red;',
+            '0020 p.x' => 'color:blue;',
+            '0005 p' => 'color:green;',
+        ];
+
+        $obj->getHTMLDOMCSSData($dom, $css, 1);
+
+        $this->assertNotEmpty($dom[1]['cssdata']);
+        $this->assertGreaterThanOrEqual(2, \count($dom[1]['cssdata']));
+    }
+
+    public function testIsValidCSSSelectorForTagCoversMultipleCases(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'div', 'tag' => true, 'opening' => true]),
+            1 => $this->makeHtmlNode([
+                'value' => 'p',
+                'parent' => 0,
+                'tag' => true,
+                'opening' => true,
+                'attribute' => ['id' => 'main'],
+            ]),
+        ];
+
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 1, ' p'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 1, ' p#main'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' span'));
+    }
+
+    public function testParseHTMLAttributesHandlesTableRowsAndCols(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0]),
+            1 => $this->makeHtmlNode([
+                'value' => 'table',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+            ]),
+            2 => $this->makeHtmlNode([
+                'value' => 'tr',
+                'parent' => 1,
+                'attribute' => [],
+                'style' => [],
+            ]),
+            3 => $this->makeHtmlNode([
+                'value' => 'td',
+                'parent' => 2,
+                'attribute' => ['colspan' => '2', 'rowspan' => '2'],
+                'style' => [],
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+        $obj->parseHTMLAttributes($dom, 2, false);
+        $obj->parseHTMLAttributes($dom, 3, false);
+
+        $this->assertGreaterThan(0, $dom[1]['rows']);
+    }
+
+    public function testParseHTMLStyleAttributesHandlesMultipleBorderSides(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => [
+                    'style' => 'border-left:1 solid red;border-right:2 dashed blue;'
+                        . 'border-top:3 dotted green;border-bottom:4 double black;',
+                ],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertNotEmpty($dom[1]['border']);
+    }
+
+    public function testParseHTMLStyleAttributesHandlesPaddingAndMarginValues(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => [
+                    'style' => 'padding:5px 10px;margin:1px 2px 3px 4px;',
+                ],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['padding']);
+        $this->assertNotSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $dom[1]['margin']);
+    }
+
+    public function testParseHTMLAttributesHandlesStrongAndEmphasisTags(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'value' => 'strong',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'fontstyle' => '',
+            ]),
+            2 => $this->makeHtmlNode([
+                'value' => 'em',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'fontstyle' => '',
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+        $obj->parseHTMLAttributes($dom, 2, false);
+
+        $this->assertStringContainsString('B', $dom[1]['fontstyle']);
+        $this->assertStringContainsString('I', $dom[2]['fontstyle']);
+    }
+
+    public function testParseHTMLAttributesHandlesUnderlineTag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'value' => 'u',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'fontstyle' => '',
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertStringContainsString('U', $dom[1]['fontstyle']);
+    }
+
+    public function testParseHTMLAttributesHandlesDeleteTag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'value' => 'del',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'fontstyle' => '',
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertStringContainsString('D', $dom[1]['fontstyle']);
+    }
+
+    public function testParseHTMLAttributesHandlesPreTag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontname' => 'helvetica']),
+            1 => $this->makeHtmlNode([
+                'value' => 'pre',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'fontname' => 'helvetica',
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertNotSame('helvetica', $dom[1]['fontname']);
+    }
+
+    public function testParseHTMLAttributesHandleTtTag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontname' => 'helvetica']),
+            1 => $this->makeHtmlNode([
+                'value' => 'tt',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'fontname' => 'helvetica',
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertNotSame('helvetica', $dom[1]['fontname']);
+    }
+
+    public function testSanitizeHTMLPreservesHeadingTags(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<h1>Title</h1><h2>Subtitle</h2>';
+
+        $out = $obj->exposeSanitizeHTML($html);
+
+        $this->assertStringContainsString('<h1>', $out);
+        $this->assertStringContainsString('<h2>', $out);
+        $this->assertStringContainsString('Title', $out);
+    }
+
+    public function testSanitizeHTMLHandlesDivWrappers(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<div class="container"><p>Content</p></div>';
+
+        $out = $obj->exposeSanitizeHTML($html);
+
+        $this->assertStringContainsString('<div', $out);
+        $this->assertStringContainsString('<p>', $out);
+    }
+
+    public function testParseHTMLAttributesHandlesListTypeInheritance(): void
+    {
+        $obj = $this->getTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['align' => 'L']),
+            1 => $this->makeHtmlNode([
+                'value' => 'ul',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+                'align' => '',
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertNotSame('', $dom[1]['align']);
+    }
+
+    public function testGetHTMLliBulletHandlesDepthCycling(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result1 = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, '!');
+        $result2 = $obj->exposeGetHTMLliBullet(2, 1, 0, 0, '!');
+        $result3 = $obj->exposeGetHTMLliBullet(4, 1, 0, 0, '!');
+
+        $this->assertNotSame('', $result1);
+        $this->assertNotSame('', $result2);
+        $this->assertNotSame('', $result3);
+    }
+
+    public function testGetHTMLliBulletUnicodeDiscCharacter(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'disc');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletUnicodeCircleCharacter(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'circle');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletUnicodeSquareCharacter(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'square');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletNonUnicodeDiscShape(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', false);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'disc');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletNonUnicodeCircleShape(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', false);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'circle');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletNonUnicodeSquareShape(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', false);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'square');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletRTLDiscShapePositioning(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', true);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 10, 5, 'disc');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletRTLCircleShapePositioning(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', true);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 10, 5, 'circle');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletRTLSquareShapePositioning(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', true);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 10, 5, 'square');
+
+        $this->assertNotSame('', $result);
+        $this->assertGreaterThan(0, \strlen($result));
+    }
+
+    public function testGetHTMLliBulletDecimalFormatWithDot(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 42, 0, 0, 'decimal');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('42.', $result);
+    }
+
+    public function testGetHTMLliBulletShortFormDecimalWithDot(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 15, 0, 0, '1');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('15.', $result);
+    }
+
+    public function testGetHTMLliBulletRTLTextFormatting(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'rtl', true);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 10, 0, 0, 'decimal');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('.10', $result);
+    }
+
+    public function testGetHTMLliBulletLTRTextFormatting(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'rtl', false);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 10, 0, 0, 'decimal');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('10.', $result);
+    }
+
+    public function testGetHTMLliBulletDecimalLeadingZeroFormat(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'decimal-leading-zero');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('05', $result);
+    }
+
+    public function testGetHTMLliBulletGreekCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'lower-greek');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletHebrewCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'hebrew');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletArmenianCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'armenian');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletGeorgianCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'georgian');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletCJKIdeographicCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'cjk-ideographic');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletHiraganaCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'hiragana');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletHiraganaIrohaCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'hiragana-iroha');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletKatakanaCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'katakana');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletKatakanaIrohaCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 3, 0, 0, 'katakana-iroha');
+
+        $this->assertNotSame('', $result);
+    }
+
+    public function testGetHTMLliBulletEmptyTypeStringFallsBackToDefault(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, '');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('5', $result);
+    }
+
+    public function testGetHTMLliBulletCountOne(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'decimal');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('1.', $result);
+    }
+
+    public function testGetHTMLliBulletLargeCount(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 999, 0, 0, 'decimal');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('999', $result);
+    }
+
+    public function testGetHTMLliBulletAlphaBoundaryCase(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $resultZ = $obj->exposeGetHTMLliBullet(1, 26, 0, 0, 'lower-alpha');
+        $resultA = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'lower-alpha');
+
+        $this->assertNotSame('', $resultZ);
+        $this->assertNotSame('', $resultA);
+        $this->assertStringContainsString('z', $resultZ);
+        $this->assertStringContainsString('a', $resultA);
+    }
+
+    public function testGetHTMLliBulletUpperAlphaBoundaryCase(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $resultZ = $obj->exposeGetHTMLliBullet(1, 26, 0, 0, 'upper-alpha');
+        $resultA = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'upper-alpha');
+
+        $this->assertNotSame('', $resultZ);
+        $this->assertNotSame('', $resultA);
+        $this->assertStringContainsString('Z', $resultZ);
+        $this->assertStringContainsString('A', $resultA);
+    }
+
+    public function testGetHTMLliBulletWithNonZeroPositions(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 100, 200, 'decimal');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('5', $result);
+    }
+
+    public function testGetHTMLliBulletDepthModuloCalculation(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        $depthOne = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, '!');
+        $depthFour = $obj->exposeGetHTMLliBullet(4, 1, 0, 0, '!');
+        $depthSeven = $obj->exposeGetHTMLliBullet(7, 1, 0, 0, '!');
+
+        $this->assertNotSame('', $depthOne);
+        $this->assertNotSame('', $depthFour);
+        $this->assertNotSame('', $depthSeven);
+    }
+
+    public function testGetHTMLliBulletImageTypeParsing(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $this->expectException(\Throwable::class);
+        $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'img|png|10|10|/nonexistent/file.png');
+    }
+
+    public function testGetHTMLliBulletLowercaseAShortForm(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'a');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('e', $result);
+    }
+
+    public function testGetHTMLliBulletUppercaseAShortForm(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $result = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'A');
+
+        $this->assertNotSame('', $result);
+        $this->assertStringContainsString('E', $result);
+    }
 }
