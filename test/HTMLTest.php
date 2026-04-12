@@ -28,6 +28,42 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->sanitizeHTML($html);
     }
 
+    /** @return array<int, string> */
+    public function exposeParseHTMLTagMethods(): array
+    {
+        $ref = new \ReflectionClass(\Com\Tecnick\Pdf\HTML::class);
+        $names = [];
+        foreach ($ref->getMethods(\ReflectionMethod::IS_PROTECTED) as $method) {
+            $name = $method->getName();
+            if (
+                \str_starts_with($name, 'parseHTMLTagOPEN')
+                || \str_starts_with($name, 'parseHTMLTagCLOSE')
+            ) {
+                $names[] = $name;
+            }
+        }
+        \sort($names);
+
+        return $names;
+    }
+
+    /** @phpstan-param THTMLAttrib $elm */
+    public function exposeInvokeParseHTMLTagMethod(
+        string $method,
+        array $elm,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        $out = $this->{$method}($elm, $tpx, $tpy, $tpw, $tph);
+        if (!\is_string($out)) {
+            return '';
+        }
+
+        return $out;
+    }
+
     /** @phpstan-return THTMLAttrib */
     public function exposeGetHTMLRootProperties(): array
     {
@@ -55,13 +91,13 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->pageBreak();
     }
 
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    /** @phpstan-param array<int, array<string, mixed>> $dom */
     public function exposeProcessHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
     {
         $this->processHTMLDOMText($dom, $element, $key, $parent);
     }
 
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    /** @phpstan-param array<int, array<string, mixed>> $dom */
     public function exposeInheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
         $this->inheritHTMLProperties($dom, $key, $parent);
@@ -82,7 +118,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
+    * @phpstan-param array<int, array<string, mixed>> $dom
      * @phpstan-param array<string, string> $css
      * @phpstan-param array<int> $level
      */
@@ -109,6 +145,29 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 }
 
+class TestableHTMLNobrProbe extends TestableHTML
+{
+    /** @var array<int, string> */
+    private array $nobrOpenStates = [];
+
+    /** @return array<int, string> */
+    public function exposeNobrOpenStates(): array
+    {
+        return $this->nobrOpenStates;
+    }
+
+    protected function parseHTMLTagOPENdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        $state = '';
+        if (!empty($elm['attribute']['nobr']) && \is_string($elm['attribute']['nobr'])) {
+            $state = $elm['attribute']['nobr'];
+        }
+        $this->nobrOpenStates[] = $state;
+
+        return parent::parseHTMLTagOPENdiv($elm, $tpx, $tpy, $tpw, $tph);
+    }
+}
+
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
  */
@@ -127,6 +186,11 @@ class HTMLTest extends TestUtil
     protected function getInternalTestObject(): TestableHTML
     {
         return new TestableHTML();
+    }
+
+    protected function getNobrProbeTestObject(): TestableHTMLNobrProbe
+    {
+        return new TestableHTMLNobrProbe();
     }
 
     /**
@@ -463,13 +527,663 @@ class HTMLTest extends TestUtil
         $this->assertArrayHasKey('LTRB', $dom[1]['border']);
     }
 
-    public function testGetHTMLCellReturnsWithoutHanging(): void
+    public function testGetHTMLCellRendersParagraphText(): void
     {
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
         $out = $obj->getHTMLCell('<p>Hello</p>', 0, 0, 20, 6);
-        $this->assertSame('', $out);
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('BT', $out);
+        $this->assertStringContainsString('Hello', $out);
+    }
+
+    public function testGetHTMLCellCreatesNamedDestinationFromIdAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<div id="sec-1">Hello</div>', 10, 12, 40, 20);
+
+        /** @var array<string, array<string, int|float>> $dests */
+        $dests = $this->getObjectProperty($obj, 'dests');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $name = $encrypt->encodeNameObject('sec-1');
+
+        $this->assertArrayHasKey($name, $dests);
+        $this->assertSame($page->getPageID(), $dests[$name]['p']);
+    }
+
+    public function testGetHTMLCellCoversAllSupportedTagsWithoutErrors(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<body>'
+            . '<a href="https://example.com">'
+            . '<b>B</b><em>E</em><font>F</font><i>I</i><label>L</label><marker>M</marker><s>S</s><small>sm</small><span>sp</span><strike>st</strike><strong>sg</strong><tt>tt</tt><u>u</u><del>d</del><form>frm</form>'
+            . '</a>'
+            . '<blockquote>q</blockquote>'
+            . '<div>dv</div>'
+            . '<dl><dt>dt</dt><dd>dd</dd></dl>'
+            . '<h1>1</h1><h2>2</h2><h3>3</h3><h4>4</h4><h5>5</h5><h6>6</h6>'
+            . '<hr></hr><br></br>'
+            . '<img alt="img"></img>'
+            . '<input value="inp"></input>'
+            . '<ol><li>o1</li></ol>'
+            . '<ul><li>u1</li></ul>'
+            . '<select value="v2"><option value="v1">A</option><option value="v2" selected>B</option></select>'
+            . '<output value="out"></output>'
+            . '<p>p<sub>sub</sub><sup>sup</sup></p>'
+            . '<pre>pre</pre>'
+            . '<table><thead><tr><th>H</th></tr></thead><tr><td>T</td></tr></table>'
+            . '<tablehead><tr><td>TH</td></tr></tablehead>'
+            . '<tcpdf method="noop"></tcpdf>'
+            . '<textarea value="txt"></textarea>'
+            . '</body>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 60);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('BT', $out);
+    }
+
+    public function testAllParseHTMLTagMethodsCanBeInvoked(): void
+    {
+        $probe = $this->getInternalTestObject();
+        $methods = $probe->exposeParseHTMLTagMethods();
+        $this->assertNotSame([], $methods);
+        $this->assertCount(100, $methods);
+
+        foreach ($methods as $method) {
+            $obj = $this->getInternalTestObject();
+            $this->initFontAndPage($obj);
+
+            $elm = $obj->exposeGetHTMLRootProperties();
+            $tag = \preg_replace('/^parseHTMLTag(?:OPEN|CLOSE)/', '', $method) ?? '';
+            $elm['value'] = \strtolower($tag);
+            $elm['attribute'] = [];
+
+            if ($method === 'parseHTMLTagOPENa') {
+                $elm['attribute'] = ['href' => 'https://example.com'];
+            }
+            if ($method === 'parseHTMLTagOPENimg') {
+                $elm['attribute'] = ['alt' => 'img'];
+            }
+            if ($method === 'parseHTMLTagOPENinput') {
+                $elm['attribute'] = ['value' => 'v'];
+            }
+            if ($method === 'parseHTMLTagOPENoption') {
+                $elm['attribute'] = ['value' => 'v'];
+            }
+            if ($method === 'parseHTMLTagOPENoutput') {
+                $elm['attribute'] = ['value' => 'o'];
+            }
+            if ($method === 'parseHTMLTagOPENselect') {
+                $elm['attribute'] = ['opt' => 'v#!TaB!#Label#!NwL!#', 'value' => 'v'];
+            }
+            if ($method === 'parseHTMLTagOPENtextarea') {
+                $elm['attribute'] = ['value' => 'txt'];
+            }
+            if ($method === 'parseHTMLTagOPENtcpdf') {
+                $elm['attribute'] = ['method' => 'noop'];
+            }
+
+            $tpx = 0.0;
+            $tpy = 0.0;
+            $tpw = 40.0;
+            $tph = 20.0;
+
+            $obj->exposeInvokeParseHTMLTagMethod($method, $elm, $tpx, $tpy, $tpw, $tph);
+        }
+    }
+
+    public function testParseHTMLTagTheadOpenCloseManageTableStack(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $obj->exposeGetHTMLRootProperties();
+        $elm['value'] = 'thead';
+        $elm['cols'] = 2;
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 40.0;
+        $tph = 20.0;
+
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENthead', $elm, $tpx, $tpy, $tpw, $tph);
+
+        $stack = $this->getObjectProperty($obj, 'htmltablestack');
+        $this->assertIsArray($stack);
+        $this->assertCount(1, $stack);
+
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagCLOSEthead', $elm, $tpx, $tpy, $tpw, $tph);
+
+        $stack = $this->getObjectProperty($obj, 'htmltablestack');
+        $this->assertIsArray($stack);
+        $this->assertCount(0, $stack);
+    }
+
+    public function testGetHTMLCellCreatesLinkAnnotationForAnchorText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<a href="https://example.com">Click</a>', 0, 0, 30, 10);
+
+        $this->assertNotSame('', $out);
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotSame([], $annotation);
+
+        $haslink = false;
+        foreach ($annotation as $annot) {
+            if (!\is_array($annot)) {
+                continue;
+            }
+
+            $txt = $annot['txt'] ?? '';
+            $opt = $annot['opt'] ?? [];
+            if (!\is_array($opt)) {
+                continue;
+            }
+
+            if (($txt === 'https://example.com') && (($opt['subtype'] ?? '') === 'Link')) {
+                $haslink = true;
+                break;
+            }
+        }
+
+        $this->assertTrue($haslink);
+    }
+
+    public function testGetHTMLCellAnchorDoesNotLeakToFollowingText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<a href="https://example.com">A</a>B', 0, 0, 30, 10);
+
+        $this->assertNotSame('', $out);
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(1, $annotation);
+    }
+
+    public function testGetHTMLCellAnchorSurvivesTextareaCloseTag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<a href="https://example.com">A<textarea value=""></textarea>B</a>', 0, 0, 30, 10);
+
+        $this->assertNotSame('', $out);
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(2, $annotation);
+    }
+
+    public function testGetHTMLCellAnchorSurvivesSelectCloseTag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<a href="https://example.com">A<select></select>B</a>', 0, 0, 30, 10);
+
+        $this->assertNotSame('', $out);
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(2, $annotation);
+    }
+
+    public function testGetHTMLCellAnchorSurvivesDelTag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<a href="https://example.com"><del>A</del>B</a>', 0, 0, 30, 10);
+
+        $this->assertNotSame('', $out);
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(2, $annotation);
+    }
+
+    public function testGetHTMLCellRendersOrderedListMarkers(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<ol><li>One</li><li>Two</li></ol>', 0, 0, 30, 12);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(1.)', $out);
+        $this->assertStringContainsString('(2.)', $out);
+        $this->assertStringContainsString('One', $out);
+        $this->assertStringContainsString('Two', $out);
+    }
+
+    public function testGetHTMLCellRendersUnorderedListMarkers(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<ul><li>First</li><li>Second</li></ul>', 0, 0, 30, 12);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('First', $out);
+        $this->assertStringContainsString('Second', $out);
+        $this->assertStringContainsString('BT', $out);
+    }
+
+    public function testGetHTMLCellRendersBasicTableCells(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table><tr><th>H1</th><th>H2</th></tr><tr><td>A</td><td>B</td></tr></table>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('H1', $out);
+        $this->assertStringContainsString('H2', $out);
+        $this->assertStringContainsString('(A)', $out);
+        $this->assertStringContainsString('(B)', $out);
+    }
+
+    public function testGetHTMLCellRendersTableWithColspan(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table><tr><td colspan="2">Top</td></tr><tr><td>Left</td><td>Right</td></tr></table>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(Top)', $out);
+        $this->assertStringContainsString('(Left)', $out);
+        $this->assertStringContainsString('(Right)', $out);
+    }
+
+    public function testGetHTMLCellSuppressesNestedNobrAttribute(): void
+    {
+        $obj = $this->getNobrProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<div nobr="true"><div nobr="true">A</div>B</div>', 0, 0, 40, 20);
+        $states = $obj->exposeNobrOpenStates();
+
+        $this->assertCount(2, $states);
+        $this->assertSame('true', $states[0]);
+        $this->assertSame('', $states[1]);
+    }
+
+    public function testGetHTMLCellRendersInputAndTextareaValues(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<input type="text" value="field" /><textarea>notes</textarea><input type="hidden" value="secret" />',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('field', $out);
+        $this->assertStringContainsString('notes', $out);
+        $this->assertStringNotContainsString('secret', $out);
+    }
+
+    public function testGetHTMLCellRendersCheckboxAndPasswordInputs(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<input type="checkbox" checked="checked" />'
+            . '<input type="radio" />'
+            . '<input type="password" value="abc" />',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('[x]', $out);
+        $this->assertStringContainsString('[ ]', $out);
+        $this->assertStringContainsString('***', $out);
+        $this->assertStringNotContainsString('abc', $out);
+    }
+
+    public function testGetHTMLCellRendersMultilineTextareaValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<textarea>line1' . "\n" . ' line2</textarea>', 0, 0, 40, 20);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('line1', $out);
+        $this->assertStringContainsString(' line2', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectFirstOptionLabel(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select><option value="v1">Alpha</option><option value="v2">Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Alpha', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelByValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select value="v2"><option value="v1">Alpha</option><option value="v2">Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelBySingleQuotedValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            "<select value=\"v2\"><option value='v1'>Alpha</option><option value='v2'>Beta</option></select>",
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelByUnquotedValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select value="v2"><option value=v1>Alpha</option><option value=v2>Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersMultipleSelectedOptionLabelsByValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select value="v2,v1"><option value="v1">Alpha</option><option value="v2">Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta, Alpha', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelBySelectedAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select><option value="v1">Alpha</option><option value="v2" selected="selected">Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersMultipleSelectedOptionLabelsBySelectedAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select><option selected="selected">Alpha</option><option selected="selected">Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Alpha, Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelWithBooleanSelectedAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select><option>Alpha</option><option selected>Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelWithSelectedTrueAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select><option>Alpha</option><option selected="true">Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelWithSingleQuotedSelectedAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            "<select><option>Alpha</option><option selected='selected'>Beta</option></select>",
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersSelectedOptionLabelWithUppercaseSelectedAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<select><option>Alpha</option><option SELECTED>Beta</option></select>',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Beta', $out);
+    }
+
+    public function testGetHTMLCellRendersImgFallbackWhenImageCannotLoad(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<img src="/tmp/__tc_lib_pdf_missing_image__.png" />', 0, 0, 20, 10);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('[img]', $out);
+    }
+
+    public function testGetHTMLCellImgWithoutSrcUsesAltFallbackText(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<img alt="x" />', 0, 0, 20, 10);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Tj', $out);
+        $this->assertStringContainsString('x', $out);
+    }
+
+    public function testGetHTMLCellImgInvalidSrcUsesAltFallbackText(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<img src="/tmp/__tc_lib_pdf_missing_image__.png" alt="fallback-alt" />', 0, 0, 20, 10);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('Tj', $out);
+        $this->assertStringContainsString('fallback-alt', $out);
+    }
+
+    public function testGetHTMLCellDrawsTableCellBorderWhenSpecified(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<table><tr><td style="border:1px solid black">A</td></tr></table>', 0, 0, 30, 12);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString(' re', $out);
+    }
+
+    public function testGetHTMLCellDrawsUniformBorderHeightAcrossRow(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table><tr><td style="border:1px solid black">A</td><td style="border:1px solid black">This is a longer wrapped cell value</td></tr></table>',
+            0,
+            0,
+            25,
+            30,
+        );
+
+        $this->assertNotSame('', $out);
+        $matches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+s/', $out, $matches, PREG_SET_ORDER);
+        $this->assertGreaterThanOrEqual(2, \count($matches));
+        $this->assertEqualsWithDelta(
+            \abs((float) $matches[0][4]),
+            \abs((float) $matches[1][4]),
+            0.0001,
+        );
+    }
+
+    public function testGetHTMLCellDrawsTableCellBackgroundFillWhenSpecified(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<table><tr><td style="background-color:#eeeeee">A</td></tr></table>', 0, 0, 30, 12);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString(' re', $out);
+        $this->assertStringContainsString("f\n", $out);
+    }
+
+    public function testGetHTMLCellRendersTableHeadAndBodyRows(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table><thead><tr><th>H</th></tr></thead><tr><td>T</td></tr></table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('H', $out);
+        $this->assertStringContainsString('T', $out);
+    }
+
+    public function testGetHTMLCellTreatsFormAsBlockContainer(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<form>A</form>B', 0, 0, 30, 20);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('A', $out);
+        $this->assertStringContainsString('B', $out);
+
+        $this->assertMatchesRegularExpression('/\(A\) Tj.*\(B\) Tj/s', $out);
     }
 
     public function testSanitizeHTMLRemovesHeadAndStyleBlocks(): void
@@ -544,7 +1258,6 @@ class HTMLTest extends TestUtil
 
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $dom = [
             0 => \array_replace($root, ['value' => 'table', 'elkey' => 0, 'parent' => 0, 'thead' => '']),
             1 => \array_replace($root, [
@@ -638,7 +1351,9 @@ class HTMLTest extends TestUtil
 
         $obj->exposeProcessHTMLDOMText($dom, 'AB&NBSP;C', 1, 0);
 
-        $this->assertStringStartsWith('ab', $dom[1]['value']);
+        $value = $dom[1]['value'];
+        $this->assertIsString($value);
+        $this->assertStringStartsWith('ab', $value);
     }
 
     public function testGetHTMLDOMCSSDataSkipsInheritedAndInvalidSelectors(): void
@@ -784,7 +1499,6 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $root['parent'] = 0;
         $root['value'] = 'root';
         $dom = [
@@ -805,7 +1519,6 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $root['parent'] = 0;
         $dom = [
             0 => $root,
@@ -826,7 +1539,6 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $dom = [
             0 => \array_replace($root, ['value' => 'table', 'elkey' => 0, 'parent' => 0]),
             1 => \array_replace($root, ['value' => 'tr', 'elkey' => 1, 'parent' => 0]),
@@ -866,7 +1578,6 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $dom = [
             0 => \array_replace($root, ['parent' => 0, 'value' => 'root']),
             1 => \array_replace($root, ['parent' => 0, 'value' => 'img']),
@@ -882,12 +1593,17 @@ class HTMLTest extends TestUtil
         );
 
         $this->assertTrue($dom[1]['self']);
-        $this->assertSame('x', $dom[1]['attribute']['src']);
+        $attr = $dom[1]['attribute'];
+        $this->assertIsArray($attr);
+        $src = $attr['src'] ?? null;
+        $this->assertIsString($src);
+        $this->assertSame('x', $src);
     }
 
-    public function testParseHTMLTextReturnsEmptyString(): void
+    public function testParseHTMLTextRendersTextAndAdvancesCursor(): void
     {
         $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
         $elm = $this->makeHtmlNode(['value' => 'x']);
         $tpx = 1.0;
         $tpy = 2.0;
@@ -896,7 +1612,21 @@ class HTMLTest extends TestUtil
 
         $out = $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
 
-        $this->assertSame('', $out);
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('BT', $out);
+        $this->assertGreaterThan(1.0, $tpx);
+    }
+
+    public function testGetHTMLDOMTextNodesInheritParentFormatting(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<span style="color:red;font-weight:bold">Hello</span>');
+
+        $this->assertSame($dom[1]['fgcolor'], $dom[2]['fgcolor']);
+        $this->assertStringContainsString('B', $dom[2]['fontstyle']);
+        $this->assertSame('Hello', $dom[2]['value']);
     }
 
     public function testGetHTMLliBulletNoneAndCustomImageTypeBranches(): void
@@ -970,7 +1700,60 @@ class HTMLTest extends TestUtil
 
         $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
 
-        $this->assertSame('', $out);
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(R)', $out);
+        $this->assertStringContainsString('(A)', $out);
+        $this->assertStringNotContainsString('skip', $out);
+    }
+
+    public function testGetHTMLCellCoversPageBreakAfterModes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<p style="page-break-after:right">R</p>'
+            . '<p style="page-break-after:always">A</p>'
+            . '<p>Z</p>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(R)', $out);
+        $this->assertStringContainsString('(A)', $out);
+        $this->assertStringContainsString('(Z)', $out);
+    }
+
+    public function testGetHTMLCellCoversSelfClosingPageBreakAfterMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $before = $obj->exposePageBreak();
+
+        $html = '<img alt="x" style="page-break-after:always" />'
+            . '<p>AfterBreak</p>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
+
+        $after = $obj->exposePageBreak();
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(AfterBreak)', $out);
+        $this->assertGreaterThan($before + 1, $after);
+    }
+
+    public function testGetHTMLCellCoversTcpdfPageBreakMethod(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<tcpdf method="pagebreak" />'
+            . '<p>AfterBreak</p>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(AfterBreak)', $out);
     }
 
     public function testIsValidCSSSelectorForTagRejectsPseudoClassesAndPseudoElements(): void
@@ -1189,7 +1972,6 @@ class HTMLTest extends TestUtil
 
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $dom = [
             0 => $root,
             1 => $root,
@@ -1209,7 +1991,6 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $dom = [
             0 => $root,
             1 => $root,
@@ -1228,7 +2009,6 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $root = $obj->exposeGetHTMLRootProperties();
         /** @var THTMLAttrib $root */
-        $root = $root;
         $dom = [
             0 => $root,
             1 => $root,

@@ -276,6 +276,68 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected string $ullidot = '!';
 
     /**
+     * Temporary HTML cell rendering context.
+     *
+     * @var array{originx: float, originy: float, maxwidth: float, maxheight: float}
+     */
+    protected array $htmlcellctx = [
+        'originx' => 0.0,
+        'originy' => 0.0,
+        'maxwidth' => 0.0,
+        'maxheight' => 0.0,
+    ];
+
+    /**
+     * Per-cell cache for resolved font metrics keyed by DOM font tuple.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    protected array $htmlfontcache = [];
+
+    /**
+     * Per-cell list stack used to render nested UL/OL items.
+     *
+     * @var array<int, array{ordered: bool, type: string, count: int}>
+     */
+    protected array $htmlliststack = [];
+
+    /**
+     * Per-cell table stack used to render nested HTML tables.
+     *
+     * @var array<int, array{
+     *   originx: float,
+     *   originy: float,
+     *   width: float,
+     *   cols: int,
+     *   colwidth: float,
+     *   rowtop: float,
+     *   rowheight: float,
+    *   colindex: int,
+    *   cells: array<int, array{cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>}>
+     * }>
+     */
+    protected array $htmltablestack = [];
+
+    /**
+     * Temporary stack to restore outer HTML cell context when leaving table cells.
+     *
+        * @var array<int, array{originx: float, originy: float, maxwidth: float, maxheight: float, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>}>
+     */
+    protected array $htblcellctx = [];
+
+    /**
+     * Per-cell stack of active anchor links.
+     *
+     * @var array<int, string>
+     */
+    protected array $htmllinkstack = [];
+
+    /**
+     * Nesting level of preformatted blocks.
+     */
+    protected int $htmlprelevel = 0;
+
+    /**
      * Cleanup HTML code (requires HTML Tidy library).
      *
      * @param string $html htmlcode to fix.
@@ -489,14 +551,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $html_a = \substr($html, 0, $offset);
             $html_b = \substr($html, $offset, ($pos - $offset + 9));
             while (\preg_match("'<option([^\>]*)>(.*?)</option>'si", $html_b) > 0) {
-                $html_b = \preg_replace(
-                    "'<option([\s]+)value=\"([^\"]*)\"([^\>]*)>(.*?)</option>'si",
-                    "\\2#!TaB!#\\4#!NwL!#",
-                    $html_b,
-                ) ?? '';
-                $html_b = \preg_replace(
+                $html_b = \preg_replace_callback(
                     "'<option([^\>]*)>(.*?)</option>'si",
-                    "\\2#!NwL!#",
+                    static function (array $optm): string {
+                        $attrs = $optm[1];
+                        $label = $optm[2];
+
+                        $value = '';
+                        if (\preg_match('/[\s]+value[\s]*=[\s]*"([^"]*)"/si', $attrs, $valmatch) > 0) {
+                            $value = $valmatch[1];
+                        } elseif (\preg_match('/[\s]+value[\s]*=[\s]*\'([^\']*)\'/si', $attrs, $valmatch) > 0) {
+                            $value = $valmatch[1];
+                        } elseif (\preg_match('/[\s]+value[\s]*=[\s]*([^\s>]+)/si', $attrs, $valmatch) > 0) {
+                            $value = $valmatch[1];
+                        }
+
+                        $selected = (\preg_match('/(^|[\s])selected([\s]*=[\s]*("[^"]*"|\'[^\']*\'|[^\s>]+))?([\s]|$)/si', $attrs) > 0);
+                        $prefix = $selected ? '#!SeL!#' : '';
+
+                        if ($value !== '') {
+                            return $prefix . $value . '#!TaB!#' . $label . '#!NwL!#';
+                        }
+
+                        return $prefix . $label . '#!NwL!#';
+                    },
                     $html_b,
                 ) ?? '';
             }
@@ -814,7 +892,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process the content between tags (text).
      *
-     * @param array<int, THTMLAttrib> $dom DOM array.
+    * @param array<int, array<string, mixed>> $dom DOM array.
      * @param string $element Element data.
      * @param int $key Current element ID.
      * @param int $parent ID of the parent element.
@@ -823,11 +901,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function processHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
     {
-        if (!empty($dom[$parent]['text-transform'])) {
-            if (!empty(self::HTML_TEXT_TRANSFORM[$dom[$parent]['text-transform']])) {
+        $this->inheritHTMLProperties($dom, $key, $parent);
+        $transform = (
+            isset($dom[$parent]['text-transform'])
+            && \is_string($dom[$parent]['text-transform'])
+        ) ? $dom[$parent]['text-transform'] : '';
+
+        if ($transform !== '') {
+            if (!empty(self::HTML_TEXT_TRANSFORM[$transform])) {
                 $element = \mb_convert_case(
                     $element,
-                    self::HTML_TEXT_TRANSFORM[$dom[$parent]['text-transform']],
+                    self::HTML_TEXT_TRANSFORM[$transform],
                     $this->encoding,
                 );
             }
@@ -840,7 +924,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Inherit HTML properties from a parent element.
      *
-     * @param array<int, THTMLAttrib> $dom DOM array.
+    * @param array<int, array<string, mixed>> $dom DOM array.
      * @param int $key ID of the current HTML element.
      * @param int $parent ID of the parent element from which to inherit properties.
      *
@@ -848,7 +932,36 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function inheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
-        $dom[$key] = \array_merge($dom[$parent], $dom[$key]);
+        $defaults = $dom[0] ?? [];
+        foreach ([
+            'align',
+            'bgcolor',
+            'border',
+            'clip',
+            'dir',
+            'fgcolor',
+            'fill',
+            'font-stretch',
+            'fontname',
+            'fontsize',
+            'fontstyle',
+            'hide',
+            'letter-spacing',
+            'line-height',
+            'listtype',
+            'stroke',
+            'strokecolor',
+            'text-indent',
+            'text-transform',
+        ] as $prop) {
+            if (!isset($dom[$parent][$prop]) || !isset($defaults[$prop])) {
+                continue;
+            }
+
+            if (!isset($dom[$key][$prop]) || $dom[$key][$prop] === $defaults[$prop]) {
+                $dom[$key][$prop] = $dom[$parent][$prop];
+            }
+        }
     }
 
     /**
@@ -870,6 +983,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $cssarray,
     ): void {
         $granparent = $dom[$parent]['parent'];
+        // @phpstan-ignore-next-line parameterByRef.type
         $this->inheritHTMLProperties($dom, $key, $granparent);
 
         // set the number of columns in table tag
@@ -931,9 +1045,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML DOM Opening Tag.
      *
-     * @param array<int, THTMLAttrib> $dom
+    * @param array<int, array<string, mixed>> $dom
      * @param array<string, string> $css
-     * @param array<int> $level
+    * @param array<int> $level
      * @param string $element
      * @param int $key
      * @param bool $thead
@@ -943,7 +1057,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function processHTMLDOMOpeningTag(
         array &$dom,
         array $css,
-        array $level,
+        array &$level,
         string $element,
         int $key,
         bool $thead,
@@ -2142,6 +2256,615 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Initialize the temporary HTML cell rendering context.
+     */
+    protected function initHTMLCellContext(float $posx, float $posy, float $width, float $height): void
+    {
+        $this->htmlcellctx = [
+            'originx' => $posx,
+            'originy' => $posy,
+            'maxwidth' => $width,
+            'maxheight' => $height,
+        ];
+        $this->htmlfontcache = [];
+        $this->htmlliststack = [];
+        $this->htmltablestack = [];
+        $this->htblcellctx = [];
+        $this->htmllinkstack = [];
+        $this->htmlprelevel = 0;
+    }
+
+    /**
+     * Reset the temporary HTML cell rendering context.
+     */
+    protected function clearHTMLCellContext(): void
+    {
+        $this->htmlcellctx = [
+            'originx' => 0.0,
+            'originy' => 0.0,
+            'maxwidth' => 0.0,
+            'maxheight' => 0.0,
+        ];
+        $this->htmlfontcache = [];
+        $this->htmlliststack = [];
+        $this->htmltablestack = [];
+        $this->htblcellctx = [];
+        $this->htmllinkstack = [];
+        $this->htmlprelevel = 0;
+    }
+
+    /**
+     * Push a new active HTML link.
+     */
+    protected function pushHTMLLink(string $href): void
+    {
+        $this->htmllinkstack[] = $href;
+    }
+
+    /**
+     * Pop the current active HTML link.
+     */
+    protected function popHTMLLink(): void
+    {
+        if ($this->htmllinkstack === []) {
+            return;
+        }
+
+        \array_pop($this->htmllinkstack);
+    }
+
+    /**
+     * Get the current active HTML link.
+     */
+    protected function getCurrentHTMLLink(): string
+    {
+        if ($this->htmllinkstack === []) {
+            return '';
+        }
+
+        $href = $this->htmllinkstack[\count($this->htmllinkstack) - 1];
+        return \is_string($href) ? $href : '';
+    }
+
+    /**
+     * Returns the indentation width used by HTML lists.
+     */
+    protected function getHTMLListIndentWidth(): float
+    {
+        return $this->getStringWidth('000000');
+    }
+
+    /**
+     * Resolve the list marker style for UL/OL elements.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function getHTMLListMarkerType(array $elm, bool $ordered): string
+    {
+        $default = $ordered ? '#' : $this->ullidot;
+
+        if (!empty($elm['attribute']['type']) && \is_string($elm['attribute']['type'])) {
+            $type = \trim(\strtolower($elm['attribute']['type']));
+            return ($type === '') ? $default : $type;
+        }
+
+        if (!empty($elm['listtype']) && \is_string($elm['listtype'])) {
+            return $elm['listtype'];
+        }
+
+        return $default;
+    }
+
+    /**
+     * Push a new list level onto the rendering stack.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function pushHTMLList(array $elm, bool $ordered): void
+    {
+        $start = 0;
+        if (
+            $ordered
+            && !empty($elm['attribute']['start'])
+            && \is_numeric($elm['attribute']['start'])
+        ) {
+            $start = ((int) $elm['attribute']['start']) - 1;
+        }
+
+        $this->htmlliststack[] = [
+            'ordered' => $ordered,
+            'type' => $this->getHTMLListMarkerType($elm, $ordered),
+            'count' => $start,
+        ];
+    }
+
+    /**
+     * Remove the current list level from the rendering stack.
+     */
+    protected function popHTMLList(): void
+    {
+        if (!empty($this->htmlliststack)) {
+            \array_pop($this->htmlliststack);
+        }
+    }
+
+    /**
+     * Returns the current list depth.
+     */
+    protected function getHTMLListDepth(): int
+    {
+        return \count($this->htmlliststack);
+    }
+
+    /**
+     * Returns the next list marker counter for the current list level.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function getHTMLListItemCounter(array $elm): int
+    {
+        $depth = $this->getHTMLListDepth();
+        if ($depth < 1) {
+            return 1;
+        }
+
+        $idx = $depth - 1;
+        if (!$this->htmlliststack[$idx]['ordered']) {
+            return 1;
+        }
+
+        ++$this->htmlliststack[$idx]['count'];
+        if (
+            !empty($elm['attribute']['value'])
+            && \is_numeric($elm['attribute']['value'])
+        ) {
+            $this->htmlliststack[$idx]['count'] = (int) $elm['attribute']['value'];
+        }
+
+        return $this->htmlliststack[$idx]['count'];
+    }
+
+    /**
+     * Returns the marker type for the current list level.
+     */
+    protected function getCurrentHTMLListMarkerType(): string
+    {
+        $depth = $this->getHTMLListDepth();
+        if ($depth < 1) {
+            return '#';
+        }
+
+        return $this->htmlliststack[$depth - 1]['type'];
+    }
+
+    /**
+     * Return the metric for the specified HTML node font.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     *
+    * @return array<string, mixed>
+     */
+    protected function getHTMLFontMetric(array $elm): array
+    {
+        $curfont = $this->font->getCurrentFont();
+        $fontname = empty($elm['fontname']) ? $curfont['key'] : (string) $elm['fontname'];
+        $fontsize = (!empty($elm['fontsize']) && \is_numeric($elm['fontsize']))
+            ? (int) \round((float) $elm['fontsize'])
+            : (int) \round((float) $curfont['size']);
+        $fontstyle = '';
+        if (!empty($elm['fontstyle']) && \is_string($elm['fontstyle'])) {
+            foreach (['B', 'I'] as $style) {
+                if (\str_contains($elm['fontstyle'], $style)) {
+                    $fontstyle .= $style;
+                }
+            }
+        }
+
+        $cachekey = $fontname . '|' . $fontstyle . '|' . (string) $fontsize;
+        if (isset($this->htmlfontcache[$cachekey])) {
+            return $this->htmlfontcache[$cachekey];
+        }
+
+        $metric = $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
+        $this->htmlfontcache[$cachekey] = $metric;
+
+        return $metric;
+    }
+
+    /**
+     * Build the font and color prefix for a text fragment.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function getHTMLTextPrefix(array $elm): string
+    {
+        $font = $this->getHTMLFontMetric($elm);
+        $color = empty($elm['fgcolor']) ? 'black' : (string) $elm['fgcolor'];
+        $fontout = (isset($font['out']) && \is_string($font['out'])) ? $font['out'] : '';
+
+        return $fontout . $this->color->getPdfColor($color);
+    }
+
+    /**
+     * Return the current HTML text advance for line-based layout.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function getHTMLLineAdvance(array $elm): float
+    {
+        $font = $this->getHTMLFontMetric($elm);
+        $ratio = (!empty($elm['line-height']) && \is_numeric($elm['line-height']))
+            ? (float) $elm['line-height']
+            : 1.0;
+        $fontheight = (isset($font['height']) && \is_numeric($font['height'])) ? (float) $font['height'] : 0.0;
+
+        return $this->toUnit($fontheight * $ratio);
+    }
+
+    /**
+     * Normalize plain HTML text before rendering it.
+     */
+    protected function normalizeHTMLText(string $text): string
+    {
+        if ($this->htmlprelevel > 0) {
+            return \str_replace("\u{00A0}", ' ', $text);
+        }
+
+        $text = \preg_replace('/\s+/u', ' ', $text) ?? '';
+        return \trim($text) === '' ? '' : $text;
+    }
+
+    /**
+     * Reset the cursor to the current HTML block origin.
+     */
+    protected function resetHTMLLineCursor(float &$tpx, float &$tpw): void
+    {
+        $tpx = $this->htmlcellctx['originx'];
+        $tpw = $this->htmlcellctx['maxwidth'];
+    }
+
+    /**
+     * Move the HTML cursor to the next line.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function moveHTMLToNextLine(array $elm, float &$tpx, float &$tpy, float &$tpw, float $extra = 0): void
+    {
+        $this->resetHTMLLineCursor($tpx, $tpw);
+        $tpy += $this->getHTMLLineAdvance($elm) + $extra;
+    }
+
+    /**
+     * Open a simple block-level HTML element.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function openHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    {
+        if (($tpx > $this->htmlcellctx['originx']) || ($tpy > $this->htmlcellctx['originy'])) {
+            $tpy += (float) $elm['margin']['T'];
+        }
+
+        $tpx = $this->htmlcellctx['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
+        $tpw = $this->htmlcellctx['maxwidth'];
+        if ($tpw > 0) {
+            $tpw = \max(
+                0.0,
+                $tpw
+                - (float) $elm['margin']['L']
+                - (float) $elm['margin']['R']
+                - (float) $elm['padding']['L']
+                - (float) $elm['padding']['R']
+            );
+        }
+
+        return '';
+    }
+
+    /**
+     * Close a simple block-level HTML element.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function closeHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    {
+        $this->resetHTMLLineCursor($tpx, $tpw);
+        $tpy += (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
+
+        return '';
+    }
+
+    /**
+     * Shift the HTML cursor vertically for sub/sup blocks.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function shiftHTMLVerticalPosition(array $elm, float &$tpy, float $ratio): string
+    {
+        if (empty($elm['fontsize']) || !\is_numeric($elm['fontsize'])) {
+            return '';
+        }
+
+        $tpy += ((float) $elm['fontsize'] * $ratio);
+        return '';
+    }
+
+    /**
+     * Render raw literal text using the current HTML style context.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function renderHTMLLiteralText(
+        string $text,
+        array $elm,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        if ($text === '') {
+            return '';
+        }
+
+        $txtelm = $elm;
+        $txtelm['tag'] = false;
+        $txtelm['opening'] = false;
+        $txtelm['self'] = false;
+        $txtelm['value'] = $text;
+
+        return $this->parseHTMLText($txtelm, $tpx, $tpy, $tpw, $tph);
+    }
+
+    /**
+     * Resolve display text for HTML input controls.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function getHTMLInputDisplayValue(array $elm): string
+    {
+        $attr = $elm['attribute'] ?? [];
+        if (!\is_array($attr)) {
+            return '';
+        }
+
+        $type = '';
+        if (isset($attr['type']) && \is_string($attr['type'])) {
+            $type = \strtolower(\trim($attr['type']));
+        }
+
+        if ($type === 'hidden') {
+            return '';
+        }
+
+        if (($type === 'checkbox') || ($type === 'radio')) {
+            return isset($attr['checked']) ? '[x]' : '[ ]';
+        }
+
+        if ($type === 'password') {
+            $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+            return ($value === '') ? '' : \str_repeat('*', \mb_strlen($value, $this->encoding));
+        }
+
+        if (($type === 'submit') || ($type === 'button') || ($type === 'reset')) {
+            if (isset($attr['value']) && \is_string($attr['value'])) {
+                return $attr['value'];
+            }
+
+            return $type;
+        }
+
+        if (isset($attr['value']) && \is_string($attr['value'])) {
+            return $attr['value'];
+        }
+
+        if (isset($attr['placeholder']) && \is_string($attr['placeholder'])) {
+            return $attr['placeholder'];
+        }
+
+        return '';
+    }
+
+    /**
+     * Resolve display text for HTML select controls.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function getHTMLSelectDisplayValue(array $elm): string
+    {
+        $attr = $elm['attribute'] ?? [];
+        if (!\is_array($attr) || empty($attr['opt']) || !\is_string($attr['opt'])) {
+            return '';
+        }
+
+        $selected = (isset($attr['value']) && \is_string($attr['value']))
+            ? $attr['value']
+            : '';
+
+        $entries = \array_filter(\explode('#!NwL!#', $attr['opt']), static fn ($opt): bool => ($opt !== ''));
+        if ($entries === []) {
+            return '';
+        }
+
+        $selectedvals = [];
+        if ($selected !== '') {
+            foreach (\explode(',', $selected) as $sel) {
+                $sel = \trim($sel);
+                if ($sel !== '') {
+                    $selectedvals[] = $sel;
+                }
+            }
+        }
+
+        $fallback = '';
+        $labels = [];
+        $selectedlabels = [];
+        foreach ($entries as $entry) {
+            $isselected = false;
+            if (\str_starts_with($entry, '#!SeL!#')) {
+                $isselected = true;
+                $entry = \substr($entry, 7);
+            }
+
+            if (\str_contains($entry, '#!TaB!#')) {
+                $parts = \explode('#!TaB!#', $entry, 2);
+                $value = $parts[0] ?? '';
+                $label = $parts[1] ?? '';
+            } else {
+                $value = $entry;
+                $label = $entry;
+            }
+
+            if (($fallback === '') && ($label !== '')) {
+                $fallback = $label;
+            }
+
+            if (($value !== '') && ($label !== '')) {
+                $labels[$value] = $label;
+            }
+
+            if ($isselected && ($label !== '')) {
+                $selectedlabels[] = $label;
+            }
+        }
+
+        if ($selectedvals !== []) {
+            $out = [];
+            foreach ($selectedvals as $val) {
+                if (!isset($labels[$val])) {
+                    continue;
+                }
+
+                $out[] = $labels[$val];
+            }
+
+            if ($out !== []) {
+                return \implode(', ', $out);
+            }
+        }
+
+        if ($selectedlabels !== []) {
+            return \implode(', ', $selectedlabels);
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Render an HTML image and advance the inline cursor.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function renderHTMLImage(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    {
+        $attr = $elm['attribute'] ?? [];
+        if (!\is_array($attr)) {
+            return '';
+        }
+
+        $alt = (isset($attr['alt']) && \is_string($attr['alt'])) ? $attr['alt'] : '[img]';
+        if (empty($attr['src']) || !\is_string($attr['src'])) {
+            $lineheight = $this->getHTMLLineAdvance($elm);
+            return $this->renderHTMLLiteralText($alt, $elm, $tpx, $tpy, $tpw, $lineheight);
+        }
+
+        $src = $attr['src'];
+        $width = (!empty($elm['width']) && \is_numeric($elm['width']))
+            ? (float) $elm['width']
+            : $this->getHTMLLineAdvance($elm);
+        $height = (!empty($elm['height']) && \is_numeric($elm['height']))
+            ? (float) $elm['height']
+            : $this->getHTMLLineAdvance($elm);
+
+        if (($width <= 0) || ($height <= 0)) {
+            return '';
+        }
+
+        $out = '';
+        try {
+            $pageheight = $this->page->getPage()['height'];
+            if (\str_ends_with(\strtolower($src), '.svg')) {
+                $svgid = $this->addSVG($src, $tpx, $tpy, $width, $height, $pageheight);
+                $out = $this->getSetSVG($svgid);
+            } else {
+                $imgid = $this->image->add($src);
+                $out = $this->image->getSetImage($imgid, $tpx, $tpy, $width, $height, $pageheight);
+            }
+        } catch (\Throwable) {
+            return $this->renderHTMLLiteralText($alt, $elm, $tpx, $tpy, $tpw, $height);
+        }
+
+        $tpx += $width;
+        if ($this->htmlcellctx['maxwidth'] > 0) {
+            $tpw = \max(0.0, $this->htmlcellctx['maxwidth'] - ($tpx - $this->htmlcellctx['originx']));
+        }
+
+        return $out;
+    }
+
+    /**
+     * Build border styles for HTML table cells.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     *
+     * @return array<int|string, BorderStyle>
+     */
+    protected function getHTMLTableCellBorderStyles(array $elm): array
+    {
+        if (!isset($elm['border']) || !\is_array($elm['border']) || $elm['border'] === []) {
+            return [];
+        }
+
+        /** @var array<string, BorderStyle> $border */
+        $border = $elm['border'];
+        $styles = [];
+
+        if (!empty($border['LTRB'])) {
+            $styles['all'] = $border['LTRB'];
+            return $styles;
+        }
+
+        if (!empty($border['T'])) {
+            $styles[0] = $border['T'];
+        }
+        if (!empty($border['R'])) {
+            $styles[1] = $border['R'];
+        }
+        if (!empty($border['B'])) {
+            $styles[2] = $border['B'];
+        }
+        if (!empty($border['L'])) {
+            $styles[3] = $border['L'];
+        }
+
+        return $styles;
+    }
+
+    /**
+     * Build fill style for HTML table cells.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     *
+     * @return ?BorderStyle
+     */
+    protected function getHTMLTableCellFillStyle(array $elm): ?array
+    {
+        if (empty($elm['bgcolor']) || !\is_string($elm['bgcolor'])) {
+            return null;
+        }
+
+        return [
+            'lineWidth' => 0,
+            'lineCap' => 'butt',
+            'lineJoin' => 'miter',
+            'miterLimit' => 10,
+            'dashArray' => [],
+            'dashPhase' => 0,
+            'lineColor' => '',
+            'fillColor' => $elm['bgcolor'],
+        ];
+    }
+
+    /**
      * @TODO - EXPERIMENTAL - DRAFT - IN PROGRESS
      *
      * Returns the PDF code to render an HTML block inside a rectangular cell.
@@ -2174,9 +2897,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpy = $posy;
         $tpw = $width;
         $tph = $height;
+        $nobrstack = [];
 
-        $cell = $cell; // @TODO
-        $styles = $styles; // @TODO
+        unset($cell, $styles);
+
+        $this->initHTMLCellContext($posx, $posy, $width, $height);
 
         while ($key < $numel) {
             $elm = $dom[$key];
@@ -2219,11 +2944,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
-                    // if (!empty($elm['attribute']['nobr'])) {
-                    //     if (!empty($dom[($dom[$key]['parent'])]['attribute']['nobr'])) {
-                    //         $dom[$key]['attribute']['nobr'] = '';
-                    //     }
-                    // }
+                    if (!empty($elm['attribute']['id']) && \is_string($elm['attribute']['id'])) {
+                        $name = \trim($elm['attribute']['id']);
+                        if ($name !== '') {
+                            $this->setNamedDestination($name, -1, $tpx, $tpy);
+                        }
+                    }
+
+                    if (!empty($elm['attribute']['nobr']) && ($elm['attribute']['nobr'] === 'true')) {
+                        if (!empty($nobrstack)) {
+                            $elm['attribute']['nobr'] = '';
+                        } elseif (!$elm['self']) {
+                            $nobrstack[] = $elm['value'];
+                        }
+                    }
 
                     $out .= match ($elm['value']) {
                         'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
@@ -2264,6 +2998,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'strike'     => $this->parseHTMLTagOPENstrike($elm, $tpx, $tpy, $tpw, $tph),
                         'strong'     => $this->parseHTMLTagOPENstrong($elm, $tpx, $tpy, $tpw, $tph),
                         'sub'        => $this->parseHTMLTagOPENsub($elm, $tpx, $tpy, $tpw, $tph),
+                        'sup'        => $this->parseHTMLTagOPENsup($elm, $tpx, $tpy, $tpw, $tph),
                         'table'      => $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph),
                         'tablehead'  => $this->parseHTMLTagOPENtablehead($elm, $tpx, $tpy, $tpw, $tph),
                         'tcpdf'      => $this->parseHTMLTagOPENtcpdf($elm, $tpx, $tpy, $tpw, $tph),
@@ -2277,7 +3012,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagOPENul($elm, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
+
+                    if ($elm['self'] && !empty($elm['attribute']['pagebreakafter'])) {
+                        $pid = $this->pageBreak();
+                        if ($elm['attribute']['pagebreakafter'] != 'true') {
+                            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+                            if (
+                                (($elm['attribute']['pagebreakafter'] == 'left') && $leftmode)
+                                || (($elm['attribute']['pagebreakafter'] == 'right') && !$leftmode)
+                            ) {
+                                $this->pageBreak();
+                            }
+                        }
+                    }
                 } else { // closing tag
+                    if (!empty($nobrstack) && (
+                        $nobrstack[\count($nobrstack) - 1] === $elm['value']
+                    )) {
+                        \array_pop($nobrstack);
+                    }
+
                     $out .= match ($elm['value']) {
                         'a'          => $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph),
                         'b'          => $this->parseHTMLTagCLOSEb($elm, $tpx, $tpy, $tpw, $tph),
@@ -2317,6 +3071,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'strike'     => $this->parseHTMLTagCLOSEstrike($elm, $tpx, $tpy, $tpw, $tph),
                         'strong'     => $this->parseHTMLTagCLOSEstrong($elm, $tpx, $tpy, $tpw, $tph),
                         'sub'        => $this->parseHTMLTagCLOSEsub($elm, $tpx, $tpy, $tpw, $tph),
+                        'sup'        => $this->parseHTMLTagCLOSEsup($elm, $tpx, $tpy, $tpw, $tph),
                         'table'      => $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph),
                         'tablehead'  => $this->parseHTMLTagCLOSEtablehead($elm, $tpx, $tpy, $tpw, $tph),
                         'tcpdf'      => $this->parseHTMLTagCLOSEtcpdf($elm, $tpx, $tpy, $tpw, $tph),
@@ -2330,6 +3085,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagCLOSEul($elm, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
+
+                    if (!empty($elm['attribute']['pagebreakafter'])) {
+                        $pid = $this->pageBreak();
+                        if ($elm['attribute']['pagebreakafter'] != 'true') {
+                            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+                            if (
+                                (($elm['attribute']['pagebreakafter'] == 'left') && $leftmode)
+                                || (($elm['attribute']['pagebreakafter'] == 'right') && !$leftmode)
+                            ) {
+                                $this->pageBreak();
+                            }
+                        }
+                    }
                 }
             } else { // Text Content
                 $out .= $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
@@ -2337,6 +3105,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             ++$key;
         }
+
+        $this->clearHTMLCellContext();
 
         return $out;
     }
@@ -2361,7 +3131,66 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
-        return '';
+        $text = $this->normalizeHTMLText($elm['value']);
+        if ($text === '') {
+            return '';
+        }
+
+        $style = empty($elm['fontstyle']) || !\is_string($elm['fontstyle']) ? '' : $elm['fontstyle'];
+        $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
+        $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
+        $availableWidth = ($tpw > 0) ? $tpw : 0.0;
+
+        $out = $this->getHTMLTextPrefix($elm);
+        $out .= $this->getTextCell(
+            $text,
+            $tpx,
+            $tpy,
+            $availableWidth,
+            0,
+            0,
+            0,
+            'T',
+            $halign,
+            null,
+            [],
+            (float) $elm['stroke'],
+            0,
+            0,
+            0,
+            true,
+            (bool) $elm['fill'],
+            ((float) $elm['stroke'] > 0),
+            \str_contains($style, 'U'),
+            \str_contains($style, 'D'),
+            \str_contains($style, 'O'),
+            (bool) $elm['clip'],
+            false,
+            $forcedir,
+        );
+
+        $bbox = $this->getLastBBox();
+        $link = $this->getCurrentHTMLLink();
+        if (($link !== '') && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
+            $lnkid = $this->setLink($bbox['x'], $bbox['y'], $bbox['w'], $bbox['h'], $link);
+            $this->page->addAnnotRef($lnkid, $this->page->getPageID());
+        }
+
+        $lineAdvance = $this->getHTMLLineAdvance($elm);
+        $wrapped = ($bbox['h'] > ($lineAdvance + 0.001));
+        if ($wrapped) {
+            $this->resetHTMLLineCursor($tpx, $tpw);
+            $tpy = $bbox['y'] + $bbox['h'];
+            return $out;
+        }
+
+        $tpx = $bbox['x'] + $bbox['w'];
+        if ($this->htmlcellctx['maxwidth'] > 0) {
+            $tpw = \max(0.0, $this->htmlcellctx['maxwidth'] - ($tpx - $this->htmlcellctx['originx']));
+        }
+        $tpy = $bbox['y'];
+
+        return $out;
     }
 
     // FUNCTIONS TO PROCESS HTML OPENING TAGS
@@ -2369,6 +3198,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Placeholder for opening-tag handlers.
      */
+
     /**
      * Process HTML opening tag <a>.
      *
@@ -2384,6 +3214,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENa(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $href = (!empty($elm['attribute']['href']) && \is_string($elm['attribute']['href']))
+            ? $elm['attribute']['href']
+            : '';
+        $this->pushHTMLLink($href);
+
         return '';
     }
 
@@ -2400,7 +3235,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENb(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2416,7 +3252,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENblockquote(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2432,7 +3269,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENbody(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2448,7 +3286,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENbr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+
+        $value = '';
+        if (!empty($elm['value']) && \is_string($elm['value'])) {
+            $value = \strtolower($elm['value']);
+        }
+
+        if ($value !== 'a') {
+            return '';
+        }
+
+        $this->moveHTMLToNextLine($elm, $tpx, $tpy, $tpw);
+        return '';
     }
 
     /**
@@ -2464,7 +3314,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2480,7 +3331,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENdel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2496,7 +3348,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2512,7 +3365,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENdl(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2528,7 +3382,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENdt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2544,7 +3399,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENem(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2560,7 +3416,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENfont(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2576,7 +3433,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENform(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2592,7 +3450,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENh1(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2608,7 +3467,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENh2(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2624,7 +3483,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENh3(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2640,7 +3499,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENh4(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2656,7 +3515,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENh5(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2672,7 +3531,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENh6(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2688,7 +3547,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENhr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $width = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
+        $lineY = $tpy + ($this->getHTMLLineAdvance($elm) / 2);
+        $out .= $this->graph->getLine(
+            $tpx,
+            $lineY,
+            $tpx + $width,
+            $lineY,
+            [
+                'lineWidth' => ((float) $elm['stroke'] > 0) ? (float) $elm['stroke'] : 0.2,
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => empty($elm['fgcolor']) ? 'black' : (string) $elm['fgcolor'],
+            ],
+        );
+        $this->moveHTMLToNextLine($elm, $tpx, $tpy, $tpw);
+
+        return $out;
     }
 
     /**
@@ -2704,7 +3583,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENi(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2720,7 +3600,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENimg(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->renderHTMLImage($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2736,7 +3617,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENinput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->renderHTMLLiteralText($this->getHTMLInputDisplayValue($elm), $elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2752,7 +3633,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENlabel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2768,7 +3650,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $depth = $this->getHTMLListDepth();
+        if ($depth < 1) {
+            return $out;
+        }
+
+        $font = $this->getHTMLFontMetric($elm);
+        $indent = $this->getHTMLListIndentWidth() * $depth;
+        $counter = $this->getHTMLListItemCounter($elm);
+        $markerType = $this->getCurrentHTMLListMarkerType();
+        $baseline = $tpy + $this->toUnit((isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0);
+        $bulletx = $tpx + ($indent / 2);
+
+        $out .= $this->getHTMLTextPrefix($elm);
+        $out .= $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType);
+
+        $tpx += $indent;
+        if ($tpw > 0) {
+            $tpw = \max(0.0, $tpw - $indent);
+        }
+
+        return $out;
     }
 
     /**
@@ -2784,7 +3688,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENmarker(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2800,7 +3705,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENol(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $this->pushHTMLList($elm, true);
+
+        return $out;
     }
 
     /**
@@ -2816,7 +3725,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENoption(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        $label = '';
+        if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
+            $label = $elm['attribute']['value'];
+        }
+
+        return $this->renderHTMLLiteralText($label, $elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2832,7 +3746,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENoutput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        $label = '';
+        if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
+            $label = $elm['attribute']['value'];
+        }
+
+        return $this->renderHTMLLiteralText($label, $elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2848,7 +3767,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENp(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2864,7 +3784,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENpre(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        ++$this->htmlprelevel;
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -2880,7 +3802,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENs(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2896,7 +3819,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENselect(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->renderHTMLLiteralText($this->getHTMLSelectDisplayValue($elm), $elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2912,7 +3835,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENsmall(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2928,7 +3852,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENspan(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2944,7 +3869,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENstrike(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2960,7 +3886,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENstrong(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -2976,7 +3903,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tpx, $tpw, $tph);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, 0.3);
+    }
+
+    /**
+     * Process HTML opening tag <sup>.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENsup(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        unset($tpx, $tpw, $tph);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, -0.7);
     }
 
     /**
@@ -2992,7 +3937,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtable(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+
+        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $width = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
+        $cols = (!empty($elm['cols']) && \is_numeric($elm['cols'])) ? \max(1, (int) $elm['cols']) : 1;
+        $colwidth = ($cols > 0) ? ($width / $cols) : $width;
+
+        $this->htmltablestack[] = [
+            'originx' => $tpx,
+            'originy' => $tpy,
+            'width' => $width,
+            'cols' => $cols,
+            'colwidth' => $colwidth,
+            'rowtop' => $tpy,
+            'rowheight' => 0.0,
+            'colindex' => 0,
+            'cells' => [],
+        ];
+
+        $tpw = $width;
+
+        return $out;
     }
 
     /**
@@ -3008,7 +3974,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtablehead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3024,7 +3990,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtcpdf(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tpy, $tph);
+
+        $method = '';
+        if (!empty($elm['attribute']['method']) && \is_string($elm['attribute']['method'])) {
+            $method = \strtolower(\trim($elm['attribute']['method']));
+        }
+
+        if (($method !== 'pagebreak') && ($method !== 'addpage')) {
+            return '';
+        }
+
+        $mode = 'true';
+        if (!empty($elm['attribute']['pagebreak']) && \is_string($elm['attribute']['pagebreak'])) {
+            $mode = \strtolower(\trim($elm['attribute']['pagebreak']));
+        }
+
+        $pid = $this->pageBreak();
+        if ($mode !== 'true') {
+            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+            if ((($mode == 'left') && $leftmode) || (($mode == 'right') && !$leftmode)) {
+                $this->pageBreak();
+            }
+        }
+
+        $this->resetHTMLLineCursor($tpx, $tpw);
+
+        return '';
     }
 
     /**
@@ -3040,7 +4032,82 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+
+        $tableidx = \count($this->htmltablestack) - 1;
+        if ($tableidx < 0) {
+            return '';
+        }
+
+        $cols = $this->htmltablestack[$tableidx]['cols'];
+        $colindex = $this->htmltablestack[$tableidx]['colindex'];
+        $remaining = \max(1, $cols - $colindex);
+        $colspan = 1;
+        if (!empty($elm['attribute']['colspan']) && \is_numeric($elm['attribute']['colspan'])) {
+            $colspan = (int) $elm['attribute']['colspan'];
+        }
+        $colspan = \max(1, \min($remaining, $colspan));
+
+        $cellx = $this->htmltablestack[$tableidx]['originx']
+            + ($colindex * $this->htmltablestack[$tableidx]['colwidth']);
+        $cellw = $this->htmltablestack[$tableidx]['colwidth'] * $colspan;
+        $rowtop = $this->htmltablestack[$tableidx]['rowtop'];
+
+        $originx = $cellx + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
+        $originy = $rowtop + (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
+        $maxwidth = \max(
+            0.0,
+            $cellw
+            - (float) $elm['margin']['L']
+            - (float) $elm['margin']['R']
+            - (float) $elm['padding']['L']
+            - (float) $elm['padding']['R']
+        );
+
+        $this->htblcellctx[] = [
+            'originx' => $this->htmlcellctx['originx'],
+            'originy' => $this->htmlcellctx['originy'],
+            'maxwidth' => $this->htmlcellctx['maxwidth'],
+            'maxheight' => $this->htmlcellctx['maxheight'],
+            'rowtop' => $rowtop,
+            'cellx' => $cellx,
+            'cellw' => $cellw,
+            'bstyles' => $this->getHTMLTableCellBorderStyles($elm),
+        ];
+
+        $this->htmlcellctx['originx'] = $originx;
+        $this->htmlcellctx['originy'] = $originy;
+        $this->htmlcellctx['maxwidth'] = $maxwidth;
+
+        $tpx = $originx;
+        $tpy = $originy;
+        $tpw = $maxwidth;
+
+        $this->htmltablestack[$tableidx]['colindex'] += $colspan;
+
+        $fillstyle = $this->getHTMLTableCellFillStyle($elm);
+        if ($fillstyle === null) {
+            return '';
+        }
+
+        $fillheight = (!empty($elm['height']) && \is_numeric($elm['height']))
+            ? (float) $elm['height']
+            : ($this->getHTMLLineAdvance($elm)
+                + (float) $elm['margin']['T']
+                + (float) $elm['margin']['B']
+                + (float) $elm['padding']['T']
+                + (float) $elm['padding']['B']);
+
+        return $this->graph->getStartTransform()
+            . $this->graph->getBasicRect(
+                $cellx,
+                $rowtop,
+                $cellw,
+                $fillheight,
+                'f',
+                $fillstyle,
+            )
+            . $this->graph->getStopTransform();
     }
 
     /**
@@ -3056,7 +4123,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtextarea(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        $value = '';
+        if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
+            $value = $elm['attribute']['value'];
+        }
+
+        if ($value === '') {
+            return '';
+        }
+
+        ++$this->htmlprelevel;
+        $out = $this->renderHTMLLiteralText($value, $elm, $tpx, $tpy, $tpw, $tph);
+        $this->htmlprelevel = \max(0, $this->htmlprelevel - 1);
+
+        return $out;
     }
 
     /**
@@ -3072,7 +4152,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENth(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENtd($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3088,7 +4168,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENthead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENtablehead($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3104,7 +4184,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tph);
+
+        $tableidx = \count($this->htmltablestack) - 1;
+        if ($tableidx < 0) {
+            return '';
+        }
+
+        $table = $this->htmltablestack[$tableidx];
+        $table['rowtop'] = $tpy;
+        $table['rowheight'] = 0.0;
+        $table['colindex'] = 0;
+        $table['cells'] = [];
+        $this->htmltablestack[$tableidx] = $table;
+
+        $tpx = $table['originx'];
+        $tpw = $table['width'];
+
+        return '';
     }
 
     /**
@@ -3120,7 +4217,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3136,7 +4234,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENu(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3152,7 +4251,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENul(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $this->pushHTMLList($elm, false);
+
+        return $out;
     }
 
     // FUNCTIONS TO PROCESS HTML CLOSING TAGS
@@ -3168,13 +4271,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
      * @param float  $tph Height.
-        *
-        * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      *
      * @return string PDF code.
      */
     protected function parseHTMLTagCLOSEa(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $value = '';
+        if (!empty($elm['value']) && \is_string($elm['value'])) {
+            $value = \strtolower($elm['value']);
+        }
+
+        if ($value === 'a') {
+            $this->popHTMLLink();
+        }
+
         return '';
     }
 
@@ -3191,7 +4303,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEb(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3207,7 +4320,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEblockquote(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3223,7 +4337,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEbody(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3239,7 +4354,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEbr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3255,7 +4371,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3271,7 +4388,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEdel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3287,7 +4405,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3303,7 +4422,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEdl(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3319,7 +4439,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEdt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3335,7 +4456,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEem(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3351,7 +4473,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEfont(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3367,7 +4490,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEform(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3383,7 +4507,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEh1(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3399,7 +4524,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEh2(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3415,7 +4540,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEh3(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3431,7 +4556,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEh4(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3447,7 +4572,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEh5(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3463,7 +4588,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEh6(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3479,7 +4604,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEhr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3495,7 +4621,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEi(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3511,7 +4638,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEimg(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3527,7 +4655,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEinput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3543,7 +4672,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSElabel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3559,7 +4689,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3575,7 +4706,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEmarker(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3591,7 +4723,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEol(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $this->popHTMLList();
+
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3607,7 +4742,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEoption(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3623,7 +4759,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEoutput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3639,7 +4776,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEp(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3655,7 +4793,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEpre(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $this->htmlprelevel = \max(0, $this->htmlprelevel - 1);
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3671,7 +4811,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEs(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3687,7 +4828,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEselect(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3703,7 +4845,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEsmall(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3719,7 +4862,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEspan(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3735,7 +4879,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEstrike(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3751,7 +4896,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEstrong(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3767,7 +4913,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tpx, $tpw, $tph);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, -0.3);
+    }
+
+    /**
+     * Process HTML closing tag </sup>.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEsup(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        unset($tpx, $tpw, $tph);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, 0.7);
     }
 
     /**
@@ -3783,7 +4947,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtable(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+
+        if (empty($this->htmltablestack)) {
+            return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        }
+
+        $table = \array_pop($this->htmltablestack);
+        if ($table === null) {
+            return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        }
+
+        $tpx = $table['originx'];
+        $tpw = $table['width'];
+
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -3799,7 +4977,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtablehead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3815,7 +4993,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtcpdf(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3831,7 +5010,42 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+
+        $tableidx = \count($this->htmltablestack) - 1;
+        $cellctx = \array_pop($this->htblcellctx);
+        if (($tableidx < 0) || ($cellctx === null)) {
+            return '';
+        }
+
+        $lineAdvance = $this->getHTMLLineAdvance($elm);
+        $cellbottom = $tpy
+            + $lineAdvance
+            + (float) $elm['padding']['B']
+            + (float) $elm['margin']['B'];
+        $rowheight = \max(0.0, $cellbottom - $cellctx['rowtop']);
+        $table = $this->htmltablestack[$tableidx];
+        $table['rowheight'] = \max(
+            $table['rowheight'],
+            $rowheight,
+        );
+        $table['cells'][] = [
+            'cellx' => $cellctx['cellx'],
+            'cellw' => $cellctx['cellw'],
+            'bstyles' => $cellctx['bstyles'],
+        ];
+        $this->htmltablestack[$tableidx] = $table;
+
+        $this->htmlcellctx['originx'] = $cellctx['originx'];
+        $this->htmlcellctx['originy'] = $cellctx['originy'];
+        $this->htmlcellctx['maxwidth'] = $cellctx['maxwidth'];
+        $this->htmlcellctx['maxheight'] = $cellctx['maxheight'];
+
+        $tpy = $cellctx['rowtop'];
+        $tpx = $table['originx'] + ($table['colindex'] * $table['colwidth']);
+        $tpw = \max(0.0, $table['width'] - ($tpx - $table['originx']));
+
+        return '';
     }
 
     /**
@@ -3847,7 +5061,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtextarea(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3863,7 +5078,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEth(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEtd($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3879,7 +5094,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEthead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEtablehead($elm, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -3895,7 +5110,64 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tph);
+
+        $tableidx = \count($this->htmltablestack) - 1;
+        if ($tableidx < 0) {
+            return '';
+        }
+
+        $table = $this->htmltablestack[$tableidx];
+        $rowheight = $table['rowheight'];
+        if ($rowheight <= 0) {
+            $curfont = $this->font->getCurrentFont();
+            $rowheight = $this->toUnit((float) $curfont['height']);
+        }
+
+        $tpy = $table['rowtop'] + $rowheight;
+
+        $out = '';
+        if (!empty($table['cells'])) {
+            $out .= $this->graph->getStartTransform();
+            foreach ($table['cells'] as $cell) {
+                $styles = $cell['bstyles'];
+                if ($styles === []) {
+                    continue;
+                }
+
+                if (!empty($styles['all'])) {
+                    $out .= $this->graph->getBasicRect(
+                        $cell['cellx'],
+                        $table['rowtop'],
+                        $cell['cellw'],
+                        $rowheight,
+                        's',
+                        $styles['all'],
+                    );
+                    continue;
+                }
+
+                $out .= $this->graph->getRect(
+                    $cell['cellx'],
+                    $table['rowtop'],
+                    $cell['cellw'],
+                    $rowheight,
+                    's',
+                    $styles,
+                );
+            }
+            $out .= $this->graph->getStopTransform();
+        }
+
+        $table['rowtop'] = $tpy;
+        $table['rowheight'] = 0.0;
+        $table['colindex'] = 0;
+        $table['cells'] = [];
+        $this->htmltablestack[$tableidx] = $table;
+        $tpx = $table['originx'];
+        $tpw = $table['width'];
+
+        return $out;
     }
 
     /**
@@ -3911,7 +5183,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3927,7 +5200,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEu(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($elm, $tpx, $tpy, $tpw, $tph);
+        return '';
     }
 
     /**
@@ -3943,6 +5217,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEul(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $this->popHTMLList();
+
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 }
