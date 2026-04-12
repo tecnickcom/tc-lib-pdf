@@ -891,7 +891,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process the content between tags (text).
      *
-    * @param array<int, array<string, mixed>> $dom DOM array.
+    * @param array<int, THTMLAttrib> $dom DOM array.
      * @param string $element Element data.
      * @param int $key Current element ID.
      * @param int $parent ID of the parent element.
@@ -923,7 +923,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Inherit HTML properties from a parent element.
      *
-    * @param array<int, array<string, mixed>> $dom DOM array.
+    * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key ID of the current HTML element.
      * @param int $parent ID of the parent element from which to inherit properties.
      *
@@ -960,6 +960,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if (!isset($dom[$key][$prop]) || $dom[$key][$prop] === $defaults[$prop]) {
+                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key][$prop] = $dom[$parent][$prop];
             }
         }
@@ -1046,7 +1047,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML DOM Opening Tag.
      *
-    * @param array<int, array<string, mixed>> $dom
+    * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
     * @param array<int> $level
      * @param string $element
@@ -1075,6 +1076,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $parentkey = 0;
         if ($key > 0) {
             $parentkey = (int) $dom[$key]['parent'];
+            // @phpstan-ignore-next-line parameterByRef.type
             $this->inheritHTMLProperties($dom, $key, $parentkey);
         }
 

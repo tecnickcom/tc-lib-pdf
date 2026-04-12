@@ -91,13 +91,13 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->pageBreak();
     }
 
-    /** @phpstan-param array<int, array<string, mixed>> $dom */
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeProcessHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
     {
         $this->processHTMLDOMText($dom, $element, $key, $parent);
     }
 
-    /** @phpstan-param array<int, array<string, mixed>> $dom */
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeInheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
         $this->inheritHTMLProperties($dom, $key, $parent);
@@ -118,7 +118,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-    * @phpstan-param array<int, array<string, mixed>> $dom
+    * @phpstan-param array<int, THTMLAttrib> $dom
      * @phpstan-param array<string, string> $css
      * @phpstan-param array<int> $level
      */
@@ -1456,7 +1456,6 @@ class HTMLTest extends TestUtil
         $obj->exposeProcessHTMLDOMText($dom, 'AB&NBSP;C', 1, 0);
 
         $value = $dom[1]['value'];
-        $this->assertIsString($value);
         $this->assertStringStartsWith('ab', $value);
     }
 
@@ -1698,7 +1697,6 @@ class HTMLTest extends TestUtil
 
         $this->assertTrue($dom[1]['self']);
         $attr = $dom[1]['attribute'];
-        $this->assertIsArray($attr);
         $src = $attr['src'] ?? null;
         $this->assertIsString($src);
         $this->assertSame('x', $src);
