@@ -35,6 +35,10 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
+ * @phpstan-type THTMLTableCell array{cellx: float, cellw: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
+ * @phpstan-type THTMLTableRowspanCell array{cellx: float, cellw: float, rowtop: float, rowsremaining: int, usedheight: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
+ * @phpstan-type THTMLTableState array{originx: float, originy: float, width: float, cols: int, colwidth: float, rowtop: float, rowheight: float, colindex: int, cells: array<int, THTMLTableCell>, occupied: array<int, int>, rowspans: array<int, THTMLTableRowspanCell>}
+ * @phpstan-type THTMLTableCellContext array{originx: float, originy: float, maxwidth: float, maxheight: float, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string}
  *
  * @phpstan-type THTMLAttrib array{
  *     'align': string,
@@ -304,24 +308,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Per-cell table stack used to render nested HTML tables.
      *
-     * @var array<int, array{
-     *   originx: float,
-     *   originy: float,
-     *   width: float,
-     *   cols: int,
-     *   colwidth: float,
-     *   rowtop: float,
-     *   rowheight: float,
-    *   colindex: int,
-    *   cells: array<int, array{cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>}>
-     * }>
+    * @var array<int, THTMLTableState>
      */
     protected array $htmltablestack = [];
 
     /**
      * Temporary stack to restore outer HTML cell context when leaving table cells.
      *
-        * @var array<int, array{originx: float, originy: float, maxwidth: float, maxheight: float, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>}>
+    * @var array<int, THTMLTableCellContext>
      */
     protected array $htblcellctx = [];
 
@@ -1917,7 +1911,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $colspan = (isset($dom[$key]['attribute']['colspan'])
                 && \is_numeric($dom[$key]['attribute']['colspan']))
                 ? $dom[$key]['attribute']['colspan'] : '1';
+            $rowspan = (isset($dom[$key]['attribute']['rowspan'])
+                && \is_numeric($dom[$key]['attribute']['rowspan']))
+                ? $dom[$key]['attribute']['rowspan'] : '1';
             $dom[$key]['attribute']['colspan'] = $colspan;
+            $dom[$key]['attribute']['rowspan'] = $rowspan;
             $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
             if (
                 isset($dom[($parent)]['cols'])
@@ -2370,6 +2368,278 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $out;
+    }
+
+    /**
+     * Estimate the total rendered height for a table row starting at the given TR node.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function estimateHTMLTableRowHeight(array $dom, int $trkey): float
+    {
+        if (empty($dom[$trkey]) || empty($dom[$trkey]['tag']) || empty($dom[$trkey]['opening'])) {
+            return 0.0;
+        }
+
+        $rowheight = 0.0;
+        $depth = 0;
+        $numel = \count($dom);
+        for ($key = $trkey + 1; $key < $numel; ++$key) {
+            $elm = $dom[$key];
+            if (empty($elm['tag']) || empty($elm['value']) || !\is_string($elm['value'])) {
+                continue;
+            }
+
+            if ($elm['opening'] && ($elm['value'] === 'tr')) {
+                ++$depth;
+                continue;
+            }
+
+            if (!$elm['opening'] && ($elm['value'] === 'tr')) {
+                if ($depth === 0) {
+                    break;
+                }
+
+                --$depth;
+                continue;
+            }
+
+            if ($depth > 0) {
+                continue;
+            }
+
+            if (!$elm['opening'] || (($elm['value'] !== 'td') && ($elm['value'] !== 'th'))) {
+                continue;
+            }
+
+            $cellh = $this->getHTMLLineAdvance($elm)
+                + (float) $elm['padding']['T']
+                + (float) $elm['padding']['B']
+                + (float) $elm['margin']['T']
+                + (float) $elm['margin']['B'];
+            if (!empty($elm['height']) && \is_numeric($elm['height'])) {
+                $cellh = \max($cellh, (float) $elm['height']);
+            }
+
+            $rowheight = \max($rowheight, $cellh);
+        }
+
+        if ($rowheight <= 0.0) {
+            $curfont = $this->font->getCurrentFont();
+            $rowheight = $this->toUnit((float) $curfont['height']);
+        }
+
+        return $rowheight;
+    }
+
+    /**
+     * Find the matching closing tag index for an opening DOM tag.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function findHTMLClosingTagIndex(array $dom, int $startkey): int
+    {
+        if (empty($dom[$startkey]['tag']) || empty($dom[$startkey]['opening']) || empty($dom[$startkey]['value'])) {
+            return $startkey;
+        }
+
+        $tag = (string) $dom[$startkey]['value'];
+        $depth = 0;
+        $numel = \count($dom);
+        for ($key = ($startkey + 1); $key < $numel; ++$key) {
+            $elm = $dom[$key];
+            if (empty($elm['tag']) || empty($elm['value']) || !\is_string($elm['value']) || ($elm['value'] !== $tag)) {
+                continue;
+            }
+
+            if (!empty($elm['opening'])) {
+                ++$depth;
+                continue;
+            }
+
+            if ($depth === 0) {
+                return $key;
+            }
+
+            --$depth;
+        }
+
+        return $startkey;
+    }
+
+    /**
+     * Estimate the rendered height of plain HTML text for the available width.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     */
+    protected function estimateHTMLTextHeight(string $text, array $elm, float $width): float
+    {
+        $text = $this->normalizeHTMLText($text);
+        if ($text === '') {
+            return 0.0;
+        }
+
+        $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
+        $this->getHTMLFontMetric($elm);
+        $ordarr = [];
+        $dim = self::DIM_DEFAULT;
+        $this->prepareText($text, $ordarr, $dim, $forcedir);
+
+        $lineadvance = $this->getHTMLLineAdvance($elm);
+        if (($width <= 0.0) || ($ordarr === [])) {
+            return $lineadvance;
+        }
+
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width));
+        return \max($lineadvance, \count($lines) * $lineadvance);
+    }
+
+    /**
+     * Estimate the height of a nobr subtree so it can be moved intact to a new region.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function estimateHTMLNobrHeight(array $dom, int $startkey, float $width): float
+    {
+        if (empty($dom[$startkey]) || empty($dom[$startkey]['tag']) || empty($dom[$startkey]['opening'])) {
+            return 0.0;
+        }
+
+        $starttag = (string) $dom[$startkey]['value'];
+        if ($starttag === 'tr') {
+            return $this->estimateHTMLTableRowHeight($dom, $startkey);
+        }
+
+        $endkey = $this->findHTMLClosingTagIndex($dom, $startkey);
+        if ($endkey <= $startkey) {
+            return 0.0;
+        }
+
+        $height = 0.0;
+        for ($key = ($startkey + 1); $key < $endkey; ++$key) {
+            $elm = $dom[$key];
+
+            if (empty($elm['tag'])) {
+                $height += $this->estimateHTMLTextHeight((string) $elm['value'], $elm, $width);
+                continue;
+            }
+
+            if (!empty($elm['opening'])) {
+                if ($elm['value'] === 'br') {
+                    $height += $this->getHTMLLineAdvance($elm);
+                    continue;
+                }
+
+                if ($elm['value'] === 'img') {
+                    $height += (!empty($elm['height']) && \is_numeric($elm['height']))
+                        ? (float) $elm['height']
+                        : $this->getHTMLLineAdvance($elm);
+                    continue;
+                }
+
+                if (($elm['value'] === 'input') || ($elm['value'] === 'output')) {
+                    $height += $this->estimateHTMLTextHeight($this->getHTMLInputDisplayValue($elm), $elm, $width);
+                    continue;
+                }
+
+                if ($elm['value'] === 'select') {
+                    $height += $this->estimateHTMLTextHeight($this->getHTMLSelectDisplayValue($elm), $elm, $width);
+                    continue;
+                }
+
+                if ($elm['value'] === 'textarea') {
+                    $value = (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value']))
+                        ? $elm['attribute']['value']
+                        : '';
+                    $height += $this->estimateHTMLTextHeight($value, $elm, $width);
+                    continue;
+                }
+
+                if (($elm['value'] === 'table') || ($elm['value'] === 'tablehead') || ($elm['value'] === 'thead')) {
+                    $subheight = 0.0;
+                    $tableend = $this->findHTMLClosingTagIndex($dom, $key);
+                    for ($idx = $key; $idx <= $tableend; ++$idx) {
+                        if (!empty($dom[$idx]['tag']) && !empty($dom[$idx]['opening']) && (($dom[$idx]['value'] ?? '') === 'tr')) {
+                            $subheight += $this->estimateHTMLTableRowHeight($dom, $idx);
+                        }
+                    }
+                    $height += $subheight;
+                    $key = $tableend;
+                    continue;
+                }
+            }
+
+            if (
+                !empty($elm['tag'])
+                && \is_string($elm['value'])
+                && \in_array($elm['value'], self::HTML_BLOCK_TAGS, true)
+            ) {
+                if (!empty($elm['opening'])) {
+                    $height += (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
+                } else {
+                    $height += (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
+                }
+            }
+        }
+
+        if ($height <= 0.0) {
+            $height = $this->getHTMLLineAdvance($dom[$startkey]);
+        }
+
+        return $height;
+    }
+
+    /**
+     * Return the remaining vertical space in the current region or explicit cell box.
+     */
+    protected function getHTMLRemainingHeight(float $tpy): float
+    {
+        $region = $this->page->getRegion();
+        $remaining = ((float) $region['RY'] + (float) $region['RH']) - $tpy;
+
+        if ($this->htmlcellctx['maxheight'] > 0.0) {
+            $remaining = \min(
+                $remaining,
+                ($this->htmlcellctx['originy'] + $this->htmlcellctx['maxheight']) - $tpy,
+            );
+        }
+
+        return \max(0.0, $remaining);
+    }
+
+    /**
+     * Break to the next page region when the required height does not fit.
+     */
+    protected function breakHTMLIfNeeded(
+        float $requiredh,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+        string $thead = '',
+    ): string {
+        if ($requiredh <= 0.0) {
+            return '';
+        }
+
+        $region = $this->page->getRegion();
+        $regiontop = (float) $region['RY'];
+        $remaining = $this->getHTMLRemainingHeight($tpy);
+        if (($requiredh <= ($remaining + 0.001)) || ($tpy <= ($regiontop + 0.001))) {
+            return '';
+        }
+
+        $this->pageBreak();
+        $region = $this->page->getRegion();
+        $this->htmlcellctx['originy'] = (float) $region['RY'];
+        $tpy = $this->htmlcellctx['originy'];
+        $this->resetHTMLLineCursor($tpx, $tpw);
+
+        if ($thead === '') {
+            return '';
+        }
+
+        return $this->replayHTMLTableHead($thead, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -2944,6 +3214,96 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Append a rendered HTML fragment to the active table-cell buffer when needed.
+     */
+    protected function captureHTMLTableCellBuffer(string $fragment): bool
+    {
+        if (($fragment === '') || empty($this->htblcellctx)) {
+            return false;
+        }
+
+        $cellidx = \count($this->htblcellctx) - 1;
+        $this->htblcellctx[$cellidx]['buffer'] .= $fragment;
+
+        return true;
+    }
+
+    /**
+     * Advance to the next free table column, skipping active row spans.
+        *
+        * @param THTMLTableState $table
+     */
+    protected function getHTMLTableNextFreeColumn(array $table): int
+    {
+        $colindex = $table['colindex'];
+        while (($colindex < $table['cols']) && !empty($table['occupied'][$colindex])) {
+            ++$colindex;
+        }
+
+        return $colindex;
+    }
+
+    /**
+     * Render a resolved table cell using the final computed height.
+     *
+     * @param array<int|string, BorderStyle> $styles
+    * @param ?BorderStyle $fillstyle
+     */
+    protected function renderHTMLTableCell(
+        float $cellx,
+        float $rowtop,
+        float $cellw,
+        float $cellh,
+        array $styles,
+        ?array $fillstyle,
+        string $buffer,
+    ): string {
+        $out = '';
+
+        if ($fillstyle !== null) {
+            $out .= $this->graph->getStartTransform()
+                . $this->graph->getBasicRect(
+                    $cellx,
+                    $rowtop,
+                    $cellw,
+                    $cellh,
+                    'f',
+                    $fillstyle,
+                )
+                . $this->graph->getStopTransform();
+        }
+
+        $out .= $buffer;
+
+        if ($styles === []) {
+            return $out;
+        }
+
+        $out .= $this->graph->getStartTransform();
+        if (!empty($styles['all'])) {
+            $out .= $this->graph->getBasicRect(
+                $cellx,
+                $rowtop,
+                $cellw,
+                $cellh,
+                's',
+                $styles['all'],
+            );
+        } else {
+            $out .= $this->graph->getRect(
+                $cellx,
+                $rowtop,
+                $cellw,
+                $cellh,
+                's',
+                $styles,
+            );
+        }
+
+        return $out . $this->graph->getStopTransform();
+    }
+
+    /**
      * Returns the PDF code to render an HTML block inside a rectangular cell.
      *
      * @param string      $html        HTML code to be processed.
@@ -3097,6 +3457,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
+                    if ($elm['value'] === 'tr') {
+                        $parent = \is_int($elm['parent']) ? $elm['parent'] : 0;
+                        $theadhtml = '';
+                        if (
+                            isset($dom[$parent])
+                            && !empty($dom[$parent]['thead'])
+                            && \is_string($dom[$parent]['thead'])
+                        ) {
+                            $theadhtml = $dom[$parent]['thead'];
+                        } elseif (!empty($tabletheadmap[$parent]) && \is_string($tabletheadmap[$parent])) {
+                            $theadhtml = $tabletheadmap[$parent];
+                        }
+
+                        $out .= $this->breakHTMLIfNeeded(
+                            $this->estimateHTMLTableRowHeight($dom, $key),
+                            $tpx,
+                            $tpy,
+                            $tpw,
+                            $tph,
+                            $theadhtml,
+                        );
+                    }
+
                     if (!empty($elm['attribute']['id']) && \is_string($elm['attribute']['id'])) {
                         $name = \trim($elm['attribute']['id']);
                         if ($name !== '') {
@@ -3108,11 +3491,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         if (!empty($nobrstack)) {
                             $elm['attribute']['nobr'] = '';
                         } elseif (!$elm['self']) {
+                            if ($elm['value'] !== 'tr') {
+                                $out .= $this->breakHTMLIfNeeded(
+                                    $this->estimateHTMLNobrHeight(
+                                        $dom,
+                                        $key,
+                                        ($tpw > 0.0) ? $tpw : $this->htmlcellctx['maxwidth'],
+                                    ),
+                                    $tpx,
+                                    $tpy,
+                                    $tpw,
+                                    $tph,
+                                );
+                            }
                             $nobrstack[] = $elm['value'];
                         }
                     }
 
-                    $out .= match ($elm['value']) {
+                    $fragment = match ($elm['value']) {
                         'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
                         'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
                         'blockquote' => $this->parseHTMLTagOPENblockquote($elm, $tpx, $tpy, $tpw, $tph),
@@ -3165,6 +3561,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagOPENul($elm, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
+                    if (!$this->captureHTMLTableCellBuffer($fragment)) {
+                        $out .= $fragment;
+                    }
 
                     if ($elm['self'] && !empty($elm['attribute']['pagebreakafter'])) {
                         $pid = $this->pageBreak();
@@ -3187,7 +3586,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         \array_pop($nobrstack);
                     }
 
-                    $out .= match ($elm['value']) {
+                    $fragment = match ($elm['value']) {
                         'a'          => $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph),
                         'b'          => $this->parseHTMLTagCLOSEb($elm, $tpx, $tpy, $tpw, $tph),
                         'blockquote' => $this->parseHTMLTagCLOSEblockquote($elm, $tpx, $tpy, $tpw, $tph),
@@ -3240,6 +3639,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagCLOSEul($elm, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
+                    if (!$this->captureHTMLTableCellBuffer($fragment)) {
+                        $out .= $fragment;
+                    }
 
                     if (!empty($elm['attribute']['pagebreakafter'])) {
                         $pid = $this->pageBreak();
@@ -3255,7 +3657,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                 }
             } else { // Text Content
-                $out .= $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+                $fragment = $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+                if (!$this->captureHTMLTableCellBuffer($fragment)) {
+                    $out .= $fragment;
+                }
             }
 
             ++$key;
@@ -4127,6 +4532,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'rowheight' => 0.0,
             'colindex' => 0,
             'cells' => [],
+            'occupied' => \array_fill(0, $cols, 0),
+            'rowspans' => [],
         ];
 
         $tpw = $width;
@@ -4301,19 +4708,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $cols = $this->htmltablestack[$tableidx]['cols'];
-        $colindex = $this->htmltablestack[$tableidx]['colindex'];
+        /** @var THTMLTableState $table */
+        $table = $this->htmltablestack[$tableidx];
+
+        $colindex = $this->getHTMLTableNextFreeColumn($table);
+        $table['colindex'] = $colindex;
+        $cols = $table['cols'];
         $remaining = \max(1, $cols - $colindex);
         $colspan = 1;
+        $rowspan = 1;
         if (!empty($elm['attribute']['colspan']) && \is_numeric($elm['attribute']['colspan'])) {
             $colspan = (int) $elm['attribute']['colspan'];
         }
+        if (!empty($elm['attribute']['rowspan']) && \is_numeric($elm['attribute']['rowspan'])) {
+            $rowspan = (int) $elm['attribute']['rowspan'];
+        }
         $colspan = \max(1, \min($remaining, $colspan));
+        $rowspan = \max(1, $rowspan);
 
-        $cellx = $this->htmltablestack[$tableidx]['originx']
-            + ($colindex * $this->htmltablestack[$tableidx]['colwidth']);
-        $cellw = $this->htmltablestack[$tableidx]['colwidth'] * $colspan;
-        $rowtop = $this->htmltablestack[$tableidx]['rowtop'];
+        $cellx = $table['originx'] + ($colindex * $table['colwidth']);
+        $cellw = $table['colwidth'] * $colspan;
+        $rowtop = $table['rowtop'];
 
         $originx = $cellx + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
         $originy = $rowtop + (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
@@ -4335,6 +4750,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'cellx' => $cellx,
             'cellw' => $cellw,
             'bstyles' => $this->getHTMLTableCellBorderStyles($elm),
+            'fillstyle' => $this->getHTMLTableCellFillStyle($elm),
+            'rowspan' => $rowspan,
+            'buffer' => '',
         ];
 
         $this->htmlcellctx['originx'] = $originx;
@@ -4345,31 +4763,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpy = $originy;
         $tpw = $maxwidth;
 
-        $this->htmltablestack[$tableidx]['colindex'] += $colspan;
+        $table['colindex'] += $colspan;
 
-        $fillstyle = $this->getHTMLTableCellFillStyle($elm);
-        if ($fillstyle === null) {
-            return '';
+        if ($rowspan > 1) {
+            for ($idx = $colindex; $idx < ($colindex + $colspan); ++$idx) {
+                $table['occupied'][$idx] = \max(
+                    $table['occupied'][$idx] ?? 0,
+                    $rowspan - 1,
+                );
+            }
         }
 
-        $fillheight = (!empty($elm['height']) && \is_numeric($elm['height']))
-            ? (float) $elm['height']
-            : ($this->getHTMLLineAdvance($elm)
-                + (float) $elm['margin']['T']
-                + (float) $elm['margin']['B']
-                + (float) $elm['padding']['T']
-                + (float) $elm['padding']['B']);
+        $this->htmltablestack[$tableidx] = $table;
 
-        return $this->graph->getStartTransform()
-            . $this->graph->getBasicRect(
-                $cellx,
-                $rowtop,
-                $cellw,
-                $fillheight,
-                'f',
-                $fillstyle,
-            )
-            . $this->graph->getStopTransform();
+        return '';
     }
 
     /**
@@ -5223,7 +5630,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpx = $table['originx'];
         $tpw = $table['width'];
 
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = '';
+        foreach ($table['rowspans'] as $cell) {
+            $height = ($cell['usedheight'] > 0.0) ? $cell['usedheight'] : $cell['contenth'];
+            $out .= $this->renderHTMLTableCell(
+                $cell['cellx'],
+                $cell['rowtop'],
+                $cell['cellw'],
+                $height,
+                $cell['bstyles'],
+                $cell['fillstyle'],
+                $cell['buffer'],
+            );
+        }
+
+        return $out . $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -5286,16 +5707,36 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             + (float) $elm['padding']['B']
             + (float) $elm['margin']['B'];
         $rowheight = \max(0.0, $cellbottom - $cellctx['rowtop']);
+        if (!empty($elm['height']) && \is_numeric($elm['height'])) {
+            $rowheight = \max($rowheight, (float) $elm['height']);
+        }
         $table = $this->htmltablestack[$tableidx];
-        $table['rowheight'] = \max(
-            $table['rowheight'],
-            $rowheight,
-        );
-        $table['cells'][] = [
-            'cellx' => $cellctx['cellx'],
-            'cellw' => $cellctx['cellw'],
-            'bstyles' => $cellctx['bstyles'],
-        ];
+        if ($cellctx['rowspan'] > 1) {
+            $table['rowspans'][] = [
+                'cellx' => $cellctx['cellx'],
+                'cellw' => $cellctx['cellw'],
+                'rowtop' => $cellctx['rowtop'],
+                'rowsremaining' => $cellctx['rowspan'],
+                'usedheight' => 0.0,
+                'contenth' => $rowheight,
+                'bstyles' => $cellctx['bstyles'],
+                'fillstyle' => $cellctx['fillstyle'],
+                'buffer' => $cellctx['buffer'],
+            ];
+        } else {
+            $table['cells'][] = [
+                'cellx' => $cellctx['cellx'],
+                'cellw' => $cellctx['cellw'],
+                'contenth' => $rowheight,
+                'bstyles' => $cellctx['bstyles'],
+                'fillstyle' => $cellctx['fillstyle'],
+                'buffer' => $cellctx['buffer'],
+            ];
+            $table['rowheight'] = \max(
+                $table['rowheight'],
+                $rowheight,
+            );
+        }
         $this->htmltablestack[$tableidx] = $table;
 
         $this->htmlcellctx['originx'] = $cellctx['originx'];
@@ -5381,6 +5822,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $table = $this->htmltablestack[$tableidx];
         $rowheight = $table['rowheight'];
+        foreach ($table['rowspans'] as $cell) {
+            $remainingHeight = \max(0.0, $cell['contenth'] - $cell['usedheight']);
+            $rowsremaining = \max(1, $cell['rowsremaining']);
+            $rowheight = \max($rowheight, ($remainingHeight / $rowsremaining));
+        }
         if ($rowheight <= 0) {
             $curfont = $this->font->getCurrentFont();
             $rowheight = $this->toUnit((float) $curfont['height']);
@@ -5390,41 +5836,50 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $out = '';
         if (!empty($table['cells'])) {
-            $out .= $this->graph->getStartTransform();
             foreach ($table['cells'] as $cell) {
-                $styles = $cell['bstyles'];
-                if ($styles === []) {
-                    continue;
-                }
-
-                if (!empty($styles['all'])) {
-                    $out .= $this->graph->getBasicRect(
-                        $cell['cellx'],
-                        $table['rowtop'],
-                        $cell['cellw'],
-                        $rowheight,
-                        's',
-                        $styles['all'],
-                    );
-                    continue;
-                }
-
-                $out .= $this->graph->getRect(
+                $out .= $this->renderHTMLTableCell(
                     $cell['cellx'],
                     $table['rowtop'],
                     $cell['cellw'],
                     $rowheight,
-                    's',
-                    $styles,
+                    $cell['bstyles'],
+                    $cell['fillstyle'],
+                    $cell['buffer'],
                 );
             }
-            $out .= $this->graph->getStopTransform();
+        }
+
+        $rowspans = [];
+        foreach ($table['rowspans'] as $cell) {
+            $cell['usedheight'] += $rowheight;
+            --$cell['rowsremaining'];
+            if ($cell['rowsremaining'] <= 0) {
+                $out .= $this->renderHTMLTableCell(
+                    $cell['cellx'],
+                    $cell['rowtop'],
+                    $cell['cellw'],
+                    $cell['usedheight'],
+                    $cell['bstyles'],
+                    $cell['fillstyle'],
+                    $cell['buffer'],
+                );
+                continue;
+            }
+
+            $rowspans[] = $cell;
+        }
+
+        foreach ($table['occupied'] as $idx => $remaining) {
+            if ($remaining > 0) {
+                $table['occupied'][$idx] = $remaining - 1;
+            }
         }
 
         $table['rowtop'] = $tpy;
         $table['rowheight'] = 0.0;
         $table['colindex'] = 0;
         $table['cells'] = [];
+        $table['rowspans'] = $rowspans;
         $this->htmltablestack[$tableidx] = $table;
         $tpx = $table['originx'];
         $tpw = $table['width'];

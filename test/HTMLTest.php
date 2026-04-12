@@ -917,6 +917,33 @@ class HTMLTest extends TestUtil
         $this->assertSame('', $states[1]);
     }
 
+    public function testGetHTMLCellBreaksBeforeNobrBlockOnOverflow(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $before = $page->getPageId();
+        $region = $page->getRegion();
+        $starty = \max(0.0, ((float) $region['RH']) - 5.0);
+
+        $out = $obj->getHTMLCell(
+            '<div nobr="true"><p>A</p><p>B</p></div>',
+            0,
+            $starty,
+            30,
+            0,
+        );
+
+        $after = $page->getPageId();
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThan($before, $after);
+        $this->assertStringContainsString('(A)', $out);
+        $this->assertStringContainsString('(B)', $out);
+    }
+
     public function testGetHTMLCellRendersInputAndTextareaValues(): void
     {
         $obj = $this->getTestObject();
@@ -1227,6 +1254,59 @@ class HTMLTest extends TestUtil
         );
     }
 
+    public function testGetHTMLCellRendersTableWithRowspanContent(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table>'
+            . '<tr><td rowspan="2">A</td><td>Top</td></tr>'
+            . '<tr><td>Bottom</td></tr>'
+            . '</table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(A)', $out);
+        $this->assertStringContainsString('(Top)', $out);
+        $this->assertStringContainsString('(Bottom)', $out);
+    }
+
+    public function testGetHTMLCellDrawsRowspanBorderAcrossTwoRows(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table>'
+            . '<tr><td rowspan="2" style="border:1px solid black">A</td><td style="border:1px solid black">Top</td></tr>'
+            . '<tr><td style="border:1px solid black">Bottom</td></tr>'
+            . '</table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $matches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+s/', $out, $matches, PREG_SET_ORDER);
+        $this->assertGreaterThanOrEqual(3, \count($matches));
+
+        $heights = \array_map(
+            static fn(array $match): float => \abs((float) $match[4]),
+            $matches,
+        );
+        \rsort($heights);
+
+        $this->assertGreaterThan($heights[1], $heights[0]);
+        $this->assertEqualsWithDelta($heights[0], $heights[1] + $heights[2], 0.0001);
+    }
+
     public function testGetHTMLCellDrawsTableCellBackgroundFillWhenSpecified(): void
     {
         $obj = $this->getTestObject();
@@ -1274,6 +1354,32 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $out);
         $this->assertGreaterThanOrEqual(2, \substr_count($out, '(H)'));
         $this->assertStringContainsString('(T)', $out);
+    }
+
+    public function testGetHTMLCellReplaysTableHeadOnAutomaticRowOverflow(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $region = $page->getRegion();
+        $starty = \max(0.0, ((float) $region['RH']) - 10.0);
+
+        $out = $obj->getHTMLCell(
+            '<table><thead><tr><th>H</th></tr></thead>'
+            . '<tr><td>Tall</td></tr>'
+            . '<tr><td>Next</td></tr></table>',
+            0,
+            $starty,
+            30,
+            0,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(2, \substr_count($out, '(H)'));
+        $this->assertStringContainsString('(Tall)', $out);
+        $this->assertStringContainsString('(Next)', $out);
     }
 
     public function testGetHTMLCellTreatsFormAsBlockContainer(): void
@@ -2260,6 +2366,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 3, false);
 
         $this->assertGreaterThan(0, $dom[1]['rows']);
+        $this->assertSame('2', $dom[3]['attribute']['rowspan']);
     }
 
     public function testParseHTMLStyleAttributesHandlesMultipleBorderSides(): void
