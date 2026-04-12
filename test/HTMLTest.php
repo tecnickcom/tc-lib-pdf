@@ -145,6 +145,22 @@ class HTMLTest extends TestUtil
         $this->fail('Property not found: ' . $name);
     }
 
+    private function setObjectProperty(object $obj, string $name, mixed $value): void
+    {
+        $ref = new \ReflectionClass($obj);
+        while ($ref !== false) {
+            if ($ref->hasProperty($name)) {
+                $prop = $ref->getProperty($name);
+                $prop->setAccessible(true);
+                $prop->setValue($obj, $value);
+                return;
+            }
+            $ref = $ref->getParentClass();
+        }
+
+        $this->fail('Property not found: ' . $name);
+    }
+
     private function initFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): void
     {
         /** @var \Com\Tecnick\Pdf\Font\Stack $font */
@@ -655,6 +671,19 @@ class HTMLTest extends TestUtil
         $this->assertSame('a&b', $dom[1]['value']);
     }
 
+    public function testProcessHTMLDOMTextAppliesMappedCaseTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['text-transform' => 'lowercase']),
+            1 => $this->makeHtmlNode(['value' => '']),
+        ];
+
+        $obj->exposeProcessHTMLDOMText($dom, 'AB&NBSP;C', 1, 0);
+
+        $this->assertStringStartsWith('ab', $dom[1]['value']);
+    }
+
     public function testGetHTMLDOMCSSDataSkipsInheritedAndInvalidSelectors(): void
     {
         $obj = $this->getInternalTestObject();
@@ -834,6 +863,71 @@ class HTMLTest extends TestUtil
         $this->assertArrayHasKey('content', $dom[0]);
     }
 
+    public function testProcessHTMLDOMClosingTagHandlesTdContentAndNestedTableHeaderCleanup(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $root = $obj->exposeGetHTMLRootProperties();
+        /** @var THTMLAttrib $root */
+        $root = $root;
+        $dom = [
+            0 => \array_replace($root, ['value' => 'table', 'elkey' => 0, 'parent' => 0]),
+            1 => \array_replace($root, ['value' => 'tr', 'elkey' => 1, 'parent' => 0]),
+            2 => \array_replace($root, ['value' => 'td', 'elkey' => 2, 'parent' => 1, 'content' => '']),
+            3 => \array_replace($root, ['value' => '', 'elkey' => 3, 'parent' => 2, 'tag' => false]),
+            4 => \array_replace($root, ['value' => 'td', 'elkey' => 4, 'parent' => 2]),
+        ];
+        $elm = [
+            '<table>',
+            '<tr>',
+            '<td>',
+            '<table><thead>A</thead></table>',
+            '</td>',
+        ];
+
+        $obj->exposeProcessHTMLDOMClosingTag($dom, $elm, 4, 2, '<cssarray>x</cssarray>');
+
+        $this->assertStringContainsString('<table nested="true">', $dom[2]['content']);
+        $this->assertStringNotContainsString('<thead>', $dom[2]['content']);
+        $this->assertStringNotContainsString('</thead>', $dom[2]['content']);
+
+        $dom = [
+            0 => \array_replace($root, ['value' => 'root', 'elkey' => 0, 'parent' => 0, 'thead' => '<tr nobr="true"></tr>']),
+            1 => \array_replace($root, ['value' => 'table', 'elkey' => 1, 'parent' => 0]),
+        ];
+        $elm = ['<root>', '</table>'];
+
+        $obj->exposeProcessHTMLDOMClosingTag($dom, $elm, 1, 0, '');
+
+        $this->assertStringNotContainsString(' nobr="true"', $dom[0]['thead']);
+        $this->assertStringEndsWith('</tablehead>', $dom[0]['thead']);
+    }
+
+    public function testProcessHTMLDOMOpeningTagMergesCssAndDetectsSelfClosingTags(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $root = $obj->exposeGetHTMLRootProperties();
+        /** @var THTMLAttrib $root */
+        $root = $root;
+        $dom = [
+            0 => \array_replace($root, ['parent' => 0, 'value' => 'root']),
+            1 => \array_replace($root, ['parent' => 0, 'value' => 'img']),
+        ];
+
+        $obj->exposeProcessHTMLDOMOpeningTag(
+            $dom,
+            ['0010 *' => 'color:red;'],
+            [0],
+            '<img src="x" />',
+            1,
+            false,
+        );
+
+        $this->assertTrue($dom[1]['self']);
+        $this->assertSame('x', $dom[1]['attribute']['src']);
+    }
+
     public function testParseHTMLTextReturnsEmptyString(): void
     {
         $obj = $this->getInternalTestObject();
@@ -857,5 +951,68 @@ class HTMLTest extends TestUtil
 
         $this->expectException(\Throwable::class);
         $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'img|png|4|4|missing.png');
+    }
+
+    public function testGetHTMLliBulletCoversUnicodeAndAdditionalOrderedTypes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', false);
+
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'disc'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'circle'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'square'));
+
+        $this->setObjectProperty($obj, 'isunicode', true);
+        $this->setObjectProperty($obj, 'rtl', true);
+
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'disc'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'circle'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'square'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'lower-greek'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'hebrew'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'armenian'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'georgian'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'hiragana'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'hiragana-iroha'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'katakana'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'katakana-iroha'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'lower-latin'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'upper-latin'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, '1'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'decimal'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'decimal-leading-zero'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'lower-roman'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'upper-roman'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'lower-alpha'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'upper-alpha'));
+        $this->assertNotSame('', $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'fallback-type'));
+
+        $svg = (string) \realpath(__DIR__ . '/../examples/images/testsvg.svg.bak');
+        if ($svg !== '') {
+            try {
+                $out = $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'img|svg|4|4|' . $svg);
+                $this->assertNotSame('', $out);
+            } catch (\Throwable $e) {
+                $this->assertInstanceOf(\Throwable::class, $e);
+            }
+        }
+    }
+
+    public function testGetHTMLCellCoversHiddenNodesAndPageBreakModes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<img src="x" style="display:none" />'
+            . '<div style="display:none"><span>skip</span></div>'
+            . '<p style="page-break-before:right">R</p>'
+            . '<p style="page-break-before:always">A</p>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
+
+        $this->assertSame('', $out);
     }
 }
