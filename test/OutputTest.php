@@ -468,10 +468,7 @@ class OutputTest extends TestUtil
 {
     public static function setUpBeforeClass(): void
     {
-        if (!\defined('K_PATH_FONTS')) {
-            $fonts = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts');
-            \define('K_PATH_FONTS', $fonts);
-        }
+        self::setUpFontsPath();
     }
 
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
@@ -484,53 +481,8 @@ class OutputTest extends TestUtil
         return new TestableOutput();
     }
 
-    private function getObjectProperty(object $obj, string $name): mixed
-    {
-        $ref = new \ReflectionClass($obj);
-        while ($ref !== false) {
-            if ($ref->hasProperty($name)) {
-                $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
-                return $prop->getValue($obj);
-            }
-            $ref = $ref->getParentClass();
-        }
-
-        $this->fail('Property not found: ' . $name);
-    }
-
-    private function setObjectProperty(object $obj, string $name, mixed $value): void
-    {
-        $ref = new \ReflectionClass($obj);
-        while ($ref !== false) {
-            if ($ref->hasProperty($name)) {
-                $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
-                $prop->setValue($obj, $value);
-                return;
-            }
-            $ref = $ref->getParentClass();
-        }
-
-        $this->fail('Property not found: ' . $name);
-    }
-
-    /** @return array{pid:int,height:float} */
-    private function initFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): array
-    {
-        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
-        $font = $this->getObjectProperty($obj, 'font');
-        /** @var int $pon */
-        $pon = $this->getObjectProperty($obj, 'pon');
-        $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
-        $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
-        /** @var array{pid:int,height:float} $page */
-        $page = $obj->addPage();
-        return $page;
-    }
-
     /** @return array{pid:int,n:int,content:array<int,string>} */
-    private function addRawPageWithObjectNumber(\Com\Tecnick\Pdf\Tcpdf $obj, int $objectNumber): array
+    protected function addRawPageWithObjectNumber(\Com\Tecnick\Pdf\Tcpdf $obj, int $objectNumber): array
     {
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');

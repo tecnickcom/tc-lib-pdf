@@ -23,21 +23,6 @@ class ClassObjectsTest extends TestUtil
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
-    private function getObjectProperty(object $obj, string $name): mixed
-    {
-        $ref = new \ReflectionClass($obj);
-        while ($ref !== false) {
-            if ($ref->hasProperty($name)) {
-                $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
-                return $prop->getValue($obj);
-            }
-            $ref = $ref->getParentClass();
-        }
-
-        $this->fail('Property not found: ' . $name);
-    }
-
     public function testInitClassObjectsInitializesDependencies(): void
     {
         $obj = $this->getTestObject();

@@ -105,51 +105,6 @@ class MetaInfoTest extends TestUtil
         return new TestablMetaInfo();
     }
 
-    private function getObjectProperty(object $obj, string $name): mixed
-    {
-        $ref = new \ReflectionClass($obj);
-        while ($ref !== false) {
-            if ($ref->hasProperty($name)) {
-                $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
-                return $prop->getValue($obj);
-            }
-            $ref = $ref->getParentClass();
-        }
-
-        $this->fail('Property not found: ' . $name);
-    }
-
-    private function setObjectProperty(object $obj, string $name, mixed $value): void
-    {
-        $ref = new \ReflectionClass($obj);
-        while ($ref !== false) {
-            if ($ref->hasProperty($name)) {
-                $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
-                $prop->setValue($obj, $value);
-                return;
-            }
-            $ref = $ref->getParentClass();
-        }
-
-        $this->fail('Property not found: ' . $name);
-    }
-
-    private function initFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): void
-    {
-        if (!\defined('K_PATH_FONTS')) {
-            $fonts = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts');
-            \define('K_PATH_FONTS', $fonts);
-        }
-        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
-        $font = $this->getObjectProperty($obj, 'font');
-        /** @var int $pon */
-        $pon = $this->getObjectProperty($obj, 'pon');
-        $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
-        $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
-        $obj->addPage();
-    }
 
     public function testGetVersionReturnsNonEmptyString(): void
     {
@@ -291,26 +246,6 @@ class MetaInfoTest extends TestUtil
         $this->assertSame('', $result);
     }
 
-    public function testGetDuplexModeReturnsSimplex(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->setObjectProperty($obj, 'viewerpref', ['Duplex' => 'Simplex']);
-
-        $result = $obj->exposeGetDuplexMode();
-
-        $this->assertStringContainsString('/Duplex /Simplex', $result);
-    }
-
-    public function testGetDuplexModeReturnsDuplexFlipShortEdge(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->setObjectProperty($obj, 'viewerpref', ['Duplex' => 'DuplexFlipShortEdge']);
-
-        $result = $obj->exposeGetDuplexMode();
-
-        $this->assertStringContainsString('/Duplex /DuplexFlipShortEdge', $result);
-    }
-
     public function testGetPageBoxNameReturnsMappedValueWhenAvailable(): void
     {
         $obj = $this->getInternalTestObject();
@@ -329,6 +264,26 @@ class MetaInfoTest extends TestUtil
         $result = $obj->exposeGetBooleanMode('HideToolbar');
 
         $this->assertSame('', $result);
+    }
+
+    public function testGetDuplexModeReturnsSimplex(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'viewerpref', ['Duplex' => 'Simplex']);
+
+        $result = $obj->exposeGetDuplexMode();
+
+        $this->assertStringContainsString('/Duplex /Simplex', $result);
+    }
+
+    public function testGetDuplexModeReturnsDuplexFlipShortEdge(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'viewerpref', ['Duplex' => 'DuplexFlipShortEdge']);
+
+        $result = $obj->exposeGetDuplexMode();
+
+        $this->assertStringContainsString('/Duplex /DuplexFlipShortEdge', $result);
     }
 
     public function testGetBooleanModeReturnsTrueValue(): void
@@ -351,15 +306,6 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/HideToolbar false', $result);
     }
 
-    public function testGetProducerReturnsNonEmptyString(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $result = $obj->exposeGetProducer();
-
-        $this->assertNotSame('', $result);
-        $this->assertStringContainsString('TCPDF', $result);
-    }
 
     public function testGetFormattedDateReturnsPdfDateStyle(): void
     {

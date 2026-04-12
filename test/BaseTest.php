@@ -60,21 +60,6 @@ class BaseTest extends TestUtil
         return new TestableBase();
     }
 
-    private function getObjectProperty(object $obj, string $name): mixed
-    {
-        $ref = new \ReflectionClass($obj);
-        while ($ref !== false) {
-            if ($ref->hasProperty($name)) {
-                $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
-                return $prop->getValue($obj);
-            }
-            $ref = $ref->getParentClass();
-        }
-
-        $this->fail('Property not found: ' . $name);
-    }
-
     public function testToPointsAndToUnitRoundTrip(): void
     {
         $obj = $this->getTestObject();
