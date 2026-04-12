@@ -499,6 +499,14 @@ class OutputTest extends TestUtil
         return $pageData;
     }
 
+    /** @param list<string> $fragments */
+    private function assertContainsAllFragments(string $output, array $fragments): void
+    {
+        foreach ($fragments as $fragment) {
+            $this->assertStringContainsString($fragment, $output);
+        }
+    }
+
     public function testGetOutPDFStringReturnsRawPdfDocument(): void
     {
         $obj = $this->getTestObject();
@@ -762,13 +770,15 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutBookmarks();
 
-        $this->assertStringContainsString('/Title (', $out);
-        $this->assertStringContainsString("\x00F\x00i\x00r\x00s\x00t\x00 \x00S\x00e\x00c\x00t\x00i\x00o\x00n", $out);
-        $this->assertStringContainsString('/Dest [3 0 R /XYZ 34.015748 745.512047 null]', $out);
-        $this->assertStringContainsString('/F 2 /C [ 1.000000 0.000000 0.000000 ]', $out);
-        $this->assertStringContainsString('/Dest /target', $out);
-        $this->assertStringContainsString('/F 1 /C [0.0 0.0 0.0]', $out);
-        $this->assertStringContainsString('/Type /Outlines', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Title (',
+            "\x00F\x00i\x00r\x00s\x00t\x00 \x00S\x00e\x00c\x00t\x00i\x00o\x00n",
+            '/Dest [3 0 R /XYZ 34.015748 745.512047 null]',
+            '/F 2 /C [ 1.000000 0.000000 0.000000 ]',
+            '/Dest /target',
+            '/F 1 /C [0.0 0.0 0.0]',
+            '/Type /Outlines',
+        ]);
     }
 
     public function testGetOutJavascriptBuildsObjectsAndNameTree(): void
@@ -859,28 +869,36 @@ class OutputTest extends TestUtil
     public function testTodoAnnotationSubtypeHelpersCurrentlyReturnEmptyString(): void
     {
         $obj = $this->getInternalTestObject();
+        /** @var array<string, mixed> $annot */
         $annot = [];
 
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeLine($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeSquare($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeCircle($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypePolygon($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypePolyline($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeHighlight($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeUnderline($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeSquiggly($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeStrikeout($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeStamp($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeCaret($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeInk($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypePopup($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeMovie($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeScreen($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypePrintermark($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeRedact($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeTrapnet($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtypeWatermark($annot));
-        $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtype3D($annot));
+        /** @var array<int, callable(TestableOutput): string> $todoSubtypeChecks */
+        $todoSubtypeChecks = [
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeLine($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeSquare($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeCircle($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypePolygon($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypePolyline($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeHighlight($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeUnderline($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeSquiggly($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeStrikeout($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeStamp($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeCaret($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeInk($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypePopup($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeMovie($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeScreen($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypePrintermark($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeRedact($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeTrapnet($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtypeWatermark($annot),
+            static fn (TestableOutput $outObj): string => $outObj->exposeGetOutAnnotationOptSubtype3D($annot),
+        ];
+
+        foreach ($todoSubtypeChecks as $check) {
+            $this->assertSame('', $check($obj));
+        }
     }
 
     public function testGetAnnotationRadioButtonsReturnsEmptyWhenNoKids(): void
@@ -1190,13 +1208,15 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutCatalog();
 
-        $this->assertStringContainsString('/Type /Catalog', $out);
-        $this->assertStringContainsString('/Pages 3 0 R', $out);
-        $this->assertStringContainsString('/PageLayout /SinglePage', $out);
-        $this->assertStringContainsString('/PageMode /UseNone', $out);
-        $this->assertStringContainsString('/OpenAction [6 0 R /Fit]', $out);
-        $this->assertStringContainsString('/Metadata 4 0 R', $out);
-        $this->assertStringContainsString('/Lang ', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Type /Catalog',
+            '/Pages 3 0 R',
+            '/PageLayout /SinglePage',
+            '/PageMode /UseNone',
+            '/OpenAction [6 0 R /Fit]',
+            '/Metadata 4 0 R',
+            '/Lang ',
+        ]);
     }
 
     public function testGetOutICCRespectsPdfaMode(): void
@@ -1218,8 +1238,10 @@ class OutputTest extends TestUtil
 
         $this->setObjectProperty($obj, 'objid', ['catalog' => 7, 'srgbicc' => 4]);
         $srgb = $obj->exposeGetOutputIntentsSrgb();
-        $this->assertStringContainsString('/GTS_PDFA1', $srgb);
-        $this->assertStringContainsString('/DestOutputProfile 4 0 R', $srgb);
+        $this->assertContainsAllFragments($srgb, [
+            '/GTS_PDFA1',
+            '/DestOutputProfile 4 0 R',
+        ]);
 
         $this->setObjectProperty($obj, 'pdfx', true);
         $this->assertStringContainsString('/GTS_PDFX', $obj->exposeGetOutputIntentsPdfX());
@@ -1254,8 +1276,10 @@ class OutputTest extends TestUtil
         $apx = $obj->exposeGetOutAPXObjects(12.0, 7.0, 'q Q');
         $xobj = $obj->exposeGetOutXObjects();
 
-        $this->assertStringContainsString('/Subtype /Form', $apx);
-        $this->assertStringContainsString('/BBox [0 0 12.000000 7.000000]', $apx);
+        $this->assertContainsAllFragments($apx, [
+            '/Subtype /Form',
+            '/BBox [0 0 12.000000 7.000000]',
+        ]);
         $this->assertSame('', $xobj);
     }
 
@@ -1283,8 +1307,10 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutSignatureInfo(11));
         $this->setObjectProperty($obj, 'signature', ['info' => ['Name' => 'John', 'Reason' => 'Approval']]);
         $info = $obj->exposeGetOutSignatureInfo(11);
-        $this->assertStringContainsString('/Name ', $info);
-        $this->assertStringContainsString('/Reason ', $info);
+        $this->assertContainsAllFragments($info, [
+            '/Name ',
+            '/Reason ',
+        ]);
 
         $this->setObjectProperty($obj, 'signature', ['cert_type' => 2]);
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
@@ -1677,10 +1703,12 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutCatalog();
 
-        $this->assertStringContainsString('/JavaScript', $out);
-        $this->assertStringContainsString('/AF [', $out);
-        $this->assertStringContainsString('/EmbeddedFiles', $out);
-        $this->assertStringContainsString('/Dests 7 0 R', $out);
+        $this->assertContainsAllFragments($out, [
+            '/JavaScript',
+            '/AF [',
+            '/EmbeddedFiles',
+            '/Dests 7 0 R',
+        ]);
     }
 
     #[DataProvider('catalogZoomModeProvider')]
@@ -1717,8 +1745,10 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutCatalog();
 
-        $this->assertStringContainsString('/Outlines ', $out);
-        $this->assertStringContainsString('/PageMode /UseOutlines', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Outlines ',
+            '/PageMode /UseOutlines',
+        ]);
     }
 
     public function testGetOutCatalogWithFormFields(): void
@@ -1735,10 +1765,12 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutCatalog();
 
-        $this->assertStringContainsString('/AcroForm <<', $out);
-        $this->assertStringContainsString('/Fields [', $out);
-        $this->assertStringContainsString(' 5 0 R', $out);
-        $this->assertStringContainsString('/NeedAppearances false', $out);
+        $this->assertContainsAllFragments($out, [
+            '/AcroForm <<',
+            '/Fields [',
+            ' 5 0 R',
+            '/NeedAppearances false',
+        ]);
     }
 
     public function testGetOutCatalogWithSignatureAcroformVariants(): void
@@ -1768,10 +1800,12 @@ class OutputTest extends TestUtil
         ]);
 
         $ur3Out = $obj->exposeGetOutCatalog();
-        $this->assertStringContainsString('/Fields [40 0 R 41 0 R 51 0 R]', $ur3Out);
-        $this->assertStringContainsString('/SigFlags 1', $ur3Out);
-        $this->assertStringContainsString('/Perms << /UR3 41 0 R >>', $ur3Out);
-        $this->assertStringContainsString('/DR << /Font <<', $ur3Out);
+        $this->assertContainsAllFragments($ur3Out, [
+            '/Fields [40 0 R 41 0 R 51 0 R]',
+            '/SigFlags 1',
+            '/Perms << /UR3 41 0 R >>',
+            '/DR << /Font <<',
+        ]);
 
         $this->setObjectProperty($obj, 'signature', [
             'cert_type' => 2,
@@ -1784,8 +1818,10 @@ class OutputTest extends TestUtil
         ]);
 
         $docmdpOut = $obj->exposeGetOutCatalog();
-        $this->assertStringContainsString('/SigFlags 3', $docmdpOut);
-        $this->assertStringContainsString('/Perms << /DocMDP 41 0 R >>', $docmdpOut);
+        $this->assertContainsAllFragments($docmdpOut, [
+            '/SigFlags 3',
+            '/Perms << /DocMDP 41 0 R >>',
+        ]);
     }
 
     public function testGetPDFLayersWithViewFalseAndLockTrue(): void
@@ -1814,8 +1850,10 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetPDFLayers();
 
-        $this->assertStringContainsString('/OFF [ 3 0 R]', $out);
-        $this->assertStringContainsString('/Locked [ 3 0 R]', $out);
+        $this->assertContainsAllFragments($out, [
+            '/OFF [ 3 0 R]',
+            '/Locked [ 3 0 R]',
+        ]);
     }
 
     public function testGetOutOCGWithPrintAndIntent(): void
@@ -1833,8 +1871,10 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutOCG();
 
-        $this->assertStringContainsString('/Intent [/View]', $out);
-        $this->assertStringContainsString('/Print << /PrintState /ON >>', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Intent [/View]',
+            '/Print << /PrintState /ON >>',
+        ]);
     }
 
     public function testGetOutXObjectsWithNonEmptyOutdata(): void
@@ -1875,9 +1915,11 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutXObjects();
 
-        $this->assertStringContainsString('/Type /XObject', $out);
-        $this->assertStringContainsString('/Subtype /Form', $out);
-        $this->assertStringContainsString('/BBox [', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Type /XObject',
+            '/Subtype /Form',
+            '/BBox [',
+        ]);
     }
 
     public function testGetOutXObjectsWithTransparencyGroup(): void
@@ -1918,10 +1960,12 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutXObjects();
 
-        $this->assertStringContainsString('/Group << /Type /Group /S /Transparency', $out);
-        $this->assertStringContainsString('/CS /DeviceRGB', $out);
-        $this->assertStringContainsString('/I /true', $out);
-        $this->assertStringContainsString('/K /false', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Group << /Type /Group /S /Transparency',
+            '/CS /DeviceRGB',
+            '/I /true',
+            '/K /false',
+        ]);
     }
 
     public function testGetOutEmbeddedFilesWithContent(): void
@@ -1931,9 +1975,11 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutEmbeddedFiles();
 
-        $this->assertStringContainsString('/Type /Filespec', $out);
-        $this->assertStringContainsString('/Type /EmbeddedFile', $out);
-        $this->assertStringContainsString('/AFRelationship /Source', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Type /Filespec',
+            '/Type /EmbeddedFile',
+            '/AFRelationship /Source',
+        ]);
     }
 
     public function testGetOutEmbeddedFilesSkippedInPdfa1And2(): void
@@ -1975,10 +2021,12 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutAnnotations();
 
-        $this->assertStringContainsString('/Type /Annot', $out);
-        $this->assertStringContainsString('/Subtype /text', $out);
-        $this->assertStringContainsString('/Rect [', $out);
-        $this->assertStringContainsString('/Contents ', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Type /Annot',
+            '/Subtype /text',
+            '/Rect [',
+            '/Contents ',
+        ]);
     }
 
     public function testGetOutAnnotationsWithLinkAnnotation(): void
@@ -2235,12 +2283,14 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutSignatureUserRights();
 
-        $this->assertStringContainsString('/TransformMethod /UR3', $out);
-        $this->assertStringContainsString('/Document[/FullSave]', $out);
-        $this->assertStringContainsString('/Form[/Add /FillIn]', $out);
-        $this->assertStringContainsString('/Signature[/Modify]', $out);
-        $this->assertStringContainsString('/Annots[/Create /Delete /Modify /Copy /Import /Export]', $out);
-        $this->assertStringContainsString('/EF[/Create /Delete /Modify /Import]', $out);
+        $this->assertContainsAllFragments($out, [
+            '/TransformMethod /UR3',
+            '/Document[/FullSave]',
+            '/Form[/Add /FillIn]',
+            '/Signature[/Modify]',
+            '/Annots[/Create /Delete /Modify /Copy /Import /Export]',
+            '/EF[/Create /Delete /Modify /Import]',
+        ]);
     }
 
     public function testGetOutSignatureFieldsWithAppearanceEntries(): void
@@ -2262,9 +2312,11 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutSignatureFields();
 
-        $this->assertStringContainsString('/Subtype /Widget', $out);
-        $this->assertStringContainsString('/FT /Sig', $out);
-        $this->assertStringContainsString('/T ', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Subtype /Widget',
+            '/FT /Sig',
+            '/T ',
+        ]);
     }
 
     public function testGetOutSignatureFieldsReturnsEmptyWithEmptySignatureArray(): void
@@ -2295,9 +2347,11 @@ class OutputTest extends TestUtil
         ]);
 
         $outWithRef = $obj->exposeGetOutSignature();
-        $this->assertStringContainsString('/Type /Sig', $outWithRef);
-        $this->assertStringContainsString('/TransformMethod /DocMDP', $outWithRef);
-        $this->assertStringContainsString('/Reference [ << /Type /SigRef', $outWithRef);
+        $this->assertContainsAllFragments($outWithRef, [
+            '/Type /Sig',
+            '/TransformMethod /DocMDP',
+            '/Reference [ << /Type /SigRef',
+        ]);
 
         $this->setObjectProperty($obj, 'signature', [
             'cert_type' => 2,
@@ -2376,10 +2430,12 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutSignatureInfo(33);
 
-        $this->assertStringContainsString('/Name ', $out);
-        $this->assertStringContainsString('/Location ', $out);
-        $this->assertStringContainsString('/Reason ', $out);
-        $this->assertStringContainsString('/ContactInfo ', $out);
+        $this->assertContainsAllFragments($out, [
+            '/Name ',
+            '/Location ',
+            '/Reason ',
+            '/ContactInfo ',
+        ]);
     }
 
     public function testSavePDFThrowsWhenDirectoryDoesNotExist(): void
@@ -2403,9 +2459,11 @@ class OutputTest extends TestUtil
             ],
         ], 5);
 
-        $this->assertStringContainsString(' /RC ', $out);
-        $this->assertStringContainsString(' /CA 0.750000', $out);
-        $this->assertStringContainsString(' /CreationDate ', $out);
+        $this->assertContainsAllFragments($out, [
+            ' /RC ',
+            ' /CA 0.750000',
+            ' /CreationDate ',
+        ]);
     }
 
     public function testGetOutAnnotationMarkupsIgnoresNonMarkupSubtype(): void
@@ -2438,8 +2496,10 @@ class OutputTest extends TestUtil
         $defaultAttachIcon = $obj->exposeGetOutAnnotationOptSubtypeFileattachment([
             'opt' => ['fs' => 'doc.txt', 'name' => 'UnknownIcon'],
         ], 2);
-        $this->assertStringContainsString(' /FS 7 0 R', $defaultAttachIcon);
-        $this->assertStringContainsString(' /Name /PushPin', $defaultAttachIcon);
+        $this->assertContainsAllFragments($defaultAttachIcon, [
+            ' /FS 7 0 R',
+            ' /Name /PushPin',
+        ]);
 
         $missingSound = $obj->exposeGetOutAnnotationOptSubtypeSound([
             'opt' => ['fs' => 'missing.wav'],
@@ -2450,8 +2510,10 @@ class OutputTest extends TestUtil
         $defaultSoundIcon = $obj->exposeGetOutAnnotationOptSubtypeSound([
             'opt' => ['fs' => 'snd.wav', 'name' => 'UnknownMic'],
         ]);
-        $this->assertStringContainsString(' /Sound 9 0 R', $defaultSoundIcon);
-        $this->assertStringContainsString(' /Name /Speaker', $defaultSoundIcon);
+        $this->assertContainsAllFragments($defaultSoundIcon, [
+            ' /Sound 9 0 R',
+            ' /Name /Speaker',
+        ]);
 
         $widget = $obj->exposeGetOutAnnotationOptSubtypeWidget([
             'txt' => 'field-mixed',
@@ -2462,9 +2524,11 @@ class OutputTest extends TestUtil
                 'rv' => ['C', new \stdClass(), 3],
             ],
         ], 31);
-        $this->assertStringContainsString(' /V A 1.000000', $widget);
-        $this->assertStringContainsString(' /DV B 2.000000', $widget);
-        $this->assertStringContainsString(' /RV C 3.000000', $widget);
+        $this->assertContainsAllFragments($widget, [
+            ' /V A 1.000000',
+            ' /DV B 2.000000',
+            ' /RV C 3.000000',
+        ]);
 
         [$appearanceState, $appearanceXObject] = $obj->exposeGetAnnotationAppearanceStream([
             'opt' => [
@@ -2473,9 +2537,13 @@ class OutputTest extends TestUtil
                 ],
             ],
         ], 10, 5);
-        $this->assertStringContainsString(' /AP <<', $appearanceState);
-        $this->assertStringContainsString('/Off', $appearanceState);
-        $this->assertStringContainsString('/Subtype /Form', $appearanceXObject);
+        $this->assertContainsAllFragments($appearanceState, [
+            ' /AP <<',
+            '/Off',
+        ]);
+        $this->assertContainsAllFragments($appearanceXObject, [
+            '/Subtype /Form',
+        ]);
     }
 
     public function testOutputAdditionalEmbeddedFileBranches(): void

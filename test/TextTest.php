@@ -642,18 +642,41 @@ class TextTest extends TestUtil
         $this->assertSame('T* raw', $obj->exposeGetOutTextPosXY('raw', 0, 0, 'T*'));
         $this->assertSame('', $obj->exposeGetOutTextPosXY('raw', 0, 0, 'NOPE'));
 
-        $this->assertSame('raw', $obj->exposeGetOutTextStateOperatorTc('raw', 0));
-        $this->assertStringContainsString(' Tc raw 0 Tc', $obj->exposeGetOutTextStateOperatorTc('raw', 1.5));
-        $this->assertSame('raw', $obj->exposeGetOutTextStateOperatorTw('raw', 0));
-        $this->assertStringContainsString(' Tw raw 0 Tw', $obj->exposeGetOutTextStateOperatorTw('raw', 2));
-        $this->assertSame('raw', $obj->exposeGetOutTextStateOperatorTz('raw', 1));
-        $this->assertStringContainsString(' Tz raw 100 Tz', $obj->exposeGetOutTextStateOperatorTz('raw', 80));
-        $this->assertSame('raw', $obj->exposeGetOutTextStateOperatorTL('raw', 0));
-        $this->assertStringContainsString(' TL raw 0 TL', $obj->exposeGetOutTextStateOperatorTL('raw', 10));
+        /** @var array<int, array{0: callable(TestableText): string, 1: callable(TestableText): string, 2: string}> $stateOperatorCases */
+        $stateOperatorCases = [
+            [
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTc('raw', 0),
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTc('raw', 1.5),
+                ' Tc raw 0 Tc',
+            ],
+            [
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTw('raw', 0),
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTw('raw', 2),
+                ' Tw raw 0 Tw',
+            ],
+            [
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTz('raw', 1),
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTz('raw', 80),
+                ' Tz raw 100 Tz',
+            ],
+            [
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTL('raw', 0),
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTL('raw', 10),
+                ' TL raw 0 TL',
+            ],
+            [
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTs('raw', 0),
+                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTs('raw', 3),
+                ' Ts raw 0 Ts',
+            ],
+        ];
+        foreach ($stateOperatorCases as [$defaultCase, $customCase, $expectedFragment]) {
+            $this->assertSame('raw', $defaultCase($obj));
+            $this->assertStringContainsString($expectedFragment, $customCase($obj));
+        }
+
         $this->assertSame('raw', $obj->exposeGetOutTextStateOperatorTr('raw', 99));
         $this->assertStringContainsString('2 Tr raw', $obj->exposeGetOutTextStateOperatorTr('raw', 2));
-        $this->assertSame('raw', $obj->exposeGetOutTextStateOperatorTs('raw', 0));
-        $this->assertStringContainsString(' Ts raw 0 Ts', $obj->exposeGetOutTextStateOperatorTs('raw', 3));
         $this->assertStringContainsString('0.000000 w raw', $obj->exposeGetOutTextStateOperatorw('raw', -1));
 
         $this->assertSame('', $obj->exposeGetOutTextPosMatrix('raw', [1, 2]));
