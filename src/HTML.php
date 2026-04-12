@@ -2226,108 +2226,108 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     // }
 
                     $out .= match ($elm['value']) {
-                        // 'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'blockquote' => $this->parseHTMLTagOPENblockquote($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'body'       => $this->parseHTMLTagOPENbody($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'br'         => $this->parseHTMLTagOPENbr($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'dd'         => $this->parseHTMLTagOPENdd($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'del'        => $this->parseHTMLTagOPENdel($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'div'        => $this->parseHTMLTagOPENdiv($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'dl'         => $this->parseHTMLTagOPENdl($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'dt'         => $this->parseHTMLTagOPENdt($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'em'         => $this->parseHTMLTagOPENem($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'font'       => $this->parseHTMLTagOPENfont($elm, $tpx, $tpy, $tpw, $tph)
-                        // 'form'       => $this->parseHTMLTagOPENform($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h1'         => $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h2'         => $this->parseHTMLTagOPENh2($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h3'         => $this->parseHTMLTagOPENh3($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h4'         => $this->parseHTMLTagOPENh4($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h5'         => $this->parseHTMLTagOPENh5($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h6'         => $this->parseHTMLTagOPENh6($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'hr'         => $this->parseHTMLTagOPENhr($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'i'          => $this->parseHTMLTagOPENi($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'img'        => $this->parseHTMLTagOPENimg($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'input'      => $this->parseHTMLTagOPENinput($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'label'      => $this->parseHTMLTagOPENlabel($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'li'         => $this->parseHTMLTagOPENli($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'marker'     => $this->parseHTMLTagOPENmarker($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'ol'         => $this->parseHTMLTagOPENol($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'option'     => $this->parseHTMLTagOPENoption($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'output'     => $this->parseHTMLTagOPENoutput($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'p'          => $this->parseHTMLTagOPENp($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'pre'        => $this->parseHTMLTagOPENpre($elm, $tpx, $tpy, $tpw, $tph),
-                        // 's'          => $this->parseHTMLTagOPENs($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'select'     => $this->parseHTMLTagOPENselect($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'small'      => $this->parseHTMLTagOPENsmall($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'span'       => $this->parseHTMLTagOPENspan($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'strike'     => $this->parseHTMLTagOPENstrike($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'strong'     => $this->parseHTMLTagOPENstrong($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'sub'        => $this->parseHTMLTagOPENsub($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'table'      => $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tablehead'  => $this->parseHTMLTagOPENtablehead($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tcpdf'      => $this->parseHTMLTagOPENtcpdf($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'td'         => $this->parseHTMLTagOPENtd($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'textarea'   => $this->parseHTMLTagOPENtextarea($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'th'         => $this->parseHTMLTagOPENth($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'thead'      => $this->parseHTMLTagOPENthead($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tr'         => $this->parseHTMLTagOPENtr($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tt'         => $this->parseHTMLTagOPENtt($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'u'          => $this->parseHTMLTagOPENu($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'ul'         => $this->parseHTMLTagOPENul($elm, $tpx, $tpy, $tpw, $tph),
+                        'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
+                        'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
+                        'blockquote' => $this->parseHTMLTagOPENblockquote($elm, $tpx, $tpy, $tpw, $tph),
+                        'body'       => $this->parseHTMLTagOPENbody($elm, $tpx, $tpy, $tpw, $tph),
+                        'br'         => $this->parseHTMLTagOPENbr($elm, $tpx, $tpy, $tpw, $tph),
+                        'dd'         => $this->parseHTMLTagOPENdd($elm, $tpx, $tpy, $tpw, $tph),
+                        'del'        => $this->parseHTMLTagOPENdel($elm, $tpx, $tpy, $tpw, $tph),
+                        'div'        => $this->parseHTMLTagOPENdiv($elm, $tpx, $tpy, $tpw, $tph),
+                        'dl'         => $this->parseHTMLTagOPENdl($elm, $tpx, $tpy, $tpw, $tph),
+                        'dt'         => $this->parseHTMLTagOPENdt($elm, $tpx, $tpy, $tpw, $tph),
+                        'em'         => $this->parseHTMLTagOPENem($elm, $tpx, $tpy, $tpw, $tph),
+                        'font'       => $this->parseHTMLTagOPENfont($elm, $tpx, $tpy, $tpw, $tph),
+                        'form'       => $this->parseHTMLTagOPENform($elm, $tpx, $tpy, $tpw, $tph),
+                        'h1'         => $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph),
+                        'h2'         => $this->parseHTMLTagOPENh2($elm, $tpx, $tpy, $tpw, $tph),
+                        'h3'         => $this->parseHTMLTagOPENh3($elm, $tpx, $tpy, $tpw, $tph),
+                        'h4'         => $this->parseHTMLTagOPENh4($elm, $tpx, $tpy, $tpw, $tph),
+                        'h5'         => $this->parseHTMLTagOPENh5($elm, $tpx, $tpy, $tpw, $tph),
+                        'h6'         => $this->parseHTMLTagOPENh6($elm, $tpx, $tpy, $tpw, $tph),
+                        'hr'         => $this->parseHTMLTagOPENhr($elm, $tpx, $tpy, $tpw, $tph),
+                        'i'          => $this->parseHTMLTagOPENi($elm, $tpx, $tpy, $tpw, $tph),
+                        'img'        => $this->parseHTMLTagOPENimg($elm, $tpx, $tpy, $tpw, $tph),
+                        'input'      => $this->parseHTMLTagOPENinput($elm, $tpx, $tpy, $tpw, $tph),
+                        'label'      => $this->parseHTMLTagOPENlabel($elm, $tpx, $tpy, $tpw, $tph),
+                        'li'         => $this->parseHTMLTagOPENli($elm, $tpx, $tpy, $tpw, $tph),
+                        'marker'     => $this->parseHTMLTagOPENmarker($elm, $tpx, $tpy, $tpw, $tph),
+                        'ol'         => $this->parseHTMLTagOPENol($elm, $tpx, $tpy, $tpw, $tph),
+                        'option'     => $this->parseHTMLTagOPENoption($elm, $tpx, $tpy, $tpw, $tph),
+                        'output'     => $this->parseHTMLTagOPENoutput($elm, $tpx, $tpy, $tpw, $tph),
+                        'p'          => $this->parseHTMLTagOPENp($elm, $tpx, $tpy, $tpw, $tph),
+                        'pre'        => $this->parseHTMLTagOPENpre($elm, $tpx, $tpy, $tpw, $tph),
+                        's'          => $this->parseHTMLTagOPENs($elm, $tpx, $tpy, $tpw, $tph),
+                        'select'     => $this->parseHTMLTagOPENselect($elm, $tpx, $tpy, $tpw, $tph),
+                        'small'      => $this->parseHTMLTagOPENsmall($elm, $tpx, $tpy, $tpw, $tph),
+                        'span'       => $this->parseHTMLTagOPENspan($elm, $tpx, $tpy, $tpw, $tph),
+                        'strike'     => $this->parseHTMLTagOPENstrike($elm, $tpx, $tpy, $tpw, $tph),
+                        'strong'     => $this->parseHTMLTagOPENstrong($elm, $tpx, $tpy, $tpw, $tph),
+                        'sub'        => $this->parseHTMLTagOPENsub($elm, $tpx, $tpy, $tpw, $tph),
+                        'table'      => $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph),
+                        'tablehead'  => $this->parseHTMLTagOPENtablehead($elm, $tpx, $tpy, $tpw, $tph),
+                        'tcpdf'      => $this->parseHTMLTagOPENtcpdf($elm, $tpx, $tpy, $tpw, $tph),
+                        'td'         => $this->parseHTMLTagOPENtd($elm, $tpx, $tpy, $tpw, $tph),
+                        'textarea'   => $this->parseHTMLTagOPENtextarea($elm, $tpx, $tpy, $tpw, $tph),
+                        'th'         => $this->parseHTMLTagOPENth($elm, $tpx, $tpy, $tpw, $tph),
+                        'thead'      => $this->parseHTMLTagOPENthead($elm, $tpx, $tpy, $tpw, $tph),
+                        'tr'         => $this->parseHTMLTagOPENtr($elm, $tpx, $tpy, $tpw, $tph),
+                        'tt'         => $this->parseHTMLTagOPENtt($elm, $tpx, $tpy, $tpw, $tph),
+                        'u'          => $this->parseHTMLTagOPENu($elm, $tpx, $tpy, $tpw, $tph),
+                        'ul'         => $this->parseHTMLTagOPENul($elm, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
                 } else { // closing tag
                     $out .= match ($elm['value']) {
-                        // 'a'          => $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'b'          => $this->parseHTMLTagCLOSEb($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'blockquote' => $this->parseHTMLTagCLOSEblockquote($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'body'       => $this->parseHTMLTagCLOSEbody($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'br'         => $this->parseHTMLTagCLOSEbr($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'dd'         => $this->parseHTMLTagCLOSEdd($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'del'        => $this->parseHTMLTagCLOSEdel($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'div'        => $this->parseHTMLTagCLOSEdiv($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'dl'         => $this->parseHTMLTagCLOSEdl($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'dt'         => $this->parseHTMLTagCLOSEdt($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'em'         => $this->parseHTMLTagCLOSEem($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'font'       => $this->parseHTMLTagCLOSEfont($elm, $tpx, $tpy, $tpw, $tph)
-                        // 'form'       => $this->parseHTMLTagCLOSEform($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h1'         => $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h2'         => $this->parseHTMLTagCLOSEh2($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h3'         => $this->parseHTMLTagCLOSEh3($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h4'         => $this->parseHTMLTagCLOSEh4($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h5'         => $this->parseHTMLTagCLOSEh5($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'h6'         => $this->parseHTMLTagCLOSEh6($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'hr'         => $this->parseHTMLTagCLOSEhr($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'i'          => $this->parseHTMLTagCLOSEi($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'img'        => $this->parseHTMLTagCLOSEimg($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'input'      => $this->parseHTMLTagCLOSEinput($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'label'      => $this->parseHTMLTagCLOSElabel($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'li'         => $this->parseHTMLTagCLOSEli($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'marker'     => $this->parseHTMLTagCLOSEmarker($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'ol'         => $this->parseHTMLTagCLOSEol($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'option'     => $this->parseHTMLTagCLOSEoption($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'output'     => $this->parseHTMLTagCLOSEoutput($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'p'          => $this->parseHTMLTagCLOSEp($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'pre'        => $this->parseHTMLTagCLOSEpre($elm, $tpx, $tpy, $tpw, $tph),
-                        // 's'          => $this->parseHTMLTagCLOSEs($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'select'     => $this->parseHTMLTagCLOSEselect($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'small'      => $this->parseHTMLTagCLOSEsmall($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'span'       => $this->parseHTMLTagCLOSEspan($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'strike'     => $this->parseHTMLTagCLOSEstrike($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'strong'     => $this->parseHTMLTagCLOSEstrong($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'sub'        => $this->parseHTMLTagCLOSEsub($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'table'      => $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tablehead'  => $this->parseHTMLTagCLOSEtablehead($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tcpdf'      => $this->parseHTMLTagCLOSEtcpdf($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'td'         => $this->parseHTMLTagCLOSEtd($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'textarea'   => $this->parseHTMLTagCLOSEtextarea($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'th'         => $this->parseHTMLTagCLOSEth($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'thead'      => $this->parseHTMLTagCLOSEthead($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tr'         => $this->parseHTMLTagCLOSEtr($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'tt'         => $this->parseHTMLTagCLOSEtt($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'u'          => $this->parseHTMLTagCLOSEu($elm, $tpx, $tpy, $tpw, $tph),
-                        // 'ul'         => $this->parseHTMLTagCLOSEul($elm, $tpx, $tpy, $tpw, $tph),
+                        'a'          => $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph),
+                        'b'          => $this->parseHTMLTagCLOSEb($elm, $tpx, $tpy, $tpw, $tph),
+                        'blockquote' => $this->parseHTMLTagCLOSEblockquote($elm, $tpx, $tpy, $tpw, $tph),
+                        'body'       => $this->parseHTMLTagCLOSEbody($elm, $tpx, $tpy, $tpw, $tph),
+                        'br'         => $this->parseHTMLTagCLOSEbr($elm, $tpx, $tpy, $tpw, $tph),
+                        'dd'         => $this->parseHTMLTagCLOSEdd($elm, $tpx, $tpy, $tpw, $tph),
+                        'del'        => $this->parseHTMLTagCLOSEdel($elm, $tpx, $tpy, $tpw, $tph),
+                        'div'        => $this->parseHTMLTagCLOSEdiv($elm, $tpx, $tpy, $tpw, $tph),
+                        'dl'         => $this->parseHTMLTagCLOSEdl($elm, $tpx, $tpy, $tpw, $tph),
+                        'dt'         => $this->parseHTMLTagCLOSEdt($elm, $tpx, $tpy, $tpw, $tph),
+                        'em'         => $this->parseHTMLTagCLOSEem($elm, $tpx, $tpy, $tpw, $tph),
+                        'font'       => $this->parseHTMLTagCLOSEfont($elm, $tpx, $tpy, $tpw, $tph),
+                        'form'       => $this->parseHTMLTagCLOSEform($elm, $tpx, $tpy, $tpw, $tph),
+                        'h1'         => $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph),
+                        'h2'         => $this->parseHTMLTagCLOSEh2($elm, $tpx, $tpy, $tpw, $tph),
+                        'h3'         => $this->parseHTMLTagCLOSEh3($elm, $tpx, $tpy, $tpw, $tph),
+                        'h4'         => $this->parseHTMLTagCLOSEh4($elm, $tpx, $tpy, $tpw, $tph),
+                        'h5'         => $this->parseHTMLTagCLOSEh5($elm, $tpx, $tpy, $tpw, $tph),
+                        'h6'         => $this->parseHTMLTagCLOSEh6($elm, $tpx, $tpy, $tpw, $tph),
+                        'hr'         => $this->parseHTMLTagCLOSEhr($elm, $tpx, $tpy, $tpw, $tph),
+                        'i'          => $this->parseHTMLTagCLOSEi($elm, $tpx, $tpy, $tpw, $tph),
+                        'img'        => $this->parseHTMLTagCLOSEimg($elm, $tpx, $tpy, $tpw, $tph),
+                        'input'      => $this->parseHTMLTagCLOSEinput($elm, $tpx, $tpy, $tpw, $tph),
+                        'label'      => $this->parseHTMLTagCLOSElabel($elm, $tpx, $tpy, $tpw, $tph),
+                        'li'         => $this->parseHTMLTagCLOSEli($elm, $tpx, $tpy, $tpw, $tph),
+                        'marker'     => $this->parseHTMLTagCLOSEmarker($elm, $tpx, $tpy, $tpw, $tph),
+                        'ol'         => $this->parseHTMLTagCLOSEol($elm, $tpx, $tpy, $tpw, $tph),
+                        'option'     => $this->parseHTMLTagCLOSEoption($elm, $tpx, $tpy, $tpw, $tph),
+                        'output'     => $this->parseHTMLTagCLOSEoutput($elm, $tpx, $tpy, $tpw, $tph),
+                        'p'          => $this->parseHTMLTagCLOSEp($elm, $tpx, $tpy, $tpw, $tph),
+                        'pre'        => $this->parseHTMLTagCLOSEpre($elm, $tpx, $tpy, $tpw, $tph),
+                        's'          => $this->parseHTMLTagCLOSEs($elm, $tpx, $tpy, $tpw, $tph),
+                        'select'     => $this->parseHTMLTagCLOSEselect($elm, $tpx, $tpy, $tpw, $tph),
+                        'small'      => $this->parseHTMLTagCLOSEsmall($elm, $tpx, $tpy, $tpw, $tph),
+                        'span'       => $this->parseHTMLTagCLOSEspan($elm, $tpx, $tpy, $tpw, $tph),
+                        'strike'     => $this->parseHTMLTagCLOSEstrike($elm, $tpx, $tpy, $tpw, $tph),
+                        'strong'     => $this->parseHTMLTagCLOSEstrong($elm, $tpx, $tpy, $tpw, $tph),
+                        'sub'        => $this->parseHTMLTagCLOSEsub($elm, $tpx, $tpy, $tpw, $tph),
+                        'table'      => $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph),
+                        'tablehead'  => $this->parseHTMLTagCLOSEtablehead($elm, $tpx, $tpy, $tpw, $tph),
+                        'tcpdf'      => $this->parseHTMLTagCLOSEtcpdf($elm, $tpx, $tpy, $tpw, $tph),
+                        'td'         => $this->parseHTMLTagCLOSEtd($elm, $tpx, $tpy, $tpw, $tph),
+                        'textarea'   => $this->parseHTMLTagCLOSEtextarea($elm, $tpx, $tpy, $tpw, $tph),
+                        'th'         => $this->parseHTMLTagCLOSEth($elm, $tpx, $tpy, $tpw, $tph),
+                        'thead'      => $this->parseHTMLTagCLOSEthead($elm, $tpx, $tpy, $tpw, $tph),
+                        'tr'         => $this->parseHTMLTagCLOSEtr($elm, $tpx, $tpy, $tpw, $tph),
+                        'tt'         => $this->parseHTMLTagCLOSEtt($elm, $tpx, $tpy, $tpw, $tph),
+                        'u'          => $this->parseHTMLTagCLOSEu($elm, $tpx, $tpy, $tpw, $tph),
+                        'ul'         => $this->parseHTMLTagCLOSEul($elm, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
                 }
@@ -2349,6 +2349,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float  $tpy  Ordinate of upper-left corner.
      * @param float  $tpw  Width.
      * @param float  $tph  Height.
+     * 
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      *
      * @return string PDF code.
      */
@@ -2359,17 +2361,1296 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
-        $elm = $elm; // @TODO
-        $tpx = $tpx; // @TODO
-        $tpy = $tpy; // @TODO
-        $tpw = $tpw; // @TODO
-        $tph = $tph; // @TODO
         return '';
     }
 
     // FUNCTIONS TO PROCESS HTML OPENING TAGS
-    // @TODO
+
+    /**
+     * Placeholder for opening-tag handlers.
+     */
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENa(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return '';
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENb(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENblockquote(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENbody(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENbr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENdel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENdl(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENdt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENem(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENfont(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENform(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENh1(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENh2(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENh3(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENh4(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENh5(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENh6(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENhr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENi(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENimg(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENinput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENlabel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENmarker(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENol(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENoption(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENoutput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENp(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENpre(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENs(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENselect(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENsmall(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENspan(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENstrike(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENstrong(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENtable(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENtablehead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENtcpdf(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENtd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENtextarea(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENth(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENthead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENtr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENtt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENu(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENul(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
+    }
 
     // FUNCTIONS TO PROCESS HTML CLOSING TAGS
-    // @TODO
+
+    /**
+     * Placeholder for closing-tag handlers.
+     */
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+        *
+        * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEa(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return '';
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEb(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEblockquote(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEbody(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEbr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEdel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEdl(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEdt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEem(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEfont(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEform(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEh1(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEh2(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEh3(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEh4(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEh5(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEh6(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEhr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEi(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEimg(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEinput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSElabel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEmarker(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEol(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEoption(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEoutput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEp(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEpre(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEs(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEselect(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEsmall(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEspan(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEstrike(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEstrong(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEtable(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEtablehead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEtcpdf(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEtd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEtextarea(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEth(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEthead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEtr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEtt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEu(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
+    /**
+     * @param THTMLAttrib $elm DOM array element.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEul(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
+    }
 }

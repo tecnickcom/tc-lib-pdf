@@ -1556,8 +1556,7 @@ class HTMLTest extends TestUtil
         bool $rtl,
         float $posx,
         float $posy,
-    ): void
-    {
+    ): void {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'isunicode', $isunicode);
@@ -1646,8 +1645,7 @@ class HTMLTest extends TestUtil
         string $type,
         string $expectedLast,
         string $expectedFirst,
-    ): void
-    {
+    ): void {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
