@@ -2917,8 +2917,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function closeHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
+        // When a block closes on the same line where inline text was rendered,
+        // advance by one line height before applying bottom spacing.
+        $hasinlinecontent = ($tpx > ($this->htmlcellctx['originx'] + 0.001));
+        $lineadvance = $hasinlinecontent ? $this->getHTMLLineAdvance($elm) : 0.0;
+
         $this->resetHTMLLineCursor($tpx, $tpw);
-        $tpy += (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
+        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
 
         return '';
     }
@@ -3312,7 +3317,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float       $width       Width.
      * @param float       $height      Height.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-    * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
+     * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
      *
      * @return string
      */

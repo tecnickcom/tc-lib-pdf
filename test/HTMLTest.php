@@ -143,6 +143,21 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     ): string {
         return $this->parseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
     }
+
+    public function exposeInitHTMLCellContext(
+        float $originx,
+        float $originy,
+        float $maxwidth,
+        float $maxheight,
+    ): void {
+        $this->initHTMLCellContext($originx, $originy, $maxwidth, $maxheight);
+    }
+
+    /** @phpstan-param THTMLAttrib $elm */
+    public function exposeCloseHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    {
+        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+    }
 }
 
 class TestableHTMLNobrProbe extends TestableHTML
@@ -1394,6 +1409,58 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('B', $out);
 
         $this->assertMatchesRegularExpression('/\(A\) Tj.*\(B\) Tj/s', $out);
+    }
+
+    public function testCloseHTMLBlockAdvancesWhenInlineContentWasRendered(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 16.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        $tpx = 48.0;
+        $tpy = 120.0;
+        $tpw = 122.0;
+
+        $obj->exposeCloseHTMLBlock($elm, $tpx, $tpy, $tpw);
+
+        $this->assertSame(20.0, $tpx);
+        $this->assertSame(150.0, $tpw);
+        $this->assertGreaterThan(120.0, $tpy);
+    }
+
+    public function testCloseHTMLBlockDoesNotAddExtraLineWhenAlreadyAtLineStart(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 16.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        $tpx = 20.0;
+        $tpy = 140.0;
+        $tpw = 150.0;
+
+        $obj->exposeCloseHTMLBlock($elm, $tpx, $tpy, $tpw);
+
+        $this->assertSame(20.0, $tpx);
+        $this->assertSame(150.0, $tpw);
+        $this->assertSame(140.0, $tpy);
     }
 
     public function testSanitizeHTMLRemovesHeadAndStyleBlocks(): void
