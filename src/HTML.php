@@ -2370,6 +2370,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Placeholder for opening-tag handlers.
      */
     /**
+     * Process HTML opening tag <a>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2384,7 +2386,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return '';
     }
+
     /**
+     * Process HTML opening tag <b>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2397,7 +2402,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <blockquote>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2410,7 +2418,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <body>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2423,7 +2434,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <br>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2436,7 +2450,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <dd>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2449,7 +2466,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <del>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2462,7 +2482,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <div>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2475,7 +2498,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <dl>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2488,7 +2514,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <dt>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2501,7 +2530,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <em>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2514,7 +2546,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <font>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2527,7 +2562,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <form>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2540,7 +2578,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <h1>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2553,7 +2594,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <h2>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2566,7 +2610,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <h3>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2579,7 +2626,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <h4>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2592,7 +2642,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <h5>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2605,7 +2658,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <h6>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2618,7 +2674,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <hr>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2631,7 +2690,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <i>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2644,7 +2706,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <img>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2657,7 +2722,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <input>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2670,7 +2738,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <label>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2683,7 +2754,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <li>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2696,7 +2770,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <marker>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2709,7 +2786,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <ol>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2722,7 +2802,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <option>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2735,7 +2818,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <output>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2748,7 +2834,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <p>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2761,7 +2850,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <pre>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2774,7 +2866,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <s>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2787,7 +2882,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <select>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2800,7 +2898,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <small>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2813,7 +2914,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <span>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2826,7 +2930,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <strike>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2839,7 +2946,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <strong>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2852,7 +2962,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <sub>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2865,7 +2978,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <table>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2878,7 +2994,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <tablehead>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2891,7 +3010,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <tcpdf>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2904,7 +3026,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <td>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2917,7 +3042,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <textarea>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2930,7 +3058,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <th>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2943,7 +3074,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <thead>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2956,7 +3090,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <tr>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2969,7 +3106,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <tt>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2982,7 +3122,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <u>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -2995,7 +3138,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML opening tag <ul>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3015,6 +3161,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Placeholder for closing-tag handlers.
      */
     /**
+     * Process HTML closing tag </a>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3029,7 +3177,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return '';
     }
+
     /**
+     * Process HTML closing tag </b>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3042,7 +3193,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </blockquote>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3055,7 +3209,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </body>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3068,7 +3225,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </br>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3081,7 +3241,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </dd>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3094,7 +3257,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </del>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3107,7 +3273,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </div>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3120,7 +3289,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </dl>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3133,7 +3305,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </dt>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3146,7 +3321,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </em>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3159,7 +3337,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </font>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3172,7 +3353,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </form>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3185,7 +3369,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </h1>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3198,7 +3385,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </h2>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3211,7 +3401,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </h3>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3224,7 +3417,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </h4>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3237,7 +3433,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </h5>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3250,7 +3449,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </h6>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3263,7 +3465,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </hr>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3276,7 +3481,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </i>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3289,7 +3497,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </img>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3302,7 +3513,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </input>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3315,7 +3529,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </label>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3328,7 +3545,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </li>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3341,7 +3561,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </marker>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3354,7 +3577,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </ol>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3367,7 +3593,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </option>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3380,7 +3609,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </output>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3393,7 +3625,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </p>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3406,7 +3641,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </pre>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3419,7 +3657,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </s>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3432,7 +3673,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </select>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3445,7 +3689,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </small>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3458,7 +3705,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </span>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3471,7 +3721,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </strike>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3484,7 +3737,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </strong>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3497,7 +3753,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </sub>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3510,7 +3769,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </table>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3523,7 +3785,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </tablehead>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3536,7 +3801,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </tcpdf>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3549,7 +3817,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </td>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3562,7 +3833,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </textarea>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3575,7 +3849,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </th>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3588,7 +3865,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </thead>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3601,7 +3881,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </tr>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3614,7 +3897,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </tt>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3627,7 +3913,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </u>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
@@ -3640,7 +3929,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         return $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph);
     }
+
     /**
+     * Process HTML closing tag </ul>.
+     *
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
