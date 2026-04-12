@@ -1,6 +1,6 @@
 # tc-lib-pdf
 
-***PHP PDF Library***
+PHP PDF library.
 
 [![Latest Stable Version](https://poser.pugx.org/tecnickcom/tc-lib-pdf/version)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 ![Build](https://github.com/tecnickcom/tc-lib-pdf/actions/workflows/check.yml/badge.svg)
@@ -9,159 +9,164 @@
 [![Downloads](https://poser.pugx.org/tecnickcom/tc-lib-pdf/downloads)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 
 [![Donate via PayPal](https://img.shields.io/badge/donate-paypal-87ceeb.svg)](https://www.paypal.com/donate/?hosted_button_id=NZUEC5XS8MFBJ)
-*Please consider supporting this project by making a donation via [PayPal](https://www.paypal.com/donate/?hosted_button_id=NZUEC5XS8MFBJ)*
+Please consider supporting this project by making a donation via [PayPal](https://www.paypal.com/donate/?hosted_button_id=NZUEC5XS8MFBJ).
 
-* **category**    Library
-* **package**     \Com\Tecnick\Pdf
-* **author**      Nicola Asuni <info@tecnick.com>
-* **copyright**   2002-2026 Nicola Asuni - Tecnick.com LTD
-* **license**     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
-* **link**        https://tcpdf.org
-* **source**      https://github.com/tecnickcom/tc-lib-pdf
-* **SRC DOC**     https://tcpdf.org/docs/srcdoc/tc-lib-pdf
+This package is the current evolution of TCPDF, focused on modern PHP workflows and modular library design.
+
+## At a glance
+
+- Category: Library
+- Package namespace: `\Com\Tecnick\Pdf`
+- Author: Nicola Asuni <info@tecnick.com>
+- Copyright: 2002-2026 Nicola Asuni - Tecnick.com LTD
+- License: [GNU LGPL v3](https://www.gnu.org/copyleft/lesser.html) (see [LICENSE](LICENSE))
+- Project website: <https://tcpdf.org>
+- Source: <https://github.com/tecnickcom/tc-lib-pdf>
+- API docs: <https://tcpdf.org/docs/srcdoc/tc-lib-pdf>
 
 ## Description
 
-A PHP library for generating PDF documents dynamically.  
-This is the latest iteration of the TCPDF library; the previous version will be deprecated once all its features have been migrated.
+`tc-lib-pdf` is a PHP library for dynamically generating PDF documents.
 
-**Note:** The first fully stable release was version 8.1.0. Subsequent releases adhere to semantic versioning: PATCH versions are reserved for backwards-compatible bug fixes, MINOR versions for backwards-compatible feature enhancements, and MAJOR versions for changes that break backwards compatibility. For further details, see [semver.org](https://semver.org/).
+The first fully stable release was `8.1.0`. Releases follow semantic versioning:
 
-### Main Features
+- PATCH: backwards-compatible bug fixes
+- MINOR: backwards-compatible feature additions
+- MAJOR: breaking changes
 
-***Features with strikethrough are planned for future releases and are not yet available.***
+For details, see <https://semver.org>.
 
-* all standard page formats, custom page formats, custom margins and units of measure;
-* UTF-8 Unicode and Right-To-Left languages;
-* TrueTypeUnicode, OpenTypeUnicode v1, TrueType, OpenType v1, Type1 and CID-0 fonts;
-* font subsetting;
-* SVG
-* CSS
-* ~~HTML~~ (WIP)
-* JavaScript
-* images, graphic (geometric figures) and transformation methods;
-* supports JPEG, PNG and SVG images natively, all images supported by GD (GD, GD2, GD2PART, GIF, JPEG, PNG, BMP, XBM, XPM) and all images supported via ImagMagick (http://www.imagemagick.org/script/formats.php)
-* 1D and 2D barcodes via tc-lib-barcode.
-* JPEG and PNG ICC profiles, Grayscale, RGB, CMYK, Spot Pdfs and Transparencies;
-* page common content support (header/footer);
-* document encryption up to 256 bit and digital signature certifications;
-* PDF annotations, including links, text and file attachments;
-* text rendering modes (fill, stroke and clipping);
-* multiple columns mode;
-* no-write page regions;
-* bookmarks, named destinations and table of content;
-* text hyphenation;
-* text stretching and spacing (tracking);
-* automatic page break, line break and text alignments including justification;
-* automatic page numbering and page groups;
-* move and delete pages;
-* page compression (requires php-zlib extension);
-* XOBject Templates;
-* Layers and object visibility.
-* PDF/A-1b support.
+## Main features
 
-### Third party fonts
+- All standard page formats, custom page formats, custom margins, and units of measure
+- UTF-8 Unicode and right-to-left language support
+- TrueTypeUnicode, OpenTypeUnicode v1, TrueType, OpenType v1, Type1, and CID-0 fonts
+- Font subsetting
+- SVG support
+- CSS support
+- HTML support
+- JavaScript support
+- Images, geometric graphics, and transformation methods
+- Native JPEG, PNG, and SVG support
+- Image support via GD (`GD`, `GD2`, `GD2PART`, `GIF`, `JPEG`, `PNG`, `BMP`, `XBM`, `XPM`)
+- Image support via ImageMagick (<http://www.imagemagick.org/script/formats.php>)
+- 1D and 2D barcodes via `tc-lib-barcode`
+- JPEG and PNG ICC profiles, Grayscale, RGB, CMYK, spot PDFs, and transparencies
+- Page common content support (header/footer)
+- Document encryption up to 256-bit and digital signature certifications
+- PDF annotations, including links, text, and file attachments
+- Text rendering modes (fill, stroke, and clipping)
+- Multiple-column mode
+- No-write page regions
+- Bookmarks, named destinations, and table of contents
+- Text hyphenation
+- Text stretching and spacing (tracking)
+- Automatic page breaks, line breaks, and text alignment including justification
+- Automatic page numbering and page groups
+- Move and delete pages
+- Page compression (requires the `zlib` PHP extension)
+- XObject templates
+- Layers and object visibility
+- PDF/A-1b support
 
-This library may include third party font files released with different licenses.
+## Installation
 
-All the PHP files on the fonts directory are subject to the general TCPDF license (GNU-LGPLv3),
-they do not contain any binary data but just a description of the general properties of a particular font.
-These files can be also generated on the fly using the font utilities and TCPDF methods.
-
-All the original binary TTF font files have been renamed for compatibility with TCPDF and compressed using the gzcompress PHP function that uses the ZLIB data format (.z files).
-
-The binary files (.z) that begins with the prefix "free" have been extracted from the GNU FreeFont collection (GNU-GPLv3).
-The binary files (.z) that begins with the prefix "pdfa" have been derived from the GNU FreeFont, so they are subject to the same license.
-For the details of Copyright, License and other information, please check the files inside the directory fonts/freefont-20120503
-Link : https://www.gnu.org/software/freefont/
-
-The binary files (.z) that begins with the prefix "dejavu" have been extracted from the DejaVu fonts 2.33 (Bitstream) collection.
-For the details of Copyright, License and other information, please check the files inside the directory fonts/dejavu-fonts-ttf-2.33
-Link : http://dejavu-fonts.org
-
-The binary files (.z) that begins with the prefix "ae" have been extracted from the Arabeyes.org collection (GNU-GPLv2).
-Link : http://projects.arabeyes.org/
-
-### ICC profile
-
-TCPDF includes the sRGB.icc profile from the icc-profiles-free Debian package:
-https://packages.debian.org/source/stable/icc-profiles-free
-
-## Getting started
-
-First, you need to install all development dependencies using [Composer](https://getcomposer.org/):
-
-```bash
-curl -sS https://getcomposer.org/installer | php
-mv composer.phar /usr/local/bin/composer
-```
-
-You can install the library via composer:
+Install from Packagist:
 
 ```bash
 composer require tecnickcom/tc-lib-pdf
 ```
 
-This project include a Makefile that allows you to test and build the project with simple commands.
-To see all available options:
+Or in `composer.json`:
 
-```bash
-make help
+```json
+{
+    "require": {
+        "tecnickcom/tc-lib-pdf": "^8.5"
+    }
+}
 ```
 
-To install all the development dependencies:
+## Quick start
+
+Working example scripts are available in the [examples](examples) directory.
+
+To run examples locally (requires PHP 8.1+):
+
+```bash
+make x
+make server
+```
+
+Then open <http://localhost:8971/index.php>.
+
+## Development
+
+Install development dependencies:
 
 ```bash
 make deps
 ```
 
-## Running all tests
+Show all Make targets:
 
-Before committing the code, please check if it passes all tests using
+```bash
+make help
+```
+
+Run the full quality pipeline before committing:
 
 ```bash
 make qa
 ```
 
-All artifacts are generated in the target directory.
-
-## Example
-
-Examples are located in the `example` directory.
-
-Start a development server (requires PHP 8.1+) using the command:
-
-```bash
-make server
-```
-
-and point your browser to <http://localhost:8971/index.php>
-
-## Installation
-
-Create a composer.json in your projects root-directory:
-
-```json
-{
-    "require": {
-        "tecnickcom/tc-lib-pdf": "^8.4"
-    },
-}
-```
+Generated artifacts are written to the `target` directory.
 
 ## Packaging
 
-This library is mainly intended to be used and included in other PHP projects using Composer.
-However, since some production environments dictates the installation of any application as RPM or DEB packages,
-this library includes make targets for building these packages (`make rpm` and `make deb`).
-The packages are generated under the `target` directory.
+The primary distribution channel is Composer, but RPM and DEB packages are also supported for system-level deployment workflows.
 
-When this library is installed using an RPM or DEB package, you can use it your code by including the autoloader:
+Build packages:
 
 ```bash
-require_once ('/usr/share/php/Com/Tecnick/Barcode/autoload.php');
+make rpm
+make deb
 ```
 
-## Developer(s) Contact
+Packages are generated under `target`.
 
-*2026 Nicola Asuni <info@tecnick.com>
+When installed from RPM/DEB, include the library autoloader:
+
+```php
+require_once '/usr/share/php/Com/Tecnick/Pdf/autoload.php';
+```
+
+## Third-party fonts and licenses
+
+This library may include third-party font files under different licenses.
+
+All PHP files under the fonts directory are covered by the project license (GNU LGPL v3). They contain font metadata only and no binary font payload. These files can also be generated dynamically with the font utilities and TCPDF methods.
+
+Original binary TTF files are renamed for compatibility and compressed with PHP `gzcompress` into `.z` files.
+
+License sources:
+
+- Prefix `free`: extracted from GNU FreeFont (GNU GPL v3)
+- Prefix `pdfa`: derived from GNU FreeFont (GNU GPL v3)
+- Prefix `dejavu`: extracted from DejaVu fonts 2.33 (Bitstream)
+- Prefix `ae`: extracted from Arabeyes.org collection (GNU GPL v2)
+
+References:
+
+- GNU FreeFont: <https://www.gnu.org/software/freefont/>
+- DejaVu: <http://dejavu-fonts.org>
+- Arabeyes: <http://projects.arabeyes.org/>
+
+## ICC profile
+
+This project includes the `sRGB.icc` profile from the Debian `icc-profiles-free` package:
+<https://packages.debian.org/source/stable/icc-profiles-free>
+
+## Contact
+
+- Nicola Asuni <info@tecnick.com>

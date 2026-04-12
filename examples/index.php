@@ -1792,10 +1792,9 @@ $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->page->addContent($bfont5['out']);
 
-/*
-$html_01 = '<h1>HTML H1 Test</h1> <h2>HTML H2 Test</h2>';
+$html_01 = '<h1>HTML H1 Test</h1> hello';
 
-$pdf-> getHTMLCell(
+$pdf->addHTMLCell(
     $html_01, // string $html,
     20, // float $posx = 0,
     120, // float $posy = 0,
@@ -1804,7 +1803,6 @@ $pdf-> getHTMLCell(
     null, // ?array $cell = null,
     $style_cell, // array $styles = [],
 );
-*/
 
 // ----------
 
