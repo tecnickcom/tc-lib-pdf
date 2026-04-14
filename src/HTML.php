@@ -2990,7 +2990,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $text = \preg_replace('/\s+/u', ' ', $text) ?? '';
-        return \trim($text) === '' ? '' : $text;
+        return $text === '' ? '' : (\trim($text) === '' ? ' ' : $text);
     }
 
     /**
