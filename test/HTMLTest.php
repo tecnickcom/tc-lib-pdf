@@ -3461,6 +3461,69 @@ class HTMLTest extends TestUtil
         $this->assertContains('Green', $labels);
     }
 
+    public function testNestedInlineTagsRenderOnSameLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0, 0, 150, 60);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 150.0;
+        $tph = 60.0;
+
+        $html = '<p><b>b<i>bi<u>biu</u>bi</i>b</b></p>';
+        $dom = $obj->exposeGetHTMLDOM($html);
+
+        // Collect the y-position of each text fragment to ensure they are all on the same line.
+        $yPositions = [];
+        foreach ($dom as $node) {
+            if (!empty($node['tag'])) {
+                continue;
+            }
+
+            if (\trim((string) $node['value']) === '') {
+                continue;
+            }
+
+            $yBefore = $tpy;
+            $obj->exposeParseHTMLText($node, $tpx, $tpy, $tpw, $tph);
+            $yPositions[] = $yBefore;
+        }
+
+        // All text fragments must start at the same y position (same line).
+        $this->assertNotEmpty($yPositions);
+        $firstY = $yPositions[0];
+        foreach ($yPositions as $y) {
+            $this->assertEqualsWithDelta($firstY, $y, 0.001, 'All nested inline text fragments must be on the same line');
+        }
+
+        // Also verify tpx advanced after each fragment (fragments are side by side, not stacked).
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 150.0;
+        $obj->exposeInitHTMLCellContext(0, 0, 150, 60);
+        $xPositions = [];
+        foreach ($dom as $node) {
+            if (!empty($node['tag'])) {
+                continue;
+            }
+
+            if (\trim((string) $node['value']) === '') {
+                continue;
+            }
+
+            $xBefore = $tpx;
+            $obj->exposeParseHTMLText($node, $tpx, $tpy, $tpw, $tph);
+            $xPositions[] = ['before' => $xBefore, 'after' => $tpx];
+        }
+
+        // Each text fragment must advance the x cursor.
+        foreach ($xPositions as $xp) {
+            $this->assertGreaterThan($xp['before'], $xp['after'], 'Each inline fragment must advance the x cursor');
+        }
+    }
+
     /** @return array<string, array{0: string, 1: ?string}> */
     public static function htmlLiBulletNamedTypeProvider(): array
     {

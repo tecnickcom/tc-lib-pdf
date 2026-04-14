@@ -2901,6 +2901,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $cachekey = $fontname . '|' . $fontstyle . '|' . (string) $fontsize;
         if (isset($this->htmlfontcache[$cachekey])) {
+            // Re-insert if the current font pointer doesn't match the desired one,
+            // so that getCurrentFont() returns the correct metrics for subsequent operations
+            // (e.g. getTextCell width/height calculations).
+            if ($this->font->getCurrentFontKey() !== $this->htmlfontcache[$cachekey]['key']) {
+                $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
+            }
+
             return $this->htmlfontcache[$cachekey];
         }
 
@@ -4210,7 +4217,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             0,
             'T',
             $halign,
-            null,
+            static::ZEROCELL,
             [],
             (float) $elm['stroke'],
             0,
