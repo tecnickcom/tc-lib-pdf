@@ -2118,7 +2118,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $font = $this->font->getCurrentFont();
         $size = $font['usize'];
-        $lspace = 2 * $font['cw'][32]; // width of two spaces
+        $lspace = $this->getStringWidth(' '); // width of one space in document units
         $txti = '';
         $img = ['', '', '0', '0', ''];
 
@@ -2303,8 +2303,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        // return ordered item as text
-        $txti = $this->rtl ? '.' . $txti : $txti . '.';
+        // append dot separator for ordered list types only
+        $unorderedTypes = ['disc', 'circle', 'square'];
+        if (!\in_array($type, $unorderedTypes, true)) {
+            $txti = $this->rtl ? '.' . $txti : $txti . '.';
+        }
+
         $lspace += $this->getStringWidth($txti);
         $posx += $this->rtl ? $lspace : -$lspace;
         return $this->getTextLine($txti, $posx, $posy);
@@ -4392,7 +4396,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagOPENdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $indent = $this->getHTMLListIndentWidth();
+        $tpx += $indent;
+        if ($tpw > 0) {
+            $tpw = \max(0.0, $tpw - $indent);
+        }
+
+        return $out;
     }
 
     /**
@@ -4802,7 +4813,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $counter = $this->getHTMLListItemCounter($elm);
         $markerType = $this->getCurrentHTMLListMarkerType();
         $baseline = $tpy + $this->toUnit((isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0);
-        $bulletx = $tpx + ($indent / 2);
+        $bulletx = $tpx + $indent;
 
         $out .= $this->getHTMLTextPrefix($elm);
         $out .= $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType);

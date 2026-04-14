@@ -1797,7 +1797,6 @@ Some special characters: &lt; € &euro; &#8364; &amp; è &egrave; &copy; &gt; \
 <h2>List</h2>
 List example:
 <ol>
-	<li><img src="images/logo_example.png" alt="test alt attribute" width="30" height="30" border="0" /> test image</li>
 	<li><b>bold text</b></li>
 	<li><i>italic text</i></li>
 	<li><u>underlined text</u></li>
