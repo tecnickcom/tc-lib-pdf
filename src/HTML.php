@@ -4819,7 +4819,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $font = $this->getHTMLFontMetric($elm);
-        $indent = $this->getHTMLListIndentWidth() * $depth;
+        $indent = $this->getHTMLListIndentWidth();
         $counter = $this->getHTMLListItemCounter($elm);
         $markerType = $this->getCurrentHTMLListMarkerType();
         $baseline = $tpy + $this->toUnit((isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0);

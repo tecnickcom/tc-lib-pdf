@@ -1068,6 +1068,53 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('BT', $out);
     }
 
+    public function testNestedListItemIndentsIncrementally(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $originx = 20.0;
+        $obj->exposeInitHTMLCellContext($originx, 100.0, 150.0, 0.0);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $tpx = $originx;
+        $tpy = 100.0;
+        $tpw = 150.0;
+        $tph = 0.0;
+
+        // Push depth-1 list.
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENol', $elm, $tpx, $tpy, $tpw, $tph);
+
+        // Open depth-1 li: tpx must advance by exactly one indentWidth.
+        $tpx = $originx;
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENli', $elm, $tpx, $tpy, $tpw, $tph);
+        $tpxDepth1 = $tpx;
+        $indentWidth = $tpxDepth1 - $originx;
+        $this->assertGreaterThan(0.0, $indentWidth, 'depth-1 li should add a positive indent');
+
+        // Push depth-2 list inside the depth-1 li, then open a depth-2 li.
+        // openHTMLBlock will reset tpx to the updated originx (= tpxDepth1).
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENol', $elm, $tpx, $tpy, $tpw, $tph);
+        $tpxBeforeDepth2 = $tpx; // equals tpxDepth1 after openHTMLBlock
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENli', $elm, $tpx, $tpy, $tpw, $tph);
+        $indent2 = $tpx - $tpxBeforeDepth2;
+
+        // Each successive level must add exactly one indentWidth, not depth * indentWidth.
+        $this->assertEqualsWithDelta(
+            $indentWidth,
+            $indent2,
+            0.001,
+            'depth-2 li should increment tpx by the same indentWidth as depth-1 li'
+        );
+    }
+
     public function testGetHTMLCellRendersBasicTableCells(): void
     {
         $obj = $this->getTestObject();
