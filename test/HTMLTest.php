@@ -1197,6 +1197,7 @@ class HTMLTest extends TestUtil
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
         $this->assertCount(1, $annotation);
+        /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Tx', $last['opt']['ft']);
     }
@@ -1212,9 +1213,11 @@ class HTMLTest extends TestUtil
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
         $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Ch', $last['opt']['ft'] ?? '');
-        $opts = $last['opt']['opt'] ?? [];
+        /** @var list<string|list<string>> $opts */
+        $opts = (array) ($last['opt']['opt'] ?? []);
         return \array_map(static fn ($item) => \is_array($item) ? (string) $item[1] : (string) $item, $opts);
     }
 
@@ -1225,8 +1228,10 @@ class HTMLTest extends TestUtil
     {
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
-        return (string) ($last['opt']['v'] ?? '');
+        $optv = $last['opt']['v'];
+        return \is_string($optv) ? $optv : '';
     }
 
     public function testGetHTMLCellRendersSelectFirstOptionLabel(): void
@@ -3390,6 +3395,7 @@ class HTMLTest extends TestUtil
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
         $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Btn', $last['opt']['ft']);
     }
@@ -3404,6 +3410,7 @@ class HTMLTest extends TestUtil
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
         $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Tx', $last['opt']['ft']);
     }
@@ -3418,10 +3425,11 @@ class HTMLTest extends TestUtil
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
         $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Tx', $last['opt']['ft']);
         // Multiline flag (bit 13 = 4096) must be set
-        $this->assertSame(1 << 12, (int) ($last['opt']['ff'] ?? 0));
+        $this->assertSame(1 << 12, $last['opt']['ff']);
     }
 
     public function testGetHTMLCellSelectCreatesComboBoxAnnotation(): void
@@ -3440,11 +3448,14 @@ class HTMLTest extends TestUtil
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
         $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Ch', $last['opt']['ft']);
+        /** @var array<string|array<string>> $opts */
+        $opts = (array) ($last['opt']['opt'] ?? []);
         $labels = \array_map(
             static fn ($item) => \is_array($item) ? (string) $item[1] : (string) $item,
-            (array) ($last['opt']['opt'] ?? []),
+            $opts,
         );
         $this->assertContains('Red', $labels);
         $this->assertContains('Green', $labels);

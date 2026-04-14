@@ -1587,7 +1587,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // @phpstan-ignore parameterByRef.type
         $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ?
             self::ZEROCELLBOUND : $this->getCSSPadding($dom[$key]['style']['padding']);
-        
+
         // apply individual padding-* overrides
         foreach (['T' => 'padding-top', 'R' => 'padding-right', 'B' => 'padding-bottom', 'L' => 'padding-left'] as $side => $prop) {
             if (!empty($dom[$key]['style'][$prop]) && \strtolower(\trim($dom[$key]['style'][$prop])) !== 'auto') {
