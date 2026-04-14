@@ -2987,8 +2987,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function openHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
-        if (($tpx > $this->htmlcellctx['originx']) || ($tpy > $this->htmlcellctx['originy'])) {
-            $tpy += (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($elm, 0);
+        $hasinlinecontent = ($tpx > ($this->htmlcellctx['originx'] + 0.001));
+        $lineadvance = $hasinlinecontent ? $this->getHTMLLineAdvance($elm) : 0.0;
+
+        if ($hasinlinecontent || ($tpy > $this->htmlcellctx['originy'])) {
+            $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($elm, 0);
         }
 
         $tpx = $this->htmlcellctx['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];

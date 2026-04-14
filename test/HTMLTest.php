@@ -154,6 +154,12 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @phpstan-param THTMLAttrib $elm */
+    public function exposeOpenHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    {
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+    }
+
+    /** @phpstan-param THTMLAttrib $elm */
     public function exposeCloseHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
         return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
@@ -1798,6 +1804,61 @@ class HTMLTest extends TestUtil
 
         $this->assertSame(20.0, $tpx);
         $this->assertSame(150.0, $tpw);
+        $this->assertSame(140.0, $tpy);
+    }
+
+    public function testOpenHTMLBlockAdvancesLineWhenInlineContentWasRendered(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 16.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        // Simulate inline content rendered at tpx > originx (e.g. "c" text)
+        $tpx = 48.0;
+        $tpy = 120.0;
+        $tpw = 122.0;
+
+        $obj->exposeOpenHTMLBlock($elm, $tpx, $tpy, $tpw);
+
+        // tpx must be reset to origin
+        $this->assertSame(20.0, $tpx);
+        // tpy must advance by at least a line height
+        $this->assertGreaterThan(120.0, $tpy);
+    }
+
+    public function testOpenHTMLBlockDoesNotDoubleAdvanceWhenAlreadyAtLineStart(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 16.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        // Cursor already at line start (after a closeHTMLBlock)
+        $tpx = 20.0;
+        $tpy = 140.0;
+        $tpw = 150.0;
+
+        $obj->exposeOpenHTMLBlock($elm, $tpx, $tpy, $tpw);
+
+        // tpy should not advance by an extra line — no inline content to push past
+        $this->assertSame(20.0, $tpx);
         $this->assertSame(140.0, $tpy);
     }
 
