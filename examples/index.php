@@ -1792,13 +1792,43 @@ $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->page->addContent($bfont5['out']);
 
-//$html_01 = '<h1>HTML H1 Test</h1> hello <p><b>b<i>bi<u>biu</u>bi</i>b</b></p>';
-$html_01 = '<h1>A</h1>c<p>d</p>';
+$html_01 = '<h1>HTML Example</h1>
+Some special characters: &lt; € &euro; &#8364; &amp; è &egrave; &copy; &gt; \\slash \\\\double-slash \\\\\\triple-slash
+<h2>List</h2>
+List example:
+<ol>
+	<li><img src="images/logo_example.png" alt="test alt attribute" width="30" height="30" border="0" /> test image</li>
+	<li><b>bold text</b></li>
+	<li><i>italic text</i></li>
+	<li><u>underlined text</u></li>
+	<li><b>b<i>bi<u>biu</u>bi</i>b</b></li>
+	<li><a href="https://tcpdf.org" dir="ltr">link to https://tcpdf.org</a></li>
+	<li>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.<br />Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</li>
+	<li>SUBLIST
+		<ol>
+			<li>row one
+				<ul>
+					<li>sublist</li>
+				</ul>
+			</li>
+			<li>row two</li>
+		</ol>
+	</li>
+	<li><b>T</b>E<i>S</i><u>T</u> <del>line through</del></li>
+	<li><font size="+3">font + 3</font></li>
+	<li><small>small text</small> normal <small>small text</small> normal <sub>subscript</sub> normal <sup>superscript</sup> normal</li>
+</ol>
+<dl>
+	<dt>Coffee</dt>
+	<dd>Black hot drink</dd>
+	<dt>Milk</dt>
+	<dd>White cold drink</dd>
+</dl>';
 
 $pdf->addHTMLCell(
     $html_01, // string $html,
     20, // float $posx = 0,
-    120, // float $posy = 0,
+    10, // float $posy = 0,
     150, // float $width = 0,
     0, // float $height = 0,
     null, // ?array $cell = null,

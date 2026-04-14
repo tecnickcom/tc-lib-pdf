@@ -1013,6 +1013,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // @phpstan-ignore-next-line parameterByRef.type
         $this->inheritHTMLProperties($dom, $key, $granparent);
 
+        // Carry margin and padding from the opening tag so that closeHTMLBlock
+        // can correctly apply bottom spacing (e.g. CSS margin-bottom, heading defaults).
+        if (!empty($dom[$parent]['margin']) && \is_array($dom[$parent]['margin'])) {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['margin'] = $dom[$parent]['margin'];
+        }
+        if (!empty($dom[$parent]['padding']) && \is_array($dom[$parent]['padding'])) {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['padding'] = $dom[$parent]['padding'];
+        }
+        /** @var array<int, THTMLAttrib> $dom */
+
         // set the number of columns in table tag
         if (
             ($dom[$key]['value'] == 'tr')
@@ -1912,6 +1924,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             if (empty($dom[$key]['style']['font-weight'])) {
                 $dom[$key]['fontstyle'] .= 'B';
+            }
+            // apply default proportional top/bottom margin unless overridden by CSS
+            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-top'])) {
+                $dom[$key]['margin']['T'] = $this->toUnit((float) $dom[$key]['fontsize'] * 0.67);
+            }
+            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-bottom'])) {
+                $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize'] * 0.67);
             }
         }
         /** @var array<int, THTMLAttrib> $dom */
@@ -4220,7 +4239,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             0,
             'T',
             $halign,
-            static::ZEROCELL,
+            static::ZEROCELL, // @phpstan-ignore argument.type
             [],
             (float) $elm['stroke'],
             0,
