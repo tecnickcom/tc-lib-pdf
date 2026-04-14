@@ -154,6 +154,12 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @phpstan-param THTMLAttrib $elm */
+    public function exposeOpenHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    {
+        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+    }
+
+    /** @phpstan-param THTMLAttrib $elm */
     public function exposeCloseHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
         return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
@@ -542,6 +548,132 @@ class HTMLTest extends TestUtil
         $this->assertArrayHasKey('LTRB', $dom[1]['border']);
     }
 
+    public function testParseHTMLStyleAttributesAppliesCSSFontSize(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        // "12px" — NOT numeric as a string, but must be parsed by getFontValuePoints
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0]),
+            1 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0, 'attribute' => ['style' => 'font-size:12px;']]),
+            2 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0, 'attribute' => ['style' => 'font-size:150%;']]),
+            3 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0, 'attribute' => ['style' => 'font-size:1.5em;']]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $obj->parseHTMLStyleAttributes($dom, 2, 0);
+        $obj->parseHTMLStyleAttributes($dom, 3, 0);
+
+        // All three must result in a non-default (not 10pt) font size
+        $this->assertNotSame(10.0, $dom[1]['fontsize'], 'font-size:12px should change fontsize');
+        $this->assertGreaterThan(0.0, $dom[1]['fontsize']);
+        $this->assertNotSame(10.0, $dom[2]['fontsize'], 'font-size:150% should change fontsize');
+        $this->assertGreaterThan(0.0, $dom[2]['fontsize']);
+        $this->assertNotSame(10.0, $dom[3]['fontsize'], 'font-size:1.5em should change fontsize');
+        $this->assertGreaterThan(0.0, $dom[3]['fontsize']);
+    }
+
+    public function testParseHTMLStyleAttributesLineHeightInheritDoesNotFallThrough(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $parentLineHeight = 1.8;
+        $dom = [
+            0 => $this->makeHtmlNode(['line-height' => $parentLineHeight]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'font-stretch' => 100.0,
+                'letter-spacing' => 0.0,
+                'line-height' => 1.0,
+                'attribute' => ['style' => 'line-height:inherit;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        // Must equal the parent value exactly, not be recalculated
+        $this->assertSame($parentLineHeight, $dom[1]['line-height'], 'line-height:inherit must not fall through to default recalculation');
+    }
+
+    public function testAnchorInsideBoldPreservesBoldFontstyle(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Build a DOM node for <a> that already has bold from a parent <b>
+        $dom = [
+            0 => $this->makeHtmlNode(['fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'value' => 'a',
+                'parent' => 0,
+                'fontstyle' => 'B',
+                'style' => [],
+                'attribute' => [],
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        // Both bold and underline must be present
+        $this->assertStringContainsString('B', $dom[1]['fontstyle'], 'Bold must be preserved on <a> inside <b>');
+        $this->assertStringContainsString('U', $dom[1]['fontstyle'], 'Underline must be added on <a>');
+    }
+
+    public function testParseHTMLStyleAttributesNumericFontWeightApplied(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontstyle' => '']),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'fontstyle' => '',
+                'font-stretch' => 100.0,
+                'letter-spacing' => 0.0,
+                'attribute' => ['style' => 'font-weight:700;'],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'fontstyle' => 'B',
+                'font-stretch' => 100.0,
+                'letter-spacing' => 0.0,
+                'attribute' => ['style' => 'font-weight:400;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $obj->parseHTMLStyleAttributes($dom, 2, 0);
+
+        $this->assertStringContainsString('B', $dom[1]['fontstyle'], 'font-weight:700 must add bold');
+        $this->assertStringNotContainsString('B', $dom[2]['fontstyle'], 'font-weight:400 must remove bold');
+    }
+
+    public function testParseHTMLStyleAttributesIndividualPaddingAndMarginApplied(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'font-stretch' => 100.0,
+                'letter-spacing' => 0.0,
+                'attribute' => ['style' => 'padding-top:5px;padding-left:10px;margin-top:3px;margin-right:4px;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertGreaterThan(0.0, $dom[1]['padding']['T'], 'padding-top must be applied');
+        $this->assertGreaterThan(0.0, $dom[1]['padding']['L'], 'padding-left must be applied');
+        $this->assertGreaterThan($dom[1]['padding']['T'], $dom[1]['padding']['L'], 'padding-left (10px) must be greater than padding-top (5px)');
+        $this->assertGreaterThan(0.0, $dom[1]['margin']['T'], 'margin-top must be applied');
+        $this->assertGreaterThan(0.0, $dom[1]['margin']['R'], 'margin-right must be applied');
+    }
+
     public function testGetHTMLCellRendersParagraphText(): void
     {
         $obj = $this->getTestObject();
@@ -878,7 +1010,8 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $out);
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
-        $this->assertCount(2, $annotation);
+        // 2 link annotations + 1 textarea form-field annotation
+        $this->assertCount(3, $annotation);
     }
 
     public function testGetHTMLCellAnchorSurvivesSelectCloseTag(): void
@@ -891,7 +1024,8 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $out);
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
-        $this->assertCount(2, $annotation);
+        // 2 link annotations + 1 select form-field annotation
+        $this->assertCount(3, $annotation);
     }
 
     public function testGetHTMLCellAnchorSurvivesDelTag(): void
@@ -932,6 +1066,53 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('First', $out);
         $this->assertStringContainsString('Second', $out);
         $this->assertStringContainsString('BT', $out);
+    }
+
+    public function testNestedListItemIndentsIncrementally(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $originx = 20.0;
+        $obj->exposeInitHTMLCellContext($originx, 100.0, 150.0, 0.0);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $tpx = $originx;
+        $tpy = 100.0;
+        $tpw = 150.0;
+        $tph = 0.0;
+
+        // Push depth-1 list.
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENol', $elm, $tpx, $tpy, $tpw, $tph);
+
+        // Open depth-1 li: tpx must advance by exactly one indentWidth.
+        $tpx = $originx;
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENli', $elm, $tpx, $tpy, $tpw, $tph);
+        $tpxDepth1 = $tpx;
+        $indentWidth = $tpxDepth1 - $originx;
+        $this->assertGreaterThan(0.0, $indentWidth, 'depth-1 li should add a positive indent');
+
+        // Push depth-2 list inside the depth-1 li, then open a depth-2 li.
+        // openHTMLBlock will reset tpx to the updated originx (= tpxDepth1).
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENol', $elm, $tpx, $tpy, $tpw, $tph);
+        $tpxBeforeDepth2 = $tpx; // equals tpxDepth1 after openHTMLBlock
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENli', $elm, $tpx, $tpy, $tpw, $tph);
+        $indent2 = $tpx - $tpxBeforeDepth2;
+
+        // Each successive level must add exactly one indentWidth, not depth * indentWidth.
+        $this->assertEqualsWithDelta(
+            $indentWidth,
+            $indent2,
+            0.001,
+            'depth-2 li should increment tpx by the same indentWidth as depth-1 li'
+        );
     }
 
     public function testGetHTMLCellRendersBasicTableCells(): void
@@ -1018,7 +1199,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<input type="text" value="field" /><textarea>notes</textarea><input type="hidden" value="secret" />',
             0,
             0,
@@ -1026,10 +1207,12 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('field', $out);
-        $this->assertStringContainsString('notes', $out);
-        $this->assertStringNotContainsString('secret', $out);
+        // text input + textarea each produce a form-field annotation; hidden produces none
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(2, $annotation);
+        $fieldTypes = \array_column(\array_column($annotation, 'opt'), 'ft');
+        $this->assertContains('Tx', $fieldTypes);
     }
 
     public function testGetHTMLCellRendersCheckboxAndPasswordInputs(): void
@@ -1037,7 +1220,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<input type="checkbox" checked="checked" />'
             . '<input type="radio" />'
             . '<input type="password" value="abc" />',
@@ -1047,11 +1230,13 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('[x]', $out);
-        $this->assertStringContainsString('[ ]', $out);
-        $this->assertStringContainsString('***', $out);
-        $this->assertStringNotContainsString('abc', $out);
+        // checkbox, radio, and password text each produce a form-field annotation
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertGreaterThanOrEqual(3, \count($annotation));
+        $fieldTypes = \array_column(\array_column($annotation, 'opt'), 'ft');
+        $this->assertContains('Btn', $fieldTypes);
+        $this->assertContains('Tx', $fieldTypes);
     }
 
     public function testGetHTMLCellRendersMultilineTextareaValue(): void
@@ -1059,11 +1244,47 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell('<textarea>line1' . "\n" . ' line2</textarea>', 0, 0, 40, 20);
+        $obj->getHTMLCell('<textarea rows="3" value="line1&#10; line2">line1&#10; line2</textarea>', 0, 0, 40, 20);
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('line1', $out);
-        $this->assertStringContainsString(' line2', $out);
+        // textarea produces a multiline text form-field annotation
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(1, $annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Tx', $last['opt']['ft']);
+    }
+
+    /**
+     * Helper: extract option labels from the last ComboBox annotation.
+     *
+     * @param object $obj PDF object
+     * @return array<int, string>
+     */
+    private function getLastComboBoxLabels(object $obj): array
+    {
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Ch', $last['opt']['ft'] ?? '');
+        /** @var list<string|list<string>> $opts */
+        $opts = (array) ($last['opt']['opt'] ?? []);
+        return \array_map(static fn ($item) => \is_array($item) ? (string) $item[1] : (string) $item, $opts);
+    }
+
+    /**
+     * Helper: get the initial selected value from the last ComboBox annotation.
+     */
+    private function getLastComboBoxValue(object $obj): string
+    {
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $optv = $last['opt']['v'];
+        return \is_string($optv) ? $optv : '';
     }
 
     public function testGetHTMLCellRendersSelectFirstOptionLabel(): void
@@ -1071,7 +1292,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select><option value="v1">Alpha</option><option value="v2">Beta</option></select>',
             0,
             0,
@@ -1079,8 +1300,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Alpha', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Alpha', $labels);
+        $this->assertContains('Beta', $labels);
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelByValue(): void
@@ -1088,7 +1310,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select value="v2"><option value="v1">Alpha</option><option value="v2">Beta</option></select>',
             0,
             0,
@@ -1096,8 +1318,10 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Alpha', $labels);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('v2', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelBySingleQuotedValue(): void
@@ -1105,7 +1329,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             "<select value=\"v2\"><option value='v1'>Alpha</option><option value='v2'>Beta</option></select>",
             0,
             0,
@@ -1113,8 +1337,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('v2', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelByUnquotedValue(): void
@@ -1122,7 +1347,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select value="v2"><option value=v1>Alpha</option><option value=v2>Beta</option></select>',
             0,
             0,
@@ -1130,8 +1355,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('v2', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersMultipleSelectedOptionLabelsByValue(): void
@@ -1139,7 +1365,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select value="v2,v1"><option value="v1">Alpha</option><option value="v2">Beta</option></select>',
             0,
             0,
@@ -1147,8 +1373,10 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta, Alpha', $out);
+        // ComboBox is created with all option labels accessible
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Alpha', $labels);
+        $this->assertContains('Beta', $labels);
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelBySelectedAttribute(): void
@@ -1156,7 +1384,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select><option value="v1">Alpha</option><option value="v2" selected="selected">Beta</option></select>',
             0,
             0,
@@ -1164,8 +1392,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('v2', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersMultipleSelectedOptionLabelsBySelectedAttribute(): void
@@ -1173,7 +1402,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select><option selected="selected">Alpha</option><option selected="selected">Beta</option></select>',
             0,
             0,
@@ -1181,8 +1410,11 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Alpha, Beta', $out);
+        // First selected option becomes the initial value
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Alpha', $labels);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('Alpha', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelWithBooleanSelectedAttribute(): void
@@ -1190,7 +1422,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select><option>Alpha</option><option selected>Beta</option></select>',
             0,
             0,
@@ -1198,8 +1430,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('Beta', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelWithSelectedTrueAttribute(): void
@@ -1207,7 +1440,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select><option>Alpha</option><option selected="true">Beta</option></select>',
             0,
             0,
@@ -1215,8 +1448,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('Beta', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelWithSingleQuotedSelectedAttribute(): void
@@ -1224,7 +1458,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             "<select><option>Alpha</option><option selected='selected'>Beta</option></select>",
             0,
             0,
@@ -1232,8 +1466,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('Beta', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersSelectedOptionLabelWithUppercaseSelectedAttribute(): void
@@ -1241,7 +1476,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
+        $obj->getHTMLCell(
             '<select><option>Alpha</option><option SELECTED>Beta</option></select>',
             0,
             0,
@@ -1249,8 +1484,9 @@ class HTMLTest extends TestUtil
             20,
         );
 
-        $this->assertNotSame('', $out);
-        $this->assertStringContainsString('Beta', $out);
+        $labels = $this->getLastComboBoxLabels($obj);
+        $this->assertContains('Beta', $labels);
+        $this->assertSame('Beta', $this->getLastComboBoxValue($obj));
     }
 
     public function testGetHTMLCellRendersImgFallbackWhenImageCannotLoad(): void
@@ -1451,6 +1687,107 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('(Next)', $out);
     }
 
+    public function testGetHTMLCellRespectsExplicitTdColumnWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Table total width = 60mm.  Two equal default columns = 30mm each (≈85pt).
+        // First column gets explicit width="160" (px) = 120pt ≈ 42mm  →  wider than default.
+        $out = $obj->getHTMLCell(
+            '<table><tr>'
+            . '<td width="160" style="border:1px solid black">Wide</td>'
+            . '<td style="border:1px solid black">Narrow</td>'
+            . '</tr></table>',
+            0,
+            0,
+            60,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        // Extract all rect-stroke pairs: "x y w h re s"
+        $matches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\s+s/', $out, $matches, PREG_SET_ORDER);
+        $this->assertGreaterThanOrEqual(2, \count($matches));
+
+        // Width values (index 3) of both cell borders should be unequal —
+        // the first cell must be wider than the second (default 30mm ≈ 85pt).
+        $cw1 = \abs((float) $matches[0][3]);
+        $cw2 = \abs((float) $matches[1][3]);
+        $this->assertGreaterThan($cw2, $cw1, 'First column should be wider than second when explicit width is set');
+    }
+
+    public function testGetHTMLCellAppliesCellspacingBetweenRows(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Two identical rows, first without cellspacing, then with cellspacing=5.
+        $noSpacing = $obj->getHTMLCell(
+            '<table><tr><td style="border:1px solid black">A</td></tr>'
+            . '<tr><td style="border:1px solid black">B</td></tr></table>',
+            0,
+            0,
+            30,
+            30,
+        );
+
+        $withSpacing = $obj->getHTMLCell(
+            '<table cellspacing="5"><tr><td style="border:1px solid black">A</td></tr>'
+            . '<tr><td style="border:1px solid black">B</td></tr></table>',
+            0,
+            0,
+            30,
+            30,
+        );
+
+        // Extract rect y-positions of the second cell borders.
+        $getSecondRectY = static function (string $pdf): float {
+            $matches = [];
+            \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\s+s/', $pdf, $matches, PREG_SET_ORDER);
+            return isset($matches[1]) ? (float) $matches[1][2] : 0.0;
+        };
+
+        $yNoSpacing = $getSecondRectY($noSpacing);
+        $yWithSpacing = $getSecondRectY($withSpacing);
+
+        // With cellspacing the second row starts further down (larger y in PDF = higher on page).
+        $this->assertNotEqualsWithDelta($yNoSpacing, $yWithSpacing, 0.001, 'cellspacing should shift second row position');
+    }
+
+    public function testGetHTMLCellAppliesCellpaddingToAllCells(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // With cellpadding=5, the text inside the cell should be indented relative to the border.
+        $out = $obj->getHTMLCell(
+            '<table cellpadding="5"><tr><td style="border:1px solid black">X</td></tr></table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(X)', $out);
+
+        // Find the rect x/y (border) and the Td x/y (text) and verify text is inset.
+        $rectMatches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\s+s/', $out, $rectMatches, PREG_SET_ORDER);
+        $this->assertNotEmpty($rectMatches, 'Expected a border rectangle');
+
+        $tdMatches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) Td/', $out, $tdMatches, PREG_SET_ORDER);
+        $this->assertNotEmpty($tdMatches, 'Expected a Td text operator');
+
+        // The text x must be greater than the cell border x (offset by padding).
+        $borderX = (float) $rectMatches[0][1];
+        $textX   = (float) $tdMatches[0][1];
+        $this->assertGreaterThan($borderX, $textX, 'Text x should be inset from cell border x by cellpadding');
+    }
+
     public function testGetHTMLCellTreatsFormAsBlockContainer(): void
     {
         $obj = $this->getTestObject();
@@ -1514,6 +1851,61 @@ class HTMLTest extends TestUtil
 
         $this->assertSame(20.0, $tpx);
         $this->assertSame(150.0, $tpw);
+        $this->assertSame(140.0, $tpy);
+    }
+
+    public function testOpenHTMLBlockAdvancesLineWhenInlineContentWasRendered(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 16.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        // Simulate inline content rendered at tpx > originx (e.g. "c" text)
+        $tpx = 48.0;
+        $tpy = 120.0;
+        $tpw = 122.0;
+
+        $obj->exposeOpenHTMLBlock($elm, $tpx, $tpy, $tpw);
+
+        // tpx must be reset to origin
+        $this->assertSame(20.0, $tpx);
+        // tpy must advance by at least a line height
+        $this->assertGreaterThan(120.0, $tpy);
+    }
+
+    public function testOpenHTMLBlockDoesNotDoubleAdvanceWhenAlreadyAtLineStart(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 16.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        // Cursor already at line start (after a closeHTMLBlock)
+        $tpx = 20.0;
+        $tpy = 140.0;
+        $tpw = 150.0;
+
+        $obj->exposeOpenHTMLBlock($elm, $tpx, $tpy, $tpw);
+
+        // tpy should not advance by an extra line — no inline content to push past
+        $this->assertSame(20.0, $tpx);
         $this->assertSame(140.0, $tpy);
     }
 
@@ -2906,6 +3298,338 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $result);
         $this->assertStringContainsString($expectedFragment, $result);
+    }
+
+    // --- Fix tests: <br> line advance ---
+
+    public function testGetHTMLCellBrAdvancesLine(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Two words without a break — both on the same line
+        $outSameLine = $obj->getHTMLCell('Hello World', 0, 0, 40, 20);
+
+        // Same words with a <br> — second word is on a new (lower) line
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $outNewLine = $obj2->getHTMLCell('Hello<br />World', 0, 0, 40, 20);
+
+        $this->assertNotSame('', $outSameLine);
+        $this->assertNotSame('', $outNewLine);
+        $this->assertStringContainsString('Hello', $outSameLine);
+        $this->assertStringContainsString('Hello', $outNewLine);
+        $this->assertStringContainsString('World', $outNewLine);
+        // The y coordinates differ — <br> produced a line advance
+        $this->assertNotSame($outSameLine, $outNewLine);
+    }
+
+    // --- Fix tests: <hr> width/height ---
+
+    public function testGetHTMLCellHrRespectsWidthAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Full-width HR (no attribute)
+        $outFull = $obj->getHTMLCell('<hr />', 0, 0, 40, 5);
+
+        // HR with width="50" (50px ≈ 13mm — narrower than the 40mm cell)
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $outShort = $obj2->getHTMLCell('<hr width="50" />', 0, 0, 40, 5);
+
+        $this->assertNotSame('', $outFull);
+        $this->assertNotSame('', $outShort);
+        // The line endpoints differ when width is constrained
+        $this->assertNotSame($outFull, $outShort);
+    }
+
+    public function testGetHTMLCellHrRespectsHeightAsStrokeWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Default HR (stroke 0.2)
+        $outDefault = $obj->getHTMLCell('<hr />', 0, 0, 40, 5);
+
+        // HR with height="5" (5px ≈ 1.32mm stroke)
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $outThick = $obj2->getHTMLCell('<hr height="5" />', 0, 0, 40, 5);
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outThick);
+        // Different stroke width produces different PDF operator stream
+        $this->assertNotSame($outDefault, $outThick);
+    }
+
+    // --- Fix tests: inline image vertical alignment ---
+
+    public function testGetHTMLCellImgTopAlignmentDiffersFromBottom(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Generate a minimal valid PNG in memory
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $outBottom = $obj->getHTMLCell(
+            '<img src="' . $b64src . '" width="4" height="4" align="bottom" />',
+            0,
+            0,
+            40,
+            20,
+        );
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $outTop = $obj2->getHTMLCell(
+            '<img src="' . $b64src . '" width="4" height="4" align="top" />',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $this->assertNotSame('', $outBottom);
+        $this->assertNotSame('', $outTop);
+        // Different y-offsets produce different PDF streams
+        $this->assertNotSame($outBottom, $outTop);
+    }
+
+    // --- Fix tests: base64 data URI images ---
+
+    public function testGetHTMLCellRendersBase64DataUriImage(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Generate a minimal valid PNG in memory
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 255, 0, 0);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $out = $obj->getHTMLCell('<img src="' . $src . '" width="4" height="4" />', 0, 0, 20, 10);
+
+        // Image must render — output must not fall back to literal '[img]' text
+        $this->assertStringNotContainsString('[img]', $out);
+    }
+
+    public function testGetHTMLCellBase64DataUriWithInvalidDataFallsBackToAlt(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Invalid base64 payload → base64_decode returns false → src stays as original →
+        // image library throws → fallback alt text is rendered
+        $out = $obj->getHTMLCell(
+            '<img src="data:image/png;base64,!!!notvalidbase64!!!" alt="err" width="4" height="4" />',
+            0,
+            0,
+            20,
+            10,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('err', $out);
+    }
+
+    // --- Fix tests: setHtmlVSpace() ---
+
+    public function testSetHtmlVSpaceAddsExtraSpacingBeforeBlock(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        // Two paragraphs: the second <p> opens after the first, so openHTMLBlock will apply vspace
+        $outDefault = $obj->getHTMLCell('<p>A</p><p>B</p>', 0, 0, 40, 30);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $obj2->setHtmlVSpace(['p' => [['h' => 0.0, 'n' => 2], ['h' => 0.0, 'n' => 0]]]);
+        $outSpaced = $obj2->getHTMLCell('<p>A</p><p>B</p>', 0, 0, 40, 30);
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outSpaced);
+        // Extra 2-line top spacing before the second <p> shifts its text downward → different PDF stream
+        $this->assertNotSame($outDefault, $outSpaced);
+    }
+
+    public function testSetHtmlVSpaceAddsExtraSpacingAfterBlock(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $outDefault = $obj->getHTMLCell('<p>A</p><p>B</p>', 0, 5, 40, 30);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $obj2->setHtmlVSpace(['p' => [['h' => 0.0, 'n' => 0], ['h' => 2.0, 'n' => 0]]]);
+        $outSpaced = $obj2->getHTMLCell('<p>A</p><p>B</p>', 0, 5, 40, 30);
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outSpaced);
+        // Extra bottom spacing between paragraphs → different positions for second paragraph
+        $this->assertNotSame($outDefault, $outSpaced);
+    }
+
+    public function testSetHtmlVSpaceFixedHeightAddsSpace(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $obj->setHtmlVSpace(['p' => [['h' => 5.0, 'n' => 0], ['h' => 5.0, 'n' => 0]]]);
+
+        $out = $obj->getHTMLCell('<p>spacing test</p>', 0, 5, 40, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('spacing test', $out);
+    }
+
+    // --- Fix tests: interactive form field input types ---
+
+    public function testGetHTMLCellInputButtonCreatesButtonAnnotation(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<input type="submit" value="Go" />', 0, 0, 40, 10);
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Btn', $last['opt']['ft']);
+    }
+
+    public function testGetHTMLCellInputTextCreatesTextFieldAnnotation(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<input type="text" name="fname" value="John" />', 0, 0, 40, 10);
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Tx', $last['opt']['ft']);
+    }
+
+    public function testGetHTMLCellTextareaCreatesMultilineTextFieldAnnotation(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<textarea name="notes" rows="4">hello</textarea>', 0, 0, 40, 20);
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Tx', $last['opt']['ft']);
+        // Multiline flag (bit 13 = 4096) must be set
+        $this->assertSame(1 << 12, $last['opt']['ff']);
+    }
+
+    public function testGetHTMLCellSelectCreatesComboBoxAnnotation(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<select name="color"><option value="r">Red</option><option value="g">Green</option></select>',
+            0,
+            0,
+            40,
+            10,
+        );
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Ch', $last['opt']['ft']);
+        /** @var array<string|array<string>> $opts */
+        $opts = (array) ($last['opt']['opt'] ?? []);
+        $labels = \array_map(
+            static fn ($item) => \is_array($item) ? (string) $item[1] : (string) $item,
+            $opts,
+        );
+        $this->assertContains('Red', $labels);
+        $this->assertContains('Green', $labels);
+    }
+
+    public function testNestedInlineTagsRenderOnSameLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0, 0, 150, 60);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 150.0;
+        $tph = 60.0;
+
+        $html = '<p><b>b<i>bi<u>biu</u>bi</i>b</b></p>';
+        $dom = $obj->exposeGetHTMLDOM($html);
+
+        // Collect the y-position of each text fragment to ensure they are all on the same line.
+        $yPositions = [];
+        foreach ($dom as $node) {
+            if (!empty($node['tag'])) {
+                continue;
+            }
+
+            if (\trim((string) $node['value']) === '') {
+                continue;
+            }
+
+            $yBefore = $tpy;
+            $obj->exposeParseHTMLText($node, $tpx, $tpy, $tpw, $tph);
+            $yPositions[] = $yBefore;
+        }
+
+        // All text fragments must start at the same y position (same line).
+        $this->assertNotEmpty($yPositions);
+        $firstY = $yPositions[0];
+        foreach ($yPositions as $y) {
+            $this->assertEqualsWithDelta($firstY, $y, 0.001, 'All nested inline text fragments must be on the same line');
+        }
+
+        // Also verify tpx advanced after each fragment (fragments are side by side, not stacked).
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 150.0;
+        $obj->exposeInitHTMLCellContext(0, 0, 150, 60);
+        $xPositions = [];
+        foreach ($dom as $node) {
+            if (!empty($node['tag'])) {
+                continue;
+            }
+
+            if (\trim((string) $node['value']) === '') {
+                continue;
+            }
+
+            $xBefore = $tpx;
+            $obj->exposeParseHTMLText($node, $tpx, $tpy, $tpw, $tph);
+            $xPositions[] = ['before' => $xBefore, 'after' => $tpx];
+        }
+
+        // Each text fragment must advance the x cursor.
+        foreach ($xPositions as $xp) {
+            $this->assertGreaterThan($xp['before'], $xp['after'], 'Each inline fragment must advance the x cursor');
+        }
     }
 
     /** @return array<string, array{0: string, 1: ?string}> */

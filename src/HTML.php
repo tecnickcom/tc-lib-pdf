@@ -37,7 +37,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-type THTMLTableCell array{cellx: float, cellw: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
  * @phpstan-type THTMLTableRowspanCell array{cellx: float, cellw: float, rowtop: float, rowsremaining: int, usedheight: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
- * @phpstan-type THTMLTableState array{originx: float, originy: float, width: float, cols: int, colwidth: float, rowtop: float, rowheight: float, colindex: int, cells: array<int, THTMLTableCell>, occupied: array<int, int>, rowspans: array<int, THTMLTableRowspanCell>}
+ * @phpstan-type THTMLTableState array{originx: float, originy: float, width: float, cols: int, colwidth: float, colwidths: array<int, float>, cellspacing: float, cellpadding: float, rowtop: float, rowheight: float, colindex: int, cells: array<int, THTMLTableCell>, occupied: array<int, int>, rowspans: array<int, THTMLTableRowspanCell>}
  * @phpstan-type THTMLTableCellContext array{originx: float, originy: float, maxwidth: float, maxheight: float, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string}
  *
  * @phpstan-type THTMLAttrib array{
@@ -273,6 +273,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ];
 
     /**
+     * Verical shift ratio for HTML sub tag.
+     *
+     * @var float
+     */
+    protected const VERT_SHIFT_SUB = 0.1;
+
+    /**
+     * Verical shift ratio for HTML sup tag.
+     *
+     * @var float
+     */
+    protected const VERT_SHIFT_SUP = 0.3;
+
+
+    /**
      * Typoe of symbol used for HTML unordered list items.
      *
      * @var string
@@ -328,9 +343,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected array $htmllinkstack = [];
 
     /**
+     * Stack used to save/restore originx and maxwidth when entering/leaving list items,
+     * so that line-breaks (<br />) inside a <li> reset to the item's indented origin.
+     *
+     * @var array<int, array{originx: float, maxwidth: float}>
+     */
+    protected array $htmllistack = [];
+
+    /**
      * Nesting level of preformatted blocks.
      */
     protected int $htmlprelevel = 0;
+
+    /**
+     * Per-column content widths pre-computed for the next table to be opened.
+     *
+     * @var array<int, float>
+     */
+    protected array $htmlpendingcolwidths = [];
+
+    /**
+     * Horizontal cellspacing pre-computed for the next table to be opened.
+     */
+    protected float $htmlpndcellspacing = 0.0;
+
+    /**
+     * Default cell padding pre-computed for the next table to be opened.
+     */
+    protected float $htmlpndcellpadding = 0.0;
+
+    /**
+     * Custom vertical spacing overrides for HTML block tags.
+     * Structure: [ tagname => [ 0 => ['h' => float, 'n' => int], 1 => ['h' => float, 'n' => int] ] ]
+     * Index 0 = before-open spacing, index 1 = after-close spacing.
+     *
+     * @var array<string, array<int, array{h?: float|int, n?: int}>>
+     */
+    protected array $tagvspaces = [];
 
     /**
      * Cleanup HTML code (requires HTML Tidy library).
@@ -987,6 +1036,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // @phpstan-ignore-next-line parameterByRef.type
         $this->inheritHTMLProperties($dom, $key, $granparent);
 
+        // Carry margin and padding from the opening tag so that closeHTMLBlock
+        // can correctly apply bottom spacing (e.g. CSS margin-bottom, heading defaults).
+        if (!empty($dom[$parent]['margin']) && \is_array($dom[$parent]['margin'])) {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['margin'] = $dom[$parent]['margin'];
+        }
+        if (!empty($dom[$parent]['padding']) && \is_array($dom[$parent]['padding'])) {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['padding'] = $dom[$parent]['padding'];
+        }
+        /** @var array<int, THTMLAttrib> $dom */
+
         // set the number of columns in table tag
         if (
             ($dom[$key]['value'] == 'tr')
@@ -1420,10 +1481,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         /** @var array<int, THTMLAttrib> $dom */
         // font size
-        if (
-            !empty($dom[$key]['style']['font-size'])
-            && \is_numeric($dom[$key]['style']['font-size'])
-        ) {
+        if (!empty($dom[$key]['style']['font-size'])) {
             $fsize = \trim($dom[$key]['style']['font-size']);
             $ref = self::REFUNITVAL;
             if (\is_numeric($dom[$parentkey]['fontsize'])) {
@@ -1464,6 +1522,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 case 'inherit':
                     $dom[$key]['line-height'] = $dom[$parentkey]['line-height'];
+                    break;
                 default:
                     if (\is_numeric($lineheight)) {
                         // convert to percentage of font height
@@ -1488,7 +1547,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             !empty($dom[$key]['style']['font-weight'])
             && \is_string($dom[$key]['fontstyle'])
         ) {
-            if (\strtolower($dom[$key]['style']['font-weight'][0]) == 'n') {
+            if (\is_numeric($dom[$key]['style']['font-weight'])) {
+                if ((int) $dom[$key]['style']['font-weight'] >= 600) {
+                    $dom[$key]['fontstyle'] .= 'B';
+                } else {
+                    $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
+                }
+            } elseif (\strtolower($dom[$key]['style']['font-weight'][0]) == 'n') {
                 if (\strpos($dom[$key]['fontstyle'], 'B') !== false) {
                     $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
                 }
@@ -1535,7 +1600,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         } elseif ($dom[$key]['value'] == 'a') {
-            $dom[$key]['fontstyle'] = 'U';
+            $dom[$key]['fontstyle'] .= 'U';
         }
         /** @var array<int, THTMLAttrib> $dom */
         // check width attribute
@@ -1557,11 +1622,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // @phpstan-ignore parameterByRef.type
         $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ?
             self::ZEROCELLBOUND : $this->getCSSPadding($dom[$key]['style']['padding']);
+
+        // apply individual padding-* overrides
+        foreach (['T' => 'padding-top', 'R' => 'padding-right', 'B' => 'padding-bottom', 'L' => 'padding-left'] as $side => $prop) {
+            if (!empty($dom[$key]['style'][$prop]) && \strtolower(\trim($dom[$key]['style'][$prop])) !== 'auto') {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['padding'][$side] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style'][$prop]));
+            }
+        }
         /** @var array<int, THTMLAttrib> $dom */
         // check for CSS margin properties
         // @phpstan-ignore parameterByRef.type
         $dom[$key]['margin'] = empty($dom[$key]['style']['margin']) ?
             self::ZEROCELLBOUND : $this->getCSSMargin($dom[$key]['style']['margin']);
+        // apply individual margin-* overrides
+        foreach (['T' => 'margin-top', 'R' => 'margin-right', 'B' => 'margin-bottom', 'L' => 'margin-left'] as $side => $prop) {
+            if (!empty($dom[$key]['style'][$prop]) && \strtolower(\trim($dom[$key]['style'][$prop])) !== 'auto') {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['margin'][$side] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style'][$prop]));
+            }
+        }
         /** @var array<int, THTMLAttrib> $dom */
         // check CSS border properties
         if (!empty($dom[$key]['style']['border'])) {
@@ -1839,7 +1919,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             empty($dom[$key]['style']['text-decoration'])
             && ($dom[$key]['value'] == 'a')
         ) {
-            $dom[$key]['fontstyle'] = 'U';
+            $dom[$key]['fontstyle'] .= 'U';
         }
         /** @var array<int, THTMLAttrib> $dom */
         if (
@@ -1867,6 +1947,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             if (empty($dom[$key]['style']['font-weight'])) {
                 $dom[$key]['fontstyle'] .= 'B';
+            }
+            // apply default proportional top/bottom margin unless overridden by CSS
+            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-top'])) {
+                $dom[$key]['margin']['T'] = $this->toUnit((float) $dom[$key]['fontsize'] * 0.67);
+            }
+            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-bottom'])) {
+                $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize'] * 0.67);
             }
         }
         /** @var array<int, THTMLAttrib> $dom */
@@ -2054,7 +2141,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $font = $this->font->getCurrentFont();
         $size = $font['usize'];
-        $lspace = 2 * $font['cw'][32]; // width of two spaces
+        $lspace = $this->getStringWidth(' '); // width of one space in document units
         $txti = '';
         $img = ['', '', '0', '0', ''];
 
@@ -2239,8 +2326,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        // return ordered item as text
-        $txti = $this->rtl ? '.' . $txti : $txti . '.';
+        // append dot separator for ordered list types only
+        $unorderedTypes = ['disc', 'circle', 'square'];
+        if (!\in_array($type, $unorderedTypes, true)) {
+            $txti = $this->rtl ? '.' . $txti : $txti . '.';
+        }
+
         $lspace += $this->getStringWidth($txti);
         $posx += $this->rtl ? $lspace : -$lspace;
         return $this->getTextLine($txti, $posx, $posy);
@@ -2276,6 +2367,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ];
         $this->htmlfontcache = [];
         $this->htmlliststack = [];
+        $this->htmllistack = [];
         $this->htmltablestack = [];
         $this->htblcellctx = [];
         $this->htmllinkstack = [];
@@ -2296,6 +2388,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ];
         $this->htmlfontcache = [];
         $this->htmlliststack = [];
+        $this->htmllistack = [];
         $this->htmltablestack = [];
         $this->htblcellctx = [];
         $this->htmllinkstack = [];
@@ -2856,6 +2949,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $cachekey = $fontname . '|' . $fontstyle . '|' . (string) $fontsize;
         if (isset($this->htmlfontcache[$cachekey])) {
+            // Re-insert if the current font pointer doesn't match the desired one,
+            // so that getCurrentFont() returns the correct metrics for subsequent operations
+            // (e.g. getTextCell width/height calculations).
+            if ($this->font->getCurrentFontKey() !== $this->htmlfontcache[$cachekey]['key']) {
+                $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
+            }
+
             return $this->htmlfontcache[$cachekey];
         }
 
@@ -2905,7 +3005,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $text = \preg_replace('/\s+/u', ' ', $text) ?? '';
-        return \trim($text) === '' ? '' : $text;
+        return $text === '' ? '' : (\trim($text) === '' ? ' ' : $text);
     }
 
     /**
@@ -2935,8 +3035,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function openHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
-        if (($tpx > $this->htmlcellctx['originx']) || ($tpy > $this->htmlcellctx['originy'])) {
-            $tpy += (float) $elm['margin']['T'];
+        $hasinlinecontent = ($tpx > ($this->htmlcellctx['originx'] + 0.001));
+        $lineadvance = $hasinlinecontent ? $this->getHTMLLineAdvance($elm) : 0.0;
+
+        if ($hasinlinecontent || ($tpy > $this->htmlcellctx['originy'])) {
+            $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($elm, 0);
         }
 
         $tpx = $this->htmlcellctx['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
@@ -2968,7 +3071,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineadvance = $hasinlinecontent ? $this->getHTMLLineAdvance($elm) : 0.0;
 
         $this->resetHTMLLineCursor($tpx, $tpw);
-        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
+        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B'] + $this->getHTMLTagVSpace($elm, 1);
 
         return '';
     }
@@ -3149,6 +3252,47 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Set custom vertical spacing for HTML block tags.
+     *
+     * Each tag entry has two positions:
+     *   [0] = space added before the opening tag (top margin)
+     *   [1] = space added after the closing tag (bottom margin)
+     *
+     * Each position is an array with optional keys:
+     *   'h' => float (fixed height in user units)
+     *   'n' => int   (number of line-heights to add)
+     *
+     * Example:
+     *   $pdf->setHtmlVSpace(['p' => [['h' => 0, 'n' => 1], ['h' => 0, 'n' => 0]]]);
+     *
+     * @param array<string, array<int, array{h?: float|int, n?: int}>> $tagvs
+     */
+    public function setHtmlVSpace(array $tagvs): void
+    {
+        $this->tagvspaces = $tagvs;
+    }
+
+    /**
+     * Return the extra vertical space (in user units) for the given tag at a specific position.
+     *
+     * @param THTMLAttrib $elm DOM array element.
+     * @param int $position 0 = before open, 1 = after close.
+     */
+    protected function getHTMLTagVSpace(array $elm, int $position): float
+    {
+        $tag = (isset($elm['value']) && \is_string($elm['value'])) ? $elm['value'] : '';
+        if (empty($this->tagvspaces[$tag][$position])) {
+            return 0.0;
+        }
+
+        $tvs = $this->tagvspaces[$tag][$position];
+        $lineheight = $this->getHTMLLineAdvance($elm);
+        $height = (isset($tvs['h']) && \is_numeric($tvs['h'])) ? (float) $tvs['h'] : 0.0;
+        $lines = (isset($tvs['n']) && \is_numeric($tvs['n'])) ? (int) $tvs['n'] : 0;
+        return $height + $lineheight * $lines;
+    }
+
+    /**
      * Render an HTML image and advance the inline cursor.
      *
      * @param THTMLAttrib $elm DOM array element.
@@ -3167,26 +3311,49 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $src = $attr['src'];
+
+        // Support base64 data URIs: data:<mime>;base64,<data>
+        if (\preg_match('/^data:[^;]+;base64,(.+)$/s', $src, $matches)) {
+            $decoded = \base64_decode($matches[1], true);
+            if ($decoded !== false) {
+                $src = '@' . $decoded;
+            }
+        }
+
+        $lineheight = $this->getHTMLLineAdvance($elm);
         $width = (!empty($elm['width']) && \is_numeric($elm['width']))
             ? (float) $elm['width']
-            : $this->getHTMLLineAdvance($elm);
+            : $lineheight;
         $height = (!empty($elm['height']) && \is_numeric($elm['height']))
             ? (float) $elm['height']
-            : $this->getHTMLLineAdvance($elm);
+            : $lineheight;
 
         if (($width <= 0) || ($height <= 0)) {
             return '';
+        }
+
+        // Vertical alignment: top/middle/bottom (default)
+        $align = (isset($attr['align']) && \is_string($attr['align']))
+            ? \strtolower(\trim($attr['align']))
+            : 'bottom';
+        $imagey = $tpy;
+        if ($height < $lineheight) {
+            $imagey = match ($align) {
+                'top'    => $tpy,
+                'middle' => $tpy + ($lineheight - $height) / 2.0,
+                default  => $tpy + $lineheight - $height,
+            };
         }
 
         $out = '';
         try {
             $pageheight = $this->page->getPage()['height'];
             if (\str_ends_with(\strtolower($src), '.svg')) {
-                $svgid = $this->addSVG($src, $tpx, $tpy, $width, $height, $pageheight);
+                $svgid = $this->addSVG($src, $tpx, $imagey, $width, $height, $pageheight);
                 $out = $this->getSetSVG($svgid);
             } else {
                 $imgid = $this->image->add($src);
-                $out = $this->image->getSetImage($imgid, $tpx, $tpy, $width, $height, $pageheight);
+                $out = $this->image->getSetImage($imgid, $tpx, $imagey, $width, $height, $pageheight);
             }
         } catch (\Throwable) {
             return $this->renderHTMLLiteralText($alt, $elm, $tpx, $tpy, $tpw, $height);
@@ -3291,6 +3458,147 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $colindex;
+    }
+
+    /**
+     * Compute the x-position of a given column in a table, accounting for
+     * per-column widths and horizontal cellspacing.
+     *
+     * @param THTMLTableState $table
+     */
+    protected function getHTMLTableColX(array $table, int $colindex): float
+    {
+        $tox = $table['originx'];
+        $cellspacing = $table['cellspacing'];
+        for ($i = 0; $i < $colindex; ++$i) {
+            $tox += ($table['colwidths'][$i] ?? $table['colwidth']) + $cellspacing;
+        }
+
+        return $tox;
+    }
+
+    /**
+     * Compute the rendered width of a (possibly spanning) table cell,
+     * accounting for per-column widths and horizontal cellspacing between spanned columns.
+     *
+     * @param THTMLTableState $table
+     */
+    protected function getHTMLTableColSpanWidth(array $table, int $colindex, int $colspan): float
+    {
+        $tcw = 0.0;
+        $cellspacing = $table['cellspacing'];
+        for ($i = 0; $i < $colspan; ++$i) {
+            if ($i > 0) {
+                $tcw += $cellspacing;
+            }
+
+            $tcw += ($table['colwidths'][$colindex + $i] ?? $table['colwidth']);
+        }
+
+        return $tcw;
+    }
+
+    /**
+     * Pre-compute per-column content widths from the first body row of a table.
+     *
+     * Scans forward in the DOM from the table opening tag to find the first
+     * non-thead TR row, then collects explicit `width` attributes from its
+     * TD/TH cells. Columns without an explicit width retain their equal default.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     * @param int   $tablekey       DOM index of the opening <table> tag.
+     * @param int   $cols           Total number of columns.
+     * @param float $availableWidth Width available for column content (table width minus inter-column cellspacing).
+     *
+     * @return array<int, float>
+     */
+    protected function computeHTMLTableColWidths(
+        array $dom,
+        int $tablekey,
+        int $cols,
+        float $availableWidth,
+    ): array {
+        $defaultWidth = ($cols > 0) ? ($availableWidth / $cols) : $availableWidth;
+        $colwidths = \array_fill(0, $cols, $defaultWidth);
+
+        $numel = \count($dom);
+        $depth = 0;      // nesting depth for sub-tables
+        $inFirstRow = false;
+        $colid = 0;
+
+        for ($key = $tablekey + 1; $key < $numel; ++$key) {
+            $elm = $dom[$key];
+            if (empty($elm['tag']) || !\is_string($elm['value'])) {
+                continue;
+            }
+
+            $val = $elm['value'];
+
+            // Track nested table depth so we don't accidentally read inner cells.
+            if (!empty($elm['opening']) && $val === 'table') {
+                ++$depth;
+                continue;
+            }
+
+            if (empty($elm['opening']) && $val === 'table') {
+                if ($depth > 0) {
+                    --$depth;
+                    continue;
+                }
+
+                break; // end of the table we're scanning
+            }
+
+            if ($depth > 0) {
+                continue;
+            }
+
+            // Find the first body TR (skip thead rows marked with 'thead' property).
+            if (!empty($elm['opening']) && $val === 'tr') {
+                if (!empty($elm['thead'])) {
+                    continue; // skip header row
+                }
+
+                if (!$inFirstRow) {
+                    $inFirstRow = true;
+                    $colid = 0;
+                }
+
+                continue;
+            }
+
+            if (empty($elm['opening']) && $val === 'tr' && $inFirstRow) {
+                break; // done collecting from first body row
+            }
+
+            if (!$inFirstRow) {
+                continue;
+            }
+
+            // Collect TD/TH explicit widths in the first body row.
+            if (!empty($elm['opening']) && ($val === 'td' || $val === 'th')) {
+                $colspan = 1;
+                if (!empty($elm['attribute']['colspan']) && \is_numeric($elm['attribute']['colspan'])) {
+                    $colspan = \max(1, (int) $elm['attribute']['colspan']);
+                }
+
+                $colspan = \min($colspan, $cols - $colid);
+
+                if (!empty($elm['width']) && \is_numeric($elm['width']) && (float) $elm['width'] > 0) {
+                    $cellw = (float) $elm['width'];
+                    $percw = $cellw / $colspan;
+                    for ($i = 0; $i < $colspan; ++$i) {
+                        if ($colid + $i < $cols) {
+                            $colwidths[$colid + $i] = $percw;
+                        }
+                    }
+                }
+
+                $colid += $colspan;
+            }
+        }
+
+        return $colwidths;
     }
 
     /**
@@ -3512,6 +3820,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             }
                             $nobrstack[] = $elm['value'];
                         }
+                    }
+
+                    // Pre-compute per-column widths and spacing for table tags
+                    // so that parseHTMLTagOPENtable can use them from $this->htmlpending*.
+                    if (($elm['value'] === 'table') || ($elm['value'] === 'tablehead')) {
+                        $tableCols = (!empty($elm['cols']) && \is_numeric($elm['cols']))
+                            ? \max(1, (int) $elm['cols']) : 1;
+                        $tableWidth = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
+                        $this->htmlpndcellspacing = (!empty($elm['attribute']['cellspacing'])
+                            && \is_numeric($elm['attribute']['cellspacing']))
+                            ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellspacing']))
+                            : 0.0;
+                        $this->htmlpndcellpadding = (!empty($elm['attribute']['cellpadding'])
+                            && \is_numeric($elm['attribute']['cellpadding']))
+                            ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellpadding']))
+                            : 0.0;
+                        $availableForCols = \max(
+                            0.0,
+                            $tableWidth - $this->htmlpndcellspacing * \max(0, $tableCols - 1)
+                        );
+                        $this->htmlpendingcolwidths = $this->computeHTMLTableColWidths(
+                            $dom,
+                            $key,
+                            $tableCols,
+                            $availableForCols,
+                        );
                     }
 
                     $fragment = match ($elm['value']) {
@@ -3934,7 +4268,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             0,
             'T',
             $halign,
-            null,
+            static::ZEROCELL, // @phpstan-ignore argument.type
             [],
             (float) $elm['stroke'],
             0,
@@ -4069,16 +4403,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagOPENbr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-
-        $value = '';
-        if (!empty($elm['value']) && \is_string($elm['value'])) {
-            $value = \strtolower($elm['value']);
-        }
-
-        if ($value !== 'a') {
-            return '';
-        }
-
         $this->moveHTMLToNextLine($elm, $tpx, $tpy, $tpw);
         return '';
     }
@@ -4097,7 +4421,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagOPENdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $indent = $this->getHTMLListIndentWidth();
+        $tpx += $indent;
+        if ($tpw > 0) {
+            $tpw = \max(0.0, $tpw - $indent);
+        }
+
+        return $out;
     }
 
     /**
@@ -4331,7 +4662,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         unset($tph);
         $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
-        $width = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
+        $availableWidth = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
+        $width = $availableWidth;
+        if (!empty($elm['width']) && \is_numeric($elm['width']) && (float) $elm['width'] > 0) {
+            $width = \min((float) $elm['width'], $availableWidth);
+        }
+
+        $strokeWidth = ((float) $elm['stroke'] > 0) ? (float) $elm['stroke'] : 0.2;
+        if (!empty($elm['height']) && \is_numeric($elm['height']) && (float) $elm['height'] > 0) {
+            $strokeWidth = (float) $elm['height'];
+        }
+
         $lineY = $tpy + ($this->getHTMLLineAdvance($elm) / 2);
         $out .= $this->graph->getLine(
             $tpx,
@@ -4339,7 +4680,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpx + $width,
             $lineY,
             [
-                'lineWidth' => ((float) $elm['stroke'] > 0) ? (float) $elm['stroke'] : 0.2,
+                'lineWidth' => $strokeWidth,
                 'lineCap' => 'butt',
                 'lineJoin' => 'miter',
                 'dashArray' => [],
@@ -4399,7 +4740,60 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENinput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->renderHTMLLiteralText($this->getHTMLInputDisplayValue($elm), $elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $attr = $elm['attribute'] ?? [];
+        if (!\is_array($attr)) {
+            return '';
+        }
+
+        $type = '';
+        if (isset($attr['type']) && \is_string($attr['type'])) {
+            $type = \strtolower(\trim($attr['type']));
+        }
+
+        if ($type === 'hidden') {
+            return '';
+        }
+
+        $name = (isset($attr['name']) && \is_string($attr['name'])) ? $attr['name'] : ('input_' . \count($this->tagvspaces));
+        $lineheight = $this->getHTMLLineAdvance($elm);
+        $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
+            ? (float) $elm['width']
+            : $lineheight * 5;
+
+        if ($type === 'checkbox') {
+            $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'Yes';
+            $checked = isset($attr['checked']);
+            $this->addFFCheckBox($name, $tpx, $tpy, $lineheight, $onvalue, $checked);
+            $tpx += $lineheight;
+        } elseif ($type === 'radio') {
+            $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'On';
+            $checked = isset($attr['checked']);
+            $this->addFFRadioButton($name, $tpx, $tpy, $lineheight, $onvalue, $checked);
+            $tpx += $lineheight;
+        } elseif ($type === 'submit' || $type === 'button' || $type === 'reset') {
+            $caption = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : $type;
+            $action = (isset($attr['onclick']) && \is_string($attr['onclick'])) ? $attr['onclick'] : '';
+            $this->addFFButton($name, $tpx, $tpy, $fieldwidth, $lineheight, $caption, $action);
+            $tpx += $fieldwidth;
+        } else {
+            // text, password, email, url, number, etc.
+            $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+            if ($value === '' && isset($attr['placeholder']) && \is_string($attr['placeholder'])) {
+                $value = $attr['placeholder'];
+            }
+
+            $opt = ['v' => $value];
+            $jsp = ($type === 'password') ? ['password' => 'true'] : [];
+            $this->addFFText($name, $tpx, $tpy, $fieldwidth, $lineheight, $opt, $jsp);
+            $tpx += $fieldwidth;
+        }
+
+        if ($this->htmlcellctx['maxwidth'] > 0) {
+            $tpw = \max(0.0, $this->htmlcellctx['maxwidth'] - $tpx + $this->htmlcellctx['originx']);
+        }
+
+        return '';
     }
 
     /**
@@ -4440,11 +4834,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $font = $this->getHTMLFontMetric($elm);
-        $indent = $this->getHTMLListIndentWidth() * $depth;
+        $indent = $this->getHTMLListIndentWidth();
         $counter = $this->getHTMLListItemCounter($elm);
         $markerType = $this->getCurrentHTMLListMarkerType();
         $baseline = $tpy + $this->toUnit((isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0);
-        $bulletx = $tpx + ($indent / 2);
+        $bulletx = $tpx + $indent;
 
         $out .= $this->getHTMLTextPrefix($elm);
         $out .= $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType);
@@ -4453,6 +4847,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($tpw > 0) {
             $tpw = \max(0.0, $tpw - $indent);
         }
+
+        $this->htmllistack[] = [
+            'originx' => $this->htmlcellctx['originx'],
+            'maxwidth' => $this->htmlcellctx['maxwidth'],
+        ];
+        $this->htmlcellctx['originx'] = $tpx;
+        $this->htmlcellctx['maxwidth'] = $tpw;
 
         return $out;
     }
@@ -4601,7 +5002,52 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENselect(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->renderHTMLLiteralText($this->getHTMLSelectDisplayValue($elm), $elm, $tpx, $tpy, $tpw, $tph);
+        unset($tph);
+        $attr = $elm['attribute'] ?? [];
+        if (!\is_array($attr)) {
+            return '';
+        }
+
+        $name = (isset($attr['name']) && \is_string($attr['name'])) ? $attr['name'] : ('select_' . \count($this->tagvspaces));
+        $lineheight = $this->getHTMLLineAdvance($elm);
+        $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
+            ? (float) $elm['width']
+            : $lineheight * 5;
+
+        // Parse packed option string into [value, label] pairs; track initial selected value.
+        $values = [];
+        $selectedValue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+        if (!empty($attr['opt']) && \is_string($attr['opt'])) {
+            $entries = \array_filter(\explode('#!NwL!#', $attr['opt']), static fn ($ent): bool => $ent !== '');
+            foreach ($entries as $entry) {
+                $isSelected = \str_starts_with($entry, '#!SeL!#');
+                if ($isSelected) {
+                    $entry = \substr($entry, 7);
+                }
+
+                if (\str_contains($entry, '#!TaB!#')) {
+                    $parts = \explode('#!TaB!#', $entry, 2);
+                    $values[] = [$parts[0], $parts[1]];
+                    if ($isSelected && $selectedValue === '') {
+                        $selectedValue = $parts[0];
+                    }
+                } else {
+                    $values[] = [$entry, $entry];
+                    if ($isSelected && $selectedValue === '') {
+                        $selectedValue = $entry;
+                    }
+                }
+            }
+        }
+
+        $this->addFFComboBox($name, $tpx, $tpy, $fieldwidth, $lineheight, $values, ['v' => $selectedValue]);
+        $tpx += $fieldwidth;
+
+        if ($this->htmlcellctx['maxwidth'] > 0) {
+            $tpw = \max(0.0, $this->htmlcellctx['maxwidth'] - $tpx + $this->htmlcellctx['originx']);
+        }
+
+        return '';
     }
 
     /**
@@ -4686,7 +5132,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagOPENsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, 0.3);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, self::VERT_SHIFT_SUB);
     }
 
     /**
@@ -4703,7 +5149,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagOPENsup(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, -0.7);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, -self::VERT_SHIFT_SUP);
     }
 
     /**
@@ -4726,12 +5172,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cols = (!empty($elm['cols']) && \is_numeric($elm['cols'])) ? \max(1, (int) $elm['cols']) : 1;
         $colwidth = ($cols > 0) ? ($width / $cols) : $width;
 
+        // Consume pre-computed column widths and spacing set by renderHTMLCellFragments.
+        $colwidths = $this->htmlpendingcolwidths;
+        $cellspacing = $this->htmlpndcellspacing;
+        $cellpadding = $this->htmlpndcellpadding;
+        $this->htmlpendingcolwidths = [];
+        $this->htmlpndcellspacing = 0.0;
+        $this->htmlpndcellpadding = 0.0;
+
+        if (empty($colwidths)) {
+            $colwidths = \array_fill(0, $cols, $colwidth);
+        }
+
         $this->htmltablestack[] = [
             'originx' => $tpx,
             'originy' => $tpy,
             'width' => $width,
             'cols' => $cols,
             'colwidth' => $colwidth,
+            'colwidths' => $colwidths,
+            'cellspacing' => $cellspacing,
+            'cellpadding' => $cellpadding,
             'rowtop' => $tpy,
             'rowheight' => 0.0,
             'colindex' => 0,
@@ -4930,9 +5391,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $colspan = \max(1, \min($remaining, $colspan));
         $rowspan = \max(1, $rowspan);
 
-        $cellx = $table['originx'] + ($colindex * $table['colwidth']);
-        $cellw = $table['colwidth'] * $colspan;
+        $cellx = $this->getHTMLTableColX($table, $colindex);
+        $cellw = $this->getHTMLTableColSpanWidth($table, $colindex, $colspan);
         $rowtop = $table['rowtop'];
+
+        // Apply table cellpadding as default when the cell has no CSS padding.
+        $cellpadding = $table['cellpadding'];
+        if (
+            $cellpadding > 0.0
+            && (float) $elm['padding']['T'] === 0.0
+            && (float) $elm['padding']['R'] === 0.0
+            && (float) $elm['padding']['B'] === 0.0
+            && (float) $elm['padding']['L'] === 0.0
+        ) {
+            $elm['padding'] = [
+                'T' => $cellpadding,
+                'R' => $cellpadding,
+                'B' => $cellpadding,
+                'L' => $cellpadding,
+            ];
+        }
 
         $originx = $cellx + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
         $originy = $rowtop + (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
@@ -4996,20 +5474,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtextarea(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $value = '';
-        if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
-            $value = $elm['attribute']['value'];
-        }
-
-        if ($value === '') {
+        unset($tph);
+        $attr = $elm['attribute'] ?? [];
+        if (!\is_array($attr)) {
             return '';
         }
 
-        ++$this->htmlprelevel;
-        $out = $this->renderHTMLLiteralText($value, $elm, $tpx, $tpy, $tpw, $tph);
-        $this->htmlprelevel = \max(0, $this->htmlprelevel - 1);
+        $name = (isset($attr['name']) && \is_string($attr['name'])) ? $attr['name'] : ('textarea_' . \count($this->tagvspaces));
+        $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+        $lineheight = $this->getHTMLLineAdvance($elm);
+        $rows = (isset($attr['rows']) && \is_numeric($attr['rows'])) ? \max(1, (int) $attr['rows']) : 3;
+        $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
+            ? (float) $elm['width']
+            : (($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth']);
+        $fieldheight = $lineheight * $rows;
 
-        return $out;
+        $this->addFFText($name, $tpx, $tpy, $fieldwidth, $fieldheight, ['v' => $value], ['multiline' => 'true']);
+        $tpx += $fieldwidth;
+
+        if ($this->htmlcellctx['maxwidth'] > 0) {
+            $tpw = \max(0.0, $this->htmlcellctx['maxwidth'] - $tpx + $this->htmlcellctx['originx']);
+        }
+
+        return '';
     }
 
     /**
@@ -5563,7 +6050,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagCLOSEli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $saved = \array_pop($this->htmllistack);
+        if ($saved !== null) {
+            $this->htmlcellctx['originx'] = $saved['originx'];
+            $this->htmlcellctx['maxwidth'] = $saved['maxwidth'];
+            $tpx = $saved['originx'];
+            $tpw = $saved['maxwidth'];
+        }
+
+        return $out;
     }
 
     /**
@@ -5787,7 +6283,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagCLOSEsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, -0.3);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, -self::VERT_SHIFT_SUB * self::FONT_SMALL_RATIO);
     }
 
     /**
@@ -5804,7 +6300,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagCLOSEsup(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, 0.7);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, self::VERT_SHIFT_SUP * self::FONT_SMALL_RATIO);
     }
 
     /**
@@ -5949,7 +6445,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->htmlcellctx['maxheight'] = $cellctx['maxheight'];
 
         $tpy = $cellctx['rowtop'];
-        $tpx = $table['originx'] + ($table['colindex'] * $table['colwidth']);
+        $tpx = $this->getHTMLTableColX($table, $table['colindex']);
         $tpw = \max(0.0, $table['width'] - ($tpx - $table['originx']));
 
         return '';
@@ -6036,7 +6532,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $rowheight = $this->toUnit((float) $curfont['height']);
         }
 
-        $tpy = $table['rowtop'] + $rowheight;
+        $tpy = $table['rowtop'] + $rowheight + $table['cellspacing'];
 
         $out = '';
         if (!empty($table['cells'])) {
