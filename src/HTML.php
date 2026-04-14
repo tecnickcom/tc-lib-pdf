@@ -6268,7 +6268,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagCLOSEsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, -0.3);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, -0.3 * self::FONT_SMALL_RATIO);
     }
 
     /**
@@ -6285,7 +6285,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagCLOSEsup(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, 0.7);
+        return $this->shiftHTMLVerticalPosition($elm, $tpy, 0.7 * self::FONT_SMALL_RATIO);
     }
 
     /**
