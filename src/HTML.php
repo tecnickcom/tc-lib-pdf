@@ -328,6 +328,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected array $htmllinkstack = [];
 
     /**
+     * Stack used to save/restore originx and maxwidth when entering/leaving list items,
+     * so that line-breaks (<br />) inside a <li> reset to the item's indented origin.
+     *
+     * @var array<int, array{originx: float, maxwidth: float}>
+     */
+    protected array $htmllistack = [];
+
+    /**
      * Nesting level of preformatted blocks.
      */
     protected int $htmlprelevel = 0;
@@ -2344,6 +2352,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ];
         $this->htmlfontcache = [];
         $this->htmlliststack = [];
+        $this->htmllistack = [];
         $this->htmltablestack = [];
         $this->htblcellctx = [];
         $this->htmllinkstack = [];
@@ -2364,6 +2373,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ];
         $this->htmlfontcache = [];
         $this->htmlliststack = [];
+        $this->htmllistack = [];
         $this->htmltablestack = [];
         $this->htblcellctx = [];
         $this->htmllinkstack = [];
@@ -4823,6 +4833,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpw = \max(0.0, $tpw - $indent);
         }
 
+        $this->htmllistack[] = [
+            'originx' => $this->htmlcellctx['originx'],
+            'maxwidth' => $this->htmlcellctx['maxwidth'],
+        ];
+        $this->htmlcellctx['originx'] = $tpx;
+        $this->htmlcellctx['maxwidth'] = $tpw;
+
         return $out;
     }
 
@@ -6018,7 +6035,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagCLOSEli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $saved = \array_pop($this->htmllistack);
+        if ($saved !== null) {
+            $this->htmlcellctx['originx'] = $saved['originx'];
+            $this->htmlcellctx['maxwidth'] = $saved['maxwidth'];
+            $tpx = $saved['originx'];
+            $tpw = $saved['maxwidth'];
+        }
+
+        return $out;
     }
 
     /**
