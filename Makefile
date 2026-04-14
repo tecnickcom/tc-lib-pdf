@@ -207,7 +207,7 @@ install: uninstall
 ifneq ($(strip $(CONFIGPATH)),)
 	mkdir -p $(PATHINSTCFG)
 	touch -c $(PATHINSTCFG)*
-	cp -ru ./resources/${CONFIGPATH}* $(PATHINSTCFG)
+	cp -r ./resources/${CONFIGPATH}* $(PATHINSTCFG)
 	find $(PATHINSTCFG) -type d -exec chmod 755 {} \;
 	find $(PATHINSTCFG) -type f -exec chmod 644 {} \;
 endif
