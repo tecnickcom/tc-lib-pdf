@@ -237,6 +237,96 @@ class TestableHTMLNobrProbe extends TestableHTML
     }
 }
 
+class TestableHTMLBBoxProbe extends TestableHTML
+{
+    /**
+     * @var array<int, array<string, float|string>>
+     */
+    private array $bboxTrace = [];
+
+    /**
+     * @return array<int, array<string, float|string>>
+     */
+    public function exposeGetBBoxTrace(): array
+    {
+        return $this->bboxTrace;
+    }
+
+    public function exposeResetBBoxTrace(): void
+    {
+        $this->bboxTrace = [];
+    }
+
+    public function getTextCell(
+        string $txt,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        float $offset = 0,
+        float $linespace = 0,
+        string $valign = 'C',
+        string $halign = 'C',
+        ?array $cell = null,
+        array $styles = [],
+        float $strokewidth = 0,
+        float $wordspacing = 0,
+        float $leading = 0,
+        float $rise = 0,
+        bool $jlast = true,
+        bool $fill = true,
+        bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
+        bool $clip = false,
+        bool $drawcell = true,
+        string $forcedir = '',
+        ?array $shadow = null,
+    ): string {
+        $out = parent::getTextCell(
+            $txt,
+            $posx,
+            $posy,
+            $width,
+            $height,
+            $offset,
+            $linespace,
+            $valign,
+            $halign,
+            $cell,
+            $styles,
+            $strokewidth,
+            $wordspacing,
+            $leading,
+            $rise,
+            $jlast,
+            $fill,
+            $stroke,
+            $underline,
+            $linethrough,
+            $overline,
+            $clip,
+            $drawcell,
+            $forcedir,
+            $shadow,
+        );
+
+        $bbox = $this->getLastBBox();
+        $curfont = $this->font->getCurrentFont();
+        $this->bboxTrace[] = [
+            'txt' => $txt,
+            'in_x' => $posx,
+            'bbox_x' => $bbox['x'],
+            'bbox_w' => $bbox['w'],
+            'bbox_end_x' => $bbox['x'] + $bbox['w'],
+            'font_size' => (float) ($curfont['size'] ?? 0.0),
+        ];
+
+        return $out;
+    }
+}
+
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
  */
@@ -260,6 +350,11 @@ class HTMLTest extends TestUtil
     protected function getNobrProbeTestObject(): TestableHTMLNobrProbe
     {
         return new TestableHTMLNobrProbe();
+    }
+
+    protected function getBBoxProbeTestObject(): TestableHTMLBBoxProbe
+    {
+        return new TestableHTMLBBoxProbe();
     }
 
     /**
@@ -923,6 +1018,56 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('BT', $out);
+    }
+
+    public function testGetHTMLCellTracksBBoxForRepeatedSmallTagText(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeResetBBoxTrace();
+        $html = 'normal <small>small text</small> normal <small>small text</small>';
+        $out = $obj->getHTMLCell($html, 0, 0, 200, 20);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(4, $trace);
+
+        $this->assertSame('normal ', $trace[0]['txt']);
+        $this->assertSame('small text', $trace[1]['txt']);
+        $this->assertSame(' normal ', $trace[2]['txt']);
+        $this->assertSame('small text', $trace[3]['txt']);
+
+        $this->assertEqualsWithDelta(10.0, (float) $trace[0]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(7.0, (float) $trace[1]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(10.0, (float) $trace[2]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(7.0, (float) $trace[3]['font_size'], 1e-9);
+
+        $this->assertGreaterThan((float) $trace[0]['bbox_end_x'], (float) $trace[1]['bbox_end_x']);
+        $this->assertGreaterThan((float) $trace[1]['bbox_end_x'], (float) $trace[2]['bbox_end_x']);
+        $this->assertGreaterThan((float) $trace[2]['bbox_end_x'], (float) $trace[3]['bbox_end_x']);
+
+        $this->assertEqualsWithDelta(
+            (float) $trace[0]['bbox_end_x'],
+            (float) $trace[1]['bbox_x'],
+            1e-9,
+        );
+        $this->assertEqualsWithDelta(
+            (float) $trace[1]['bbox_end_x'],
+            (float) $trace[2]['bbox_x'],
+            1e-9,
+        );
+        $this->assertEqualsWithDelta(
+            (float) $trace[2]['bbox_end_x'],
+            (float) $trace[3]['bbox_x'],
+            1e-9,
+        );
+
+        $this->assertEqualsWithDelta(
+            (float) $trace[1]['bbox_w'],
+            (float) $trace[3]['bbox_w'],
+            1e-9,
+        );
     }
 
     public function testAllParseHTMLTagMethodsCanBeInvoked(): void

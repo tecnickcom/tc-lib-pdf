@@ -2326,7 +2326,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Reset the temporary HTML cell rendering context.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function clearHTMLCellContext(array &$hrc): void
     {
@@ -2350,7 +2350,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Estimate the total rendered height for rows inside a table-header fragment.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function estimateHTMLTableHeadHeight(string $thead, array &$hrc): float
     {
@@ -2404,7 +2404,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Replay stored table-header HTML at the current row position.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function replayHTMLTableHead(
         string $thead,
@@ -2431,7 +2431,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Estimate the total rendered height for a table row starting at the given TR node.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function estimateHTMLTableRowHeight(array &$hrc, int $trkey): float
     {
@@ -2531,7 +2531,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Estimate the rendered height of plain HTML text for the available width.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      */
     protected function estimateHTMLTextHeight(string $text, array $elm, float $width, array &$hrc): float
@@ -2559,7 +2559,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Estimate the height of a nobr subtree so it can be moved intact to a new region.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function estimateHTMLNobrHeight(array &$hrc, int $startkey, float $width): float
     {
@@ -2656,7 +2656,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Return the remaining vertical space in the current region or explicit cell box.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getHTMLRemainingHeight(array &$hrc, float $tpy): float
     {
@@ -2676,7 +2676,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Break to the next page region when the required height does not fit.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function breakHTMLIfNeeded(
         float $requiredh,
@@ -2710,7 +2710,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Push a new active HTML link.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function pushHTMLLink(array &$hrc, string $href): void
     {
@@ -2720,7 +2720,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Pop the current active HTML link.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function popHTMLLink(array &$hrc): void
     {
@@ -2734,7 +2734,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Get the current active HTML link.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getCurrentHTMLLink(array &$hrc): string
     {
@@ -2778,7 +2778,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Push a new list level onto the rendering stack.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      */
     protected function pushHTMLList(array &$hrc, array $elm, bool $ordered): void
@@ -2802,7 +2802,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Remove the current list level from the rendering stack.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function popHTMLList(array &$hrc): void
     {
@@ -2814,7 +2814,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Returns the current list depth.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getHTMLListDepth(array &$hrc): int
     {
@@ -2824,7 +2824,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Returns the next list marker counter for the current list level.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      */
     protected function getHTMLListItemCounter(array &$hrc, array $elm): int
@@ -2853,7 +2853,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Returns the marker type for the current list level.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getCurrentHTMLListMarkerType(array &$hrc): string
     {
@@ -2888,7 +2888,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Return the metric for the specified HTML node font.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      *
     * @return array<string, mixed>
@@ -2928,10 +2928,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $cachekey = $fontname . '|' . $fontstyle . '|' . (string) $fontsize;
         if (isset($hrc['fontcache'][$cachekey])) {
-            // Re-insert if the current font pointer doesn't match the desired one,
-            // so that getCurrentFont() returns the correct metrics for subsequent operations
-            // (e.g. getTextCell width/height calculations).
-            if ($this->font->getCurrentFontKey() !== $hrc['fontcache'][$cachekey]['key']) {
+            // Re-insert when cached font differs from the active one.
+            // Font key alone is not enough because different font sizes may share the same key.
+            $curfont = $this->font->getCurrentFont();
+            $cursize = (int) \round((float) ($curfont['size'] ?? 0));
+            $curkey = (string) $this->font->getCurrentFontKey();
+            $cachefontkey = '';
+            if (isset($hrc['fontcache'][$cachekey]['key']) && \is_string($hrc['fontcache'][$cachekey]['key'])) {
+                $cachefontkey = $hrc['fontcache'][$cachekey]['key'];
+            }
+            if (($curkey !== $cachefontkey) || ($cursize !== $fontsize)) {
                 $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
             }
 
@@ -2947,7 +2953,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Build the font and color prefix for a text fragment.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      */
     protected function getHTMLTextPrefix(array &$hrc, array $elm): string
@@ -2962,7 +2968,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Return the current HTML text advance for line-based layout.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      */
     protected function getHTMLLineAdvance(array &$hrc, array $elm): float
@@ -2979,7 +2985,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Normalize plain HTML text before rendering it.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function normalizeHTMLText(array &$hrc, string $text): string
     {
@@ -2994,7 +3000,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Reset the cursor to the current HTML block origin.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function resetHTMLLineCursor(array &$hrc, float &$tpx, float &$tpw): void
     {
@@ -3085,7 +3091,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Render raw literal text using the current HTML style context.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
      */
     protected function renderHTMLLiteralText(
@@ -3269,7 +3275,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Return the extra vertical space (in user units) for the given tag at a specific position.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      * @param int $position 0 = before open, 1 = after close.
      */
@@ -3290,7 +3296,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Render an HTML image and advance the inline cursor.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
      */
     protected function renderHTMLImage(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
@@ -3430,7 +3436,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Append a rendered HTML fragment to the active table-cell buffer when needed.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function captureHTMLTableCellBuffer(array &$hrc, string $fragment): bool
     {
@@ -3457,7 +3463,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Advance to the next free table column, skipping active row spans.
         *
-        * @param THTMLTableState $table
+     * @param THTMLTableState $table
      */
     protected function getHTMLTableNextFreeColumn(array $table): int
     {
@@ -4287,7 +4293,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML Text (content between tags).
      *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm DOM array element.
      * @param float  $tpx  Abscissa of upper-left corner.
      * @param float  $tpy  Ordinate of upper-left corner.
@@ -4316,7 +4322,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
         $availableWidth = ($tpw > 0) ? $tpw : 0.0;
 
+        // Capture current font metrics before the HTML prefix may switch fonts.
+        $prevFont = $this->font->getCurrentFont();
+        $prevAscent = $this->toUnit($prevFont['ascent']);
+        $prevSize = (float) ($prevFont['size'] ?? 0.0);
+
         $out = $this->getHTMLTextPrefix($hrc, $elm);
+
+        // Preserve the baseline when inline content changes font size.
+        // Style-only switches such as bold/italic can have slightly different
+        // ascent metrics, but they still belong on the same visual line.
+        $curfont = $this->font->getCurrentFont();
+        $curAscent = $this->toUnit($curfont['ascent']);
+        $curSize = (float) ($curfont['size'] ?? 0.0);
+        if ((\abs($curSize - $prevSize) > 0.001) && ($curAscent !== $prevAscent)) {
+            $tpy = $tpy + $prevAscent - $curAscent;
+        }
+
         $out .= $this->getTextCell(
             $text,
             $tpx,
@@ -5389,7 +5411,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Execute page-break style tcpdf callback and normalize cursor.
         *
-        * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function executeHTMLTcpdfPageBreak(array &$hrc, string $mode, float &$tpx, float &$tpw): void
     {

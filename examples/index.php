@@ -1792,6 +1792,7 @@ $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->page->addContent($bfont5['out']);
 
+
 $html_01 = '<h1>HTML Example</h1>
 Some special characters: &lt; € &euro; &#8364; &amp; è &egrave; &copy; &gt; \\slash \\\\double-slash \\\\\\triple-slash
 <h2>List</h2>
@@ -1823,11 +1824,6 @@ List example:
 	<dt>Milk</dt>
 	<dd>White cold drink</dd>
 </dl>';
-
-/*$html_01 = '<ul>
-<li>normal <small>small text</small></li>
-<li><small>small text</small> normal <small>small text</small></li>
-</ul>';*/
 
 $pdf->addHTMLCell(
     $html_01, // string $html,
