@@ -157,13 +157,17 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     /** @phpstan-param THTMLAttrib $elm */
     public function exposeOpenHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
-        return $this->openHTMLBlock([$elm], 0, $tpx, $tpy, $tpw);
+        $dom = [$elm];
+
+        return $this->openHTMLBlock($dom, 0, $tpx, $tpy, $tpw);
     }
 
     /** @phpstan-param THTMLAttrib $elm */
     public function exposeCloseHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
-        return $this->closeHTMLBlock([$elm], 0, $tpx, $tpy, $tpw);
+        $dom = [$elm];
+
+        return $this->closeHTMLBlock($dom, 0, $tpx, $tpy, $tpw);
     }
 }
 
@@ -178,7 +182,7 @@ class TestableHTMLNobrProbe extends TestableHTML
         return $this->nobrOpenStates;
     }
 
-    protected function parseHTMLTagOPENdiv(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENdiv(array &$dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         $elm = $dom[$key];
         $state = '';
