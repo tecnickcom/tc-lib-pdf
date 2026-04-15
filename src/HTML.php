@@ -356,23 +356,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected int $htmlprelevel = 0;
 
     /**
-     * Per-column content widths pre-computed for the next table to be opened.
-     *
-     * @var array<int, float>
-     */
-    protected array $htmlpendingcolwidths = [];
-
-    /**
-     * Horizontal cellspacing pre-computed for the next table to be opened.
-     */
-    protected float $htmlpndcellspacing = 0.0;
-
-    /**
-     * Default cell padding pre-computed for the next table to be opened.
-     */
-    protected float $htmlpndcellpadding = 0.0;
-
-    /**
      * Custom vertical spacing overrides for HTML block tags.
      * Structure: [ tagname => [ 0 => ['h' => float, 'n' => int], 1 => ['h' => float, 'n' => int] ] ]
      * Index 0 = before-open spacing, index 1 = after-close spacing.
@@ -3828,24 +3811,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     // Pre-compute per-column widths and spacing for table tags
-                    // so that parseHTMLTagOPENtable can use them from $this->htmlpending*.
+                    // and store them directly on the DOM node for parseHTMLTagOPENtable.
                     if (($elm['value'] === 'table') || ($elm['value'] === 'tablehead')) {
                         $tableCols = (!empty($elm['cols']) && \is_numeric($elm['cols']))
                             ? \max(1, (int) $elm['cols']) : 1;
                         $tableWidth = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
-                        $this->htmlpndcellspacing = (!empty($elm['attribute']['cellspacing'])
+                        // @phpstan-ignore parameterByRef.type
+                        $elm['pendingcellspacing'] = (!empty($elm['attribute']['cellspacing'])
                             && \is_numeric($elm['attribute']['cellspacing']))
                             ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellspacing']))
                             : 0.0;
-                        $this->htmlpndcellpadding = (!empty($elm['attribute']['cellpadding'])
+                        // @phpstan-ignore parameterByRef.type
+                        $elm['pendingcellpadding'] = (!empty($elm['attribute']['cellpadding'])
                             && \is_numeric($elm['attribute']['cellpadding']))
                             ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellpadding']))
                             : 0.0;
                         $availableForCols = \max(
                             0.0,
-                            $tableWidth - $this->htmlpndcellspacing * \max(0, $tableCols - 1)
+                            $tableWidth - $elm['pendingcellspacing'] * \max(0, $tableCols - 1)
                         );
-                        $this->htmlpendingcolwidths = $this->computeHTMLTableColWidths(
+                        // @phpstan-ignore parameterByRef.type
+                        $elm['pendingcolwidths'] = $this->computeHTMLTableColWidths(
                             $dom,
                             $key,
                             $tableCols,
@@ -5232,13 +5218,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cols = (!empty($elm['cols']) && \is_numeric($elm['cols'])) ? \max(1, (int) $elm['cols']) : 1;
         $colwidth = ($cols > 0) ? ($width / $cols) : $width;
 
-        // Consume pre-computed column widths and spacing set by renderHTMLCellFragments.
-        $colwidths = $this->htmlpendingcolwidths;
-        $cellspacing = $this->htmlpndcellspacing;
-        $cellpadding = $this->htmlpndcellpadding;
-        $this->htmlpendingcolwidths = [];
-        $this->htmlpndcellspacing = 0.0;
-        $this->htmlpndcellpadding = 0.0;
+        // Consume pre-computed column widths and spacing stored on the DOM node.
+        $colwidths = (isset($elm['pendingcolwidths']) && \is_array($elm['pendingcolwidths'])) ? $elm['pendingcolwidths'] : [];
+        $cellspacing = (isset($elm['pendingcellspacing']) && \is_numeric($elm['pendingcellspacing'])) ? (float) $elm['pendingcellspacing'] : 0.0;
+        $cellpadding = (isset($elm['pendingcellpadding']) && \is_numeric($elm['pendingcellpadding'])) ? (float) $elm['pendingcellpadding'] : 0.0;
 
         if (empty($colwidths)) {
             $colwidths = \array_fill(0, $cols, $colwidth);
