@@ -31,6 +31,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'originy' => 0.0,
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
+            'lineadvance' => 0.0,
             'basefont' => '',
         ],
         'fontcache' => [],
@@ -1068,6 +1069,91 @@ class HTMLTest extends TestUtil
             (float) $trace[3]['bbox_w'],
             1e-9,
         );
+    }
+
+    public function testGetHTMLCellCentersMixedDirectionInlineRunAsOneLine(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $cellWidth = 150.0;
+        $html = '<div style="text-align:center">'
+            . 'The words &#8220;<span dir="rtl">&#1502;&#1494;&#1500; [mazel] &#1496;&#1493;&#1489; [tov]</span>'
+            . '&#8221; mean &#8220;Congratulations!&#8221;</div>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, $cellWidth, 40);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(3, $trace);
+        $this->assertEqualsWithDelta((float) $trace[0]['bbox_end_x'], (float) $trace[1]['bbox_x'], 1e-9);
+        $this->assertEqualsWithDelta((float) $trace[1]['bbox_end_x'], (float) $trace[2]['bbox_x'], 1e-9);
+
+        $lineLeft = (float) $trace[0]['bbox_x'];
+        $lineRight = (float) $trace[2]['bbox_end_x'];
+        $this->assertEqualsWithDelta($cellWidth / 2, ($lineLeft + $lineRight) / 2, 1e-9);
+    }
+
+    public function testParseHTMLTextWrapsLargeInlineFragmentBeforeItOverflowsRemainingWidth(): void
+    {
+        $measure = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($measure);
+        $measure->exposeInitHTMLCellContext(0, 0, 200, 0);
+
+        $prefixElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => 'medium ',
+        ]);
+        $largeElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'fontsize' => 12.0,
+            'value' => 'large',
+        ]);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 200.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $prefixTrace = $measure->exposeGetBBoxTrace();
+        $prefixWidth = (float) $prefixTrace[0]['bbox_w'];
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 200.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($largeElm, $tpx, $tpy, $tpw, $tph);
+        $largeTrace = $measure->exposeGetBBoxTrace();
+        $largeWidth = (float) $largeTrace[0]['bbox_w'];
+
+        $cellWidth = $prefixWidth + $largeWidth - 0.1;
+
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0, 0, $cellWidth, 0);
+        $obj->exposeResetBBoxTrace();
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = $cellWidth;
+        $tph = 0.0;
+        $obj->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $obj->exposeParseHTMLText($largeElm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(2, $trace);
+        $this->assertSame('medium ', $trace[0]['txt']);
+        $this->assertSame('large', $trace[1]['txt']);
+        $this->assertGreaterThan(0.0, (float) $trace[0]['bbox_x'] + (float) $trace[0]['bbox_w']);
+        $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
+        $this->assertLessThanOrEqual($cellWidth + 1e-9, (float) $trace[1]['bbox_end_x']);
     }
 
     public function testAllParseHTMLTagMethodsCanBeInvoked(): void
@@ -2519,6 +2605,32 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('BT', $out);
         $this->assertGreaterThan(1.0, $tpx);
+    }
+
+    public function testParseHTMLTextWrapsInlineContentFromLineOrigin(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 30.0, 60.0);
+
+        $elm = $this->makeHtmlNode([
+            'fontstyle' => 'UD',
+            'value' => 'underline and line-trough',
+        ]);
+        $tpx = 10.0;
+        $tpy = 0.0;
+        $tpw = 20.0;
+        $tph = 60.0;
+
+        $out = $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertNotSame('', $out);
+        $numMatches = \preg_match_all('/([0-9]+\.[0-9]+) ([0-9]+\.[0-9]+) Td /', $out, $matches);
+
+        $this->assertIsInt($numMatches);
+        $this->assertGreaterThanOrEqual(2, $numMatches);
+        $this->assertGreaterThan(0.0, (float) $matches[1][0]);
+        $this->assertEqualsWithDelta(0.0, (float) $matches[1][1], 0.000001);
     }
 
     public function testGetHTMLDOMTextNodesInheritParentFormatting(): void
