@@ -44,7 +44,7 @@ For details, see <https://semver.org>.
 - Font subsetting
 - SVG support
 - CSS support
-- HTML support
+- HTML support [WIP] - getting there! needs some extra testing and fixes
 - JavaScript support
 - Images, geometric graphics, and transformation methods
 - Native JPEG, PNG, and SVG support
