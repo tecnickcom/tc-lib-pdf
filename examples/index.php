@@ -1792,6 +1792,7 @@ $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->page->addContent($bfont5['out']);
 
+
 $html_01 = '<h1>HTML Example</h1>
 Some special characters: &lt; € &euro; &#8364; &amp; è &egrave; &copy; &gt; \\slash \\\\double-slash \\\\\\triple-slash
 <h2>List</h2>
