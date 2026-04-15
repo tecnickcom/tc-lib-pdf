@@ -1824,6 +1824,11 @@ List example:
 	<dd>White cold drink</dd>
 </dl>';
 
+$html_01 = '<ul>
+<li>normal <small>small text</small></li>
+<li><small>small text</small> normal <small>small text</small></li>
+</ul>';
+
 $pdf->addHTMLCell(
     $html_01, // string $html,
     20, // float $posx = 0,

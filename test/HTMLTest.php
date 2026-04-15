@@ -56,7 +56,8 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float &$tpw,
         float &$tph,
     ): string {
-        $out = $this->{$method}($elm, $tpx, $tpy, $tpw, $tph);
+        $dom = [$elm];
+        $out = $this->{$method}($dom, 0, $tpx, $tpy, $tpw, $tph);
         if (!\is_string($out)) {
             return '';
         }
@@ -156,13 +157,13 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     /** @phpstan-param THTMLAttrib $elm */
     public function exposeOpenHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock([$elm], 0, $tpx, $tpy, $tpw);
     }
 
     /** @phpstan-param THTMLAttrib $elm */
     public function exposeCloseHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
     {
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock([$elm], 0, $tpx, $tpy, $tpw);
     }
 }
 
@@ -177,15 +178,16 @@ class TestableHTMLNobrProbe extends TestableHTML
         return $this->nobrOpenStates;
     }
 
-    protected function parseHTMLTagOPENdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENdiv(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         $state = '';
         if (!empty($elm['attribute']['nobr']) && \is_string($elm['attribute']['nobr'])) {
             $state = $elm['attribute']['nobr'];
         }
         $this->nobrOpenStates[] = $state;
 
-        return parent::parseHTMLTagOPENdiv($elm, $tpx, $tpy, $tpw, $tph);
+        return parent::parseHTMLTagOPENdiv($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 }
 

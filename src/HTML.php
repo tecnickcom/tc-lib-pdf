@@ -3020,10 +3020,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Move the HTML cursor to the next line.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      */
-    protected function moveHTMLToNextLine(array $elm, float &$tpx, float &$tpy, float &$tpw, float $extra = 0): void
+    protected function moveHTMLToNextLine(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float $extra = 0): void
     {
+        $elm = $dom[$key];
         $this->resetHTMLLineCursor($tpx, $tpw);
         $tpy += $this->getHTMLLineAdvance($elm) + $extra;
     }
@@ -3031,10 +3033,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Open a simple block-level HTML element.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      */
-    protected function openHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    protected function openHTMLBlock(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
+        $elm = $dom[$key];
         $hasinlinecontent = ($tpx > ($this->htmlcellctx['originx'] + 0.001));
         $lineadvance = $hasinlinecontent ? $this->getHTMLLineAdvance($elm) : 0.0;
 
@@ -3061,10 +3065,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Close a simple block-level HTML element.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      */
-    protected function closeHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
+    protected function closeHTMLBlock(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
+        $elm = $dom[$key];
         // When a block closes on the same line where inline text was rendered,
         // advance by one line height before applying bottom spacing.
         $hasinlinecontent = ($tpx > ($this->htmlcellctx['originx'] + 0.001));
@@ -3848,57 +3854,60 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         );
                     }
 
+                    // Keep the DOM node in sync with local preprocessing updates.
+                    $dom[$key] = $elm;
+
                     $fragment = match ($elm['value']) {
-                        'a'          => $this->parseHTMLTagOPENa($elm, $tpx, $tpy, $tpw, $tph),
-                        'b'          => $this->parseHTMLTagOPENb($elm, $tpx, $tpy, $tpw, $tph),
-                        'blockquote' => $this->parseHTMLTagOPENblockquote($elm, $tpx, $tpy, $tpw, $tph),
-                        'body'       => $this->parseHTMLTagOPENbody($elm, $tpx, $tpy, $tpw, $tph),
-                        'br'         => $this->parseHTMLTagOPENbr($elm, $tpx, $tpy, $tpw, $tph),
-                        'dd'         => $this->parseHTMLTagOPENdd($elm, $tpx, $tpy, $tpw, $tph),
-                        'del'        => $this->parseHTMLTagOPENdel($elm, $tpx, $tpy, $tpw, $tph),
-                        'div'        => $this->parseHTMLTagOPENdiv($elm, $tpx, $tpy, $tpw, $tph),
-                        'dl'         => $this->parseHTMLTagOPENdl($elm, $tpx, $tpy, $tpw, $tph),
-                        'dt'         => $this->parseHTMLTagOPENdt($elm, $tpx, $tpy, $tpw, $tph),
-                        'em'         => $this->parseHTMLTagOPENem($elm, $tpx, $tpy, $tpw, $tph),
-                        'font'       => $this->parseHTMLTagOPENfont($elm, $tpx, $tpy, $tpw, $tph),
-                        'form'       => $this->parseHTMLTagOPENform($elm, $tpx, $tpy, $tpw, $tph),
-                        'h1'         => $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph),
-                        'h2'         => $this->parseHTMLTagOPENh2($elm, $tpx, $tpy, $tpw, $tph),
-                        'h3'         => $this->parseHTMLTagOPENh3($elm, $tpx, $tpy, $tpw, $tph),
-                        'h4'         => $this->parseHTMLTagOPENh4($elm, $tpx, $tpy, $tpw, $tph),
-                        'h5'         => $this->parseHTMLTagOPENh5($elm, $tpx, $tpy, $tpw, $tph),
-                        'h6'         => $this->parseHTMLTagOPENh6($elm, $tpx, $tpy, $tpw, $tph),
-                        'hr'         => $this->parseHTMLTagOPENhr($elm, $tpx, $tpy, $tpw, $tph),
-                        'i'          => $this->parseHTMLTagOPENi($elm, $tpx, $tpy, $tpw, $tph),
-                        'img'        => $this->parseHTMLTagOPENimg($elm, $tpx, $tpy, $tpw, $tph),
-                        'input'      => $this->parseHTMLTagOPENinput($elm, $tpx, $tpy, $tpw, $tph),
-                        'label'      => $this->parseHTMLTagOPENlabel($elm, $tpx, $tpy, $tpw, $tph),
-                        'li'         => $this->parseHTMLTagOPENli($elm, $tpx, $tpy, $tpw, $tph),
-                        'marker'     => $this->parseHTMLTagOPENmarker($elm, $tpx, $tpy, $tpw, $tph),
-                        'ol'         => $this->parseHTMLTagOPENol($elm, $tpx, $tpy, $tpw, $tph),
-                        'option'     => $this->parseHTMLTagOPENoption($elm, $tpx, $tpy, $tpw, $tph),
-                        'output'     => $this->parseHTMLTagOPENoutput($elm, $tpx, $tpy, $tpw, $tph),
-                        'p'          => $this->parseHTMLTagOPENp($elm, $tpx, $tpy, $tpw, $tph),
-                        'pre'        => $this->parseHTMLTagOPENpre($elm, $tpx, $tpy, $tpw, $tph),
-                        's'          => $this->parseHTMLTagOPENs($elm, $tpx, $tpy, $tpw, $tph),
-                        'select'     => $this->parseHTMLTagOPENselect($elm, $tpx, $tpy, $tpw, $tph),
-                        'small'      => $this->parseHTMLTagOPENsmall($elm, $tpx, $tpy, $tpw, $tph),
-                        'span'       => $this->parseHTMLTagOPENspan($elm, $tpx, $tpy, $tpw, $tph),
-                        'strike'     => $this->parseHTMLTagOPENstrike($elm, $tpx, $tpy, $tpw, $tph),
-                        'strong'     => $this->parseHTMLTagOPENstrong($elm, $tpx, $tpy, $tpw, $tph),
-                        'sub'        => $this->parseHTMLTagOPENsub($elm, $tpx, $tpy, $tpw, $tph),
-                        'sup'        => $this->parseHTMLTagOPENsup($elm, $tpx, $tpy, $tpw, $tph),
-                        'table'      => $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph),
-                        'tablehead'  => $this->parseHTMLTagOPENtablehead($elm, $tpx, $tpy, $tpw, $tph),
-                        'tcpdf'      => $this->parseHTMLTagOPENtcpdf($elm, $tpx, $tpy, $tpw, $tph),
-                        'td'         => $this->parseHTMLTagOPENtd($elm, $tpx, $tpy, $tpw, $tph),
-                        'textarea'   => $this->parseHTMLTagOPENtextarea($elm, $tpx, $tpy, $tpw, $tph),
-                        'th'         => $this->parseHTMLTagOPENth($elm, $tpx, $tpy, $tpw, $tph),
-                        'thead'      => $this->parseHTMLTagOPENthead($elm, $tpx, $tpy, $tpw, $tph),
-                        'tr'         => $this->parseHTMLTagOPENtr($elm, $tpx, $tpy, $tpw, $tph),
-                        'tt'         => $this->parseHTMLTagOPENtt($elm, $tpx, $tpy, $tpw, $tph),
-                        'u'          => $this->parseHTMLTagOPENu($elm, $tpx, $tpy, $tpw, $tph),
-                        'ul'         => $this->parseHTMLTagOPENul($elm, $tpx, $tpy, $tpw, $tph),
+                        'a'          => $this->parseHTMLTagOPENa($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'b'          => $this->parseHTMLTagOPENb($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'blockquote' => $this->parseHTMLTagOPENblockquote($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'body'       => $this->parseHTMLTagOPENbody($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'br'         => $this->parseHTMLTagOPENbr($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'dd'         => $this->parseHTMLTagOPENdd($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'del'        => $this->parseHTMLTagOPENdel($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'div'        => $this->parseHTMLTagOPENdiv($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'dl'         => $this->parseHTMLTagOPENdl($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'dt'         => $this->parseHTMLTagOPENdt($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'em'         => $this->parseHTMLTagOPENem($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'font'       => $this->parseHTMLTagOPENfont($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'form'       => $this->parseHTMLTagOPENform($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h1'         => $this->parseHTMLTagOPENh1($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h2'         => $this->parseHTMLTagOPENh2($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h3'         => $this->parseHTMLTagOPENh3($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h4'         => $this->parseHTMLTagOPENh4($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h5'         => $this->parseHTMLTagOPENh5($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h6'         => $this->parseHTMLTagOPENh6($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'hr'         => $this->parseHTMLTagOPENhr($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'i'          => $this->parseHTMLTagOPENi($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'img'        => $this->parseHTMLTagOPENimg($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'input'      => $this->parseHTMLTagOPENinput($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'label'      => $this->parseHTMLTagOPENlabel($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'li'         => $this->parseHTMLTagOPENli($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'marker'     => $this->parseHTMLTagOPENmarker($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'ol'         => $this->parseHTMLTagOPENol($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'option'     => $this->parseHTMLTagOPENoption($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'output'     => $this->parseHTMLTagOPENoutput($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'p'          => $this->parseHTMLTagOPENp($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'pre'        => $this->parseHTMLTagOPENpre($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        's'          => $this->parseHTMLTagOPENs($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'select'     => $this->parseHTMLTagOPENselect($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'small'      => $this->parseHTMLTagOPENsmall($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'span'       => $this->parseHTMLTagOPENspan($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'strike'     => $this->parseHTMLTagOPENstrike($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'strong'     => $this->parseHTMLTagOPENstrong($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'sub'        => $this->parseHTMLTagOPENsub($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'sup'        => $this->parseHTMLTagOPENsup($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'table'      => $this->parseHTMLTagOPENtable($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tablehead'  => $this->parseHTMLTagOPENtablehead($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tcpdf'      => $this->parseHTMLTagOPENtcpdf($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'td'         => $this->parseHTMLTagOPENtd($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'textarea'   => $this->parseHTMLTagOPENtextarea($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'th'         => $this->parseHTMLTagOPENth($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'thead'      => $this->parseHTMLTagOPENthead($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tr'         => $this->parseHTMLTagOPENtr($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tt'         => $this->parseHTMLTagOPENtt($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'u'          => $this->parseHTMLTagOPENu($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'ul'         => $this->parseHTMLTagOPENul($dom, $key, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
                     if (!$this->captureHTMLTableCellBuffer($fragment)) {
@@ -3927,56 +3936,56 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     $fragment = match ($elm['value']) {
-                        'a'          => $this->parseHTMLTagCLOSEa($elm, $tpx, $tpy, $tpw, $tph),
-                        'b'          => $this->parseHTMLTagCLOSEb($elm, $tpx, $tpy, $tpw, $tph),
-                        'blockquote' => $this->parseHTMLTagCLOSEblockquote($elm, $tpx, $tpy, $tpw, $tph),
-                        'body'       => $this->parseHTMLTagCLOSEbody($elm, $tpx, $tpy, $tpw, $tph),
-                        'br'         => $this->parseHTMLTagCLOSEbr($elm, $tpx, $tpy, $tpw, $tph),
-                        'dd'         => $this->parseHTMLTagCLOSEdd($elm, $tpx, $tpy, $tpw, $tph),
-                        'del'        => $this->parseHTMLTagCLOSEdel($elm, $tpx, $tpy, $tpw, $tph),
-                        'div'        => $this->parseHTMLTagCLOSEdiv($elm, $tpx, $tpy, $tpw, $tph),
-                        'dl'         => $this->parseHTMLTagCLOSEdl($elm, $tpx, $tpy, $tpw, $tph),
-                        'dt'         => $this->parseHTMLTagCLOSEdt($elm, $tpx, $tpy, $tpw, $tph),
-                        'em'         => $this->parseHTMLTagCLOSEem($elm, $tpx, $tpy, $tpw, $tph),
-                        'font'       => $this->parseHTMLTagCLOSEfont($elm, $tpx, $tpy, $tpw, $tph),
-                        'form'       => $this->parseHTMLTagCLOSEform($elm, $tpx, $tpy, $tpw, $tph),
-                        'h1'         => $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph),
-                        'h2'         => $this->parseHTMLTagCLOSEh2($elm, $tpx, $tpy, $tpw, $tph),
-                        'h3'         => $this->parseHTMLTagCLOSEh3($elm, $tpx, $tpy, $tpw, $tph),
-                        'h4'         => $this->parseHTMLTagCLOSEh4($elm, $tpx, $tpy, $tpw, $tph),
-                        'h5'         => $this->parseHTMLTagCLOSEh5($elm, $tpx, $tpy, $tpw, $tph),
-                        'h6'         => $this->parseHTMLTagCLOSEh6($elm, $tpx, $tpy, $tpw, $tph),
-                        'hr'         => $this->parseHTMLTagCLOSEhr($elm, $tpx, $tpy, $tpw, $tph),
-                        'i'          => $this->parseHTMLTagCLOSEi($elm, $tpx, $tpy, $tpw, $tph),
-                        'img'        => $this->parseHTMLTagCLOSEimg($elm, $tpx, $tpy, $tpw, $tph),
-                        'input'      => $this->parseHTMLTagCLOSEinput($elm, $tpx, $tpy, $tpw, $tph),
-                        'label'      => $this->parseHTMLTagCLOSElabel($elm, $tpx, $tpy, $tpw, $tph),
-                        'li'         => $this->parseHTMLTagCLOSEli($elm, $tpx, $tpy, $tpw, $tph),
-                        'marker'     => $this->parseHTMLTagCLOSEmarker($elm, $tpx, $tpy, $tpw, $tph),
-                        'ol'         => $this->parseHTMLTagCLOSEol($elm, $tpx, $tpy, $tpw, $tph),
-                        'option'     => $this->parseHTMLTagCLOSEoption($elm, $tpx, $tpy, $tpw, $tph),
-                        'output'     => $this->parseHTMLTagCLOSEoutput($elm, $tpx, $tpy, $tpw, $tph),
-                        'p'          => $this->parseHTMLTagCLOSEp($elm, $tpx, $tpy, $tpw, $tph),
-                        'pre'        => $this->parseHTMLTagCLOSEpre($elm, $tpx, $tpy, $tpw, $tph),
-                        's'          => $this->parseHTMLTagCLOSEs($elm, $tpx, $tpy, $tpw, $tph),
-                        'select'     => $this->parseHTMLTagCLOSEselect($elm, $tpx, $tpy, $tpw, $tph),
-                        'small'      => $this->parseHTMLTagCLOSEsmall($elm, $tpx, $tpy, $tpw, $tph),
-                        'span'       => $this->parseHTMLTagCLOSEspan($elm, $tpx, $tpy, $tpw, $tph),
-                        'strike'     => $this->parseHTMLTagCLOSEstrike($elm, $tpx, $tpy, $tpw, $tph),
-                        'strong'     => $this->parseHTMLTagCLOSEstrong($elm, $tpx, $tpy, $tpw, $tph),
-                        'sub'        => $this->parseHTMLTagCLOSEsub($elm, $tpx, $tpy, $tpw, $tph),
-                        'sup'        => $this->parseHTMLTagCLOSEsup($elm, $tpx, $tpy, $tpw, $tph),
-                        'table'      => $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph),
-                        'tablehead'  => $this->parseHTMLTagCLOSEtablehead($elm, $tpx, $tpy, $tpw, $tph),
-                        'tcpdf'      => $this->parseHTMLTagCLOSEtcpdf($elm, $tpx, $tpy, $tpw, $tph),
-                        'td'         => $this->parseHTMLTagCLOSEtd($elm, $tpx, $tpy, $tpw, $tph),
-                        'textarea'   => $this->parseHTMLTagCLOSEtextarea($elm, $tpx, $tpy, $tpw, $tph),
-                        'th'         => $this->parseHTMLTagCLOSEth($elm, $tpx, $tpy, $tpw, $tph),
-                        'thead'      => $this->parseHTMLTagCLOSEthead($elm, $tpx, $tpy, $tpw, $tph),
-                        'tr'         => $this->parseHTMLTagCLOSEtr($elm, $tpx, $tpy, $tpw, $tph),
-                        'tt'         => $this->parseHTMLTagCLOSEtt($elm, $tpx, $tpy, $tpw, $tph),
-                        'u'          => $this->parseHTMLTagCLOSEu($elm, $tpx, $tpy, $tpw, $tph),
-                        'ul'         => $this->parseHTMLTagCLOSEul($elm, $tpx, $tpy, $tpw, $tph),
+                        'a'          => $this->parseHTMLTagCLOSEa($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'b'          => $this->parseHTMLTagCLOSEb($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'blockquote' => $this->parseHTMLTagCLOSEblockquote($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'body'       => $this->parseHTMLTagCLOSEbody($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'br'         => $this->parseHTMLTagCLOSEbr($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'dd'         => $this->parseHTMLTagCLOSEdd($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'del'        => $this->parseHTMLTagCLOSEdel($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'div'        => $this->parseHTMLTagCLOSEdiv($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'dl'         => $this->parseHTMLTagCLOSEdl($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'dt'         => $this->parseHTMLTagCLOSEdt($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'em'         => $this->parseHTMLTagCLOSEem($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'font'       => $this->parseHTMLTagCLOSEfont($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'form'       => $this->parseHTMLTagCLOSEform($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h1'         => $this->parseHTMLTagCLOSEh1($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h2'         => $this->parseHTMLTagCLOSEh2($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h3'         => $this->parseHTMLTagCLOSEh3($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h4'         => $this->parseHTMLTagCLOSEh4($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h5'         => $this->parseHTMLTagCLOSEh5($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'h6'         => $this->parseHTMLTagCLOSEh6($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'hr'         => $this->parseHTMLTagCLOSEhr($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'i'          => $this->parseHTMLTagCLOSEi($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'img'        => $this->parseHTMLTagCLOSEimg($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'input'      => $this->parseHTMLTagCLOSEinput($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'label'      => $this->parseHTMLTagCLOSElabel($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'li'         => $this->parseHTMLTagCLOSEli($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'marker'     => $this->parseHTMLTagCLOSEmarker($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'ol'         => $this->parseHTMLTagCLOSEol($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'option'     => $this->parseHTMLTagCLOSEoption($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'output'     => $this->parseHTMLTagCLOSEoutput($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'p'          => $this->parseHTMLTagCLOSEp($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'pre'        => $this->parseHTMLTagCLOSEpre($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        's'          => $this->parseHTMLTagCLOSEs($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'select'     => $this->parseHTMLTagCLOSEselect($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'small'      => $this->parseHTMLTagCLOSEsmall($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'span'       => $this->parseHTMLTagCLOSEspan($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'strike'     => $this->parseHTMLTagCLOSEstrike($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'strong'     => $this->parseHTMLTagCLOSEstrong($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'sub'        => $this->parseHTMLTagCLOSEsub($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'sup'        => $this->parseHTMLTagCLOSEsup($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'table'      => $this->parseHTMLTagCLOSEtable($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tablehead'  => $this->parseHTMLTagCLOSEtablehead($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tcpdf'      => $this->parseHTMLTagCLOSEtcpdf($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'td'         => $this->parseHTMLTagCLOSEtd($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'textarea'   => $this->parseHTMLTagCLOSEtextarea($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'th'         => $this->parseHTMLTagCLOSEth($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'thead'      => $this->parseHTMLTagCLOSEthead($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tr'         => $this->parseHTMLTagCLOSEtr($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'tt'         => $this->parseHTMLTagCLOSEtt($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'u'          => $this->parseHTMLTagCLOSEu($dom, $key, $tpx, $tpy, $tpw, $tph),
+                        'ul'         => $this->parseHTMLTagCLOSEul($dom, $key, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
                     if (!$this->captureHTMLTableCellBuffer($fragment)) {
@@ -4318,7 +4327,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <a>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4328,8 +4338,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENa(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENa(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         $href = (!empty($elm['attribute']['href']) && \is_string($elm['attribute']['href']))
             ? $elm['attribute']['href']
             : '';
@@ -4341,7 +4352,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <b>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4349,16 +4361,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENb(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENb(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <blockquote>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4366,16 +4379,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENblockquote(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENblockquote(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <body>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4383,16 +4397,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENbody(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENbody(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <br>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4400,17 +4415,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENbr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENbr(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        $this->moveHTMLToNextLine($elm, $tpx, $tpy, $tpw);
+        $this->moveHTMLToNextLine($dom, $key, $tpx, $tpy, $tpw);
         return '';
     }
 
     /**
      * Process HTML opening tag <dd>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4418,10 +4434,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENdd(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         $indent = $this->getHTMLListIndentWidth();
         $tpx += $indent;
         if ($tpw > 0) {
@@ -4434,7 +4450,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <del>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4442,16 +4459,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENdel(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <div>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4459,16 +4477,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENdiv(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <dl>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4476,16 +4495,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdl(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENdl(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <dt>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4493,16 +4513,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENdt(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <em>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4510,16 +4531,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENem(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENem(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <font>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4527,16 +4549,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENfont(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENfont(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <form>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4544,16 +4567,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENform(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENform(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <h1>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4561,16 +4585,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh1(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENh1(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <h2>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4578,15 +4603,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh2(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENh2(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML opening tag <h3>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4594,15 +4620,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh3(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENh3(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML opening tag <h4>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4610,15 +4637,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh4(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENh4(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML opening tag <h5>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4626,15 +4654,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh5(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENh5(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML opening tag <h6>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4642,15 +4671,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh6(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENh6(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML opening tag <hr>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4658,10 +4688,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENhr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENhr(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
-        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         $availableWidth = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
         $width = $availableWidth;
         if (!empty($elm['width']) && \is_numeric($elm['width']) && (float) $elm['width'] > 0) {
@@ -4688,7 +4719,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 'lineColor' => empty($elm['fgcolor']) ? 'black' : (string) $elm['fgcolor'],
             ],
         );
-        $this->moveHTMLToNextLine($elm, $tpx, $tpy, $tpw);
+        $this->moveHTMLToNextLine($dom, $key, $tpx, $tpy, $tpw);
 
         return $out;
     }
@@ -4696,7 +4727,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <i>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4704,16 +4736,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENi(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENi(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <img>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4721,8 +4754,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENimg(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENimg(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
         return $this->renderHTMLImage($elm, $tpx, $tpy, $tpw);
     }
@@ -4730,7 +4764,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <input>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4738,8 +4773,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENinput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENinput(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
         if (!\is_array($attr)) {
@@ -4799,7 +4835,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <label>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4807,16 +4844,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENlabel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENlabel(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <li>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4824,10 +4862,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENli(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
-        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth();
         if ($depth < 1) {
             return $out;
@@ -4861,7 +4900,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <marker>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4869,16 +4909,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENmarker(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENmarker(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <ol>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4886,10 +4927,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENol(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENol(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
-        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         $this->pushHTMLList($elm, true);
 
         return $out;
@@ -4898,7 +4940,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <option>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4906,8 +4949,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENoption(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENoption(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         $label = '';
         if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
             $label = $elm['attribute']['value'];
@@ -4919,7 +4963,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <output>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4927,8 +4972,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENoutput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENoutput(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         $label = '';
         if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
             $label = $elm['attribute']['value'];
@@ -4940,7 +4986,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <p>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4948,16 +4995,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENp(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENp(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <pre>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4965,17 +5013,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENpre(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENpre(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
         ++$this->htmlprelevel;
-        return $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML opening tag <s>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -4983,16 +5032,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENs(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENs(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <select>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5000,8 +5050,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENselect(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENselect(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
         if (!\is_array($attr)) {
@@ -5053,7 +5104,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <small>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5061,16 +5113,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENsmall(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENsmall(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <span>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5078,16 +5131,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENspan(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENspan(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <strike>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5095,16 +5149,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENstrike(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENstrike(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <strong>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5112,16 +5167,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENstrong(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENstrong(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <sub>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5129,8 +5185,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENsub(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($elm, $tpy, self::VERT_SHIFT_SUB);
     }
@@ -5138,7 +5195,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <sup>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5146,8 +5204,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENsup(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENsup(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($elm, $tpy, -self::VERT_SHIFT_SUP);
     }
@@ -5155,7 +5214,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <table>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5163,11 +5223,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtable(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENtable(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
 
-        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         $width = ($tpw > 0) ? $tpw : $this->htmlcellctx['maxwidth'];
         $cols = (!empty($elm['cols']) && \is_numeric($elm['cols'])) ? \max(1, (int) $elm['cols']) : 1;
         $colwidth = ($cols > 0) ? ($width / $cols) : $width;
@@ -5209,7 +5270,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <tablehead>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5217,9 +5279,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtablehead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENtablehead(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENtable($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENtable($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -5297,7 +5359,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <tcpdf>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5305,8 +5368,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtcpdf(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENtcpdf(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tpy, $tph);
 
         if (!empty($elm['attribute']['data']) && \is_string($elm['attribute']['data'])) {
@@ -5356,7 +5420,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <td>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5364,8 +5429,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENtd(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
 
         $tableidx = \count($this->htmltablestack) - 1;
@@ -5464,7 +5530,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <textarea>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5472,8 +5539,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtextarea(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENtextarea(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
         if (!\is_array($attr)) {
@@ -5502,7 +5570,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <th>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5510,15 +5579,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENth(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENth(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENtd($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENtd($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML opening tag <thead>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5526,15 +5596,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENthead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENthead(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagOPENtablehead($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagOPENtablehead($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML opening tag <tr>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5542,8 +5613,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENtr(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($elm, $tph);
 
         $tableidx = \count($this->htmltablestack) - 1;
@@ -5567,7 +5639,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <tt>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5575,16 +5648,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENtt(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <u>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5592,16 +5666,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENu(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENu(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML opening tag <ul>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5609,10 +5684,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENul(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagOPENul(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
-        $out = $this->openHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->openHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         $this->pushHTMLList($elm, false);
 
         return $out;
@@ -5626,7 +5702,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML closing tag </a>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5636,8 +5713,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEa(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEa(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         $value = '';
         if (!empty($elm['value']) && \is_string($elm['value'])) {
             $value = \strtolower($elm['value']);
@@ -5653,7 +5731,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML closing tag </b>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5661,16 +5740,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEb(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEb(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </blockquote>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5678,16 +5758,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEblockquote(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEblockquote(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </body>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5695,16 +5776,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEbody(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEbody(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </br>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5712,16 +5794,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEbr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEbr(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </dd>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5729,16 +5812,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEdd(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </del>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5746,16 +5830,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEdel(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </div>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5763,16 +5848,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdiv(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEdiv(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </dl>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5780,16 +5866,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdl(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEdl(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </dt>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5797,16 +5884,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEdt(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </em>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5814,16 +5902,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEem(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEem(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </font>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5831,16 +5920,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEfont(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEfont(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </form>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5848,16 +5938,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEform(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEform(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </h1>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5865,16 +5956,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh1(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEh1(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </h2>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5882,15 +5974,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh2(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEh2(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </h3>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5898,15 +5991,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh3(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEh3(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </h4>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5914,15 +6008,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh4(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEh4(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </h5>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5930,15 +6025,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh5(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEh5(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </h6>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5946,15 +6042,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh6(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEh6(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEh1($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEh1($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </hr>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5962,16 +6059,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEhr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEhr(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </i>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5979,16 +6077,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEi(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEi(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </img>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -5996,16 +6095,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEimg(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEimg(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </input>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6013,16 +6113,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEinput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEinput(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </label>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6030,16 +6131,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSElabel(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSElabel(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </li>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6047,10 +6149,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEli(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEli(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        $out = $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        $out = $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         $saved = \array_pop($this->htmllistack);
         if ($saved !== null) {
             $this->htmlcellctx['originx'] = $saved['originx'];
@@ -6065,7 +6167,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML closing tag </marker>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6073,16 +6176,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEmarker(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEmarker(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </ol>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6090,18 +6194,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEol(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEol(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
         $this->popHTMLList();
 
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </option>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6109,16 +6214,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEoption(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEoption(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </output>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6126,16 +6232,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEoutput(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEoutput(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </p>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6143,16 +6250,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEp(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEp(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </pre>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6160,17 +6268,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEpre(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEpre(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
         $this->htmlprelevel = \max(0, $this->htmlprelevel - 1);
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </s>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6178,16 +6287,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEs(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEs(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </select>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6195,16 +6305,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEselect(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEselect(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </small>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6212,16 +6323,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEsmall(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEsmall(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </span>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6229,16 +6341,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEspan(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEspan(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </strike>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6246,16 +6359,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEstrike(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEstrike(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </strong>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6263,16 +6377,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEstrong(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEstrong(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </sub>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6280,8 +6395,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEsub(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEsub(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($elm, $tpy, -self::VERT_SHIFT_SUB * self::FONT_SMALL_RATIO);
     }
@@ -6289,7 +6405,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML closing tag </sup>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6297,8 +6414,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEsup(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEsup(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($elm, $tpy, self::VERT_SHIFT_SUP * self::FONT_SMALL_RATIO);
     }
@@ -6306,7 +6424,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML closing tag </table>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6314,17 +6433,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtable(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEtable(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
 
         if (empty($this->htmltablestack)) {
-            return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+            return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         }
 
         $table = \array_pop($this->htmltablestack);
         if ($table === null) {
-            return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+            return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
         }
 
         $tpx = $table['originx'];
@@ -6344,13 +6463,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
 
-        return $out . $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $out . $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 
     /**
      * Process HTML closing tag </tablehead>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6358,15 +6478,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtablehead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEtablehead(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEtable($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEtable($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </tcpdf>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6374,16 +6495,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtcpdf(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEtcpdf(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </td>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6391,8 +6513,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtd(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEtd(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($tph);
 
         $tableidx = \count($this->htmltablestack) - 1;
@@ -6454,7 +6577,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML closing tag </textarea>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6462,16 +6586,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtextarea(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEtextarea(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </th>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6479,15 +6604,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEth(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEth(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEtd($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEtd($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </thead>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6495,15 +6621,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEthead(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEthead(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        return $this->parseHTMLTagCLOSEtablehead($elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLTagCLOSEtablehead($dom, $key, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
      * Process HTML closing tag </tr>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6511,8 +6638,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtr(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEtr(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
+        $elm = $dom[$key];
         unset($elm, $tph);
 
         $tableidx = \count($this->htmltablestack) - 1;
@@ -6590,7 +6718,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML closing tag </tt>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6598,16 +6727,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtt(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEtt(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </u>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6615,16 +6745,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEu(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEu(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($elm, $tpx, $tpy, $tpw, $tph);
+        unset($dom, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
 
     /**
      * Process HTML closing tag </ul>.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int   $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
      * @param float  $tpy Ordinate of upper-left corner.
      * @param float  $tpw Width.
@@ -6632,11 +6763,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEul(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    protected function parseHTMLTagCLOSEul(array $dom, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
         $this->popHTMLList();
 
-        return $this->closeHTMLBlock($elm, $tpx, $tpy, $tpw);
+        return $this->closeHTMLBlock($dom, $key, $tpx, $tpy, $tpw);
     }
 }
