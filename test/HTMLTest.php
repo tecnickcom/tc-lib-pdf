@@ -1071,6 +1071,30 @@ class HTMLTest extends TestUtil
         );
     }
 
+    public function testGetHTMLCellCentersMixedDirectionInlineRunAsOneLine(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $cellWidth = 150.0;
+        $html = '<div style="text-align:center">'
+            . 'The words &#8220;<span dir="rtl">&#1502;&#1494;&#1500; [mazel] &#1496;&#1493;&#1489; [tov]</span>'
+            . '&#8221; mean &#8220;Congratulations!&#8221;</div>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, $cellWidth, 40);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(3, $trace);
+        $this->assertEqualsWithDelta((float) $trace[0]['bbox_end_x'], (float) $trace[1]['bbox_x'], 1e-9);
+        $this->assertEqualsWithDelta((float) $trace[1]['bbox_end_x'], (float) $trace[2]['bbox_x'], 1e-9);
+
+        $lineLeft = (float) $trace[0]['bbox_x'];
+        $lineRight = (float) $trace[2]['bbox_end_x'];
+        $this->assertEqualsWithDelta($cellWidth / 2, ($lineLeft + $lineRight) / 2, 1e-9);
+    }
+
     public function testParseHTMLTextWrapsLargeInlineFragmentBeforeItOverflowsRemainingWidth(): void
     {
         $measure = $this->getBBoxProbeTestObject();

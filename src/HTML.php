@@ -89,6 +89,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @phpstan-type THTMLRenderContext array{
  *     'cellctx': array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, basefont: string},
+ *     'currentkey'?: int,
  *     'fontcache': array<string, array<string, mixed>>,
  *     'liststack': array<int, array{ordered: bool, type: string, count: int}>,
  *     'tablestack': array<int, THTMLTableState>,
@@ -3048,6 +3049,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Measure the width of the remaining inline run on the current HTML line.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function measureHTMLInlineRunWidth(array &$hrc, int $startkey): float
+    {
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = $hrc['dom'];
+        $numel = \count($dom);
+        $runwidth = 0.0;
+
+        for ($key = $startkey; $key < $numel; ++$key) {
+            $node = $dom[$key];
+
+            if (!empty($node['tag'])) {
+                if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
+                    break;
+                }
+
+                continue;
+            }
+
+            $text = $this->normalizeHTMLText($hrc, (string) $node['value']);
+            if ($text === '') {
+                continue;
+            }
+
+            $this->getHTMLFontMetric($hrc, $node);
+            $runwidth += $this->getStringWidth($text);
+        }
+
+        return $runwidth;
+    }
+
+    /**
      * Move the HTML cursor to the next line.
      *
      * @param THTMLRenderContext $hrc HTML render context
@@ -4062,6 +4098,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                 }
             } else { // Text Content
+                $hrc['currentkey'] = $key;
                 $fragment = $this->parseHTMLText($hrc, $elm, $tpx, $tpy, $tpw, $tph);
                 if (!$this->captureHTMLTableCellBuffer($hrc, $fragment)) {
                     $appendFragment($fragment);
@@ -4364,6 +4401,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineOffset = (float) ($tpx - $lineOriginX);
         $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
         $remainingWidth = ($tpw > 0) ? $tpw : $availableWidth;
+        $currentkey = isset($hrc['currentkey']) && \is_int($hrc['currentkey']) ? $hrc['currentkey'] : -1;
 
         // Capture current font metrics before the HTML prefix may switch fonts.
         $prevFont = $this->font->getCurrentFont();
@@ -4393,16 +4431,44 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpy = $tpy + $prevAscent - $curAscent;
         }
 
+        $renderPosX = $lineOriginX;
+        $renderWidth = $availableWidth;
+        $renderOffset = $lineOffset;
+        $renderAlign = $halign;
+        if (
+            (($halign === 'C') || ($halign === 'R'))
+            && ($availableWidth > 0.0)
+            && ($fragmentWidth <= ($remainingWidth + 0.001))
+        ) {
+            if (($lineOffset <= 0.001) && ($currentkey >= 0)) {
+                $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
+                if (($runWidth > 0.0) && ($runWidth <= ($availableWidth + 0.001))) {
+                    $renderPosX = $lineOriginX + match ($halign) {
+                        'R' => \max(0.0, $availableWidth - $runWidth),
+                        default => \max(0.0, ($availableWidth - $runWidth) / 2),
+                    };
+                    $renderWidth = $fragmentWidth;
+                    $renderOffset = 0.0;
+                    $renderAlign = 'L';
+                }
+            } elseif ($lineOffset > 0.001) {
+                $renderPosX = $tpx;
+                $renderWidth = $fragmentWidth;
+                $renderOffset = 0.0;
+                $renderAlign = 'L';
+            }
+        }
+
         $out .= $this->getTextCell(
             $text,
-            $lineOriginX,
+            $renderPosX,
             $tpy,
-            $availableWidth,
+            $renderWidth,
             0,
-            $lineOffset,
+            $renderOffset,
             0,
             'T',
-            $halign,
+            $renderAlign,
             static::ZEROCELL, // @phpstan-ignore argument.type
             [],
             (float) $elm['stroke'],
