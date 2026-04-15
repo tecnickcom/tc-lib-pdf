@@ -2521,6 +2521,33 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(1.0, $tpx);
     }
 
+    public function testParseHTMLTextWrapsInlineContentFromLineOrigin(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 30.0, 60.0);
+
+        $elm = $this->makeHtmlNode([
+            'fontstyle' => 'UD',
+            'value' => 'underline and line-trough',
+        ]);
+        $tpx = 10.0;
+        $tpy = 0.0;
+        $tpw = 20.0;
+        $tph = 60.0;
+
+        $out = $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertNotSame('', $out);
+        $numMatches = \preg_match_all('/([0-9]+\.[0-9]+) ([0-9]+\.[0-9]+) Td /', $out, $matches);
+
+        $this->assertIsInt($numMatches);
+        $this->assertGreaterThanOrEqual(2, $numMatches);
+        $this->assertGreaterThan(0.0, (float) $matches[1][0]);
+        $this->assertEqualsWithDelta(0.0, (float) $matches[1][1], 0.000001);
+
+    }
+
     public function testGetHTMLDOMTextNodesInheritParentFormatting(): void
     {
         $obj = $this->getInternalTestObject();

@@ -4320,7 +4320,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $style = empty($elm['fontstyle']) || !\is_string($elm['fontstyle']) ? '' : $elm['fontstyle'];
         $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
         $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
-        $availableWidth = ($tpw > 0) ? $tpw : 0.0;
+        $lineOriginX = $hrc['cellctx']['originx'];
+        $lineOffset = (float) ($tpx - $lineOriginX);
+        $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
 
         // Capture current font metrics before the HTML prefix may switch fonts.
         $prevFont = $this->font->getCurrentFont();
@@ -4341,11 +4343,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $out .= $this->getTextCell(
             $text,
-            $tpx,
+            $lineOriginX,
             $tpy,
             $availableWidth,
             0,
-            0,
+            $lineOffset,
             0,
             'T',
             $halign,
