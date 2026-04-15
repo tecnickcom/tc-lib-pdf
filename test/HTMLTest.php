@@ -31,6 +31,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'originy' => 0.0,
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
+            'lineadvance' => 0.0,
             'basefont' => '',
         ],
         'fontcache' => [],
@@ -1068,6 +1069,67 @@ class HTMLTest extends TestUtil
             (float) $trace[3]['bbox_w'],
             1e-9,
         );
+    }
+
+    public function testParseHTMLTextWrapsLargeInlineFragmentBeforeItOverflowsRemainingWidth(): void
+    {
+        $measure = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($measure);
+        $measure->exposeInitHTMLCellContext(0, 0, 200, 0);
+
+        $prefixElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => 'medium ',
+        ]);
+        $largeElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'fontsize' => 12.0,
+            'value' => 'large',
+        ]);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 200.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $prefixTrace = $measure->exposeGetBBoxTrace();
+        $prefixWidth = (float) $prefixTrace[0]['bbox_w'];
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 200.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($largeElm, $tpx, $tpy, $tpw, $tph);
+        $largeTrace = $measure->exposeGetBBoxTrace();
+        $largeWidth = (float) $largeTrace[0]['bbox_w'];
+
+        $cellWidth = $prefixWidth + $largeWidth - 0.1;
+
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0, 0, $cellWidth, 0);
+        $obj->exposeResetBBoxTrace();
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = $cellWidth;
+        $tph = 0.0;
+        $obj->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $obj->exposeParseHTMLText($largeElm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(2, $trace);
+        $this->assertSame('medium ', $trace[0]['txt']);
+        $this->assertSame('large', $trace[1]['txt']);
+        $this->assertGreaterThan(0.0, (float) $trace[0]['bbox_x'] + (float) $trace[0]['bbox_w']);
+        $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
+        $this->assertLessThanOrEqual($cellWidth + 1e-9, (float) $trace[1]['bbox_end_x']);
     }
 
     public function testAllParseHTMLTagMethodsCanBeInvoked(): void
@@ -2545,7 +2607,6 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThanOrEqual(2, $numMatches);
         $this->assertGreaterThan(0.0, (float) $matches[1][0]);
         $this->assertEqualsWithDelta(0.0, (float) $matches[1][1], 0.000001);
-
     }
 
     public function testGetHTMLDOMTextNodesInheritParentFormatting(): void
