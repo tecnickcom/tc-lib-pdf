@@ -1899,7 +1899,7 @@ $htmlt1 = 'Default <font face="courier">Courier <font face="helvetica">Helvetica
 $htmlt2 = '<small>small text</small> normal <small>small text</small> normal <sub>subscript</sub> normal <sup>superscript</sup> normal';
 $htmlt3 = '<font size="10" color="#ff7f50">The</font> <font size="10" color="#6495ed">quick</font> <font size="14" color="#dc143c">brown</font> <font size="18" color="#008000">fox</font> <font size="22"><a href="https://tcpdf.org">jumps</a></font> <font size="22" color="#a0522d">over</font> <font size="18" color="#da70d6">the</font> <font size="14" color="#9400d3">lazy</font> <font size="10" color="#4169ef">dog</font>.';
 
-$html_03 .= $htmlt1.'<br />'.$htmlt2.'<br />'.$htmlt3.'<br />'.$htmlt3.'<br />'.$htmlt2;
+$html_03 .= '<br />'.$htmlt1.'<br />'.$htmlt2.'<br />'.$htmlt3.'<br />'.$htmlt3.'<br />'.$htmlt2;
 
 
 $html_03 .= <<<EOF

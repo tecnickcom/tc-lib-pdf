@@ -38,7 +38,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-type THTMLTableCell array{cellx: float, cellw: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
  * @phpstan-type THTMLTableRowspanCell array{cellx: float, cellw: float, rowtop: float, rowsremaining: int, usedheight: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
  * @phpstan-type THTMLTableState array{originx: float, originy: float, width: float, cols: int, colwidth: float, colwidths: array<int, float>, cellspacing: float, cellpadding: float, rowtop: float, rowheight: float, colindex: int, cells: array<int, THTMLTableCell>, occupied: array<int, int>, rowspans: array<int, THTMLTableRowspanCell>}
- * @phpstan-type THTMLTableCellContext array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string}
+ * @phpstan-type THTMLTableCellContext array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string}
  *
  * @phpstan-type THTMLAttrib array{
  *     'align': string,
@@ -88,7 +88,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * }
  *
  * @phpstan-type THTMLRenderContext array{
- *     'cellctx': array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, basefont: string},
+ *     'cellctx': array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, basefont: string},
  *     'currentkey'?: int,
  *     'fontcache': array<string, array<string, mixed>>,
  *     'liststack': array<int, array{ordered: bool, type: string, count: int}>,
@@ -2313,6 +2313,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'maxwidth' => $width,
             'maxheight' => $height,
             'lineadvance' => 0.0,
+            'linebottom' => 0.0,
             'basefont' => $basefont,
         ];
         $hrc['cellctx'] = $cellctx;
@@ -2338,6 +2339,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
             'lineadvance' => 0.0,
+            'linebottom' => 0.0,
             'basefont' => 'helvetica',
         ];
         $hrc['cellctx'] = $cellctx;
@@ -3092,6 +3094,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpx = $hrc['cellctx']['originx'];
         $tpw = $hrc['cellctx']['maxwidth'];
         $hrc['cellctx']['lineadvance'] = 0.0;
+        $hrc['cellctx']['linebottom'] = 0.0;
     }
 
     /**
@@ -3137,8 +3140,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function moveHTMLToNextLine(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float $extra = 0): void
     {
+        $lineadvance = $this->getCurrentHTMLLineAdvance($hrc, $key) + $extra;
+        $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
+            ? (float) $hrc['cellctx']['linebottom']
+            : 0.0;
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-        $tpy += $this->getCurrentHTMLLineAdvance($hrc, $key) + $extra;
+        $tpy = \max($tpy + $lineadvance, $linebottom + $extra);
     }
 
     /**
@@ -4576,10 +4583,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && ($fragmentWidth > ($remainingWidth + 0.001))
             && ($fragmentWidth <= ($availableWidth + 0.001))
         ) {
-            $tpy += $this->getCurrentHTMLLineAdvance($hrc, $currentkey);
+            $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
+                ? (float) $hrc['cellctx']['linebottom']
+                : 0.0;
+            $tpy = \max(
+                $tpy + $this->getCurrentHTMLLineAdvance($hrc, $currentkey),
+                $linebottom,
+            );
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
-        } elseif ((\abs($curSize - $prevSize) > 0.001) && ($curAscent !== $prevAscent)) {
+        } elseif (($lineOffset > 0.001) && (\abs($curSize - $prevSize) > 0.001) && ($curAscent !== $prevAscent)) {
             $tpy = $tpy + $prevAscent - $curAscent;
         }
 
@@ -4774,6 +4787,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $tpx = $bbox['x'] + $bbox['w'];
         $this->updateHTMLLineAdvance($hrc, $lineAdvance);
+        $linebottom = (float) $bbox['y'] + (float) $bbox['h'];
+        if (
+            empty($hrc['cellctx']['linebottom'])
+            || !\is_numeric($hrc['cellctx']['linebottom'])
+            || ($linebottom > (float) $hrc['cellctx']['linebottom'])
+        ) {
+            $hrc['cellctx']['linebottom'] = $linebottom;
+        }
+
         if ($hrc['cellctx']['maxwidth'] > 0) {
             $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
         }
@@ -5976,6 +5998,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'maxwidth' => $hrc['cellctx']['maxwidth'],
             'maxheight' => $hrc['cellctx']['maxheight'],
             'lineadvance' => (float) $hrc['cellctx']['lineadvance'],
+            'linebottom' => (float) ($hrc['cellctx']['linebottom'] ?? 0.0),
             'rowtop' => $rowtop,
             'cellx' => $cellx,
             'cellw' => $cellw,
@@ -7092,6 +7115,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['maxwidth'] = $cellctx['maxwidth'];
         $hrc['cellctx']['maxheight'] = $cellctx['maxheight'];
         $hrc['cellctx']['lineadvance'] = $cellctx['lineadvance'];
+        $hrc['cellctx']['linebottom'] = $cellctx['linebottom'];
 
         $tpy = $cellctx['rowtop'];
         $tpx = $this->getHTMLTableColX($table, $table['colindex']);
