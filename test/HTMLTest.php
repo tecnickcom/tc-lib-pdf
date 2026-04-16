@@ -32,6 +32,8 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
             'lineadvance' => 0.0,
+            'linebottom' => 0.0,
+            'linewrapped' => false,
             'basefont' => '',
         ],
         'fontcache' => [],
@@ -193,6 +195,14 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float $maxheight,
     ): void {
         $this->initHTMLCellContext($this->testhrc, $originx, $originy, $maxwidth, $maxheight);
+    }
+
+    public function exposeSetHTMLLineState(float $lineadvance, float $linebottom, bool $linewrapped): void
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['cellctx']['lineadvance'] = $lineadvance;
+        $this->testhrc['cellctx']['linebottom'] = $linebottom;
+        $this->testhrc['cellctx']['linewrapped'] = $linewrapped;
     }
 
     /** @phpstan-param THTMLAttrib $elm */
@@ -3974,6 +3984,71 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('World', $outNewLine);
         // The y coordinates differ — <br> produced a line advance
         $this->assertNotSame($outSameLine, $outNewLine);
+    }
+
+    public function testParseHTMLTagOPENbrSkipsAdvanceAfterWrappedLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeInitHTMLCellContext(10.0, 0.0, 100.0, 0.0);
+        $obj->exposeSetHTMLLineState(0.0, 0.0, true);
+
+        $dom = [
+            $this->makeHtmlNode([
+                'tag' => true,
+                'opening' => false,
+                'value' => 'font',
+            ]),
+            $this->makeHtmlNode([
+                'tag' => true,
+                'opening' => true,
+                'self' => true,
+                'value' => 'br',
+            ]),
+        ];
+
+        $tpx = 10.0;
+        $tpy = 20.0;
+        $tpw = 100.0;
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLTagOPENbrWithDom($dom, 1, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertEqualsWithDelta(20.0, $tpy, 1e-9);
+        $this->assertEqualsWithDelta(10.0, $tpx, 1e-9);
+    }
+
+    public function testParseHTMLTagOPENbrAdvancesWhenLineIsNotWrapped(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeInitHTMLCellContext(10.0, 0.0, 100.0, 0.0);
+        $obj->exposeSetHTMLLineState(0.0, 0.0, false);
+
+        $dom = [
+            $this->makeHtmlNode([
+                'tag' => false,
+                'value' => 'normal',
+            ]),
+            $this->makeHtmlNode([
+                'tag' => true,
+                'opening' => true,
+                'self' => true,
+                'value' => 'br',
+            ]),
+        ];
+
+        $tpx = 10.0;
+        $tpy = 20.0;
+        $tpw = 100.0;
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLTagOPENbrWithDom($dom, 1, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertGreaterThan(20.0, $tpy);
+        $this->assertEqualsWithDelta(10.0, $tpx, 1e-9);
     }
 
     // --- Fix tests: <hr> width/height ---
