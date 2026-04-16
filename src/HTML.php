@@ -4614,22 +4614,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
             $bgx = $bbox['x'];
             $bgw = $bbox['w'];
+            $hasBlockBackgroundAncestor = $this->hasBlockLevelBackgroundAncestor($hrc, $currentkey);
 
-            if ($this->hasBlockLevelBackgroundAncestor($hrc, $currentkey)) {
+            if ($hasBlockBackgroundAncestor) {
+                // Block-level backgrounds (for example td/div) are line-wide.
+                // Draw them once at line start, otherwise later inline fragments
+                // repaint over already-rendered text on the same line.
+                if ($lineOffset > 0.001) {
+                    $hasBlockBackgroundAncestor = false;
+                }
+            }
+
+            if ($hasBlockBackgroundAncestor) {
                 $bgx = $lineOriginX;
                 $bgw = $availableWidth;
             }
 
-            $background = $this->graph->getStartTransform()
-                . $this->graph->getBasicRect(
-                    $bgx,
-                    $bbox['y'],
-                    $bgw,
-                    $bbox['h'],
-                    'f',
-                    $this->getHTMLFillStyle($elm['bgcolor']),
-                )
-                . $this->graph->getStopTransform();
+            if (($bgw > 0.0) && ($bgx >= 0.0)) {
+                $background = $this->graph->getStartTransform()
+                    . $this->graph->getBasicRect(
+                        $bgx,
+                        $bbox['y'],
+                        $bgw,
+                        $bbox['h'],
+                        'f',
+                        $this->getHTMLFillStyle($elm['bgcolor']),
+                    )
+                    . $this->graph->getStopTransform();
+            }
         }
 
         $link = $this->getCurrentHTMLLink($hrc);
@@ -5467,7 +5479,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENspan(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
+        unset($tpx, $tpy, $tpw, $tph);
+        $elm = &$hrc['dom'][$key];
+
+        if (!empty($elm['attribute']['color']) && \is_string($elm['attribute']['color'])) {
+            $fgcolor = $this->getCSSColor($elm['attribute']['color']);
+            if ($fgcolor !== '') {
+                $elm['fgcolor'] = $fgcolor;
+            }
+        }
+
+        if (!empty($elm['attribute']['bgcolor']) && \is_string($elm['attribute']['bgcolor'])) {
+            $bgcolor = $this->getCSSColor($elm['attribute']['bgcolor']);
+            if ($bgcolor !== '') {
+                $elm['bgcolor'] = $bgcolor;
+            }
+        }
+
         return '';
     }
 

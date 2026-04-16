@@ -1954,7 +1954,7 @@ $html_04 = '<h2>HTML TABLE:</h2>
 	<tr>
 		<td>'.$subtable.'</td>
 		<td bgcolor="#0000FF" color="yellow" align="center">A2 € &euro; &#8364; &amp; è &egrave;<br/>A2 € &euro; &#8364; &amp; è &egrave;</td>
-		<td bgcolor="#FFFF00" align="left"><font color="#FF0000">Red</font> Yellow BG</td>
+		<td bgcolor="#FFFF00" align="left"><span color="#FF0000">Red</span> Yellow BG</td>
 		<td>4C</td>
 	</tr>
 	<tr>

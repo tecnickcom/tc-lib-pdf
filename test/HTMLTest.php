@@ -1276,6 +1276,32 @@ class HTMLTest extends TestUtil
         }
     }
 
+    public function testParseHTMLTagOpenSpanAppliesColorAttributes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $obj->exposeGetHTMLRootProperties();
+        $elm['value'] = 'span';
+        $elm['fgcolor'] = 'black';
+        $elm['bgcolor'] = '#ffff00';
+        $elm['attribute'] = [
+            'color' => '#ff0000',
+            'bgcolor' => '#00ff00',
+        ];
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 40.0;
+        $tph = 20.0;
+
+        $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENspan', $elm, $tpx, $tpy, $tpw, $tph);
+
+        $hrc = $obj->exposeGetHTMLRenderContext();
+        $this->assertStringContainsString('100%,0%,0%', (string) $hrc['dom'][0]['fgcolor']);
+        $this->assertStringContainsString('0%,100%,0%', (string) $hrc['dom'][0]['bgcolor']);
+    }
+
     public function testParseHTMLTagTheadOpenCloseManageTableStack(): void
     {
         $obj = $this->getInternalTestObject();
