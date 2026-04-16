@@ -1790,7 +1790,9 @@ $pdf->page->addAnnotRef($lnk2);
 $pageV01 = $pdf->addPage();
 $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
 
-$pdf->page->addContent($bfont5['out']);
+$bfont6 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
+
+$pdf->page->addContent($bfont6['out']);
 
 
 $html_01 = '<h1>HTML Example A</h1>
@@ -1860,7 +1862,7 @@ $pdf->addHTMLCell(
 
 $pageV02 = $pdf->addPage();
 
-$pdf->page->addContent($bfont5['out']);
+$pdf->page->addContent($bfont6['out']);
 
 $textcolors = '<h2>Text</h1>';
 $bgcolors = '<h2>Background</h2>';
@@ -1884,7 +1886,7 @@ $pdf->addHTMLCell(
 
 $pageV03 = $pdf->addPage();
 
-$pdf->page->addContent($bfont5['out']);
+$pdf->page->addContent($bfont6['out']);
 
 $html_03 = '<h1>Various HTML Tests</h1>
 <a href="#2">link to page 2</a><br />
@@ -1932,7 +1934,7 @@ $pdf->addHTMLCell(
 
 $pageV02 = $pdf->addPage();
 
-$pdf->page->addContent($bfont5['out']);
+$pdf->page->addContent($bfont6['out']);
 
 $subtable = '<table border="1" cellspacing="6" cellpadding="4"><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>';
 

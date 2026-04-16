@@ -3654,8 +3654,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTableColX(array $table, int $colindex): float
     {
-        $tox = $table['originx'];
         $cellspacing = $table['cellspacing'];
+        $tox = $table['originx'] + $cellspacing;
         for ($i = 0; $i < $colindex; ++$i) {
             $tox += ($table['colwidths'][$i] ?? $table['colwidth']) + $cellspacing;
         }
@@ -4030,7 +4030,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             : 0.0;
                         $availableForCols = \max(
                             0.0,
-                            $tableWidth - $elm['pendingcellspacing'] * \max(0, $tableCols - 1)
+                            $tableWidth - $elm['pendingcellspacing'] * \max(0, $tableCols + 1)
                         );
                         // @phpstan-ignore parameterByRef.type
                         $elm['pendingcolwidths'] = $this->computeHTMLTableColWidths(
@@ -5542,6 +5542,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $colwidths = (isset($elm['pendingcolwidths']) && \is_array($elm['pendingcolwidths'])) ? $elm['pendingcolwidths'] : [];
         $cellspacing = (isset($elm['pendingcellspacing']) && \is_numeric($elm['pendingcellspacing'])) ? (float) $elm['pendingcellspacing'] : 0.0;
         $cellpadding = (isset($elm['pendingcellpadding']) && \is_numeric($elm['pendingcellpadding'])) ? (float) $elm['pendingcellpadding'] : 0.0;
+        $availableWidth = \max(0.0, $width - $cellspacing * \max(0, $cols + 1));
+        $colwidth = ($cols > 0) ? ($availableWidth / $cols) : $availableWidth;
 
         if (empty($colwidths)) {
             $colwidths = \array_fill(0, $cols, $colwidth);
@@ -5556,7 +5558,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'colwidths' => $colwidths,
             'cellspacing' => $cellspacing,
             'cellpadding' => $cellpadding,
-            'rowtop' => $tpy,
+            'rowtop' => $tpy + $cellspacing,
             'rowheight' => 0.0,
             'colindex' => 0,
             'cells' => [],
@@ -5564,6 +5566,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'rowspans' => [],
         ];
 
+        $tpy += $cellspacing;
         $tpw = $width;
 
         return $out;

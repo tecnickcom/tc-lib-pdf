@@ -2138,6 +2138,36 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString(' re', $withBorder, 'Expected outer table border rectangle to be drawn');
     }
 
+    public function testGetHTMLCellAppliesCellspacingBetweenOuterAndInnerBorders(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table border="1" cellspacing="3"><tr><td style="border:1px solid black">A</td></tr></table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $matches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+s/', $out, $matches, PREG_SET_ORDER);
+        $this->assertGreaterThanOrEqual(2, \count($matches));
+
+        $xvalues = [];
+        foreach ($matches as $match) {
+            $xvalues[] = (float) $match[1];
+        }
+
+        $this->assertGreaterThan(
+            0.1,
+            \max($xvalues) - \min($xvalues),
+            'Expected distinct x positions for inner cell border and outer table border when cellspacing is set',
+        );
+    }
+
     public function testGetHTMLCellTreatsFormAsBlockContainer(): void
     {
         $obj = $this->getTestObject();
