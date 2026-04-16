@@ -2760,10 +2760,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Resolve the list marker style for UL/OL elements.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
      */
-    protected function getHTMLListMarkerType(array $elm, bool $ordered): string
+    protected function getHTMLListMarkerType(array &$hrc, int $key, bool $ordered): string
     {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return $ordered ? '#' : $this->ullidot;
+        }
+
+        $elm = $hrc['dom'][$key];
         $default = $ordered ? '#' : $this->ullidot;
 
         if (!empty($elm['attribute']['type']) && \is_string($elm['attribute']['type'])) {
@@ -2782,10 +2788,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Push a new list level onto the rendering stack.
      *
      * @param THTMLRenderContext $hrc HTML render context.
-     * @param THTMLAttrib $elm DOM array element.
+     * @param int $key DOM array key.
      */
-    protected function pushHTMLList(array &$hrc, array $elm, bool $ordered): void
+    protected function pushHTMLList(array &$hrc, int $key, bool $ordered): void
     {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            $hrc['liststack'][] = [
+                'ordered' => $ordered,
+                'type' => $ordered ? '#' : $this->ullidot,
+                'count' => 0,
+            ];
+            return;
+        }
+
+        $elm = $hrc['dom'][$key];
         $start = 0;
         if (
             $ordered
@@ -2797,7 +2813,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $hrc['liststack'][] = [
             'ordered' => $ordered,
-            'type' => $this->getHTMLListMarkerType($elm, $ordered),
+            'type' => $this->getHTMLListMarkerType($hrc, $key, $ordered),
             'count' => $start,
         ];
     }
@@ -2828,9 +2844,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Returns the next list marker counter for the current list level.
      *
      * @param THTMLRenderContext $hrc HTML render context.
-     * @param THTMLAttrib $elm DOM array element.
+     * @param int $key DOM array key.
      */
-    protected function getHTMLListItemCounter(array &$hrc, array $elm): int
+    protected function getHTMLListItemCounter(array &$hrc, int $key): int
     {
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
@@ -2843,6 +2859,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         ++$hrc['liststack'][$idx]['count'];
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return $hrc['liststack'][$idx]['count'];
+        }
+
+        $elm = $hrc['dom'][$key];
         if (
             !empty($elm['attribute']['value'])
             && \is_numeric($elm['attribute']['value'])
@@ -3109,7 +3130,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $elm) : 0.0;
 
         if ($hasinlinecontent || ($tpy > $hrc['cellctx']['originy'])) {
-            $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($hrc, $elm, 0);
+            $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($hrc, $key, 0);
         }
 
         $tpx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
@@ -3143,7 +3164,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $elm) : 0.0;
 
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B'] + $this->getHTMLTagVSpace($hrc, $elm, 1);
+        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B'] + $this->getHTMLTagVSpace($hrc, $key, 1);
 
         return '';
     }
@@ -3151,10 +3172,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Shift the HTML cursor vertically for sub/sup blocks.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
      */
-    protected function shiftHTMLVerticalPosition(array $elm, float &$tpy, float $ratio): string
+    protected function shiftHTMLVerticalPosition(array &$hrc, int $key, float &$tpy, float $ratio): string
     {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return '';
+        }
+
+        $elm = $hrc['dom'][$key];
         if (empty($elm['fontsize']) || !\is_numeric($elm['fontsize'])) {
             return '';
         }
@@ -3351,11 +3378,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Return the extra vertical space (in user units) for the given tag at a specific position.
      *
      * @param THTMLRenderContext $hrc HTML render context.
-     * @param THTMLAttrib $elm DOM array element.
+     * @param int $key DOM array key.
      * @param int $position 0 = before open, 1 = after close.
      */
-    protected function getHTMLTagVSpace(array &$hrc, array $elm, int $position): float
+    protected function getHTMLTagVSpace(array &$hrc, int $key, int $position): float
     {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return 0.0;
+        }
+
+        $elm = $hrc['dom'][$key];
         $tag = (isset($elm['value']) && \is_string($elm['value'])) ? $elm['value'] : '';
         if (empty($this->tagvspaces[$tag][$position])) {
             return 0.0;
@@ -3449,12 +3481,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Build border styles for HTML table cells.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
      *
      * @return array<int|string, BorderStyle>
      */
-    protected function getHTMLTableCellBorderStyles(array $elm): array
+    protected function getHTMLTableCellBorderStyles(array &$hrc, int $key): array
     {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return [];
+        }
+
+        $elm = $hrc['dom'][$key];
         if (!isset($elm['border']) || !\is_array($elm['border']) || $elm['border'] === []) {
             return [];
         }
@@ -3487,12 +3525,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Build fill style for HTML table cells.
      *
-     * @param THTMLAttrib $elm DOM array element.
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
      *
      * @return ?BorderStyle
      */
-    protected function getHTMLTableCellFillStyle(array $elm): ?array
+    protected function getHTMLTableCellFillStyle(array &$hrc, int $key): ?array
     {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return null;
+        }
+
+        $elm = $hrc['dom'][$key];
         if (empty($elm['bgcolor']) || !\is_string($elm['bgcolor'])) {
             return null;
         }
@@ -5138,7 +5182,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $font = $this->getHTMLFontMetric($hrc, $elm);
         $indent = $this->getHTMLListIndentWidth();
-        $counter = $this->getHTMLListItemCounter($hrc, $elm);
+        $counter = $this->getHTMLListItemCounter($hrc, $key);
         $markerType = $this->getCurrentHTMLListMarkerType($hrc);
         $baseline = $tpy + $this->toUnit((isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0);
         $bulletx = $tpx + $indent;
@@ -5193,10 +5237,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENol(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
-        $this->pushHTMLList($hrc, $elm, true);
+        $this->pushHTMLList($hrc, $key, true);
 
         return $out;
     }
@@ -5451,9 +5494,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENsub(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, self::VERT_SHIFT_SUB);
+        return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, self::VERT_SHIFT_SUB);
     }
 
     /**
@@ -5470,9 +5512,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENsup(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, -self::VERT_SHIFT_SUP);
+        return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, -self::VERT_SHIFT_SUP);
     }
 
     /**
@@ -5761,8 +5802,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'rowtop' => $rowtop,
             'cellx' => $cellx,
             'cellw' => $cellw,
-            'bstyles' => $this->getHTMLTableCellBorderStyles($elm),
-            'fillstyle' => $this->getHTMLTableCellFillStyle($elm),
+            'bstyles' => $this->getHTMLTableCellBorderStyles($hrc, $key),
+            'fillstyle' => $this->getHTMLTableCellFillStyle($hrc, $key),
             'rowspan' => $rowspan,
             'buffer' => '',
         ];
@@ -5949,10 +5990,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENul(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
-        $this->pushHTMLList($hrc, $elm, false);
+        $this->pushHTMLList($hrc, $key, false);
 
         return $out;
     }
@@ -6660,9 +6700,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEsub(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, -self::VERT_SHIFT_SUB * self::FONT_SMALL_RATIO);
+        return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, -self::VERT_SHIFT_SUB * self::FONT_SMALL_RATIO);
     }
 
     /**
@@ -6679,9 +6718,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEsup(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
         unset($tpx, $tpw, $tph);
-        return $this->shiftHTMLVerticalPosition($elm, $tpy, self::VERT_SHIFT_SUP * self::FONT_SMALL_RATIO);
+        return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, self::VERT_SHIFT_SUP * self::FONT_SMALL_RATIO);
     }
 
     /**
