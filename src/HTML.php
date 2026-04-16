@@ -3142,6 +3142,35 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return true when a BR follows plain text that already wrapped to a new line.
+     *
+     * In that case the cursor is already at line start and advancing again would
+     * introduce an unintended blank line.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
+     */
+    protected function shouldSkipHTMLBrAdvance(array &$hrc, int $key, float $tpx): bool
+    {
+        $originx = (float) ($hrc['cellctx']['originx'] ?? 0.0);
+        if ($tpx > ($originx + 0.001)) {
+            return false;
+        }
+
+        $prevkey = $key - 1;
+        if (($prevkey < 0) || !isset($hrc['dom'][$prevkey])) {
+            return false;
+        }
+
+        $prev = $hrc['dom'][$prevkey];
+        if (!empty($prev['tag'])) {
+            return false;
+        }
+
+        return ($this->normalizeHTMLText($hrc, (string) $prev['value']) !== '');
+    }
+
+    /**
      * Open a simple block-level HTML element.
      *
      * @param THTMLRenderContext $hrc HTML render context
@@ -4853,6 +4882,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTagOPENbr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
         unset($tph);
+        if ($this->shouldSkipHTMLBrAdvance($hrc, $key, $tpx)) {
+            return '';
+        }
+
         $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
         return '';
     }

@@ -212,6 +212,23 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
         return $this->closeHTMLBlock($this->testhrc, 0, $tpx, $tpy, $tpw);
     }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     */
+    public function exposeParseHTMLTagOPENbrWithDom(
+        array $dom,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->parseHTMLTagOPENbr($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
+    }
 }
 
 class TestableHTMLNobrProbe extends TestableHTML
@@ -2454,6 +2471,68 @@ class HTMLTest extends TestUtil
         // tpy should not advance by an extra line — no inline content to push past
         $this->assertSame(20.0, $tpx);
         $this->assertSame(140.0, $tpy);
+    }
+
+    public function testBrAtLineStartAfterWrappedPlainTextDoesNotAddExtraBlankLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'tag' => false,
+                'value' => 'wrapped line',
+            ]),
+            1 => $this->makeHtmlNode([
+                'tag' => true,
+                'opening' => true,
+                'self' => true,
+                'value' => 'br',
+            ]),
+        ];
+
+        $tpx = 20.0;
+        $tpy = 140.0;
+        $tpw = 150.0;
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLTagOPENbrWithDom($dom, 1, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertSame(140.0, $tpy);
+        $this->assertSame(20.0, $tpx);
+    }
+
+    public function testBrAtLineStartStillAdvancesAfterAnotherBrTag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'tag' => true,
+                'opening' => true,
+                'self' => true,
+                'value' => 'br',
+            ]),
+            1 => $this->makeHtmlNode([
+                'tag' => true,
+                'opening' => true,
+                'self' => true,
+                'value' => 'br',
+            ]),
+        ];
+
+        $tpx = 20.0;
+        $tpy = 140.0;
+        $tpw = 150.0;
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLTagOPENbrWithDom($dom, 1, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertGreaterThan(140.0, $tpy);
+        $this->assertSame(20.0, $tpx);
     }
 
     public function testSanitizeHTMLRemovesHeadAndStyleBlocks(): void
