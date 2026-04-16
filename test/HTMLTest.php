@@ -1917,6 +1917,32 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString("f\n", $out);
     }
 
+    public function testGetHTMLCellExpandsBlockBackgroundFillAcrossLineWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<div style="background-color:#880000;color:white;">Hello World!<br />Hello</div>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $matches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+f/', $out, $matches, PREG_SET_ORDER);
+        $this->assertNotEmpty($matches);
+
+        $maxwidth = 0.0;
+        foreach ($matches as $match) {
+            $maxwidth = \max($maxwidth, \abs((float) $match[3]));
+        }
+
+        $this->assertGreaterThan(20.0, $maxwidth);
+    }
+
     public function testGetHTMLCellRendersTableHeadAndBodyRows(): void
     {
         $obj = $this->getTestObject();

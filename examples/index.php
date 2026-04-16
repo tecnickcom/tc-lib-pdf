@@ -1785,7 +1785,7 @@ $pdf->page->addAnnotRef($lnk2);
 
 // ----------
 
-// HTML
+// HTML A
 
 $pageV01 = $pdf->addPage();
 $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
@@ -1856,7 +1856,7 @@ $pdf->addHTMLCell(
 
 // ----------
 
-// HTML
+// HTML B
 
 $pageV02 = $pdf->addPage();
 
@@ -1874,6 +1874,54 @@ $html_02 = '<h1>HTML Colors</h1>'.$textcolors.'<hr />'.$bgcolors;
 
 $pdf->addHTMLCell(
     $html_02, // string $html,
+    20, // float $posx = 0,
+    10, // float $posy = 0,
+);
+
+// ----------
+
+// HTML C
+
+$pageV03 = $pdf->addPage();
+
+$pdf->page->addContent($bfont5['out']);
+
+$html_03 = '<h1>Various tests</h1>
+<a href="#2">link to page 2</a><br />
+<font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font>';
+
+
+
+// Test fonts nesting
+$htmlt1 = 'Default <font face="courier">Courier <font face="helvetica">Helvetica <font face="times">Times <font face="dejavusans">dejavusans </font>Times </font>Helvetica </font>Courier </font>Default';
+$htmlt2 = '<small>small text</small> normal <small>small text</small> normal <sub>subscript</sub> normal <sup>superscript</sup> normal';
+$htmlt3 = '<font size="10" color="#ff7f50">The</font> <font size="10" color="#6495ed">quick</font> <font size="14" color="#dc143c">brown</font> <font size="18" color="#008000">fox</font> <font size="22"><a href="https://tcpdf.org">jumps</a></font> <font size="22" color="#a0522d">over</font> <font size="18" color="#da70d6">the</font> <font size="14" color="#9400d3">lazy</font> <font size="10" color="#4169ef">dog</font>.';
+
+$html_03 .= $htmlt1.'<br />'.$htmlt2.'<br />'.$htmlt3.'<br />'.$htmlt3.'<br />'.$htmlt2;
+
+
+$html_03 .= <<<EOF
+<hr />
+<h2>Div Blocks</h2>
+<div style="background-color:#880000;color:white;">
+Hello World!<br />
+Hello
+</div>
+<pre style="background-color:#336699;color:white;">
+int main() {
+    printf("HelloWorld");
+    return 0;
+}
+</pre>
+<tt>Monospace font</tt>, normal font, <tt>monospace font</tt>, normal font.
+<br />
+<div style="background-color:#880000;color:white;">DIV LEVEL 1<div style="background-color:#008800;color:white;">DIV LEVEL 2</div>DIV LEVEL 1</div>
+<br />
+<span style="background-color:#880000;color:white;">SPAN LEVEL 1 <span style="background-color:#008800;color:white;">SPAN LEVEL 2</span> SPAN LEVEL 1</span>
+EOF;
+
+$pdf->addHTMLCell(
+    $html_03, // string $html,
     20, // float $posx = 0,
     10, // float $posy = 0,
 );

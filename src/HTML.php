@@ -3520,6 +3520,47 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Determine whether a text background color comes from a block-level ancestor.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function hasBlockLevelBackgroundAncestor(array &$hrc, int $key): bool
+    {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return false;
+        }
+
+        $elm = $hrc['dom'][$key];
+        if (empty($elm['bgcolor']) || !\is_string($elm['bgcolor'])) {
+            return false;
+        }
+
+        $dom = $hrc['dom'];
+        $parent = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
+
+        while (($parent >= 0) && isset($dom[$parent])) {
+            $ancestor = $dom[$parent];
+            $parent = isset($ancestor['parent']) && \is_int($ancestor['parent']) ? $ancestor['parent'] : -1;
+
+            if (empty($ancestor['tag']) || empty($ancestor['opening'])) {
+                continue;
+            }
+
+            if (empty($ancestor['bgcolor']) || !\is_string($ancestor['bgcolor'])) {
+                continue;
+            }
+
+            if ($ancestor['bgcolor'] !== $elm['bgcolor']) {
+                return false;
+            }
+
+            return !empty($ancestor['block']);
+        }
+
+        return false;
+    }
+
+    /**
      * Append a rendered HTML fragment to the active table-cell buffer when needed.
         *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -4499,11 +4540,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $bbox = $this->getLastBBox();
         $background = '';
         if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
+            $bgx = $bbox['x'];
+            $bgw = $bbox['w'];
+
+            if ($this->hasBlockLevelBackgroundAncestor($hrc, $currentkey)) {
+                $bgx = $lineOriginX;
+                $bgw = $availableWidth;
+            }
+
             $background = $this->graph->getStartTransform()
                 . $this->graph->getBasicRect(
-                    $bbox['x'],
+                    $bgx,
                     $bbox['y'],
-                    $bbox['w'],
+                    $bgw,
                     $bbox['h'],
                     'f',
                     $this->getHTMLFillStyle($elm['bgcolor']),
