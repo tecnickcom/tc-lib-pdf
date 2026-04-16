@@ -5825,7 +5825,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             for ($idx = $colindex; $idx < ($colindex + $colspan); ++$idx) {
                 $table['occupied'][$idx] = \max(
                     $table['occupied'][$idx] ?? 0,
-                    $rowspan - 1,
+                    $rowspan,
                 );
             }
         }
