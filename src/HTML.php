@@ -4588,6 +4588,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
+        $renderStartX = $renderPosX + $renderOffset;
+        $renderStartY = $tpy;
+
         $out .= $this->getTextCell(
             $text,
             $renderPosX,
@@ -4616,10 +4619,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         );
 
         $bbox = $this->getLastBBox();
+        $wrapped = (
+            ($bbox['h'] > ($lineAdvance + 0.001))
+            || ($bbox['y'] > ($renderStartY + 0.001))
+        );
         $background = '';
         if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
             $bgx = $bbox['x'];
             $bgw = $bbox['w'];
+            $bgy = $bbox['y'];
+            $bgh = $bbox['h'];
+            $fillstyle = $this->getHTMLFillStyle($elm['bgcolor']);
             $hasBlockBackgroundAncestor = $this->hasBlockLevelBackgroundAncestor($hrc, $currentkey);
 
             if ($hasBlockBackgroundAncestor) {
@@ -4636,15 +4646,86 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $bgw = $availableWidth;
             }
 
-            if (($bgw > 0.0) && ($bgx >= 0.0)) {
+            if ($wrapped && !$hasBlockBackgroundAncestor) {
+                $lineheight = \max($lineAdvance, 0.001);
+                $renderEndY = $bbox['y'] + $bbox['h'];
+                $lineSpan = \max(0.0, $renderEndY - $renderStartY);
+                $lineCount = \max(2, (int) \ceil(($lineSpan - 0.001) / $lineheight));
+                $firstWidth = \max(0.0, $renderWidth - $renderOffset);
+
+                $segments = [];
+                if (($firstWidth > 0.0) && ($lineSpan > 0.0)) {
+                    $segments[] = [
+                        'x' => $renderStartX,
+                        'y' => $renderStartY,
+                        'w' => $firstWidth,
+                        'h' => \min($lineheight, $lineSpan),
+                    ];
+                }
+
+                if ($lineCount > 2) {
+                    $middleH = ($lineCount - 2) * $lineheight;
+                    if (($middleH > 0.0) && ($availableWidth > 0.0)) {
+                        $segments[] = [
+                            'x' => $lineOriginX,
+                            'y' => $renderStartY + $lineheight,
+                            'w' => $availableWidth,
+                            'h' => $middleH,
+                        ];
+                    }
+                }
+
+                $lastY = \max($bbox['y'], $renderStartY + (($lineCount - 1) * $lineheight));
+                $lastH = $renderEndY - $lastY;
+                if ($lastH <= 0.0) {
+                    $lastY = $bbox['y'];
+                    $lastH = $bbox['h'];
+                }
+                if (($bbox['w'] > 0.0) && ($lastH > 0.0)) {
+                    $segments[] = [
+                        'x' => $bbox['x'],
+                        'y' => $lastY,
+                        'w' => $bbox['w'],
+                        'h' => $lastH,
+                    ];
+                }
+
+                $bgout = '';
+                foreach ($segments as $segment) {
+                    $segx = (float) $segment['x'];
+                    $segy = (float) $segment['y'];
+                    $segw = (float) $segment['w'];
+                    $segh = (float) $segment['h'];
+                    if (($segw <= 0.0) || ($segh <= 0.0) || ($segx < 0.0)) {
+                        continue;
+                    }
+
+                    $bgout .= $this->graph->getBasicRect(
+                        $segx,
+                        $segy,
+                        $segw,
+                        $segh,
+                        'f',
+                        $fillstyle,
+                    );
+                }
+
+                if ($bgout !== '') {
+                    $background = $this->graph->getStartTransform()
+                        . $bgout
+                        . $this->graph->getStopTransform();
+                }
+            }
+
+            if (($background === '') && ($bgw > 0.0) && ($bgx >= 0.0)) {
                 $background = $this->graph->getStartTransform()
                     . $this->graph->getBasicRect(
                         $bgx,
-                        $bbox['y'],
+                        $bgy,
                         $bgw,
-                        $bbox['h'],
+                        $bgh,
                         'f',
-                        $this->getHTMLFillStyle($elm['bgcolor']),
+                        $fillstyle,
                     )
                     . $this->graph->getStopTransform();
             }
@@ -4656,7 +4737,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->page->addAnnotRef($lnkid, $this->page->getPageID());
         }
 
-        $wrapped = ($bbox['h'] > ($lineAdvance + 0.001));
         if ($wrapped) {
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $tpy = $bbox['y'] + $bbox['h'];

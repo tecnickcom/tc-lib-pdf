@@ -2013,6 +2013,54 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString("f\n", $out);
     }
 
+    public function testGetHTMLCellExtendsInlineSmallBackgroundAcrossWrappedLines(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<small color="#ff0000" bgcolor="#ffff00">small small small small small small small small small small small small small small small small small small small small</small>';
+
+        $extractFillVerticalSpan = static function (string $out): float {
+            $matches = [];
+            \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+f/', $out, $matches, PREG_SET_ORDER);
+            if ($matches === []) {
+                return 0.0;
+            }
+
+            $miny = PHP_FLOAT_MAX;
+            $maxy = -PHP_FLOAT_MAX;
+            foreach ($matches as $match) {
+                $y = (float) $match[2];
+                $h = \abs((float) $match[4]);
+                $miny = \min($miny, $y);
+                $maxy = \max($maxy, $y + $h);
+            }
+
+            if ($maxy <= $miny) {
+                return 0.0;
+            }
+
+            return $maxy - $miny;
+        };
+
+        $outNoWrap = $obj->getHTMLCell($html, 0, 0, 160, 20);
+        $outWrap = $obj->getHTMLCell($html, 0, 0, 40, 20);
+
+        $this->assertNotSame('', $outNoWrap);
+        $this->assertNotSame('', $outWrap);
+
+        $nowrapHeight = $extractFillVerticalSpan($outNoWrap);
+        $wrapHeight = $extractFillVerticalSpan($outWrap);
+
+        $this->assertGreaterThan(0.0, $nowrapHeight);
+        $this->assertGreaterThan(0.0, $wrapHeight);
+        $this->assertGreaterThan(
+            $nowrapHeight + 0.001,
+            $wrapHeight,
+            'Wrapped inline <small> background must cover more than one rendered line.',
+        );
+    }
+
     public function testGetHTMLCellExpandsBlockBackgroundFillAcrossLineWidth(): void
     {
         $obj = $this->getTestObject();
