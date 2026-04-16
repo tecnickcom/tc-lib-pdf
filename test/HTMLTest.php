@@ -1905,6 +1905,18 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString("f\n", $out);
     }
 
+    public function testGetHTMLCellDrawsInlineBackgroundFillWhenSpecified(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<span bgcolor="#eeeeee">A</span>', 0, 0, 30, 12);
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString(' re', $out);
+        $this->assertStringContainsString("f\n", $out);
+    }
+
     public function testGetHTMLCellRendersTableHeadAndBodyRows(): void
     {
         $obj = $this->getTestObject();

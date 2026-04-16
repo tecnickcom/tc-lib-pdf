@@ -1793,7 +1793,7 @@ $pdf->setBookmark('HTML', '', 0, -1, 0, 0, 'B', '');
 $pdf->page->addContent($bfont5['out']);
 
 
-$html_01 = '<h1>HTML Example</h1>
+$html_01 = '<h1>HTML Example A</h1>
 Some special characters: &lt; € &euro; &#8364; &amp; è &egrave; &copy; &gt; \\slash \\\\double-slash \\\\\\triple-slash
 <h2>List</h2>
 List example:
@@ -1852,6 +1852,30 @@ $pdf->addHTMLCell(
     0, // float $height = 0,
     null, // ?array $cell = null,
     $style_cell, // array $styles = [],
+);
+
+// ----------
+
+// HTML
+
+$pageV02 = $pdf->addPage();
+
+$pdf->page->addContent($bfont5['out']);
+
+$textcolors = '<h2>Text</h1>';
+$bgcolors = '<h2>Background</h2>';
+
+foreach($pdf->color::WEBHEX as $k => $v) {
+	$textcolors .= '<span color="#'.$v.'">'.$k.'</span> ';
+    $bgcolors .= '<span bgcolor="#'.$v.'" color="#333333">'.$k.'</span> ';
+}
+
+$html_02 = '<h1>HTML Colors</h1>'.$textcolors.'<hr />'.$bgcolors;
+
+$pdf->addHTMLCell(
+    $html_02, // string $html,
+    20, // float $posx = 0,
+    10, // float $posy = 0,
 );
 
 // ----------

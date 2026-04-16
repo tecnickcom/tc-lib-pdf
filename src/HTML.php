@@ -3497,6 +3497,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return null;
         }
 
+        return $this->getHTMLFillStyle($elm['bgcolor']);
+    }
+
+    /**
+     * Build fill style for HTML background painting.
+     *
+     * @return BorderStyle
+     */
+    protected function getHTMLFillStyle(string $fillcolor): array
+    {
         return [
             'lineWidth' => 0,
             'lineCap' => 'butt',
@@ -3505,7 +3515,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'dashArray' => [],
             'dashPhase' => 0,
             'lineColor' => '',
-            'fillColor' => $elm['bgcolor'],
+            'fillColor' => $fillcolor,
         ];
     }
 
@@ -4487,6 +4497,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         );
 
         $bbox = $this->getLastBBox();
+        $background = '';
+        if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
+            $background = $this->graph->getStartTransform()
+                . $this->graph->getBasicRect(
+                    $bbox['x'],
+                    $bbox['y'],
+                    $bbox['w'],
+                    $bbox['h'],
+                    'f',
+                    $this->getHTMLFillStyle($elm['bgcolor']),
+                )
+                . $this->graph->getStopTransform();
+        }
+
         $link = $this->getCurrentHTMLLink($hrc);
         if (($link !== '') && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
             $lnkid = $this->setLink($bbox['x'], $bbox['y'], $bbox['w'], $bbox['h'], $link);
@@ -4497,7 +4521,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($wrapped) {
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $tpy = $bbox['y'] + $bbox['h'];
-            return $out;
+            return $background . $out;
         }
 
         $tpx = $bbox['x'] + $bbox['w'];
@@ -4507,7 +4531,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $tpy = $bbox['y'];
 
-        return $out;
+        return $background . $out;
     }
 
     // FUNCTIONS TO PROCESS HTML OPENING TAGS
