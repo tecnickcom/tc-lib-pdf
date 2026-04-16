@@ -3316,7 +3316,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $txtelm['self'] = false;
         $txtelm['value'] = $text;
 
-        return $this->parseHTMLText($hrc, $txtelm, $tpx, $tpy, $tpw, $tph);
+        $txtkey = \count($hrc['dom']);
+        $hrc['dom'][$txtkey] = $txtelm;
+        $out = $this->parseHTMLText($hrc, $txtkey, $tpx, $tpy, $tpw, $tph);
+        unset($hrc['dom'][$txtkey]);
+
+        return $out;
     }
 
     /**
@@ -4294,7 +4299,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             } else { // Text Content
                 $hrc['currentkey'] = $key;
-                $fragment = $this->parseHTMLText($hrc, $elm, $tpx, $tpy, $tpw, $tph);
+                $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph);
                 if (!$this->captureHTMLTableCellBuffer($hrc, $fragment)) {
                     $appendFragment($fragment);
                 }
@@ -4566,7 +4571,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Process HTML Text (content between tags).
      *
      * @param THTMLRenderContext $hrc HTML render context.
-     * @param THTMLAttrib $elm DOM array element.
+      * @param int $key DOM array key.
      * @param float  $tpx  Abscissa of upper-left corner.
      * @param float  $tpy  Ordinate of upper-left corner.
      * @param float  $tpw  Width.
@@ -4578,12 +4583,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLText(
         array &$hrc,
-        array $elm,
+        int $key,
         float &$tpx,
         float &$tpy,
         float &$tpw,
         float &$tph,
     ): string {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return '';
+        }
+
+        $elm = $hrc['dom'][$key];
         $text = $this->normalizeHTMLText($hrc, $elm['value']);
         if ($text === '') {
             return '';
@@ -4596,11 +4606,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineOffset = (float) ($tpx - $lineOriginX);
         $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
         $remainingWidth = ($tpw > 0) ? $tpw : $availableWidth;
-        $currentkey = isset($hrc['currentkey']) && \is_int($hrc['currentkey']) ? $hrc['currentkey'] : -1;
-        if (($currentkey < 0) || !isset($hrc['dom'][$currentkey])) {
-            $hrc['dom'][] = $elm;
-            $currentkey = \count($hrc['dom']) - 1;
-        }
+        $currentkey = $key;
+        $hrc['currentkey'] = $currentkey;
 
         $out = $this->getHTMLTextPrefix($hrc, $currentkey);
 
