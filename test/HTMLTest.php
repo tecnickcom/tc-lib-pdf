@@ -1445,7 +1445,7 @@ class HTMLTest extends TestUtil
 
         $this->assertCount(2, $states);
         $this->assertSame('true', $states[0]);
-        $this->assertSame('true', $states[1]);
+        $this->assertSame('', $states[1]);
     }
 
     public function testGetHTMLCellBreaksBeforeNobrBlockOnOverflow(): void

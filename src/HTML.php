@@ -2439,7 +2439,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function estimateHTMLTableRowHeight(array &$hrc, int $trkey): float
     {
         /** @var array<int, THTMLAttrib> $dom */
-        $dom = $hrc['dom'];
+        $dom = &$hrc['dom'];
 
         if (empty($dom[$trkey]) || empty($dom[$trkey]['tag']) || empty($dom[$trkey]['opening'])) {
             return 0.0;
@@ -2567,7 +2567,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function estimateHTMLNobrHeight(array &$hrc, int $startkey, float $width): float
     {
         /** @var array<int, THTMLAttrib> $dom */
-        $dom = $hrc['dom'];
+        $dom = &$hrc['dom'];
 
         if (empty($dom[$startkey]) || empty($dom[$startkey]['tag']) || empty($dom[$startkey]['opening'])) {
             return 0.0;
@@ -2769,7 +2769,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $ordered ? '#' : $this->ullidot;
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $default = $ordered ? '#' : $this->ullidot;
 
         if (!empty($elm['attribute']['type']) && \is_string($elm['attribute']['type'])) {
@@ -2801,7 +2801,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $start = 0;
         if (
             $ordered
@@ -2863,7 +2863,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $hrc['liststack'][$idx]['count'];
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         if (
             !empty($elm['attribute']['value'])
             && \is_numeric($elm['attribute']['value'])
@@ -3077,7 +3077,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function measureHTMLInlineRunWidth(array &$hrc, int $startkey): float
     {
         /** @var array<int, THTMLAttrib> $dom */
-        $dom = $hrc['dom'];
+        $dom = &$hrc['dom'];
         $numel = \count($dom);
         $runwidth = 0.0;
 
@@ -3112,7 +3112,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function moveHTMLToNextLine(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float $extra = 0): void
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         $tpy += $this->getCurrentHTMLLineAdvance($hrc, $elm) + $extra;
     }
@@ -3125,7 +3125,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function openHTMLBlock(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + 0.001));
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $elm) : 0.0;
 
@@ -3157,7 +3157,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function closeHTMLBlock(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         // When a block closes on the same line where inline text was rendered,
         // advance by one line height before applying bottom spacing.
         $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + 0.001));
@@ -3181,7 +3181,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         if (empty($elm['fontsize']) || !\is_numeric($elm['fontsize'])) {
             return '';
         }
@@ -3209,7 +3209,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $txtelm = $elm;
         $txtelm['tag'] = false;
         $txtelm['opening'] = false;
@@ -3387,7 +3387,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 0.0;
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $tag = (isset($elm['value']) && \is_string($elm['value'])) ? $elm['value'] : '';
         if (empty($this->tagvspaces[$tag][$position])) {
             return 0.0;
@@ -3408,7 +3408,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function renderHTMLImage(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $attr = $elm['attribute'] ?? [];
         if (!\is_array($attr)) {
             return '';
@@ -3492,7 +3492,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return [];
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         if (!isset($elm['border']) || !\is_array($elm['border']) || $elm['border'] === []) {
             return [];
         }
@@ -3536,7 +3536,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return null;
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         if (empty($elm['bgcolor']) || !\is_string($elm['bgcolor'])) {
             return null;
         }
@@ -3574,12 +3574,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         if (empty($elm['bgcolor']) || !\is_string($elm['bgcolor'])) {
             return false;
         }
 
-        $dom = $hrc['dom'];
+        $dom = &$hrc['dom'];
         $parent = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
 
         while (($parent >= 0) && isset($dom[$parent])) {
@@ -3861,7 +3861,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tph,
         callable $appendFragment,
     ): void {
-        $dom = $hrc['dom'];
+        $dom = &$hrc['dom'];
         $numel = \count($dom);
         $key = 0;
         $tabletheadmap = [];
@@ -4649,7 +4649,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENa(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $href = (!empty($elm['attribute']['href']) && \is_string($elm['attribute']['href']))
             ? $elm['attribute']['href']
             : '';
@@ -4999,7 +4999,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENhr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $availableWidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
@@ -5083,7 +5083,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENinput(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
         if (!\is_array($attr)) {
@@ -5172,7 +5172,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENli(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
@@ -5258,7 +5258,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENoption(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $label = '';
         if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
             $label = $elm['attribute']['value'];
@@ -5281,7 +5281,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENoutput(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $label = '';
         if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
             $label = $elm['attribute']['value'];
@@ -5359,7 +5359,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENselect(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
         if (!\is_array($attr)) {
@@ -5530,7 +5530,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtable(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tph);
 
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
@@ -5674,7 +5674,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtcpdf(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tpy, $tph);
 
         if (!empty($elm['attribute']['data']) && \is_string($elm['attribute']['data'])) {
@@ -5846,7 +5846,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagOPENtextarea(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
         if (!\is_array($attr)) {
@@ -6018,7 +6018,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEa(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         $value = '';
         if (!empty($elm['value']) && \is_string($elm['value'])) {
             $value = \strtolower($elm['value']);
@@ -6816,7 +6816,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLTagCLOSEtd(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
     {
-        $elm = $hrc['dom'][$key];
+        $elm = &$hrc['dom'][$key];
         unset($tph);
 
         $tableidx = \count($hrc['tablestack']) - 1;
