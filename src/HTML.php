@@ -3673,7 +3673,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param THTMLRenderContext $hrc HTML render context.
      */
-    protected function hasBlockLevelBackgroundAncestor(array &$hrc, int $key): bool
+    protected function hasBlockLvBgAncestor(array &$hrc, int $key): bool
     {
         if (($key < 0) || !isset($hrc['dom'][$key])) {
             return false;
@@ -4073,10 +4073,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $theadhtml = $tabletheadmap[$parent];
                         }
 
+                        $requiredh = $this->estimateHTMLTableRowHeight($hrc, $key);
+
                         $appendFragment(
                             $this->breakHTMLIfNeeded(
                                 $hrc,
-                                $this->estimateHTMLTableRowHeight($hrc, $key),
+                                $requiredh,
                                 $tpx,
                                 $tpy,
                                 $tpw,
@@ -4098,14 +4100,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $elm['attribute']['nobr'] = '';
                         } elseif (!$elm['self']) {
                             if ($elm['value'] !== 'tr') {
+                                $requiredh = $this->estimateHTMLNobrHeight(
+                                    $hrc,
+                                    $key,
+                                    ($tpw > 0.0) ? $tpw : $hrc['cellctx']['maxwidth'],
+                                );
                                 $appendFragment(
                                     $this->breakHTMLIfNeeded(
                                         $hrc,
-                                        $this->estimateHTMLNobrHeight(
-                                            $hrc,
-                                            $key,
-                                            ($tpw > 0.0) ? $tpw : $hrc['cellctx']['maxwidth'],
-                                        ),
+                                        $requiredh,
                                         $tpx,
                                         $tpy,
                                         $tpw,
@@ -4657,7 +4660,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && ($availableWidth > 0.0)
             && ($fragmentWidth <= ($remainingWidth + 0.001))
         ) {
-            if (($lineOffset <= 0.001) && ($currentkey >= 0)) {
+            if ($lineOffset <= 0.001) {
                 $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
                 if (($runWidth > 0.0) && ($runWidth <= ($availableWidth + 0.001))) {
                     $renderPosX = $lineOriginX + match ($halign) {
@@ -4724,23 +4727,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $bgy = $bbox['y'];
             $bgh = $bbox['h'];
             $fillstyle = $this->getHTMLFillStyle($elm['bgcolor']);
-            $hasBlockBackgroundAncestor = $this->hasBlockLevelBackgroundAncestor($hrc, $currentkey);
+            $hasBlockBgAncestor = $this->hasBlockLvBgAncestor($hrc, $currentkey);
 
-            if ($hasBlockBackgroundAncestor) {
+            if ($hasBlockBgAncestor) {
                 // Block-level backgrounds (for example td/div) are line-wide.
                 // Draw them once at line start, otherwise later inline fragments
                 // repaint over already-rendered text on the same line.
                 if ($lineOffset > 0.001) {
-                    $hasBlockBackgroundAncestor = false;
+                    $hasBlockBgAncestor = false;
                 }
             }
 
-            if ($hasBlockBackgroundAncestor) {
+            if ($hasBlockBgAncestor) {
                 $bgx = $lineOriginX;
                 $bgw = $availableWidth;
             }
 
-            if ($wrapped && !$hasBlockBackgroundAncestor) {
+            if ($wrapped && !$hasBlockBgAncestor) {
                 $lineheight = \max($lineAdvance, 0.001);
                 $renderEndY = $bbox['y'] + $bbox['h'];
                 $lineSpan = \max(0.0, $renderEndY - $renderStartY);

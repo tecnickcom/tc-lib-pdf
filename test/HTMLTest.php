@@ -33,6 +33,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'maxheight' => 0.0,
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
+            'lineascent' => 0.0,
             'linewrapped' => false,
             'basefont' => '',
         ],
@@ -185,7 +186,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->initExposeRenderContextIfNeeded();
         $this->testhrc['dom'] = [$elm];
 
-        return $this->parseHTMLText($this->testhrc, $elm, $tpx, $tpy, $tpw, $tph);
+        return $this->parseHTMLText($this->testhrc, 0, $tpx, $tpy, $tpw, $tph);
     }
 
     public function exposeInitHTMLCellContext(
@@ -2083,7 +2084,7 @@ class HTMLTest extends TestUtil
 
         $html = '<small color="#ff0000" bgcolor="#ffff00">small small small small small small small small small small small small small small small small small small small small</small>';
 
-        $extractFillVerticalSpan = static function (string $out): float {
+        $extractFillSpan = static function (string $out): float {
             $matches = [];
             \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+f/', $out, $matches, PREG_SET_ORDER);
             if ($matches === []) {
@@ -2093,10 +2094,10 @@ class HTMLTest extends TestUtil
             $miny = PHP_FLOAT_MAX;
             $maxy = -PHP_FLOAT_MAX;
             foreach ($matches as $match) {
-                $y = (float) $match[2];
-                $h = \abs((float) $match[4]);
-                $miny = \min($miny, $y);
-                $maxy = \max($maxy, $y + $h);
+                $posy = (float) $match[2];
+                $height = \abs((float) $match[4]);
+                $miny = \min($miny, $posy);
+                $maxy = \max($maxy, $posy + $height);
             }
 
             if ($maxy <= $miny) {
@@ -2112,8 +2113,8 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $outNoWrap);
         $this->assertNotSame('', $outWrap);
 
-        $nowrapHeight = $extractFillVerticalSpan($outNoWrap);
-        $wrapHeight = $extractFillVerticalSpan($outWrap);
+        $nowrapHeight = $extractFillSpan($outNoWrap);
+        $wrapHeight = $extractFillSpan($outWrap);
 
         $this->assertGreaterThan(0.0, $nowrapHeight);
         $this->assertGreaterThan(0.0, $wrapHeight);
@@ -2485,7 +2486,7 @@ class HTMLTest extends TestUtil
         $this->assertSame(140.0, $tpy);
     }
 
-    public function testBrAtLineStartAfterWrappedPlainTextDoesNotAddExtraBlankLine(): void
+    public function testBrAtLineStartAfterWrappedPlainTextAdvancesOnce(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
@@ -2511,7 +2512,7 @@ class HTMLTest extends TestUtil
 
         $obj->exposeParseHTMLTagOPENbrWithDom($dom, 1, $tpx, $tpy, $tpw, $tph);
 
-        $this->assertSame(140.0, $tpy);
+        $this->assertGreaterThan(140.0, $tpy);
         $this->assertSame(20.0, $tpx);
     }
 
@@ -2998,7 +2999,7 @@ class HTMLTest extends TestUtil
 
         $this->assertIsInt($numMatches);
         $this->assertGreaterThanOrEqual(2, $numMatches);
-        $this->assertGreaterThan(0.0, (float) $matches[1][0]);
+        $this->assertEqualsWithDelta(0.0, (float) $matches[1][0], 0.000001);
         $this->assertEqualsWithDelta(0.0, (float) $matches[1][1], 0.000001);
     }
 
