@@ -55,7 +55,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             return;
         }
 
-        $this->initHTMLCellContext(0.0, 0.0, 0.0, 0.0, $this->testhrc);
+        $this->initHTMLCellContext($this->testhrc, 0.0, 0.0, 0.0, 0.0);
     }
 
     /** @phpstan-return THTMLRenderContext */
@@ -192,7 +192,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         float $maxwidth,
         float $maxheight,
     ): void {
-        $this->initHTMLCellContext($originx, $originy, $maxwidth, $maxheight, $this->testhrc);
+        $this->initHTMLCellContext($this->testhrc, $originx, $originy, $maxwidth, $maxheight);
     }
 
     /** @phpstan-param THTMLAttrib $elm */
@@ -436,6 +436,61 @@ class HTMLTest extends TestUtil
 
         $obj->setULLIDot('img|png|4|4|bullet.png');
         $this->assertSame('img|png|4|4|bullet.png', $this->getObjectProperty($obj, 'ullidot'));
+    }
+
+    public function testHrcReferenceParameterIsFirstWhenPresent(): void
+    {
+        $ref = new \ReflectionClass(\Com\Tecnick\Pdf\HTML::class);
+
+        foreach ($ref->getMethods(\ReflectionMethod::IS_PROTECTED) as $method) {
+            $params = $method->getParameters();
+            foreach ($params as $idx => $param) {
+                if ($param->getName() !== 'hrc') {
+                    continue;
+                }
+
+                $ptype = $param->getType();
+                if (!$ptype instanceof \ReflectionNamedType) {
+                    continue;
+                }
+
+                if (($ptype->getName() !== 'array') || !$param->isPassedByReference()) {
+                    continue;
+                }
+
+                $this->assertSame(
+                    0,
+                    $idx,
+                    'Expected array &$hrc to be the first parameter in protected method ' . $method->getName(),
+                );
+            }
+        }
+    }
+
+    public function testDomHelperMethodsUseKeyParameter(): void
+    {
+        $ref = new \ReflectionClass(\Com\Tecnick\Pdf\HTML::class);
+        $methods = [
+            'estimateHTMLTextHeight',
+            'getHTMLFontMetric',
+            'getHTMLTextPrefix',
+            'getHTMLLineAdvance',
+            'getCurrentHTMLLineAdvance',
+        ];
+
+        foreach ($methods as $name) {
+            $method = $ref->getMethod($name);
+            $params = $method->getParameters();
+
+            $this->assertCount(2, \array_slice($params, 0, 2), 'Unexpected leading parameters in ' . $name);
+            $this->assertSame('hrc', $params[0]->getName(), 'First parameter must be hrc in ' . $name);
+            $this->assertTrue($params[0]->isPassedByReference(), 'First parameter must be by-reference in ' . $name);
+            $this->assertSame('key', $params[1]->getName(), 'Second parameter must be key in ' . $name);
+
+            $ptype = $params[1]->getType();
+            $this->assertInstanceOf(\ReflectionNamedType::class, $ptype, 'Second parameter must have named type in ' . $name);
+            $this->assertSame('int', $ptype->getName(), 'Second parameter type must be int in ' . $name);
+        }
     }
 
     public function testTidyHTMLReturnsStyledXhtml(): void
@@ -2159,6 +2214,10 @@ class HTMLTest extends TestUtil
         $xvalues = [];
         foreach ($matches as $match) {
             $xvalues[] = (float) $match[1];
+        }
+
+        if ($xvalues === []) {
+            $this->fail('Expected at least one x position extracted from border rectangles');
         }
 
         $this->assertGreaterThan(
