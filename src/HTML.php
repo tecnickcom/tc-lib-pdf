@@ -38,7 +38,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-type THTMLTableCell array{cellx: float, cellw: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
  * @phpstan-type THTMLTableRowspanCell array{cellx: float, cellw: float, rowtop: float, rowsremaining: int, usedheight: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
  * @phpstan-type THTMLTableState array{originx: float, originy: float, width: float, cols: int, colwidth: float, colwidths: array<int, float>, cellspacing: float, cellpadding: float, rowtop: float, rowheight: float, colindex: int, cells: array<int, THTMLTableCell>, occupied: array<int, int>, rowspans: array<int, THTMLTableRowspanCell>}
- * @phpstan-type THTMLTableCellContext array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, linewrapped: bool, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string}
+ * @phpstan-type THTMLTableCellContext array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, lineascent: float, linewrapped: bool, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string}
  *
  * @phpstan-type THTMLAttrib array{
  *     'align': string,
@@ -88,7 +88,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * }
  *
  * @phpstan-type THTMLRenderContext array{
- *     'cellctx': array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, linewrapped: bool, basefont: string},
+ *     'cellctx': array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, lineascent: float, linewrapped: bool, basefont: string},
  *     'currentkey'?: int,
  *     'fontcache': array<string, array<string, mixed>>,
  *     'liststack': array<int, array{ordered: bool, type: string, count: int}>,
@@ -2314,6 +2314,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'maxheight' => $height,
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
+            'lineascent' => 0.0,
             'linewrapped' => false,
             'basefont' => $basefont,
         ];
@@ -2341,6 +2342,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'maxheight' => 0.0,
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
+            'lineascent' => 0.0,
             'linewrapped' => false,
             'basefont' => 'helvetica',
         ];
@@ -3097,6 +3099,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpw = $hrc['cellctx']['maxwidth'];
         $hrc['cellctx']['lineadvance'] = 0.0;
         $hrc['cellctx']['linebottom'] = 0.0;
+        $hrc['cellctx']['lineascent'] = 0.0;
         $hrc['cellctx']['linewrapped'] = false;
     }
 
@@ -3133,6 +3136,48 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $runwidth;
+    }
+
+    /**
+     * Measure the maximum ascent among inline text fragments in the current run.
+     *
+     * The run stops at block boundaries and explicit BR tags.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function measureHTMLInlineRunMaxAscent(array &$hrc, int $startkey): float
+    {
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = &$hrc['dom'];
+        $numel = \count($dom);
+        $maxascent = 0.0;
+
+        for ($key = $startkey; $key < $numel; ++$key) {
+            $node = $dom[$key];
+
+            if (!empty($node['tag'])) {
+                if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
+                    break;
+                }
+
+                continue;
+            }
+
+            $text = $this->normalizeHTMLText($hrc, (string) $node['value']);
+            if ($text === '') {
+                continue;
+            }
+
+            $font = $this->getHTMLFontMetric($hrc, $key);
+            $ascent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+                ? $this->toUnit((float) $font['ascent'])
+                : 0.0;
+            if ($ascent > $maxascent) {
+                $maxascent = $ascent;
+            }
+        }
+
+        return $maxascent;
     }
 
     /**
@@ -4557,26 +4602,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $currentkey = \count($hrc['dom']) - 1;
         }
 
-        // Capture current font metrics before the HTML prefix may switch fonts.
-        $prevFont = $this->font->getCurrentFont();
-        $prevAscent = $this->toUnit($prevFont['ascent']);
-        $prevSize = (float) ($prevFont['size'] ?? 0.0);
-
         $out = $this->getHTMLTextPrefix($hrc, $currentkey);
 
-        // Preserve the baseline when inline content changes font size.
-        // Style-only switches such as bold/italic can have slightly different
-        // ascent metrics, but they still belong on the same visual line.
         $curfont = $this->font->getCurrentFont();
-        $curAscent = $this->toUnit($curfont['ascent']);
-        $curSize = (float) ($curfont['size'] ?? 0.0);
+        $curAscent = (isset($curfont['ascent']) && \is_numeric($curfont['ascent']))
+            ? $this->toUnit((float) $curfont['ascent'])
+            : 0.0;
+        if (($lineOffset <= 0.001) || empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
+            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
+            if ($lineascent <= 0.0) {
+                $lineascent = $curAscent;
+            }
+
+            $hrc['cellctx']['lineascent'] = $lineascent;
+        }
+
+        $lineascent = (float) $hrc['cellctx']['lineascent'];
+        if ($lineascent < $curAscent) {
+            $lineascent = $curAscent;
+            $hrc['cellctx']['lineascent'] = $lineascent;
+        }
+
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         $fragmentWidth = $this->getStringWidth($text);
         if (
             ($lineOffset > 0.001)
             && (\trim($text) !== '')
             && ($fragmentWidth > ($remainingWidth + 0.001))
-            && ($fragmentWidth <= ($availableWidth + 0.001))
         ) {
             $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
                 ? (float) $hrc['cellctx']['linebottom']
@@ -4587,8 +4639,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
-        } elseif (($lineOffset > 0.001) && (\abs($curSize - $prevSize) > 0.001) && ($curAscent !== $prevAscent)) {
-            $tpy = $tpy + $prevAscent - $curAscent;
         }
 
         $renderPosX = $lineOriginX;
@@ -4626,12 +4676,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $renderStartX = $renderPosX + $renderOffset;
-        $renderStartY = $tpy;
+        $renderStartY = $tpy + ($lineascent - $curAscent);
 
         $out .= $this->getTextCell(
             $text,
             $renderPosX,
-            $tpy,
+            $renderStartY,
             $renderWidth,
             0,
             $renderOffset,
@@ -4795,7 +4845,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($hrc['cellctx']['maxwidth'] > 0) {
             $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
         }
-        $tpy = $bbox['y'];
         $hrc['cellctx']['linewrapped'] = false;
 
         return $background . $out;
@@ -5997,6 +6046,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'maxheight' => $hrc['cellctx']['maxheight'],
             'lineadvance' => (float) $hrc['cellctx']['lineadvance'],
             'linebottom' => (float) ($hrc['cellctx']['linebottom'] ?? 0.0),
+            'lineascent' => (float) ($hrc['cellctx']['lineascent'] ?? 0.0),
             'linewrapped' => !empty($hrc['cellctx']['linewrapped']),
             'rowtop' => $rowtop,
             'cellx' => $cellx,
@@ -7115,6 +7165,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['maxheight'] = $cellctx['maxheight'];
         $hrc['cellctx']['lineadvance'] = $cellctx['lineadvance'];
         $hrc['cellctx']['linebottom'] = $cellctx['linebottom'];
+        $hrc['cellctx']['lineascent'] = $cellctx['lineascent'];
         $hrc['cellctx']['linewrapped'] = !empty($cellctx['linewrapped']);
 
         $tpy = $cellctx['rowtop'];

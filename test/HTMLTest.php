@@ -197,11 +197,12 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->initHTMLCellContext($this->testhrc, $originx, $originy, $maxwidth, $maxheight);
     }
 
-    public function exposeSetHTMLLineState(float $lineadvance, float $linebottom, bool $linewrapped): void
+    public function exposeSetHTMLLineState(float $lineadvance, float $linebottom, bool $linewrapped, float $lineascent = 0.0): void
     {
         $this->initExposeRenderContextIfNeeded();
         $this->testhrc['cellctx']['lineadvance'] = $lineadvance;
         $this->testhrc['cellctx']['linebottom'] = $linebottom;
+        $this->testhrc['cellctx']['lineascent'] = $lineascent;
         $this->testhrc['cellctx']['linewrapped'] = $linewrapped;
     }
 
@@ -268,12 +269,12 @@ class TestableHTMLNobrProbe extends TestableHTML
 class TestableHTMLBBoxProbe extends TestableHTML
 {
     /**
-     * @var array<int, array<string, float|string>>
+     * @var array<int, array{txt: string, in_x: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_end_x: float, font_size: float}>
      */
     private array $bboxTrace = [];
 
     /**
-     * @return array<int, array<string, float|string>>
+     * @return array<int, array{txt: string, in_x: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_end_x: float, font_size: float}>
      */
     public function exposeGetBBoxTrace(): array
     {
@@ -346,6 +347,7 @@ class TestableHTMLBBoxProbe extends TestableHTML
             'txt' => $txt,
             'in_x' => $posx,
             'bbox_x' => $bbox['x'],
+            'bbox_y' => $bbox['y'],
             'bbox_w' => $bbox['w'],
             'bbox_end_x' => $bbox['x'] + $bbox['w'],
             'font_size' => (float) ($curfont['size'] ?? 0.0),
@@ -4049,6 +4051,58 @@ class HTMLTest extends TestUtil
 
         $this->assertGreaterThan(20.0, $tpy);
         $this->assertEqualsWithDelta(10.0, $tpx, 1e-9);
+    }
+
+    public function testParseHTMLTextOverflowAdvancesByCurrentLineMaxHeight(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeInitHTMLCellContext(10.0, 0.0, 40.0, 0.0);
+        // Simulate an in-progress line that already contains a taller inline fragment.
+        $obj->exposeSetHTMLLineState(12.0, 0.0, false);
+
+        $elm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => 'thisisaverylongwordthisisaverylongwordthisisaverylongword',
+            'fontsize' => 6.0,
+        ]);
+
+        $tpx = 38.0; // near line end => tiny remaining width
+        $tpy = 20.0;
+        $tpw = 12.0;
+        $tph = 0.0;
+
+        $out = $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertNotSame('', $out);
+        // The parser must advance to next line using the tracked max line height (12.0)
+        // before rendering the overflow fragment.
+        $this->assertGreaterThanOrEqual(32.0, $tpy);
+    }
+
+    public function testGetHTMLCellMixedInlineSizesShareBaseline(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeResetBBoxTrace();
+        $html = '<font size="10">A</font><font size="22">B</font><font size="10">C</font>';
+        $out = $obj->getHTMLCell($html, 0, 0, 200, 20);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(3, $trace);
+        $this->assertSame('A', $trace[0]['txt']);
+        $this->assertSame('B', $trace[1]['txt']);
+        $this->assertSame('C', $trace[2]['txt']);
+
+        // Small fragments on the same line must align to the same baseline offset.
+        $this->assertEqualsWithDelta((float) $trace[0]['bbox_y'], (float) $trace[2]['bbox_y'], 1e-9);
+        // The larger fragment sits higher while sharing the same baseline.
+        $this->assertGreaterThan((float) $trace[1]['bbox_y'], (float) $trace[0]['bbox_y']);
     }
 
     // --- Fix tests: <hr> width/height ---
