@@ -6747,6 +6747,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         }
 
+        $tablebottom = \max($tpy, $table['rowtop']);
         $tpx = $table['originx'];
         $tpw = $table['width'];
 
@@ -6762,6 +6763,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $cell['fillstyle'],
                 $cell['buffer'],
             );
+        }
+
+        $tableheight = \max(0.0, $tablebottom - $table['originy']);
+        if ($tableheight > 0.0) {
+            // Use opening <table> styles for outer frame/fill.
+            // Closing nodes may inherit unrelated styles from ancestors.
+            $tablekey = $key;
+            if (
+                isset($hrc['dom'][$key]['parent'])
+                && \is_int($hrc['dom'][$key]['parent'])
+                && isset($hrc['dom'][$hrc['dom'][$key]['parent']])
+            ) {
+                $tablekey = $hrc['dom'][$key]['parent'];
+            }
+
+            $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $tablekey);
+            $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $tablekey);
+            if (($bstyles !== []) || ($fillstyle !== null)) {
+                $out .= $this->renderHTMLTableCell(
+                    $table['originx'],
+                    $table['originy'],
+                    $table['width'],
+                    $tableheight,
+                    $bstyles,
+                    $fillstyle,
+                    '',
+                );
+            }
         }
 
         return $out . $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);

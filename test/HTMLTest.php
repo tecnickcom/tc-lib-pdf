@@ -1071,6 +1071,21 @@ class HTMLTest extends TestUtil
         );
     }
 
+    public function testGetHTMLCellRendersTopLevelTableOuterBorder(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table border="1" cellspacing="3" cellpadding="4">'
+            . '<tr><td style="border:0">X</td></tr>'
+            . '</table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertMatchesRegularExpression('/\sre\s+s\b/s', $out);
+    }
+
     public function testGetHTMLCellCentersMixedDirectionInlineRunAsOneLine(): void
     {
         $obj = $this->getBBoxProbeTestObject();
@@ -2093,6 +2108,34 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('(X)', $out);
         $this->assertStringContainsString(' re', $out, 'Expected a cell rectangle to be drawn');
+    }
+
+    public function testGetHTMLCellRendersTableOuterBorderFromTableAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $withoutBorder = $obj->getHTMLCell(
+            '<table cellspacing="3" cellpadding="4"><tr><td>A</td></tr></table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $withBorder = $obj->getHTMLCell(
+            '<table border="1" cellspacing="3" cellpadding="4"><tr><td>A</td></tr></table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $withoutBorder);
+        $this->assertNotSame('', $withBorder);
+        $this->assertStringContainsString('(A)', $withBorder);
+        $this->assertStringNotContainsString(' re', $withoutBorder);
+        $this->assertStringContainsString(' re', $withBorder, 'Expected outer table border rectangle to be drawn');
     }
 
     public function testGetHTMLCellTreatsFormAsBlockContainer(): void
