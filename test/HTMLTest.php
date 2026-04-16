@@ -1989,6 +1989,40 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($heights[0], $heights[1] + $heights[2], 0.0001);
     }
 
+    public function testGetHTMLCellRowspanHeightIncludesCellspacingBetweenRows(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table cellspacing="3">'
+            . '<tr><td rowspan="2" style="border:1px solid black">A</td><td style="border:1px solid black">Top</td></tr>'
+            . '<tr><td style="border:1px solid black">Bottom</td></tr>'
+            . '</table>',
+            0,
+            0,
+            30,
+            20,
+        );
+
+        $this->assertNotSame('', $out);
+        $matches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+s/', $out, $matches, PREG_SET_ORDER);
+        $this->assertGreaterThanOrEqual(3, \count($matches));
+
+        $heights = \array_map(
+            static fn(array $match): float => \abs((float) $match[4]),
+            $matches,
+        );
+        \rsort($heights);
+
+        $this->assertGreaterThan(
+            $heights[1] + $heights[2],
+            $heights[0],
+            'Rowspan height should include inter-row cellspacing between spanned rows.',
+        );
+    }
+
     public function testGetHTMLCellDrawsTableCellBackgroundFillWhenSpecified(): void
     {
         $obj = $this->getTestObject();

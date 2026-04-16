@@ -7167,7 +7167,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $rowspans = [];
         foreach ($table['rowspans'] as $cell) {
-            $cell['usedheight'] += $rowheight;
+            $cellspacing = ($cell['rowsremaining'] > 1) ? $table['cellspacing'] : 0.0;
+            $cell['usedheight'] += ($rowheight + $cellspacing);
             --$cell['rowsremaining'];
             if ($cell['rowsremaining'] <= 0) {
                 $out .= $this->renderHTMLTableCell(
