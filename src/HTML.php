@@ -5805,6 +5805,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'rowtop' => $rowtop,
             'cellx' => $cellx,
             'cellw' => $cellw,
+            'padding' => $elm['padding'],
+            'margin' => $elm['margin'],
             'bstyles' => $this->getHTMLTableCellBorderStyles($hrc, $key),
             'fillstyle' => $this->getHTMLTableCellFillStyle($hrc, $key),
             'rowspan' => $rowspan,
@@ -6857,11 +6859,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $lineAdvance = $this->getHTMLLineAdvance($hrc, $elm);
+        $cellPaddingB = isset($cellctx['padding']['B']) ? (float) $cellctx['padding']['B'] : (float) $elm['padding']['B'];
+        $cellMarginB = isset($cellctx['margin']['B']) ? (float) $cellctx['margin']['B'] : (float) $elm['margin']['B'];
+        $lineAdvance = $this->getCurrentHTMLLineAdvance($hrc, $elm);
         $cellbottom = $tpy
             + $lineAdvance
-            + (float) $elm['padding']['B']
-            + (float) $elm['margin']['B'];
+            + $cellPaddingB
+            + $cellMarginB;
         $rowheight = \max(0.0, $cellbottom - $cellctx['rowtop']);
         if (!empty($elm['height']) && \is_numeric($elm['height'])) {
             $rowheight = \max($rowheight, (float) $elm['height']);
