@@ -7012,7 +7012,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && isset($cellctx['margin']['B'])
             && \is_numeric($cellctx['margin']['B'])
         ) ? (float) $cellctx['margin']['B'] : (float) $elm['margin']['B'];
-        $lineAdvance = $this->getCurrentHTMLLineAdvance($hrc, $key);
+        // Only add trailing line advance when inline content is still present
+        // on the current line. Block-only content (e.g. nested tables) already
+        // updates the vertical cursor and must not add an extra blank line here.
+        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + 0.001));
+        $lineAdvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
         $cellbottom = $tpy
             + $lineAdvance
             + $cellPaddingB
