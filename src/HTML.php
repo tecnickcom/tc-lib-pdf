@@ -4573,10 +4573,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $renderWidth = $fragmentWidth;
                     $renderOffset = 0.0;
                     $renderAlign = 'L';
+                } else {
+                    // If the full run does not fit, avoid centering only the first fragment.
+                    $renderPosX = $lineOriginX;
+                    $renderWidth = $remainingWidth;
+                    $renderOffset = 0.0;
+                    $renderAlign = 'L';
                 }
             } elseif ($lineOffset > 0.001) {
                 $renderPosX = $tpx;
-                $renderWidth = $fragmentWidth;
+                $renderWidth = $remainingWidth;
                 $renderOffset = 0.0;
                 $renderAlign = 'L';
             }
