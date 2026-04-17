@@ -970,9 +970,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $stream = $this->encrypt->encryptString($stream, $oid);
         $rect = \sprintf('%F %F', $width, $height);
+        $resobj = $this->objid['resdic'] ?? $this->page->getResourceDictObjID();
         return $out . ' /BBox [0 0 ' . $rect . ']'
             . ' /Matrix [1 0 0 1 0 0]'
-            . ' /Resources 2 0 R'
+            . ' /Resources ' . $resobj . ' 0 R'
             . ' /Length ' . \strlen($stream)
             . ' >>'
             . ' stream' . "\n"

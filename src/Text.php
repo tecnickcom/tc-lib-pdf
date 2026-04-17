@@ -579,6 +579,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $halign = $this->rtl ? 'R' : 'L';
         }
 
+        $firstlinehalign = $halign;
+        if ($halign === 'c') {
+            $halign = 'C';
+            $firstlinehalign = 'L';
+        } elseif ($halign === 'r') {
+            $halign = 'R';
+            $firstlinehalign = 'L';
+        }
+
         $num_lines = \count($lines);
         $lastline = ($num_lines - 1);
 
@@ -600,12 +609,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             ];
 
             $cell_width = ($width - $offset);
+            $line_halign = ($i === 0) ? $firstlinehalign : $halign;
             $txt_posx = $this->toUnit(
                 $this->textHPosFromCell(
                     $this->toPoints($line_posx),
                     $this->toPoints($cell_width),
                     $line_dim['totwidth'],
-                    $halign,
+                    $line_halign,
                     static::ZEROCELL, // @phpstan-ignore argument.type
                 )
             );
