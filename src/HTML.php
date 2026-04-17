@@ -3272,6 +3272,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $node = $dom[$key];
 
             if (!empty($node['tag'])) {
+                if (($node['value'] === 'img') && !empty($node['opening'])) {
+                    $lineheight = $this->getHTMLLineAdvance($hrc, $key);
+                    $imgheight = (!empty($node['height']) && \is_numeric($node['height']))
+                        ? (float) $node['height']
+                        : $lineheight;
+                    if ($imgheight <= 0.0) {
+                        continue;
+                    }
+
+                    $attr = $node['attribute'] ?? [];
+                    $valign = (isset($attr['align']) && \is_string($attr['align']))
+                        ? \strtolower(\trim($attr['align']))
+                        : 'bottom';
+                    $ascent = match ($valign) {
+                        'top' => 0.0,
+                        'middle' => $imgheight / 2.0,
+                        default => $imgheight,
+                    };
+                    if ($ascent > $maxascent) {
+                        $maxascent = $ascent;
+                    }
+
+                    continue;
+                }
+
                 if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
                     break;
                 }
@@ -3721,14 +3746,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $valign = (isset($attr['align']) && \is_string($attr['align']))
             ? \strtolower(\trim($attr['align']))
             : 'bottom';
-        $imagey = $tpy;
-        if ($height < $lineheight) {
-            $imagey = match ($valign) {
-                'top'    => $tpy,
-                'middle' => $tpy + ($lineheight - $height) / 2.0,
-                default  => $tpy + $lineheight - $height,
-            };
+        $font = $this->getHTMLFontMetric($hrc, $key);
+        $curAscent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+            ? $this->toUnit((float) $font['ascent'])
+            : 0.0;
+        if (empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
+            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $key);
+            if ($lineascent <= 0.0) {
+                $lineascent = $curAscent;
+            }
+
+            $hrc['cellctx']['lineascent'] = $lineascent;
         }
+
+        $lineascent = (float) $hrc['cellctx']['lineascent'];
+        if ($lineascent < $curAscent) {
+            $lineascent = $curAscent;
+            $hrc['cellctx']['lineascent'] = $lineascent;
+        }
+
+        $baseliney = $tpy + $lineascent;
+        $imagey = match ($valign) {
+            'top' => $tpy,
+            'middle' => $tpy + (($lineheight - $height) / 2.0),
+            default => $baseliney - $height,
+        };
 
         // Horizontal alignment: inherit text-align for inline image runs.
         $lineOriginX = $hrc['cellctx']['originx'];
@@ -3769,7 +3811,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $tpx = $imagex + $width;
-        $this->updateHTMLLineAdvance($hrc, \max($lineheight, $height));
+        $imagebottom = $imagey + $height;
+        $this->updateHTMLLineAdvance($hrc, \max($lineheight, $imagebottom - $tpy));
+        if (
+            empty($hrc['cellctx']['linebottom'])
+            || !\is_numeric($hrc['cellctx']['linebottom'])
+            || ($imagebottom > (float) $hrc['cellctx']['linebottom'])
+        ) {
+            $hrc['cellctx']['linebottom'] = $imagebottom;
+        }
         if ($hrc['cellctx']['maxwidth'] > 0) {
             $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
         }

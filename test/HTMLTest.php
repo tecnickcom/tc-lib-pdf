@@ -4666,6 +4666,68 @@ class HTMLTest extends TestUtil
         $this->assertNotSame($outBottom, $outTop);
     }
 
+    public function testGetHTMLCellImgBottomAlignmentUsesTextBaseline(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $out = $obj->getHTMLCell(
+            'left <img src="' . $b64src . '" width="4" height="30" /> right',
+            0,
+            0,
+            80,
+            40,
+        );
+
+        $this->assertSame(1, \preg_match('/BT .*? [-0-9.]+ ([-0-9.]+) Td \(left \) Tj ET/s', $out, $textMatch));
+        $this->assertSame(1, \preg_match('/q [-0-9.]+ 0 0 [-0-9.]+ [-0-9.]+ ([-0-9.]+) cm \/IMG\d+ Do Q/', $out, $imgMatch));
+
+        $this->assertEqualsWithDelta((float) $textMatch[1], (float) $imgMatch[1], 0.01);
+    }
+
+    public function testGetHTMLCellTallBottomAlignedImageShiftsWholeLineDown(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->getHTMLCell('left right', 0, 0, 80, 40);
+        $plainTrace = $obj->exposeGetBBoxTrace();
+
+        $obj2 = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj2);
+        $obj2->exposeResetBBoxTrace();
+        $obj2->getHTMLCell(
+            'left <img src="' . $b64src . '" width="4" height="30" /> right',
+            0,
+            0,
+            80,
+            40,
+        );
+        $imageTrace = $obj2->exposeGetBBoxTrace();
+
+        $this->assertCount(1, $plainTrace);
+        $this->assertCount(2, $imageTrace);
+        $this->assertSame('left ', $imageTrace[0]['txt']);
+        $this->assertSame(' right', $imageTrace[1]['txt']);
+        $this->assertGreaterThan((float) $plainTrace[0]['bbox_y'], (float) $imageTrace[0]['bbox_y']);
+        $this->assertEqualsWithDelta((float) $imageTrace[0]['bbox_y'], (float) $imageTrace[1]['bbox_y'], 1e-9);
+    }
+
     public function testGetHTMLCellCentersInlineImageRunInsideDiv(): void
     {
         $obj = $this->getTestObject();
