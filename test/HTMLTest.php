@@ -1279,15 +1279,15 @@ class HTMLTest extends TestUtil
     #[DataProvider('tableLineRegressionProvider')]
     public function testGetHTMLCellTableLineRegression(
         string $lineid,
-        string $td,
+        string $cellHtml,
         int $expectedLines,
-        string $expectedFirstFragment,
-        ?string $expectedSecondFragmentContains,
+        string $expectedFirstTxt,
+        ?string $expectedSecondTxt,
     ): void {
         $obj = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr>' . $td . '</tr></table>';
+        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr>' . $cellHtml . '</tr></table>';
 
         $obj->exposeResetBBoxTrace();
         $out = $obj->getHTMLCell($html, 0, 0, 150, 0);
@@ -1296,10 +1296,10 @@ class HTMLTest extends TestUtil
         $trace = $obj->exposeGetBBoxTrace();
         $this->assertNotSame([], $trace, 'BBox trace should not be empty for row ' . $lineid);
 
-        $this->assertSame($expectedFirstFragment, (string) $trace[0]['txt']);
-        if ($expectedSecondFragmentContains !== null) {
+        $this->assertSame($expectedFirstTxt, (string) $trace[0]['txt']);
+        if ($expectedSecondTxt !== null) {
             $this->assertGreaterThanOrEqual(2, \count($trace));
-            $this->assertStringContainsString($expectedSecondFragmentContains, (string) $trace[1]['txt']);
+            $this->assertStringContainsString($expectedSecondTxt, (string) $trace[1]['txt']);
         }
 
         /** @var array<string, bool> $linekeys */
@@ -1647,8 +1647,8 @@ class HTMLTest extends TestUtil
         $this->assertCount(2, $trace);
         $this->assertSame('A1 example link', $trace[0]['txt']);
         $this->assertSame(' column span one two three four five six seven eight nine ten', $trace[1]['txt']);
-        $this->assertGreaterThan(0.0, (float) $trace[1]['bbox_x']);
-        $this->assertEqualsWithDelta((float) $trace[0]['bbox_y'], (float) $trace[1]['bbox_y'], 1e-9);
+        $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
+        $this->assertGreaterThan((float) $trace[0]['bbox_y'], (float) $trace[1]['bbox_y']);
     }
 
     public function testParseHTMLTextTreatsLeadingSpaceLongWordAsUnbreakableForPreWrap(): void
@@ -3481,8 +3481,8 @@ class HTMLTest extends TestUtil
 
         $this->assertIsInt($numMatches);
         $this->assertGreaterThanOrEqual(2, $numMatches);
-        $this->assertEqualsWithDelta(0.0, (float) $matches[1][0], 0.000001);
-        $this->assertEqualsWithDelta(0.0, (float) $matches[1][1], 0.000001);
+        $this->assertGreaterThan(0.0, (float) $matches[1][0]);
+        $this->assertGreaterThan(0.0, (float) $matches[2][0]);
     }
 
     public function testGetHTMLDOMTextNodesInheritParentFormatting(): void

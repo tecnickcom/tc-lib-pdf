@@ -4791,7 +4791,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         $fragmentWidth = $this->getStringWidth($text);
-        $keepBreakableChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
+        $keepChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
             $text,
             $forcedir,
             $remainingWidth,
@@ -4804,7 +4804,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 !$this->hasHTMLTextBreakOpportunity($text)
                 || (
                     ($fragmentWidth <= ($availableWidth + 0.001))
-                    && !$keepBreakableChunkOnLine
+                    && !$keepChunkOnLine
                 )
             )
         ) {
@@ -4836,17 +4836,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } elseif ($fragmentWidth <= ($remainingWidth + 0.001)) {
                 $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
                 $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-                $hasFollowingInlineContent = ($runWidth > ($fragmentWidth + 0.001));
-                $isLeadingSmallerFragment = ($curAscent + 0.001 < $lineascent);
-                $lineWidthLooksCollapsedToCurrentFragment = (
-                    $hasFollowingInlineContent
+                $hasFollowingInline = ($runWidth > ($fragmentWidth + 0.001));
+                $isLeadingSmall = ($curAscent + 0.001 < $lineascent);
+                $lineWidthCollapsed = (
+                    $hasFollowingInline
                     && ($lineWidth <= ($fragmentWidth + 0.001))
                 );
-                $deferWrapDetection = ($hasFollowingInlineContent && $isLeadingSmallerFragment);
+                $deferWrapDetection = ($hasFollowingInline && $isLeadingSmall);
                 if (
                     ($lineWidth > 0.0)
                     && ($lineWidth <= ($availableWidth + 0.001))
-                    && !$lineWidthLooksCollapsedToCurrentFragment
+                    && !$lineWidthCollapsed
                 ) {
                     $renderPosX = $lineOriginX + match ($halign) {
                         'R' => \max(0.0, $availableWidth - $lineWidth),
@@ -4902,8 +4902,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         );
 
         $bbox = $this->getLastBBox();
-        $lineAdvanceWrapThreshold = \max(0.001, $lineAdvance - 0.001);
-        $wrapped = ($bbox['y'] - $renderStartY) >= $lineAdvanceWrapThreshold;
+        $wrapThreshold = \max(0.001, $lineAdvance - 0.001);
+        $wrapped = ($bbox['y'] - $renderStartY) >= $wrapThreshold;
         if (!$deferWrapDetection) {
             $wrapped = $wrapped || ($bbox['h'] > ($lineAdvance + 0.001));
         }
