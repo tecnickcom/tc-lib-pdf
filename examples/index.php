@@ -2011,6 +2011,18 @@ Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td>
 		<td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
 Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td>
 	</tr>
+</table>
+
+<table border="1" cellspacing="3" cellpadding="4">
+	<tr>
+		<td align="left"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" width="60" height="20" border="0" /></td>
+	</tr>
+	<tr>
+		<td align="center"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" width="60" height="20" border="0" /></td>
+	</tr>
+	<tr>
+		<td align="right"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" width="60" height="20" border="0" /></td>
+	</tr>
 </table>';
 
 $pdf->addHTMLCell(
