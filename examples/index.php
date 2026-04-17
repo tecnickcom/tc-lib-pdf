@@ -1940,7 +1940,7 @@ $subtable = '<table border="1" cellspacing="6" cellpadding="4"><tr><td>a</td><td
 $html_04 = '<h2>HTML TABLES</h2>
 <table border="1" cellspacing="3" cellpadding="4">
 	<tr>
-		<th>#</th>
+		<th align="center">#</th>
 		<th align="right">RIGHT align</th>
 		<th align="left">LEFT align</th>
 		<th>4A</th>
@@ -2006,6 +2006,15 @@ Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td>
 	<tr>
 		<td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
 Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td>
+	</tr>
+</table>
+
+<table border="1" cellspacing="3" cellpadding="4">
+	<tr>
+		<th align="center">#</th>
+		<th align="right">RIGHT align</th>
+		<th align="left">LEFT align</th>
+		<th>4A</th>
 	</tr>
 </table>';
 

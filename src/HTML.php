@@ -167,6 +167,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'pre',
         'table',
         'tcpdf',
+        'th',
         'td',
         'tr',
         'ul',
