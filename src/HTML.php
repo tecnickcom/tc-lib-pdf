@@ -4852,9 +4852,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'R' => \max(0.0, $availableWidth - $lineWidth),
                         default => \max(0.0, ($availableWidth - $lineWidth) / 2),
                     };
-                    // Keep enough width for the remaining inline run from this shifted start.
-                    // Using the exact fragment width can trigger premature wraps from rounding.
-                    $renderWidth = \max(0.0, $availableWidth - ($renderPosX - $lineOriginX));
+                    // Use the measured lineWidth for rendering to avoid rounding-induced wraps.
+                    // The lineWidth has been verified to fit within availableWidth + 0.001 tolerance.
+                    $renderWidth = \min($lineWidth, $availableWidth);
                     $renderOffset = 0.0;
                     $renderAlign = 'L';
                 } else {
