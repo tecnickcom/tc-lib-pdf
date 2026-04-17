@@ -34,6 +34,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
             'lineascent' => 0.0,
+            'linewordspacing' => 0.0,
             'linewrapped' => false,
             'basefont' => '',
         ],
@@ -189,6 +190,23 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseHTMLText($this->testhrc, 0, $tpx, $tpy, $tpw, $tph);
     }
 
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     */
+    public function exposeParseHTMLTextWithDom(
+        array $dom,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->parseHTMLText($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
+    }
+
     public function exposeInitHTMLCellContext(
         float $originx,
         float $originy,
@@ -204,6 +222,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->testhrc['cellctx']['lineadvance'] = $lineadvance;
         $this->testhrc['cellctx']['linebottom'] = $linebottom;
         $this->testhrc['cellctx']['lineascent'] = $lineascent;
+        $this->testhrc['cellctx']['linewordspacing'] = 0.0;
         $this->testhrc['cellctx']['linewrapped'] = $linewrapped;
     }
 
@@ -4758,6 +4777,89 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $outCenter);
         $this->assertNotSame('', $outLeft);
         $this->assertNotSame($outLeft, $outCenter);
+    }
+
+    public function testParseHTMLTextJustifyTracksSpacingAcrossInlineFragments(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeInitHTMLCellContext(10.0, 10.0, 40.0, 0.0);
+
+        $html = '<div style="text-align:justify;">'
+            . 'Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> '
+            . 'India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i>'
+            . '</div>';
+        $dom = $obj->exposeGetHTMLDOM($html);
+
+        $firstTextKey = null;
+        foreach ($dom as $key => $elm) {
+            if (!empty($elm['tag'])) {
+                continue;
+            }
+
+            if (\str_starts_with((string) $elm['value'], 'Alfa')) {
+                $firstTextKey = $key;
+                break;
+            }
+        }
+
+        $this->assertNotNull($firstTextKey);
+
+        $tpx = 10.0;
+        $tpy = 10.0;
+        $tpw = 40.0;
+        $tph = 0.0;
+
+        $out = $obj->exposeParseHTMLTextWithDom($dom, (int) $firstTextKey, $tpx, $tpy, $tpw, $tph);
+        $this->assertNotSame('', $out);
+
+        $ctx = $obj->exposeGetHTMLRenderContext();
+        $lineWordSpacing = (float) ($ctx['cellctx']['linewordspacing'] ?? 0.0);
+        $this->assertGreaterThan(0.0, $lineWordSpacing);
+
+        $bbox = $obj->getLastBBox();
+        $this->assertGreaterThan((float) $bbox['x'] + (float) $bbox['w'], $tpx);
+    }
+
+    public function testParseHTMLTextPlainJustifyDoesNotUseInlineCursorSpacingHack(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeInitHTMLCellContext(10.0, 10.0, 40.0, 0.0);
+
+        $html = '<div style="text-align:justify;">'
+            . 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett '
+            . 'Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango'
+            . '</div>';
+        $dom = $obj->exposeGetHTMLDOM($html);
+
+        $firstTextKey = null;
+        foreach ($dom as $key => $elm) {
+            if (!empty($elm['tag'])) {
+                continue;
+            }
+
+            if (\str_starts_with((string) $elm['value'], 'Alfa')) {
+                $firstTextKey = $key;
+                break;
+            }
+        }
+
+        $this->assertNotNull($firstTextKey);
+
+        $tpx = 10.0;
+        $tpy = 10.0;
+        $tpw = 40.0;
+        $tph = 0.0;
+
+        $out = $obj->exposeParseHTMLTextWithDom($dom, (int) $firstTextKey, $tpx, $tpy, $tpw, $tph);
+        $this->assertNotSame('', $out);
+
+        $ctx = $obj->exposeGetHTMLRenderContext();
+        $lineWordSpacing = (float) ($ctx['cellctx']['linewordspacing'] ?? 0.0);
+        $this->assertSame(0.0, $lineWordSpacing);
     }
 
     // --- Fix tests: base64 data URI images ---
