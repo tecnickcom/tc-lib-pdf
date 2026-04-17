@@ -3264,7 +3264,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return array{width: float, spaces: int, wrapped: bool}
      */
-    protected function measureHTMLInlineLineMetrics(array &$hrc, int $startkey, float $maxwidth): array
+    protected function measureHTMLInlineLineMetrics(
+        array &$hrc,
+        int $startkey,
+        float $maxwidth,
+        float $wordspacing = 0.0,
+    ): array
     {
         if ($maxwidth <= 0.0) {
             return ['width' => 0.0, 'spaces' => 0, 'wrapped' => false];
@@ -3277,6 +3282,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $contentwidth = 0.0;
         $spaces = 0;
         $wrapped = false;
+        $trailspaces = 0;
+        $trailspacewidth = 0.0;
+        $lastspaceonly = false;
+        $wrapspaces = 0;
 
         for ($key = $startkey; $key < $numel; ++$key) {
             $node = $dom[$key];
@@ -3315,10 +3324,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             $spaceonly = (\trim($text) === '');
-            $remaining = \max(0.0, $maxwidth - $linewidth);
+            $remaining = \max(0.0, $maxwidth - $linewidth - ($spaces * $wordspacing));
             if ($remaining <= 0.0) {
                 $wrapped = true;
                 break;
+            }
+
+            if (($linewidth > 0.0) && !$spaceonly) {
+                $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
+                $fragmentwidth = $this->getStringWidth($text);
+                $keepchunkonline = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
+                    $text,
+                    $forcedir,
+                    $remaining,
+                );
+
+                if (
+                    ($fragmentwidth > ($remaining + 0.001))
+                    && (
+                        !$this->hasHTMLTextBreakOpportunity($text)
+                        || (
+                            ($fragmentwidth <= ($maxwidth + 0.001))
+                            && !$keepchunkonline
+                        )
+                    )
+                ) {
+                    $wrapped = true;
+                    break;
+                }
             }
 
             $this->getHTMLFontMetric($hrc, $key);
@@ -3338,7 +3371,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
-            if (($linewidth > 0.0) && ($linewidth + $chunkwidth > $maxwidth + 0.001)) {
+            $nextspaces = $spaces + (int) ($firstline['spaces'] ?? 0);
+            if (($linewidth > 0.0) && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + 0.001)) {
                 $wrapped = true;
                 break;
             }
@@ -3349,9 +3383,42 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $contentwidth = $linewidth;
             }
 
+            $lastspaceonly = $spaceonly;
+            $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
+            $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
+            $trailmatch = [];
+            if (\preg_match('/ +$/u', $chunktext, $trailmatch) === 1) {
+                $trailspaces = \strlen($trailmatch[0]);
+                $trailspacewidth = ($trailspaces > 0)
+                    ? $this->getStringWidth(\str_repeat(' ', $trailspaces))
+                    : 0.0;
+            } else {
+                $trailspaces = 0;
+                $trailspacewidth = 0.0;
+            }
+
             if ((int) $firstline['chars'] < (int) $dim['chars']) {
+                if ($spaceonly) {
+                    $wrapspaces = (int) ($firstline['spaces'] ?? 0);
+                }
                 $wrapped = true;
                 break;
+            }
+        }
+
+        if (($wrapspaces > 0) && $lastspaceonly) {
+            $spaces = \max(0, $spaces - $wrapspaces);
+            if ($contentwidth <= 0.0) {
+                $linewidth = \max(0.0, $linewidth - $trailspacewidth);
+            }
+        }
+
+        if (($trailspaces > 0) && !$lastspaceonly) {
+            $spaces = \max(0, $spaces - $trailspaces);
+            if ($contentwidth > 0.0) {
+                $contentwidth = \max(0.0, $contentwidth - $trailspacewidth);
+            } else {
+                $linewidth = \max(0.0, $linewidth - $trailspacewidth);
             }
         }
 
@@ -5058,7 +5125,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             // Collapsible spaces must still be removed when we pre-wrap a fragment.
             // Otherwise the new line can start with an artificial indent.
-            if ($hrc['prelevel'] <= 0) {
+            if (($hrc['prelevel'] <= 0) && (\preg_match('/^\s*\S+$/u', $text) !== 1)) {
                 $text = \ltrim($text);
                 if ($text === '') {
                     return '';
@@ -5073,7 +5140,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($halign === 'J') {
             $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
             $hasFollowingInline = ($runWidth > ($fragmentWidth + 0.001));
-            $customJustify = ($hasFollowingInline || ($lineOffset > 0.001));
+            $hasLineWordSpacing = ((float) $hrc['cellctx']['linewordspacing'] > 0.0);
+            $customJustify = ($hasFollowingInline || (($lineOffset > 0.001) && $hasLineWordSpacing));
 
             if ($customJustify) {
                 if ($lineOffset <= 0.001) {
@@ -5085,6 +5153,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     ) {
                         $lineWordSpacing = ($availableWidth - (float) $lineMetrics['width'])
                             / (int) $lineMetrics['spaces'];
+
+                        $lineMetrics = $this->measureHTMLInlineLineMetrics(
+                            $hrc,
+                            $currentkey,
+                            $availableWidth,
+                            $lineWordSpacing,
+                        );
+                        if (
+                            !empty($lineMetrics['wrapped'])
+                            && ((int) ($lineMetrics['spaces'] ?? 0) > 0)
+                            && ((float) ($lineMetrics['width'] ?? 0.0) < ($availableWidth - 0.001))
+                        ) {
+                            $lineWordSpacing = ($availableWidth - (float) $lineMetrics['width'])
+                                / (int) $lineMetrics['spaces'];
+                        }
                     }
 
                     $hrc['cellctx']['linewordspacing'] = $lineWordSpacing;
@@ -5143,6 +5226,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $renderOffset = 0.0;
                     $renderAlign = 'L';
                 }
+            }
+        }
+
+        $trailjustifyadvance = 0.0;
+        if ($customJustify && ($lineWordSpacing > 0.0)) {
+            $leadmatch = [];
+            if (\preg_match('/^ +/u', $text, $leadmatch) === 1) {
+                $leadspaces = \strlen($leadmatch[0]);
+                if ($leadspaces > 0) {
+                    $leadadvance = $this->getStringWidth($leadmatch[0]) + ($lineWordSpacing * $leadspaces);
+                    $text = (string) \substr($text, $leadspaces);
+                    $renderOffset += $leadadvance;
+                }
+            }
+
+            $trailmatch = [];
+            if (\preg_match('/ +$/u', $text, $trailmatch) === 1) {
+                $trailspaces = \strlen($trailmatch[0]);
+                if (($trailspaces > 0) && (\trim($text) !== '')) {
+                    $trailjustifyadvance = $this->getStringWidth($trailmatch[0]) + ($lineWordSpacing * $trailspaces);
+                    $text = (string) \substr($text, 0, -$trailspaces);
+                }
+            }
+
+            if ($text === '') {
+                $tpx = $lineOriginX + $renderOffset + $trailjustifyadvance;
+                if ($hrc['cellctx']['maxwidth'] > 0) {
+                    $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
+                }
+
+                return $out;
             }
         }
 
@@ -5307,7 +5421,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $background . $out;
         }
 
-        $tpx = $bbox['x'] + $bbox['w'];
+        $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance;
         if ($customJustify && ($lineWordSpacing > 0.0)) {
             $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
                 $text,

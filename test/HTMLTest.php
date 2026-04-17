@@ -4862,6 +4862,47 @@ class HTMLTest extends TestUtil
         $this->assertSame(0.0, $lineWordSpacing);
     }
 
+    public function testGetHTMLCellMixedInlineJustifyKeepsUniformWordGaps(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeResetBBoxTrace();
+
+        $html = '<div style="text-align:justify;">'
+            . 'Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> '
+            . 'India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> Oscar <i>Papa</i> '
+            . 'Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> Whiskey <i>Xray</i> '
+            . 'Yankee <i>Zulu</i>'
+            . '</div>';
+
+        $out = $obj->getHTMLCell($html, 20.0, 10.0, 150.0, 0.0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $line = [];
+        foreach ($trace as $row) {
+            if (\abs((float) $row['bbox_y'] - 10.0) < 0.001) {
+                $line[] = $row;
+            }
+        }
+
+        $this->assertGreaterThan(5, \count($line));
+
+        $gaps = [];
+        for ($idx = 1, $max = \count($line); $idx < $max; ++$idx) {
+            $prev = $line[$idx - 1];
+            $curr = $line[$idx];
+            $gap = (float) $curr['bbox_x'] - ((float) $prev['bbox_x'] + (float) $prev['bbox_w']);
+            $gaps[] = $gap;
+        }
+
+        $this->assertNotSame([], $gaps);
+        $expected = $gaps[0];
+        foreach ($gaps as $gap) {
+            $this->assertEqualsWithDelta($expected, $gap, 1e-6);
+        }
+    }
+
     public function testParseHTMLTextForcedWrapTrimsLeadingSpaceAtNewLine(): void
     {
         $obj = $this->getBBoxProbeTestObject();
