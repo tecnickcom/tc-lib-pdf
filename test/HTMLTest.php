@@ -1195,6 +1195,54 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($cellWidth / 2, ($lineLeft + $lineRight) / 2, 1e-9);
     }
 
+    public function testGetHTMLCellCentersWrappedInlineSpansPerLine(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $cellWidth = 60.0;
+        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="center">'
+            . '<span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
+            . '<span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span>'
+            . '</td></tr></table>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, $cellWidth, 0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        /** @var array<string, array{left: float, right: float}> $lines */
+        $lines = [];
+        foreach ($trace as $frag) {
+            $key = \sprintf('%.6f', (float) $frag['bbox_y']);
+            if (!isset($lines[$key])) {
+                $lines[$key] = [
+                    'left' => (float) $frag['bbox_x'],
+                    'right' => (float) $frag['bbox_end_x'],
+                ];
+                continue;
+            }
+
+            $lines[$key]['left'] = \min($lines[$key]['left'], (float) $frag['bbox_x']);
+            $lines[$key]['right'] = \max($lines[$key]['right'], (float) $frag['bbox_end_x']);
+        }
+
+        $lineboxes = \array_values($lines);
+        $this->assertGreaterThanOrEqual(2, \count($lineboxes));
+
+        $cellCenter = $cellWidth / 2;
+        $checklines = \min(3, \count($lineboxes));
+        for ($idx = 0; $idx < $checklines; ++$idx) {
+            $line = $lineboxes[$idx];
+            $this->assertEqualsWithDelta($cellCenter, ($line['left'] + $line['right']) / 2, 1.0);
+        }
+
+        // The first wrapped line must not be left-flush when centered.
+        $this->assertGreaterThan(0.5, $lineboxes[0]['left']);
+    }
+
     public function testParseHTMLTextWrapsLargeInlineFragmentBeforeItOverflowsRemainingWidth(): void
     {
         $measure = $this->getBBoxProbeTestObject();
@@ -1254,6 +1302,140 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(0.0, (float) $trace[0]['bbox_x'] + (float) $trace[0]['bbox_w']);
         $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
         $this->assertLessThanOrEqual($cellWidth + 1e-9, (float) $trace[1]['bbox_end_x']);
+    }
+
+    public function testParseHTMLTextKeepsBreakableFragmentOnCurrentLineWhenOnlyTailOverflows(): void
+    {
+        $measure = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($measure);
+        $measure->exposeInitHTMLCellContext(0, 0, 300, 0);
+
+        $prefixElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => 'A1 example link',
+        ]);
+        $breakableElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => ' column span one two three four five six seven eight nine ten',
+        ]);
+        $firstChunkElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => ' column span',
+        ]);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 300.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $prefixTrace = $measure->exposeGetBBoxTrace();
+        $prefixWidth = (float) $prefixTrace[0]['bbox_w'];
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 300.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($breakableElm, $tpx, $tpy, $tpw, $tph);
+        $breakableTrace = $measure->exposeGetBBoxTrace();
+        $breakableWidth = (float) $breakableTrace[0]['bbox_w'];
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 300.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($firstChunkElm, $tpx, $tpy, $tpw, $tph);
+        $chunkTrace = $measure->exposeGetBBoxTrace();
+        $chunkWidth = (float) $chunkTrace[0]['bbox_w'];
+
+        $cellWidth = $prefixWidth + $chunkWidth + 0.2;
+        $cellWidth = \min($cellWidth, $prefixWidth + $breakableWidth - 0.1);
+
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0, 0, $cellWidth, 0);
+        $obj->exposeResetBBoxTrace();
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = $cellWidth;
+        $tph = 0.0;
+        $obj->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $obj->exposeParseHTMLText($breakableElm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(2, $trace);
+        $this->assertSame('A1 example link', $trace[0]['txt']);
+        $this->assertSame(' column span one two three four five six seven eight nine ten', $trace[1]['txt']);
+        $this->assertGreaterThan(0.0, (float) $trace[1]['bbox_x']);
+        $this->assertEqualsWithDelta((float) $trace[0]['bbox_y'], (float) $trace[1]['bbox_y'], 1e-9);
+    }
+
+    public function testParseHTMLTextTreatsLeadingSpaceLongWordAsUnbreakableForPreWrap(): void
+    {
+        $measure = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($measure);
+        $measure->exposeInitHTMLCellContext(0, 0, 220, 0);
+
+        $prefixElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => 'prefix ',
+        ]);
+        $wordElm = $this->makeHtmlNode([
+            'tag' => false,
+            'opening' => false,
+            'self' => false,
+            'value' => ' thisisanotherverylongword',
+        ]);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 220.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $prefixTrace = $measure->exposeGetBBoxTrace();
+        $prefixWidth = (float) $prefixTrace[0]['bbox_w'];
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 220.0;
+        $tph = 0.0;
+        $measure->exposeResetBBoxTrace();
+        $measure->exposeParseHTMLText($wordElm, $tpx, $tpy, $tpw, $tph);
+        $wordTrace = $measure->exposeGetBBoxTrace();
+        $wordWidth = (float) $wordTrace[0]['bbox_w'];
+
+        $cellWidth = $prefixWidth + $wordWidth - 0.1;
+
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0, 0, $cellWidth, 0);
+        $obj->exposeResetBBoxTrace();
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = $cellWidth;
+        $tph = 0.0;
+        $obj->exposeParseHTMLText($prefixElm, $tpx, $tpy, $tpw, $tph);
+        $obj->exposeParseHTMLText($wordElm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(2, $trace);
+        $this->assertSame('prefix ', $trace[0]['txt']);
+        $this->assertSame(' thisisanotherverylongword', $trace[1]['txt']);
+        $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
+        $this->assertGreaterThan((float) $trace[0]['bbox_y'], (float) $trace[1]['bbox_y']);
     }
 
     public function testAllParseHTMLTagMethodsCanBeInvoked(): void

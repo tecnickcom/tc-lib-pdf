@@ -1889,7 +1889,6 @@ $pageV03 = $pdf->addPage();
 $pdf->page->addContent($bfont6['out']);
 
 $html_03 = '<h1>Various HTML Tests</h1>
-<a href="#2">link to page 2</a><br />
 <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font> <font face="courier"><b>thisisaverylongword</b></font> <font face="helvetica"><i>thisisanotherverylongword</i></font> <font face="times"><b>thisisaverylongword</b></font> thisisanotherverylongword <font face="times">thisisaverylongword</font>';
 
 
@@ -1932,7 +1931,7 @@ $pdf->addHTMLCell(
 
 // HTML D
 
-$pageV02 = $pdf->addPage();
+$pageV04 = $pdf->addPage();
 
 $pdf->page->addContent($bfont6['out']);
 
@@ -1976,6 +1975,29 @@ $html_04 = '<h2>HTML TABLE:</h2>
 
 $pdf->addHTMLCell(
     $html_04, // string $html,
+    20, // float $posx = 0,
+    10, // float $posy = 0,
+);
+
+// ----------
+
+// HTML E
+
+$pageV05 = $pdf->addPage();
+
+$pdf->page->addContent($bfont6['out']);
+
+$subtable = '<table border="1" cellspacing="6" cellpadding="4"><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>';
+
+$html_05 = '<h2>HTML TABLE:</h2>
+<table border="1" cellspacing="3" cellpadding="4">
+	<tr>
+		<td align="center"><span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td>
+	</tr>
+</table>';
+
+$pdf->addHTMLCell(
+    $html_05, // string $html,
     20, // float $posx = 0,
     10, // float $posy = 0,
 );

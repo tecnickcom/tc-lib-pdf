@@ -3139,6 +3139,90 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Measure the width of the inline chunk that fits on the next visual line.
+     *
+     * Unlike measureHTMLInlineRunWidth(), this method stops at the first wrap
+     * point and returns only the first-line width, even when the remaining run
+     * spans multiple wrapped lines.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function measureHTMLInlineLineWidth(array &$hrc, int $startkey, float $maxwidth): float
+    {
+        if ($maxwidth <= 0.0) {
+            return 0.0;
+        }
+
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = &$hrc['dom'];
+        $numel = \count($dom);
+        $linewidth = 0.0;
+        $contentwidth = 0.0;
+
+        for ($key = $startkey; $key < $numel; ++$key) {
+            $node = $dom[$key];
+
+            if (!empty($node['tag'])) {
+                if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
+                    break;
+                }
+
+                continue;
+            }
+
+            $text = $this->normalizeHTMLText($hrc, (string) $node['value']);
+            if ($text === '') {
+                continue;
+            }
+
+            $spaceonly = (\trim($text) === '');
+
+            $remaining = \max(0.0, $maxwidth - $linewidth);
+            if ($remaining <= 0.0) {
+                break;
+            }
+
+            $this->getHTMLFontMetric($hrc, $key);
+            $ordarr = [];
+            $dim = self::DIM_DEFAULT;
+            $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
+            $this->prepareText($text, $ordarr, $dim, $forcedir);
+            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining));
+            if ($lines === []) {
+                continue;
+            }
+
+            $firstline = $lines[0];
+            if ((int) $firstline['chars'] <= 0) {
+                // Nothing from this node fits on the current visual line.
+                break;
+            }
+
+            $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
+
+            // Stop if adding this chunk would overflow and we already have content.
+            // (splitLines always returns at least one word even if it overflows the
+            //  remaining space, so we must guard here.)
+            if (($linewidth > 0.0) && ($linewidth + $chunkwidth > $maxwidth + 0.001)) {
+                break;
+            }
+
+            $linewidth += $chunkwidth;
+            if (!$spaceonly) {
+                $contentwidth = $linewidth;
+            }
+
+            // Wrapping happened inside this text node, so the current visual
+            // line cannot include subsequent nodes.
+            if ((int) $firstline['chars'] < (int) $dim['chars']) {
+                break;
+            }
+        }
+
+        return ($contentwidth > 0.0) ? $contentwidth : $linewidth;
+    }
+
+    /**
      * Measure the maximum ascent among inline text fragments in the current run.
      *
      * The run stops at block boundaries and explicit BR tags.
@@ -3215,6 +3299,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $originx = (float) ($hrc['cellctx']['originx'] ?? 0.0);
         return ($tpx <= ($originx + 0.001));
+    }
+
+    /**
+     * Return true when a text fragment contains break opportunities.
+     */
+    protected function hasHTMLTextBreakOpportunity(string $text): bool
+    {
+        if ((bool) \preg_match('/[\x{00AD}\x{200B}]/u', $text)) {
+            return true;
+        }
+
+        $trimmed = \trim($text);
+        if ($trimmed === '') {
+            return false;
+        }
+
+        return (bool) \preg_match('/\s/u', $trimmed);
     }
 
     /**
@@ -4574,7 +4675,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Process HTML Text (content between tags).
      *
      * @param THTMLRenderContext $hrc HTML render context.
-      * @param int $key DOM array key.
+     * @param int $key DOM array key.
      * @param float  $tpx  Abscissa of upper-left corner.
      * @param float  $tpy  Ordinate of upper-left corner.
      * @param float  $tpw  Width.
@@ -4609,6 +4710,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineOffset = (float) ($tpx - $lineOriginX);
         $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
         $remainingWidth = ($tpw > 0) ? $tpw : $availableWidth;
+
+        // In normal HTML flow, collapsible spaces at line start are ignored.
+        // Keeping them would shift the first visible fragment and defeat
+        // center/right alignment for wrapped inline runs.
+        if (($hrc['prelevel'] <= 0) && ($lineOffset <= 0.001)) {
+            if (\trim($text) === '') {
+                return '';
+            }
+
+            $text = \ltrim($text);
+            if ($text === '') {
+                return '';
+            }
+        }
+
         $currentkey = $key;
         $hrc['currentkey'] = $currentkey;
 
@@ -4639,6 +4755,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ($lineOffset > 0.001)
             && (\trim($text) !== '')
             && ($fragmentWidth > ($remainingWidth + 0.001))
+            && (!$this->hasHTMLTextBreakOpportunity($text) || ($fragmentWidth <= ($availableWidth + 0.001)))
         ) {
             $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
                 ? (float) $hrc['cellctx']['linebottom']
@@ -4649,6 +4766,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
+            $remainingWidth = $tpw;
         }
 
         $renderPosX = $lineOriginX;
@@ -4661,11 +4779,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && ($fragmentWidth <= ($remainingWidth + 0.001))
         ) {
             if ($lineOffset <= 0.001) {
-                $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-                if (($runWidth > 0.0) && ($runWidth <= ($availableWidth + 0.001))) {
+                $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
+                if (($lineWidth > 0.0) && ($lineWidth <= ($availableWidth + 0.001))) {
                     $renderPosX = $lineOriginX + match ($halign) {
-                        'R' => \max(0.0, $availableWidth - $runWidth),
-                        default => \max(0.0, ($availableWidth - $runWidth) / 2),
+                        'R' => \max(0.0, $availableWidth - $lineWidth),
+                        default => \max(0.0, ($availableWidth - $lineWidth) / 2),
                     };
                     $renderWidth = $fragmentWidth;
                     $renderOffset = 0.0;
@@ -4687,6 +4805,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
+
+        \error_log("RENDERCALL text=" . json_encode($text) . " posX=$renderPosX posY=$renderStartY w=$renderWidth offset=$renderOffset align=$renderAlign lineOffset=$lineOffset availW=$availableWidth remW=$remainingWidth fragW=$fragmentWidth");
 
         $out .= $this->getTextCell(
             $text,
