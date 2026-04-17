@@ -3319,6 +3319,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return true when a breakable fragment can keep a visible leading chunk on the current line.
+     *
+     * This is intentionally narrower than hasHTMLTextBreakOpportunity(): a fragment such as
+     * " underline ..." may keep flowing after the previous text, while a fragment starting with
+     * visible content should wrap from the line origin when it cannot fully fit in the remaining width.
+     */
+    protected function canHTMLTextKeepVisibleChunkOnCurrentLine(
+        string $text,
+        string $forcedir,
+        float $remainingWidth,
+    ): bool {
+        if ($remainingWidth <= 0.0) {
+            return false;
+        }
+
+        if (!(bool) \preg_match('/^\s/u', $text)) {
+            return false;
+        }
+
+        $ordarr = [];
+        $dim = self::DIM_DEFAULT;
+        $this->prepareText($text, $ordarr, $dim, $forcedir);
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remainingWidth));
+        if ($lines === []) {
+            return false;
+        }
+
+        $firstline = $lines[0];
+        if ((int) $firstline['chars'] <= 0) {
+            return false;
+        }
+
+        $chunk = \mb_substr($text, 0, (int) $firstline['chars']);
+        return (\trim($chunk) !== '');
+    }
+
+    /**
      * Open a simple block-level HTML element.
      *
      * @param THTMLRenderContext $hrc HTML render context
@@ -4753,11 +4790,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         $fragmentWidth = $this->getStringWidth($text);
+        $keepBreakableChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
+            $text,
+            $forcedir,
+            $remainingWidth,
+        );
         if (
             ($lineOffset > 0.001)
             && (\trim($text) !== '')
             && ($fragmentWidth > ($remainingWidth + 0.001))
-            && (!$this->hasHTMLTextBreakOpportunity($text) || ($fragmentWidth <= ($availableWidth + 0.001)))
+            && (
+                !$this->hasHTMLTextBreakOpportunity($text)
+                || (
+                    ($fragmentWidth <= ($availableWidth + 0.001))
+                    && !$keepBreakableChunkOnLine
+                )
+            )
         ) {
             $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
                 ? (float) $hrc['cellctx']['linebottom']
@@ -4775,14 +4823,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $renderWidth = $availableWidth;
         $renderOffset = $lineOffset;
         $renderAlign = $halign;
-        if (
-            (($halign === 'C') || ($halign === 'R'))
-            && ($availableWidth > 0.0)
-            && ($fragmentWidth <= ($remainingWidth + 0.001))
-        ) {
-            if ($lineOffset <= 0.001) {
+        $deferWrapDetection = false;
+        if ((($halign === 'C') || ($halign === 'R')) && ($availableWidth > 0.0)) {
+            if ($lineOffset > 0.001) {
+                $renderPosX = $lineOriginX;
+                $renderWidth = $availableWidth;
+                $renderOffset = $lineOffset;
+                $renderAlign = 'L';
+            } elseif ($fragmentWidth <= ($remainingWidth + 0.001)) {
                 $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
-                if (($lineWidth > 0.0) && ($lineWidth <= ($availableWidth + 0.001))) {
+                $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
+                $hasFollowingInlineContent = ($runWidth > ($fragmentWidth + 0.001));
+                $isLeadingSmallerFragment = ($curAscent + 0.001 < $lineascent);
+                $lineWidthLooksCollapsedToCurrentFragment = (
+                    $hasFollowingInlineContent
+                    && ($lineWidth <= ($fragmentWidth + 0.001))
+                );
+                $deferWrapDetection = ($hasFollowingInlineContent && $isLeadingSmallerFragment);
+                if (
+                    ($lineWidth > 0.0)
+                    && ($lineWidth <= ($availableWidth + 0.001))
+                    && !$lineWidthLooksCollapsedToCurrentFragment
+                ) {
                     $renderPosX = $lineOriginX + match ($halign) {
                         'R' => \max(0.0, $availableWidth - $lineWidth),
                         default => \max(0.0, ($availableWidth - $lineWidth) / 2),
@@ -4799,16 +4861,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $renderOffset = 0.0;
                     $renderAlign = 'L';
                 }
-            } elseif ($lineOffset > 0.001) {
-                $renderPosX = $tpx;
-                $renderWidth = $remainingWidth;
-                $renderOffset = 0.0;
-                $renderAlign = 'L';
             }
         }
 
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
+        if ($deferWrapDetection) {
+            // For mixed-size leading fragments (e.g. <small> prefix), keep the
+            // first fragment on the current baseline to avoid visual vertical drift.
+            $renderStartY = $tpy;
+        }
 
         $out .= $this->getTextCell(
             $text,
@@ -4839,10 +4901,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $bbox = $this->getLastBBox();
         $lineAdvanceWrapThreshold = \max(0.001, $lineAdvance - 0.001);
-        $wrapped = (
-            ($bbox['h'] > ($lineAdvance + 0.001))
-            || (($bbox['y'] - $renderStartY) >= $lineAdvanceWrapThreshold)
-        );
+        $wrapped = ($bbox['y'] - $renderStartY) >= $lineAdvanceWrapThreshold;
+        if (!$deferWrapDetection) {
+            $wrapped = $wrapped || ($bbox['h'] > ($lineAdvance + 0.001));
+        }
         $background = '';
         if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
             $bgx = $bbox['x'];

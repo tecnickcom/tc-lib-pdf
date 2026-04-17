@@ -1422,10 +1422,68 @@ class HTMLTest extends TestUtil
         $this->assertSame('3X small text', \trim((string) $trace[0]['txt']));
         $this->assertStringContainsString('Alfa', (string) $trace[1]['txt']);
 
-        // The text after </small> should start from the same visual line,
-        // not from the next wrapped line.
-        $deltaY = (float) $trace[1]['in_y'] - (float) $trace[0]['in_y'];
-        $this->assertLessThanOrEqual((float) $trace[0]['bbox_h'] + 0.001, $deltaY);
+        // The text after </small> should start on the same line (or higher baseline-adjusted)
+        // and not after a forced line advance.
+        $this->assertLessThanOrEqual(
+            (float) $trace[0]['in_y'] + 0.001,
+            (float) $trace[1]['in_y'],
+        );
+    }
+
+    public function testGetHTMLCellExampleTableSmallPrefixCenterRightKeepsFollowingTextOnSameLine(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table border="1" cellspacing="3" cellpadding="4">'
+            . '<tr><td align="left"><small>3L small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+            . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+            . 'Yankee Zulu</td></tr>'
+            . '<tr><td align="center"><small>3C small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+            . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+            . 'Yankee Zulu</td></tr>'
+            . '<tr><td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+            . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+            . 'Yankee Zulu</td></tr>'
+            . '</table>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, 150, 0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        foreach (['3C small text', '3R small text'] as $label) {
+            $smallIdx = null;
+            foreach ($trace as $idx => $item) {
+                if (\trim((string) $item['txt']) === $label) {
+                    $smallIdx = $idx;
+                    break;
+                }
+            }
+
+            $this->assertNotNull($smallIdx, 'Missing trace fragment: ' . $label);
+
+            $nextIdx = null;
+            for ($idx = ((int) $smallIdx + 1); $idx < \count($trace); ++$idx) {
+                if (\trim((string) $trace[$idx]['txt']) === '') {
+                    continue;
+                }
+
+                $nextIdx = $idx;
+                break;
+            }
+
+            $this->assertNotNull($nextIdx, 'Missing follow-up fragment for: ' . $label);
+            $this->assertStringContainsString('Alfa', (string) $trace[(int) $nextIdx]['txt']);
+
+            $this->assertLessThanOrEqual(
+                (float) $trace[(int) $smallIdx]['in_y'] + 0.001,
+                (float) $trace[(int) $nextIdx]['in_y'],
+                'Text after ' . $label . ' moved to a new line.',
+            );
+        }
     }
 
     /**
