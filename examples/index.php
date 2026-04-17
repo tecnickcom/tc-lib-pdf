@@ -1937,7 +1937,7 @@ $pdf->page->addContent($bfont6['out']);
 
 $subtable = '<table border="1" cellspacing="6" cellpadding="4"><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>';
 
-$html_04 = '<h2>HTML TABLE:</h2>
+$html_04 = '<h2>HTML TABLES</h2>
 <table border="1" cellspacing="3" cellpadding="4">
 	<tr>
 		<th>#</th>
@@ -1975,7 +1975,37 @@ $html_04 = '<h2>HTML TABLE:</h2>
 
 <table border="1" cellspacing="3" cellpadding="4">
 	<tr>
-		<td align="center"><span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td>
+		<td align="left"><span>1L</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td>
+	</tr>
+	<tr>
+		<td align="center"><span>1C</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td>
+	</tr>
+	<tr>
+		<td align="right"><span>1R</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td>
+	</tr>
+	<tr>
+		<td align="left"><span>2L</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
+Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu.</td>
+	</tr>
+	<tr>
+		<td align="center"><span>2C</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
+Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu.</td>
+	</tr>
+	<tr>
+		<td align="right"><span>2R</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
+Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu.</td>
+	</tr>
+	<tr>
+		<td align="left"><small>3L small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
+Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td>
+	</tr>
+	<tr>
+		<td align="center"><small>3C small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
+Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td>
+	</tr>
+	<tr>
+		<td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
+Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td>
 	</tr>
 </table>';
 
@@ -1984,31 +2014,6 @@ $pdf->addHTMLCell(
     20, // float $posx = 0,
     10, // float $posy = 0,
 );
-
-// ----------
-
-// HTML E
-
-$pageV05 = $pdf->addPage();
-
-$pdf->page->addContent($bfont6['out']);
-
-$subtable = '<table border="1" cellspacing="6" cellpadding="4"><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>';
-
-$html_05 = '<h2>HTML TABLE:</h2>
-<table border="1" cellspacing="3" cellpadding="4">
-	<tr>
-		<td align="center">A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. One two tree four five six seven eight nine ten.</td>
-	</tr>
-</table>';
-
-$pdf->addHTMLCell(
-    $html_05, // string $html,
-    20, // float $posx = 0,
-    10, // float $posy = 0,
-);
-
-// ----------
 
 // ----------
 

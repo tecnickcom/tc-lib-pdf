@@ -4709,7 +4709,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineOriginX = $hrc['cellctx']['originx'];
         $lineOffset = (float) ($tpx - $lineOriginX);
         $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
-        $remainingWidth = ($tpw > 0) ? $tpw : $availableWidth;
+        $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
+            ? \max(0.0, $tpw)
+            : (($tpw > 0) ? $tpw : $availableWidth);
 
         // In normal HTML flow, collapsible spaces at line start are ignored.
         // Keeping them would shift the first visible fragment and defeat
@@ -4836,9 +4838,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         );
 
         $bbox = $this->getLastBBox();
+        $lineAdvanceWrapThreshold = \max(0.001, $lineAdvance - 0.001);
         $wrapped = (
             ($bbox['h'] > ($lineAdvance + 0.001))
-            || ($bbox['y'] > ($renderStartY + 0.001))
+            || (($bbox['y'] - $renderStartY) >= $lineAdvanceWrapThreshold)
         );
         $background = '';
         if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {

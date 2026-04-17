@@ -270,12 +270,12 @@ class TestableHTMLNobrProbe extends TestableHTML
 class TestableHTMLBBoxProbe extends TestableHTML
 {
     /**
-     * @var array<int, array{txt: string, in_x: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_end_x: float, font_size: float}>
+     * @var array<int, array{txt: string, in_x: float, in_y: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_h: float, bbox_end_x: float, font_size: float}>
      */
     private array $bboxTrace = [];
 
     /**
-     * @return array<int, array{txt: string, in_x: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_end_x: float, font_size: float}>
+     * @return array<int, array{txt: string, in_x: float, in_y: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_h: float, bbox_end_x: float, font_size: float}>
      */
     public function exposeGetBBoxTrace(): array
     {
@@ -347,9 +347,11 @@ class TestableHTMLBBoxProbe extends TestableHTML
         $this->bboxTrace[] = [
             'txt' => $txt,
             'in_x' => $posx,
+            'in_y' => $posy,
             'bbox_x' => $bbox['x'],
             'bbox_y' => $bbox['y'],
             'bbox_w' => $bbox['w'],
+            'bbox_h' => $bbox['h'],
             'bbox_end_x' => $bbox['x'] + $bbox['w'],
             'font_size' => (float) ($curfont['size'] ?? 0.0),
         ];
@@ -1241,6 +1243,200 @@ class HTMLTest extends TestUtil
 
         // The first wrapped line must not be left-flush when centered.
         $this->assertGreaterThan(0.5, $lineboxes[0]['left']);
+    }
+
+    public function testGetHTMLCellRightAlignedWrappedInlineSpansUseMultipleLines(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $cellWidth = 150.0;
+        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="right">'
+            . '<span>1R</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
+            . '<span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> '
+            . '<span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> '
+            . '<span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> '
+            . '<span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> '
+            . '<span>Yankee</span> <span>Zulu</span>'
+            . '</td></tr></table>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, $cellWidth, 0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        /** @var array<string, bool> $linekeys */
+        $linekeys = [];
+        foreach ($trace as $frag) {
+            $linekeys[\sprintf('%.6f', (float) $frag['bbox_y'])] = true;
+        }
+
+        $this->assertGreaterThanOrEqual(2, \count($linekeys));
+    }
+
+    #[DataProvider('tableLineRegressionProvider')]
+    public function testGetHTMLCellTableLineRegression(
+        string $lineid,
+        string $td,
+        int $expectedLines,
+        string $expectedFirstFragment,
+        ?string $expectedSecondFragmentContains,
+    ): void {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr>' . $td . '</tr></table>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, 150, 0);
+        $this->assertNotSame('', $out, 'Rendered output should not be empty for row ' . $lineid);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace, 'BBox trace should not be empty for row ' . $lineid);
+
+        $this->assertSame($expectedFirstFragment, (string) $trace[0]['txt']);
+        if ($expectedSecondFragmentContains !== null) {
+            $this->assertGreaterThanOrEqual(2, \count($trace));
+            $this->assertStringContainsString($expectedSecondFragmentContains, (string) $trace[1]['txt']);
+        }
+
+        /** @var array<string, bool> $linekeys */
+        $linekeys = [];
+        /** @var array<int, float> $lineOrder */
+        $lineOrder = [];
+        foreach ($trace as $frag) {
+            $liney = (float) $frag['bbox_y'];
+            $key = \sprintf('%.6f', $liney);
+            if (!isset($linekeys[$key])) {
+                $linekeys[$key] = true;
+                $lineOrder[] = $liney;
+            }
+        }
+
+        $this->assertCount($expectedLines, $linekeys, 'Unexpected wrapped line count for row ' . $lineid);
+
+        // Ensure line progression is monotonic (no backwards jumps/overlap in render order).
+        for ($idx = 1; $idx < \count($lineOrder); ++$idx) {
+            $this->assertGreaterThanOrEqual(
+                $lineOrder[$idx - 1],
+                $lineOrder[$idx],
+                'Non-monotonic line y progression detected for row ' . $lineid,
+            );
+        }
+    }
+
+    /**
+     * @return array<int, array{0: string, 1: string, 2: int, 3: string, 4: ?string}>
+     */
+    public static function tableLineRegressionProvider(): array
+    {
+        $line1Spans = '<span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
+            . '<span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> '
+            . '<span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> '
+            . '<span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> '
+            . '<span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> '
+            . '<span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> '
+            . '<span>Yankee</span> <span>Zulu</span>';
+
+        $line2Text = ' A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. '
+            . 'One two tree four five six seven eight nine ten.';
+
+        return [
+            [
+                '1L',
+                '<td align="left"><span>1L</span> ' . $line1Spans . '</td>',
+                2,
+                '1L',
+                null,
+            ],
+            [
+                '1C',
+                '<td align="center"><span>1C</span> ' . $line1Spans . '</td>',
+                2,
+                '1C',
+                null,
+            ],
+            [
+                '1R',
+                '<td align="right"><span>1R</span> ' . $line1Spans . '</td>',
+                2,
+                '1R',
+                null,
+            ],
+            [
+                '2L',
+                '<td align="left"><span>2L</span>' . $line2Text . '</td>',
+                1,
+                '2L',
+                'A1 ex',
+            ],
+            [
+                '2C',
+                '<td align="center"><span>2C</span>' . $line2Text . '</td>',
+                1,
+                '2C',
+                'A1 ex',
+            ],
+            [
+                '2R',
+                '<td align="right"><span>2R</span>' . $line2Text . '</td>',
+                1,
+                '2R',
+                'A1 ex',
+            ],
+            [
+                '3L',
+                '<td align="left"><small>3L small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+                    . 'Yankee Zulu</td>',
+                2,
+                '3L small text',
+                'Alfa',
+            ],
+        ];
+    }
+
+    #[DataProvider('smallPrefixAlignmentProvider')]
+    public function testGetHTMLCellMixedSmallPrefixKeepsFollowingTextOnFirstLine(string $align): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $cellWidth = 150.0;
+        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="' . $align . '">'
+            . '<small>3X small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett '
+            . 'Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+            . 'Yankee Zulu'
+            . '</td></tr></table>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, $cellWidth, 0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $this->assertGreaterThanOrEqual(2, \count($trace));
+        $this->assertSame('3X small text', \trim((string) $trace[0]['txt']));
+        $this->assertStringContainsString('Alfa', (string) $trace[1]['txt']);
+
+        // The text after </small> should start from the same visual line,
+        // not from the next wrapped line.
+        $deltaY = (float) $trace[1]['in_y'] - (float) $trace[0]['in_y'];
+        $this->assertLessThanOrEqual((float) $trace[0]['bbox_h'] + 0.001, $deltaY);
+    }
+
+    /**
+     * @return array<int, array{0: string}>
+     */
+    public static function smallPrefixAlignmentProvider(): array
+    {
+        return [
+            ['center'],
+            ['right'],
+        ];
     }
 
     public function testParseHTMLTextWrapsLargeInlineFragmentBeforeItOverflowsRemainingWidth(): void
@@ -2304,6 +2500,34 @@ class HTMLTest extends TestUtil
             $nowrapHeight + 0.001,
             $wrapHeight,
             'Wrapped inline <small> background must cover more than one rendered line.',
+        );
+    }
+
+    public function testGetHTMLCellDrawsMultipleFillRectsForWrappedInlineSmallBackground(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<small color="#ff0000" bgcolor="#ffff00">'
+            . 'small small small small small small small small small small small small'
+            . '</small>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 40, 20);
+        $this->assertNotSame('', $out);
+
+        $matches = [];
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+f/', $out, $matches, PREG_SET_ORDER);
+        $this->assertNotEmpty($matches);
+
+        $linekeys = [];
+        foreach ($matches as $match) {
+            $linekeys[\sprintf('%.3f', (float) $match[2])] = true;
+        }
+
+        $this->assertGreaterThanOrEqual(
+            2,
+            \count($linekeys),
+            'Wrapped inline <small> background should be drawn on more than one line.',
         );
     }
 
