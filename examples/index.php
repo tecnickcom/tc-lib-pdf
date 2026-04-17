@@ -1971,6 +1971,12 @@ $html_04 = '<h2>HTML TABLE:</h2>
 		<td>3C</td>
 		<td>4F</td>
 	</tr>
+</table>
+
+<table border="1" cellspacing="3" cellpadding="4">
+	<tr>
+		<td align="center"><span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td>
+	</tr>
 </table>';
 
 $pdf->addHTMLCell(
@@ -1992,7 +1998,7 @@ $subtable = '<table border="1" cellspacing="6" cellpadding="4"><tr><td>a</td><td
 $html_05 = '<h2>HTML TABLE:</h2>
 <table border="1" cellspacing="3" cellpadding="4">
 	<tr>
-		<td align="center"><span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td>
+		<td align="center">A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. One two tree four five six seven eight nine ten.</td>
 	</tr>
 </table>';
 

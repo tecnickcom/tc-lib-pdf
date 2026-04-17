@@ -4785,7 +4785,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'R' => \max(0.0, $availableWidth - $lineWidth),
                         default => \max(0.0, ($availableWidth - $lineWidth) / 2),
                     };
-                    $renderWidth = $fragmentWidth;
+                    // Keep enough width for the remaining inline run from this shifted start.
+                    // Using the exact fragment width can trigger premature wraps from rounding.
+                    $renderWidth = \max(0.0, $availableWidth - ($renderPosX - $lineOriginX));
                     $renderOffset = 0.0;
                     $renderAlign = 'L';
                 } else {
@@ -4805,8 +4807,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
-
-        \error_log("RENDERCALL text=" . json_encode($text) . " posX=$renderPosX posY=$renderStartY w=$renderWidth offset=$renderOffset align=$renderAlign lineOffset=$lineOffset availW=$availableWidth remW=$remainingWidth fragW=$fragmentWidth");
 
         $out .= $this->getTextCell(
             $text,
