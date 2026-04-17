@@ -4862,6 +4862,33 @@ class HTMLTest extends TestUtil
         $this->assertSame(0.0, $lineWordSpacing);
     }
 
+    public function testParseHTMLTextForcedWrapTrimsLeadingSpaceAtNewLine(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeInitHTMLCellContext(10.0, 10.0, 40.0, 0.0);
+        $obj->exposeResetBBoxTrace();
+
+        $elm = $this->makeHtmlNode([
+            'align' => 'J',
+            'value' => ' Quebec Romeo',
+        ]);
+
+        // Simulate a nearly full current line so parseHTMLText pre-wraps this fragment.
+        $tpx = 49.0;
+        $tpy = 10.0;
+        $tpw = 1.0;
+        $tph = 0.0;
+
+        $out = $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotEmpty($trace);
+        $this->assertSame('Quebec Romeo', $trace[0]['txt']);
+    }
+
     // --- Fix tests: base64 data URI images ---
 
     public function testGetHTMLCellRendersBase64DataUriImage(): void

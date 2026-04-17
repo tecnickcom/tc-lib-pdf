@@ -3364,10 +3364,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Count the number of breakable spaces rendered on the first line of an inline fragment.
-     *
-     * @param THTMLRenderContext $hrc HTML render context.
      */
-    protected function getHTMLTextFirstLineSpaces(array &$hrc, string $text, string $forcedir, float $maxwidth): int
+    protected function getHTMLTextFirstLineSpaces(string $text, string $forcedir, float $maxwidth): int
     {
         if (($text === '') || ($maxwidth <= 0.0)) {
             return 0;
@@ -5057,6 +5055,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
             $remainingWidth = $tpw;
+
+            // Collapsible spaces must still be removed when we pre-wrap a fragment.
+            // Otherwise the new line can start with an artificial indent.
+            if ($hrc['prelevel'] <= 0) {
+                $text = \ltrim($text);
+                if ($text === '') {
+                    return '';
+                }
+
+                $fragmentWidth = $this->getStringWidth($text);
+            }
         }
 
         $lineWordSpacing = 0.0;
@@ -5067,7 +5076,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $customJustify = ($hasFollowingInline || ($lineOffset > 0.001));
 
             if ($customJustify) {
-                if (($lineOffset <= 0.001) || !isset($hrc['cellctx']['linewordspacing']) || !\is_numeric($hrc['cellctx']['linewordspacing'])) {
+                if ($lineOffset <= 0.001) {
                     $lineMetrics = $this->measureHTMLInlineLineMetrics($hrc, $currentkey, $availableWidth);
                     if (
                         !empty($lineMetrics['wrapped'])
@@ -5301,7 +5310,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpx = $bbox['x'] + $bbox['w'];
         if ($customJustify && ($lineWordSpacing > 0.0)) {
             $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
-                $hrc,
                 $text,
                 $forcedir,
                 \max(0.0, $renderWidth - $renderOffset),
