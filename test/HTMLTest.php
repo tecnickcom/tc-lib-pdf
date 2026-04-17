@@ -1395,6 +1395,24 @@ class HTMLTest extends TestUtil
                 '3L small text',
                 'Alfa',
             ],
+            [
+                '3C',
+                '<td align="center"><small>3C small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+                    . 'Yankee Zulu</td>',
+                2,
+                '3C small text',
+                'Alfa',
+            ],
+            [
+                '3R',
+                '<td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+                    . 'Yankee Zulu</td>',
+                2,
+                '3R small text',
+                'Alfa',
+            ],
         ];
     }
 

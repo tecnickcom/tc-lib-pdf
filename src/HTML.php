@@ -4829,7 +4829,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $renderPosX = $lineOriginX;
                 $renderWidth = $availableWidth;
                 $renderOffset = $lineOffset;
-                $renderAlign = 'L';
+                // Keep the first continuation chunk adjacent to previous inline text,
+                // while preserving center/right alignment on wrapped continuation lines.
+                $renderAlign = ($halign === 'R') ? 'r' : 'c';
             } elseif ($fragmentWidth <= ($remainingWidth + 0.001)) {
                 $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
                 $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
