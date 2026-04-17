@@ -4866,11 +4866,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
-        if ($deferWrapDetection) {
-            // For mixed-size leading fragments (e.g. <small> prefix), keep the
-            // first fragment on the current baseline to avoid visual vertical drift.
-            $renderStartY = $tpy;
-        }
+
+        // Inline width probes may switch the active font while scanning following nodes.
+        // Re-sync the active font metric for accurate glyph placement.
+        $this->getHTMLFontMetric($hrc, $currentkey);
 
         $out .= $this->getTextCell(
             $text,
