@@ -3120,6 +3120,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $node = $dom[$key];
 
             if (!empty($node['tag'])) {
+                if (($node['value'] === 'img') && !empty($node['opening'])) {
+                    $lineheight = $this->getHTMLLineAdvance($hrc, $key);
+                    $imgwidth = (!empty($node['width']) && \is_numeric($node['width']))
+                        ? (float) $node['width']
+                        : $lineheight;
+                    if ($imgwidth > 0.0) {
+                        $runwidth += $imgwidth;
+                    }
+
+                    continue;
+                }
+
                 if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
                     break;
                 }
@@ -3164,6 +3176,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $node = $dom[$key];
 
             if (!empty($node['tag'])) {
+                if (($node['value'] === 'img') && !empty($node['opening'])) {
+                    $lineheight = $this->getHTMLLineAdvance($hrc, $key);
+                    $imgwidth = (!empty($node['width']) && \is_numeric($node['width']))
+                        ? (float) $node['width']
+                        : $lineheight;
+
+                    if ($imgwidth <= 0.0) {
+                        continue;
+                    }
+
+                    if (($linewidth > 0.0) && (($linewidth + $imgwidth) > ($maxwidth + 0.001))) {
+                        break;
+                    }
+
+                    $linewidth += $imgwidth;
+                    $contentwidth = $linewidth;
+                    continue;
+                }
+
                 if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
                     break;
                 }
@@ -3687,33 +3718,57 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         // Vertical alignment: top/middle/bottom (default)
-        $align = (isset($attr['align']) && \is_string($attr['align']))
+        $valign = (isset($attr['align']) && \is_string($attr['align']))
             ? \strtolower(\trim($attr['align']))
             : 'bottom';
         $imagey = $tpy;
         if ($height < $lineheight) {
-            $imagey = match ($align) {
+            $imagey = match ($valign) {
                 'top'    => $tpy,
                 'middle' => $tpy + ($lineheight - $height) / 2.0,
                 default  => $tpy + $lineheight - $height,
             };
         }
 
+        // Horizontal alignment: inherit text-align for inline image runs.
+        $lineOriginX = $hrc['cellctx']['originx'];
+        $lineOffset = (float) ($tpx - $lineOriginX);
+        $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
+        $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
+            ? \max(0.0, $tpw)
+            : (($tpw > 0) ? $tpw : $availableWidth);
+        $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
+        $imagex = $tpx;
+        if (
+            (($halign === 'C') || ($halign === 'R'))
+            && ($availableWidth > 0.0)
+            && ($lineOffset <= 0.001)
+            && ($width <= ($remainingWidth + 0.001))
+        ) {
+            $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $key, $availableWidth);
+            if (($lineWidth > 0.0) && ($lineWidth <= ($availableWidth + 0.001))) {
+                $imagex = $lineOriginX + match ($halign) {
+                    'R' => \max(0.0, $availableWidth - $lineWidth),
+                    default => \max(0.0, ($availableWidth - $lineWidth) / 2.0),
+                };
+            }
+        }
+
         $out = '';
         try {
             $pageheight = $this->page->getPage()['height'];
             if (\str_ends_with(\strtolower($src), '.svg')) {
-                $svgid = $this->addSVG($src, $tpx, $imagey, $width, $height, $pageheight);
+                $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight);
                 $out = $this->getSetSVG($svgid);
             } else {
                 $imgid = $this->image->add($src);
-                $out = $this->image->getSetImage($imgid, $tpx, $imagey, $width, $height, $pageheight);
+                $out = $this->image->getSetImage($imgid, $imagex, $imagey, $width, $height, $pageheight);
             }
         } catch (\Throwable) {
             return $this->renderHTMLLiteralText($hrc, $key, $alt, $tpx, $tpy, $tpw, $height);
         }
 
-        $tpx += $width;
+        $tpx = $imagex + $width;
         $this->updateHTMLLineAdvance($hrc, \max($lineheight, $height));
         if ($hrc['cellctx']['maxwidth'] > 0) {
             $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));

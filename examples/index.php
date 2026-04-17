@@ -1919,6 +1919,10 @@ int main() {
 <div style="background-color:#880000;color:white;">DIV LEVEL 1<div style="background-color:#008800;color:white;">DIV LEVEL 2</div>DIV LEVEL 1</div>
 <br />
 <span style="background-color:#880000;color:white;">SPAN LEVEL 1 <span style="background-color:#008800;color:white;">SPAN LEVEL 2</span> SPAN LEVEL 1</span>
+
+<h2>Images</h2>
+<div style="text-align:center"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" width="177" height="59" border="0" /><img src="images/tcpdf_box.svg" alt="TCPDF box" width="300" height="200" border="0" /><br/>test</div>
+
 EOF;
 
 $pdf->addHTMLCell(

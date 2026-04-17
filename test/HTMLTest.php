@@ -4666,6 +4666,38 @@ class HTMLTest extends TestUtil
         $this->assertNotSame($outBottom, $outTop);
     }
 
+    public function testGetHTMLCellCentersInlineImageRunInsideDiv(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 0, 0, 0);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $htmlCenter = '<div style="text-align:center">'
+            . '<img src="' . $src . '" width="4" height="4" />'
+            . '<img src="' . $src . '" width="4" height="4" />'
+            . '</div>';
+        $htmlLeft = '<div style="text-align:left">'
+            . '<img src="' . $src . '" width="4" height="4" />'
+            . '<img src="' . $src . '" width="4" height="4" />'
+            . '</div>';
+
+        $outCenter = $obj->getHTMLCell($htmlCenter, 0, 0, 40, 20);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $outLeft = $obj2->getHTMLCell($htmlLeft, 0, 0, 40, 20);
+
+        $this->assertNotSame('', $outCenter);
+        $this->assertNotSame('', $outLeft);
+        $this->assertNotSame($outLeft, $outCenter);
+    }
+
     // --- Fix tests: base64 data URI images ---
 
     public function testGetHTMLCellRendersBase64DataUriImage(): void
