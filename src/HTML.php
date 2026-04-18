@@ -303,6 +303,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected const VERT_SHIFT_SUP = 0.3;
 
+    /**
+     * Width wrapping tolerance in user units (mm).
+     * Accounts for floating-point rounding errors in width calculations.
+     *
+     * @var float
+     */
+    protected const WIDTH_TOLERANCE = 0.01;
+
 
     /**
      * Typoe of symbol used for HTML unordered list items.
@@ -3212,7 +3220,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         continue;
                     }
 
-                    if (($linewidth > 0.0) && (($linewidth + $imgwidth) > ($maxwidth + 0.001))) {
+                    if (($linewidth > 0.0) && (($linewidth + $imgwidth) > ($maxwidth + self::WIDTH_TOLERANCE))) {
                         $wrapped = true;
                         break;
                     }
@@ -3258,11 +3266,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 );
 
                 if (
-                    ($fragmentwidth > ($remaining + 0.001))
+                    ($fragmentwidth > ($remaining + self::WIDTH_TOLERANCE))
                     && (
                         !$this->hasHTMLTextBreakOpportunity($text)
                         || (
-                            ($fragmentwidth <= ($maxwidth + 0.001))
+                            ($fragmentwidth <= ($maxwidth + self::WIDTH_TOLERANCE))
                             && !$keepchunkonline
                         )
                     )
@@ -3297,7 +3305,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
             $nextspaces = $spaces + (int) ($firstline['spaces'] ?? 0);
-            if (($linewidth > 0.0) && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + 0.001)) {
+            if (($linewidth > 0.0) && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + self::WIDTH_TOLERANCE)) {
                 $wrapped = true;
                 break;
             }
@@ -5026,11 +5034,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (
             ($lineOffset > 0.001)
             && (\trim($text) !== '')
-            && ($fragmentWidth > ($remainingWidth + 0.001))
+            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
             && (
                 !$this->hasHTMLTextBreakOpportunity($text)
                 || (
-                    ($fragmentWidth <= ($availableWidth + 0.001))
+                    ($fragmentWidth <= ($availableWidth + self::WIDTH_TOLERANCE))
                     && !$keepChunkOnLine
                 )
             )
@@ -5134,19 +5142,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 // Keep the first continuation chunk adjacent to previous inline text,
                 // while preserving center/right alignment on wrapped continuation lines.
                 $renderAlign = ($halign === 'R') ? 'r' : 'c';
-            } elseif ($fragmentWidth <= ($remainingWidth + 0.001)) {
+            } elseif ($fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
                 $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
                 $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-                $hasFollowingInline = ($runWidth > ($fragmentWidth + 0.001));
+                $hasFollowingInline = ($runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE));
                 $isLeadingSmall = ($curAscent + 0.001 < $lineascent);
                 $lineWidthCollapsed = (
                     $hasFollowingInline
-                    && ($lineWidth <= ($fragmentWidth + 0.001))
+                    && ($lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE))
                 );
                 $deferWrapDetection = ($hasFollowingInline && $isLeadingSmall);
                 if (
                     ($lineWidth > 0.0)
-                    && ($lineWidth <= ($availableWidth + 0.001))
+                    && ($lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE))
                     && !$lineWidthCollapsed
                 ) {
                     $renderPosX = $lineOriginX + match ($halign) {
