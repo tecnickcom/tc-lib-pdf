@@ -6057,7 +6057,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'button':
             case 'reset':
                 $caption = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : $type;
-                $action = (isset($attr['onclick']) && \is_string($attr['onclick'])) ? $attr['onclick'] : '';
+                $action = match ($type) {
+                    'reset' => ['S' => 'ResetForm'],
+                    default => (isset($attr['onclick']) && \is_string($attr['onclick'])) ? $attr['onclick'] : '',
+                };
                 $objid = $this->addFFButton($name, $tpx, $tpy, $fieldwidth, $lineheight, $caption, $action);
                 $this->page->addAnnotRef($objid, $this->page->getPageID());
                 $tpx += $fieldwidth;

@@ -1278,36 +1278,31 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $opt['mk'] = [];
         }
         $oid = ($this->pon + 1); // from setAnnotation
-        if (!empty($action) && !\is_array($action)) {
-            ++$oid; // from addRawJavaScriptObj
-        }
         $opt['mk']['ca'] = $this->getOutTextString($caption, $oid, true);
         $opt['mk']['rc'] = $this->getOutTextString($caption, $oid, true);
         $opt['mk']['ac'] = $this->getOutTextString($caption, $oid, true);
         if (!empty($action)) {
             if (\is_string($action)) {
-                // raw javascript action
-                $jsoid = $this->addRawJavaScriptObj($action);
-                if ($jsoid > 0) {
-                    $opt['aa'] = '/D ' . $jsoid . ' 0 R';
+                if ($this->pdfa <= 0) {
+                    $opt['a'] = '/S /JavaScript /JS ' . $this->getOutTextString($action, $oid, true);
                 }
             } elseif (\is_array($action)) {
                 // form action options as in section 12.7.5 of PDF32000_2008.
-                $opt['aa'] = '/D <<';
+                $opt['a'] = '/S';
                 $bmode = ['SubmitForm', 'ResetForm', 'ImportData'];
                 foreach ($action as $key => $val) {
                     if (($key == 'S') && \is_string($val) && \in_array($val, $bmode)) {
-                        $opt['aa'] .= ' /S /' . $val;
+                        $opt['a'] = '/S /' . $val;
                     } elseif (($key == 'F') && (!empty($val)) && \is_string($val)) {
-                        $opt['aa'] .= ' /F ' . $this->encrypt->escapeDataString($val, $oid);
+                        $opt['a'] .= ' /F ' . $this->encrypt->escapeDataString($val, $oid);
                     } elseif (($key == 'Fields') && !empty($val) && \is_array($val)) {
-                        $opt['aa'] .= ' /Fields [';
+                        $opt['a'] .= ' /Fields [';
                         foreach ($val as $field) {
                             if (\is_string($field)) {
-                                $opt['aa'] .= ' ' . $this->getOutTextString($field, $oid);
+                                $opt['a'] .= ' ' . $this->getOutTextString($field, $oid);
                             }
                         }
-                        $opt['aa'] .= ']';
+                        $opt['a'] .= ']';
                     } elseif (($key == 'Flags')) {
                         $flg = 0;
                         if (\is_array($val)) {
@@ -1332,10 +1327,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                         } elseif (\is_numeric($val)) {
                             $flg = intval($val);
                         }
-                        $opt['aa'] .= ' /Flags ' . $flg;
+                        $opt['a'] .= ' /Flags ' . $flg;
                     }
                 }
-                $opt['aa'] .= ' >>';
             }
         }
         unset(

@@ -405,7 +405,8 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('Btn', $ann[$oid]['opt']['ft']);
         $this->assertSame('Caption', $ann[$oid]['opt']['t']);
         $this->assertSame('btnField', $ann[$oid]['opt']['v']);
-        $this->assertArrayHasKey('aa', $ann[$oid]['opt']);
+        $this->assertArrayHasKey('a', $ann[$oid]['opt']);
+        $this->assertStringContainsString('/S /JavaScript /JS', (string) $ann[$oid]['opt']['a']);
     }
 
     public function testAddFFButtonSupportsStructuredFormActionOptions(): void
@@ -422,9 +423,9 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertIsString($ann[$oid]['opt']['aa']);
+        $this->assertIsString($ann[$oid]['opt']['a']);
         /** @var string $actionString */
-        $actionString = $ann[$oid]['opt']['aa'];
+        $actionString = $ann[$oid]['opt']['a'];
         $this->assertStringContainsString('/S /SubmitForm', $actionString);
         $this->assertStringContainsString('/Fields [', $actionString);
         $this->assertStringContainsString('/Flags 8450', $actionString);
@@ -770,9 +771,9 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $annotation */
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $annotation);
-        $this->assertIsString($annotation[$oid]['opt']['aa']);
+        $this->assertIsString($annotation[$oid]['opt']['a']);
         /** @var string $actionString */
-        $actionString = $annotation[$oid]['opt']['aa'];
+        $actionString = $annotation[$oid]['opt']['a'];
         $this->assertStringContainsString('/S /ResetForm', $actionString);
         $this->assertStringContainsString('/Flags 1024', $actionString);
     }

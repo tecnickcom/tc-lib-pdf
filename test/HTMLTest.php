@@ -5270,6 +5270,22 @@ class HTMLTest extends TestUtil
         $this->assertSame('Btn', $last['opt']['ft']);
     }
 
+    public function testGetHTMLCellInputResetCreatesResetFormAction(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<input type="reset" name="reset" value="Reset" />', 0, 0, 40, 10);
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Btn', $last['opt']['ft']);
+        $this->assertStringContainsString('/S /ResetForm', (string) ($last['opt']['a'] ?? ''));
+    }
+
     public function testGetHTMLCellInputTextCreatesTextFieldAnnotation(): void
     {
         $obj = $this->getTestObject();
