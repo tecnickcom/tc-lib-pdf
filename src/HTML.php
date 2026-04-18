@@ -6036,32 +6036,46 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? (float) $elm['width']
             : $lineheight * 5;
 
-        if ($type === 'checkbox') {
-            $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'Yes';
-            $checked = isset($attr['checked']);
-            $this->addFFCheckBox($name, $tpx, $tpy, $lineheight, $onvalue, $checked);
-            $tpx += $lineheight;
-        } elseif ($type === 'radio') {
-            $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'On';
-            $checked = isset($attr['checked']);
-            $this->addFFRadioButton($name, $tpx, $tpy, $lineheight, $onvalue, $checked);
-            $tpx += $lineheight;
-        } elseif ($type === 'submit' || $type === 'button' || $type === 'reset') {
-            $caption = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : $type;
-            $action = (isset($attr['onclick']) && \is_string($attr['onclick'])) ? $attr['onclick'] : '';
-            $this->addFFButton($name, $tpx, $tpy, $fieldwidth, $lineheight, $caption, $action);
-            $tpx += $fieldwidth;
-        } else {
-            // text, password, email, url, number, etc.
-            $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
-            if ($value === '' && isset($attr['placeholder']) && \is_string($attr['placeholder'])) {
-                $value = $attr['placeholder'];
-            }
+        switch ($type) {
+            case 'checkbox':
+                $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'Yes';
+                $checked = isset($attr['checked']);
+                $objid = $this->addFFCheckBox($name, $tpx, $tpy, $lineheight, $onvalue, $checked);
+                $this->page->addAnnotRef($objid, $this->page->getPageID());
+                $tpx += $lineheight;
+                break;
 
-            $opt = ['v' => $value];
-            $jsp = ($type === 'password') ? ['password' => 'true'] : [];
-            $this->addFFText($name, $tpx, $tpy, $fieldwidth, $lineheight, $opt, $jsp);
-            $tpx += $fieldwidth;
+            case 'radio':
+                $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'On';
+                $checked = isset($attr['checked']);
+                $objid = $this->addFFRadioButton($name, $tpx, $tpy, $lineheight, $onvalue, $checked);
+                $this->page->addAnnotRef($objid, $this->page->getPageID());
+                $tpx += $lineheight;
+                break;
+
+            case 'submit':
+            case 'button':
+            case 'reset':
+                $caption = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : $type;
+                $action = (isset($attr['onclick']) && \is_string($attr['onclick'])) ? $attr['onclick'] : '';
+                $objid = $this->addFFButton($name, $tpx, $tpy, $fieldwidth, $lineheight, $caption, $action);
+                $this->page->addAnnotRef($objid, $this->page->getPageID());
+                $tpx += $fieldwidth;
+                break;
+
+            default:
+                // text, password, email, url, number, etc.
+                $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+                if ($value === '' && isset($attr['placeholder']) && \is_string($attr['placeholder'])) {
+                    $value = $attr['placeholder'];
+                }
+
+                $opt = ['v' => $value];
+                $jsp = ($type === 'password') ? ['password' => 'true'] : [];
+                $objid = $this->addFFText($name, $tpx, $tpy, $fieldwidth, $lineheight, $opt, $jsp);
+                $this->page->addAnnotRef($objid, $this->page->getPageID());
+                $tpx += $fieldwidth;
+                break;
         }
 
         if ($hrc['cellctx']['maxwidth'] > 0) {
@@ -6328,7 +6342,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $this->addFFComboBox($name, $tpx, $tpy, $fieldwidth, $lineheight, $values, ['v' => $selectedValue]);
+        $objid = $this->addFFComboBox($name, $tpx, $tpy, $fieldwidth, $lineheight, $values, ['v' => $selectedValue]);
+        $this->page->addAnnotRef($objid, $this->page->getPageID());
         $tpx += $fieldwidth;
 
         if ($hrc['cellctx']['maxwidth'] > 0) {
@@ -6830,7 +6845,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             : (($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth']);
         $fieldheight = $lineheight * $rows;
 
-        $this->addFFText($name, $tpx, $tpy, $fieldwidth, $fieldheight, ['v' => $value], ['multiline' => 'true']);
+        $objid = $this->addFFText($name, $tpx, $tpy, $fieldwidth, $fieldheight, ['v' => $value], ['multiline' => 'true']);
+        $this->page->addAnnotRef($objid, $this->page->getPageID());
         $tpx += $fieldwidth;
 
         if ($hrc['cellctx']['maxwidth'] > 0) {
