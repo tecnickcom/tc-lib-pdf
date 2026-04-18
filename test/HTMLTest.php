@@ -4976,6 +4976,78 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($originX + $cellWidth, $lineRight, 1e-6);
     }
 
+    public function testGetHTMLCellRightAlignedMixedInlineLinesReachRightEdge(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $bfont = $obj->font->insert($obj->pon, 'dejavusans', '', 10);
+        $obj->page->addContent($bfont['out']);
+
+        $logo = \realpath(__DIR__ . '/../examples/images/tcpdf_logo.jpg');
+        $box = \realpath(__DIR__ . '/../examples/images/tcpdf_box.svg');
+
+        $this->assertNotFalse($logo);
+        $this->assertNotFalse($box);
+
+        $html = '<div style="text-align:right;">'
+            . 'RIGHT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo '
+            . '<img src="' . $logo . '" alt="TCPDF logo" width="89" height="30" border="0" />'
+            . '<img src="' . $box . '" alt="TCPDF box" width="100" height="67" border="0" /> '
+            . '<i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
+            . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
+            . 'Whiskey <i>Xray</i> Yankee <i>Zulu</i>'
+            . '</div>';
+
+        $originX = 20.0;
+        $cellWidth = 150.0;
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, $originX, 10.0, $cellWidth, 0.0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $lines = [];
+        foreach ($trace as $row) {
+            $key = \sprintf('%.3F', (float) $row['bbox_y']);
+            if (!isset($lines[$key])) {
+                $lines[$key] = [];
+            }
+
+            $lines[$key][] = $row;
+        }
+
+        $this->assertCount(3, $lines);
+
+        foreach ($lines as $line) {
+            $lineRight = 0.0;
+            foreach ($line as $row) {
+                $lineRight = \max($lineRight, (float) $row['bbox_x'] + (float) $row['bbox_w']);
+            }
+
+            $this->assertEqualsWithDelta($originX + $cellWidth, $lineRight, 1e-6);
+        }
+
+        $kiloLineY = null;
+        foreach ($trace as $row) {
+            if (\strpos((string) $row['txt'], 'Kilo') !== false) {
+                $kiloLineY = \sprintf('%.3F', (float) $row['bbox_y']);
+                break;
+            }
+        }
+
+        $this->assertNotNull($kiloLineY);
+
+        $kiloLineRight = 0.0;
+        foreach ($lines[(string) $kiloLineY] as $row) {
+            $kiloLineRight = \max($kiloLineRight, (float) $row['bbox_x'] + (float) $row['bbox_w']);
+        }
+
+        $this->assertEqualsWithDelta($originX + $cellWidth, $kiloLineRight, 1e-6);
+    }
+
     public function testParseHTMLTextForcedWrapTrimsLeadingSpaceAtNewLine(): void
     {
         $obj = $this->getBBoxProbeTestObject();
