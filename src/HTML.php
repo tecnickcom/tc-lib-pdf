@@ -3575,18 +3575,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? \max(0.0, $hrc['cellctx']['maxwidth'] - (float) $elm['margin']['L'] - (float) $elm['margin']['R'])
             : 0.0;
 
-        // If this block has border or background, start buffering content
-        // so that fill is painted before content and border after.
-        $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $key);
-        $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $key);
-        if ($bstyles !== [] || $fillstyle !== null) {
-            $hrc['blockbuf'][] = [
-                'openkey' => $key,
-                'bx' => $bx,
-                'by' => $tpy,
-                'bw' => $bw,
-                'buffer' => '',
-            ];
+        // If this block has its OWN border or background (not merely inherited),
+        // start buffering content so that fill is painted before content and border after.
+        $hasBorder = isset($elm['border']) && \is_array($elm['border']) && $elm['border'] !== [];
+        $hasBgcolor = !empty($elm['bgcolor']) && \is_string($elm['bgcolor']);
+        // Exclude inherited values: if the value matches the parent, it was inherited.
+        $parentkey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
+        if ($parentkey >= 0 && isset($hrc['dom'][$parentkey])) {
+            $pelm = $hrc['dom'][$parentkey];
+            if ($hasBorder && isset($pelm['border']) && $pelm['border'] === $elm['border']) {
+                $hasBorder = false;
+            }
+            if ($hasBgcolor && isset($pelm['bgcolor']) && $pelm['bgcolor'] === $elm['bgcolor']) {
+                $hasBgcolor = false;
+            }
+        }
+        if ($hasBorder || $hasBgcolor) {
+            $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $key);
+            $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $key);
+            if ($bstyles !== [] || $fillstyle !== null) {
+                $hrc['blockbuf'][] = [
+                    'openkey' => $key,
+                    'bx' => $bx,
+                    'by' => $tpy,
+                    'bw' => $bw,
+                    'buffer' => '',
+                ];
+            }
         }
 
         $tpx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
