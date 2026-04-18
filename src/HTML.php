@@ -909,7 +909,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) ? $dom[$parent]['text-transform'] : '';
 
         if ($transform !== '') {
-            if (!empty(self::HTML_TEXT_TRANSFORM[$transform])) {
+            if (\array_key_exists($transform, self::HTML_TEXT_TRANSFORM)) {
                 $element = \mb_convert_case(
                     $element,
                     self::HTML_TEXT_TRANSFORM[$transform],
