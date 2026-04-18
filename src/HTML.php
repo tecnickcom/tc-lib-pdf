@@ -4196,8 +4196,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $parent = isset($hrc['dom'][$key]['parent']) && \is_int($hrc['dom'][$key]['parent'])
             ? $hrc['dom'][$key]['parent']
             : -1;
+        $visited = [];
 
         while (($parent >= 0) && isset($hrc['dom'][$parent])) {
+            if (isset($visited[$parent])) {
+                return -1;
+            }
+            $visited[$parent] = true;
+
             $ancestor = $hrc['dom'][$parent];
             if (
                 !empty($ancestor['tag'])

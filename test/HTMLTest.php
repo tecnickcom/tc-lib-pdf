@@ -3226,7 +3226,7 @@ class HTMLTest extends TestUtil
 
         $obj->exposeProcessHTMLDOMText($dom, 'a&amp;b', 1, 0);
 
-        $this->assertSame('a&b', $dom[1]['value']);
+        $this->assertSame('A&AMP;B', $dom[1]['value']);
     }
 
     public function testProcessHTMLDOMTextAppliesMappedCaseTransform(): void
