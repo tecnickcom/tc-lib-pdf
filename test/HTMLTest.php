@@ -5333,6 +5333,67 @@ class HTMLTest extends TestUtil
         $this->assertContains('Green', $labels);
     }
 
+    public function testGetHTMLCellSelectMultipleCreatesListBoxAndEnablesMultipleSelection(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<select name="choices" size="2" multiple="multiple"><option value="a">Alpha</option><option value="b">Beta</option></select>',
+            0,
+            0,
+            40,
+            10,
+        );
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Ch', $last['opt']['ft']);
+        // Combo flag (bit 18 = 1<<17) must not be set for list boxes.
+        $this->assertSame(0, ((int) ($last['opt']['ff'] ?? 0)) & (1 << 17));
+        // Multi-select flag (bit 22 = 1<<21) must be set when HTML select has "multiple".
+        $this->assertSame(1 << 21, ((int) ($last['opt']['ff'] ?? 0)) & (1 << 21));
+    }
+
+    public function testGetHTMLCellSelectSizeControlsListBoxHeight(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<select name="one"><option value="a">Alpha</option><option value="b">Beta</option></select>',
+            0,
+            0,
+            40,
+            10,
+        );
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{h: float} $combo */
+        $combo = \end($annotation);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $obj2->getHTMLCell(
+            '<select name="many" size="3"><option value="a">Alpha</option><option value="b">Beta</option></select>',
+            0,
+            0,
+            40,
+            10,
+        );
+        $annotation2 = $this->getObjectProperty($obj2, 'annotation');
+        $this->assertIsArray($annotation2);
+        $this->assertNotEmpty($annotation2);
+        /** @var array{h: float} $list */
+        $list = \end($annotation2);
+
+        $this->assertGreaterThan((float) $combo['h'], (float) $list['h']);
+    }
+
     public function testNestedInlineTagsRenderOnSameLine(): void
     {
         $obj = $this->getInternalTestObject();

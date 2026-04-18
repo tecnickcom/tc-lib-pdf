@@ -6316,9 +6316,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? (float) $elm['width']
             : $lineheight * 5;
 
-        // Parse packed option string into [value, label] pairs; track initial selected value.
+        // Parse packed option string into [value, label] pairs and selected entries.
         $values = [];
-        $selectedValue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+        $selectedValues = [];
+        if (isset($attr['value']) && \is_string($attr['value']) && ($attr['value'] !== '')) {
+            foreach (\explode(',', $attr['value']) as $selval) {
+                $selval = \trim($selval);
+                if ($selval !== '') {
+                    $selectedValues[] = $selval;
+                }
+            }
+        }
         if (!empty($attr['opt']) && \is_string($attr['opt'])) {
             $entries = \array_filter(\explode('#!NwL!#', $attr['opt']), static fn ($ent): bool => $ent !== '');
             foreach ($entries as $entry) {
@@ -6330,19 +6338,39 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 if (\str_contains($entry, '#!TaB!#')) {
                     $parts = \explode('#!TaB!#', $entry, 2);
                     $values[] = [$parts[0], $parts[1]];
-                    if ($isSelected && $selectedValue === '') {
-                        $selectedValue = $parts[0];
+                    if ($isSelected && !\in_array($parts[0], $selectedValues, true)) {
+                        $selectedValues[] = $parts[0];
                     }
                 } else {
                     $values[] = [$entry, $entry];
-                    if ($isSelected && $selectedValue === '') {
-                        $selectedValue = $entry;
+                    if ($isSelected && !\in_array($entry, $selectedValues, true)) {
+                        $selectedValues[] = $entry;
                     }
                 }
             }
         }
 
-        $objid = $this->addFFComboBox($name, $tpx, $tpy, $fieldwidth, $lineheight, $values, ['v' => $selectedValue]);
+        $size = (isset($attr['size']) && \is_numeric($attr['size'])) ? (int) $attr['size'] : 0;
+        $hasMultiple = isset($attr['multiple']) && ($attr['multiple'] !== 'false');
+        $isListBox = $hasMultiple || ($size > 1);
+
+        $selectedValue = $selectedValues[0] ?? '';
+        if ($isListBox) {
+            $fieldheight = $lineheight * (float) \max(1, $size);
+            $jsp = [];
+            if ($hasMultiple) {
+                $jsp['multipleSelection'] = 'true';
+            }
+
+            $opt = [];
+            if ($selectedValue !== '') {
+                $opt['v'] = $selectedValue;
+            }
+
+            $objid = $this->addFFListBox($name, $tpx, $tpy, $fieldwidth, $fieldheight, $values, $opt, $jsp);
+        } else {
+            $objid = $this->addFFComboBox($name, $tpx, $tpy, $fieldwidth, $lineheight, $values, ['v' => $selectedValue]);
+        }
         $this->page->addAnnotRef($objid, $this->page->getPageID());
         $tpx += $fieldwidth;
 
