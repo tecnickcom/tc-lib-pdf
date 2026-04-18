@@ -1648,33 +1648,45 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 if (isset($brd_styles[3]) && ($brd_styles[3] != 'none')) {
                     $brdr['L']['lineCap'] = 'square';
                     $brdr['L']['lineJoin'] = 'miter';
-                    $brdr['L']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[3]);
-                    if ($brdr['L']['dashPhase'] < 0) {
+                    $_dash = $this->getCSSBorderDashStyle($brd_styles[3]);
+                    if ($_dash < 0) {
                         $brdr['L'] = [];
+                    } else {
+                        $brdr['L']['dashArray'] = ($_dash > 0) ? [$_dash, $_dash] : [];
+                        $brdr['L']['dashPhase'] = 0;
                     }
                 }
                 if (isset($brd_styles[1])) {
                     $brdr['R']['lineCap'] = 'square';
                     $brdr['R']['lineJoin'] = 'miter';
-                    $brdr['R']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[1]);
-                    if ($brdr['R']['dashPhase'] < 0) {
+                    $_dash = $this->getCSSBorderDashStyle($brd_styles[1]);
+                    if ($_dash < 0) {
                         $brdr['R'] = [];
+                    } else {
+                        $brdr['R']['dashArray'] = ($_dash > 0) ? [$_dash, $_dash] : [];
+                        $brdr['R']['dashPhase'] = 0;
                     }
                 }
                 if (isset($brd_styles[0])) {
                     $brdr['T']['lineCap'] = 'square';
                     $brdr['T']['lineJoin'] = 'miter';
-                    $brdr['T']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[0]);
-                    if ($brdr['T']['dashPhase'] < 0) {
+                    $_dash = $this->getCSSBorderDashStyle($brd_styles[0]);
+                    if ($_dash < 0) {
                         $brdr['T'] = [];
+                    } else {
+                        $brdr['T']['dashArray'] = ($_dash > 0) ? [$_dash, $_dash] : [];
+                        $brdr['T']['dashPhase'] = 0;
                     }
                 }
                 if (isset($brd_styles[2])) {
                     $brdr['B']['lineCap'] = 'square';
                     $brdr['B']['lineJoin'] = 'miter';
-                    $brdr['B']['dashPhase'] = $this->getCSSBorderDashStyle($brd_styles[2]);
-                    if ($brdr['B']['dashPhase'] < 0) {
+                    $_dash = $this->getCSSBorderDashStyle($brd_styles[2]);
+                    if ($_dash < 0) {
                         $brdr['B'] = [];
+                    } else {
+                        $brdr['B']['dashArray'] = ($_dash > 0) ? [$_dash, $_dash] : [];
+                        $brdr['B']['dashPhase'] = 0;
                     }
                 }
             }
@@ -1702,11 +1714,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 );
             }
             if (!empty($dom[$key]['style']['border-' . $bsv . '-style'])) {
-                $brdr[$bsk]['dashPhase'] = $this->getCSSBorderDashStyle(
+                $_dash = $this->getCSSBorderDashStyle(
                     $dom[$key]['style']['border-' . $bsv . '-style']
                 );
-                if ($brdr[$bsk]['dashPhase'] < 0) {
+                if ($_dash < 0) {
                     $brdr[$bsk] = [];
+                } else {
+                    $brdr[$bsk]['dashArray'] = ($_dash > 0) ? [$_dash, $_dash] : [];
+                    $brdr[$bsk]['dashPhase'] = 0;
                 }
             }
             /** @var  array<string, BorderStyle> $brdr */

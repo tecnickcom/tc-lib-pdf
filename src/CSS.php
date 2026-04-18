@@ -295,7 +295,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         if ($dash < 0) {
             return $border;
         }
-        $border['dashPhase'] = $dash;
+        $border['dashArray'] = ($dash > 0) ? [$dash, $dash] : [];
+        $border['dashPhase'] = 0;
         $border['lineWidth'] = $this->getCSSBorderWidth($width);
         $colobj = $this->color->getColorObj($color);
         $border['lineColor'] = empty($colobj) ? 'black' : $colobj->getCssColor();

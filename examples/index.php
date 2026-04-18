@@ -2186,7 +2186,7 @@ $html_06 = <<<EOF
  </tr>
  <tr>
   <td width="30" align="center">1.</td>
-  <td width="140" rowspan="6" class="second">XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX</td>
+  <td width="140" rowspan="6" class="second">BRDD<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX</td>
   <td width="140">XXXX<br />XXXX</td>
   <td width="80">XXXX<br />XXXX</td>
   <td width="80">XXXX</td>
