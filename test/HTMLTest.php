@@ -262,16 +262,22 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseHTMLTagOPENbr($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
-    /** @phpstan-param THTMLAttrib $elm */
+    /** @param array<string, mixed> $elm */
     public function exposeGetHTMLInputDisplayValue(array $elm): string
     {
-        return $this->getHTMLInputDisplayValue($elm);
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'getHTMLInputDisplayValue');
+
+        /** @var string */
+        return $method->invoke($this, $elm);
     }
 
-    /** @phpstan-param THTMLAttrib $elm */
+    /** @param array<string, mixed> $elm */
     public function exposeGetHTMLSelectDisplayValue(array $elm): string
     {
-        return $this->getHTMLSelectDisplayValue($elm);
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'getHTMLSelectDisplayValue');
+
+        /** @var string */
+        return $method->invoke($this, $elm);
     }
 
     /**
@@ -338,6 +344,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getHTMLInputButtonAction($this->testhrc, $key, $type, $attr);
     }
 
+    /** @return ?array{m: string, p: array<int, mixed>} */
     public function exposeParseHTMLTcpdfSerializedData(string $data): ?array
     {
         return $this->parseHTMLTcpdfSerializedData($data);
@@ -431,6 +438,95 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->testhrc['dom'] = $dom;
 
         return $this->estimateHTMLNobrHeight($this->testhrc, $startkey, $width);
+    }
+
+    public function exposeSetHTMLPrelevel(int $prelevel): void
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['prelevel'] = $prelevel;
+    }
+
+    public function exposeGetHTMLBaseFontName(): string
+    {
+        return $this->getHTMLBaseFontName();
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     *
+     * @return array<string, mixed>
+     */
+    public function exposeGetHTMLFontMetricWithDom(array $dom, int $key): array
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->getHTMLFontMetric($this->testhrc, $key);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeGetHTMLTextPrefixWithDom(array $dom, int $key): string
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->getHTMLTextPrefix($this->testhrc, $key);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeGetHTMLLineAdvanceWithDom(array $dom, int $key): float
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->getHTMLLineAdvance($this->testhrc, $key);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeGetCurrentHTMLLineAdvanceWithDom(array $dom, int $key): float
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->getCurrentHTMLLineAdvance($this->testhrc, $key);
+    }
+
+    public function exposeUpdateHTMLLineAdvance(float $lineadvance): void
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->updateHTMLLineAdvance($this->testhrc, $lineadvance);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     *
+     * @return array{width: float, spaces: int, wrapped: bool}
+     */
+    public function exposeMeasureHTMLInlineLineMetricsWithDom(array $dom, int $startkey, float $maxwidth, float $wordspacing = 0.0): array
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->measureHTMLInlineLineMetrics($this->testhrc, $startkey, $maxwidth, $wordspacing);
+    }
+
+    public function exposeGetHTMLTextFirstLineSpaces(string $text, string $forcedir, float $maxwidth): int
+    {
+        return $this->getHTMLTextFirstLineSpaces($text, $forcedir, $maxwidth);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeMeasureHTMLInlineRunMaxAscentWithDom(array $dom, int $startkey): float
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->measureHTMLInlineRunMaxAscent($this->testhrc, $startkey);
+    }
+
+    public function exposeHasHTMLTextBreakOpportunity(string $text): bool
+    {
+        return $this->hasHTMLTextBreakOpportunity($text);
     }
 }
 
@@ -3812,6 +3908,23 @@ class HTMLTest extends TestUtil
         }
     }
 
+    public function testGetHTMLliBulletRendersSvgImageBullet(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $svg = (string) realpath(__DIR__ . '/../examples/images/testsvg.svg');
+
+        $this->assertNotSame('', $svg);
+
+        try {
+            $svgOut = $obj->exposeGetHTMLliBullet(1, 2, 0, 0, 'img|svg|4|4|' . $svg);
+            $this->assertNotSame('', $svgOut);
+        } catch (\Throwable $e) {
+            $this->assertInstanceOf(\Throwable::class, $e);
+        }
+    }
+
     public function testGetHTMLCellCoversHiddenNodesAndPageBreakModes(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4035,6 +4148,95 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         $this->assertNotEmpty($dom[1]['border']);
+    }
+
+    public function testIsValidCSSSelectorForTagCoversTightCombinatorsAndAttributePresence(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root', 'tag' => true, 'opening' => true]),
+            1 => $this->makeHtmlNode([
+                'value' => 'div',
+                'parent' => 0,
+                'tag' => true,
+                'opening' => true,
+            ]),
+            2 => $this->makeHtmlNode([
+                'value' => 'p',
+                'parent' => 1,
+                'tag' => true,
+                'opening' => true,
+            ]),
+            3 => $this->makeHtmlNode([
+                'value' => 'span',
+                'parent' => 1,
+                'tag' => true,
+                'opening' => true,
+                'attribute' => [
+                    'class' => 'target',
+                    'data' => 'tokenized value',
+                ],
+            ]),
+        ];
+
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 3, ' span[data]'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 3, ' span[data~=tokenized]'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 3, ' div>span.target'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 3, ' p+span.target'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 3, ' p~span.target'));
+    }
+
+    public function testParseHTMLStyleAttributesCoversLinkFallbacksAndPerSideBorderProperties(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'line-height' => 1.2,
+                'fontsize' => 10.0,
+                'fontstyle' => '',
+                'font-stretch' => 100.0,
+                'letter-spacing' => 0.0,
+                'text-indent' => 0.0,
+                'listtype' => 'disc',
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'value' => 'a',
+                'fontsize' => 0.0,
+                'fontstyle' => '',
+                'attribute' => [
+                    'style' => 'line-height:12pt;page-break-before:avoid;page-break-after:left;'
+                        . 'border-style:none none none hidden;'
+                        . 'border-left-color:#111;border-right-color:#222;border-top-color:#333;border-bottom-color:#444;'
+                        . 'border-left-width:1;border-right-width:2;border-top-width:3;border-bottom-width:4;'
+                        . 'border-left-style:dashed;border-right-style:dotted;border-top-style:solid;border-bottom-style:double;',
+                ],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'value' => 'span',
+                'fontsize' => 10.0,
+                'fontstyle' => '',
+                'attribute' => [
+                    'style' => 'line-height:12pt;text-decoration:blink;page-break-after:avoid;',
+                ],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $obj->parseHTMLStyleAttributes($dom, 2, 0);
+
+        $this->assertSame(1.0, $dom[1]['line-height']);
+        $this->assertSame('blue', $dom[1]['fgcolor']);
+        $this->assertStringContainsString('U', $dom[1]['fontstyle']);
+        $this->assertSame('', $dom[1]['attribute']['pagebreak']);
+        $this->assertSame('left', $dom[1]['attribute']['pagebreakafter']);
+        $this->assertNotEmpty($dom[1]['border']);
+
+        $this->assertGreaterThan(0.0, $dom[2]['line-height']);
+        $this->assertSame('', $dom[2]['attribute']['pagebreakafter']);
     }
 
     public function testParseHTMLAttributesHandlesFontTagWithSizePrefix(): void
@@ -4283,6 +4485,53 @@ class HTMLTest extends TestUtil
 
         $this->assertGreaterThan(0, $dom[1]['rows']);
         $this->assertSame('2', $dom[3]['attribute']['rowspan']);
+    }
+
+    public function testParseHTMLAttributesFontSizeUsesNumericFallbackWhenParentSizeMissing(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 0.0]),
+            1 => $this->makeHtmlNode([
+                'value' => 'font',
+                'parent' => 0,
+                'attribute' => ['size' => '13'],
+                'style' => [],
+                'fontsize' => 0.0,
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertSame(13.0, $dom[1]['fontsize']);
+    }
+
+    public function testParseHTMLAttributesInitializesRowsAndTridsOnMissingParentTableState(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode([
+                'value' => 'tr',
+                'parent' => 0,
+                'attribute' => [],
+                'style' => [],
+            ]),
+        ];
+        unset($dom[0]['rows'], $dom[0]['trids']);
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'parseHTMLAttributes');
+        $method->invokeArgs($obj, [&$dom, 1, false]);
+
+        /** @var THTMLAttrib $parent */
+        $parent = $dom[0];
+
+        $this->assertSame(1, $parent['rows']);
+        $this->assertSame([1], $parent['trids']);
     }
 
     public function testParseHTMLStyleAttributesHandlesMultipleBorderSides(): void
@@ -4717,7 +4966,6 @@ class HTMLTest extends TestUtil
         $obj2 = $this->getTestObject();
         $this->initFontAndPage($obj2);
         $outNewLine = $obj2->getHTMLCell('Hello<br />World', 0, 0, 40, 20);
-
         $this->assertNotSame('', $outSameLine);
         $this->assertNotSame('', $outNewLine);
         $this->assertStringContainsString('Hello', $outSameLine);
@@ -5780,6 +6028,125 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($rowHeight, $obj->exposeEstimateHTMLNobrHeightWithDom($dom, 0, 20.0), 0.01);
         $this->assertGreaterThan($rowHeight, $obj->exposeEstimateHTMLNobrHeightWithDom($dom, 3, 20.0));
         $this->assertSame(0.0, $obj->exposeEstimateHTMLNobrHeightWithDom([$this->makeHtmlNode(['value' => 'div', 'opening' => true])], 0, 20.0));
+    }
+
+    public function testHtmlFontAndLineAdvanceHelpersCoverFallbackAndCachingBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 80.0, 0.0);
+
+        $this->assertSame('helvetica', $obj->exposeGetHTMLBaseFontName());
+        $this->assertSame([], $obj->exposeGetHTMLFontMetricWithDom([], 0));
+        $this->assertSame('', $obj->exposeGetHTMLTextPrefixWithDom([], 0));
+        $this->assertSame(0.0, $obj->exposeGetHTMLLineAdvanceWithDom([], 0));
+
+        $dom = [
+            $this->makeHtmlNode([
+                'tag' => false,
+                'opening' => false,
+                'value' => 'Alpha',
+                'fontname' => 'helveticaBI',
+                'fontstyle' => 'BIU',
+                'fontsize' => 12.0,
+                'fgcolor' => 'red',
+                'line-height' => 1.5,
+            ]),
+        ];
+
+        $metricA = $obj->exposeGetHTMLFontMetricWithDom($dom, 0);
+        $metricB = $obj->exposeGetHTMLFontMetricWithDom($dom, 0);
+        $this->assertNotSame([], $metricA);
+        $this->assertSame($metricA['key'] ?? null, $metricB['key'] ?? null);
+
+        $prefix = $obj->exposeGetHTMLTextPrefixWithDom($dom, 0);
+        $this->assertNotSame('', $prefix);
+
+        $lineAdvance = $obj->exposeGetHTMLLineAdvanceWithDom($dom, 0);
+        $this->assertGreaterThan(0.0, $lineAdvance);
+
+        $obj->exposeSetHTMLLineState(5.0, 0.0, false);
+        $this->assertGreaterThanOrEqual(5.0, $obj->exposeGetCurrentHTMLLineAdvanceWithDom($dom, 0));
+
+        $obj->exposeUpdateHTMLLineAdvance(0.0);
+        $hrc = $obj->exposeGetHTMLRenderContext();
+        $this->assertSame(5.0, $hrc['cellctx']['lineadvance']);
+
+        $obj->exposeUpdateHTMLLineAdvance(3.0);
+        $hrc = $obj->exposeGetHTMLRenderContext();
+        $this->assertSame(5.0, $hrc['cellctx']['lineadvance']);
+
+        $obj->exposeUpdateHTMLLineAdvance(8.0);
+        $hrc = $obj->exposeGetHTMLRenderContext();
+        $this->assertSame(8.0, $hrc['cellctx']['lineadvance']);
+    }
+
+    public function testHtmlInlineMetricHelpersCoverWrapSpaceAndAscentBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 80.0, 0.0);
+
+        $dom = [
+            $this->makeHtmlNode([
+                'tag' => false,
+                'opening' => false,
+                'value' => '  Alpha Beta  ',
+            ]),
+            $this->makeHtmlNode([
+                'value' => 'img',
+                'opening' => true,
+                'width' => 6.0,
+                'height' => 12.0,
+                'attribute' => ['align' => 'middle'],
+            ]),
+            $this->makeHtmlNode([
+                'tag' => false,
+                'opening' => false,
+                'value' => 'Gamma',
+            ]),
+            $this->makeHtmlNode([
+                'value' => 'br',
+                'opening' => true,
+            ]),
+        ];
+
+        $zero = $obj->exposeMeasureHTMLInlineLineMetricsWithDom($dom, 0, 0.0);
+        $this->assertSame(['width' => 0.0, 'spaces' => 0, 'wrapped' => false], $zero);
+
+        $wide = $obj->exposeMeasureHTMLInlineLineMetricsWithDom($dom, 0, 200.0);
+        $this->assertGreaterThan(0.0, $wide['width']);
+        $this->assertGreaterThanOrEqual(1, $wide['spaces']);
+        $this->assertFalse($wide['wrapped']);
+
+        $narrow = $obj->exposeMeasureHTMLInlineLineMetricsWithDom($dom, 0, 10.0, 2.0);
+        $this->assertTrue($narrow['wrapped']);
+
+        $this->assertSame(0, $obj->exposeGetHTMLTextFirstLineSpaces('', '', 20.0));
+        $this->assertSame(0, $obj->exposeGetHTMLTextFirstLineSpaces('Alpha', '', 20.0));
+        $this->assertGreaterThanOrEqual(1, $obj->exposeGetHTMLTextFirstLineSpaces('Alpha Beta Gamma', '', 200.0));
+
+        $this->assertTrue($obj->exposeHasHTMLTextBreakOpportunity('Alpha Beta'));
+        $this->assertTrue($obj->exposeHasHTMLTextBreakOpportunity("Alpha\u{00AD}Beta"));
+        $this->assertFalse($obj->exposeHasHTMLTextBreakOpportunity('AlphaBeta'));
+        $this->assertFalse($obj->exposeHasHTMLTextBreakOpportunity('   '));
+
+        $ascent = $obj->exposeMeasureHTMLInlineRunMaxAscentWithDom($dom, 0);
+        $this->assertGreaterThan(0.0, $ascent);
+
+        $topOnly = [
+            $this->makeHtmlNode([
+                'value' => 'img',
+                'opening' => true,
+                'height' => 10.0,
+                'attribute' => ['align' => 'top'],
+            ]),
+            $this->makeHtmlNode([
+                'value' => 'br',
+                'opening' => true,
+            ]),
+        ];
+        $this->assertSame(0.0, $obj->exposeMeasureHTMLInlineRunMaxAscentWithDom($topOnly, 0));
     }
 
     // --- Fix tests: interactive form field input types ---
