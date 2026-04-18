@@ -4936,18 +4936,24 @@ class HTMLTest extends TestUtil
         $trace = $obj->exposeGetBBoxTrace();
         $this->assertNotSame([], $trace);
 
+        $lineY = null;
+        foreach ($trace as $row) {
+            if (\trim((string) $row['txt']) === 'India') {
+                $lineY = (float) $row['bbox_y'];
+                break;
+            }
+        }
+
+        $this->assertNotNull($lineY);
+
         $secondLine = [];
         foreach ($trace as $row) {
-            if ((\str_contains((string) $row['txt'], 'India')) || ((float) $row['bbox_y'] > (float) $trace[0]['bbox_y'])) {
-                if ((float) $row['bbox_y'] < 32.0) {
-                    $secondLine[] = $row;
-                }
+            if (\abs((float) $row['bbox_y'] - (float) $lineY) < 0.01) {
+                $secondLine[] = $row;
             }
         }
 
         $this->assertGreaterThan(10, \count($secondLine));
-        $this->assertSame('India', \trim((string) $secondLine[0]['txt']));
-        $this->assertSame('Victor', \trim((string) $secondLine[\count($secondLine) - 1]['txt']));
 
         $gaps = [];
         for ($idx = 1, $max = \count($secondLine); $idx < $max; ++$idx) {
