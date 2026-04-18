@@ -44,7 +44,7 @@ For details, see <https://semver.org>.
 - Font subsetting
 - SVG support
 - CSS support
-- HTML support [WIP] - almost there! needs some extra testing and fixes
+- HTML support
 - JavaScript support
 - Images, geometric graphics, and transformation methods
 - Native JPEG, PNG, and SVG support
@@ -82,7 +82,7 @@ Or in `composer.json`:
 ```json
 {
     "require": {
-        "tecnickcom/tc-lib-pdf": "^8.5"
+        "tecnickcom/tc-lib-pdf": "^8.6"
     }
 }
 ```
