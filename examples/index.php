@@ -2064,9 +2064,9 @@ $html_05B = '<h2>HTML Text Alignment (B)</h2>
 <div style="text-align:justify;">JUSTIFY: Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa
 Quebec Romeo</div>
 <br />
-<div style="text-align:right;">LEFT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> Whiskey <i>Xray</i> Yankee <i>Zulu</i></div>
+<div style="text-align:left;">LEFT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> Whiskey <i>Xray</i> Yankee <i>Zulu</i></div>
 <br />
-<div style="text-align:right;">CENTER: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> Whiskey <i>Xray</i> Yankee <i>Zulu</i></div>
+<div style="text-align:center;">CENTER: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> Whiskey <i>Xray</i> Yankee <i>Zulu</i></div>
 <br />
 <div style="text-align:right;">RIGHT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> Whiskey <i>Xray</i> Yankee <i>Zulu</i></div>
 <br />
@@ -2227,22 +2227,6 @@ EOF;
 
 $pdf->addHTMLCell(
     $html_06, // string $html,
-    20, // float $posx = 0,
-    10, // float $posy = 0,
-);
-
-// ----------
-
-// HTML G
-
-$pageV07 = $pdf->addPage();
-
-$pdf->page->addContent($bfont6['out']);
-
-$html_07 = '<p style="border: 1px solid black;">ALPHA</p><p style="border: 1px solid black;">BRAVO</p>';
-
-$pdf->addHTMLCell(
-    $html_07, // string $html,
     20, // float $posx = 0,
     10, // float $posy = 0,
 );
