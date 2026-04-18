@@ -6477,6 +6477,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $colwidths = \array_fill(0, $cols, $colwidth);
         }
 
+        // Compute actual table width from column widths + cellspacing gutters.
+        $contentWidth = $cellspacing * ($cols + 1) + (float) \array_sum($colwidths);
+        $width = \min($width, $contentWidth);
+
+        // Update the block buffer width so the block-level border/background
+        // wraps the actual table content, not the full container.
+        if (!empty($hrc['blockbuf'])) {
+            $bidx = \count($hrc['blockbuf']) - 1;
+            if ($hrc['blockbuf'][$bidx]['openkey'] === $key) {
+                $hrc['blockbuf'][$bidx]['bw'] = \min($hrc['blockbuf'][$bidx]['bw'], $width);
+            }
+        }
+
         $hrc['tablestack'][] = [
             'originx' => $tpx,
             'originy' => $tpy,
