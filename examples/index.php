@@ -2215,15 +2215,19 @@ $pdf->page->addContent($bfont6['out']);
 $html_07 = <<<EOF
 <!-- EXAMPLE OF CSS STYLE -->
 <style>
-	h1 {
-		color: red;
-		font-family: times;
-		font-size: 24pt;
-		text-decoration: underline;
+	div.test {
+		color: #CC0000;
+		background-color: #FFFF66;
+		font-family: helvetica;
+		font-size: 10pt;
+		border-style: solid solid solid solid;
+		border-width: 2px 2px 2px 2px;
+		border-color: green #FF00FF blue red;
+		text-align: center;
 	}
 </style>
 
-<h1>TEST CSS</h1>
+<div class="test">EXAMPLE</div>
 EOF;
 
 $pdf->addHTMLCell(

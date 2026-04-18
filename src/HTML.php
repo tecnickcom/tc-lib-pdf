@@ -1685,7 +1685,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $ref = self::REFUNITVAL;
         $ref['parent'] = 0.0;
         foreach ($cellside as $bsk => $bsv) {
-            $brdr[$bsk] = $this->getCSSDefaultBorderStyle();
             if (!empty($dom[$key]['style']['border-' . $bsv])) {
                 $brdr[$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-' . $bsv]);
             }
@@ -3566,6 +3565,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($hrc, $key, 0);
         }
 
+        // Save the border-box origin so that closeHTMLBlock can draw borders.
+        // @phpstan-ignore parameterByRef.type
+        $elm['blockstarty'] = $tpy;
+        // @phpstan-ignore parameterByRef.type
+        $elm['blockstartx'] = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'];
+        // @phpstan-ignore parameterByRef.type
+        $elm['blockborderw'] = $hrc['cellctx']['maxwidth'] > 0
+            ? \max(0.0, $hrc['cellctx']['maxwidth'] - (float) $elm['margin']['L'] - (float) $elm['margin']['R'])
+            : 0.0;
+
         $tpx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
         $tpw = $hrc['cellctx']['maxwidth'];
         if ($tpw > 0) {
@@ -3596,10 +3605,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
 
+        // Draw block-level border if the opening tag defined one.
+        $out = '';
+        $openkey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
+        if ($openkey >= 0 && isset($hrc['dom'][$openkey])) {
+            $openelm = &$hrc['dom'][$openkey];
+            $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $openkey);
+            if ($bstyles !== []) {
+                $bx = isset($openelm['blockstartx']) && \is_numeric($openelm['blockstartx'])
+                    ? (float) $openelm['blockstartx'] : 0.0;
+                $by = isset($openelm['blockstarty']) && \is_numeric($openelm['blockstarty'])
+                    ? (float) $openelm['blockstarty'] : 0.0;
+                $bw = isset($openelm['blockborderw']) && \is_numeric($openelm['blockborderw'])
+                    ? (float) $openelm['blockborderw'] : 0.0;
+                $bh = ($tpy + $lineadvance + (float) $elm['padding']['B']) - $by;
+                if ($bw > 0.0 && $bh > 0.0) {
+                    $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $openkey);
+                    $out .= $this->renderHTMLTableCell($bx, $by, $bw, $bh, $bstyles, $fillstyle, '');
+                }
+            }
+        }
+
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B'] + $this->getHTMLTagVSpace($hrc, $key, 1);
 
-        return '';
+        return $out;
     }
 
     /**
