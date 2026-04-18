@@ -1910,6 +1910,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
         /** @var array<int, THTMLAttrib> $dom */
+        // apply default 1em top/bottom margin for block elements that have it in standard CSS
+        if (\in_array($dom[$key]['value'], ['p', 'ol', 'ul', 'dl', 'blockquote', 'pre'], true)) {
+            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-top'])) {
+                $dom[$key]['margin']['T'] = $this->toUnit((float) $dom[$key]['fontsize']);
+            }
+            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-bottom'])) {
+                $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize']);
+            }
+        }
+        /** @var array<int, THTMLAttrib> $dom */
         if (($dom[$key]['value'] == 'table')) {
             $dom[$key]['rows'] = 0; // number of rows
             $dom[$key]['trids'] = []; // IDs of TR elements
