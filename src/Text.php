@@ -621,8 +621,19 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             );
 
             $jwidth = 0;
+            $line_ws = $wordspacing;
             if (($halign == 'J') && ($data['septype'] != 'B') && (($i < $lastline) || !$jlast)) {
                 $jwidth = $cell_width;
+            }
+
+            // When custom inline word spacing is active (multi-fragment justified
+            // paragraph), the first line uses the pre-computed word spacing while
+            // wrapped continuation lines use per-line justification instead.
+            if ($wordspacing > 0 && $i > 0) {
+                $line_ws = 0;
+                if (($data['septype'] != 'B') && (($i < $lastline) || !$jlast)) {
+                    $jwidth = $cell_width;
+                }
             }
 
             $out .= $this->getOutTextLine(
@@ -633,7 +644,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $line_posy,
                 $jwidth,
                 $strokewidth,
-                $wordspacing,
+                $line_ws,
                 $leading,
                 $rise,
                 $fill,
