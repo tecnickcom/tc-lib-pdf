@@ -1407,7 +1407,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         /** @var array<int, THTMLAttrib> $dom */
         // font family
         if (!empty($dom[$key]['style']['font-family'])) {
-            $dom[$key]['fontname'] = $this->font->getFontFamilyName($dom[$key]['style']['font-family']);
+            // Keep the raw CSS family list and defer font resolution to insert().
+            // Resolving here against the current buffer can incorrectly collapse
+            // unresolved families to the currently active font.
+            $dom[$key]['fontname'] = \trim((string) $dom[$key]['style']['font-family']);
         }
         /** @var array<int, THTMLAttrib> $dom */
         // list-style-type
@@ -1802,7 +1805,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($dom[$key]['value'] == 'font') {
             // font family
             if (!empty($dom[$key]['attribute']['face'])) {
-                $dom[$key]['fontname'] = $this->font->getFontFamilyName($dom[$key]['attribute']['face']);
+                // Keep the raw face value and defer font resolution to insert().
+                $dom[$key]['fontname'] = \trim((string) $dom[$key]['attribute']['face']);
             }
             /** @var array<int, THTMLAttrib> $dom */
             $parent = $dom[$key]['parent'];
@@ -2995,17 +2999,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $stripped = \preg_replace('/[biudo]+$/i', '', $fontname) ?? '';
         if (($stripped !== '') && ($stripped !== $fontname)) {
-            $strippedFamily = $this->font->getFontFamilyName($stripped);
-            if ($strippedFamily !== '') {
-                $fontname = $strippedFamily;
-            }
-        }
-
-        $family = $this->font->getFontFamilyName($fontname);
-        if (($family !== '') && !\preg_match('/[biudo]+$/i', $family)) {
-            $fontname = $family;
-        } elseif (!empty($hrc['cellctx']['basefont']) && \is_string($hrc['cellctx']['basefont'])) {
-            $fontname = $hrc['cellctx']['basefont'];
+            $fontname = $stripped;
         }
         $fontsize = (!empty($elm['fontsize']) && \is_numeric($elm['fontsize']))
             ? (int) \round((float) $elm['fontsize'])

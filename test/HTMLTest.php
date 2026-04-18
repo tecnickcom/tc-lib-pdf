@@ -3541,6 +3541,47 @@ class HTMLTest extends TestUtil
         $this->assertSame('Hello', $dom[2]['value']);
     }
 
+
+    public function testParseHTMLStyleAttributesKeepsRawFontFamilyValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontname' => 'helvetica']),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-family:times, serif;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertSame('times, serif', $dom[1]['fontname']);
+    }
+
+    public function testParseHTMLAttributesKeepsRawFontFaceValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontname' => 'helvetica']),
+            1 => $this->makeHtmlNode([
+                'value' => 'font',
+                'parent' => 0,
+                'attribute' => ['face' => 'times, serif'],
+                'style' => [],
+                'fontstyle' => '',
+                'fontsize' => 10.0,
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertSame('times, serif', $dom[1]['fontname']);
+    }
     public function testGetHTMLliBulletNoneAndCustomImageTypeBranches(): void
     {
         $obj = $this->getInternalTestObject();
