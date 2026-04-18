@@ -42,6 +42,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         'liststack' => [],
         'tablestack' => [],
         'bcellctx' => [],
+        'blockbuf' => [],
         'linkstack' => [],
         'listack' => [],
         'prelevel' => 0,
@@ -2119,6 +2120,30 @@ class HTMLTest extends TestUtil
         $this->assertContains('Tx', $fieldTypes);
     }
 
+    public function testGetHTMLCellRendersFileInputWithFileSelectFlag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<input type="file" name="userfile" size="20" />',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(1, $annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Tx', $last['opt']['ft']);
+        $this->assertArrayHasKey('ff', $last['opt']);
+        $this->assertIsInt($last['opt']['ff']);
+        $this->assertNotSame(0, ($last['opt']['ff']) & (1 << 20));
+    }
+
     public function testGetHTMLCellRendersMultilineTextareaValue(): void
     {
         $obj = $this->getTestObject();
@@ -3201,7 +3226,7 @@ class HTMLTest extends TestUtil
 
         $obj->exposeProcessHTMLDOMText($dom, 'a&amp;b', 1, 0);
 
-        $this->assertSame('a&b', $dom[1]['value']);
+        $this->assertSame('A&AMP;B', $dom[1]['value']);
     }
 
     public function testProcessHTMLDOMTextAppliesMappedCaseTransform(): void
@@ -3516,6 +3541,47 @@ class HTMLTest extends TestUtil
         $this->assertSame('Hello', $dom[2]['value']);
     }
 
+
+    public function testParseHTMLStyleAttributesKeepsRawFontFamilyValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontname' => 'helvetica']),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-family:times, serif;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertSame('times, serif', $dom[1]['fontname']);
+    }
+
+    public function testParseHTMLAttributesKeepsRawFontFaceValue(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontsize' => 10.0, 'fontname' => 'helvetica']),
+            1 => $this->makeHtmlNode([
+                'value' => 'font',
+                'parent' => 0,
+                'attribute' => ['face' => 'times, serif'],
+                'style' => [],
+                'fontstyle' => '',
+                'fontsize' => 10.0,
+            ]),
+        ];
+
+        $obj->parseHTMLAttributes($dom, 1, false);
+
+        $this->assertSame('times, serif', $dom[1]['fontname']);
+    }
     public function testGetHTMLliBulletNoneAndCustomImageTypeBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -5247,6 +5313,50 @@ class HTMLTest extends TestUtil
         $this->assertSame('Btn', $last['opt']['ft']);
     }
 
+    public function testGetHTMLCellInputSubmitUsesEnclosingFormAction(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<form action="https://example.test/form" method="get"><input type="submit" name="submit" value="Go" /></form>',
+            0,
+            0,
+            60,
+            10,
+        );
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Btn', $last['opt']['ft']);
+        $this->assertArrayHasKey('a', $last['opt']);
+        $this->assertIsString($last['opt']['a']);
+        $this->assertStringContainsString('/S /SubmitForm', $last['opt']['a']);
+        $this->assertStringContainsString('/F (https://example.test/form)', $last['opt']['a']);
+        $this->assertStringContainsString('/Flags 12', $last['opt']['a']);
+    }
+
+    public function testGetHTMLCellInputResetCreatesResetFormAction(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<input type="reset" name="reset" value="Reset" />', 0, 0, 40, 10);
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Btn', $last['opt']['ft']);
+        $this->assertArrayHasKey('a', $last['opt']);
+        $this->assertIsString($last['opt']['a']);
+        $this->assertStringContainsString('/S /ResetForm', $last['opt']['a']);
+    }
+
     public function testGetHTMLCellInputTextCreatesTextFieldAnnotation(): void
     {
         $obj = $this->getTestObject();
@@ -5279,6 +5389,31 @@ class HTMLTest extends TestUtil
         $this->assertSame(1 << 12, $last['opt']['ff']);
     }
 
+    public function testGetHTMLCellTextareaColsControlsFieldWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<textarea name="notes_auto" rows="3">hello</textarea>', 0, 0, 80, 30);
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{w: float} $auto */
+        $auto = \end($annotation);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $obj2->getHTMLCell('<textarea name="notes_cols" rows="3" cols="5">hello</textarea>', 0, 0, 80, 30);
+        $annotation2 = $this->getObjectProperty($obj2, 'annotation');
+        $this->assertIsArray($annotation2);
+        $this->assertNotEmpty($annotation2);
+        /** @var array{w: float} $withCols */
+        $withCols = \end($annotation2);
+
+        $this->assertLessThan((float) $auto['w'], (float) $withCols['w']);
+        $this->assertLessThan(80.0, (float) $withCols['w']);
+    }
+
     public function testGetHTMLCellSelectCreatesComboBoxAnnotation(): void
     {
         $obj = $this->getTestObject();
@@ -5306,6 +5441,69 @@ class HTMLTest extends TestUtil
         );
         $this->assertContains('Red', $labels);
         $this->assertContains('Green', $labels);
+    }
+
+    public function testGetHTMLCellSelectMultipleCreatesListBoxAndEnablesMultipleSelection(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<select name="choices" size="2" multiple="multiple"><option value="a">Alpha</option><option value="b">Beta</option></select>',
+            0,
+            0,
+            40,
+            10,
+        );
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Ch', $last['opt']['ft']);
+        $fieldFlags = $last['opt']['ff'] ?? 0;
+        $this->assertIsInt($fieldFlags);
+        // Combo flag (bit 18 = 1<<17) must not be set for list boxes.
+        $this->assertSame(0, $fieldFlags & (1 << 17));
+        // Multi-select flag (bit 22 = 1<<21) must be set when HTML select has "multiple".
+        $this->assertSame(1 << 21, $fieldFlags & (1 << 21));
+    }
+
+    public function testGetHTMLCellSelectSizeControlsListBoxHeight(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<select name="one"><option value="a">Alpha</option><option value="b">Beta</option></select>',
+            0,
+            0,
+            40,
+            10,
+        );
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{h: float} $combo */
+        $combo = \end($annotation);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $obj2->getHTMLCell(
+            '<select name="many" size="3"><option value="a">Alpha</option><option value="b">Beta</option></select>',
+            0,
+            0,
+            40,
+            10,
+        );
+        $annotation2 = $this->getObjectProperty($obj2, 'annotation');
+        $this->assertIsArray($annotation2);
+        $this->assertNotEmpty($annotation2);
+        /** @var array{h: float} $list */
+        $list = \end($annotation2);
+
+        $this->assertGreaterThan((float) $combo['h'], (float) $list['h']);
     }
 
     public function testNestedInlineTagsRenderOnSameLine(): void
