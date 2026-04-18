@@ -5048,6 +5048,72 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($originX + $cellWidth, $kiloLineRight, 1e-6);
     }
 
+    public function testProbeRightAlignTextOnlyMixedInlineFragmentPositions(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $bfont = $obj->font->insert($obj->pon, 'dejavusans', '', 10);
+        $obj->page->addContent($bfont['out']);
+        $obj->setDefaultCellPadding(2, 2, 2, 2);
+
+        $html = '<div style="text-align:right;">'
+            . 'RIGHT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> '
+            . 'India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
+            . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
+            . 'Whiskey <i>Xray</i> Yankee <i>Zulu</i>'
+            . '</div>';
+
+        $originX = 22.0;
+        $cellWidth = 186.0;
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, $originX, 10.0, $cellWidth, 0.0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $lines = [];
+        foreach ($trace as $row) {
+            $key = \sprintf('%.3F', (float) $row['bbox_y']);
+            if (!isset($lines[$key])) {
+                $lines[$key] = [];
+            }
+            $lines[$key][] = $row;
+        }
+
+        $this->assertCount(2, $lines);
+
+        $rightEdge = ($originX + $cellWidth) - 2.0;
+        $lineKeys = \array_keys($lines);
+        $firstLine = $lines[$lineKeys[0]];
+        $secondLine = $lines[$lineKeys[1]];
+        $firstLast = $firstLine[\count($firstLine) - 1];
+        $secondLast = $secondLine[\count($secondLine) - 1];
+        $firstLineRight = (float) $firstLast['bbox_x'] + (float) $firstLast['bbox_w'];
+        $secondLineRight = (float) $secondLast['bbox_x'] + (float) $secondLast['bbox_w'];
+
+        // Probe: first line is currently short by one word-width, while second line reaches the edge.
+        $this->assertGreaterThan(5.0, $rightEdge - $firstLineRight);
+        $this->assertEqualsWithDelta($rightEdge, $secondLineRight, 0.01);
+
+        $firstLineHasOscar = false;
+        $secondLineStartsWithOscar = false;
+        foreach ($firstLine as $row) {
+            if (\strpos((string) $row['txt'], 'Oscar') !== false) {
+                $firstLineHasOscar = true;
+            }
+        }
+
+        if (isset($secondLine[0])) {
+            $secondLineStartsWithOscar = (\strpos((string) $secondLine[0]['txt'], 'Oscar') !== false);
+        }
+
+        $this->assertFalse($firstLineHasOscar);
+        $this->assertTrue($secondLineStartsWithOscar);
+    }
+
     public function testParseHTMLTextForcedWrapTrimsLeadingSpaceAtNewLine(): void
     {
         $obj = $this->getBBoxProbeTestObject();

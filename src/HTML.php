@@ -3531,7 +3531,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
         $this->prepareText($text, $ordarr, $dim, $forcedir);
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remainingWidth));
+        // Give splitLines the same tolerance used by wrap guards so boundary fits
+        // (for example: one more word after an italic fragment) are not rejected.
+        $lines = $this->splitLines(
+            $ordarr,
+            $dim,
+            $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE),
+        );
         if ($lines === []) {
             return false;
         }
