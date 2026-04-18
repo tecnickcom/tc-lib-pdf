@@ -3256,6 +3256,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 break;
             }
 
+            // Switch to the correct font for this node BEFORE measuring, so that
+            // getStringWidth() and canHTMLTextKeepVisibleChunkOnCurrentLine() use
+            // the fragment's own metrics rather than the previous node's font.
+            $this->getHTMLFontMetric($hrc, $key);
+
             if (($linewidth > 0.0) && !$spaceonly) {
                 $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
                 $fragmentwidth = $this->getStringWidth($text);
@@ -3279,8 +3284,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
             }
-
-            $this->getHTMLFontMetric($hrc, $key);
             $ordarr = [];
             $dim = self::DIM_DEFAULT;
             $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
