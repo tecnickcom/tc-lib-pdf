@@ -6840,9 +6840,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
         $rows = (isset($attr['rows']) && \is_numeric($attr['rows'])) ? \max(1, (int) $attr['rows']) : 3;
+        $maxwidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
         $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
             ? (float) $elm['width']
-            : (($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth']);
+            : $maxwidth;
+        if ((empty($elm['width']) || !\is_numeric($elm['width'])) && isset($attr['cols']) && \is_numeric($attr['cols'])) {
+            // Use the current font metrics to map HTML cols to a character-based field width.
+            $cols = \max(1, (int) $attr['cols']);
+            $fieldwidth = $this->getStringWidth(\str_repeat('0', $cols));
+            if (($maxwidth > 0) && ($fieldwidth > $maxwidth)) {
+                $fieldwidth = $maxwidth;
+            }
+        }
         $fieldheight = $lineheight * $rows;
 
         $objid = $this->addFFText($name, $tpx, $tpy, $fieldwidth, $fieldheight, ['v' => $value], ['multiline' => 'true']);

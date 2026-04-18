@@ -5279,6 +5279,31 @@ class HTMLTest extends TestUtil
         $this->assertSame(1 << 12, $last['opt']['ff']);
     }
 
+    public function testGetHTMLCellTextareaColsControlsFieldWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<textarea name="notes_auto" rows="3">hello</textarea>', 0, 0, 80, 30);
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{w: float} $auto */
+        $auto = \end($annotation);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $obj2->getHTMLCell('<textarea name="notes_cols" rows="3" cols="5">hello</textarea>', 0, 0, 80, 30);
+        $annotation2 = $this->getObjectProperty($obj2, 'annotation');
+        $this->assertIsArray($annotation2);
+        $this->assertNotEmpty($annotation2);
+        /** @var array{w: float} $withCols */
+        $withCols = \end($annotation2);
+
+        $this->assertLessThan((float) $auto['w'], (float) $withCols['w']);
+        $this->assertLessThan(80.0, (float) $withCols['w']);
+    }
+
     public function testGetHTMLCellSelectCreatesComboBoxAnnotation(): void
     {
         $obj = $this->getTestObject();
