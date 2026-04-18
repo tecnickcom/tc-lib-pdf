@@ -5099,7 +5099,7 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($rightEdge, $secondLineRight, 0.01);
 
         $firstLineHasOscar = false;
-        $secondLineStartsWithPapa = false;
+        $secondStartsPapa = false;
         foreach ($firstLine as $row) {
             if (\strpos((string) $row['txt'], 'Oscar') !== false) {
                 $firstLineHasOscar = true;
@@ -5107,11 +5107,11 @@ class HTMLTest extends TestUtil
         }
 
         if (isset($secondLine[0])) {
-            $secondLineStartsWithPapa = (\strpos((string) $secondLine[0]['txt'], 'Papa') !== false);
+            $secondStartsPapa = (\strpos((string) $secondLine[0]['txt'], 'Papa') !== false);
         }
 
         $this->assertTrue($firstLineHasOscar);
-        $this->assertTrue($secondLineStartsWithPapa);
+        $this->assertTrue($secondStartsPapa);
     }
 
     public function testParseHTMLTextForcedWrapTrimsLeadingSpaceAtNewLine(): void
