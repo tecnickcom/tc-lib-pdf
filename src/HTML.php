@@ -87,6 +87,8 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'y': float,
  * }
  *
+ * @phpstan-type THTMLBlockBuf array{openkey: int, bx: float, by: float, bw: float, buffer: string}
+ *
  * @phpstan-type THTMLRenderContext array{
  *     'cellctx': array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, lineascent: float, linewordspacing: float, linewrapped: bool, basefont: string},
  *     'currentkey'?: int,
@@ -94,6 +96,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'liststack': array<int, array{ordered: bool, type: string, count: int}>,
  *     'tablestack': array<int, THTMLTableState>,
  *     'bcellctx': array<int, THTMLTableCellContext>,
+ *     'blockbuf': array<int, THTMLBlockBuf>,
  *     'linkstack': array<int, string>,
  *     'listack': array<int, array{originx: float, maxwidth: float}>,
  *     'prelevel': int,
@@ -2333,6 +2336,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['listack'] = [];
         $hrc['tablestack'] = [];
         $hrc['bcellctx'] = [];
+        $hrc['blockbuf'] = [];
         $hrc['linkstack'] = [];
         $hrc['prelevel'] = 0;
     }
@@ -2362,6 +2366,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['listack'] = [];
         $hrc['tablestack'] = [];
         $hrc['bcellctx'] = [];
+        $hrc['blockbuf'] = [];
         $hrc['linkstack'] = [];
         $hrc['prelevel'] = 0;
     }
@@ -3565,15 +3570,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($hrc, $key, 0);
         }
 
-        // Save the border-box origin so that closeHTMLBlock can draw borders.
-        // @phpstan-ignore parameterByRef.type
-        $elm['blockstarty'] = $tpy;
-        // @phpstan-ignore parameterByRef.type
-        $elm['blockstartx'] = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'];
-        // @phpstan-ignore parameterByRef.type
-        $elm['blockborderw'] = $hrc['cellctx']['maxwidth'] > 0
+        $bx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'];
+        $bw = $hrc['cellctx']['maxwidth'] > 0
             ? \max(0.0, $hrc['cellctx']['maxwidth'] - (float) $elm['margin']['L'] - (float) $elm['margin']['R'])
             : 0.0;
+
+        // If this block has border or background, start buffering content
+        // so that fill is painted before content and border after.
+        $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $key);
+        $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $key);
+        if ($bstyles !== [] || $fillstyle !== null) {
+            $hrc['blockbuf'][] = [
+                'openkey' => $key,
+                'bx' => $bx,
+                'by' => $tpy,
+                'bw' => $bw,
+                'buffer' => '',
+            ];
+        }
 
         $tpx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
         $tpw = $hrc['cellctx']['maxwidth'];
@@ -3592,6 +3606,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Append a rendered HTML fragment to the active block buffer when needed.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function captureHTMLBlockBuffer(array &$hrc, string $fragment): bool
+    {
+        if (($fragment === '') || empty($hrc['blockbuf'])) {
+            return false;
+        }
+
+        $idx = \count($hrc['blockbuf']) - 1;
+        $hrc['blockbuf'][$idx]['buffer'] .= $fragment;
+
+        return true;
+    }
+
+    /**
      * Close a simple block-level HTML element.
      *
      * @param THTMLRenderContext $hrc HTML render context
@@ -3605,23 +3636,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
 
-        // Draw block-level border if the opening tag defined one.
         $out = '';
         $openkey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
-        if ($openkey >= 0 && isset($hrc['dom'][$openkey])) {
-            $openelm = &$hrc['dom'][$openkey];
-            $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $openkey);
-            if ($bstyles !== []) {
-                $bx = isset($openelm['blockstartx']) && \is_numeric($openelm['blockstartx'])
-                    ? (float) $openelm['blockstartx'] : 0.0;
-                $by = isset($openelm['blockstarty']) && \is_numeric($openelm['blockstarty'])
-                    ? (float) $openelm['blockstarty'] : 0.0;
-                $bw = isset($openelm['blockborderw']) && \is_numeric($openelm['blockborderw'])
-                    ? (float) $openelm['blockborderw'] : 0.0;
-                $bh = ($tpy + $lineadvance + (float) $elm['padding']['B']) - $by;
-                if ($bw > 0.0 && $bh > 0.0) {
-                    $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $openkey);
-                    $out .= $this->renderHTMLTableCell($bx, $by, $bw, $bh, $bstyles, $fillstyle, '');
+
+        // Pop block buffer if matching.
+        if (!empty($hrc['blockbuf'])) {
+            $idx = \count($hrc['blockbuf']) - 1;
+            if ($hrc['blockbuf'][$idx]['openkey'] === $openkey) {
+                $blk = $hrc['blockbuf'][$idx];
+                \array_pop($hrc['blockbuf']);
+                $bh = ($tpy + $lineadvance + (float) $elm['padding']['B']) - $blk['by'];
+                if ($blk['bw'] > 0.0 && $bh > 0.0) {
+                    $bstyles = ($openkey >= 0)
+                        ? $this->getHTMLTableCellBorderStyles($hrc, $openkey)
+                        : [];
+                    $fillstyle = ($openkey >= 0)
+                        ? $this->getHTMLTableCellFillStyle($hrc, $openkey)
+                        : null;
+                    $out .= $this->renderHTMLTableCell(
+                        $blk['bx'],
+                        $blk['by'],
+                        $blk['bw'],
+                        $bh,
+                        $bstyles,
+                        $fillstyle,
+                        $blk['buffer'],
+                    );
+                } else {
+                    $out .= $blk['buffer'];
                 }
             }
         }
@@ -4617,7 +4659,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagOPENul($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
-                    if (!$this->captureHTMLTableCellBuffer($hrc, $fragment)) {
+                    if (
+                        !$this->captureHTMLTableCellBuffer($hrc, $fragment)
+                        && !$this->captureHTMLBlockBuffer($hrc, $fragment)
+                    ) {
                         $appendFragment($fragment);
                     }
 
@@ -4695,7 +4740,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagCLOSEul($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
-                    if (!$this->captureHTMLTableCellBuffer($hrc, $fragment)) {
+                    if (
+                        !$this->captureHTMLTableCellBuffer($hrc, $fragment)
+                        && !$this->captureHTMLBlockBuffer($hrc, $fragment)
+                    ) {
                         $appendFragment($fragment);
                     }
 
@@ -4715,7 +4763,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } else { // Text Content
                 $hrc['currentkey'] = $key;
                 $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph);
-                if (!$this->captureHTMLTableCellBuffer($hrc, $fragment)) {
+                if (
+                    !$this->captureHTMLTableCellBuffer($hrc, $fragment)
+                    && !$this->captureHTMLBlockBuffer($hrc, $fragment)
+                ) {
                     $appendFragment($fragment);
                 }
             }
@@ -4763,6 +4814,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'liststack' => [],
             'tablestack' => [],
             'bcellctx' => [],
+            'blockbuf' => [],
             'linkstack' => [],
             'listack' => [],
             'prelevel' => 0,
@@ -4878,6 +4930,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'liststack' => [],
             'tablestack' => [],
             'bcellctx' => [],
+            'blockbuf' => [],
             'linkstack' => [],
             'listack' => [],
             'prelevel' => 0,
