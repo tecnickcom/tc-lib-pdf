@@ -1177,8 +1177,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         /** @var array<string, TCSSData> $cssordered */
         $cssordered = [];
         /** @var TCSSData $val */
-        foreach ($ret as $key => $val) {
-            $skey = \sprintf('%s_%04d', $val['s'], $key);
+        foreach ($ret as $idx => $val) {
+            $skey = \sprintf('%s_%04d', $val['s'], $idx);
             $cssordered[$skey] = $val;
         }
         if (!empty($selectors)) {
