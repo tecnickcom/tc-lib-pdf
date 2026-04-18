@@ -5094,12 +5094,12 @@ class HTMLTest extends TestUtil
         $firstLineRight = (float) $firstLast['bbox_x'] + (float) $firstLast['bbox_w'];
         $secondLineRight = (float) $secondLast['bbox_x'] + (float) $secondLast['bbox_w'];
 
-        // Probe: first line is currently short by one word-width, while second line reaches the edge.
-        $this->assertGreaterThan(5.0, $rightEdge - $firstLineRight);
+        // Fixed: first line now reaches the right edge and includes Oscar.
+        $this->assertEqualsWithDelta($rightEdge, $firstLineRight, 0.5);
         $this->assertEqualsWithDelta($rightEdge, $secondLineRight, 0.01);
 
         $firstLineHasOscar = false;
-        $secondLineStartsWithOscar = false;
+        $secondLineStartsWithPapa = false;
         foreach ($firstLine as $row) {
             if (\strpos((string) $row['txt'], 'Oscar') !== false) {
                 $firstLineHasOscar = true;
@@ -5107,11 +5107,11 @@ class HTMLTest extends TestUtil
         }
 
         if (isset($secondLine[0])) {
-            $secondLineStartsWithOscar = (\strpos((string) $secondLine[0]['txt'], 'Oscar') !== false);
+            $secondLineStartsWithPapa = (\strpos((string) $secondLine[0]['txt'], 'Papa') !== false);
         }
 
-        $this->assertFalse($firstLineHasOscar);
-        $this->assertTrue($secondLineStartsWithOscar);
+        $this->assertTrue($firstLineHasOscar);
+        $this->assertTrue($secondLineStartsWithPapa);
     }
 
     public function testParseHTMLTextForcedWrapTrimsLeadingSpaceAtNewLine(): void

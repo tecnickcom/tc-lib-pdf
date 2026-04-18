@@ -3188,8 +3188,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         int $startkey,
         float $maxwidth,
         float $wordspacing = 0.0,
-    ): array
-    {
+    ): array {
         if ($maxwidth <= 0.0) {
             return ['width' => 0.0, 'spaces' => 0, 'wrapped' => false];
         }
@@ -5035,6 +5034,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         $fragmentWidth = $this->getStringWidth($text);
+
+        // When a continuation fragment's trailing collapsible whitespace is the
+        // sole cause of overflow, strip it before the wrap check and rendering.
+        // The cursor is advanced by the stripped width so inter-word spacing is
+        // preserved for the next fragment.
+        $trailSpaceAdvance = 0.0;
+        if (
+            ($lineOffset > self::WIDTH_TOLERANCE)
+            && ($hrc['prelevel'] <= 0)
+            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
+        ) {
+            $trailVisMatch = [];
+            if (\preg_match('/\s+$/u', $text, $trailVisMatch) === 1) {
+                $strippedText = \rtrim($text);
+                if ($strippedText !== '') {
+                    $visibleWidth = $this->getStringWidth($strippedText);
+                    if ($visibleWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
+                        $trailSpaceAdvance = $fragmentWidth - $visibleWidth;
+                        $text = $strippedText;
+                        $fragmentWidth = $visibleWidth;
+                    }
+                }
+            }
+        }
+
         $keepChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
             $text,
             $forcedir,
@@ -5219,6 +5243,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
 
+        // When trailing collapsible space was stripped, widen the render box by the
+        // stripped amount so that splitLines inside getTextCell does not squeeze the
+        // visible text at the floating-point boundary.
+        if ($trailSpaceAdvance > 0.0) {
+            $renderWidth += $trailSpaceAdvance;
+        }
+
         // Inline width probes may switch the active font while scanning following nodes.
         // Re-sync the active font metric for accurate glyph placement.
         $this->getHTMLFontMetric($hrc, $currentkey);
@@ -5377,7 +5408,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $background . $out;
         }
 
-        $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance;
+        $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
         if ($customJustify && ($lineWordSpacing > 0.0)) {
             $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
                 $text,
