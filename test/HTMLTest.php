@@ -42,6 +42,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         'liststack' => [],
         'tablestack' => [],
         'bcellctx' => [],
+        'blockbuf' => [],
         'linkstack' => [],
         'listack' => [],
         'prelevel' => 0,
@@ -2139,7 +2140,8 @@ class HTMLTest extends TestUtil
         $last = \end($annotation);
         $this->assertSame('Tx', $last['opt']['ft']);
         $this->assertArrayHasKey('ff', $last['opt']);
-        $this->assertNotSame(0, ((int) $last['opt']['ff']) & (1 << 20));
+        $this->assertIsInt($last['opt']['ff']);
+        $this->assertNotSame(0, ($last['opt']['ff']) & (1 << 20));
     }
 
     public function testGetHTMLCellRendersMultilineTextareaValue(): void
@@ -5270,6 +5272,32 @@ class HTMLTest extends TestUtil
         $this->assertSame('Btn', $last['opt']['ft']);
     }
 
+    public function testGetHTMLCellInputSubmitUsesEnclosingFormAction(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<form action="https://example.test/form" method="get"><input type="submit" name="submit" value="Go" /></form>',
+            0,
+            0,
+            60,
+            10,
+        );
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Btn', $last['opt']['ft']);
+        $this->assertArrayHasKey('a', $last['opt']);
+        $this->assertIsString($last['opt']['a']);
+        $this->assertStringContainsString('/S /SubmitForm', $last['opt']['a']);
+        $this->assertStringContainsString('/F (https://example.test/form)', $last['opt']['a']);
+        $this->assertStringContainsString('/Flags 12', $last['opt']['a']);
+    }
+
     public function testGetHTMLCellInputResetCreatesResetFormAction(): void
     {
         $obj = $this->getTestObject();
@@ -5283,7 +5311,9 @@ class HTMLTest extends TestUtil
         /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Btn', $last['opt']['ft']);
-        $this->assertStringContainsString('/S /ResetForm', (string) ($last['opt']['a'] ?? ''));
+        $this->assertArrayHasKey('a', $last['opt']);
+        $this->assertIsString($last['opt']['a']);
+        $this->assertStringContainsString('/S /ResetForm', $last['opt']['a']);
     }
 
     public function testGetHTMLCellInputTextCreatesTextFieldAnnotation(): void
@@ -5391,10 +5421,12 @@ class HTMLTest extends TestUtil
         /** @var array{opt: array<string, mixed>} $last */
         $last = \end($annotation);
         $this->assertSame('Ch', $last['opt']['ft']);
+        $fieldFlags = $last['opt']['ff'] ?? 0;
+        $this->assertIsInt($fieldFlags);
         // Combo flag (bit 18 = 1<<17) must not be set for list boxes.
-        $this->assertSame(0, ((int) ($last['opt']['ff'] ?? 0)) & (1 << 17));
+        $this->assertSame(0, $fieldFlags & (1 << 17));
         // Multi-select flag (bit 22 = 1<<21) must be set when HTML select has "multiple".
-        $this->assertSame(1 << 21, ((int) ($last['opt']['ff'] ?? 0)) & (1 << 21));
+        $this->assertSame(1 << 21, $fieldFlags & (1 << 21));
     }
 
     public function testGetHTMLCellSelectSizeControlsListBoxHeight(): void

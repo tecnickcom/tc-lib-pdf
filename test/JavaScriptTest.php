@@ -406,7 +406,8 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('Caption', $ann[$oid]['opt']['t']);
         $this->assertSame('btnField', $ann[$oid]['opt']['v']);
         $this->assertArrayHasKey('a', $ann[$oid]['opt']);
-        $this->assertStringContainsString('/S /JavaScript /JS', (string) $ann[$oid]['opt']['a']);
+        $this->assertIsString($ann[$oid]['opt']['a']);
+        $this->assertStringContainsString('/S /JavaScript /JS', $ann[$oid]['opt']['a']);
     }
 
     public function testAddFFButtonSupportsStructuredFormActionOptions(): void

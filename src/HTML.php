@@ -3588,8 +3588,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($hrc, $key, 0);
         }
 
-        $bx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'];
-        $bw = $hrc['cellctx']['maxwidth'] > 0
+        $blockX = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'];
+        $blockWidth = $hrc['cellctx']['maxwidth'] > 0
             ? \max(0.0, $hrc['cellctx']['maxwidth'] - (float) $elm['margin']['L'] - (float) $elm['margin']['R'])
             : 0.0;
 
@@ -3614,9 +3614,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($bstyles !== [] || $fillstyle !== null) {
                 $hrc['blockbuf'][] = [
                     'openkey' => $key,
-                    'bx' => $bx,
+                    'bx' => $blockX,
                     'by' => $tpy,
-                    'bw' => $bw,
+                    'bw' => $blockWidth,
                     'buffer' => '',
                 ];
             }
@@ -3636,23 +3636,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return '';
-    }
-
-    /**
-     * Append a rendered HTML fragment to the active block buffer when needed.
-     *
-     * @param THTMLRenderContext $hrc HTML render context.
-     */
-    protected function captureHTMLBlockBuffer(array &$hrc, string $fragment): bool
-    {
-        if (($fragment === '') || empty($hrc['blockbuf'])) {
-            return false;
-        }
-
-        $idx = \count($hrc['blockbuf']) - 1;
-        $hrc['blockbuf'][$idx]['buffer'] .= $fragment;
-
-        return true;
     }
 
     /**
@@ -3678,8 +3661,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($hrc['blockbuf'][$idx]['openkey'] === $openkey) {
                 $blk = $hrc['blockbuf'][$idx];
                 \array_pop($hrc['blockbuf']);
-                $bh = ($tpy + $lineadvance + (float) $elm['padding']['B']) - $blk['by'];
-                if ($blk['bw'] > 0.0 && $bh > 0.0) {
+                $blockHeight = ($tpy + $lineadvance + (float) $elm['padding']['B']) - $blk['by'];
+                if ($blk['bw'] > 0.0 && $blockHeight > 0.0) {
                     $bstyles = ($openkey >= 0)
                         ? $this->getHTMLTableCellBorderStyles($hrc, $openkey)
                         : [];
@@ -3690,7 +3673,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $blk['bx'],
                         $blk['by'],
                         $blk['bw'],
-                        $bh,
+                        $blockHeight,
                         $bstyles,
                         $fillstyle,
                         $blk['buffer'],
@@ -4197,6 +4180,96 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Find the nearest opening ancestor tag with the given name.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param string $tagname Lowercase HTML tag name.
+     *
+     * @return int DOM key or -1 when not found.
+     */
+    protected function findHTMLAncestorOpeningTag(array &$hrc, int $key, string $tagname): int
+    {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return -1;
+        }
+
+        $parent = isset($hrc['dom'][$key]['parent']) && \is_int($hrc['dom'][$key]['parent'])
+            ? $hrc['dom'][$key]['parent']
+            : -1;
+
+        while (($parent >= 0) && isset($hrc['dom'][$parent])) {
+            $ancestor = $hrc['dom'][$parent];
+            if (
+                !empty($ancestor['tag'])
+                && !empty($ancestor['opening'])
+                && isset($ancestor['value'])
+                && ($ancestor['value'] === $tagname)
+            ) {
+                return $parent;
+            }
+
+            $parent = isset($ancestor['parent']) && \is_int($ancestor['parent']) ? $ancestor['parent'] : -1;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Build the default action for HTML button-like input elements.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param array<string, string> $attr Input attributes.
+     *
+     * @return string|array<string, mixed>
+     */
+    protected function getHTMLInputButtonAction(array &$hrc, int $key, string $type, array $attr): string|array
+    {
+        if (isset($attr['onclick']) && \is_string($attr['onclick']) && ($attr['onclick'] !== '')) {
+            return $attr['onclick'];
+        }
+
+        if ($type === 'reset') {
+            return ['S' => 'ResetForm'];
+        }
+
+        if ($type !== 'submit') {
+            return '';
+        }
+
+        $formkey = $this->findHTMLAncestorOpeningTag($hrc, $key, 'form');
+        $formattr = [];
+        if (($formkey >= 0) && isset($hrc['dom'][$formkey]['attribute']) && \is_array($hrc['dom'][$formkey]['attribute'])) {
+            $formattr = $hrc['dom'][$formkey]['attribute'];
+        }
+
+        $action = ['S' => 'SubmitForm'];
+        $submitUrl = (isset($attr['formaction']) && \is_string($attr['formaction']))
+            ? \trim($attr['formaction'])
+            : '';
+        if (($submitUrl === '') && isset($formattr['action']) && \is_string($formattr['action'])) {
+            $submitUrl = \trim($formattr['action']);
+        }
+        if ($submitUrl !== '') {
+            $action['F'] = $submitUrl;
+        }
+
+        $method = (isset($attr['formmethod']) && \is_string($attr['formmethod']))
+            ? \strtolower(\trim($attr['formmethod']))
+            : '';
+        if (($method === '') && isset($formattr['method']) && \is_string($formattr['method'])) {
+            $method = \strtolower(\trim($formattr['method']));
+        }
+
+        $flags = ['ExportFormat'];
+        if ($method === 'get') {
+            $flags[] = 'GetMethod';
+        }
+        $action['Flags'] = $flags;
+
+        return $action;
+    }
+
+    /**
      * Append a rendered HTML fragment to the active table-cell buffer when needed.
         *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -4692,10 +4765,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagOPENul($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
-                    if (
-                        !$this->captureHTMLTableCellBuffer($hrc, $fragment)
-                        && !$this->captureHTMLBlockBuffer($hrc, $fragment)
-                    ) {
+                    $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
+                    $capturedByBlock = false;
+                    if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
+                        $blockidx = \count($hrc['blockbuf']) - 1;
+                        /** @var THTMLBlockBuf $blockbuf */
+                        $blockbuf = $hrc['blockbuf'][$blockidx];
+                        $blockbuf['buffer'] .= $fragment;
+                        $hrc['blockbuf'][$blockidx] = $blockbuf;
+                        $capturedByBlock = true;
+                    }
+                    if (!$capturedByTableCell && !$capturedByBlock) {
                         $appendFragment($fragment);
                     }
 
@@ -4773,10 +4853,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul'         => $this->parseHTMLTagCLOSEul($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         default      => '',
                     };
-                    if (
-                        !$this->captureHTMLTableCellBuffer($hrc, $fragment)
-                        && !$this->captureHTMLBlockBuffer($hrc, $fragment)
-                    ) {
+                    $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
+                    $capturedByBlock = false;
+                    if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
+                        $blockidx = \count($hrc['blockbuf']) - 1;
+                        /** @var THTMLBlockBuf $blockbuf */
+                        $blockbuf = $hrc['blockbuf'][$blockidx];
+                        $blockbuf['buffer'] .= $fragment;
+                        $hrc['blockbuf'][$blockidx] = $blockbuf;
+                        $capturedByBlock = true;
+                    }
+                    if (!$capturedByTableCell && !$capturedByBlock) {
                         $appendFragment($fragment);
                     }
 
@@ -4796,10 +4883,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } else { // Text Content
                 $hrc['currentkey'] = $key;
                 $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph);
-                if (
-                    !$this->captureHTMLTableCellBuffer($hrc, $fragment)
-                    && !$this->captureHTMLBlockBuffer($hrc, $fragment)
-                ) {
+                $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
+                $capturedByBlock = false;
+                if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
+                    $blockidx = \count($hrc['blockbuf']) - 1;
+                    /** @var THTMLBlockBuf $blockbuf */
+                    $blockbuf = $hrc['blockbuf'][$blockidx];
+                    $blockbuf['buffer'] .= $fragment;
+                    $hrc['blockbuf'][$blockidx] = $blockbuf;
+                    $capturedByBlock = true;
+                }
+                if (!$capturedByTableCell && !$capturedByBlock) {
                     $appendFragment($fragment);
                 }
             }
@@ -6057,10 +6151,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'button':
             case 'reset':
                 $caption = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : $type;
-                $action = match ($type) {
-                    'reset' => ['S' => 'ResetForm'],
-                    default => (isset($attr['onclick']) && \is_string($attr['onclick'])) ? $attr['onclick'] : '',
-                };
+                $action = $this->getHTMLInputButtonAction($hrc, $key, $type, $attr);
                 $objid = $this->addFFButton($name, $tpx, $tpy, $fieldwidth, $lineheight, $caption, $action);
                 $this->page->addAnnotRef($objid, $this->page->getPageID());
                 $tpx += $fieldwidth;
@@ -6376,7 +6467,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $jsp['multipleSelection'] = 'true';
             }
 
-            $opt = [];
+            $opt = ['subtype' => 'Widget'];
             if ($selectedValue !== '') {
                 $opt['v'] = $selectedValue;
             }
