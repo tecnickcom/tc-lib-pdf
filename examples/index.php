@@ -2036,6 +2036,97 @@ $pdf->addHTMLCell(
 
 // ----------
 
+// HTML D-C
+
+$pageV04C = $pdf->addPage();
+
+$pdf->page->addContent($bfont6['out']);
+
+$html_04C = <<<EOD
+<h2>HTML TABLES (C)</h2>
+<table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
+	<tr>
+		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3</td>
+		<td>COL 2 - ROW 1</td>
+		<td>COL 3 - ROW 1</td>
+	</tr>
+	<tr>
+		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
+		<td>COL 3 - ROW 2</td>
+	</tr>
+	<tr>
+		<td>COL 3 - ROW 3</td>
+	</tr>
+</table>
+<hr />
+<table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
+	<tr>
+		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3<br />text line<br />text line<br />text line<br />text line<br />text line<br />text line</td>
+		<td>COL 2 - ROW 1</td>
+		<td>COL 3 - ROW 1</td>
+	</tr>
+	<tr>
+		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
+		<td>COL 3 - ROW 2</td>
+	</tr>
+	<tr>
+		<td>COL 3 - ROW 3</td>
+	</tr>
+</table>
+<hr />
+<table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
+	<tr>
+		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3<br />text line<br />text line<br />text line<br />text line<br />text line<br />text line</td>
+		<td>COL 2 - ROW 1</td>
+		<td>COL 3 - ROW 1</td>
+	</tr>
+	<tr>
+		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
+		<td>COL 3 - ROW 2<br />text line<br />text line</td>
+	</tr>
+	<tr>
+		<td>COL 3 - ROW 3</td>
+	</tr>
+</table>
+<hr />
+<table border="1" style="font-size:x-small;">
+	<tr>
+		<th rowspan="3">Left column</th>
+		<th colspan="5">Heading Column Span 5</th>
+		<th colspan="9">Heading Column Span 9</th>
+	</tr>
+	<tr>
+		<th rowspan="2">Rowspan 2<br />This is some text that fills the table cell.</th>
+		<th colspan="2">span 2</th>
+		<th colspan="2">span 2</th>
+		<th rowspan="2">2 rows</th>
+		<th colspan="8">Colspan 8</th>
+	</tr>
+	<tr>
+		<th>1a</th>
+		<th>2a</th>
+		<th>1b</th>
+		<th>2b</th>
+		<th>1</th>
+		<th>2</th>
+		<th>3</th>
+		<th>4</th>
+		<th>5</th>
+		<th>6</th>
+		<th>7</th>
+		<th>8</th>
+	</tr>
+</table>
+EOD;
+
+$pdf->addHTMLCell(
+    $html_04C, // string $html,
+    20, // float $posx = 0,
+    10, // float $posy = 0,
+);
+
+// ----------
+
 // HTML E-A
 
 $pageV05A = $pdf->addPage();
