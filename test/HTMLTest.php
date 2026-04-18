@@ -4903,6 +4903,217 @@ class HTMLTest extends TestUtil
         }
     }
 
+    public function testGetHTMLCellJustifySecondLineWithImagesKeepsUniformGaps(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $bfont = $obj->font->insert($obj->pon, 'dejavusans', '', 10);
+        $obj->page->addContent($bfont['out']);
+
+        $logo = \realpath(__DIR__ . '/../examples/images/tcpdf_logo.jpg');
+        $box = \realpath(__DIR__ . '/../examples/images/tcpdf_box.svg');
+
+        $this->assertNotFalse($logo);
+        $this->assertNotFalse($box);
+
+        $html = '<div style="text-align:justify;">'
+            . 'JUSTIFY: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo '
+            . '<img src="' . $logo . '" alt="TCPDF logo" width="89" height="30" border="0" />'
+            . '<img src="' . $box . '" alt="TCPDF box" width="100" height="67" border="0" /> '
+            . '<i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
+            . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
+            . 'Whiskey <i>Xray</i> Yankee <i>Zulu</i>'
+            . '</div>';
+
+        $originX = 20.0;
+        $cellWidth = 150.0;
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, $originX, 10.0, $cellWidth, 0.0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $lineY = null;
+        foreach ($trace as $row) {
+            if (\trim((string) $row['txt']) === 'India') {
+                $lineY = (float) $row['bbox_y'];
+                break;
+            }
+        }
+
+        $this->assertNotNull($lineY);
+
+        $secondLine = [];
+        foreach ($trace as $row) {
+            if (\abs((float) $row['bbox_y'] - (float) $lineY) < 0.01) {
+                $secondLine[] = $row;
+            }
+        }
+
+        $this->assertGreaterThan(10, \count($secondLine));
+
+        $gaps = [];
+        for ($idx = 1, $max = \count($secondLine); $idx < $max; ++$idx) {
+            $prev = $secondLine[$idx - 1];
+            $curr = $secondLine[$idx];
+            $gaps[] = (float) $curr['bbox_x'] - ((float) $prev['bbox_x'] + (float) $prev['bbox_w']);
+        }
+
+        $this->assertNotSame([], $gaps);
+        $expectedGap = $gaps[0];
+        foreach ($gaps as $gap) {
+            $this->assertEqualsWithDelta($expectedGap, $gap, 1e-6);
+        }
+
+        $lineLeft = (float) $secondLine[0]['bbox_x'];
+        $last = $secondLine[\count($secondLine) - 1];
+        $lineRight = (float) $last['bbox_x'] + (float) $last['bbox_w'];
+
+        $this->assertEqualsWithDelta($originX, $lineLeft, 1e-6);
+        $this->assertEqualsWithDelta($originX + $cellWidth, $lineRight, 1e-6);
+    }
+
+    public function testGetHTMLCellRightAlignedMixedInlineLinesReachRightEdge(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $bfont = $obj->font->insert($obj->pon, 'dejavusans', '', 10);
+        $obj->page->addContent($bfont['out']);
+
+        $logo = \realpath(__DIR__ . '/../examples/images/tcpdf_logo.jpg');
+        $box = \realpath(__DIR__ . '/../examples/images/tcpdf_box.svg');
+
+        $this->assertNotFalse($logo);
+        $this->assertNotFalse($box);
+
+        $html = '<div style="text-align:right;">'
+            . 'RIGHT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo '
+            . '<img src="' . $logo . '" alt="TCPDF logo" width="89" height="30" border="0" />'
+            . '<img src="' . $box . '" alt="TCPDF box" width="100" height="67" border="0" /> '
+            . '<i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
+            . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
+            . 'Whiskey <i>Xray</i> Yankee <i>Zulu</i>'
+            . '</div>';
+
+        $originX = 20.0;
+        $cellWidth = 150.0;
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, $originX, 10.0, $cellWidth, 0.0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $lines = [];
+        foreach ($trace as $row) {
+            $key = \sprintf('%.3F', (float) $row['bbox_y']);
+            if (!isset($lines[$key])) {
+                $lines[$key] = [];
+            }
+
+            $lines[$key][] = $row;
+        }
+
+        $this->assertCount(3, $lines);
+
+        foreach ($lines as $line) {
+            $lineRight = 0.0;
+            foreach ($line as $row) {
+                $lineRight = \max($lineRight, (float) $row['bbox_x'] + (float) $row['bbox_w']);
+            }
+
+            $this->assertEqualsWithDelta($originX + $cellWidth, $lineRight, 1e-6);
+        }
+
+        $kiloLineY = null;
+        foreach ($trace as $row) {
+            if (\strpos((string) $row['txt'], 'Kilo') !== false) {
+                $kiloLineY = \sprintf('%.3F', (float) $row['bbox_y']);
+                break;
+            }
+        }
+
+        $this->assertNotNull($kiloLineY);
+
+        $kiloLineRight = 0.0;
+        foreach ($lines[(string) $kiloLineY] as $row) {
+            $kiloLineRight = \max($kiloLineRight, (float) $row['bbox_x'] + (float) $row['bbox_w']);
+        }
+
+        $this->assertEqualsWithDelta($originX + $cellWidth, $kiloLineRight, 1e-6);
+    }
+
+    public function testProbeRightAlignTextOnlyMixedInlineFragmentPositions(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $bfont = $obj->font->insert($obj->pon, 'dejavusans', '', 10);
+        $obj->page->addContent($bfont['out']);
+        $obj->setDefaultCellPadding(2, 2, 2, 2);
+
+        $html = '<div style="text-align:right;">'
+            . 'RIGHT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> '
+            . 'India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
+            . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
+            . 'Whiskey <i>Xray</i> Yankee <i>Zulu</i>'
+            . '</div>';
+
+        $originX = 22.0;
+        $cellWidth = 186.0;
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, $originX, 10.0, $cellWidth, 0.0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $lines = [];
+        foreach ($trace as $row) {
+            $key = \sprintf('%.3F', (float) $row['bbox_y']);
+            if (!isset($lines[$key])) {
+                $lines[$key] = [];
+            }
+            $lines[$key][] = $row;
+        }
+
+        $this->assertCount(2, $lines);
+
+        $rightEdge = ($originX + $cellWidth) - 2.0;
+        $lineKeys = \array_keys($lines);
+        $firstLine = $lines[$lineKeys[0]];
+        $secondLine = $lines[$lineKeys[1]];
+        $firstLast = $firstLine[\count($firstLine) - 1];
+        $secondLast = $secondLine[\count($secondLine) - 1];
+        $firstLineRight = (float) $firstLast['bbox_x'] + (float) $firstLast['bbox_w'];
+        $secondLineRight = (float) $secondLast['bbox_x'] + (float) $secondLast['bbox_w'];
+
+        // Fixed: first line now reaches the right edge and includes Oscar.
+        $this->assertEqualsWithDelta($rightEdge, $firstLineRight, 0.5);
+        $this->assertEqualsWithDelta($rightEdge, $secondLineRight, 0.01);
+
+        $firstLineHasOscar = false;
+        $secondStartsPapa = false;
+        foreach ($firstLine as $row) {
+            if (\strpos((string) $row['txt'], 'Oscar') !== false) {
+                $firstLineHasOscar = true;
+            }
+        }
+
+        if (isset($secondLine[0])) {
+            $secondStartsPapa = (\strpos((string) $secondLine[0]['txt'], 'Papa') !== false);
+        }
+
+        $this->assertTrue($firstLineHasOscar);
+        $this->assertTrue($secondStartsPapa);
+    }
+
     public function testParseHTMLTextForcedWrapTrimsLeadingSpaceAtNewLine(): void
     {
         $obj = $this->getBBoxProbeTestObject();

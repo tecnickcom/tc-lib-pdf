@@ -303,6 +303,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected const VERT_SHIFT_SUP = 0.3;
 
+    /**
+     * Width wrapping tolerance in user units (mm).
+     * Accounts for floating-point rounding errors in width calculations.
+     *
+     * @var float
+     */
+    protected const WIDTH_TOLERANCE = 0.01;
+
 
     /**
      * Typoe of symbol used for HTML unordered list items.
@@ -2716,7 +2724,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $region = $this->page->getRegion();
         $regiontop = (float) $region['RY'];
         $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-        if (($requiredh <= ($remaining + 0.001)) || ($tpy <= ($regiontop + 0.001))) {
+        if (($requiredh <= ($remaining + self::WIDTH_TOLERANCE)) || ($tpy <= ($regiontop + self::WIDTH_TOLERANCE))) {
             return '';
         }
 
@@ -3165,96 +3173,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function measureHTMLInlineLineWidth(array &$hrc, int $startkey, float $maxwidth): float
     {
-        if ($maxwidth <= 0.0) {
-            return 0.0;
-        }
-
-        /** @var array<int, THTMLAttrib> $dom */
-        $dom = &$hrc['dom'];
-        $numel = \count($dom);
-        $linewidth = 0.0;
-        $contentwidth = 0.0;
-
-        for ($key = $startkey; $key < $numel; ++$key) {
-            $node = $dom[$key];
-
-            if (!empty($node['tag'])) {
-                if (($node['value'] === 'img') && !empty($node['opening'])) {
-                    $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgwidth = (!empty($node['width']) && \is_numeric($node['width']))
-                        ? (float) $node['width']
-                        : $lineheight;
-
-                    if ($imgwidth <= 0.0) {
-                        continue;
-                    }
-
-                    if (($linewidth > 0.0) && (($linewidth + $imgwidth) > ($maxwidth + 0.001))) {
-                        break;
-                    }
-
-                    $linewidth += $imgwidth;
-                    $contentwidth = $linewidth;
-                    continue;
-                }
-
-                if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
-                    break;
-                }
-
-                continue;
-            }
-
-            $text = $this->normalizeHTMLText($hrc, (string) $node['value']);
-            if ($text === '') {
-                continue;
-            }
-
-            $spaceonly = (\trim($text) === '');
-
-            $remaining = \max(0.0, $maxwidth - $linewidth);
-            if ($remaining <= 0.0) {
-                break;
-            }
-
-            $this->getHTMLFontMetric($hrc, $key);
-            $ordarr = [];
-            $dim = self::DIM_DEFAULT;
-            $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
-            $this->prepareText($text, $ordarr, $dim, $forcedir);
-            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining));
-            if ($lines === []) {
-                continue;
-            }
-
-            $firstline = $lines[0];
-            if ((int) $firstline['chars'] <= 0) {
-                // Nothing from this node fits on the current visual line.
-                break;
-            }
-
-            $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
-
-            // Stop if adding this chunk would overflow and we already have content.
-            // (splitLines always returns at least one word even if it overflows the
-            //  remaining space, so we must guard here.)
-            if (($linewidth > 0.0) && ($linewidth + $chunkwidth > $maxwidth + 0.001)) {
-                break;
-            }
-
-            $linewidth += $chunkwidth;
-            if (!$spaceonly) {
-                $contentwidth = $linewidth;
-            }
-
-            // Wrapping happened inside this text node, so the current visual
-            // line cannot include subsequent nodes.
-            if ((int) $firstline['chars'] < (int) $dim['chars']) {
-                break;
-            }
-        }
-
-        return ($contentwidth > 0.0) ? $contentwidth : $linewidth;
+        return $this->measureHTMLInlineLineMetrics($hrc, $startkey, $maxwidth)['width'];
     }
 
     /**
@@ -3269,8 +3188,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         int $startkey,
         float $maxwidth,
         float $wordspacing = 0.0,
-    ): array
-    {
+    ): array {
         if ($maxwidth <= 0.0) {
             return ['width' => 0.0, 'spaces' => 0, 'wrapped' => false];
         }
@@ -3301,7 +3219,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         continue;
                     }
 
-                    if (($linewidth > 0.0) && (($linewidth + $imgwidth) > ($maxwidth + 0.001))) {
+                    if (($linewidth > 0.0) && (($linewidth + $imgwidth) > ($maxwidth + self::WIDTH_TOLERANCE))) {
                         $wrapped = true;
                         break;
                     }
@@ -3323,12 +3241,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
+            if (($key === $startkey) && ($hrc['prelevel'] <= 0)) {
+                $text = \ltrim($text);
+                if ($text === '') {
+                    continue;
+                }
+            }
+
             $spaceonly = (\trim($text) === '');
             $remaining = \max(0.0, $maxwidth - $linewidth - ($spaces * $wordspacing));
             if ($remaining <= 0.0) {
                 $wrapped = true;
                 break;
             }
+
+            // Switch to the correct font for this node BEFORE measuring, so that
+            // getStringWidth() and canHTMLTextKeepVisibleChunkOnCurrentLine() use
+            // the fragment's own metrics rather than the previous node's font.
+            $this->getHTMLFontMetric($hrc, $key);
 
             if (($linewidth > 0.0) && !$spaceonly) {
                 $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
@@ -3340,11 +3270,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 );
 
                 if (
-                    ($fragmentwidth > ($remaining + 0.001))
+                    ($fragmentwidth > ($remaining + self::WIDTH_TOLERANCE))
                     && (
                         !$this->hasHTMLTextBreakOpportunity($text)
                         || (
-                            ($fragmentwidth <= ($maxwidth + 0.001))
+                            ($fragmentwidth <= ($maxwidth + self::WIDTH_TOLERANCE))
                             && !$keepchunkonline
                         )
                     )
@@ -3353,8 +3283,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
             }
-
-            $this->getHTMLFontMetric($hrc, $key);
             $ordarr = [];
             $dim = self::DIM_DEFAULT;
             $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
@@ -3370,9 +3298,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 break;
             }
 
+            $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
+            $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
+            if (($linewidth > 0.0) && !$spaceonly && (\trim($chunktext) === '')) {
+                $wrapped = true;
+                break;
+            }
+
             $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
             $nextspaces = $spaces + (int) ($firstline['spaces'] ?? 0);
-            if (($linewidth > 0.0) && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + 0.001)) {
+            if (($linewidth > 0.0) && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + self::WIDTH_TOLERANCE)) {
                 $wrapped = true;
                 break;
             }
@@ -3384,8 +3319,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             $lastspaceonly = $spaceonly;
-            $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
-            $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
             $trailmatch = [];
             if (\preg_match('/ +$/u', $chunktext, $trailmatch) === 1) {
                 $trailspaces = \strlen($trailmatch[0]);
@@ -3554,7 +3487,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $originx = (float) ($hrc['cellctx']['originx'] ?? 0.0);
-        return ($tpx <= ($originx + 0.001));
+        return ($tpx <= ($originx + self::WIDTH_TOLERANCE));
     }
 
     /**
@@ -3597,7 +3530,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
         $this->prepareText($text, $ordarr, $dim, $forcedir);
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remainingWidth));
+        // Give splitLines the same tolerance used by wrap guards so boundary fits
+        // (for example: one more word after an italic fragment) are not rejected.
+        $lines = $this->splitLines(
+            $ordarr,
+            $dim,
+            $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE),
+        );
         if ($lines === []) {
             return false;
         }
@@ -3620,7 +3559,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function openHTMLBlock(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
         $elm = &$hrc['dom'][$key];
-        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + 0.001));
+        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
 
         if ($hasinlinecontent || ($tpy > $hrc['cellctx']['originy'])) {
@@ -3654,7 +3593,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elm = &$hrc['dom'][$key];
         // When a block closes on the same line where inline text was rendered,
         // advance by one line height before applying bottom spacing.
-        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + 0.001));
+        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
 
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
@@ -3983,11 +3922,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (
             (($halign === 'C') || ($halign === 'R'))
             && ($availableWidth > 0.0)
-            && ($lineOffset <= 0.001)
-            && ($width <= ($remainingWidth + 0.001))
+            && ($lineOffset <= self::WIDTH_TOLERANCE)
+            && ($width <= ($remainingWidth + self::WIDTH_TOLERANCE))
         ) {
             $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $key, $availableWidth);
-            if (($lineWidth > 0.0) && ($lineWidth <= ($availableWidth + 0.001))) {
+            if (($lineWidth > 0.0) && ($lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE))) {
                 $imagex = $lineOriginX + match ($halign) {
                     'R' => \max(0.0, $availableWidth - $lineWidth),
                     default => \max(0.0, ($availableWidth - $lineWidth) / 2.0),
@@ -5058,7 +4997,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // In normal HTML flow, collapsible spaces at line start are ignored.
         // Keeping them would shift the first visible fragment and defeat
         // center/right alignment for wrapped inline runs.
-        if (($hrc['prelevel'] <= 0) && ($lineOffset <= 0.001)) {
+        if (($hrc['prelevel'] <= 0) && ($lineOffset <= self::WIDTH_TOLERANCE)) {
             if (\trim($text) === '') {
                 return '';
             }
@@ -5078,7 +5017,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curAscent = (isset($curfont['ascent']) && \is_numeric($curfont['ascent']))
             ? $this->toUnit((float) $curfont['ascent'])
             : 0.0;
-        if (($lineOffset <= 0.001) || empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
+        if (($lineOffset <= self::WIDTH_TOLERANCE) || empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
             $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
             if ($lineascent <= 0.0) {
                 $lineascent = $curAscent;
@@ -5095,19 +5034,44 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         $fragmentWidth = $this->getStringWidth($text);
+
+        // When a continuation fragment's trailing collapsible whitespace is the
+        // sole cause of overflow, strip it before the wrap check and rendering.
+        // The cursor is advanced by the stripped width so inter-word spacing is
+        // preserved for the next fragment.
+        $trailSpaceAdvance = 0.0;
+        if (
+            ($lineOffset > self::WIDTH_TOLERANCE)
+            && ($hrc['prelevel'] <= 0)
+            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
+        ) {
+            $trailVisMatch = [];
+            if (\preg_match('/\s+$/u', $text, $trailVisMatch) === 1) {
+                $strippedText = \rtrim($text);
+                if ($strippedText !== '') {
+                    $visibleWidth = $this->getStringWidth($strippedText);
+                    if ($visibleWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
+                        $trailSpaceAdvance = $fragmentWidth - $visibleWidth;
+                        $text = $strippedText;
+                        $fragmentWidth = $visibleWidth;
+                    }
+                }
+            }
+        }
+
         $keepChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
             $text,
             $forcedir,
             $remainingWidth,
         );
         if (
-            ($lineOffset > 0.001)
+            ($lineOffset > self::WIDTH_TOLERANCE)
             && (\trim($text) !== '')
-            && ($fragmentWidth > ($remainingWidth + 0.001))
+            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
             && (
                 !$this->hasHTMLTextBreakOpportunity($text)
                 || (
-                    ($fragmentWidth <= ($availableWidth + 0.001))
+                    ($fragmentWidth <= ($availableWidth + self::WIDTH_TOLERANCE))
                     && !$keepChunkOnLine
                 )
             )
@@ -5122,6 +5086,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
             $remainingWidth = $tpw;
+            $lineOriginX = $hrc['cellctx']['originx'];
+            $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
 
             // Collapsible spaces must still be removed when we pre-wrap a fragment.
             // Otherwise the new line can start with an artificial indent.
@@ -5133,23 +5099,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 $fragmentWidth = $this->getStringWidth($text);
             }
+
+            // Forced wraps reset the line cursor; recompute per-line metrics using
+            // the fresh line state so subsequent wrap detection uses the new line.
+            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
+            if ($lineascent <= 0.0) {
+                $lineascent = $curAscent;
+            }
+
+            if ($lineascent < $curAscent) {
+                $lineascent = $curAscent;
+            }
+
+            $hrc['cellctx']['lineascent'] = $lineascent;
+            $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         }
 
         $lineWordSpacing = 0.0;
         $customJustify = false;
         if ($halign === 'J') {
             $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-            $hasFollowingInline = ($runWidth > ($fragmentWidth + 0.001));
+            $hasFollowingInline = ($runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE));
             $hasLineWordSpacing = ((float) $hrc['cellctx']['linewordspacing'] > 0.0);
-            $customJustify = ($hasFollowingInline || (($lineOffset > 0.001) && $hasLineWordSpacing));
+            $customJustify = ($hasFollowingInline || (($lineOffset > self::WIDTH_TOLERANCE) && $hasLineWordSpacing));
 
             if ($customJustify) {
-                if ($lineOffset <= 0.001) {
+                if ($lineOffset <= self::WIDTH_TOLERANCE) {
                     $lineMetrics = $this->measureHTMLInlineLineMetrics($hrc, $currentkey, $availableWidth);
                     if (
                         !empty($lineMetrics['wrapped'])
                         && ((int) ($lineMetrics['spaces'] ?? 0) > 0)
-                        && ((float) ($lineMetrics['width'] ?? 0.0) < ($availableWidth - 0.001))
+                        && ((float) ($lineMetrics['width'] ?? 0.0) < ($availableWidth - self::WIDTH_TOLERANCE))
                     ) {
                         $lineWordSpacing = ($availableWidth - (float) $lineMetrics['width'])
                             / (int) $lineMetrics['spaces'];
@@ -5163,7 +5143,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         if (
                             !empty($lineMetrics['wrapped'])
                             && ((int) ($lineMetrics['spaces'] ?? 0) > 0)
-                            && ((float) ($lineMetrics['width'] ?? 0.0) < ($availableWidth - 0.001))
+                            && ((float) ($lineMetrics['width'] ?? 0.0) < ($availableWidth - self::WIDTH_TOLERANCE))
                         ) {
                             $lineWordSpacing = ($availableWidth - (float) $lineMetrics['width'])
                                 / (int) $lineMetrics['spaces'];
@@ -5188,26 +5168,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $deferWrapDetection = false;
         if ((($halign === 'C') || ($halign === 'R')) && ($availableWidth > 0.0)) {
-            if ($lineOffset > 0.001) {
+            if ($lineOffset > self::WIDTH_TOLERANCE) {
                 $renderPosX = $lineOriginX;
                 $renderWidth = $availableWidth;
                 $renderOffset = $lineOffset;
                 // Keep the first continuation chunk adjacent to previous inline text,
                 // while preserving center/right alignment on wrapped continuation lines.
                 $renderAlign = ($halign === 'R') ? 'r' : 'c';
-            } elseif ($fragmentWidth <= ($remainingWidth + 0.001)) {
+            } elseif ($fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
                 $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
                 $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-                $hasFollowingInline = ($runWidth > ($fragmentWidth + 0.001));
-                $isLeadingSmall = ($curAscent + 0.001 < $lineascent);
+                $hasFollowingInline = ($runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE));
+                $isLeadingSmall = ($curAscent + self::WIDTH_TOLERANCE < $lineascent);
                 $lineWidthCollapsed = (
                     $hasFollowingInline
-                    && ($lineWidth <= ($fragmentWidth + 0.001))
+                    && ($lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE))
                 );
                 $deferWrapDetection = ($hasFollowingInline && $isLeadingSmall);
                 if (
                     ($lineWidth > 0.0)
-                    && ($lineWidth <= ($availableWidth + 0.001))
+                    && ($lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE))
                     && !$lineWidthCollapsed
                 ) {
                     $renderPosX = $lineOriginX + match ($halign) {
@@ -5215,7 +5195,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         default => \max(0.0, ($availableWidth - $lineWidth) / 2),
                     };
                     // Use the measured lineWidth for rendering to avoid rounding-induced wraps.
-                    // The lineWidth has been verified to fit within availableWidth + 0.001 tolerance.
+                    // The lineWidth has been verified to fit within availableWidth + self::WIDTH_TOLERANCE tolerance.
                     $renderWidth = \min($lineWidth, $availableWidth);
                     $renderOffset = 0.0;
                     $renderAlign = 'L';
@@ -5263,6 +5243,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
 
+        // When trailing collapsible space was stripped, widen the render box by the
+        // stripped amount so that splitLines inside getTextCell does not squeeze the
+        // visible text at the floating-point boundary.
+        if ($trailSpaceAdvance > 0.0) {
+            $renderWidth += $trailSpaceAdvance;
+        }
+
         // Inline width probes may switch the active font while scanning following nodes.
         // Re-sync the active font metric for accurate glyph placement.
         $this->getHTMLFontMetric($hrc, $currentkey);
@@ -5295,10 +5282,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         );
 
         $bbox = $this->getLastBBox();
-        $wrapThreshold = \max(0.001, $lineAdvance - 0.001);
+        $wrapThreshold = \max(self::WIDTH_TOLERANCE, $lineAdvance - self::WIDTH_TOLERANCE);
         $wrapped = ($bbox['y'] - $renderStartY) >= $wrapThreshold;
         if (!$deferWrapDetection) {
-            $wrapped = $wrapped || ($bbox['h'] > ($lineAdvance + 0.001));
+            $wrapped = $wrapped || ($bbox['h'] > ($lineAdvance + self::WIDTH_TOLERANCE));
         }
         $background = '';
         if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
@@ -5313,7 +5300,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 // Block-level backgrounds (for example td/div) are line-wide.
                 // Draw them once at line start, otherwise later inline fragments
                 // repaint over already-rendered text on the same line.
-                if ($lineOffset > 0.001) {
+                if ($lineOffset > self::WIDTH_TOLERANCE) {
                     $hasBlockBgAncestor = false;
                 }
             }
@@ -5324,10 +5311,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if ($wrapped && !$hasBlockBgAncestor) {
-                $lineheight = \max($lineAdvance, 0.001);
+                $lineheight = \max($lineAdvance, self::WIDTH_TOLERANCE);
                 $renderEndY = $bbox['y'] + $bbox['h'];
                 $lineSpan = \max(0.0, $renderEndY - $renderStartY);
-                $lineCount = \max(2, (int) \ceil(($lineSpan - 0.001) / $lineheight));
+                $lineCount = \max(2, (int) \ceil(($lineSpan - self::WIDTH_TOLERANCE) / $lineheight));
                 $firstWidth = \max(0.0, $renderWidth - $renderOffset);
 
                 $segments = [];
@@ -5421,7 +5408,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $background . $out;
         }
 
-        $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance;
+        $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
         if ($customJustify && ($lineWordSpacing > 0.0)) {
             $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
                 $text,
@@ -7721,7 +7708,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Only add trailing line advance when inline content is still present
         // on the current line. Block-only content (e.g. nested tables) already
         // updates the vertical cursor and must not add an extra blank line here.
-        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + 0.001));
+        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
         $lineAdvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
         $cellbottom = $tpy
             + $lineAdvance
