@@ -2,7 +2,7 @@
   "name": "tecnickcom/tc-lib-pdf",
   "description": "PHP PDF Library",
   "type": "library",
-  "homepage": "http://www.tecnick.com",
+  "homepage": "https://tcpdf.org",
   "license": "LGPL-3.0-or-later",
   "keywords": [
     "tc-lib-pdf",
@@ -33,6 +33,8 @@
     "tecnickcom/tc-lib-pdf-page": "^4.3",
     "tecnickcom/tc-lib-pdf-graph": "^2.4"
   },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
   "config": {
     "allow-plugins": {
       "dealerdirect/phpcodesniffer-composer-installer": true
@@ -57,7 +59,17 @@
   },
   "archive": {
     "exclude": [
-      "/example"
+      "/examples"
     ]
+  },
+  "support": {
+    "issues": "https://github.com/tecnickcom/tc-lib-pdf/issues",
+    "source": "https://github.com/tecnickcom/tc-lib-pdf"
+  },
+  "scripts": {
+    "test": "XDEBUG_MODE=coverage ./vendor/bin/phpunit --stderr test",
+    "cs-check": "./vendor/bin/phpcs --standard=phpcs.xml",
+    "cs-fix": "./vendor/bin/phpcbf --ignore=\"./vendor/\" --standard=psr12 src test",
+    "analyse": "./vendor/phpstan.phar analyse"
   }
 }
