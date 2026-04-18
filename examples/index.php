@@ -2233,6 +2233,20 @@ $pdf->addHTMLCell(
 
 // ----------
 
+// HTML G
+
+$pageV07 = $pdf->addPage();
+
+$pdf->page->addContent($bfont6['out']);
+
+$html_07 = '<p style="border: 1px solid black;">ALPHA</p><p style="border: 1px solid black;">BRAVO</p>';
+
+$pdf->addHTMLCell(
+    $html_07, // string $html,
+    20, // float $posx = 0,
+    10, // float $posy = 0,
+);
+
 // ----------
 
 $pageTOC = $pdf->addPage();
