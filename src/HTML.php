@@ -3323,6 +3323,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
+            if (($key === $startkey) && ($hrc['prelevel'] <= 0)) {
+                $text = \ltrim($text);
+                if ($text === '') {
+                    continue;
+                }
+            }
+
             $spaceonly = (\trim($text) === '');
             $remaining = \max(0.0, $maxwidth - $linewidth - ($spaces * $wordspacing));
             if ($remaining <= 0.0) {
@@ -3370,6 +3377,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 break;
             }
 
+            $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
+            $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
+            if (($linewidth > 0.0) && !$spaceonly && (\trim($chunktext) === '')) {
+                $wrapped = true;
+                break;
+            }
+
             $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
             $nextspaces = $spaces + (int) ($firstline['spaces'] ?? 0);
             if (($linewidth > 0.0) && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + 0.001)) {
@@ -3384,8 +3398,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             $lastspaceonly = $spaceonly;
-            $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
-            $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
             $trailmatch = [];
             if (\preg_match('/ +$/u', $chunktext, $trailmatch) === 1) {
                 $trailspaces = \strlen($trailmatch[0]);
@@ -5122,6 +5134,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
             $remainingWidth = $tpw;
+            $lineOriginX = $hrc['cellctx']['originx'];
+            $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
 
             // Collapsible spaces must still be removed when we pre-wrap a fragment.
             // Otherwise the new line can start with an artificial indent.
@@ -5133,6 +5147,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 $fragmentWidth = $this->getStringWidth($text);
             }
+
+            // Forced wraps reset the line cursor; recompute per-line metrics using
+            // the fresh line state so subsequent wrap detection uses the new line.
+            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
+            if ($lineascent <= 0.0) {
+                $lineascent = $curAscent;
+            }
+
+            if ($lineascent < $curAscent) {
+                $lineascent = $curAscent;
+            }
+
+            $hrc['cellctx']['lineascent'] = $lineascent;
+            $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         }
 
         $lineWordSpacing = 0.0;
