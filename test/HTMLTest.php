@@ -2119,6 +2119,29 @@ class HTMLTest extends TestUtil
         $this->assertContains('Tx', $fieldTypes);
     }
 
+    public function testGetHTMLCellRendersFileInputWithFileSelectFlag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell(
+            '<input type="file" name="userfile" size="20" />',
+            0,
+            0,
+            40,
+            20,
+        );
+
+        $annotation = $this->getObjectProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertCount(1, $annotation);
+        /** @var array{opt: array<string, mixed>} $last */
+        $last = \end($annotation);
+        $this->assertSame('Tx', $last['opt']['ft']);
+        $this->assertArrayHasKey('ff', $last['opt']);
+        $this->assertNotSame(0, ((int) $last['opt']['ff']) & (1 << 20));
+    }
+
     public function testGetHTMLCellRendersMultilineTextareaValue(): void
     {
         $obj = $this->getTestObject();

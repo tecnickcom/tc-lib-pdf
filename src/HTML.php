@@ -6063,6 +6063,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $tpx += $fieldwidth;
                 break;
 
+            case 'file':
+                $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+                $opt = ['v' => $value];
+                $objid = $this->addFFText($name, $tpx, $tpy, $fieldwidth, $lineheight, $opt, ['fileSelect' => 'true']);
+                $this->page->addAnnotRef($objid, $this->page->getPageID());
+                $tpx += $fieldwidth;
+                break;
+
             default:
                 // text, password, email, url, number, etc.
                 $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
@@ -6071,7 +6079,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 $opt = ['v' => $value];
-                $jsp = ($type === 'password') ? ['password' => 'true'] : [];
+                $jsp = [];
+                if ($type === 'password') {
+                    $jsp['password'] = 'true';
+                }
                 $objid = $this->addFFText($name, $tpx, $tpy, $fieldwidth, $lineheight, $opt, $jsp);
                 $this->page->addAnnotRef($objid, $this->page->getPageID());
                 $tpx += $fieldwidth;
