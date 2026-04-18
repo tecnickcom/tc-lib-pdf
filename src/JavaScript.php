@@ -1478,6 +1478,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $this->exitXObjectTemplate();
         $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
         $opt['ap']['n'] .= 'Q EMC';
+        $opt['subtype'] = 'Widget';
         $opt['Subtype'] = 'Widget';
         $opt['ft'] = 'Ch';
         $opt['t'] = $name;
@@ -1556,6 +1557,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $this->exitXObjectTemplate();
         $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
         $opt['ap']['n'] .= 'Q EMC';
+        $opt['subtype'] = 'Widget';
         $opt['Subtype'] = 'Widget';
         $opt['ft'] = 'Ch';
         $opt['t'] = $name;
@@ -1726,6 +1728,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $this->exitXObjectTemplate();
         $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
         $opt['ap']['n'] .= 'Q EMC';
+        $opt['subtype'] = 'Widget';
         $opt['Subtype'] = 'Widget';
         $opt['ft'] = 'Tx';
         $opt['t'] = $name;
