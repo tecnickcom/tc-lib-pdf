@@ -1911,12 +1911,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         /** @var array<int, THTMLAttrib> $dom */
         // apply default 1em top/bottom margin for block elements that have it in standard CSS
+        // skip nested lists (ol/ul/dl inside li) as browsers do not apply margins to sublists
         if (\in_array($dom[$key]['value'], ['p', 'ol', 'ul', 'dl', 'blockquote', 'pre'], true)) {
-            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-top'])) {
-                $dom[$key]['margin']['T'] = $this->toUnit((float) $dom[$key]['fontsize']);
-            }
-            if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-bottom'])) {
-                $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize']);
+            $isSublist = \in_array($dom[$key]['value'], ['ol', 'ul', 'dl'], true)
+                && \is_int($dom[$key]['parent'])
+                && ($dom[$key]['parent'] > 0)
+                && isset($dom[$dom[$key]['parent']]['value'])
+                && ($dom[$dom[$key]['parent']]['value'] === 'li');
+            if (!$isSublist) {
+                if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-top'])) {
+                    $dom[$key]['margin']['T'] = $this->toUnit((float) $dom[$key]['fontsize']);
+                }
+                if (empty($dom[$key]['style']['margin']) && empty($dom[$key]['style']['margin-bottom'])) {
+                    $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize']);
+                }
             }
         }
         /** @var array<int, THTMLAttrib> $dom */
