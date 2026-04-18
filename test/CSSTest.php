@@ -530,6 +530,19 @@ class CSSTest extends TestUtil
         $this->assertNotContains('color:red;', $vals);
     }
 
+    public function testGetCSSArrayFromHTMLStyleWithoutMediaAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<style>h1{color:blue;}</style>'
+            . '<style media="all">h2{font-size:14pt;}</style>';
+
+        $out = $obj->exposeGetCSSArrayFromHTML($html);
+        $vals = \array_values($out);
+
+        $this->assertContains('color:blue;', $vals);
+        $this->assertContains('font-size:14pt;', $vals);
+    }
+
     public function testGetCSSColorNormalizesValidColor(): void
     {
         $obj = $this->getInternalTestObject();

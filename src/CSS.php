@@ -692,6 +692,15 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                                 }
                             }
                         }
+                    } else {
+                        // no media attribute defaults to "all"
+                        $type = [];
+                        if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
+                            $cssdata = $this->file->getFileData(\trim($type[1]));
+                            if (($cssdata !== false) && (\strlen($cssdata) > 0)) {
+                                $css = \array_merge($css, $this->extractCSSproperties($cssdata));
+                            }
+                        }
                     }
                 }
             }
@@ -709,6 +718,10 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                         $cssdata = $matches[2][$key];
                         $css = \array_merge($css, $this->extractCSSproperties($cssdata));
                     }
+                } else {
+                    // no media attribute defaults to "all"
+                    $cssdata = $matches[2][$key];
+                    $css = \array_merge($css, $this->extractCSSproperties($cssdata));
                 }
             }
         }
