@@ -5,3 +5,4 @@
 - [002_example_font_dump.php](002_example_font_dump.php) — Font dump example.
 - [003_example_persian_arabic.php](003_example_persian_arabic.php) — Persian and Arabic text example.
 - [004_example_page_formats.php](004_example_page_formats.php) — Page formats example.
+- [005_example_header_footer.php](005_example_header_footer.php) — Custom page header and footer that automatically repeats on every new page.
