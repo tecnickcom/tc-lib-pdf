@@ -1,6 +1,6 @@
 <?php
 /**
- * 0002_example_font_dump.php
+ * 002_example_font_dump.php
  *
  * @since       2026-04-19
  * @category    Library
@@ -18,8 +18,6 @@
 // autoloader when using Composer
 require(__DIR__ . '/../vendor/autoload.php');
 
-\define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example_font_dump.pdf');
-
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
@@ -31,7 +29,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     'mm', // string $unit = 'mm',
     true, // bool $isunicode = true,
     false, // bool $subsetfont = false,
-    false, // bool $compress = true,
+    true, // bool $compress = true,
     '', // string $mode = '',
     null, // ?ObjEncrypt $objEncrypt = null,
 );
@@ -39,11 +37,11 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 // ----------
 
 $pdf->setCreator('tc-lib-pdf');
-$pdf->setAuthor('John Doe');
-$pdf->setSubject('tc-lib-pdf font dump example');
-$pdf->setTitle('Example: Font ASCII Dump');
-$pdf->setKeywords('TCPDF tc-lib-pdf font dump example');
-$pdf->setPDFFilename('test_font_dump.pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 002');
+$pdf->setTitle('Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setPDFFilename('002_example_font_dump.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
@@ -115,15 +113,6 @@ foreach ($corefonts as $fontcfg) {
 
 // =============================================================
 
-// ----------
-// get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 
-// ----------
-
-// Various output modes:
-
-//$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
 $pdf->renderPDF($rawpdf);
-//$pdf->downloadPDF($rawpdf);
-//echo $pdf->getMIMEAttachmentPDF($rawpdf);

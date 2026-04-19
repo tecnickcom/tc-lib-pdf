@@ -1,6 +1,6 @@
 <?php
 /**
- * 0001_example_invoice.php
+ * 001_example_invoice.php
  *
  * @since       2017-05-08
  * @category    Library
@@ -17,9 +17,6 @@
 
 // autoloader when using Composer
 require(__DIR__ . '/../vendor/autoload.php');
-
-
-\define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example_invoice.pdf');
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -41,11 +38,11 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 
 
 $pdf->setCreator('tc-lib-pdf');
-$pdf->setAuthor('John Doe');
-$pdf->setSubject('tc-lib-pdf invoice example');
-$pdf->setTitle('Example: Invoice');
-$pdf->setKeywords('TCPDF tc-lib-pdf invoice example');
-$pdf->setPDFFilename('test_invoice.pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 001');
+$pdf->setTitle('Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setPDFFilename('001_example_invoice.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
@@ -294,15 +291,6 @@ $pdf->setCustomXMP('x:xmpmeta.rdf:RDF',
 
 // =============================================================
 
-// ----------
-// get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 
-// ----------
-
-// Various output modes:
-
-//$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
 $pdf->renderPDF($rawpdf);
-//$pdf->downloadPDF($rawpdf);
-//echo $pdf->getMIMEAttachmentPDF($rawpdf);

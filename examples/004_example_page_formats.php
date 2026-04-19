@@ -1,6 +1,6 @@
 <?php
 /**
- * 0004_example_page_formats.php
+ * 004_example_page_formats.php
  *
  * @since       2026-04-19
  * @category    Library
@@ -18,8 +18,6 @@
 // autoloader when using Composer
 require(__DIR__ . '/../vendor/autoload.php');
 
-\define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example_page_formats.pdf');
-
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
@@ -31,7 +29,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     'mm', // string $unit = 'mm',
     true, // bool $isunicode = true,
     false, // bool $subsetfont = false,
-    false, // bool $compress = true,
+    true, // bool $compress = true,
     '', // string $mode = '',
     null, // ?ObjEncrypt $objEncrypt = null,
 );
@@ -39,11 +37,11 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 // ----------
 
 $pdf->setCreator('tc-lib-pdf');
-$pdf->setAuthor('John Doe');
-$pdf->setSubject('tc-lib-pdf page formats example');
-$pdf->setTitle('Page Formats Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf page formats example');
-$pdf->setPDFFilename('example_page_formats.pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 004');
+$pdf->setTitle('Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setPDFFilename('004_example_page_formats.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
@@ -103,15 +101,6 @@ foreach ($formats as $formatName => $dimensions) {
 
 // =============================================================
 
-// ----------
-// get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 
-// ----------
-
-// Various output modes:
-
-//$pdf->savePDF(\dirname(__DIR__) . '/target', $rawpdf);
 $pdf->renderPDF($rawpdf);
-//$pdf->downloadPDF($rawpdf);
-//echo $pdf->getMIMEAttachmentPDF($rawpdf);
