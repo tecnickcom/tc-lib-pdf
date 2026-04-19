@@ -18,19 +18,6 @@ namespace Test;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 
-class TestableTcpdf extends \Com\Tecnick\Pdf\Tcpdf
-{
-    public function exposeEnableSignatureApproval(bool $enabled = true): static
-    {
-        return $this->enableSignatureApproval($enabled);
-    }
-
-    public function exposeSetSignAnnotRefs(): void
-    {
-        $this->setSignAnnotRefs();
-    }
-}
-
 /**
  * Tcpdf Pdf class test
  *
@@ -56,7 +43,9 @@ class TcpdfTest extends TestUtil
         $font = $this->getObjectProperty($obj, 'font');
         /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
-        $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
+        $fontfile = (string) \realpath(
+            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json'
+        );
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */

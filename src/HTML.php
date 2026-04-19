@@ -35,10 +35,27 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
- * @phpstan-type THTMLTableCell array{cellx: float, cellw: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
- * @phpstan-type THTMLTableRowspanCell array{cellx: float, cellw: float, rowtop: float, rowsremaining: int, usedheight: float, contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string}
- * @phpstan-type THTMLTableState array{originx: float, originy: float, width: float, cols: int, colwidth: float, colwidths: array<int, float>, cellspacing: float, cellpadding: float, rowtop: float, rowheight: float, colindex: int, cells: array<int, THTMLTableCell>, occupied: array<int, int>, rowspans: array<int, THTMLTableRowspanCell>}
- * @phpstan-type THTMLTableCellContext array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, lineascent: float, linewordspacing: float, linewrapped: bool, rowtop: float, cellx: float, cellw: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string}
+ * @phpstan-type THTMLTableCell array{
+ *     cellx: float, cellw: float, contenth: float,
+ *     bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string
+ * }
+ * @phpstan-type THTMLTableRowspanCell array{
+ *     cellx: float, cellw: float, rowtop: float, rowsremaining: int, usedheight: float,
+ *     contenth: float, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string
+ * }
+ * @phpstan-type THTMLTableState array{
+ *     originx: float, originy: float, width: float, cols: int, colwidth: float,
+ *     colwidths: array<int, float>, cellspacing: float, cellpadding: float,
+ *     rowtop: float, rowheight: float, colindex: int,
+ *     cells: array<int, THTMLTableCell>, occupied: array<int, int>,
+ *     rowspans: array<int, THTMLTableRowspanCell>
+ * }
+ * @phpstan-type THTMLTableCellContext array{
+ *     originx: float, originy: float, maxwidth: float, maxheight: float,
+ *     lineadvance: float, linebottom: float, lineascent: float, linewordspacing: float, linewrapped: bool,
+ *     rowtop: float, cellx: float, cellw: float,
+ *     bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, buffer: string
+ * }
  *
  * @phpstan-type THTMLAttrib array{
  *     'align': string,
@@ -90,7 +107,11 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-type THTMLBlockBuf array{openkey: int, bx: float, by: float, bw: float, buffer: string}
  *
  * @phpstan-type THTMLRenderContext array{
- *     'cellctx': array{originx: float, originy: float, maxwidth: float, maxheight: float, lineadvance: float, linebottom: float, lineascent: float, linewordspacing: float, linewrapped: bool, basefont: string},
+ *     'cellctx': array{
+ *         originx: float, originy: float, maxwidth: float, maxheight: float,
+ *         lineadvance: float, linebottom: float, lineascent: float, linewordspacing: float,
+ *         linewrapped: bool, basefont: string
+ *     },
  *     'currentkey'?: int,
  *     'fontcache': array<string, array<string, mixed>>,
  *     'liststack': array<int, array{ordered: bool, type: string, count: int}>,
@@ -221,7 +242,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @var string
      */
-    protected const HTML_VALID_TAGS = '<marker/><a><b><blockquote><body><br><br/><dd><del><div><dl><dt><em><font><form><h1><h2><h3><h4><h5><h6><hr><hr/><i><img><input><label><li><ol><option><p><pre><s><select><small><span><strike><strong><sub><sup><table><tablehead><tcpdf><td><textarea><th><thead><tr><tt><u><ul>';
+    protected const HTML_VALID_TAGS = '<marker/><a><b><blockquote><body><br><br/><dd><del><div><dl><dt><em>'
+        . '<font><form><h1><h2><h3><h4><h5><h6><hr><hr/><i><img><input><label><li><ol><option>'
+        . '<p><pre><s><select><small><span><strike><strong><sub><sup><table><tablehead>'
+        . '<tcpdf><td><textarea><th><thead><tr><tt><u><ul>';
 
     /**
      * HTML generic regexp tag pattern.
@@ -560,7 +584,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $value = $valmatch[1];
                         }
 
-                        $selected = (\preg_match('/(^|[\s])selected([\s]*=[\s]*("[^"]*"|\'[^\']*\'|[^\s>]+))?([\s]|$)/si', $attrs) > 0);
+                        $selPattern = '/(^|[\s])selected([\s]*=[\s]*("[^"]*"|\'[^\']*\'|[^\s>]+))?([\s]|$)/si';
+                        $selected = (\preg_match($selPattern, $attrs) > 0);
                         $prefix = $selected ? '#!SeL!#' : '';
 
                         if ($value !== '') {
@@ -1293,9 +1318,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 $ret = (($dom[$key]['attribute'][$att] == $val)
                                 || (\preg_match('/' . $val . '[\-]{1}/i', $dom[$key]['attribute'][$att]) > 0));
                                 break;
-                            default: {
+                            default:
                                 $ret = true;
-                            }
+                                break;
                         }
                     }
                     break;
@@ -1581,7 +1606,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             self::ZEROCELLBOUND : $this->getCSSPadding($dom[$key]['style']['padding']);
 
         // apply individual padding-* overrides
-        foreach (['T' => 'padding-top', 'R' => 'padding-right', 'B' => 'padding-bottom', 'L' => 'padding-left'] as $side => $prop) {
+        $paddingProps = ['T' => 'padding-top', 'R' => 'padding-right', 'B' => 'padding-bottom', 'L' => 'padding-left'];
+        foreach ($paddingProps as $side => $prop) {
             if (!empty($dom[$key]['style'][$prop]) && \strtolower(\trim($dom[$key]['style'][$prop])) !== 'auto') {
                 // @phpstan-ignore parameterByRef.type
                 $dom[$key]['padding'][$side] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style'][$prop]));
@@ -1593,7 +1619,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $dom[$key]['margin'] = empty($dom[$key]['style']['margin']) ?
             self::ZEROCELLBOUND : $this->getCSSMargin($dom[$key]['style']['margin']);
         // apply individual margin-* overrides
-        foreach (['T' => 'margin-top', 'R' => 'margin-right', 'B' => 'margin-bottom', 'L' => 'margin-left'] as $side => $prop) {
+        $marginProps = ['T' => 'margin-top', 'R' => 'margin-right', 'B' => 'margin-bottom', 'L' => 'margin-left'];
+        foreach ($marginProps as $side => $prop) {
             if (!empty($dom[$key]['style'][$prop]) && \strtolower(\trim($dom[$key]['style'][$prop])) !== 'auto') {
                 // @phpstan-ignore parameterByRef.type
                 $dom[$key]['margin'][$side] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style'][$prop]));
@@ -2679,7 +2706,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 if ($elm['value'] === 'select') {
-                    $height += $this->estimateHTMLTextHeight($hrc, $key, $this->getHTMLSelectDisplayValue($elm), $width);
+                    $selectDisplay = $this->getHTMLSelectDisplayValue($elm);
+                    $height += $this->estimateHTMLTextHeight($hrc, $key, $selectDisplay, $width);
                     continue;
                 }
 
@@ -2695,7 +2723,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $subheight = 0.0;
                     $tableend = $this->findHTMLClosingTagIndex($dom, $key);
                     for ($idx = $key; $idx <= $tableend; ++$idx) {
-                        if (!empty($dom[$idx]['tag']) && !empty($dom[$idx]['opening']) && ($dom[$idx]['value'] === 'tr')) {
+                        $isOpenTr = !empty($dom[$idx]['tag']) && !empty($dom[$idx]['opening'])
+                            && ($dom[$idx]['value'] === 'tr');
+                        if ($isOpenTr) {
                             $subheight += $this->estimateHTMLTableRowHeight($hrc, $idx);
                         }
                     }
@@ -2975,6 +3005,57 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $fontname;
+    }
+
+    /**
+     * Capture the active font state so HTML rendering can restore it afterwards.
+     *
+     * @return array{family: string, style: string, size: float}
+     */
+    protected function captureHTMLCallerFontState(): array
+    {
+        $curfont = $this->font->getCurrentFont();
+        $fontkey = (string) ($curfont['key'] ?? '');
+        $family = $this->font->getFontFamilyName($fontkey);
+        if ($family === '') {
+            $family = \preg_replace('/[biudo]+$/i', '', $fontkey) ?? $fontkey;
+        }
+        if ($family === '') {
+            $family = 'helvetica';
+        }
+
+        $style = '';
+        if (!empty($curfont['style']) && \is_string($curfont['style'])) {
+            foreach (['B', 'I'] as $fontstyle) {
+                if (\str_contains($curfont['style'], $fontstyle)) {
+                    $style .= $fontstyle;
+                }
+            }
+        }
+
+        $size = (float) ($curfont['size'] ?? 10.0);
+        return [
+            'family' => $family,
+            'style' => $style,
+            'size' => $size,
+        ];
+    }
+
+    /**
+     * Restore the font state captured before HTML rendering started.
+     *
+     * @param array{family: string, style: string, size: float} $fontstate Captured font state.
+     */
+    protected function restoreHTMLCallerFontState(array $fontstate): string
+    {
+        $font = $this->font->insert(
+            $this->pon,
+            $fontstate['family'],
+            $fontstate['style'],
+            (int) \round($fontstate['size']),
+        );
+
+        return (isset($font['out']) && \is_string($font['out'])) ? $font['out'] : '';
     }
 
     /**
@@ -3338,7 +3419,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
             $nextspaces = $spaces + (int) ($firstline['spaces'] ?? 0);
-            if (($linewidth > 0.0) && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + self::WIDTH_TOLERANCE)) {
+            $lineOverflows = ($linewidth > 0.0)
+                && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + self::WIDTH_TOLERANCE);
+            if ($lineOverflows) {
                 $wrapped = true;
                 break;
             }
@@ -3490,8 +3573,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param THTMLRenderContext $hrc HTML render context
      * @param int    $key DOM array key.
      */
-    protected function moveHTMLToNextLine(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float $extra = 0): void
-    {
+    protected function moveHTMLToNextLine(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float $extra = 0,
+    ): void {
         $lineadvance = $this->getCurrentHTMLLineAdvance($hrc, $key) + $extra;
         $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
             ? (float) $hrc['cellctx']['linebottom']
@@ -3694,7 +3783,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B'] + $this->getHTMLTagVSpace($hrc, $key, 1);
+        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B']
+            + $this->getHTMLTagVSpace($hrc, $key, 1);
 
         return $out;
     }
@@ -4253,7 +4343,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $formkey = $this->findHTMLAncestorOpeningTag($hrc, $key, 'form');
         $formattr = [];
-        if (($formkey >= 0) && isset($hrc['dom'][$formkey]['attribute']) && \is_array($hrc['dom'][$formkey]['attribute'])) {
+        $formAttr = ($formkey >= 0) && isset($hrc['dom'][$formkey]['attribute'])
+            && \is_array($hrc['dom'][$formkey]['attribute']);
+        if ($formAttr) {
             $formattr = $hrc['dom'][$formkey]['attribute'];
         }
 
@@ -4940,6 +5032,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $styles = [],
     ): string {
         $out = '';
+        $callerfont = $this->captureHTMLCallerFontState();
 
         $dom = $this->getHTMLDOM($html);
 
@@ -5032,6 +5125,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $this->clearHTMLCellContext($hrc);
+        $out .= $this->restoreHTMLCallerFontState($callerfont);
 
         return $out;
     }
@@ -5058,6 +5152,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ?array $cell = null,
         array $styles = [],
     ): void {
+        $callerfont = $this->captureHTMLCallerFontState();
         $dom = $this->getHTMLDOM($html);
         /** @var THTMLRenderContext $hrc */
         $hrc = [
@@ -5167,6 +5262,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $this->clearHTMLCellContext($hrc);
+        $restorefontout = $this->restoreHTMLCallerFontState($callerfont);
+        if ($restorefontout !== '') {
+            $endpid = $this->page->getPageId();
+            if (!isset($outbypage[$endpid])) {
+                $outbypage[$endpid] = '';
+            }
+
+            $outbypage[$endpid] .= $restorefontout;
+        }
 
         foreach ($outbypage as $pid => $pageout) {
             if ($pageout === '') {
@@ -5242,7 +5346,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curAscent = (isset($curfont['ascent']) && \is_numeric($curfont['ascent']))
             ? $this->toUnit((float) $curfont['ascent'])
             : 0.0;
-        if (($lineOffset <= self::WIDTH_TOLERANCE) || empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
+        $skipAscent = ($lineOffset <= self::WIDTH_TOLERANCE)
+            || empty($hrc['cellctx']['lineascent'])
+            || !\is_numeric($hrc['cellctx']['lineascent']);
+        if ($skipAscent) {
             $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
             if ($lineascent <= 0.0) {
                 $lineascent = $curAscent;
@@ -5682,8 +5789,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENa(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENa(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         $href = (!empty($elm['attribute']['href']) && \is_string($elm['attribute']['href']))
             ? $elm['attribute']['href']
@@ -5705,8 +5818,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENb(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENb(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -5723,8 +5842,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENblockquote(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENblockquote(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -5741,8 +5866,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENbody(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENbody(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -5759,8 +5890,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENbr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENbr(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         if ($this->shouldSkipHTMLBrAdvance($hrc, $key, $tpx)) {
             $hrc['cellctx']['linewrapped'] = false;
@@ -5783,8 +5920,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdd(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENdd(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $indent = $this->getHTMLListIndentWidth();
@@ -5808,8 +5951,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdel(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENdel(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -5826,8 +5975,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdiv(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENdiv(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -5844,8 +5999,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdl(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENdl(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -5862,8 +6023,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENdt(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENdt(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -5880,8 +6047,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENem(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENem(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -5898,8 +6071,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENfont(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENfont(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -5916,8 +6095,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENform(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENform(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -5934,8 +6119,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh1(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENh1(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -5952,8 +6143,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh2(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENh2(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -5969,8 +6166,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh3(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENh3(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -5986,8 +6189,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh4(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENh4(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -6003,8 +6212,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh5(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENh5(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -6020,8 +6235,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENh6(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENh6(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -6037,8 +6258,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENhr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENhr(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
@@ -6085,8 +6312,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENi(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENi(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -6103,8 +6336,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENimg(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENimg(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->renderHTMLImage($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -6121,8 +6360,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENinput(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENinput(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
@@ -6139,7 +6384,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $name = (isset($attr['name']) && \is_string($attr['name'])) ? $attr['name'] : ('input_' . \count($this->tagvspaces));
+        $name = (isset($attr['name']) && \is_string($attr['name']))
+            ? $attr['name'] : ('input_' . \count($this->tagvspaces));
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
         $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
             ? (float) $elm['width']
@@ -6217,8 +6463,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENlabel(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENlabel(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -6235,8 +6487,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENli(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENli(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
@@ -6248,7 +6506,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $indent = $this->getHTMLListIndentWidth();
         $counter = $this->getHTMLListItemCounter($hrc, $key);
         $markerType = $this->getCurrentHTMLListMarkerType($hrc);
-        $baseline = $tpy + $this->toUnit((isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0);
+        $fontAscent = (isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0;
+        $baseline = $tpy + $this->toUnit($fontAscent);
         $bulletx = $tpx + $indent;
 
         $out .= $this->getHTMLTextPrefix($hrc, $key);
@@ -6281,8 +6540,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENmarker(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENmarker(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -6299,8 +6564,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENol(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENol(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $this->pushHTMLList($hrc, $key, true);
@@ -6320,8 +6591,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENoption(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENoption(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         $label = '';
         if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
@@ -6343,8 +6620,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENoutput(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENoutput(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         $label = '';
         if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
@@ -6366,8 +6649,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENp(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENp(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -6384,8 +6673,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENpre(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENpre(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         ++$hrc['prelevel'];
         return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
@@ -6403,8 +6698,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENs(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENs(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -6421,8 +6722,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENselect(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENselect(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
@@ -6430,7 +6737,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $name = (isset($attr['name']) && \is_string($attr['name'])) ? $attr['name'] : ('select_' . \count($this->tagvspaces));
+        $name = (isset($attr['name']) && \is_string($attr['name']))
+            ? $attr['name'] : ('select_' . \count($this->tagvspaces));
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
         $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
             ? (float) $elm['width']
@@ -6489,7 +6797,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $objid = $this->addFFListBox($name, $tpx, $tpy, $fieldwidth, $fieldheight, $values, $opt, $jsp);
         } else {
-            $objid = $this->addFFComboBox($name, $tpx, $tpy, $fieldwidth, $lineheight, $values, ['v' => $selectedValue]);
+            $objid = $this->addFFComboBox(
+                $name,
+                $tpx,
+                $tpy,
+                $fieldwidth,
+                $lineheight,
+                $values,
+                ['v' => $selectedValue]
+            );
         }
         $this->page->addAnnotRef($objid, $this->page->getPageID());
         $tpx += $fieldwidth;
@@ -6513,8 +6829,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENsmall(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENsmall(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -6531,8 +6853,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENspan(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENspan(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tpx, $tpy, $tpw, $tph);
         $elm = &$hrc['dom'][$key];
 
@@ -6565,8 +6893,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENstrike(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENstrike(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -6583,8 +6917,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENstrong(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENstrong(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -6601,8 +6941,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENsub(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENsub(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, self::VERT_SHIFT_SUB);
     }
@@ -6619,8 +6965,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENsup(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENsup(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, -self::VERT_SHIFT_SUP);
     }
@@ -6637,8 +6989,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtable(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENtable(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         unset($tph);
 
@@ -6648,9 +7006,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $colwidth = ($cols > 0) ? ($width / $cols) : $width;
 
         // Consume pre-computed column widths and spacing stored on the DOM node.
-        $colwidths = (isset($elm['pendingcolwidths']) && \is_array($elm['pendingcolwidths'])) ? $elm['pendingcolwidths'] : [];
-        $cellspacing = (isset($elm['pendingcellspacing']) && \is_numeric($elm['pendingcellspacing'])) ? (float) $elm['pendingcellspacing'] : 0.0;
-        $cellpadding = (isset($elm['pendingcellpadding']) && \is_numeric($elm['pendingcellpadding'])) ? (float) $elm['pendingcellpadding'] : 0.0;
+        $colwidths = (isset($elm['pendingcolwidths']) && \is_array($elm['pendingcolwidths']))
+            ? $elm['pendingcolwidths'] : [];
+        $cellspacing = (isset($elm['pendingcellspacing']) && \is_numeric($elm['pendingcellspacing']))
+            ? (float) $elm['pendingcellspacing'] : 0.0;
+        $cellpadding = (isset($elm['pendingcellpadding']) && \is_numeric($elm['pendingcellpadding']))
+            ? (float) $elm['pendingcellpadding'] : 0.0;
         $availableWidth = \max(0.0, $width - $cellspacing * \max(0, $cols + 1));
         $colwidth = ($cols > 0) ? ($availableWidth / $cols) : $availableWidth;
 
@@ -6706,8 +7067,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtablehead(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENtablehead(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENtable($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -6797,8 +7164,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtcpdf(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENtcpdf(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         unset($tpy, $tph);
 
@@ -6858,8 +7231,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtd(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENtd(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = $hrc['dom'][$key];
         unset($tph);
 
@@ -6975,8 +7354,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtextarea(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENtextarea(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         unset($tph);
         $attr = $elm['attribute'] ?? [];
@@ -6984,7 +7369,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $name = (isset($attr['name']) && \is_string($attr['name'])) ? $attr['name'] : ('textarea_' . \count($this->tagvspaces));
+        $name = (isset($attr['name']) && \is_string($attr['name']))
+            ? $attr['name'] : ('textarea_' . \count($this->tagvspaces));
         $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
         $rows = (isset($attr['rows']) && \is_numeric($attr['rows'])) ? \max(1, (int) $attr['rows']) : 3;
@@ -6992,7 +7378,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
             ? (float) $elm['width']
             : $maxwidth;
-        if ((empty($elm['width']) || !\is_numeric($elm['width'])) && isset($attr['cols']) && \is_numeric($attr['cols'])) {
+        $hasCols = (empty($elm['width']) || !\is_numeric($elm['width']))
+            && isset($attr['cols']) && \is_numeric($attr['cols']);
+        if ($hasCols) {
             // Use the current font metrics to map HTML cols to a character-based field width.
             $cols = \max(1, (int) $attr['cols']);
             $fieldwidth = $this->getStringWidth(\str_repeat('0', $cols));
@@ -7002,7 +7390,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $fieldheight = $lineheight * $rows;
 
-        $objid = $this->addFFText($name, $tpx, $tpy, $fieldwidth, $fieldheight, ['v' => $value], ['multiline' => 'true']);
+        $objid = $this->addFFText(
+            $name,
+            $tpx,
+            $tpy,
+            $fieldwidth,
+            $fieldheight,
+            ['v' => $value],
+            ['multiline' => 'true']
+        );
         $this->page->addAnnotRef($objid, $this->page->getPageID());
         $tpx += $fieldwidth;
 
@@ -7025,8 +7421,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENth(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENth(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENtd($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7042,8 +7444,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENthead(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENthead(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagOPENtablehead($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7059,8 +7467,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENtr(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($key, $tph);
 
         $tableidx = \count($hrc['tablestack']) - 1;
@@ -7093,8 +7507,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENtt(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENtt(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7111,8 +7531,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENu(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENu(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7129,8 +7555,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagOPENul(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagOPENul(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $this->pushHTMLList($hrc, $key, false);
@@ -7157,8 +7589,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEa(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEa(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         $value = '';
         if (!empty($elm['value']) && \is_string($elm['value'])) {
@@ -7184,8 +7622,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEb(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEb(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7202,8 +7646,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEblockquote(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEblockquote(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7220,8 +7670,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEbody(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEbody(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7238,8 +7694,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEbr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEbr(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7256,8 +7718,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdd(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEdd(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7274,8 +7742,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdel(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEdel(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7292,8 +7766,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdiv(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEdiv(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7310,8 +7790,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdl(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEdl(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7328,8 +7814,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEdt(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEdt(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7346,8 +7838,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEem(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEem(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7364,8 +7862,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEfont(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEfont(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7382,8 +7886,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEform(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEform(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7400,8 +7910,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh1(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEh1(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7418,8 +7934,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh2(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEh2(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7435,8 +7957,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh3(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEh3(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7452,8 +7980,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh4(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEh4(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7469,8 +8003,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh5(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEh5(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7486,8 +8026,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEh6(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEh6(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEh1($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7503,8 +8049,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEhr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEhr(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7521,8 +8073,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEi(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEi(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7539,8 +8097,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEimg(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEimg(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7557,8 +8121,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEinput(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEinput(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7575,8 +8145,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSElabel(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSElabel(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7593,8 +8169,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEli(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEli(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $out = $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $saved = \array_pop($hrc['listack']);
@@ -7620,8 +8202,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEmarker(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEmarker(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7638,8 +8226,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEol(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEol(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $this->popHTMLList($hrc);
 
@@ -7658,8 +8252,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEoption(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEoption(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7676,8 +8276,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEoutput(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEoutput(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7694,8 +8300,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEp(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEp(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
@@ -7712,8 +8324,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEpre(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEpre(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $hrc['prelevel'] = \max(0, $hrc['prelevel'] - 1);
         return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
@@ -7731,8 +8349,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEs(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEs(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7749,8 +8373,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEselect(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEselect(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7767,8 +8397,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEsmall(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEsmall(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7785,8 +8421,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEspan(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEspan(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7803,8 +8445,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEstrike(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEstrike(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7821,8 +8469,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEstrong(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEstrong(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7839,8 +8493,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEsub(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEsub(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, -self::VERT_SHIFT_SUB * self::FONT_SMALL_RATIO);
     }
@@ -7857,8 +8517,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEsup(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEsup(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tpx, $tpw, $tph);
         return $this->shiftHTMLVerticalPosition($hrc, $key, $tpy, self::VERT_SHIFT_SUP * self::FONT_SMALL_RATIO);
     }
@@ -7875,8 +8541,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtable(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEtable(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
 
         if (empty($hrc['tablestack'])) {
@@ -7949,8 +8621,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtablehead(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEtablehead(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEtable($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -7966,8 +8644,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtcpdf(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEtcpdf(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -7984,8 +8668,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtd(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEtd(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         $elm = &$hrc['dom'][$key];
         unset($tph);
 
@@ -8078,8 +8768,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtextarea(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEtextarea(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -8096,8 +8792,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEth(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEth(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEtd($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -8113,8 +8815,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEthead(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEthead(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         return $this->parseHTMLTagCLOSEtablehead($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -8130,8 +8838,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtr(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEtr(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($key, $tph);
 
         $tableidx = \count($hrc['tablestack']) - 1;
@@ -8219,8 +8933,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEtt(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEtt(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -8237,8 +8957,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEu(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEu(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
     }
@@ -8255,8 +8981,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      */
-    protected function parseHTMLTagCLOSEul(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
+    protected function parseHTMLTagCLOSEul(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
         unset($tph);
         $this->popHTMLList($hrc);
 
