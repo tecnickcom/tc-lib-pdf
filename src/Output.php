@@ -1159,7 +1159,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             // embedded file object
             $filter = '';
             if ($this->pdfa == 3) {
-                $filter = ' /Subtype /' . \str_replace(['/', '+'], ['#2F', '#2B'], ($data['mimeType'] ?? 'application/octet-stream'));
+                $filter = ' /Subtype /'
+                    . \str_replace(['/', '+'], ['#2F', '#2B'], ($data['mimeType'] ?? 'application/octet-stream'));
             } elseif ($this->compress) {
                 $content = \gzcompress($content);
                 if ($content === false) {

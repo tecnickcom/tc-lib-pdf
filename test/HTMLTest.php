@@ -20,635 +20,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
- * @phpstan-import-type THTMLRenderContext from \Com\Tecnick\Pdf\HTML
- */
-class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
-{
-    /** @var THTMLRenderContext */
-    private array $testhrc = [
-        'cellctx' => [
-            'originx' => 0.0,
-            'originy' => 0.0,
-            'maxwidth' => 0.0,
-            'maxheight' => 0.0,
-            'lineadvance' => 0.0,
-            'linebottom' => 0.0,
-            'lineascent' => 0.0,
-            'linewordspacing' => 0.0,
-            'linewrapped' => false,
-            'basefont' => '',
-        ],
-        'fontcache' => [],
-        'liststack' => [],
-        'tablestack' => [],
-        'bcellctx' => [],
-        'blockbuf' => [],
-        'linkstack' => [],
-        'listack' => [],
-        'prelevel' => 0,
-        'dom' => [],
-    ];
-
-    public function exposeSanitizeHTML(string $html): string
-    {
-        return $this->sanitizeHTML($html);
-    }
-
-    private function initExposeRenderContextIfNeeded(): void
-    {
-        if (isset($this->testhrc['cellctx']) && \is_array($this->testhrc['cellctx'])) {
-            return;
-        }
-
-        $this->initHTMLCellContext($this->testhrc, 0.0, 0.0, 0.0, 0.0);
-    }
-
-    /** @phpstan-return THTMLRenderContext */
-    public function exposeGetHTMLRenderContext(): array
-    {
-        return $this->testhrc;
-    }
-
-    /** @return array<int, string> */
-    public function exposeParseHTMLTagMethods(): array
-    {
-        $ref = new \ReflectionClass(\Com\Tecnick\Pdf\HTML::class);
-        $names = [];
-        foreach ($ref->getMethods(\ReflectionMethod::IS_PROTECTED) as $method) {
-            $name = $method->getName();
-            if (
-                \str_starts_with($name, 'parseHTMLTagOPEN')
-                || \str_starts_with($name, 'parseHTMLTagCLOSE')
-            ) {
-                $names[] = $name;
-            }
-        }
-        \sort($names);
-
-        return $names;
-    }
-
-    /** @phpstan-param THTMLAttrib $elm */
-    public function exposeInvokeParseHTMLTagMethod(
-        string $method,
-        array $elm,
-        float &$tpx,
-        float &$tpy,
-        float &$tpw,
-        float &$tph,
-    ): string {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
-
-        $out = $this->{$method}($this->testhrc, 0, $tpx, $tpy, $tpw, $tph);
-        if (!\is_string($out)) {
-            return '';
-        }
-
-        return $out;
-    }
-
-    /** @phpstan-return THTMLAttrib */
-    public function exposeGetHTMLRootProperties(): array
-    {
-        return $this->getHTMLRootProperties();
-    }
-
-    /** @phpstan-return array<int, THTMLAttrib> */
-    public function exposeGetHTMLDOM(string $html): array
-    {
-        return $this->getHTMLDOM($html);
-    }
-
-    public function exposeGetHTMLliBullet(
-        int $depth,
-        int $count,
-        float $posx = 0,
-        float $posy = 0,
-        string $type = '',
-    ): string {
-        return $this->getHTMLliBullet($depth, $count, $posx, $posy, $type);
-    }
-
-    public function exposePageBreak(): int
-    {
-        return $this->pageBreak();
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeProcessHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
-    {
-        $this->processHTMLDOMText($dom, $element, $key, $parent);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeInheritHTMLProperties(array &$dom, int $key, int $parent): void
-    {
-        $this->inheritHTMLProperties($dom, $key, $parent);
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     * @phpstan-param array<int, string> $elm
-     */
-    public function exposeProcessHTMLDOMClosingTag(
-        array &$dom,
-        array $elm,
-        int $key,
-        int $parent,
-        string $cssarray,
-    ): void {
-        $this->processHTMLDOMClosingTag($dom, $elm, $key, $parent, $cssarray);
-    }
-
-    /**
-    * @phpstan-param array<int, THTMLAttrib> $dom
-     * @phpstan-param array<string, string> $css
-     * @phpstan-param array<int> $level
-     */
-    public function exposeProcessHTMLDOMOpeningTag(
-        array &$dom,
-        array $css,
-        array $level,
-        string $element,
-        int $key,
-        bool $thead,
-    ): void {
-        $this->processHTMLDOMOpeningTag($dom, $css, $level, $element, $key, $thead);
-    }
-
-    /** @phpstan-param THTMLAttrib $elm */
-    public function exposeParseHTMLText(
-        array $elm,
-        float &$tpx,
-        float &$tpy,
-        float &$tpw,
-        float &$tph,
-    ): string {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
-
-        return $this->parseHTMLText($this->testhrc, 0, $tpx, $tpy, $tpw, $tph);
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     */
-    public function exposeParseHTMLTextWithDom(
-        array $dom,
-        int $key,
-        float &$tpx,
-        float &$tpy,
-        float &$tpw,
-        float &$tph,
-    ): string {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->parseHTMLText($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
-    }
-
-    public function exposeInitHTMLCellContext(
-        float $originx,
-        float $originy,
-        float $maxwidth,
-        float $maxheight,
-    ): void {
-        $this->initHTMLCellContext($this->testhrc, $originx, $originy, $maxwidth, $maxheight);
-    }
-
-    public function exposeSetHTMLLineState(float $lineadvance, float $linebottom, bool $linewrapped, float $lineascent = 0.0): void
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['cellctx']['lineadvance'] = $lineadvance;
-        $this->testhrc['cellctx']['linebottom'] = $linebottom;
-        $this->testhrc['cellctx']['lineascent'] = $lineascent;
-        $this->testhrc['cellctx']['linewordspacing'] = 0.0;
-        $this->testhrc['cellctx']['linewrapped'] = $linewrapped;
-    }
-
-    /** @phpstan-param THTMLAttrib $elm */
-    public function exposeOpenHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
-
-        return $this->openHTMLBlock($this->testhrc, 0, $tpx, $tpy, $tpw);
-    }
-
-    /** @phpstan-param THTMLAttrib $elm */
-    public function exposeCloseHTMLBlock(array $elm, float &$tpx, float &$tpy, float &$tpw): string
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = [$elm];
-
-        return $this->closeHTMLBlock($this->testhrc, 0, $tpx, $tpy, $tpw);
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     */
-    public function exposeParseHTMLTagOPENbrWithDom(
-        array $dom,
-        int $key,
-        float &$tpx,
-        float &$tpy,
-        float &$tpw,
-        float &$tph,
-    ): string {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->parseHTMLTagOPENbr($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
-    }
-
-    /** @param array<string, mixed> $elm */
-    public function exposeGetHTMLInputDisplayValue(array $elm): string
-    {
-        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'getHTMLInputDisplayValue');
-
-        /** @var string */
-        return $method->invoke($this, $elm);
-    }
-
-    /** @param array<string, mixed> $elm */
-    public function exposeGetHTMLSelectDisplayValue(array $elm): string
-    {
-        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'getHTMLSelectDisplayValue');
-
-        /** @var string */
-        return $method->invoke($this, $elm);
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     *
-     * @return array<int|string, array<string, mixed>>
-     */
-    public function exposeGetHTMLTableCellBorderStylesWithDom(array $dom, int $key): array
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLTableCellBorderStyles($this->testhrc, $key);
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     *
-     * @return ?array<string, mixed>
-     */
-    public function exposeGetHTMLTableCellFillStyleWithDom(array $dom, int $key): ?array
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLTableCellFillStyle($this->testhrc, $key);
-    }
-
-    /** @phpstan-return array<string, mixed> */
-    public function exposeGetHTMLFillStyle(string $fillcolor): array
-    {
-        return $this->getHTMLFillStyle($fillcolor);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeHasBlockLvBgAncestorWithDom(array $dom, int $key): bool
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->hasBlockLvBgAncestor($this->testhrc, $key);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeFindHTMLAncestorOpeningTagWithDom(array $dom, int $key, string $tagname): int
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->findHTMLAncestorOpeningTag($this->testhrc, $key, $tagname);
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     * @phpstan-param array<string, string> $attr
-     *
-     * @return string|array<string, mixed>
-     */
-    public function exposeGetHTMLInputButtonActionWithDom(array $dom, int $key, string $type, array $attr): string|array
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLInputButtonAction($this->testhrc, $key, $type, $attr);
-    }
-
-    /** @return ?array{m: string, p: array<int, mixed>} */
-    public function exposeParseHTMLTcpdfSerializedData(string $data): ?array
-    {
-        return $this->parseHTMLTcpdfSerializedData($data);
-    }
-
-    public function exposeIsAllowedHTMLTcpdfMethod(string $method): bool
-    {
-        return $this->isAllowedHTMLTcpdfMethod($method);
-    }
-
-    public function exposeExecuteHTMLTcpdfPageBreak(string $mode, float &$tpx, float &$tpw): void
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->executeHTMLTcpdfPageBreak($this->testhrc, $mode, $tpx, $tpw);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeGetHTMLListMarkerTypeWithDom(array $dom, int $key, bool $ordered): string
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLListMarkerType($this->testhrc, $key, $ordered);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposePushHTMLListWithDom(array $dom, int $key, bool $ordered): void
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-        $this->pushHTMLList($this->testhrc, $key, $ordered);
-    }
-
-    public function exposePopHTMLList(): void
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->popHTMLList($this->testhrc);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeGetHTMLListItemCounterWithDom(array $dom, int $key): int
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLListItemCounter($this->testhrc, $key);
-    }
-
-    public function exposeGetCurrentHTMLListMarkerType(): string
-    {
-        $this->initExposeRenderContextIfNeeded();
-
-        return $this->getCurrentHTMLListMarkerType($this->testhrc);
-    }
-
-    public function exposeEstimateHTMLTableHeadHeight(string $thead): float
-    {
-        $this->initExposeRenderContextIfNeeded();
-
-        return $this->estimateHTMLTableHeadHeight($this->testhrc, $thead);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeEstimateHTMLTableRowHeightWithDom(array $dom, int $trkey): float
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->estimateHTMLTableRowHeight($this->testhrc, $trkey);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeFindHTMLClosingTagIndex(array $dom, int $startkey): int
-    {
-        return $this->findHTMLClosingTagIndex($dom, $startkey);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeEstimateHTMLTextHeightWithDom(array $dom, int $key, string $text, float $width): float
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->estimateHTMLTextHeight($this->testhrc, $key, $text, $width);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeEstimateHTMLNobrHeightWithDom(array $dom, int $startkey, float $width): float
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->estimateHTMLNobrHeight($this->testhrc, $startkey, $width);
-    }
-
-    public function exposeSetHTMLPrelevel(int $prelevel): void
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['prelevel'] = $prelevel;
-    }
-
-    public function exposeGetHTMLBaseFontName(): string
-    {
-        return $this->getHTMLBaseFontName();
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     *
-     * @return array<string, mixed>
-     */
-    public function exposeGetHTMLFontMetricWithDom(array $dom, int $key): array
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLFontMetric($this->testhrc, $key);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeGetHTMLTextPrefixWithDom(array $dom, int $key): string
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLTextPrefix($this->testhrc, $key);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeGetHTMLLineAdvanceWithDom(array $dom, int $key): float
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getHTMLLineAdvance($this->testhrc, $key);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeGetCurrentHTMLLineAdvanceWithDom(array $dom, int $key): float
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->getCurrentHTMLLineAdvance($this->testhrc, $key);
-    }
-
-    public function exposeUpdateHTMLLineAdvance(float $lineadvance): void
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->updateHTMLLineAdvance($this->testhrc, $lineadvance);
-    }
-
-    /**
-     * @phpstan-param array<int, THTMLAttrib> $dom
-     *
-     * @return array{width: float, spaces: int, wrapped: bool}
-     */
-    public function exposeMeasureHTMLInlineLineMetricsWithDom(array $dom, int $startkey, float $maxwidth, float $wordspacing = 0.0): array
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->measureHTMLInlineLineMetrics($this->testhrc, $startkey, $maxwidth, $wordspacing);
-    }
-
-    public function exposeGetHTMLTextFirstLineSpaces(string $text, string $forcedir, float $maxwidth): int
-    {
-        return $this->getHTMLTextFirstLineSpaces($text, $forcedir, $maxwidth);
-    }
-
-    /** @phpstan-param array<int, THTMLAttrib> $dom */
-    public function exposeMeasureHTMLInlineRunMaxAscentWithDom(array $dom, int $startkey): float
-    {
-        $this->initExposeRenderContextIfNeeded();
-        $this->testhrc['dom'] = $dom;
-
-        return $this->measureHTMLInlineRunMaxAscent($this->testhrc, $startkey);
-    }
-
-    public function exposeHasHTMLTextBreakOpportunity(string $text): bool
-    {
-        return $this->hasHTMLTextBreakOpportunity($text);
-    }
-}
-
-class TestableHTMLNobrProbe extends TestableHTML
-{
-    /** @var array<int, string> */
-    private array $nobrOpenStates = [];
-
-    /** @return array<int, string> */
-    public function exposeNobrOpenStates(): array
-    {
-        return $this->nobrOpenStates;
-    }
-
-    protected function parseHTMLTagOPENdiv(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
-    {
-        $elm = $hrc['dom'][$key];
-        $state = '';
-        if (!empty($elm['attribute']['nobr']) && \is_string($elm['attribute']['nobr'])) {
-            $state = $elm['attribute']['nobr'];
-        }
-        $this->nobrOpenStates[] = $state;
-
-        return parent::parseHTMLTagOPENdiv($hrc, $key, $tpx, $tpy, $tpw, $tph);
-    }
-}
-
-class TestableHTMLBBoxProbe extends TestableHTML
-{
-    /**
-     * @var array<int, array{txt: string, in_x: float, in_y: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_h: float, bbox_end_x: float, font_size: float}>
-     */
-    private array $bboxTrace = [];
-
-    /**
-     * @return array<int, array{txt: string, in_x: float, in_y: float, bbox_x: float, bbox_y: float, bbox_w: float, bbox_h: float, bbox_end_x: float, font_size: float}>
-     */
-    public function exposeGetBBoxTrace(): array
-    {
-        return $this->bboxTrace;
-    }
-
-    public function exposeResetBBoxTrace(): void
-    {
-        $this->bboxTrace = [];
-    }
-
-    public function getTextCell(
-        string $txt,
-        float $posx = 0,
-        float $posy = 0,
-        float $width = 0,
-        float $height = 0,
-        float $offset = 0,
-        float $linespace = 0,
-        string $valign = 'C',
-        string $halign = 'C',
-        ?array $cell = null,
-        array $styles = [],
-        float $strokewidth = 0,
-        float $wordspacing = 0,
-        float $leading = 0,
-        float $rise = 0,
-        bool $jlast = true,
-        bool $fill = true,
-        bool $stroke = false,
-        bool $underline = false,
-        bool $linethrough = false,
-        bool $overline = false,
-        bool $clip = false,
-        bool $drawcell = true,
-        string $forcedir = '',
-        ?array $shadow = null,
-    ): string {
-        $out = parent::getTextCell(
-            $txt,
-            $posx,
-            $posy,
-            $width,
-            $height,
-            $offset,
-            $linespace,
-            $valign,
-            $halign,
-            $cell,
-            $styles,
-            $strokewidth,
-            $wordspacing,
-            $leading,
-            $rise,
-            $jlast,
-            $fill,
-            $stroke,
-            $underline,
-            $linethrough,
-            $overline,
-            $clip,
-            $drawcell,
-            $forcedir,
-            $shadow,
-        );
-
-        $bbox = $this->getLastBBox();
-        $curfont = $this->font->getCurrentFont();
-        $this->bboxTrace[] = [
-            'txt' => $txt,
-            'in_x' => $posx,
-            'in_y' => $posy,
-            'bbox_x' => $bbox['x'],
-            'bbox_y' => $bbox['y'],
-            'bbox_w' => $bbox['w'],
-            'bbox_h' => $bbox['h'],
-            'bbox_end_x' => $bbox['x'] + $bbox['w'],
-            'font_size' => (float) ($curfont['size'] ?? 0.0),
-        ];
-
-        return $out;
-    }
-}
-
-/**
- * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
  */
 class HTMLTest extends TestUtil
 {
@@ -807,7 +178,11 @@ class HTMLTest extends TestUtil
             $this->assertSame('key', $params[1]->getName(), 'Second parameter must be key in ' . $name);
 
             $ptype = $params[1]->getType();
-            $this->assertInstanceOf(\ReflectionNamedType::class, $ptype, 'Second parameter must have named type in ' . $name);
+            $this->assertInstanceOf(
+                \ReflectionNamedType::class,
+                $ptype,
+                'Second parameter must have named type in ' . $name
+            );
             $this->assertSame('int', $ptype->getName(), 'Second parameter type must be int in ' . $name);
         }
     }
@@ -995,7 +370,8 @@ class HTMLTest extends TestUtil
                 'font-stretch' => 100.0,
                 'letter-spacing' => 0.0,
                 'attribute' => [
-                    'style' => 'line-height:normal;page-break-before:always;page-break-after:right;list-style-type:inherit;text-indent:inherit;',
+                    'style' => 'line-height:normal;page-break-before:always;page-break-after:right;'
+                        . 'list-style-type:inherit;text-indent:inherit;',
                 ],
             ]),
             2 => $this->makeHtmlNode([
@@ -1074,9 +450,12 @@ class HTMLTest extends TestUtil
         // "12px" — NOT numeric as a string, but must be parsed by getFontValuePoints
         $dom = [
             0 => $this->makeHtmlNode(['fontsize' => 10.0]),
-            1 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0, 'attribute' => ['style' => 'font-size:12px;']]),
-            2 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0, 'attribute' => ['style' => 'font-size:150%;']]),
-            3 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0, 'attribute' => ['style' => 'font-size:1.5em;']]),
+            1 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-size:12px;']]),
+            2 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-size:150%;']]),
+            3 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-size:1.5em;']]),
         ];
 
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
@@ -1111,7 +490,11 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         // Must equal the parent value exactly, not be recalculated
-        $this->assertSame($parentLineHeight, $dom[1]['line-height'], 'line-height:inherit must not fall through to default recalculation');
+        $this->assertSame(
+            $parentLineHeight,
+            $dom[1]['line-height'],
+            'line-height:inherit must not fall through to default recalculation'
+        );
     }
 
     public function testAnchorInsideBoldPreservesBoldFontstyle(): void
@@ -1187,7 +570,11 @@ class HTMLTest extends TestUtil
 
         $this->assertGreaterThan(0.0, $dom[1]['padding']['T'], 'padding-top must be applied');
         $this->assertGreaterThan(0.0, $dom[1]['padding']['L'], 'padding-left must be applied');
-        $this->assertGreaterThan($dom[1]['padding']['T'], $dom[1]['padding']['L'], 'padding-left (10px) must be greater than padding-top (5px)');
+        $this->assertGreaterThan(
+            $dom[1]['padding']['T'],
+            $dom[1]['padding']['L'],
+            'padding-left (10px) must be greater than padding-top (5px)'
+        );
         $this->assertGreaterThan(0.0, $dom[1]['margin']['T'], 'margin-top must be applied');
         $this->assertGreaterThan(0.0, $dom[1]['margin']['R'], 'margin-right must be applied');
     }
@@ -1368,7 +755,9 @@ class HTMLTest extends TestUtil
 
         $html = '<body>'
             . '<a href="https://example.com">'
-            . '<b>B</b><em>E</em><font>F</font><i>I</i><label>L</label><marker>M</marker><s>S</s><small>sm</small><span>sp</span><strike>st</strike><strong>sg</strong><tt>tt</tt><u>u</u><del>d</del><form>frm</form>'
+            . '<b>B</b><em>E</em><font>F</font><i>I</i><label>L</label><marker>M</marker>'
+            . '<s>S</s><small>sm</small><span>sp</span><strike>st</strike><strong>sg</strong>'
+            . '<tt>tt</tt><u>u</u><del>d</del><form>frm</form>'
             . '</a>'
             . '<blockquote>q</blockquote>'
             . '<div>dv</div>'
@@ -1675,8 +1064,10 @@ class HTMLTest extends TestUtil
             ],
             [
                 '3L',
-                '<td align="left"><small>3L small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
-                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+                '<td align="left"><small>3L small text</small>'
+                . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo'
+                    . ' Sierra Tango Uniform Victor Whiskey Xray '
                     . 'Yankee Zulu</td>',
                 2,
                 '3L small text',
@@ -1684,8 +1075,10 @@ class HTMLTest extends TestUtil
             ],
             [
                 '3C',
-                '<td align="center"><small>3C small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
-                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+                '<td align="center"><small>3C small text</small>'
+                . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo'
+                    . ' Sierra Tango Uniform Victor Whiskey Xray '
                     . 'Yankee Zulu</td>',
                 2,
                 '3C small text',
@@ -1693,8 +1086,10 @@ class HTMLTest extends TestUtil
             ],
             [
                 '3R',
-                '<td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
-                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
+                '<td align="right"><small>3R small text</small>'
+                . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo'
+                    . ' Sierra Tango Uniform Victor Whiskey Xray '
                     . 'Yankee Zulu</td>',
                 2,
                 '3R small text',
@@ -1741,13 +1136,16 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $html = '<table border="1" cellspacing="3" cellpadding="4">'
-            . '<tr><td align="left"><small>3L small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+            . '<tr><td align="left"><small>3L small text</small>'
+            . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
             . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
             . 'Yankee Zulu</td></tr>'
-            . '<tr><td align="center"><small>3C small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+            . '<tr><td align="center"><small>3C small text</small>'
+            . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
             . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
             . 'Yankee Zulu</td></tr>'
-            . '<tr><td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+            . '<tr><td align="right"><small>3R small text</small>'
+            . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
             . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
             . 'Yankee Zulu</td></tr>'
             . '</table>';
@@ -2689,7 +2087,13 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell('<img src="/tmp/__tc_lib_pdf_missing_image__.png" alt="fallback-alt" />', 0, 0, 20, 10);
+        $out = $obj->getHTMLCell(
+            '<img src="/tmp/__tc_lib_pdf_missing_image__.png" alt="fallback-alt" />',
+            0,
+            0,
+            20,
+            10
+        );
 
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('Tj', $out);
@@ -2713,7 +2117,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $out = $obj->getHTMLCell(
-            '<table><tr><td style="border:1px solid black">A</td><td style="border:1px solid black">This is a longer wrapped cell value</td></tr></table>',
+            '<table><tr><td style="border:1px solid black">A</td>'
+            . '<td style="border:1px solid black">This is a longer wrapped cell value</td></tr></table>',
             0,
             0,
             25,
@@ -2760,7 +2165,8 @@ class HTMLTest extends TestUtil
 
         $out = $obj->getHTMLCell(
             '<table>'
-            . '<tr><td rowspan="2" style="border:1px solid black">A</td><td style="border:1px solid black">Top</td></tr>'
+            . '<tr><td rowspan="2" style="border:1px solid black">A</td>'
+            . '<td style="border:1px solid black">Top</td></tr>'
             . '<tr><td style="border:1px solid black">Bottom</td></tr>'
             . '</table>',
             0,
@@ -2791,7 +2197,8 @@ class HTMLTest extends TestUtil
 
         $out = $obj->getHTMLCell(
             '<table cellspacing="3">'
-            . '<tr><td rowspan="2" style="border:1px solid black">A</td><td style="border:1px solid black">Top</td></tr>'
+            . '<tr><td rowspan="2" style="border:1px solid black">A</td>'
+            . '<td style="border:1px solid black">Top</td></tr>'
             . '<tr><td style="border:1px solid black">Bottom</td></tr>'
             . '</table>',
             0,
@@ -2847,11 +2254,13 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<small color="#ff0000" bgcolor="#ffff00">small small small small small small small small small small small small small small small small small small small small</small>';
+        $html = '<small color="#ff0000" bgcolor="#ffff00">small small small small small small small'
+            . ' small small small small small small small small small small small small small</small>';
 
         $extractFillSpan = static function (string $out): float {
             $matches = [];
-            \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+f/', $out, $matches, PREG_SET_ORDER);
+            $re4Pattern = '/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+f/';
+            \preg_match_all($re4Pattern, $out, $matches, PREG_SET_ORDER);
             if ($matches === []) {
                 return 0.0;
             }
@@ -3715,7 +3124,9 @@ class HTMLTest extends TestUtil
         $this->assertStringNotContainsString('</thead>', $dom[2]['content']);
 
         $dom = [
-            0 => \array_replace($root, ['value' => 'root', 'elkey' => 0, 'parent' => 0, 'thead' => '<tr nobr="true"></tr>']),
+            0 => \array_replace($root, [
+                'value' => 'root', 'elkey' => 0, 'parent' => 0, 'thead' => '<tr nobr="true"></tr>'
+            ]),
             1 => \array_replace($root, ['value' => 'table', 'elkey' => 1, 'parent' => 0]),
         ];
         $elm = ['<root>', '</table>'];
@@ -4209,9 +3620,11 @@ class HTMLTest extends TestUtil
                 'attribute' => [
                     'style' => 'line-height:12pt;page-break-before:avoid;page-break-after:left;'
                         . 'border-style:none none none hidden;'
-                        . 'border-left-color:#111;border-right-color:#222;border-top-color:#333;border-bottom-color:#444;'
+                        . 'border-left-color:#111;border-right-color:#222;'
+                        . 'border-top-color:#333;border-bottom-color:#444;'
                         . 'border-left-width:1;border-right-width:2;border-top-width:3;border-bottom-width:4;'
-                        . 'border-left-style:dashed;border-right-style:dotted;border-top-style:solid;border-bottom-style:double;',
+                        . 'border-left-style:dashed;border-right-style:dotted;'
+                        . 'border-top-style:solid;border-bottom-style:double;',
                 ],
             ]),
             2 => $this->makeHtmlNode([
@@ -4798,7 +4211,9 @@ class HTMLTest extends TestUtil
             $font = $this->getObjectProperty($obj, 'font');
             /** @var int $pon */
             $pon = $this->getObjectProperty($obj, 'pon');
-            $fontfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/cid0/cid0jp.json');
+            $fontfile = (string) \realpath(
+                __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/cid0/cid0jp.json'
+            );
             if ($fontfile === '') {
                 $this->markTestSkipped('CID0JP font definition is not available.');
             }
@@ -5191,7 +4606,8 @@ class HTMLTest extends TestUtil
         );
 
         $this->assertSame(1, \preg_match('/BT .*? [-0-9.]+ ([-0-9.]+) Td \(left \) Tj ET/s', $out, $textMatch));
-        $this->assertSame(1, \preg_match('/q [-0-9.]+ 0 0 [-0-9.]+ [-0-9.]+ ([-0-9.]+) cm \/IMG\d+ Do Q/', $out, $imgMatch));
+        $imgPattern = '/q [-0-9.]+ 0 0 [-0-9.]+ [-0-9.]+ ([-0-9.]+) cm \/IMG\d+ Do Q/';
+        $this->assertSame(1, \preg_match($imgPattern, $out, $imgMatch));
 
         $this->assertEqualsWithDelta((float) $textMatch[1], (float) $imgMatch[1], 0.01);
     }
@@ -6027,7 +5443,8 @@ class HTMLTest extends TestUtil
 
         $this->assertEqualsWithDelta($rowHeight, $obj->exposeEstimateHTMLNobrHeightWithDom($dom, 0, 20.0), 0.01);
         $this->assertGreaterThan($rowHeight, $obj->exposeEstimateHTMLNobrHeightWithDom($dom, 3, 20.0));
-        $this->assertSame(0.0, $obj->exposeEstimateHTMLNobrHeightWithDom([$this->makeHtmlNode(['value' => 'div', 'opening' => true])], 0, 20.0));
+        $emptyDiv = [$this->makeHtmlNode(['value' => 'div', 'opening' => true])];
+        $this->assertSame(0.0, $obj->exposeEstimateHTMLNobrHeightWithDom($emptyDiv, 0, 20.0));
     }
 
     public function testHtmlFontAndLineAdvanceHelpersCoverFallbackAndCachingBranches(): void
@@ -6172,7 +5589,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $obj->getHTMLCell(
-            '<form action="https://example.test/form" method="get"><input type="submit" name="submit" value="Go" /></form>',
+            '<form action="https://example.test/form" method="get">'
+            . '<input type="submit" name="submit" value="Go" /></form>',
             0,
             0,
             60,
@@ -6302,7 +5720,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $obj->getHTMLCell(
-            '<select name="choices" size="2" multiple="multiple"><option value="a">Alpha</option><option value="b">Beta</option></select>',
+            '<select name="choices" size="2" multiple="multiple">'
+            . '<option value="a">Alpha</option><option value="b">Beta</option></select>',
             0,
             0,
             40,
@@ -6393,7 +5812,12 @@ class HTMLTest extends TestUtil
         $this->assertNotEmpty($yPositions);
         $firstY = $yPositions[0];
         foreach ($yPositions as $y) {
-            $this->assertEqualsWithDelta($firstY, $y, 0.001, 'All nested inline text fragments must be on the same line');
+            $this->assertEqualsWithDelta(
+                $firstY,
+                $y,
+                0.001,
+                'All nested inline text fragments must be on the same line'
+            );
         }
 
         // Also verify tpx advanced after each fragment (fragments are side by side, not stacked).

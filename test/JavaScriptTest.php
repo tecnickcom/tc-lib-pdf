@@ -16,23 +16,7 @@
 
 namespace Test;
 
-class TestableJavaScript extends \Com\Tecnick\Pdf\Tcpdf
-{
-    /**
-     * @param array<string, mixed> $prp
-     * @return array<string, mixed>
-     */
-    public function exposeGetAnnotOptFromJSProp(array $prp = []): array
-    {
-        return $this->getAnnotOptFromJSProp($prp);
-    }
-
-    public function exposeGetPDFDefFillColor(): string
-    {
-        return $this->getPDFDefFillColor();
-    }
-}
-
+/** @phpstan-import-type TXOBject from \Com\Tecnick\Pdf\Output */
 class JavaScriptTest extends TestUtil
 {
     public static function setUpBeforeClass(): void
@@ -165,7 +149,7 @@ class JavaScriptTest extends TestUtil
         $obj->addXObjectExtGStateID($tid, 9);
         $obj->addXObjectSpotColorID($tid, 'SC1');
 
-        /** @var array<string, array{outdata:string, xobject:array<int, string>, image:array<int, int>, font:array<int, string>, gradient:array<int, int>, extgstate:array<int, int>, spot_colors:array<int, string>}> $xobjects */
+        /** @var array<string, TXOBject> $xobjects */
         $xobjects = $this->getObjectProperty($obj, 'xobjects');
         $this->assertArrayHasKey($tid, $xobjects);
         $this->assertSame('q Q', $xobjects[$tid]['outdata']);
@@ -249,7 +233,10 @@ class JavaScriptTest extends TestUtil
         $obj = $this->getInternalTestObject();
 
         $this->assertSame([], $obj->exposeGetAnnotOptFromJSProp([]));
-        $this->assertSame(['Subtype' => 'Widget'], $obj->exposeGetAnnotOptFromJSProp(['aopt' => ['Subtype' => 'Widget']]));
+        $this->assertSame(
+            ['Subtype' => 'Widget'],
+            $obj->exposeGetAnnotOptFromJSProp(['aopt' => ['Subtype' => 'Widget']])
+        );
 
         $this->setObjectProperty($obj, 'rtl', true);
         $rtlOpt = $obj->exposeGetAnnotOptFromJSProp(['alignment' => 'weird']);
@@ -787,13 +774,54 @@ class JavaScriptTest extends TestUtil
         $comboId = $obj->addFFComboBox('comboScalar', 1, 2, 30, 12, ['One', 'Two']);
         $listId = $obj->addFFListBox('listScalar', 1, 2, 30, 12, ['Red', 'Blue']);
         $listArrayId = $obj->addFFListBox('listArray', 1, 2, 30, 12, [['V1', 'Label 1'], ['V2', 'Label 2']]);
-        $radioOffId = $obj->addFFRadioButton('radioGroup', 3, 4, 6, 'On', false, ['subtype' => 'Widget', 'q' => 0], ['aopt' => ['Subtype' => 'Widget', 'f' => 0], 'readonly' => 'true']);
+        $radioOffId = $obj->addFFRadioButton(
+            'radioGroup',
+            3,
+            4,
+            6,
+            'On',
+            false,
+            ['subtype' => 'Widget', 'q' => 0],
+            ['aopt' => ['Subtype' => 'Widget', 'f' => 0], 'readonly' => 'true']
+        );
         $radioOnId = $obj->addFFRadioButton('radioGroup', 9, 4, 6, 'On', true);
 
-        $txtLeftId = $obj->addFFText('txtLeft', 1, 2, 30, 10, ['subtype' => 'Widget', 'q' => 0], ['alignment' => 'left', 'value' => 'L']);
-        $txtCenterId = $obj->addFFText('txtCenter', 1, 2, 30, 10, ['subtype' => 'Widget'], ['alignment' => 'center', 'value' => 'C']);
-        $txtRightId = $obj->addFFText('txtRight', 1, 2, 30, 10, ['subtype' => 'Widget', 'q' => 2], ['alignment' => 'right', 'value' => 'R']);
-        $txtUnknownId = $obj->addFFText('txtUnknown', 1, 2, 30, 10, ['subtype' => 'Widget', 'q' => 99], ['value' => 'U']);
+        $txtLeftId = $obj->addFFText(
+            'txtLeft',
+            1,
+            2,
+            30,
+            10,
+            ['subtype' => 'Widget', 'q' => 0],
+            ['alignment' => 'left', 'value' => 'L']
+        );
+        $txtCenterId = $obj->addFFText(
+            'txtCenter',
+            1,
+            2,
+            30,
+            10,
+            ['subtype' => 'Widget'],
+            ['alignment' => 'center', 'value' => 'C']
+        );
+        $txtRightId = $obj->addFFText(
+            'txtRight',
+            1,
+            2,
+            30,
+            10,
+            ['subtype' => 'Widget', 'q' => 2],
+            ['alignment' => 'right', 'value' => 'R']
+        );
+        $txtUnknownId = $obj->addFFText(
+            'txtUnknown',
+            1,
+            2,
+            30,
+            10,
+            ['subtype' => 'Widget', 'q' => 99],
+            ['value' => 'U']
+        );
 
         /** @var array<int, array{opt:array<string, mixed>}> $annotation */
         $annotation = $this->getObjectProperty($obj, 'annotation');

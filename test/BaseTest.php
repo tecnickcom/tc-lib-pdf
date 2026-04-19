@@ -18,38 +18,6 @@ namespace Test;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 
-/** @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base */
-class TestableBase extends \Com\Tecnick\Pdf\Tcpdf
-{
-    /** @phpstan-param TRefUnitValues $ref */
-    public function exposeGetUnitValuePoints(
-        string|float|int $val,
-        array $ref = self::REFUNITVAL,
-        string $defunit = 'px',
-    ): float {
-        return $this->getUnitValuePoints($val, $ref, $defunit);
-    }
-
-    /** @phpstan-param TRefUnitValues $ref */
-    public function exposeGetFontValuePoints(
-        string|float|int $val,
-        array $ref = self::REFUNITVAL,
-        string $defunit = 'pt',
-    ): float {
-        return $this->getFontValuePoints($val, $ref, $defunit);
-    }
-
-    public function exposeSetTmpRTL(string $mode): void
-    {
-        $this->setTmpRTL($mode);
-    }
-
-    public function exposeIsRTL(): bool
-    {
-        return $this->isRTL();
-    }
-}
-
 class BaseTest extends TestUtil
 {
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
