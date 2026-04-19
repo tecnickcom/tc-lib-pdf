@@ -3008,6 +3008,57 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Capture the active font state so HTML rendering can restore it afterwards.
+     *
+     * @return array{family: string, style: string, size: float}
+     */
+    protected function captureHTMLCallerFontState(): array
+    {
+        $curfont = $this->font->getCurrentFont();
+        $fontkey = (string) ($curfont['key'] ?? '');
+        $family = $this->font->getFontFamilyName($fontkey);
+        if ($family === '') {
+            $family = \preg_replace('/[biudo]+$/i', '', $fontkey) ?? $fontkey;
+        }
+        if ($family === '') {
+            $family = 'helvetica';
+        }
+
+        $style = '';
+        if (!empty($curfont['style']) && \is_string($curfont['style'])) {
+            foreach (['B', 'I'] as $fontstyle) {
+                if (\str_contains($curfont['style'], $fontstyle)) {
+                    $style .= $fontstyle;
+                }
+            }
+        }
+
+        $size = (float) ($curfont['size'] ?? 10.0);
+        return [
+            'family' => $family,
+            'style' => $style,
+            'size' => $size,
+        ];
+    }
+
+    /**
+     * Restore the font state captured before HTML rendering started.
+     *
+     * @param array{family: string, style: string, size: float} $fontstate Captured font state.
+     */
+    protected function restoreHTMLCallerFontState(array $fontstate): string
+    {
+        $font = $this->font->insert(
+            $this->pon,
+            $fontstate['family'],
+            $fontstate['style'],
+            (int) \round($fontstate['size']),
+        );
+
+        return (isset($font['out']) && \is_string($font['out'])) ? $font['out'] : '';
+    }
+
+    /**
      * Return the metric for the specified HTML node font.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -4981,6 +5032,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $styles = [],
     ): string {
         $out = '';
+        $callerfont = $this->captureHTMLCallerFontState();
 
         $dom = $this->getHTMLDOM($html);
 
@@ -5073,6 +5125,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $this->clearHTMLCellContext($hrc);
+        $out .= $this->restoreHTMLCallerFontState($callerfont);
 
         return $out;
     }
@@ -5099,6 +5152,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ?array $cell = null,
         array $styles = [],
     ): void {
+        $callerfont = $this->captureHTMLCallerFontState();
         $dom = $this->getHTMLDOM($html);
         /** @var THTMLRenderContext $hrc */
         $hrc = [
@@ -5208,6 +5262,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $this->clearHTMLCellContext($hrc);
+        $restorefontout = $this->restoreHTMLCallerFontState($callerfont);
+        if ($restorefontout !== '') {
+            $endpid = $this->page->getPageId();
+            if (!isset($outbypage[$endpid])) {
+                $outbypage[$endpid] = '';
+            }
+
+            $outbypage[$endpid] .= $restorefontout;
+        }
 
         foreach ($outbypage as $pid => $pageout) {
             if ($pageout === '') {
