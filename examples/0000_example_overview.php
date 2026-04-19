@@ -1,6 +1,6 @@
 <?php
 /**
- * index.php
+ * 0000_example_overview.php
  *
  * @since       2017-05-08
  * @category    Library

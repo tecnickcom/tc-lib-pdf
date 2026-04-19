@@ -1,6 +1,6 @@
 <?php
 /**
- * index.php
+ * 0001_example_invoice.php
  *
  * @since       2017-05-08
  * @category    Library
