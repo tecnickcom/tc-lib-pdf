@@ -1,6 +1,6 @@
 <?php
 /**
- * index.php
+ * 000_example_overview.php
  *
  * @since       2017-05-08
  * @category    Library
@@ -32,7 +32,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     'mm', // string $unit = 'mm',
     true, // bool $isunicode = true,
     false, // bool $subsetfont = false,
-    false, // bool $compress = true,
+    true, // bool $compress = true,
     '', // string $mode = '',
     null, // ?ObjEncrypt $objEncrypt = null,
 );
@@ -41,11 +41,11 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 
 
 $pdf->setCreator('tc-lib-pdf');
-$pdf->setAuthor('John Doe');
-$pdf->setSubject('tc-lib-pdf generic example');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 000');
 $pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf generic example');
-$pdf->setPDFFilename('test_index.pdf');
+$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setPDFFilename('000_example_overview.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
