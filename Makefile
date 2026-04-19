@@ -136,7 +136,6 @@ clean:
 ## Fix code style violations
 .PHONY: codefix
 codefix:
-	./vendor/bin/phpcbf --config-set ignore_non_auto_fixable_on_exit 1
 	./vendor/bin/phpcbf --ignore="\./vendor/" --standard=psr12 src test
 
 ## Build a DEB package for Debian-like Linux distributions
