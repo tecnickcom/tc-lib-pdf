@@ -16,7 +16,8 @@ If this library saves you time, please consider [supporting its development via 
 
 ## Overview
 
-`tc-lib-pdf` is a pure-PHP library for dynamically generating PDF documents. It is the modern evolution of the widely used TCPDF library, redesigned around a modular package architecture, Composer-first workflow, and strict PHP type safety.
+`tc-lib-pdf` is a pure-PHP library for dynamically generating PDF documents.  
+It is the modern evolution of the widely used TCPDF library, redesigned around a modular package architecture, Composer-first workflow, and strict PHP type safety.
 
 It coordinates specialized companion packages for fonts, images, graphics, pages, filtering, and encryption into a cohesive document-authoring API. The result is a production-ready toolkit for invoices, reports, labels, and other generated PDFs where predictable output and long-term maintainability matter.
 
@@ -37,6 +38,16 @@ Releases follow [Semantic Versioning](https://semver.org):
 
 ---
 
+## Description
+
+`tc-lib-pdf` is a modern PDF generation library for PHP applications that need deterministic document output without delegating rendering to an external service. It builds on the long-standing ideas behind TCPDF, but reshapes them into a cleaner, Composer-native package designed for contemporary PHP development.
+
+For teams already familiar with TCPDF, this project offers a more modular foundation with stronger typing, clearer package boundaries, and an API surface intended to be easier to maintain in large codebases. For teams adopting it fresh, it provides a practical way to generate production PDFs directly from PHP while retaining fine-grained control over layout, typography, graphics, metadata, and standards-oriented output.
+
+The library is particularly well suited to backend-driven document workflows such as invoices, shipping labels, statements, certificates, reports, and archived business records. Instead of treating PDF generation as an opaque export step, `tc-lib-pdf` exposes the document model in a way that lets developers compose pages programmatically, integrate with existing application data, and keep output logic versioned alongside the rest of the codebase.
+
+Because it is part of the broader `tc-lib-*` ecosystem, `tc-lib-pdf` can coordinate fonts, images, page geometry, graphics primitives, and optional features such as barcodes and encryption through dedicated companion packages. That modular design makes the project easier to evolve over time while still delivering the all-in-one capabilities PHP developers expect from a serious PDF engine.
+
 ## Features
 
 ### Text & Fonts
@@ -44,6 +55,7 @@ Releases follow [Semantic Versioning](https://semver.org):
 - **TrueTypeUnicode**, **OpenTypeUnicode v1**, TrueType, OpenType v1, Type1, and CID-0 fonts
 - Font subsetting to keep file sizes small
 - Text hyphenation, stretching, and letter-spacing (tracking)
+- Language-aware TeX hyphenation patterns and optional zero-width breakpoints
 - Text rendering modes: fill, stroke, and clipping
 - Automatic line breaks, page breaks, and justification
 
@@ -54,24 +66,29 @@ Releases follow [Semantic Versioning](https://semver.org):
 - Multi-column layouts and no-write page regions
 - Headers, footers, and common page content
 - Bookmarks, named destinations, and table of contents
-- Automatic page numbering and page groups; move and delete pages
+- Automatic page numbering and page groups
+- Full page box control (Media/Crop/Bleed/Trim/Art), page reordering, and viewer preferences
 
 ### Images & Graphics
 - Native **JPEG**, **PNG**, and **SVG** support
-- Extended image support via GD (`GD`, `GD2`, `GD2PART`, `GIF`, `JPEG`, `PNG`, `BMP`, `XBM`, `XPM`)
-- Extended image support via [ImageMagick](http://www.imagemagick.org/script/formats.php)
+- Extended image format handling via GD (`GD`, `GD2`, `GD2PART`, `GIF`, `JPEG`, `PNG`, `BMP`, `XBM`, `XPM`, `WBMP`, `TIFF`, `ICO`, `PSD`, `IFF`, `SWC`)
 - Geometric graphics and 2D transformations
-- **JPEG and PNG ICC profiles**, Grayscale, RGB, CMYK, spot colors, and transparencies
+- Linear and radial gradients, Coons patch mesh gradients, crop marks, and registration bars
+- **JPEG and PNG ICC profiles**, grayscale/RGB/CMYK/spot colors, transparencies, and overprint control
 
 ### Security & Standards
-- Document **encryption** up to 256-bit AES and **digital signature** certification
-- **PDF annotations**: links, text notes, and file attachments
+- Password and certificate-based document encryption (RC4 and AES, up to 256-bit)
+- **Digital signatures**, signature appearance fields, and TSA timestamp support
+- **PDF annotations**: links, text notes, file attachments, markup, shapes, media, and widgets
 - **JavaScript** embedding
-- **PDF/A-1b** conformance support
+- **PDF/A** (1/2/3, including a/b/u conformance levels) and **PDF/X** support
 
 ### Other
 - **1D and 2D barcodes** via [`tc-lib-barcode`](https://github.com/tecnickcom/tc-lib-barcode)
+- Interactive AcroForm fields (buttons, checkboxes, radio buttons, text, combo boxes, list boxes)
 - XObject templates and layers with object visibility controls
+- Multiple output targets: inline display, forced download, file save, and MIME attachment
+- Factur-X / ZUGFeRD workflows via embedded XML in PDF/A-3 documents
 - Page compression via the `zlib` PHP extension
 
 ---
@@ -81,7 +98,7 @@ Releases follow [Semantic Versioning](https://semver.org):
 - **PHP 8.1** or later
 - Composer
 
-Optional PHP extensions for extended functionality: `gd`, `imagick`, `zlib`.
+Optional PHP extensions for extended functionality: `gd`, `zlib`.
 
 ---
 
