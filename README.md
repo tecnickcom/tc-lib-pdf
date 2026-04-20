@@ -18,6 +18,8 @@ If this library saves you time, please consider [supporting its development via 
 
 `tc-lib-pdf` is a pure-PHP library for dynamically generating PDF documents. It is the modern evolution of the widely used TCPDF library, redesigned around a modular package architecture, Composer-first workflow, and strict PHP type safety.
 
+It coordinates specialized companion packages for fonts, images, graphics, pages, filtering, and encryption into a cohesive document-authoring API. The result is a production-ready toolkit for invoices, reports, labels, and other generated PDFs where predictable output and long-term maintainability matter.
+
 | | |
 |---|---|
 | **Namespace** | `\Com\Tecnick\Pdf` |
