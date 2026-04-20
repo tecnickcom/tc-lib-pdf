@@ -40,7 +40,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 001');
-$pdf->setTitle('Example');
+$pdf->setTitle('Example Invoice Factur-X 1.07 / ZUGFeRD 2.3');
 $pdf->setKeywords('TCPDF tc-lib-pdf example');
 $pdf->setPDFFilename('001_example_invoice.pdf');
 
@@ -51,7 +51,7 @@ $pdf->enableDefaultPageContent();
 // ----------
 // Insert fonts
 
-$bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
+$bfont1 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 
 // ----------
 
@@ -63,9 +63,84 @@ $pdf->setBookmark('Factur', '', 0, -1, 0, 0, 'B', '');
 
 $pdf->page->addContent($bfont1['out']);
 
-$txtF1 = 'Example of custom XMP metadata for Factur-X 1.07 / ZUGFeRD 2.3';
-$txtboxF1 = $pdf->getTextCell($txtF1, 15, 15, 150, valign: 'T', halign: 'L');
-$pdf->page->addContent($txtboxF1);
+$invoiceHTML = '
+<h2 style="color:#003366;">INVOICE EXAMPLE</h2>
+<table border="0" cellspacing="0" cellpadding="2" style="width:100%;">
+  <tr>
+    <td style="width:50%; vertical-align:top;">
+      <b>Seller</b><br/>
+      ELEKTRON Industrieservice GmbH<br/>
+      Geschäftsführer Egon Schrempp Amtsgericht Stuttgart HRB 1234<br/>
+      Erfurter Strasse 13<br/>
+      74465 Demoort, DE<br/>
+      VAT: DE136695976
+    </td>
+    <td style="width:50%; vertical-align:top; text-align:right;">
+      <b>Invoice No.:</b> 181301674<br/>
+      <b>Invoice Date:</b> 15.11.2024<br/>
+      <b>Delivery Date:</b> 01.11.2024<br/>
+      <b>Order Ref.:</b> per Mail vom 01.09.2024<br/>
+      <b>Project:</b> 13130162
+    </td>
+  </tr>
+</table>
+<br/>
+<b>Bill To:</b><br/>
+ConsultingService GmbH<br/>
+Attn: Liselotte Müller-Lüdenscheidt<br/>
+Musterstr. 18<br/>
+76138 Karlsruhe, DE<br/>
+<br/>
+<table border="1" cellspacing="0" cellpadding="3" style="width:100%; text-align:right;">
+  <tr style="background-color:#003366; color:#ffffff;">
+    <th style="text-align:left; width:8%;">Pos.</th>
+    <th style="text-align:left; width:40%;">Description</th>
+    <th style="width:12%;">Qty</th>
+    <th style="width:10%;">Unit</th>
+    <th style="width:15%;">Unit Price</th>
+    <th style="width:15%;">Amount</th>
+  </tr>
+  <tr>
+    <td style="text-align:left;">01</td>
+    <td style="text-align:left;">TGA Obermonteur/Monteur<br/><i>Beamermontage</i></td>
+    <td>3</td>
+    <td>HUR</td>
+    <td>43.20</td>
+    <td>129.60</td>
+  </tr>
+  <tr>
+    <td style="text-align:left;">02</td>
+    <td style="text-align:left;">Beamer-Deckenhalterung<br/><i>Außerhalb Angebot</i></td>
+    <td>1</td>
+    <td>H87</td>
+    <td>122.50</td>
+    <td>122.50</td>
+  </tr>
+</table>
+<br/>
+<table border="0" cellspacing="0" cellpadding="2" style="width:100%;">
+  <tr>
+    <td style="width:60%;"></td>
+    <td style="width:40%;">
+      <table border="1" cellspacing="0" cellpadding="3" style="width:100%; text-align:right;">
+        <tr><td style="text-align:left;">Net Total</td><td>EUR 252.10</td></tr>
+        <tr><td style="text-align:left;">VAT 19%</td><td>EUR 47.90</td></tr>
+        <tr><td style="text-align:left;"><b>Grand Total</b></td><td><b>EUR 300.00</b></td></tr>
+        <tr><td style="text-align:left;">Prepaid</td><td>EUR 0.00</td></tr>
+        <tr><td style="text-align:left;"><b>Due Amount</b></td><td><b>EUR 300.00</b></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<br/>
+<b>Payment Terms:</b> Zahlbar sofort rein netto<br/>
+<b>Bank:</b> IBAN DE91100000000123456789<br/>
+<b>Payment Reference:</b> Rechnung 181301674<br/>
+<br/>
+<i>Factur-X 1.07 / ZUGFeRD 2.3 — embedded XML attachment: factur-x.xml</i>
+';
+
+$pdf->page->addContent($pdf->getHTMLCell($invoiceHTML, 15, 15, 180));
 
 $invoiceXML = <<<XML
 <?xml version='1.0' encoding='UTF-8' ?>
