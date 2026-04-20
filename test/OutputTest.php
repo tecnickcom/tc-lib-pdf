@@ -83,6 +83,63 @@ class OutputTest extends TestUtil
         $this->assertSame('raw-pdf-data', $out);
     }
 
+    public function testRenderPDFInCliPreservesBinaryPdfBytes(): void
+    {
+        $script = \sys_get_temp_dir() . '/tc-lib-pdf-render-' . \bin2hex(\random_bytes(6)) . '.php';
+        $autoload = \var_export(__DIR__ . '/../vendor/autoload.php', true);
+        $fonts = \var_export((string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'), true);
+
+        $code = <<<'PHP'
+<?php
+require AUTOLOAD_PATH;
+define('K_PATH_FONTS', FONTS_PATH);
+
+$pdf = new \Com\Tecnick\Pdf\Tcpdf();
+$font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
+$pdf->addPage();
+$pdf->page->addContent($font['out']);
+$pdf->page->addContent(
+    $pdf->getTextCell('The quick brown fox jumps over the lazy dog', 15, 15, 150, valign: 'T', halign: 'L')
+);
+
+$raw = $pdf->getOutPDFString();
+fwrite(STDERR, md5($raw));
+$pdf->renderPDF($raw);
+PHP;
+
+        $code = \str_replace(
+            ['AUTOLOAD_PATH', 'FONTS_PATH'],
+            [$autoload, $fonts],
+            $code
+        );
+
+        \file_put_contents($script, $code);
+
+        $cmd = [PHP_BINARY, $script];
+        $desc = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $proc = \proc_open($cmd, $desc, $pipes, __DIR__ . '/..');
+        if (!\is_resource($proc)) {
+            \unlink($script);
+            $this->fail('Unable to start PHP subprocess for renderPDF regression test.');
+        }
+
+        \fclose($pipes[0]);
+        $stdout = (string) \stream_get_contents($pipes[1]);
+        \fclose($pipes[1]);
+        $stderr = (string) \stream_get_contents($pipes[2]);
+        \fclose($pipes[2]);
+        $exitCode = \proc_close($proc);
+        \unlink($script);
+
+        $this->assertSame(0, $exitCode, $stderr);
+        $this->assertSame($stderr, \md5($stdout));
+    }
+
     public function testDownloadPDFRejectsExistingOutputBufferContent(): void
     {
         $obj = $this->getTestObject();

@@ -3016,7 +3016,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     public function renderPDF(string $rawpdf = ''): void
     {
         if (PHP_SAPI == 'cli') {
-            echo $rawpdf;
+            $this->writeRawPdfOutput($rawpdf);
             return;
         }
 
@@ -3040,7 +3040,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             \header('Content-Length: ' . \strlen($rawpdf));
         }
 
-        echo $rawpdf;
+        $this->writeRawPdfOutput($rawpdf);
     }
 
     /**
@@ -3088,7 +3088,38 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             \header('Content-Length: ' . \strlen($rawpdf));
         }
 
-        echo $rawpdf;
+        $this->writeRawPdfOutput($rawpdf);
+    }
+
+    /**
+     * Write raw PDF bytes to the current output stream.
+     *
+     * Using php://output avoids text-oriented output paths that may alter
+     * binary PDF content under some SAPIs or output handlers.
+     *
+     * @throws PdfException in case of error.
+     */
+    protected function writeRawPdfOutput(string $rawpdf): void
+    {
+        $output = \fopen('php://output', 'wb');
+        if ($output === false) {
+            throw new PdfException('Unable to open the output stream for PDF rendering.');
+        }
+
+        $remaining = \strlen($rawpdf);
+        $offset = 0;
+        while ($remaining > 0) {
+            $written = \fwrite($output, \substr($rawpdf, $offset), $remaining);
+            if (($written === false) || ($written < 1)) {
+                \fclose($output);
+                throw new PdfException('Unable to write the PDF data to the output stream.');
+            }
+
+            $offset += $written;
+            $remaining -= $written;
+        }
+
+        \fclose($output);
     }
 
     /**
