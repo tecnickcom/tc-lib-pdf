@@ -952,6 +952,54 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThanOrEqual(2, \count($linekeys));
     }
 
+    public function testGetHTMLCellTablePercentWidthsKeepFirstColumnTextInsideCell(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table border="0" cellspacing="1" cellpadding="2" style="width:100%;">'
+            . '<tr>'
+            . '<td style="width:50%;">Gesch\u{00E4}ftsf\u{00FC}hrer Egon Schrempp Amtsgericht Stuttgart HRB 1234</td>'
+            . '<td style="width:50%;">RIGHTCOL</td>'
+            . '</tr>'
+            . '</table>';
+
+        $obj->exposeResetBBoxTrace();
+        $out = $obj->getHTMLCell($html, 0, 0, 120, 0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $rightIdx = null;
+        for ($idx = 0; $idx < \count($trace); ++$idx) {
+            if ((string) $trace[$idx]['txt'] === 'RIGHTCOL') {
+                $rightIdx = $idx;
+                break;
+            }
+        }
+
+        $this->assertNotNull($rightIdx, 'Unable to locate the second column text fragment in the trace.');
+        $rightStartX = (float) $trace[(int) $rightIdx]['bbox_x'];
+
+        $maxFirstColumnEndX = 0.0;
+        for ($idx = 0; $idx < (int) $rightIdx; ++$idx) {
+            $txt = (string) $trace[$idx]['txt'];
+            if ($txt === '') {
+                continue;
+            }
+
+            $maxFirstColumnEndX = \max($maxFirstColumnEndX, (float) $trace[$idx]['bbox_end_x']);
+        }
+
+        $this->assertGreaterThan(0.0, $maxFirstColumnEndX);
+        $this->assertLessThanOrEqual(
+            $rightStartX + 0.01,
+            $maxFirstColumnEndX,
+            'First-column text overflowed into the second column.',
+        );
+    }
+
     #[DataProvider('tableLineRegressionProvider')]
     public function testGetHTMLCellTableLineRegression(
         string $lineid,

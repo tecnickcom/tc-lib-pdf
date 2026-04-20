@@ -4457,6 +4457,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Resolve a table-cell explicit width using table-available user units.
+     *
+     * Percentage widths from HTML/CSS must be resolved against the table width,
+     * not the generic default unit reference used during early DOM parsing.
+     *
+     * @param THTMLAttrib $elm
+     */
+    protected function getHTMLTableCellExplicitWidth(array $elm, float $availableWidth): float
+    {
+        if (($availableWidth <= 0.0) || !isset($elm['style']) || !\is_array($elm['style'])) {
+            return (!empty($elm['width']) && \is_numeric($elm['width'])) ? (float) $elm['width'] : 0.0;
+        }
+
+        $rawWidth = '';
+        if (!empty($elm['style']['width']) && \is_string($elm['style']['width'])) {
+            $rawWidth = \trim($elm['style']['width']);
+        } elseif (!empty($elm['attribute']['width']) && \is_string($elm['attribute']['width'])) {
+            $rawWidth = \trim($elm['attribute']['width']);
+        }
+
+        if (($rawWidth !== '') && (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawWidth, $match) === 1)) {
+            return \max(0.0, ($availableWidth * (float) $match[1]) / 100.0);
+        }
+
+        return (!empty($elm['width']) && \is_numeric($elm['width'])) ? (float) $elm['width'] : 0.0;
+    }
+
+    /**
      * Pre-compute per-column content widths from the first body row of a table.
      *
      * Scans forward in the DOM from the table opening tag to find the first
@@ -4542,8 +4570,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 $colspan = \min($colspan, $cols - $colid);
 
-                if (!empty($elm['width']) && \is_numeric($elm['width']) && (float) $elm['width'] > 0) {
-                    $cellw = (float) $elm['width'];
+                $cellw = $this->getHTMLTableCellExplicitWidth($elm, $availableWidth);
+                if ($cellw > 0.0) {
                     $percw = $cellw / $colspan;
                     for ($i = 0; $i < $colspan; ++$i) {
                         if ($colid + $i < $cols) {
