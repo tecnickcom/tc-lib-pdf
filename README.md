@@ -1,6 +1,6 @@
 # tc-lib-pdf
 
-> **The next generation of [TCPDF](https://tcpdf.org)** — a modern, modular PHP library for programmatically generating PDF documents.
+> **The next generation of [TCPDF](https://tcpdf.org)** - a modern, modular PHP library for programmatically generating PDF documents.
 
 [![Latest Stable Version](https://poser.pugx.org/tecnickcom/tc-lib-pdf/version)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)
 [![Build](https://github.com/tecnickcom/tc-lib-pdf/actions/workflows/check.yml/badge.svg)](https://github.com/tecnickcom/tc-lib-pdf/actions/workflows/check.yml)
@@ -78,7 +78,7 @@ Because it is part of the broader `tc-lib-*` ecosystem, `tc-lib-pdf` can coordin
 
 ### Security & Standards
 - Password and certificate-based document encryption (RC4 and AES, up to 256-bit)
-- **Digital signatures**, signature appearance fields, and TSA timestamp support
+- **Digital signatures**, signature appearance fields
 - **PDF annotations**: links, text notes, file attachments, markup, shapes, media, and widgets
 - **JavaScript** embedding
 - **PDF/A** (1/2/3, including a/b/u conformance levels) and **PDF/X** support
@@ -125,19 +125,25 @@ Or add to your `composer.json`:
 ```php
 <?php
 
-require_once __DIR__ . '/vendor/autoload.php';
+require(__DIR__ . '/../vendor/autoload.php');
+
+\define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf();
 
-// Add a page
-$pdf->addPage();
+$bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-// Write some text
-$pdf->writeHTML('<h1>Hello, PDF!</h1><p>Generated with tc-lib-pdf.</p>');
+$page = $pdf->addPage();
 
-// Output to browser
-$pdf->getPage();
-echo $pdf->getOutPDFString();
+$pdf->page->addContent($bfont['out']);
+
+$html = '<h1>Hello, PDF!</h1><p>Generated with tc-lib-pdf.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
+
+$rawpdf = $pdf->getOutPDFString();
+
+$pdf->renderPDF($rawpdf);
 ```
 
 For more complete examples — including invoices, images, barcodes, and HTML tables — see the [examples](examples) directory.
@@ -202,16 +208,18 @@ Security vulnerabilities should be reported according to [SECURITY.md](SECURITY.
 
 ## Third-Party Fonts
 
-PHP font metadata files under the fonts directory are covered by the project license (GNU LGPL v3). They contain no binary font payload and can be regenerated with the built-in font utilities.
+PHP font metadata files under the fonts directory are covered by the project license (GNU LGPL v3). They can be regenerated with the built-in font utilities.
 
-Original TTF files are renamed for compatibility and compressed with PHP `gzcompress` (`.z` extension).
+Original source files are renamed for compatibility and compressed with PHP `gzcompress` (`.z` extension) where applicable.
 
 | Prefix | Source | License |
 |--------|--------|---------|
-| `free` | [GNU FreeFont](https://www.gnu.org/software/freefont/) | GNU GPL v3 |
-| `pdfa` | GNU FreeFont (derived) | GNU GPL v3 |
-| `dejavu` | [DejaVu Fonts 2.33](http://dejavu-fonts.org) | Bitstream Vera |
-| `ae` | [Arabeyes.org](http://projects.arabeyes.org/) | GNU GPL v2 |
+| `freefont` | [GNU FreeFont](https://ftp.gnu.org/gnu/freefont/freefont-ttf-20120503.zip) | GNU GPL v3 |
+| `pdfa` | [tc-font-pdfa](https://github.com/tecnickcom/tc-font-pdfa) (derived from GNU FreeFont) | GNU GPL v3 |
+| `dejavu` | [DejaVu Fonts 2.35](https://sourceforge.net/projects/dejavu/files/dejavu/2.35/dejavu-fonts-ttf-2.35.zip) | Bitstream Vera (with DejaVu public-domain changes) |
+| `unifont` | [GNU Unifont 15.1.03](https://www.unifoundry.com/pub/unifont/unifont-15.1.03/unifont-15.1.03.tar.gz) | GPL v2+ with font embedding exception (also distributed under SIL OFL 1.1) |
+| `cid0` | [GNU Unifont](http://unifoundry.com/unifont.html) (CID mappings) | GPL v2+ with font embedding exception |
+| `core` | [Adobe Core14 AFM](https://partners.adobe.com/public/developer/en/pdf/Core14_AFMs.zip) | Adobe copyright terms (see AFM notices) |
 
 ---
 
