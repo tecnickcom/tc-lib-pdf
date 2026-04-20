@@ -256,9 +256,6 @@ $style7 = [
     'fillColor' => 'palegreen',
 ];
 
-$pdf->graph->setPageWidth($page02['width']);
-$pdf->graph->setPageHeight($page02['height']);
-
 // Line
 
 $line1 = $pdf->graph->getLine(5, 10, 80, 30, $style1);
@@ -438,9 +435,6 @@ $pdf->page->addContent($arrow4);
 $page03 = $pdf->addPage();
 $pdf->setBookmark('Ellipse', '', 1);
 
-$pdf->graph->setPageWidth($page03['width']);
-$pdf->graph->setPageHeight($page03['height']);
-
 // center of ellipse
 $xc = 100;
 $yc = 100;
@@ -472,9 +466,6 @@ $pdf->page->addContent($arc6);
 $page04 = $pdf->addPage();
 $pdf->setBookmark('Pie Chart', '', 1);
 
-$pdf->graph->setPageWidth($page04['width']);
-$pdf->graph->setPageHeight($page04['height']);
-
 $xc = 105;
 $yc = 100;
 $r = 50;
@@ -494,11 +485,6 @@ $pdf->page->addContent($pie3);
 
 $page05 = $pdf->addPage();
 $pdf->setBookmark('Crop Marks and Color Maps', '', 1);
-
-$pdf->graph->setPageWidth($page05['width']);
-$pdf->graph->setPageHeight($page05['height']);
-
-
 
 $pdf->graph->add($style7);
 
@@ -707,10 +693,6 @@ $pdf->page->addContent($colreg4);
 $page06 = $pdf->addPage();
 $pdf->setBookmark('Color Gradients', '', 1);
 
-$pdf->graph->setPageWidth($page06['width']);
-$pdf->graph->setPageHeight($page06['height']);
-
-
 // Linear gradient
 $lingrad = $pdf->graph->getLinearGradient(20, 45, 80, 80, 'red', 'blue', [0, 0, 1, 0]);
 $pdf->page->addContent($lingrad);
@@ -767,9 +749,6 @@ $pdf->page->addContent($coonspatchmesh2);
 
 $page07 = $pdf->addPage();
 $pdf->setBookmark('Color gradient mesh', '', 1);
-
-$pdf->graph->setPageWidth($page07['width']);
-$pdf->graph->setPageHeight($page07['height']);
 
 // first patch: f = 0
 $patch_array[0]['f'] = 0;
@@ -855,9 +834,6 @@ $pdf->page->addContent($coonspatchmesh3);
 
 $page08 = $pdf->addPage();
 $pdf->setBookmark('Transformations', '', 1);
-
-$pdf->graph->setPageWidth($page08['width']);
-$pdf->graph->setPageHeight($page08['height']);
 
 // Geometric Transformations
 
@@ -986,9 +962,6 @@ $pdf->setBookmark('Barcodes', '', 0, -1, 0, 0, 'B', '');
 
 $dest_barcode_page = $pdf->setNamedDestination('barcode');
 
-$pdf->graph->setPageWidth($page09['width']);
-$pdf->graph->setPageHeight($page09['height']);
-
 // Barcode
 
 $barcode_style = [
@@ -1032,9 +1005,6 @@ $pdf->page->addContent($barcode2);
 $page10 = $pdf->addPage();
 $pdf->setBookmark('Image Clipping', '', 0, -1, 0, 0, 'B', '');
 
-$pdf->graph->setPageWidth($page10['width']);
-$pdf->graph->setPageHeight($page10['height']);
-
 // Clipping Mask
 
 $cnz = $pdf->graph->getStartTransform();
@@ -1054,9 +1024,6 @@ $pdf->setBookmark('Text', '', 0, -1, 0, 0, 'B', '');
 
 // Add an internal link to this page
 $page11_link = $pdf->addInternalLink();
-
-$pdf->graph->setPageWidth($page11['width']);
-$pdf->graph->setPageHeight($page11['height']);
 
 $styletxt = [
     'lineWidth' => 0.25,

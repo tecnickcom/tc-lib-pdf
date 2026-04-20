@@ -87,10 +87,6 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
         $pw   = $page['width'];
         $ph   = $page['height'];
 
-        // Keep graph coordinates in sync with the current page size.
-        $this->graph->setPageWidth($pw);
-        $this->graph->setPageHeight($ph);
-
         $lm   = self::HF_MARGIN;           // left margin x
         $rm   = $pw - self::HF_MARGIN;     // right margin x
         $tw   = $pw - (2 * self::HF_MARGIN); // usable band width

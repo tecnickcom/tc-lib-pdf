@@ -51,9 +51,6 @@ $bfont = $pdf->font->insert($pdf->pon, 'unifont', '', 14);
 
 $page = $pdf->addPage(['format' => 'A4']);
 
-$pdf->graph->setPageWidth($page['width']);
-$pdf->graph->setPageHeight($page['height']);
-
 $pdf->page->addContent($bfont['out']);
 
 $html = '<h1>RTL</h1>';

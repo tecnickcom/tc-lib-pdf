@@ -63,9 +63,6 @@ foreach ($formats as $formatName => $dimensions) {
     // Add a new page using the named format.
     $page = $pdf->addPage(['format' => $formatName]);
 
-    $pdf->graph->setPageWidth($page['width']);
-    $pdf->graph->setPageHeight($page['height']);
-
     // Get dimensions.
     $widthPt = $dimensions[0];
     $heightPt = $dimensions[1];
