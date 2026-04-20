@@ -117,6 +117,24 @@ class TextTest extends TestUtil
         $this->assertStringContainsString('BT', $out);
     }
 
+    public function testDefaultPageContentPreservesCurrentUnicodeFont(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->enableDefaultPageContent();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+
+        $this->assertSame('dejavusans', $font->getCurrentFontKey());
+        $this->assertTrue($font->isCurrentUnicodeFont());
+
+        $out = $obj->getTextCell('The quick brown fox', 1, 2, 20, 6, 0, 0, 'T', 'L');
+
+        $this->assertStringContainsString("\000T\000h\000e", $out);
+    }
+
     public function testGetTextLineAndGetTextCellHandleBasicInput(): void
     {
         $obj = $this->getTestObject();

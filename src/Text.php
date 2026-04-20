@@ -1685,9 +1685,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function addPage(array $data = []): array
     {
-        $ret = $this->page->add($data);
-        $this->setPageContext($ret['pid']);
-        return $ret;
+        $page = $this->page->add($data);
+
+        $this->setPageContext($page['pid']);
+
+        $this->graph->setPageWidth($page['width']);
+        $this->graph->setPageHeight($page['height']);
+
+        return $page;
     }
 
     /**
@@ -1721,22 +1726,32 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         if ($this->defaultfont === null) {
             $this->defaultfont = $this->font->insert($this->pon, 'helvetica', '', 10);
+            $this->font->popLastFont();
         }
+
+        $deffont = $this->font->insert(
+            $this->pon,
+            $this->defaultfont['key'],
+            $this->defaultfont['style'],
+            (int) $this->defaultfont['size'],
+            $this->defaultfont['spacing'],
+            $this->defaultfont['stretching'],
+        );
 
         $page = $this->page->getPage($pid);
 
         // print page number in the footer
         $out = $this->graph->getStartTransform();
-        $out .= $this->defaultfont['out'];
+        $out .= $deffont['out'];
         $out .= $this->color->getPdfColor('black');
         $prevcell = $this->defcell;
         $this->defcell = $this::ZEROCELL; // @phpstan-ignore assign.propertyType
 
         $out .= $this->getTextCell(
             (string) ($pid + 1),
-            $this->toUnit($this->defaultfont['dw']),
-            $page['height'] - (2 * $this->toUnit($this->defaultfont['height'])),
-            $page['width'] - (4 * $this->toUnit($this->defaultfont['dw'])),
+            $this->toUnit($deffont['dw']),
+            $page['height'] - (2 * $this->toUnit($deffont['height'])),
+            $page['width'] - (4 * $this->toUnit($deffont['dw'])),
             0,
             0,
             0,
@@ -1745,6 +1760,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         );
         $out .= $this->graph->getStopTransform();
         $this->defcell = $prevcell;
+        $this->font->popLastFont();
         return $out;
     }
 
