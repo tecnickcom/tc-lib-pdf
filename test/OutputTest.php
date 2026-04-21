@@ -2395,6 +2395,78 @@ PHP;
         ]);
     }
 
+    public function testEndToEndOutputIncludesSignatureTsaAndDssInSingleRevision(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 14);
+        $certPath = (string) \realpath(__DIR__ . '/../examples/data/cert/tcpdf.crt');
+        $certFile = 'file://' . $certPath;
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'SigE2E',
+                'page' => $page['pid'],
+                'rect' => '10 20 50 30',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => null,
+            'info' => [
+                'ContactInfo' => 'contact@example.test',
+                'Location' => 'Lab',
+                'Name' => 'Signer',
+                'Reason' => 'End-to-end test',
+            ],
+            'password' => '',
+            'privkey' => $certFile,
+            'signcert' => $certFile,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => false,
+        ]);
+
+        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
+        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+
+        $pdf = $obj->getOutPDFString();
+
+        $this->assertContainsAllFragments($pdf, [
+            '/Type /Sig',
+            '/SubFilter /adbe.pkcs7.detached',
+            '/TransformMethod /DocMDP',
+            '/Type /DSS',
+            '/VRI <<',
+            '/Certs [',
+            '/DSS ',
+            'startxref',
+            '%%EOF',
+        ]);
+        $this->assertSame(1, \substr_count($pdf, '%%EOF'));
+        $this->assertMatchesRegularExpression('#/ByteRange\[0 \d+ \d+ \d+\]#', $pdf);
+        $this->assertStringNotContainsString('**********', $pdf);
+        $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
+    }
+
     public function testSavePDFThrowsWhenDirectoryDoesNotExist(): void
     {
         $obj = $this->getTestObject();
