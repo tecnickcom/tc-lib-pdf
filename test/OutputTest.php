@@ -962,7 +962,7 @@ PHP;
 
         $result = $obj->exposePrepareDocumentForSignature($pdfdoc);
 
-    $this->assertSame(0, $result['byte_range'][0]);
+        $this->assertSame(0, $result['byte_range'][0]);
         $this->assertSame($result['pdfdoc_length'], \strlen($result['pdfdoc']));
         $this->assertStringNotContainsString('**********', $result['pdfdoc']);
         $this->assertMatchesRegularExpression(
@@ -974,6 +974,61 @@ PHP;
         $this->assertSame($expectedLength, $result['pdfdoc_length']);
         // byte_range[3] must equal the length of the suffix
         $this->assertSame(\strlen($suffix), $result['byte_range'][3]);
+    }
+
+    public function testBuildTimestampRequestContainsSha256OidWhenNonceDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ]);
+
+        $request = $obj->exposeBuildTimestampRequest('sigbin');
+
+        $this->assertStringStartsWith("\x30", $request);
+        $this->assertStringContainsString('608648016503040201', \bin2hex($request));
+    }
+
+    public function testApplySignatureTimestampWithMockedTsaResponse(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => false,
+        ]);
+
+        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
+        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+        $signed = $obj->exposeApplySignatureTimestamp('sigbin');
+
+        $this->assertSame('sigbin', $signed);
+        $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
+    }
+
+    public function testExtractTimestampTokenFromResponseRejectsFailureStatus(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        // SEQUENCE { SEQUENCE { INTEGER 2 } }
+        $obj->exposeExtractTimestampTokenFromResponse((string) \hex2bin('30053003020102'));
     }
 
     public function testGetAnnotationFlagsCodeWithIntegerInput(): void

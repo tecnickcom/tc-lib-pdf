@@ -24,6 +24,10 @@ namespace Test;
  */
 class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
 {
+    protected string $mockTsaResp = '';
+    protected bool $mockTsaThrows = false;
+    protected string $tsaReq = '';
+
     /**
      * @phpstan-param array<string, mixed> $annotData
      * @phpstan-return TAnnot
@@ -410,6 +414,45 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeConvertBinarySignatureToHex(string $signature): string
     {
         return $this->convertBinarySignatureToHex($signature);
+    }
+
+    public function exposeBuildTimestampRequest(string $signature): string
+    {
+        return $this->buildTimestampRequest($signature);
+    }
+
+    public function exposeExtractTimestampTokenFromResponse(string $response): string
+    {
+        return $this->extractTimestampTokenFromResponse($response);
+    }
+
+    public function setMockTimestampResponse(string $response): void
+    {
+        $this->mockTsaResp = $response;
+    }
+
+    public function setMockTimestampThrows(bool $throws): void
+    {
+        $this->mockTsaThrows = $throws;
+    }
+
+    public function getCapturedTimestampRequest(): string
+    {
+        return $this->tsaReq;
+    }
+
+    protected function postTimestampRequest(string $request): string
+    {
+        $this->tsaReq = $request;
+        if ($this->mockTsaThrows) {
+            throw new \Com\Tecnick\Pdf\Exception('mock tsa transport error');
+        }
+
+        if ($this->mockTsaResp !== '') {
+            return $this->mockTsaResp;
+        }
+
+        return parent::postTimestampRequest($request);
     }
 
     public function exposeSignDocument(string $pdfdoc): string

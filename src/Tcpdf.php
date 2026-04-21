@@ -410,6 +410,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *        - username (string) TSA username or authorization PEM file.
      *        - password (string) TSA password.
      *        - cert (string) cURL optional location of TSA certificate for authorization.
+     *        - hash_algorithm (string) Digest algorithm: sha256, sha384, sha512.
+     *        - policy_oid (string) Optional timestamp policy OID.
+     *        - nonce_enabled (bool) Add nonce to the timestamp request.
+     *        - timeout (int) Request timeout in seconds.
+     *        - verify_peer (bool) Validate TSA TLS certificate.
      */
     public function setSignTimeStamp(array $data): void
     {
@@ -417,6 +422,35 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 
         if ($this->sigtimestamp['enabled'] && empty($this->sigtimestamp['host'])) {
             throw new PdfException('Invalid TSA host');
+        }
+
+        if (
+            ! \in_array(
+                \strtolower((string) $this->sigtimestamp['hash_algorithm']),
+                ['sha256', 'sha384', 'sha512'],
+                true
+            )
+        ) {
+            throw new PdfException('Invalid TSA hash algorithm');
+        }
+
+        if (
+            ($this->sigtimestamp['policy_oid'] !== '')
+            && (\preg_match('/^\\d+(?:\\.\\d+)+$/', (string) $this->sigtimestamp['policy_oid']) !== 1)
+        ) {
+            throw new PdfException('Invalid TSA policy OID');
+        }
+
+        if (! \is_bool($this->sigtimestamp['nonce_enabled'])) {
+            throw new PdfException('Invalid TSA nonce setting');
+        }
+
+        if ((int) $this->sigtimestamp['timeout'] < 1) {
+            throw new PdfException('Invalid TSA timeout');
+        }
+
+        if (! \is_bool($this->sigtimestamp['verify_peer'])) {
+            throw new PdfException('Invalid TSA verify peer setting');
         }
     }
 

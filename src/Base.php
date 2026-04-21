@@ -558,6 +558,11 @@ abstract class Base
         'username' => '',
         'password' => '',
         'cert' => '',
+        'hash_algorithm' => 'sha256',
+        'policy_oid' => '',
+        'nonce_enabled' => true,
+        'timeout' => 5,
+        'verify_peer' => true,
     ];
 
     /**

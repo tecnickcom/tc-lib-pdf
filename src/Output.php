@@ -404,6 +404,11 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'username': string,
  *        'password': string,
  *        'cert': string,
+ *        'hash_algorithm': string,
+ *        'policy_oid': string,
+ *        'nonce_enabled': bool,
+ *        'timeout': int,
+ *        'verify_peer': bool,
  *    }
  *
  * @phpstan-type TUserRights array{
@@ -2884,19 +2889,364 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
-     * -- NOT YET IMPLEMENTED --
      * Add TSA timestamp to the signature.
      *
-     * @param string $signature Digital signature as binary string
+     * @param string $signature Digital signature as binary string.
      */
     protected function applySignatureTimestamp(string $signature): string
     {
-        if (!$this->sigtimestamp['enabled']) {
+        if (! $this->sigtimestamp['enabled']) {
             return $signature;
         }
 
-        // @TODO: Add TSA timestamp to the signature
+        // Phase 2 groundwork: validate RFC3161 request/response lifecycle.
+        // CMS unsigned-attributes embedding is added in the next phase slice.
+        $token = $this->requestTimestampToken($signature);
+        if ($token === '') {
+            throw new PdfException('Unable to extract TSA token');
+        }
+
         return $signature;
+    }
+
+    /**
+     * @param string $signature Digital signature as binary string.
+     */
+    protected function requestTimestampToken(string $signature): string
+    {
+        $request = $this->buildTimestampRequest($signature);
+        $response = $this->postTimestampRequest($request);
+        return $this->extractTimestampTokenFromResponse($response);
+    }
+
+    /**
+     * Build an RFC3161 TimeStampReq in DER format.
+     *
+     * @param string $signature Digital signature as binary string.
+     */
+    protected function buildTimestampRequest(string $signature): string
+    {
+        $hashAlgo = \strtolower((string) $this->sigtimestamp['hash_algorithm']);
+        $hash = \hash($hashAlgo, $signature, true);
+
+        $oid = $this->getTimestampHashAlgorithmOid($hashAlgo);
+        $messageImprint = $this->asn1EncodeSequence(
+            $this->asn1EncodeSequence($this->asn1EncodeObjectIdentifier($oid) . $this->asn1EncodeNull())
+            . $this->asn1EncodeOctetString($hash)
+        );
+
+        $body = $this->asn1EncodeInteger(1) . $messageImprint;
+        if (! empty($this->sigtimestamp['policy_oid'])) {
+            $body .= $this->asn1EncodeObjectIdentifier((string) $this->sigtimestamp['policy_oid']);
+        }
+
+        if ($this->sigtimestamp['nonce_enabled']) {
+            $body .= $this->asn1EncodeInteger(\random_int(1, PHP_INT_MAX));
+        }
+
+        $body .= $this->asn1EncodeBoolean(true);
+        return $this->asn1EncodeSequence($body);
+    }
+
+    /**
+     * Submit an RFC3161 TimeStampReq to the configured TSA endpoint.
+     *
+     * @param string $request DER-encoded timestamp request.
+     */
+    protected function postTimestampRequest(string $request): string
+    {
+        $host = (string) $this->sigtimestamp['host'];
+        if ($host === '') {
+            throw new PdfException('Invalid TSA host');
+        }
+
+        $timeout = (int) $this->sigtimestamp['timeout'];
+        if ($timeout < 1) {
+            $timeout = 5;
+        }
+
+        $headers = [
+            'Content-Type: application/timestamp-query',
+            'Accept: application/timestamp-reply',
+        ];
+
+        if ($this->sigtimestamp['username'] !== '') {
+            $auth = (string) $this->sigtimestamp['username'] . ':' . (string) $this->sigtimestamp['password'];
+            $headers[] = 'Authorization: Basic ' . \base64_encode($auth);
+        }
+
+        if (\function_exists('curl_init')) {
+            $ch = \curl_init($host);
+            if ($ch === false) {
+                throw new PdfException('Unable to initialize TSA request');
+            }
+
+            $opts = [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $request,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => $timeout,
+                CURLOPT_CONNECTTIMEOUT => $timeout,
+                CURLOPT_SSL_VERIFYPEER => (bool) $this->sigtimestamp['verify_peer'],
+                CURLOPT_SSL_VERIFYHOST => (bool) $this->sigtimestamp['verify_peer'] ? 2 : 0,
+            ];
+
+            if (! empty($this->sigtimestamp['cert'])) {
+                $opts[CURLOPT_CAINFO] = (string) $this->sigtimestamp['cert'];
+            }
+
+            \curl_setopt_array($ch, $opts);
+            $response = \curl_exec($ch);
+            if ($response === false) {
+                throw new PdfException('Unable to request TSA timestamp');
+            }
+
+            return $response === true ? '' : $response;
+        }
+
+        $context = \stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => \implode("\r\n", $headers),
+                'content' => $request,
+                'timeout' => $timeout,
+                'ignore_errors' => true,
+            ],
+            'ssl' => [
+                'verify_peer' => (bool) $this->sigtimestamp['verify_peer'],
+                'verify_peer_name' => (bool) $this->sigtimestamp['verify_peer'],
+                'cafile' => (string) $this->sigtimestamp['cert'],
+            ],
+        ]);
+
+        $response = @\file_get_contents($host, false, $context);
+        if ($response === false) {
+            throw new PdfException('Unable to request TSA timestamp');
+        }
+
+        return $response;
+    }
+
+    /**
+     * Extract timestamp token from RFC3161 TimeStampResp.
+     *
+     * @param string $response DER-encoded timestamp response.
+     */
+    protected function extractTimestampTokenFromResponse(string $response): string
+    {
+        if ($response === '') {
+            throw new PdfException('Empty TSA response');
+        }
+
+        /** @var int<0, max> $offset */
+        $offset = 0;
+        $root = $this->asn1ReadTlv($response, $offset);
+        if (($root['tag'] !== 0x30) || ($offset !== \strlen($response))) {
+            throw new PdfException('Invalid TSA response');
+        }
+
+        /** @var int<0, max> $inner */
+        $inner = 0;
+        $statusSeq = $this->asn1ReadTlv($root['value'], $inner);
+        if ($statusSeq['tag'] !== 0x30) {
+            throw new PdfException('Invalid TSA status response');
+        }
+
+        /** @var int<0, max> $statusOffset */
+        $statusOffset = 0;
+        $status = $this->asn1ReadTlv($statusSeq['value'], $statusOffset);
+        if ($status['tag'] !== 0x02) {
+            throw new PdfException('Invalid TSA status code');
+        }
+
+        $statusCode = $this->asn1DecodeInteger($status['value']);
+        if (($statusCode !== 0) && ($statusCode !== 1)) {
+            throw new PdfException('TSA request rejected');
+        }
+
+        if ($inner >= \strlen($root['value'])) {
+            throw new PdfException('Missing TSA token');
+        }
+
+        $token = $this->asn1ReadTlv($root['value'], $inner);
+        if ($token['tag'] !== 0x30) {
+            throw new PdfException('Invalid TSA token structure');
+        }
+
+        return $token['raw'];
+    }
+
+    protected function getTimestampHashAlgorithmOid(string $algorithm): string
+    {
+        return match ($algorithm) {
+            'sha256' => '2.16.840.1.101.3.4.2.1',
+            'sha384' => '2.16.840.1.101.3.4.2.2',
+            'sha512' => '2.16.840.1.101.3.4.2.3',
+            default => throw new PdfException('Unsupported TSA hash algorithm'),
+        };
+    }
+
+    /** @param int<0, max> $length */
+    protected function asn1EncodeLength(int $length): string
+    {
+        if ($length < 128) {
+            return \chr($length);
+        }
+
+        $encoded = '';
+        $value = $length;
+        while ($value > 0) {
+            $encoded = \chr($value & 0xFF) . $encoded;
+            $value = (int) ($value / 256);
+        }
+
+        return \chr(0x80 | \strlen($encoded)) . $encoded;
+    }
+
+    /** @param int<0, max> $value */
+    protected function asn1EncodeInteger(int $value): string
+    {
+        $data = '';
+        $num = $value;
+        while ($num > 0) {
+            $data = \chr($num & 0xFF) . $data;
+            $num = (int) ($num / 256);
+        }
+
+        if ($data === '') {
+            $data = "\x00";
+        }
+
+        if ((\ord($data[0]) & 0x80) !== 0) {
+            $data = "\x00" . $data;
+        }
+
+        return "\x02" . $this->asn1EncodeLength(\strlen($data)) . $data;
+    }
+
+    protected function asn1EncodeBoolean(bool $value): string
+    {
+        return "\x01\x01" . ($value ? "\xFF" : "\x00");
+    }
+
+    protected function asn1EncodeNull(): string
+    {
+        return "\x05\x00";
+    }
+
+    protected function asn1EncodeOctetString(string $value): string
+    {
+        return "\x04" . $this->asn1EncodeLength(\strlen($value)) . $value;
+    }
+
+    protected function asn1EncodeSequence(string $value): string
+    {
+        return "\x30" . $this->asn1EncodeLength(\strlen($value)) . $value;
+    }
+
+    protected function asn1EncodeObjectIdentifier(string $oid): string
+    {
+        $parts = \array_map('intval', \explode('.', $oid));
+        if (\count($parts) < 2) {
+            throw new PdfException('Invalid OID');
+        }
+
+        $data = \chr(($parts[0] * 40) + $parts[1]);
+        $count = \count($parts);
+        for ($idx = 2; $idx < $count; ++$idx) {
+            $part = (int) \max(0, $parts[$idx]);
+            $data .= $this->asn1EncodeBase128Int($part);
+        }
+
+        return "\x06" . $this->asn1EncodeLength(\strlen($data)) . $data;
+    }
+
+    /** @param int<0, max> $value */
+    protected function asn1EncodeBase128Int(int $value): string
+    {
+        $bytes = [($value & 0x7F)];
+        $value = (int) ($value / 128);
+        while ($value > 0) {
+            \array_unshift($bytes, ($value & 0x7F) | 0x80);
+            $value = (int) ($value / 128);
+        }
+
+        $out = '';
+        foreach ($bytes as $byte) {
+            $out .= \chr($byte);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param int $offset
+     *
+     * @return array{tag: int, value: string, raw: string}
+     */
+    protected function asn1ReadTlv(string $data, int &$offset): array
+    {
+        if ($offset >= \strlen($data)) {
+            throw new PdfException('Malformed ASN.1 structure');
+        }
+
+        $start = $offset;
+        $tag = \ord($data[$offset]);
+        ++$offset;
+
+        $length = $this->asn1ReadLength($data, $offset);
+        if (($offset + $length) > \strlen($data)) {
+            throw new PdfException('Malformed ASN.1 length');
+        }
+
+        $value = \substr($data, $offset, $length);
+        $offset += $length;
+        $raw = \substr($data, $start, ($offset - $start));
+
+        return ['tag' => $tag, 'value' => $value, 'raw' => $raw];
+    }
+
+    /** @param int $offset */
+    protected function asn1ReadLength(string $data, int &$offset): int
+    {
+        if ($offset >= \strlen($data)) {
+            throw new PdfException('Malformed ASN.1 length');
+        }
+
+        $first = \ord($data[$offset]);
+        ++$offset;
+        if (($first & 0x80) === 0) {
+            return $first;
+        }
+
+        $numBytes = ($first & 0x7F);
+        if (($numBytes < 1) || ($numBytes > 4) || (($offset + $numBytes) > \strlen($data))) {
+            throw new PdfException('Unsupported ASN.1 length');
+        }
+
+        $length = 0;
+        for ($idx = 0; $idx < $numBytes; ++$idx) {
+            $length = ($length * 256) + \ord($data[$offset + $idx]);
+        }
+
+        $offset += $numBytes;
+        return $length;
+    }
+
+    protected function asn1DecodeInteger(string $value): int
+    {
+        if ($value === '') {
+            throw new PdfException('Invalid ASN.1 integer');
+        }
+
+        $int = 0;
+        $len = \strlen($value);
+        for ($idx = 0; $idx < $len; ++$idx) {
+            $int = ($int * 256) + \ord($value[$idx]);
+        }
+
+        return $int;
     }
 
     /**

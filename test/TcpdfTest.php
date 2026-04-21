@@ -137,6 +137,11 @@ class TcpdfTest extends TestUtil
             'username' => '',
             'password' => '',
             'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
         ]);
     }
 
@@ -149,12 +154,39 @@ class TcpdfTest extends TestUtil
             'username' => '',
             'password' => '',
             'cert' => '',
+            'hash_algorithm' => 'sha512',
+            'policy_oid' => '1.2.3.4',
+            'nonce_enabled' => false,
+            'timeout' => 9,
+            'verify_peer' => false,
         ]);
 
-        /** @var array{enabled: bool, host: string} $timeStamp */
+        /** @var array{enabled: bool, host: string, hash_algorithm: string, timeout: int, verify_peer: bool} $timeStamp */
         $timeStamp = $this->getObjectProperty($obj, 'sigtimestamp');
         $this->assertTrue($timeStamp['enabled']);
         $this->assertSame('https://tsa.example.test', $timeStamp['host']);
+        $this->assertSame('sha512', $timeStamp['hash_algorithm']);
+        $this->assertSame(9, $timeStamp['timeout']);
+        $this->assertFalse($timeStamp['verify_peer']);
+    }
+
+    public function testSetSignTimeStampThrowsOnInvalidHashAlgorithm(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha1',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ]);
     }
 
     public function testSetSignatureThrowsOnMissingSigningCertificate(): void
