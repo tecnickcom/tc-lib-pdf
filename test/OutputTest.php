@@ -840,6 +840,55 @@ PHP;
         ]);
     }
 
+    public function testGetOutCatalogIncludesDssReferenceWhenAvailable(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 6);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4, 'dss' => 12]);
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringContainsString('/DSS 12 0 R', $out);
+    }
+
+    public function testGetOutPDFBodyIncludesDssWhenLtvDssEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
+        $certPem = (string) \file_get_contents($certPath);
+
+        /** @var array<string, mixed> $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $signature = \array_replace_recursive($signature, [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $this->setObjectProperty($obj, 'signature', $signature);
+        $obj->setMockOcspResponse('mock-ocsp-response-binary');
+        $obj->setMockCrlResponse('mock-crl-binary');
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertContainsAllFragments($out, [
+            '/Type /DSS',
+            '/VRI <<',
+            '/OCSPs [',
+            '/CRLs [',
+            '/Certs [',
+            '/Type /VRI',
+            '/DSS ',
+        ]);
+    }
+
     public function testGetOutICCRespectsPdfaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -935,6 +984,291 @@ PHP;
 
         $this->setObjectProperty($obj, 'signature', ['cert_type' => 2]);
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
+    }
+
+    public function testGetOutSignatureEmitsUserRightsSignatureForCertTypeZero(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'Signature',
+                'page' => $page['pid'],
+                'rect' => '10 10 60 20',
+            ],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => '',
+            'info' => [
+                'ContactInfo' => '',
+                'Location' => '',
+                'Name' => '',
+                'Reason' => '',
+            ],
+            'password' => '',
+            'privkey' => $certPem,
+            'signcert' => $certPem,
+            'ltv' => [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignature();
+
+        $this->assertContainsAllFragments($out, [
+            '/Type /Sig',
+            '/TransformMethod /UR3',
+            '/SubFilter /adbe.pkcs7.detached',
+        ]);
+    }
+
+    public function testGetOutSignatureSkipsSignatureReferenceForApprovalMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'Signature',
+                'page' => $page['pid'],
+                'rect' => '10 10 60 20',
+            ],
+            'approval' => 'A',
+            'cert_type' => 2,
+            'extracerts' => '',
+            'info' => [
+                'ContactInfo' => '',
+                'Location' => '',
+                'Name' => '',
+                'Reason' => '',
+            ],
+            'password' => '',
+            'privkey' => $certPem,
+            'signcert' => $certPem,
+            'ltv' => [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignature();
+
+        $this->assertStringContainsString('/Type /Sig', $out);
+        $this->assertStringNotContainsString('/Reference [ << /Type /SigRef', $out);
+    }
+
+    public function testConvertBinarySignatureToHexPadsToSigMaxLen(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $binary = "\x01\x02\x03";
+        $hex = $obj->exposeConvertBinarySignatureToHex($binary);
+
+        $this->assertSame(11742, \strlen($hex));
+        $this->assertStringStartsWith('010203', $hex);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]+$/', $hex);
+    }
+
+    public function testPrepareDocumentForSignatureComputesByteRangeAndStripsSlot(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $byterangePlaceholder = '/ByteRange[0 ********** ********** **********]';
+        $prefix   = 'XPFX';
+        $mid      = '/Contents ';
+        $sigSlot  = '<' . \str_repeat('0', 11742) . '>';
+        $suffix   = 'XSFX';
+        $pdfdoc   = $prefix . $byterangePlaceholder . $mid . $sigSlot . $suffix . "\n";
+
+        $result = $obj->exposePrepareDocumentForSignature($pdfdoc);
+
+        $this->assertSame(0, $result['byte_range'][0]);
+        $this->assertSame($result['pdfdoc_length'], \strlen($result['pdfdoc']));
+        $this->assertStringNotContainsString('**********', $result['pdfdoc']);
+        $this->assertMatchesRegularExpression(
+            '#/ByteRange\[0 \d+ \d+ \d+\] *#',
+            $result['pdfdoc']
+        );
+        // Signature slot (SIGMAXLEN + 2 for < >) is stripped from the signing content
+        $expectedLength = \strlen($prefix) + \strlen($byterangePlaceholder) + \strlen($mid) + \strlen($suffix);
+        $this->assertSame($expectedLength, $result['pdfdoc_length']);
+        // byte_range[3] must equal the length of the suffix
+        $this->assertSame(\strlen($suffix), $result['byte_range'][3]);
+    }
+
+    public function testBuildTimestampRequestContainsSha256OidWhenNonceDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ]);
+
+        $request = $obj->exposeBuildTimestampRequest('sigbin');
+
+        $this->assertStringStartsWith("\x30", $request);
+        $this->assertStringContainsString('608648016503040201', \bin2hex($request));
+    }
+
+    public function testApplySignatureTimestampWithMockedTsaResponse(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => false,
+        ]);
+
+        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
+        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+        $signed = $obj->exposeApplySignatureTimestamp('sigbin');
+
+        $this->assertSame('sigbin', $signed);
+        $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
+    }
+
+    public function testExtractTimestampTokenFromResponseRejectsFailureStatus(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        // SEQUENCE { SEQUENCE { INTEGER 2 } }
+        $obj->exposeExtractTimestampTokenFromResponse((string) \hex2bin('30053003020102'));
+    }
+
+    public function testCollectValidationMaterialReturnsEmptyWhenLtvDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertSame([], $material['cert_chain']);
+        $this->assertSame([], $material['certs']);
+        $this->assertSame([], $material['vri']);
+    }
+
+    public function testCollectValidationMaterialLoadsAndDeduplicatesCertificates(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertGreaterThan(0, \count($material['cert_chain']));
+        $this->assertSame(1, \count($material['certs']));
+        $this->assertSame(1, \count($material['vri']));
+    }
+
+    public function testCollectValidationMaterialCollectsOcspAndCrlWhenEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $obj->setMockOcspResponse('mock-ocsp-response-binary');
+        $obj->setMockCrlResponse('mock-crl-binary');
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertSame(1, \count($material['ocsp']));
+        $this->assertSame(1, \count($material['crls']));
+        $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
+        $this->assertSame('http://crl2.example.com/root.crl', $obj->getCapturedCrlUrl());
+        $this->assertNotSame('', $obj->getCapturedOcspRequest());
+        $this->assertSame(1, \count($material['vri']));
+
+        $vri = \array_values($material['vri'])[0];
+        $this->assertSame([0], $vri['ocsp']);
+        $this->assertSame([0, 0], $vri['crls']);
+    }
+
+    public function testCollectValidationMaterialFallsBackToCrlWhenOcspFails(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $obj->setMockOcspThrows(true);
+        $obj->setMockCrlResponse('mock-crl-binary');
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertSame([], $material['ocsp']);
+        $this->assertSame(1, \count($material['crls']));
+        $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
+
+        $vri = \array_values($material['vri'])[0];
+        $this->assertSame([], $vri['ocsp']);
+        $this->assertSame([0, 0], $vri['crls']);
     }
 
     public function testGetAnnotationFlagsCodeWithIntegerInput(): void
@@ -1999,7 +2333,7 @@ PHP;
         $this->setObjectProperty($obj, 'sign', true);
         $this->setObjectProperty($obj, 'objid', ['signature' => 80]);
         $this->setObjectProperty($obj, 'signature', [
-            'cert_type' => -1,
+            'cert_type' => 0,
             'approval' => 'P',
             'appearance' => [
                 'page' => $page['pid'],
@@ -2059,6 +2393,78 @@ PHP;
             '/Reason ',
             '/ContactInfo ',
         ]);
+    }
+
+    public function testEndToEndOutputIncludesSignatureTsaAndDssInSingleRevision(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 14);
+        $certPath = (string) \realpath(__DIR__ . '/../examples/data/cert/tcpdf.crt');
+        $certFile = 'file://' . $certPath;
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'SigE2E',
+                'page' => $page['pid'],
+                'rect' => '10 20 50 30',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => null,
+            'info' => [
+                'ContactInfo' => 'contact@example.test',
+                'Location' => 'Lab',
+                'Name' => 'Signer',
+                'Reason' => 'End-to-end test',
+            ],
+            'password' => '',
+            'privkey' => $certFile,
+            'signcert' => $certFile,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => false,
+        ]);
+
+        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
+        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+
+        $pdf = $obj->getOutPDFString();
+
+        $this->assertContainsAllFragments($pdf, [
+            '/Type /Sig',
+            '/SubFilter /adbe.pkcs7.detached',
+            '/TransformMethod /DocMDP',
+            '/Type /DSS',
+            '/VRI <<',
+            '/Certs [',
+            '/DSS ',
+            'startxref',
+            '%%EOF',
+        ]);
+        $this->assertSame(1, \substr_count($pdf, '%%EOF'));
+        $this->assertMatchesRegularExpression('#/ByteRange\[0 \d+ \d+ \d+\]#', $pdf);
+        $this->assertStringNotContainsString('**********', $pdf);
+        $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
     }
 
     public function testSavePDFThrowsWhenDirectoryDoesNotExist(): void

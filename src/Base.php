@@ -180,7 +180,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.6.7';
+    protected string $version = '8.7.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -488,6 +488,7 @@ abstract class Base
     protected array $objid = [
         'catalog' => 0,
         'dests' => 0,
+        'dss' => 0,
         'form' => [],
         'info' => 0,
         'pages' => 0,
@@ -545,6 +546,14 @@ abstract class Base
         'password' => '',
         'privkey' => '',
         'signcert' => '',
+        'ltv' => [
+            'enabled' => false,
+            'embed_ocsp' => true,
+            'embed_crl' => true,
+            'embed_certs' => true,
+            'include_dss' => true,
+            'include_vri' => true,
+        ],
     ];
 
     /**
@@ -558,6 +567,11 @@ abstract class Base
         'username' => '',
         'password' => '',
         'cert' => '',
+        'hash_algorithm' => 'sha256',
+        'policy_oid' => '',
+        'nonce_enabled' => true,
+        'timeout' => 5,
+        'verify_peer' => true,
     ];
 
     /**

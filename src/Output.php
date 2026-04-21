@@ -396,6 +396,16 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'password': string,
  *        'privkey': string,
  *        'signcert': string,
+ *        'ltv'?: TLtvConfig,
+ *    }
+ *
+ * @phpstan-type TLtvConfig array{
+ *        'enabled': bool,
+ *        'embed_ocsp': bool,
+ *        'embed_crl': bool,
+ *        'embed_certs': bool,
+ *        'include_dss': bool,
+ *        'include_vri': bool,
  *    }
  *
  * @phpstan-type TSignTimeStamp array{
@@ -404,6 +414,11 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'username': string,
  *        'password': string,
  *        'cert': string,
+ *        'hash_algorithm': string,
+ *        'policy_oid': string,
+ *        'nonce_enabled': bool,
+ *        'timeout': int,
+ *        'verify_peer': bool,
  *    }
  *
  * @phpstan-type TUserRights array{
@@ -432,6 +447,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @phpstan-type TObjID array{
  *        'catalog': int,
  *        'dests': int,
+ *        'dss': int,
  *        'form': array<int>,
  *        'info': int,
  *        'pages': int,
@@ -439,6 +455,36 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'signature': int,
  *        'srgbicc': int,
  *        'xmp': int,
+ *    }
+ *
+ * @phpstan-type TSignDocPrepared array{
+ *        'byte_range': array{int, int, int, int},
+ *        'pdfdoc': string,
+ *        'pdfdoc_length': int,
+ *    }
+ *
+ * @phpstan-type TValidationCert array{
+ *        'pem': string,
+ *        'der': string,
+ *        'serial': string,
+ *        'subject': string,
+ *        'issuer': string,
+*        'ocsp_urls': array<int, string>,
+*        'crl_dp_urls': array<int, string>,
+*    }
+ *
+ * @phpstan-type TValidationVri array{
+ *        'certs': array<int>,
+ *        'ocsp': array<int>,
+ *        'crls': array<int>,
+ *    }
+ *
+ * @phpstan-type TValidationMaterial array{
+ *        'cert_chain': array<int, TValidationCert>,
+ *        'certs': array<int, string>,
+ *        'ocsp': array<int, string>,
+ *        'crls': array<int, string>,
+ *        'vri': array<string, TValidationVri>,
  *    }
  *
  * @SuppressWarnings("PHPMD")
@@ -537,6 +583,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out .= $this->getOutSignatureFields();
         $out .= $this->getOutSignature();
+        $out .= $this->getOutDssObjects();
         $out .= $this->getOutMetaInfo();
         $out .= $this->getOutXMP();
         $out .= $this->getOutICC();
@@ -755,6 +802,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (! empty($this->objid['dests'])) {
             $out .= ' /Dests ' . ($this->objid['dests']) . ' 0 R';
+        }
+
+        if (! empty($this->objid['dss'])) {
+            $out .= ' /DSS ' . $this->objid['dss'] . ' 0 R';
         }
 
         $out .= $this->getOutViewerPref();
@@ -2732,6 +2783,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Sign the document.
      *
      * @param string $pdfdoc string containing the PDF document
+     *
+     * @return string Signed PDF document.
      */
     protected function signDocument(string $pdfdoc): string
     {
@@ -2739,38 +2792,81 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return $pdfdoc;
         }
 
+        $prepared = $this->prepareDocumentForSignature($pdfdoc);
+        $pdfdoc = $prepared['pdfdoc'];
+        $pdfdocLength = $prepared['pdfdoc_length'];
+        $byteRange = $prepared['byte_range'];
+        $tempdoc = $this->writePreparedDocumentForSignature($pdfdoc);
+        $tempsign = $this->createPkcs7SignatureFile($tempdoc);
+        $signature = $this->extractSignatureFromPkcs7File($tempsign, $pdfdocLength);
+        $signature = $this->applySignatureTimestamp($signature);
+        $signature = $this->convertBinarySignatureToHex($signature);
+
+        return \substr($pdfdoc, 0, $byteRange[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byteRange[1]);
+    }
+
+    /**
+     * Prepare the document bytes and ByteRange placeholder for signing.
+     *
+     * @param string $pdfdoc PDF document with signature placeholder.
+     *
+     * @return TSignDocPrepared
+     */
+    protected function prepareDocumentForSignature(string $pdfdoc): array
+    {
         // remove last newline
         $pdfdoc = \substr($pdfdoc, 0, -1);
         // remove filler space
-        $byterange_strlen = \strlen($this::BYTERANGE);
-        // define the ByteRange
-        $byte_range = [];
-        $byte_range[0] = 0;
-        $byte_range[1] = \strpos($pdfdoc, $this::BYTERANGE) + $byterange_strlen + 10;
-        $byte_range[2] = $byte_range[1] + $this::SIGMAXLEN + 2;
-        $byte_range[3] = \strlen($pdfdoc) - $byte_range[2];
-        $pdfdoc = \substr($pdfdoc, 0, $byte_range[1]) . \substr($pdfdoc, $byte_range[2]);
-        // replace the ByteRange
-        $byterange = \sprintf('/ByteRange[0 %u %u %u]', $byte_range[1], $byte_range[2], $byte_range[3]);
-        $byterange .= \str_repeat(' ', ($byterange_strlen - \strlen($byterange)));
+        $byterangeLength = \strlen($this::BYTERANGE);
+        $byteRange = [0, 0, 0, 0];
+        $byteRange[1] = \strpos($pdfdoc, $this::BYTERANGE) + $byterangeLength + 10;
+        $byteRange[2] = $byteRange[1] + $this::SIGMAXLEN + 2;
+        $byteRange[3] = \strlen($pdfdoc) - $byteRange[2];
+        $pdfdoc = \substr($pdfdoc, 0, $byteRange[1]) . \substr($pdfdoc, $byteRange[2]);
+
+        $byterange = \sprintf('/ByteRange[0 %u %u %u]', $byteRange[1], $byteRange[2], $byteRange[3]);
+        $byterange .= \str_repeat(' ', ($byterangeLength - \strlen($byterange)));
         $pdfdoc = \str_replace($this::BYTERANGE, $byterange, $pdfdoc);
-        // write the document to a temporary folder
+
+        return [
+            'byte_range' => $byteRange,
+            'pdfdoc' => $pdfdoc,
+            'pdfdoc_length' => \strlen($pdfdoc),
+        ];
+    }
+
+    /**
+     * Write the prepared document bytes to a temporary file for OpenSSL signing.
+     *
+     * @param string $pdfdoc Prepared PDF document bytes.
+     */
+    protected function writePreparedDocumentForSignature(string $pdfdoc): string
+    {
         $tempdoc = $this->cache->getNewFileName('doc', $this->fileid);
         if ($tempdoc === false) {
             throw new PdfException('Unable to create temporary document file for signature');
         }
 
-        $f = $this->file->fopenLocal($tempdoc, 'wb');
-        $pdfdoc_length = \strlen($pdfdoc);
-        \fwrite($f, $pdfdoc, $pdfdoc_length);
-        \fclose($f);
-        // get digital signature via openssl library
+        $handle = $this->file->fopenLocal($tempdoc, 'wb');
+        \fwrite($handle, $pdfdoc);
+        \fclose($handle);
+
+        return $tempdoc;
+    }
+
+    /**
+     * Create the detached PKCS#7 signature file for the prepared document.
+     *
+     * @param string $tempdoc Temporary PDF document path.
+     */
+    protected function createPkcs7SignatureFile(string $tempdoc): string
+    {
         $tempsign = $this->cache->getNewFileName('sig', $this->fileid);
         if ($tempsign === false) {
             throw new PdfException('Unable to create temporary signature file');
         }
 
-        \openssl_pkcs7_sign(
+        $signed = \openssl_pkcs7_sign(
             $tempdoc,
             $tempsign,
             $this->signature['signcert'],
@@ -2779,53 +2875,1015 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             PKCS7_BINARY | PKCS7_DETACHED,
             $this->signature['extracerts']
         );
+        if ($signed !== true) {
+            throw new PdfException('Unable to generate PKCS#7 signature');
+        }
 
-        // read signature
+        return $tempsign;
+    }
+
+    /**
+     * Extract the binary signature from the PKCS#7 output file.
+     *
+     * @param string $tempsign Signed output file path.
+     * @param int $pdfdocLength Length of the prepared PDF content.
+     */
+    protected function extractSignatureFromPkcs7File(string $tempsign, int $pdfdocLength): string
+    {
         $signature = $this->file->getFileData($tempsign);
         if ($signature === false) {
             throw new PdfException('Unable to read signature file');
         }
-        // extract signature
-        $signature = \substr($signature, $pdfdoc_length);
+
+        $signature = \substr($signature, $pdfdocLength);
         $signature = \substr($signature, (\strpos($signature, "%%EOF\n\n------") + 13));
 
         $tmparr = \explode("\n\n", $signature);
-        $signature = $tmparr[1];
-        // decode signature
+        $signature = $tmparr[1] ?? '';
         $signature = \base64_decode(\trim($signature));
         if ($signature === false) {
             throw new PdfException('Unable to decode signature');
         }
-        // add TSA timestamp to signature
-        $signature = $this->applySignatureTimestamp($signature);
-        // convert signature to hex
+
+        return $signature;
+    }
+
+    /**
+     * Convert the binary signature to padded hexadecimal PDF contents.
+     *
+     * @param string $signature Digital signature as binary string.
+     */
+    protected function convertBinarySignatureToHex(string $signature): string
+    {
         $signature = \unpack('H*', $signature);
         if ($signature === false) {
             throw new PdfException('Unable to unpack signature');
         }
+
         $signature = \current($signature);
         if (! \is_string($signature)) {
             throw new PdfException('Invalid signature');
         }
-        $signature = \str_pad($signature, $this::SIGMAXLEN, '0');
-        // Add signature to the document
-        return \substr($pdfdoc, 0, $byte_range[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byte_range[1]);
+
+        return \str_pad($signature, $this::SIGMAXLEN, '0');
     }
 
     /**
-     * -- NOT YET IMPLEMENTED --
      * Add TSA timestamp to the signature.
      *
-     * @param string $signature Digital signature as binary string
+     * @param string $signature Digital signature as binary string.
      */
     protected function applySignatureTimestamp(string $signature): string
     {
-        if (!$this->sigtimestamp['enabled']) {
+        if (! $this->sigtimestamp['enabled']) {
             return $signature;
         }
 
-        // @TODO: Add TSA timestamp to the signature
+        // Phase 2 groundwork: validate RFC3161 request/response lifecycle.
+        // CMS unsigned-attributes embedding is added in the next phase slice.
+        $token = $this->requestTimestampToken($signature);
+        if ($token === '') {
+            throw new PdfException('Unable to extract TSA token');
+        }
+
         return $signature;
+    }
+
+    /**
+     * @param string $signature Digital signature as binary string.
+     */
+    protected function requestTimestampToken(string $signature): string
+    {
+        $request = $this->buildTimestampRequest($signature);
+        $response = $this->postTimestampRequest($request);
+        return $this->extractTimestampTokenFromResponse($response);
+    }
+
+    /**
+     * Collect deterministic validation material for LTV embedding.
+     *
+     * @return TValidationMaterial
+     */
+    protected function collectValidationMaterial(): array
+    {
+        $empty = [
+            'cert_chain' => [],
+            'certs' => [],
+            'ocsp' => [],
+            'crls' => [],
+            'vri' => [],
+        ];
+
+        $ltv = $this->signature['ltv'] ?? ['enabled' => false];
+        if (empty($ltv['enabled'])) {
+            return $empty;
+        }
+
+        $pemInputs = $this->collectValidationCertificateInputs();
+        if ($pemInputs === []) {
+            return $empty;
+        }
+
+        $certChain = [];
+        $certs = [];
+        $certIndexes = [];
+        $seen = [];
+        foreach ($pemInputs as $pem) {
+            $cert = $this->normalizeValidationCertificate($pem);
+            $fingerprint = \hash('sha256', $cert['der']);
+            if (isset($seen[$fingerprint])) {
+                continue;
+            }
+
+            $seen[$fingerprint] = true;
+            $certChain[] = $cert;
+            if (! empty($ltv['embed_certs'])) {
+                $certIndexes[] = \count($certs);
+                $certs[] = $cert['der'];
+            }
+        }
+
+        if ($certChain === []) {
+            return $empty;
+        }
+
+        /** @var array<int, string> $ocsp */
+        $ocsp = [];
+        /** @var array<string, int> $ocspDedup */
+        $ocspDedup = [];
+        /** @var array<int, string> $crls */
+        $crls = [];
+        /** @var array<string, int> $crlDedup */
+        $crlDedup = [];
+        $vri = [];
+
+        if (! empty($ltv['include_vri'])) {
+            $signerCert = $certChain[0];
+            $issuerCert = $certChain[1] ?? $signerCert;
+            $revocation = $this->collectRevocationForCert(
+                $signerCert,
+                $issuerCert,
+                ! empty($ltv['embed_ocsp']),
+                ! empty($ltv['embed_crl']),
+                $ocsp,
+                $ocspDedup,
+                $crls,
+                $crlDedup
+            );
+            $vriKey = \strtoupper(\hash('sha1', $signerCert['der']));
+            $vri[$vriKey] = [
+                'certs' => $certIndexes,
+                'ocsp' => $revocation['ocsp'],
+                'crls' => $revocation['crls'],
+            ];
+        }
+
+        return [
+            'cert_chain' => $certChain,
+            'certs' => $certs,
+            'ocsp' => $ocsp,
+            'crls' => $crls,
+            'vri' => $vri,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function collectValidationCertificateInputs(): array
+    {
+        $inputs = [];
+
+        $main = $this->getCertificateSourceContent((string) $this->signature['signcert']);
+        if ($main !== '') {
+            $inputs = \array_merge($inputs, $this->extractPemCertificates($main));
+        }
+
+        $extra = (string) ($this->signature['extracerts'] ?? '');
+        if ($extra !== '') {
+            $extraContent = $this->getCertificateSourceContent($extra);
+            if ($extraContent !== '') {
+                $inputs = \array_merge($inputs, $this->extractPemCertificates($extraContent));
+            }
+        }
+
+        return $inputs;
+    }
+
+    /**
+     * Emit DSS and VRI objects for the current signature.
+     */
+    protected function getOutDssObjects(): string
+    {
+        $this->objid['dss'] = 0;
+        $ltv = $this->signature['ltv'] ?? ['enabled' => false];
+        if (empty($ltv['enabled']) || empty($ltv['include_dss'])) {
+            return '';
+        }
+
+        $material = $this->collectValidationMaterial();
+        if (
+            $material['certs'] === []
+            && $material['ocsp'] === []
+            && $material['crls'] === []
+            && $material['vri'] === []
+        ) {
+            return '';
+        }
+
+        $out = '';
+        $certObjIds = $this->emitDssBinaryObjects($out, $material['certs']);
+        $ocspObjIds = $this->emitDssBinaryObjects($out, $material['ocsp']);
+        $crlObjIds = $this->emitDssBinaryObjects($out, $material['crls']);
+        $vriObjIds = $this->emitDssVriObjects($out, $material['vri'], $certObjIds, $ocspObjIds, $crlObjIds);
+
+        $oid = ++$this->pon;
+        $this->objid['dss'] = $oid;
+        $out .= $oid . " 0 obj\n";
+        $out .= '<< /Type /DSS';
+
+        if ($vriObjIds !== []) {
+            $out .= ' /VRI <<';
+            foreach ($vriObjIds as $vriKey => $vriOid) {
+                $out .= ' /' . $vriKey . ' ' . $vriOid . ' 0 R';
+            }
+            $out .= ' >>';
+        }
+
+        if ($ocspObjIds !== []) {
+            $out .= ' /OCSPs [';
+            foreach ($ocspObjIds as $objId) {
+                $out .= ' ' . $objId . ' 0 R';
+            }
+            $out .= ' ]';
+        }
+
+        if ($crlObjIds !== []) {
+            $out .= ' /CRLs [';
+            foreach ($crlObjIds as $objId) {
+                $out .= ' ' . $objId . ' 0 R';
+            }
+            $out .= ' ]';
+        }
+
+        if ($certObjIds !== []) {
+            $out .= ' /Certs [';
+            foreach ($certObjIds as $objId) {
+                $out .= ' ' . $objId . ' 0 R';
+            }
+            $out .= ' ]';
+        }
+
+        $out .= ' >>' . "\n";
+        $out .= 'endobj' . "\n";
+
+        return $out;
+    }
+
+    /**
+     * @param string                $out   Output buffer.
+     * @param array<int, string>    $items Binary payloads.
+     * @return array<int, int>
+     */
+    private function emitDssBinaryObjects(string &$out, array $items): array
+    {
+        $objIds = [];
+        foreach ($items as $index => $item) {
+            $oid = ++$this->pon;
+            $objIds[$index] = $oid;
+            $stream = $this->encrypt->encryptString($item, $oid);
+            $out .= $oid . " 0 obj\n";
+            $out .= '<< /Length ' . \strlen($stream) . ' >>' . "\n";
+            $out .= 'stream' . "\n";
+            $out .= $stream . "\n";
+            $out .= 'endstream' . "\n";
+            $out .= 'endobj' . "\n";
+        }
+
+        return $objIds;
+    }
+
+    /**
+     * @param string                                $out       Output buffer.
+     * @param array<string, TValidationVri>         $vriItems  VRI entries.
+     * @param array<int, int>                       $certObjId Certificate object IDs by index.
+     * @param array<int, int>                       $ocspObjId OCSP object IDs by index.
+     * @param array<int, int>                       $crlObjId  CRL object IDs by index.
+     * @return array<string, int>
+     */
+    private function emitDssVriObjects(
+        string &$out,
+        array $vriItems,
+        array $certObjId,
+        array $ocspObjId,
+        array $crlObjId
+    ): array {
+        $objIds = [];
+        foreach ($vriItems as $vriKey => $item) {
+            $oid = ++$this->pon;
+            $objIds[$vriKey] = $oid;
+            $out .= $oid . " 0 obj\n";
+            $out .= '<< /Type /VRI';
+
+            if ($item['certs'] !== []) {
+                $out .= ' /Cert [';
+                foreach ($item['certs'] as $index) {
+                    if (isset($certObjId[$index])) {
+                        $out .= ' ' . $certObjId[$index] . ' 0 R';
+                    }
+                }
+                $out .= ' ]';
+            }
+
+            if ($item['ocsp'] !== []) {
+                $out .= ' /OCSP [';
+                foreach ($item['ocsp'] as $index) {
+                    if (isset($ocspObjId[$index])) {
+                        $out .= ' ' . $ocspObjId[$index] . ' 0 R';
+                    }
+                }
+                $out .= ' ]';
+            }
+
+            if ($item['crls'] !== []) {
+                $out .= ' /CRL [';
+                foreach ($item['crls'] as $index) {
+                    if (isset($crlObjId[$index])) {
+                        $out .= ' ' . $crlObjId[$index] . ' 0 R';
+                    }
+                }
+                $out .= ' ]';
+            }
+
+            $out .= ' >>' . "\n";
+            $out .= 'endobj' . "\n";
+        }
+
+        return $objIds;
+    }
+
+    protected function getCertificateSourceContent(string $source): string
+    {
+        if ($source === '') {
+            return '';
+        }
+
+        if (\str_contains($source, '-----BEGIN CERTIFICATE-----')) {
+            return $source;
+        }
+
+        $data = $this->file->getFileData($source);
+        if ($data === false && ! \str_starts_with($source, 'file://')) {
+            $data = $this->file->getFileData('file://' . $source);
+        }
+
+        if ($data === false) {
+            throw new PdfException('Unable to read validation certificate source');
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function extractPemCertificates(string $content): array
+    {
+        $matches = [];
+        $pattern = '/-----BEGIN CERTIFICATE-----(?:.|\n|\r)+?-----END CERTIFICATE-----/';
+        $ok = \preg_match_all($pattern, $content, $matches);
+        if ($ok === false) {
+            throw new PdfException('Unable to parse certificate bundle');
+        }
+
+        if ($ok === 0) {
+            return [];
+        }
+
+        /** @var array<int, string> $pem */
+        $pem = $matches[0];
+        return $pem;
+    }
+
+    /**
+     * @param string $pem PEM certificate.
+     *
+     * @return TValidationCert
+     */
+    protected function normalizeValidationCertificate(string $pem): array
+    {
+        $x509 = \openssl_x509_read($pem);
+        if ($x509 === false) {
+            throw new PdfException('Invalid validation certificate');
+        }
+
+        $exported = '';
+        $exportOk = \openssl_x509_export($x509, $exported, true);
+        if ($exportOk !== true || ! \is_string($exported)) {
+            throw new PdfException('Unable to export validation certificate');
+        }
+
+        $pem = $exported;
+        $parsed = \openssl_x509_parse($x509, false);
+        if ($parsed === false) {
+            $parsed = [];
+        }
+
+        $extensions = [];
+        if (isset($parsed['extensions']) && \is_array($parsed['extensions'])) {
+            $extensions = $parsed['extensions'];
+        }
+
+        $base64 = \str_replace(
+            ["-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----", "\r", "\n"],
+            '',
+            $pem
+        );
+        $der = \base64_decode($base64, true);
+        if ($der === false) {
+            throw new PdfException('Unable to decode validation certificate');
+        }
+
+        $subject = isset($parsed['name']) && \is_string($parsed['name']) ? $parsed['name'] : '';
+        $issuer = '';
+        if (isset($parsed['issuer']) && \is_array($parsed['issuer'])) {
+            $issuer = \json_encode($parsed['issuer']);
+            if ($issuer === false) {
+                $issuer = '';
+            }
+        }
+
+
+        $serial = '';
+        if (isset($parsed['serialNumberHex']) && \is_string($parsed['serialNumberHex'])) {
+            $serial = $parsed['serialNumberHex'];
+        }
+
+        $aiaText = isset($extensions['authorityInfoAccess'])
+            && \is_string($extensions['authorityInfoAccess'])
+            ? (string) $extensions['authorityInfoAccess']
+            : '';
+        $cdpText = isset($extensions['crlDistributionPoints'])
+            && \is_string($extensions['crlDistributionPoints'])
+            ? (string) $extensions['crlDistributionPoints']
+            : '';
+
+        return [
+            'pem' => $pem,
+            'der' => $der,
+            'serial' => $serial,
+            'subject' => $subject,
+            'issuer' => $issuer,
+            'ocsp_urls' => $this->extractCertExtensionUrls($aiaText, 'OCSP'),
+            'crl_dp_urls' => $this->extractCertExtensionUrls($cdpText, 'CRL'),
+        ];
+    }
+
+    /**
+     * Extract URLs of a given type from a certificate extension text block.
+     *
+     * Pass 'OCSP' to extract OCSP responder URIs from Authority Information Access,
+     * or 'CRL' to extract CRL Distribution Point URIs.
+     *
+     * @return array<int, string>
+     */
+    protected function extractCertExtensionUrls(string $text, string $type): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        $pattern = ($type === 'OCSP')
+            ? '/OCSP\s*-\s*URI:(https?:\/\/[^\s,]+)/i'
+            : '/URI:(https?:\/\/[^\s]+)/i';
+
+        $matches = [];
+        if (\preg_match_all($pattern, $text, $matches) === false) {
+            return [];
+        }
+
+        $urls = $matches[1];
+        return $urls;
+    }
+
+    /**
+     * Extract the raw DER bytes of the Subject Name and the public key value
+     * from a DER-encoded X.509 certificate.
+     *
+     * The Subject bytes are the full DER encoding of the issuer Name SEQUENCE.
+     * The pubkey bytes are the BIT STRING value without the leading unused-bits byte.
+     *
+     * @return array{subject: string, pubkey: string}
+     */
+    private function extractDerSubjectAndPubkey(string $certDer): array
+    {
+        $certOff = 0;
+        $certTlv = $this->asn1ReadTlv($certDer, $certOff);
+
+        $tbsOff = 0;
+        $tbsTlv = $this->asn1ReadTlv($certTlv['value'], $tbsOff);
+        $tbs = $tbsTlv['value'];
+
+        $off = 0;
+        if ($off < \strlen($tbs) && (\ord($tbs[$off]) & 0xe0) === 0xa0) {
+            $this->asn1ReadTlv($tbs, $off);
+        }
+
+        $this->asn1ReadTlv($tbs, $off);
+        $this->asn1ReadTlv($tbs, $off);
+
+        $issuerStart = $off;
+        $this->asn1ReadTlv($tbs, $off);
+        $subjectDer = \substr($tbs, $issuerStart, $off - $issuerStart);
+
+        $this->asn1ReadTlv($tbs, $off);
+        $this->asn1ReadTlv($tbs, $off);
+
+        $spki = $this->asn1ReadTlv($tbs, $off);
+        $spkiOff = 0;
+        $this->asn1ReadTlv($spki['value'], $spkiOff);
+        $bitStr = $this->asn1ReadTlv($spki['value'], $spkiOff);
+        $pubkey = \substr($bitStr['value'], 1);
+
+        return ['subject' => $subjectDer, 'pubkey' => $pubkey];
+    }
+
+    /**
+     * Encode a raw big-endian byte string as an ASN.1 DER INTEGER.
+     */
+    private function asn1EncodeIntegerBytes(string $bytes): string
+    {
+        if ($bytes === '') {
+            $bytes = "\x00";
+        }
+
+        if ((\ord($bytes[0]) & 0x80) !== 0) {
+            $bytes = "\x00" . $bytes;
+        }
+
+        return "\x02" . $this->asn1EncodeLength(\strlen($bytes)) . $bytes;
+    }
+
+    /**
+     * Build an RFC 2560 OCSPRequest in DER format for a single certificate.
+     *
+     * Uses SHA-1 as the hash algorithm for CertID as required by RFC 2560.
+     *
+     * @phpstan-param TValidationCert $leafCert
+     * @phpstan-param TValidationCert $issuerCert
+     */
+    protected function buildOcspRequest(array $leafCert, array $issuerCert): string
+    {
+        $issuerInfo = $this->extractDerSubjectAndPubkey($issuerCert['der']);
+        $issuerNameHash = \hash('sha1', $issuerInfo['subject'], true);
+        $issuerKeyHash = \hash('sha1', $issuerInfo['pubkey'], true);
+
+        $decoded = $leafCert['serial'] !== '' ? \hex2bin($leafCert['serial']) : false;
+        $serialBytes = \is_string($decoded) ? $decoded : "\x00";
+
+        $algId = $this->asn1EncodeSequence(
+            $this->asn1EncodeObjectIdentifier('1.3.14.3.2.26') . $this->asn1EncodeNull()
+        );
+        $certId = $this->asn1EncodeSequence(
+            $algId
+            . $this->asn1EncodeOctetString($issuerNameHash)
+            . $this->asn1EncodeOctetString($issuerKeyHash)
+            . $this->asn1EncodeIntegerBytes($serialBytes)
+        );
+        $requestList = $this->asn1EncodeSequence($this->asn1EncodeSequence($certId));
+        return $this->asn1EncodeSequence($this->asn1EncodeSequence($requestList));
+    }
+
+    /**
+     * Collect OCSP responses and CRL data for one certificate.
+     * Updates the provided lists and dedup maps in place.
+     *
+     * @phpstan-param TValidationCert       $cert
+     * @phpstan-param TValidationCert|null  $issuerCert
+     * @phpstan-param array<int, string>    $ocspList
+     * @phpstan-param array<string, int>    $ocspDedup
+     * @phpstan-param array<int, string>    $crlList
+     * @phpstan-param array<string, int>    $crlDedup
+     * @return array{ocsp: array<int>, crls: array<int>}
+     */
+    private function collectRevocationForCert(
+        array $cert,
+        ?array $issuerCert,
+        bool $embedOcsp,
+        bool $embedCrl,
+        array &$ocspList,
+        array &$ocspDedup,
+        array &$crlList,
+        array &$crlDedup
+    ): array {
+        $ocspIdxs = [];
+        $crlIdxs = [];
+
+        if ($embedOcsp && $issuerCert !== null && $cert['ocsp_urls'] !== []) {
+            $requestDer = $this->buildOcspRequest($cert, $issuerCert);
+            foreach ($cert['ocsp_urls'] as $url) {
+                try {
+                    $resp = $this->postOcspRequest($url, $requestDer);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                $fp = \hash('sha256', $resp);
+                if (! isset($ocspDedup[$fp])) {
+                    $ocspDedup[$fp] = \count($ocspList);
+                    $ocspList[] = $resp;
+                }
+
+                $ocspIdxs[] = $ocspDedup[$fp];
+            }
+        }
+
+        if ($embedCrl && $cert['crl_dp_urls'] !== []) {
+            foreach ($cert['crl_dp_urls'] as $url) {
+                try {
+                    $crlData = $this->getCrlData($url);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                $fp = \hash('sha256', $crlData);
+                if (! isset($crlDedup[$fp])) {
+                    $crlDedup[$fp] = \count($crlList);
+                    $crlList[] = $crlData;
+                }
+
+                $crlIdxs[] = $crlDedup[$fp];
+            }
+        }
+
+        return ['ocsp' => $ocspIdxs, 'crls' => $crlIdxs];
+    }
+
+    /**
+     * Send an OCSP request via HTTP POST.
+     * Override in subclasses or test doubles to inject a canned response.
+     */
+    protected function postOcspRequest(string $url, string $request): string
+    {
+        $context = \stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/ocsp-request\r\nContent-Length: " . \strlen($request),
+                'content' => $request,
+                'timeout' => 30,
+            ],
+        ]);
+        $response = \file_get_contents($url, false, $context);
+        if ($response === false) {
+            throw new PdfException('OCSP request failed: ' . $url);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Fetch a CRL via HTTP GET.
+     * Override in subclasses or test doubles to inject canned data.
+     */
+    protected function getCrlData(string $url): string
+    {
+        $data = \file_get_contents($url);
+        if ($data === false) {
+            throw new PdfException('CRL fetch failed: ' . $url);
+        }
+
+        return $data;
+    }
+
+    protected function buildTimestampRequest(string $signature): string
+    {
+        $hashAlgo = \strtolower((string) $this->sigtimestamp['hash_algorithm']);
+        $hash = \hash($hashAlgo, $signature, true);
+
+        $oid = $this->getTimestampHashAlgorithmOid($hashAlgo);
+        $messageImprint = $this->asn1EncodeSequence(
+            $this->asn1EncodeSequence($this->asn1EncodeObjectIdentifier($oid) . $this->asn1EncodeNull())
+            . $this->asn1EncodeOctetString($hash)
+        );
+
+        $body = $this->asn1EncodeInteger(1) . $messageImprint;
+        if (! empty($this->sigtimestamp['policy_oid'])) {
+            $body .= $this->asn1EncodeObjectIdentifier((string) $this->sigtimestamp['policy_oid']);
+        }
+
+        if ($this->sigtimestamp['nonce_enabled']) {
+            $body .= $this->asn1EncodeInteger(\random_int(1, PHP_INT_MAX));
+        }
+
+        $body .= $this->asn1EncodeBoolean(true);
+        return $this->asn1EncodeSequence($body);
+    }
+
+    /**
+     * Submit an RFC3161 TimeStampReq to the configured TSA endpoint.
+     *
+     * @param string $request DER-encoded timestamp request.
+     */
+    protected function postTimestampRequest(string $request): string
+    {
+        $host = (string) $this->sigtimestamp['host'];
+        if ($host === '') {
+            throw new PdfException('Invalid TSA host');
+        }
+
+        $timeout = (int) $this->sigtimestamp['timeout'];
+        if ($timeout < 1) {
+            $timeout = 5;
+        }
+
+        $headers = [
+            'Content-Type: application/timestamp-query',
+            'Accept: application/timestamp-reply',
+        ];
+
+        if ($this->sigtimestamp['username'] !== '') {
+            $auth = (string) $this->sigtimestamp['username'] . ':' . (string) $this->sigtimestamp['password'];
+            $headers[] = 'Authorization: Basic ' . \base64_encode($auth);
+        }
+
+        if (\function_exists('curl_init')) {
+            $ch = \curl_init($host);
+            if ($ch === false) {
+                throw new PdfException('Unable to initialize TSA request');
+            }
+
+            $opts = [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $request,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => $timeout,
+                CURLOPT_CONNECTTIMEOUT => $timeout,
+                CURLOPT_SSL_VERIFYPEER => (bool) $this->sigtimestamp['verify_peer'],
+                CURLOPT_SSL_VERIFYHOST => (bool) $this->sigtimestamp['verify_peer'] ? 2 : 0,
+            ];
+
+            if (! empty($this->sigtimestamp['cert'])) {
+                $opts[CURLOPT_CAINFO] = (string) $this->sigtimestamp['cert'];
+            }
+
+            \curl_setopt_array($ch, $opts);
+            $response = \curl_exec($ch);
+            if ($response === false) {
+                throw new PdfException('Unable to request TSA timestamp');
+            }
+
+            return $response === true ? '' : $response;
+        }
+
+        $context = \stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => \implode("\r\n", $headers),
+                'content' => $request,
+                'timeout' => $timeout,
+                'ignore_errors' => true,
+            ],
+            'ssl' => [
+                'verify_peer' => (bool) $this->sigtimestamp['verify_peer'],
+                'verify_peer_name' => (bool) $this->sigtimestamp['verify_peer'],
+                'cafile' => (string) $this->sigtimestamp['cert'],
+            ],
+        ]);
+
+        $response = @\file_get_contents($host, false, $context);
+        if ($response === false) {
+            throw new PdfException('Unable to request TSA timestamp');
+        }
+
+        return $response;
+    }
+
+    /**
+     * Extract timestamp token from RFC3161 TimeStampResp.
+     *
+     * @param string $response DER-encoded timestamp response.
+     */
+    protected function extractTimestampTokenFromResponse(string $response): string
+    {
+        if ($response === '') {
+            throw new PdfException('Empty TSA response');
+        }
+
+        /** @var int<0, max> $offset */
+        $offset = 0;
+        $root = $this->asn1ReadTlv($response, $offset);
+        if (($root['tag'] !== 0x30) || ($offset !== \strlen($response))) {
+            throw new PdfException('Invalid TSA response');
+        }
+
+        /** @var int<0, max> $inner */
+        $inner = 0;
+        $statusSeq = $this->asn1ReadTlv($root['value'], $inner);
+        if ($statusSeq['tag'] !== 0x30) {
+            throw new PdfException('Invalid TSA status response');
+        }
+
+        /** @var int<0, max> $statusOffset */
+        $statusOffset = 0;
+        $status = $this->asn1ReadTlv($statusSeq['value'], $statusOffset);
+        if ($status['tag'] !== 0x02) {
+            throw new PdfException('Invalid TSA status code');
+        }
+
+        $statusCode = $this->asn1DecodeInteger($status['value']);
+        if (($statusCode !== 0) && ($statusCode !== 1)) {
+            throw new PdfException('TSA request rejected');
+        }
+
+        if ($inner >= \strlen($root['value'])) {
+            throw new PdfException('Missing TSA token');
+        }
+
+        $token = $this->asn1ReadTlv($root['value'], $inner);
+        if ($token['tag'] !== 0x30) {
+            throw new PdfException('Invalid TSA token structure');
+        }
+
+        return $token['raw'];
+    }
+
+    protected function getTimestampHashAlgorithmOid(string $algorithm): string
+    {
+        return match ($algorithm) {
+            'sha256' => '2.16.840.1.101.3.4.2.1',
+            'sha384' => '2.16.840.1.101.3.4.2.2',
+            'sha512' => '2.16.840.1.101.3.4.2.3',
+            default => throw new PdfException('Unsupported TSA hash algorithm'),
+        };
+    }
+
+    /** @param int<0, max> $length */
+    protected function asn1EncodeLength(int $length): string
+    {
+        if ($length < 128) {
+            return \chr($length);
+        }
+
+        $encoded = '';
+        $value = $length;
+        while ($value > 0) {
+            $encoded = \chr((int)($value & 0xFF)) . $encoded;
+            $value = (int) ($value / 256);
+        }
+
+        $encodedLength = \strlen($encoded);
+        if ($encodedLength > 0x7F) {
+            throw new PdfException('ASN.1 length encoding overflow');
+        }
+
+        /** @var int<0, 127> $encodedLength */
+        return \chr(0x80 | $encodedLength) . $encoded;
+    }
+
+    /** @param int<0, max> $value */
+    protected function asn1EncodeInteger(int $value): string
+    {
+        $data = '';
+        $num = $value;
+        while ($num > 0) {
+            $data = \chr((int)($num & 0xFF)) . $data;
+            $num = (int) ($num / 256);
+        }
+
+        if ($data === '') {
+            $data = "\x00";
+        }
+
+        if ((\ord($data[0]) & 0x80) !== 0) {
+            $data = "\x00" . $data;
+        }
+
+        return "\x02" . $this->asn1EncodeLength(\strlen($data)) . $data;
+    }
+
+    protected function asn1EncodeBoolean(bool $value): string
+    {
+        return "\x01\x01" . ($value ? "\xFF" : "\x00");
+    }
+
+    protected function asn1EncodeNull(): string
+    {
+        return "\x05\x00";
+    }
+
+    protected function asn1EncodeOctetString(string $value): string
+    {
+        return "\x04" . $this->asn1EncodeLength(\strlen($value)) . $value;
+    }
+
+    protected function asn1EncodeSequence(string $value): string
+    {
+        return "\x30" . $this->asn1EncodeLength(\strlen($value)) . $value;
+    }
+
+    protected function asn1EncodeObjectIdentifier(string $oid): string
+    {
+        $parts = \array_map('intval', \explode('.', $oid));
+        if (\count($parts) < 2) {
+            throw new PdfException('Invalid OID');
+        }
+
+        $data = \chr((int)((($parts[0] * 40) + $parts[1]) & 0xFF));
+        $count = \count($parts);
+        for ($idx = 2; $idx < $count; ++$idx) {
+            $part = (int) \max(0, $parts[$idx]);
+            $data .= $this->asn1EncodeBase128Int($part);
+        }
+
+        return "\x06" . $this->asn1EncodeLength(\strlen($data)) . $data;
+    }
+
+    /** @param int<0, max> $value */
+    protected function asn1EncodeBase128Int(int $value): string
+    {
+        $bytes = [($value & 0x7F)];
+        $value = (int) ($value / 128);
+        while ($value > 0) {
+            \array_unshift($bytes, ($value & 0x7F) | 0x80);
+            $value = (int) ($value / 128);
+        }
+
+        $out = '';
+        foreach ($bytes as $byte) {
+            $out .= \chr($byte);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param int $offset
+     *
+     * @return array{tag: int, value: string, raw: string}
+     */
+    protected function asn1ReadTlv(string $data, int &$offset): array
+    {
+        if ($offset >= \strlen($data)) {
+            throw new PdfException('Malformed ASN.1 structure');
+        }
+
+        $start = $offset;
+        $tag = \ord($data[$offset]);
+        ++$offset;
+
+        $length = $this->asn1ReadLength($data, $offset);
+        if (($offset + $length) > \strlen($data)) {
+            throw new PdfException('Malformed ASN.1 length');
+        }
+
+        $value = \substr($data, $offset, $length);
+        $offset += $length;
+        $raw = \substr($data, $start, ($offset - $start));
+
+        return ['tag' => $tag, 'value' => $value, 'raw' => $raw];
+    }
+
+    /** @param int $offset */
+    protected function asn1ReadLength(string $data, int &$offset): int
+    {
+        if ($offset >= \strlen($data)) {
+            throw new PdfException('Malformed ASN.1 length');
+        }
+
+        $first = \ord($data[$offset]);
+        ++$offset;
+        if (($first & 0x80) === 0) {
+            return $first;
+        }
+
+        $numBytes = ($first & 0x7F);
+        if (($numBytes < 1) || ($numBytes > 4) || (($offset + $numBytes) > \strlen($data))) {
+            throw new PdfException('Unsupported ASN.1 length');
+        }
+
+        $length = 0;
+        for ($idx = 0; $idx < $numBytes; ++$idx) {
+            $length = ($length * 256) + \ord($data[$offset + $idx]);
+        }
+
+        $offset += $numBytes;
+        return $length;
+    }
+
+    protected function asn1DecodeInteger(string $value): int
+    {
+        if ($value === '') {
+            throw new PdfException('Invalid ASN.1 integer');
+        }
+
+        $int = 0;
+        $len = \strlen($value);
+        for ($idx = 0; $idx < $len; ++$idx) {
+            $int = ($int * 256) + \ord($value[$idx]);
+        }
+
+        return $int;
     }
 
     /**
@@ -2833,7 +3891,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutSignature(): string
     {
-        if ((! $this->sign) || empty($this->signature['cert_type'])) {
+        if ((! $this->sign) || ($this->signature['cert_type'] < 0)) {
             return '';
         }
 

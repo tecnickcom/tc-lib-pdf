@@ -137,6 +137,11 @@ class TcpdfTest extends TestUtil
             'username' => '',
             'password' => '',
             'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
         ]);
     }
 
@@ -149,12 +154,69 @@ class TcpdfTest extends TestUtil
             'username' => '',
             'password' => '',
             'cert' => '',
+            'hash_algorithm' => 'sha512',
+            'policy_oid' => '1.2.3.4',
+            'nonce_enabled' => false,
+            'timeout' => 9,
+            'verify_peer' => false,
         ]);
 
-        /** @var array{enabled: bool, host: string} $timeStamp */
+        /** @var array{enabled: bool, host: string, hash_algorithm: string, timeout: int, verify_peer: bool} $timeStamp */
         $timeStamp = $this->getObjectProperty($obj, 'sigtimestamp');
         $this->assertTrue($timeStamp['enabled']);
         $this->assertSame('https://tsa.example.test', $timeStamp['host']);
+        $this->assertSame('sha512', $timeStamp['hash_algorithm']);
+        $this->assertSame(9, $timeStamp['timeout']);
+        $this->assertFalse($timeStamp['verify_peer']);
+    }
+
+    public function testSetSignTimeStampThrowsOnInvalidHashAlgorithm(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha1',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ]);
+    }
+
+    public function testSetSignatureStoresLtvOptions(): void
+    {
+        $obj = $this->getTestObject();
+
+        $obj->setSignature([
+            'appearance' => ['empty' => [], 'name' => '', 'page' => 0, 'rect' => ''],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => 'dummy-signcert',
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        /** @var array{ltv: array{enabled: bool, embed_ocsp: bool, embed_crl: bool}} $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertTrue($signature['ltv']['enabled']);
+        $this->assertFalse($signature['ltv']['embed_ocsp']);
+        $this->assertFalse($signature['ltv']['embed_crl']);
     }
 
     public function testSetSignatureThrowsOnMissingSigningCertificate(): void

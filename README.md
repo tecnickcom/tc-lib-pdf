@@ -78,7 +78,13 @@ Because it is part of the broader `tc-lib-*` ecosystem, `tc-lib-pdf` can coordin
 
 ### Security & Standards
 - Password and certificate-based document encryption (RC4 and AES, up to 256-bit)
-- **Digital signatures**, signature appearance fields
+- **Digital signatures** — detached CMS (PKCS#7) signatures with configurable appearance fields
+- **RFC 3161 TSA timestamps** — embed a trusted timestamp token from any RFC 3161-compliant Time Stamping Authority (TSA) into the CMS signature; configurable digest algorithm (`sha256`, `sha384`, `sha512`), policy OID, nonce, timeout, and TLS peer verification
+- **LTV (Long-Term Validation)** — embed revocation evidence in the same PDF revision as the signature:
+  - collects the signing certificate chain and fetches OCSP responses and/or CRL payloads from AIA and CDP URLs
+  - deduplicates binary payloads by fingerprint
+  - emits `/DSS`, `/VRI`, `/OCSPs`, `/CRLs`, and `/Certs` objects in the catalog
+  - each feature (OCSP, CRL, cert embedding, DSS, VRI) can be enabled independently via `setSignature()` LTV options
 - **PDF annotations**: links, text notes, file attachments, markup, shapes, media, and widgets
 - **JavaScript** embedding
 - **PDF/A** (1/2/3, including a/b/u conformance levels) and **PDF/X** support
@@ -156,6 +162,85 @@ make server  # start a local PHP server
 ```
 
 Then open <http://localhost:8971/index.php>.
+
+---
+
+## Digital Signatures
+
+`tc-lib-pdf` supports detached CMS (PKCS#7) signatures with optional RFC 3161 timestamps and LTV (Long-Term Validation) material, all embedded in a single PDF revision.
+
+Signature-focused runnable examples:
+
+- [examples/007_example_signature_basic.php](examples/007_example_signature_basic.php) : basic detached CMS signature with visible signature fields.
+- [examples/008_example_signature_timestamp.php](examples/008_example_signature_timestamp.php) : detached CMS signature with RFC 3161 TSA timestamp configuration.
+- [examples/009_example_signature_ltv.php](examples/009_example_signature_ltv.php) : detached CMS signature with LTV validation material embedding.
+
+### Basic signature
+
+```php
+$pdf->setSignature([
+    'signcert'  => 'file:///path/to/cert.pem',
+    'privkey'   => 'file:///path/to/key.pem',
+    'password'  => '',
+    'cert_type' => 2,
+    'info'      => [
+        'Name'        => 'Jane Smith',
+        'Location'    => 'London',
+        'Reason'      => 'Document approval',
+        'ContactInfo' => 'jane@example.com',
+    ],
+]);
+```
+
+### Adding a TSA timestamp (RFC 3161)
+
+Call `setSignTimeStamp()` after `setSignature()` to request a timestamp token from a trusted TSA and embed it in the CMS unsigned attributes:
+
+```php
+$pdf->setSignTimeStamp([
+    'enabled'        => true,
+    'host'           => 'https://freetsa.org/tsr',
+    'username'       => '',
+    'password'       => '',
+    'cert'           => '',
+    'hash_algorithm' => 'sha256',   // sha256 | sha384 | sha512
+    'policy_oid'     => '',         // optional OID string
+    'nonce_enabled'  => true,
+    'timeout'        => 30,
+    'verify_peer'    => true,
+]);
+```
+
+### LTV (Long-Term Validation)
+
+Enable LTV via the `ltv` key inside `setSignature()`. The library fetches OCSP responses and CRL payloads from the certificate's AIA and CDP extensions and writes them into the same PDF revision as the signature:
+
+```php
+$pdf->setSignature([
+    'signcert' => 'file:///path/to/cert.pem',
+    'privkey'  => 'file:///path/to/key.pem',
+    'password' => '',
+    'ltv'      => [
+        'enabled'     => true,
+        'embed_ocsp'  => true,   // fetch OCSP responses
+        'embed_crl'   => true,   // fetch CRL payloads (fallback)
+        'embed_certs' => true,   // include certificate DER bytes
+        'include_dss' => true,   // emit /DSS in catalog
+        'include_vri' => true,   // emit /VRI map keyed by cert SHA-1
+    ],
+]);
+```
+
+When LTV is enabled the output PDF contains `/DSS`, `/VRI`, `/OCSPs`, `/CRLs`, and `/Certs` objects, making Adobe-style long-term signature validation feasible without any external retrieval at verification time.
+
+### Generating a self-signed test certificate
+
+```bash
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout tcpdf.key -out tcpdf.crt
+# convert to PKCS#12 if needed
+openssl pkcs12 -export -in tcpdf.crt -inkey tcpdf.key -out tcpdf.p12
+```
 
 ---
 
