@@ -3250,7 +3250,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function extractPemCertificates(string $content): array
     {
         $matches = [];
-        $ok = \preg_match_all('/-----BEGIN CERTIFICATE-----(?:.|\n|\r)+?-----END CERTIFICATE-----/', $content, $matches);
+        $pattern = '/-----BEGIN CERTIFICATE-----(?:.|\n|\r)+?-----END CERTIFICATE-----/';
+        $ok = \preg_match_all($pattern, $content, $matches);
         if ($ok === false) {
             throw new PdfException('Unable to parse certificate bundle');
         }
