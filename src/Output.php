@@ -3728,7 +3728,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $encoded = '';
         $value = $length;
         while ($value > 0) {
-            $encoded = \chr($value & 0xFF) . $encoded;
+            $encoded = \chr((int)($value & 0xFF)) . $encoded;
             $value = (int) ($value / 256);
         }
 
@@ -3741,7 +3741,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $data = '';
         $num = $value;
         while ($num > 0) {
-            $data = \chr($num & 0xFF) . $data;
+            $data = \chr((int)($num & 0xFF)) . $data;
             $num = (int) ($num / 256);
         }
 
@@ -3783,7 +3783,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             throw new PdfException('Invalid OID');
         }
 
-        $data = \chr(($parts[0] * 40) + $parts[1]);
+        $data = \chr((int)((($parts[0] * 40) + $parts[1]) & 0xFF));
         $count = \count($parts);
         for ($idx = 2; $idx < $count; ++$idx) {
             $part = (int) \max(0, $parts[$idx]);
