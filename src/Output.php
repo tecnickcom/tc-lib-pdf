@@ -447,6 +447,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @phpstan-type TObjID array{
  *        'catalog': int,
  *        'dests': int,
+ *        'dss': int,
  *        'form': array<int>,
  *        'info': int,
  *        'pages': int,
@@ -582,6 +583,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out .= $this->getOutSignatureFields();
         $out .= $this->getOutSignature();
+        $out .= $this->getOutDssObjects();
         $out .= $this->getOutMetaInfo();
         $out .= $this->getOutXMP();
         $out .= $this->getOutICC();
@@ -800,6 +802,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         if (! empty($this->objid['dests'])) {
             $out .= ' /Dests ' . ($this->objid['dests']) . ' 0 R';
+        }
+
+        if (! empty($this->objid['dss'])) {
+            $out .= ' /DSS ' . $this->objid['dss'] . ' 0 R';
         }
 
         $out .= $this->getOutViewerPref();
@@ -3062,6 +3068,158 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         return $inputs;
+    }
+
+    /**
+     * Emit DSS and VRI objects for the current signature.
+     */
+    protected function getOutDssObjects(): string
+    {
+        $this->objid['dss'] = 0;
+        $ltv = $this->signature['ltv'] ?? ['enabled' => false];
+        if (empty($ltv['enabled']) || empty($ltv['include_dss'])) {
+            return '';
+        }
+
+        $material = $this->collectValidationMaterial();
+        if (
+            $material['certs'] === []
+            && $material['ocsp'] === []
+            && $material['crls'] === []
+            && $material['vri'] === []
+        ) {
+            return '';
+        }
+
+        $out = '';
+        $certObjIds = $this->emitDssBinaryObjects($out, $material['certs']);
+        $ocspObjIds = $this->emitDssBinaryObjects($out, $material['ocsp']);
+        $crlObjIds = $this->emitDssBinaryObjects($out, $material['crls']);
+        $vriObjIds = $this->emitDssVriObjects($out, $material['vri'], $certObjIds, $ocspObjIds, $crlObjIds);
+
+        $oid = ++$this->pon;
+        $this->objid['dss'] = $oid;
+        $out .= $oid . " 0 obj\n";
+        $out .= '<< /Type /DSS';
+
+        if ($vriObjIds !== []) {
+            $out .= ' /VRI <<';
+            foreach ($vriObjIds as $vriKey => $vriOid) {
+                $out .= ' /' . $vriKey . ' ' . $vriOid . ' 0 R';
+            }
+            $out .= ' >>';
+        }
+
+        if ($ocspObjIds !== []) {
+            $out .= ' /OCSPs [';
+            foreach ($ocspObjIds as $objId) {
+                $out .= ' ' . $objId . ' 0 R';
+            }
+            $out .= ' ]';
+        }
+
+        if ($crlObjIds !== []) {
+            $out .= ' /CRLs [';
+            foreach ($crlObjIds as $objId) {
+                $out .= ' ' . $objId . ' 0 R';
+            }
+            $out .= ' ]';
+        }
+
+        if ($certObjIds !== []) {
+            $out .= ' /Certs [';
+            foreach ($certObjIds as $objId) {
+                $out .= ' ' . $objId . ' 0 R';
+            }
+            $out .= ' ]';
+        }
+
+        $out .= ' >>' . "\n";
+        $out .= 'endobj' . "\n";
+
+        return $out;
+    }
+
+    /**
+     * @param string                $out   Output buffer.
+     * @param array<int, string>    $items Binary payloads.
+     * @return array<int, int>
+     */
+    private function emitDssBinaryObjects(string &$out, array $items): array
+    {
+        $objIds = [];
+        foreach ($items as $index => $item) {
+            $oid = ++$this->pon;
+            $objIds[$index] = $oid;
+            $stream = $this->encrypt->encryptString($item, $oid);
+            $out .= $oid . " 0 obj\n";
+            $out .= '<< /Length ' . \strlen($stream) . ' >>' . "\n";
+            $out .= 'stream' . "\n";
+            $out .= $stream . "\n";
+            $out .= 'endstream' . "\n";
+            $out .= 'endobj' . "\n";
+        }
+
+        return $objIds;
+    }
+
+    /**
+     * @param string                                $out       Output buffer.
+     * @param array<string, TValidationVri>         $vriItems  VRI entries.
+     * @param array<int, int>                       $certObjId Certificate object IDs by index.
+     * @param array<int, int>                       $ocspObjId OCSP object IDs by index.
+     * @param array<int, int>                       $crlObjId  CRL object IDs by index.
+     * @return array<string, int>
+     */
+    private function emitDssVriObjects(
+        string &$out,
+        array $vriItems,
+        array $certObjId,
+        array $ocspObjId,
+        array $crlObjId
+    ): array {
+        $objIds = [];
+        foreach ($vriItems as $vriKey => $item) {
+            $oid = ++$this->pon;
+            $objIds[$vriKey] = $oid;
+            $out .= $oid . " 0 obj\n";
+            $out .= '<< /Type /VRI';
+
+            if ($item['certs'] !== []) {
+                $out .= ' /Cert [';
+                foreach ($item['certs'] as $index) {
+                    if (isset($certObjId[$index])) {
+                        $out .= ' ' . $certObjId[$index] . ' 0 R';
+                    }
+                }
+                $out .= ' ]';
+            }
+
+            if ($item['ocsp'] !== []) {
+                $out .= ' /OCSP [';
+                foreach ($item['ocsp'] as $index) {
+                    if (isset($ocspObjId[$index])) {
+                        $out .= ' ' . $ocspObjId[$index] . ' 0 R';
+                    }
+                }
+                $out .= ' ]';
+            }
+
+            if ($item['crls'] !== []) {
+                $out .= ' /CRL [';
+                foreach ($item['crls'] as $index) {
+                    if (isset($crlObjId[$index])) {
+                        $out .= ' ' . $crlObjId[$index] . ' 0 R';
+                    }
+                }
+                $out .= ' ]';
+            }
+
+            $out .= ' >>' . "\n";
+            $out .= 'endobj' . "\n";
+        }
+
+        return $objIds;
     }
 
     protected function getCertificateSourceContent(string $source): string

@@ -840,6 +840,55 @@ PHP;
         ]);
     }
 
+    public function testGetOutCatalogIncludesDssReferenceWhenAvailable(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 6);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4, 'dss' => 12]);
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringContainsString('/DSS 12 0 R', $out);
+    }
+
+    public function testGetOutPDFBodyIncludesDssWhenLtvDssEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
+        $certPem = (string) \file_get_contents($certPath);
+
+        /** @var array<string, mixed> $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $signature = \array_replace_recursive($signature, [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $this->setObjectProperty($obj, 'signature', $signature);
+        $obj->setMockOcspResponse('mock-ocsp-response-binary');
+        $obj->setMockCrlResponse('mock-crl-binary');
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertContainsAllFragments($out, [
+            '/Type /DSS',
+            '/VRI <<',
+            '/OCSPs [',
+            '/CRLs [',
+            '/Certs [',
+            '/Type /VRI',
+            '/DSS ',
+        ]);
+    }
+
     public function testGetOutICCRespectsPdfaMode(): void
     {
         $obj = $this->getInternalTestObject();

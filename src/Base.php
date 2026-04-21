@@ -488,6 +488,7 @@ abstract class Base
     protected array $objid = [
         'catalog' => 0,
         'dests' => 0,
+        'dss' => 0,
         'form' => [],
         'info' => 0,
         'pages' => 0,
