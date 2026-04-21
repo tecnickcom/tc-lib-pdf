@@ -118,7 +118,7 @@ x: buildall
 ## Test and build everything from scratch
 .PHONY: buildall
 buildall: deps
-	cd vendor/tecnickcom/tc-lib-pdf-font/ && make deps fonts
+	# cd vendor/tecnickcom/tc-lib-pdf-font/ && make deps fonts
 	$(MAKE) codefix qa bz2 rpm deb
 
 ## Package the library in a compressed bz2 archive

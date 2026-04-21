@@ -70,6 +70,12 @@
     "test": "XDEBUG_MODE=coverage ./vendor/bin/phpunit --stderr test",
     "cs-check": "./vendor/bin/phpcs --standard=phpcs.xml",
     "cs-fix": "./vendor/bin/phpcbf --ignore=\"./vendor/\" --standard=psr12 src test",
-    "analyse": "./vendor/phpstan.phar analyse"
+    "analyse": "./vendor/phpstan.phar analyse",
+    "post-install-cmd": [
+      "[ -d vendor/tecnickcom/tc-lib-pdf-font ] && make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts"
+    ],
+    "post-update-cmd": [
+      "[ -d vendor/tecnickcom/tc-lib-pdf-font ] && make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts"
+    ]
   }
 }
