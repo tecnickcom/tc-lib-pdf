@@ -28,6 +28,13 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     protected string $mockTsaResp = '';
     protected bool $mockTsaThrows = false;
     protected string $tsaReq = '';
+    protected string $mockOcspResp = '';
+    protected bool $mockOcspThrows = false;
+    protected string $ocspReq = '';
+    protected string $ocspUrl = '';
+    protected string $mockCrlResp = '';
+    protected bool $mockCrlThrows = false;
+    protected string $crlUrl = '';
 
     /**
      * @phpstan-param array<string, mixed> $annotData
@@ -448,6 +455,41 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->tsaReq;
     }
 
+    public function setMockOcspResponse(string $response): void
+    {
+        $this->mockOcspResp = $response;
+    }
+
+    public function setMockOcspThrows(bool $throws): void
+    {
+        $this->mockOcspThrows = $throws;
+    }
+
+    public function getCapturedOcspRequest(): string
+    {
+        return $this->ocspReq;
+    }
+
+    public function getCapturedOcspUrl(): string
+    {
+        return $this->ocspUrl;
+    }
+
+    public function setMockCrlResponse(string $response): void
+    {
+        $this->mockCrlResp = $response;
+    }
+
+    public function setMockCrlThrows(bool $throws): void
+    {
+        $this->mockCrlThrows = $throws;
+    }
+
+    public function getCapturedCrlUrl(): string
+    {
+        return $this->crlUrl;
+    }
+
     protected function postTimestampRequest(string $request): string
     {
         $this->tsaReq = $request;
@@ -460,6 +502,35 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         }
 
         return parent::postTimestampRequest($request);
+    }
+
+    protected function postOcspRequest(string $url, string $request): string
+    {
+        $this->ocspUrl = $url;
+        $this->ocspReq = $request;
+        if ($this->mockOcspThrows) {
+            throw new \Com\Tecnick\Pdf\Exception('mock ocsp transport error');
+        }
+
+        if ($this->mockOcspResp !== '') {
+            return $this->mockOcspResp;
+        }
+
+        return parent::postOcspRequest($url, $request);
+    }
+
+    protected function getCrlData(string $url): string
+    {
+        $this->crlUrl = $url;
+        if ($this->mockCrlThrows) {
+            throw new \Com\Tecnick\Pdf\Exception('mock crl transport error');
+        }
+
+        if ($this->mockCrlResp !== '') {
+            return $this->mockCrlResp;
+        }
+
+        return parent::getCrlData($url);
     }
 
     public function exposeSignDocument(string $pdfdoc): string

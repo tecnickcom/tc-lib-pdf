@@ -1068,6 +1068,73 @@ PHP;
         $this->assertSame(1, \count($material['vri']));
     }
 
+    public function testCollectValidationMaterialCollectsOcspAndCrlWhenEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $obj->setMockOcspResponse('mock-ocsp-response-binary');
+        $obj->setMockCrlResponse('mock-crl-binary');
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertSame(1, \count($material['ocsp']));
+        $this->assertSame(1, \count($material['crls']));
+        $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
+        $this->assertSame('http://crl2.example.com/root.crl', $obj->getCapturedCrlUrl());
+        $this->assertNotSame('', $obj->getCapturedOcspRequest());
+        $this->assertSame(1, \count($material['vri']));
+
+        $vri = \array_values($material['vri'])[0];
+        $this->assertSame([0], $vri['ocsp']);
+        $this->assertSame([0, 0], $vri['crls']);
+    }
+
+    public function testCollectValidationMaterialFallsBackToCrlWhenOcspFails(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $obj->setMockOcspThrows(true);
+        $obj->setMockCrlResponse('mock-crl-binary');
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertSame([], $material['ocsp']);
+        $this->assertSame(1, \count($material['crls']));
+        $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
+
+        $vri = \array_values($material['vri'])[0];
+        $this->assertSame([], $vri['ocsp']);
+        $this->assertSame([0, 0], $vri['crls']);
+    }
+
     public function testGetAnnotationFlagsCodeWithIntegerInput(): void
     {
         $obj = $this->getInternalTestObject();

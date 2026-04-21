@@ -468,7 +468,9 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'serial': string,
  *        'subject': string,
  *        'issuer': string,
- *    }
+*        'ocsp_urls': array<int, string>,
+*        'crl_dp_urls': array<int, string>,
+*    }
  *
  * @phpstan-type TValidationVri array{
  *        'certs': array<int>,
@@ -2999,21 +3001,42 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return $empty;
         }
 
+        /** @var array<int, string> $ocsp */
+        $ocsp = [];
+        /** @var array<string, int> $ocspDedup */
+        $ocspDedup = [];
+        /** @var array<int, string> $crls */
+        $crls = [];
+        /** @var array<string, int> $crlDedup */
+        $crlDedup = [];
         $vri = [];
+
         if (! empty($ltv['include_vri'])) {
-            $vriKey = \strtoupper(\hash('sha1', $certChain[0]['der']));
+            $signerCert = $certChain[0];
+            $issuerCert = $certChain[1] ?? $signerCert;
+            $revocation = $this->collectRevocationForCert(
+                $signerCert,
+                $issuerCert,
+                ! empty($ltv['embed_ocsp']),
+                ! empty($ltv['embed_crl']),
+                $ocsp,
+                $ocspDedup,
+                $crls,
+                $crlDedup
+            );
+            $vriKey = \strtoupper(\hash('sha1', $signerCert['der']));
             $vri[$vriKey] = [
                 'certs' => $certIndexes,
-                'ocsp' => [],
-                'crls' => [],
+                'ocsp' => $revocation['ocsp'],
+                'crls' => $revocation['crls'],
             ];
         }
 
         return [
             'cert_chain' => $certChain,
             'certs' => $certs,
-            'ocsp' => [],
-            'crls' => [],
+            'ocsp' => $ocsp,
+            'crls' => $crls,
             'vri' => $vri,
         ];
     }
@@ -3107,6 +3130,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $parsed = [];
         }
 
+        $extensions = [];
+        if (isset($parsed['extensions']) && \is_array($parsed['extensions'])) {
+            $extensions = $parsed['extensions'];
+        }
+
         $base64 = \str_replace(
             ["-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----", "\r", "\n"],
             '',
@@ -3126,10 +3154,20 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
         }
 
+
         $serial = '';
         if (isset($parsed['serialNumberHex']) && \is_string($parsed['serialNumberHex'])) {
             $serial = $parsed['serialNumberHex'];
         }
+
+        $aiaText = isset($extensions['authorityInfoAccess'])
+            && \is_string($extensions['authorityInfoAccess'])
+            ? (string) $extensions['authorityInfoAccess']
+            : '';
+        $cdpText = isset($extensions['crlDistributionPoints'])
+            && \is_string($extensions['crlDistributionPoints'])
+            ? (string) $extensions['crlDistributionPoints']
+            : '';
 
         return [
             'pem' => $pem,
@@ -3137,14 +3175,227 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             'serial' => $serial,
             'subject' => $subject,
             'issuer' => $issuer,
+            'ocsp_urls' => $this->extractCertExtensionUrls($aiaText, 'OCSP'),
+            'crl_dp_urls' => $this->extractCertExtensionUrls($cdpText, 'CRL'),
         ];
     }
 
     /**
-     * Build an RFC3161 TimeStampReq in DER format.
+     * Extract URLs of a given type from a certificate extension text block.
      *
-     * @param string $signature Digital signature as binary string.
+     * Pass 'OCSP' to extract OCSP responder URIs from Authority Information Access,
+     * or 'CRL' to extract CRL Distribution Point URIs.
+     *
+     * @return array<int, string>
      */
+    protected function extractCertExtensionUrls(string $text, string $type): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        $pattern = ($type === 'OCSP')
+            ? '/OCSP\s*-\s*URI:(https?:\/\/[^\s,]+)/i'
+            : '/URI:(https?:\/\/[^\s]+)/i';
+
+        $matches = [];
+        if (\preg_match_all($pattern, $text, $matches) === false) {
+            return [];
+        }
+
+        $urls = $matches[1];
+        return $urls;
+    }
+
+    /**
+     * Extract the raw DER bytes of the Subject Name and the public key value
+     * from a DER-encoded X.509 certificate.
+     *
+     * The Subject bytes are the full DER encoding of the issuer Name SEQUENCE.
+     * The pubkey bytes are the BIT STRING value without the leading unused-bits byte.
+     *
+     * @return array{subject: string, pubkey: string}
+     */
+    private function extractDerSubjectAndPubkey(string $certDer): array
+    {
+        $certOff = 0;
+        $certTlv = $this->asn1ReadTlv($certDer, $certOff);
+
+        $tbsOff = 0;
+        $tbsTlv = $this->asn1ReadTlv($certTlv['value'], $tbsOff);
+        $tbs = $tbsTlv['value'];
+
+        $off = 0;
+        if ($off < \strlen($tbs) && (\ord($tbs[$off]) & 0xe0) === 0xa0) {
+            $this->asn1ReadTlv($tbs, $off);
+        }
+
+        $this->asn1ReadTlv($tbs, $off);
+        $this->asn1ReadTlv($tbs, $off);
+
+        $issuerStart = $off;
+        $this->asn1ReadTlv($tbs, $off);
+        $subjectDer = \substr($tbs, $issuerStart, $off - $issuerStart);
+
+        $this->asn1ReadTlv($tbs, $off);
+        $this->asn1ReadTlv($tbs, $off);
+
+        $spki = $this->asn1ReadTlv($tbs, $off);
+        $spkiOff = 0;
+        $this->asn1ReadTlv($spki['value'], $spkiOff);
+        $bitStr = $this->asn1ReadTlv($spki['value'], $spkiOff);
+        $pubkey = \substr($bitStr['value'], 1);
+
+        return ['subject' => $subjectDer, 'pubkey' => $pubkey];
+    }
+
+    /**
+     * Encode a raw big-endian byte string as an ASN.1 DER INTEGER.
+     */
+    private function asn1EncodeIntegerBytes(string $bytes): string
+    {
+        if ($bytes === '') {
+            $bytes = "\x00";
+        }
+
+        if ((\ord($bytes[0]) & 0x80) !== 0) {
+            $bytes = "\x00" . $bytes;
+        }
+
+        return "\x02" . $this->asn1EncodeLength(\strlen($bytes)) . $bytes;
+    }
+
+    /**
+     * Build an RFC 2560 OCSPRequest in DER format for a single certificate.
+     *
+     * Uses SHA-1 as the hash algorithm for CertID as required by RFC 2560.
+     *
+     * @phpstan-param TValidationCert $leafCert
+     * @phpstan-param TValidationCert $issuerCert
+     */
+    protected function buildOcspRequest(array $leafCert, array $issuerCert): string
+    {
+        $issuerInfo = $this->extractDerSubjectAndPubkey($issuerCert['der']);
+        $issuerNameHash = \hash('sha1', $issuerInfo['subject'], true);
+        $issuerKeyHash = \hash('sha1', $issuerInfo['pubkey'], true);
+
+        $decoded = $leafCert['serial'] !== '' ? \hex2bin($leafCert['serial']) : false;
+        $serialBytes = \is_string($decoded) ? $decoded : "\x00";
+
+        $algId = $this->asn1EncodeSequence(
+            $this->asn1EncodeObjectIdentifier('1.3.14.3.2.26') . $this->asn1EncodeNull()
+        );
+        $certId = $this->asn1EncodeSequence(
+            $algId
+            . $this->asn1EncodeOctetString($issuerNameHash)
+            . $this->asn1EncodeOctetString($issuerKeyHash)
+            . $this->asn1EncodeIntegerBytes($serialBytes)
+        );
+        $requestList = $this->asn1EncodeSequence($this->asn1EncodeSequence($certId));
+        return $this->asn1EncodeSequence($this->asn1EncodeSequence($requestList));
+    }
+
+    /**
+     * Collect OCSP responses and CRL data for one certificate.
+     * Updates the provided lists and dedup maps in place.
+     *
+     * @phpstan-param TValidationCert       $cert
+     * @phpstan-param TValidationCert|null  $issuerCert
+     * @phpstan-param array<int, string>    $ocspList
+     * @phpstan-param array<string, int>    $ocspDedup
+     * @phpstan-param array<int, string>    $crlList
+     * @phpstan-param array<string, int>    $crlDedup
+     * @return array{ocsp: array<int>, crls: array<int>}
+     */
+    private function collectRevocationForCert(
+        array $cert,
+        ?array $issuerCert,
+        bool $embedOcsp,
+        bool $embedCrl,
+        array &$ocspList,
+        array &$ocspDedup,
+        array &$crlList,
+        array &$crlDedup
+    ): array {
+        $ocspIdxs = [];
+        $crlIdxs = [];
+
+        if ($embedOcsp && $issuerCert !== null && $cert['ocsp_urls'] !== []) {
+            $requestDer = $this->buildOcspRequest($cert, $issuerCert);
+            foreach ($cert['ocsp_urls'] as $url) {
+                try {
+                    $resp = $this->postOcspRequest($url, $requestDer);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                $fp = \hash('sha256', $resp);
+                if (! isset($ocspDedup[$fp])) {
+                    $ocspDedup[$fp] = \count($ocspList);
+                    $ocspList[] = $resp;
+                }
+
+                $ocspIdxs[] = $ocspDedup[$fp];
+            }
+        }
+
+        if ($embedCrl && $cert['crl_dp_urls'] !== []) {
+            foreach ($cert['crl_dp_urls'] as $url) {
+                try {
+                    $crlData = $this->getCrlData($url);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                $fp = \hash('sha256', $crlData);
+                if (! isset($crlDedup[$fp])) {
+                    $crlDedup[$fp] = \count($crlList);
+                    $crlList[] = $crlData;
+                }
+
+                $crlIdxs[] = $crlDedup[$fp];
+            }
+        }
+
+        return ['ocsp' => $ocspIdxs, 'crls' => $crlIdxs];
+    }
+
+    /**
+     * Send an OCSP request via HTTP POST.
+     * Override in subclasses or test doubles to inject a canned response.
+     */
+    protected function postOcspRequest(string $url, string $request): string
+    {
+        $context = \stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/ocsp-request\r\nContent-Length: " . \strlen($request),
+                'content' => $request,
+                'timeout' => 30,
+            ],
+        ]);
+        $response = \file_get_contents($url, false, $context);
+        if ($response === false) {
+            throw new PdfException('OCSP request failed: ' . $url);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Fetch a CRL via HTTP GET.
+     * Override in subclasses or test doubles to inject canned data.
+     */
+    protected function getCrlData(string $url): string
+    {
+        $data = \file_get_contents($url);
+        if ($data === false) {
+            throw new PdfException('CRL fetch failed: ' . $url);
+        }
+
+        return $data;
+    }
+
     protected function buildTimestampRequest(string $signature): string
     {
         $hashAlgo = \strtolower((string) $this->sigtimestamp['hash_algorithm']);
