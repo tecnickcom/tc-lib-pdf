@@ -986,6 +986,93 @@ PHP;
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
     }
 
+    public function testGetOutSignatureEmitsUserRightsSignatureForCertTypeZero(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'Signature',
+                'page' => $page['pid'],
+                'rect' => '10 10 60 20',
+            ],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => '',
+            'info' => [
+                'ContactInfo' => '',
+                'Location' => '',
+                'Name' => '',
+                'Reason' => '',
+            ],
+            'password' => '',
+            'privkey' => $certPem,
+            'signcert' => $certPem,
+            'ltv' => [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignature();
+
+        $this->assertContainsAllFragments($out, [
+            '/Type /Sig',
+            '/TransformMethod /UR3',
+            '/SubFilter /adbe.pkcs7.detached',
+        ]);
+    }
+
+    public function testGetOutSignatureSkipsSignatureReferenceForApprovalMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'Signature',
+                'page' => $page['pid'],
+                'rect' => '10 10 60 20',
+            ],
+            'approval' => 'A',
+            'cert_type' => 2,
+            'extracerts' => '',
+            'info' => [
+                'ContactInfo' => '',
+                'Location' => '',
+                'Name' => '',
+                'Reason' => '',
+            ],
+            'password' => '',
+            'privkey' => $certPem,
+            'signcert' => $certPem,
+            'ltv' => [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignature();
+
+        $this->assertStringContainsString('/Type /Sig', $out);
+        $this->assertStringNotContainsString('/Reference [ << /Type /SigRef', $out);
+    }
+
     public function testConvertBinarySignatureToHexPadsToSigMaxLen(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2246,7 +2333,7 @@ PHP;
         $this->setObjectProperty($obj, 'sign', true);
         $this->setObjectProperty($obj, 'objid', ['signature' => 80]);
         $this->setObjectProperty($obj, 'signature', [
-            'cert_type' => -1,
+            'cert_type' => 0,
             'approval' => 'P',
             'appearance' => [
                 'page' => $page['pid'],

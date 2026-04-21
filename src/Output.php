@@ -3884,7 +3884,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutSignature(): string
     {
-        if ((! $this->sign) || empty($this->signature['cert_type'])) {
+        if ((! $this->sign) || ($this->signature['cert_type'] < 0)) {
             return '';
         }
 
