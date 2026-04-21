@@ -20,6 +20,7 @@ namespace Test;
  * @phpstan-import-type TAnnot from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TObjID from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TOutline from \Com\Tecnick\Pdf\Output
+ * @phpstan-import-type TSignDocPrepared from \Com\Tecnick\Pdf\Output
  */
 class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
 {
@@ -381,6 +382,34 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetOutSignatureFields(): string
     {
         return $this->getOutSignatureFields();
+    }
+
+    /**
+     * @phpstan-return TSignDocPrepared
+     */
+    public function exposePrepareDocumentForSignature(string $pdfdoc): array
+    {
+        return $this->prepareDocumentForSignature($pdfdoc);
+    }
+
+    public function exposeWritePreparedDocumentForSignature(string $pdfdoc): string
+    {
+        return $this->writePreparedDocumentForSignature($pdfdoc);
+    }
+
+    public function exposeCreatePkcs7SignatureFile(string $tempdoc): string
+    {
+        return $this->createPkcs7SignatureFile($tempdoc);
+    }
+
+    public function exposeExtractSignatureFromPkcs7File(string $tempsign, int $pdfdocLength): string
+    {
+        return $this->extractSignatureFromPkcs7File($tempsign, $pdfdocLength);
+    }
+
+    public function exposeConvertBinarySignatureToHex(string $signature): string
+    {
+        return $this->convertBinarySignatureToHex($signature);
     }
 
     public function exposeSignDocument(string $pdfdoc): string

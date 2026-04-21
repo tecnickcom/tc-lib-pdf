@@ -441,6 +441,12 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'xmp': int,
  *    }
  *
+ * @phpstan-type TSignDocPrepared array{
+ *        'byte_range': array{int, int, int, int},
+ *        'pdfdoc': string,
+ *        'pdfdoc_length': int,
+ *    }
+ *
  * @SuppressWarnings("PHPMD")
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
@@ -2732,6 +2738,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Sign the document.
      *
      * @param string $pdfdoc string containing the PDF document
+     *
+     * @return string Signed PDF document.
      */
     protected function signDocument(string $pdfdoc): string
     {
@@ -2739,38 +2747,81 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return $pdfdoc;
         }
 
+        $prepared = $this->prepareDocumentForSignature($pdfdoc);
+        $pdfdoc = $prepared['pdfdoc'];
+        $pdfdocLength = $prepared['pdfdoc_length'];
+        $byteRange = $prepared['byte_range'];
+        $tempdoc = $this->writePreparedDocumentForSignature($pdfdoc);
+        $tempsign = $this->createPkcs7SignatureFile($tempdoc);
+        $signature = $this->extractSignatureFromPkcs7File($tempsign, $pdfdocLength);
+        $signature = $this->applySignatureTimestamp($signature);
+        $signature = $this->convertBinarySignatureToHex($signature);
+
+        return \substr($pdfdoc, 0, $byteRange[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byteRange[1]);
+    }
+
+    /**
+     * Prepare the document bytes and ByteRange placeholder for signing.
+     *
+     * @param string $pdfdoc PDF document with signature placeholder.
+     *
+     * @return TSignDocPrepared
+     */
+    protected function prepareDocumentForSignature(string $pdfdoc): array
+    {
         // remove last newline
         $pdfdoc = \substr($pdfdoc, 0, -1);
         // remove filler space
-        $byterange_strlen = \strlen($this::BYTERANGE);
-        // define the ByteRange
-        $byte_range = [];
-        $byte_range[0] = 0;
-        $byte_range[1] = \strpos($pdfdoc, $this::BYTERANGE) + $byterange_strlen + 10;
-        $byte_range[2] = $byte_range[1] + $this::SIGMAXLEN + 2;
-        $byte_range[3] = \strlen($pdfdoc) - $byte_range[2];
-        $pdfdoc = \substr($pdfdoc, 0, $byte_range[1]) . \substr($pdfdoc, $byte_range[2]);
-        // replace the ByteRange
-        $byterange = \sprintf('/ByteRange[0 %u %u %u]', $byte_range[1], $byte_range[2], $byte_range[3]);
-        $byterange .= \str_repeat(' ', ($byterange_strlen - \strlen($byterange)));
+        $byterangeLength = \strlen($this::BYTERANGE);
+        $byteRange = [0, 0, 0, 0];
+        $byteRange[1] = \strpos($pdfdoc, $this::BYTERANGE) + $byterangeLength + 10;
+        $byteRange[2] = $byteRange[1] + $this::SIGMAXLEN + 2;
+        $byteRange[3] = \strlen($pdfdoc) - $byteRange[2];
+        $pdfdoc = \substr($pdfdoc, 0, $byteRange[1]) . \substr($pdfdoc, $byteRange[2]);
+
+        $byterange = \sprintf('/ByteRange[0 %u %u %u]', $byteRange[1], $byteRange[2], $byteRange[3]);
+        $byterange .= \str_repeat(' ', ($byterangeLength - \strlen($byterange)));
         $pdfdoc = \str_replace($this::BYTERANGE, $byterange, $pdfdoc);
-        // write the document to a temporary folder
+
+        return [
+            'byte_range' => $byteRange,
+            'pdfdoc' => $pdfdoc,
+            'pdfdoc_length' => \strlen($pdfdoc),
+        ];
+    }
+
+    /**
+     * Write the prepared document bytes to a temporary file for OpenSSL signing.
+     *
+     * @param string $pdfdoc Prepared PDF document bytes.
+     */
+    protected function writePreparedDocumentForSignature(string $pdfdoc): string
+    {
         $tempdoc = $this->cache->getNewFileName('doc', $this->fileid);
         if ($tempdoc === false) {
             throw new PdfException('Unable to create temporary document file for signature');
         }
 
-        $f = $this->file->fopenLocal($tempdoc, 'wb');
-        $pdfdoc_length = \strlen($pdfdoc);
-        \fwrite($f, $pdfdoc, $pdfdoc_length);
-        \fclose($f);
-        // get digital signature via openssl library
+        $handle = $this->file->fopenLocal($tempdoc, 'wb');
+        \fwrite($handle, $pdfdoc);
+        \fclose($handle);
+
+        return $tempdoc;
+    }
+
+    /**
+     * Create the detached PKCS#7 signature file for the prepared document.
+     *
+     * @param string $tempdoc Temporary PDF document path.
+     */
+    protected function createPkcs7SignatureFile(string $tempdoc): string
+    {
         $tempsign = $this->cache->getNewFileName('sig', $this->fileid);
         if ($tempsign === false) {
             throw new PdfException('Unable to create temporary signature file');
         }
 
-        \openssl_pkcs7_sign(
+        $signed = \openssl_pkcs7_sign(
             $tempdoc,
             $tempsign,
             $this->signature['signcert'],
@@ -2779,37 +2830,57 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             PKCS7_BINARY | PKCS7_DETACHED,
             $this->signature['extracerts']
         );
+        if ($signed !== true) {
+            throw new PdfException('Unable to generate PKCS#7 signature');
+        }
 
-        // read signature
+        return $tempsign;
+    }
+
+    /**
+     * Extract the binary signature from the PKCS#7 output file.
+     *
+     * @param string $tempsign Signed output file path.
+     * @param int $pdfdocLength Length of the prepared PDF content.
+     */
+    protected function extractSignatureFromPkcs7File(string $tempsign, int $pdfdocLength): string
+    {
         $signature = $this->file->getFileData($tempsign);
         if ($signature === false) {
             throw new PdfException('Unable to read signature file');
         }
-        // extract signature
-        $signature = \substr($signature, $pdfdoc_length);
+
+        $signature = \substr($signature, $pdfdocLength);
         $signature = \substr($signature, (\strpos($signature, "%%EOF\n\n------") + 13));
 
         $tmparr = \explode("\n\n", $signature);
-        $signature = $tmparr[1];
-        // decode signature
+        $signature = $tmparr[1] ?? '';
         $signature = \base64_decode(\trim($signature));
         if ($signature === false) {
             throw new PdfException('Unable to decode signature');
         }
-        // add TSA timestamp to signature
-        $signature = $this->applySignatureTimestamp($signature);
-        // convert signature to hex
+
+        return $signature;
+    }
+
+    /**
+     * Convert the binary signature to padded hexadecimal PDF contents.
+     *
+     * @param string $signature Digital signature as binary string.
+     */
+    protected function convertBinarySignatureToHex(string $signature): string
+    {
         $signature = \unpack('H*', $signature);
         if ($signature === false) {
             throw new PdfException('Unable to unpack signature');
         }
+
         $signature = \current($signature);
         if (! \is_string($signature)) {
             throw new PdfException('Invalid signature');
         }
-        $signature = \str_pad($signature, $this::SIGMAXLEN, '0');
-        // Add signature to the document
-        return \substr($pdfdoc, 0, $byte_range[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byte_range[1]);
+
+        return \str_pad($signature, $this::SIGMAXLEN, '0');
     }
 
     /**

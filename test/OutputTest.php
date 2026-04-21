@@ -937,6 +937,45 @@ PHP;
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
     }
 
+    public function testConvertBinarySignatureToHexPadsToSigMaxLen(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $binary = "\x01\x02\x03";
+        $hex = $obj->exposeConvertBinarySignatureToHex($binary);
+
+        $this->assertSame(11742, \strlen($hex));
+        $this->assertStringStartsWith('010203', $hex);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]+$/', $hex);
+    }
+
+    public function testPrepareDocumentForSignatureComputesByteRangeAndStripsSlot(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $byterangePlaceholder = '/ByteRange[0 ********** ********** **********]';
+        $prefix   = 'XPFX';
+        $mid      = '/Contents ';
+        $sigSlot  = '<' . \str_repeat('0', 11742) . '>';
+        $suffix   = 'XSFX';
+        $pdfdoc   = $prefix . $byterangePlaceholder . $mid . $sigSlot . $suffix . "\n";
+
+        $result = $obj->exposePrepareDocumentForSignature($pdfdoc);
+
+    $this->assertSame(0, $result['byte_range'][0]);
+        $this->assertSame($result['pdfdoc_length'], \strlen($result['pdfdoc']));
+        $this->assertStringNotContainsString('**********', $result['pdfdoc']);
+        $this->assertMatchesRegularExpression(
+            '#/ByteRange\[0 \d+ \d+ \d+\] *#',
+            $result['pdfdoc']
+        );
+        // Signature slot (SIGMAXLEN + 2 for < >) is stripped from the signing content
+        $expectedLength = \strlen($prefix) + \strlen($byterangePlaceholder) + \strlen($mid) + \strlen($suffix);
+        $this->assertSame($expectedLength, $result['pdfdoc_length']);
+        // byte_range[3] must equal the length of the suffix
+        $this->assertSame(\strlen($suffix), $result['byte_range'][3]);
+    }
+
     public function testGetAnnotationFlagsCodeWithIntegerInput(): void
     {
         $obj = $this->getInternalTestObject();
