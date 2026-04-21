@@ -396,6 +396,16 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'password': string,
  *        'privkey': string,
  *        'signcert': string,
+ *        'ltv'?: TLtvConfig,
+ *    }
+ *
+ * @phpstan-type TLtvConfig array{
+ *        'enabled': bool,
+ *        'embed_ocsp': bool,
+ *        'embed_crl': bool,
+ *        'embed_certs': bool,
+ *        'include_dss': bool,
+ *        'include_vri': bool,
  *    }
  *
  * @phpstan-type TSignTimeStamp array{
@@ -450,6 +460,28 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'byte_range': array{int, int, int, int},
  *        'pdfdoc': string,
  *        'pdfdoc_length': int,
+ *    }
+ *
+ * @phpstan-type TValidationCert array{
+ *        'pem': string,
+ *        'der': string,
+ *        'serial': string,
+ *        'subject': string,
+ *        'issuer': string,
+ *    }
+ *
+ * @phpstan-type TValidationVri array{
+ *        'certs': array<int>,
+ *        'ocsp': array<int>,
+ *        'crls': array<int>,
+ *    }
+ *
+ * @phpstan-type TValidationMaterial array{
+ *        'cert_chain': array<int, TValidationCert>,
+ *        'certs': array<int, string>,
+ *        'ocsp': array<int, string>,
+ *        'crls': array<int, string>,
+ *        'vri': array<string, TValidationVri>,
  *    }
  *
  * @SuppressWarnings("PHPMD")
@@ -2917,6 +2949,195 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $request = $this->buildTimestampRequest($signature);
         $response = $this->postTimestampRequest($request);
         return $this->extractTimestampTokenFromResponse($response);
+    }
+
+    /**
+     * Collect deterministic validation material for LTV embedding.
+     *
+     * @return TValidationMaterial
+     */
+    protected function collectValidationMaterial(): array
+    {
+        $empty = [
+            'cert_chain' => [],
+            'certs' => [],
+            'ocsp' => [],
+            'crls' => [],
+            'vri' => [],
+        ];
+
+        $ltv = $this->signature['ltv'] ?? ['enabled' => false];
+        if (empty($ltv['enabled'])) {
+            return $empty;
+        }
+
+        $pemInputs = $this->collectValidationCertificateInputs();
+        if ($pemInputs === []) {
+            return $empty;
+        }
+
+        $certChain = [];
+        $certs = [];
+        $certIndexes = [];
+        $seen = [];
+        foreach ($pemInputs as $pem) {
+            $cert = $this->normalizeValidationCertificate($pem);
+            $fingerprint = \hash('sha256', $cert['der']);
+            if (isset($seen[$fingerprint])) {
+                continue;
+            }
+
+            $seen[$fingerprint] = true;
+            $certChain[] = $cert;
+            if (! empty($ltv['embed_certs'])) {
+                $certIndexes[] = \count($certs);
+                $certs[] = $cert['der'];
+            }
+        }
+
+        if ($certChain === []) {
+            return $empty;
+        }
+
+        $vri = [];
+        if (! empty($ltv['include_vri'])) {
+            $vriKey = \strtoupper(\hash('sha1', $certChain[0]['der']));
+            $vri[$vriKey] = [
+                'certs' => $certIndexes,
+                'ocsp' => [],
+                'crls' => [],
+            ];
+        }
+
+        return [
+            'cert_chain' => $certChain,
+            'certs' => $certs,
+            'ocsp' => [],
+            'crls' => [],
+            'vri' => $vri,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function collectValidationCertificateInputs(): array
+    {
+        $inputs = [];
+
+        $main = $this->getCertificateSourceContent((string) $this->signature['signcert']);
+        if ($main !== '') {
+            $inputs = \array_merge($inputs, $this->extractPemCertificates($main));
+        }
+
+        $extra = (string) ($this->signature['extracerts'] ?? '');
+        if ($extra !== '') {
+            $extraContent = $this->getCertificateSourceContent($extra);
+            if ($extraContent !== '') {
+                $inputs = \array_merge($inputs, $this->extractPemCertificates($extraContent));
+            }
+        }
+
+        return $inputs;
+    }
+
+    protected function getCertificateSourceContent(string $source): string
+    {
+        if ($source === '') {
+            return '';
+        }
+
+        if (\str_contains($source, '-----BEGIN CERTIFICATE-----')) {
+            return $source;
+        }
+
+        $data = $this->file->getFileData($source);
+        if ($data === false && ! \str_starts_with($source, 'file://')) {
+            $data = $this->file->getFileData('file://' . $source);
+        }
+
+        if ($data === false) {
+            throw new PdfException('Unable to read validation certificate source');
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function extractPemCertificates(string $content): array
+    {
+        $matches = [];
+        $ok = \preg_match_all('/-----BEGIN CERTIFICATE-----(?:.|\n|\r)+?-----END CERTIFICATE-----/', $content, $matches);
+        if ($ok === false) {
+            throw new PdfException('Unable to parse certificate bundle');
+        }
+
+        if ($ok === 0) {
+            return [];
+        }
+
+        /** @var array<int, string> $pem */
+        $pem = $matches[0];
+        return $pem;
+    }
+
+    /**
+     * @param string $pem PEM certificate.
+     *
+     * @return TValidationCert
+     */
+    protected function normalizeValidationCertificate(string $pem): array
+    {
+        $x509 = \openssl_x509_read($pem);
+        if ($x509 === false) {
+            throw new PdfException('Invalid validation certificate');
+        }
+
+        $exported = '';
+        $exportOk = \openssl_x509_export($x509, $exported, true);
+        if ($exportOk !== true || ! \is_string($exported)) {
+            throw new PdfException('Unable to export validation certificate');
+        }
+
+        $pem = $exported;
+        $parsed = \openssl_x509_parse($x509, false);
+        if ($parsed === false) {
+            $parsed = [];
+        }
+
+        $base64 = \str_replace(
+            ["-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----", "\r", "\n"],
+            '',
+            $pem
+        );
+        $der = \base64_decode($base64, true);
+        if ($der === false) {
+            throw new PdfException('Unable to decode validation certificate');
+        }
+
+        $subject = isset($parsed['name']) && \is_string($parsed['name']) ? $parsed['name'] : '';
+        $issuer = '';
+        if (isset($parsed['issuer']) && \is_array($parsed['issuer'])) {
+            $issuer = \json_encode($parsed['issuer']);
+            if ($issuer === false) {
+                $issuer = '';
+            }
+        }
+
+        $serial = '';
+        if (isset($parsed['serialNumberHex']) && \is_string($parsed['serialNumberHex'])) {
+            $serial = $parsed['serialNumberHex'];
+        }
+
+        return [
+            'pem' => $pem,
+            'der' => $der,
+            'serial' => $serial,
+            'subject' => $subject,
+            'issuer' => $issuer,
+        ];
     }
 
     /**

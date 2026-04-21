@@ -545,6 +545,14 @@ abstract class Base
         'password' => '',
         'privkey' => '',
         'signcert' => '',
+        'ltv' => [
+            'enabled' => false,
+            'embed_ocsp' => true,
+            'embed_crl' => true,
+            'embed_certs' => true,
+            'include_dss' => true,
+            'include_vri' => true,
+        ],
     ];
 
     /**

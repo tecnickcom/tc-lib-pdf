@@ -366,10 +366,38 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *        - password (string)
      *        - privkey (string) Private key (string or filename prefixed with 'file://').
      *        - signcert (string) Signing certificate (string or filename prefixed with 'file://').
+     *        - ltv (array) LTV collection options.
+     *            - enabled (bool) Enable validation material collection.
+     *            - embed_ocsp (bool) Allow OCSP material collection.
+     *            - embed_crl (bool) Allow CRL material collection.
+     *            - embed_certs (bool) Embed certificate bytes in validation material.
+     *            - include_dss (bool) Include DSS objects in output.
+     *            - include_vri (bool) Include VRI map in output.
      */
     public function setSignature(array $data): void
     {
         $this->signature = \array_merge($this->signature, $data);
+
+        if (! isset($this->signature['ltv'])) {
+            $this->signature['ltv'] = [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ];
+        }
+
+        if (! \is_array($this->signature['ltv'])) {
+            throw new PdfException('Invalid signature LTV options');
+        }
+
+        foreach (['enabled', 'embed_ocsp', 'embed_crl', 'embed_certs', 'include_dss', 'include_vri'] as $key) {
+            if (! \array_key_exists($key, $this->signature['ltv']) || ! \is_bool($this->signature['ltv'][$key])) {
+                throw new PdfException('Invalid signature LTV option: ' . $key);
+            }
+        }
 
         if (empty($this->signature['signcert'])) {
             throw new PdfException('Invalid signing certificate (signcert)');

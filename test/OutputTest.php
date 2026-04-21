@@ -1031,6 +1031,43 @@ PHP;
         $obj->exposeExtractTimestampTokenFromResponse((string) \hex2bin('30053003020102'));
     }
 
+    public function testCollectValidationMaterialReturnsEmptyWhenLtvDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertSame([], $material['cert_chain']);
+        $this->assertSame([], $material['certs']);
+        $this->assertSame([], $material['vri']);
+    }
+
+    public function testCollectValidationMaterialLoadsAndDeduplicatesCertificates(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => $certPem,
+            'extracerts' => $certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertGreaterThan(0, \count($material['cert_chain']));
+        $this->assertSame(1, \count($material['certs']));
+        $this->assertSame(1, \count($material['vri']));
+    }
+
     public function testGetAnnotationFlagsCodeWithIntegerInput(): void
     {
         $obj = $this->getInternalTestObject();

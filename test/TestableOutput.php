@@ -21,6 +21,7 @@ namespace Test;
  * @phpstan-import-type TObjID from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TOutline from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TSignDocPrepared from \Com\Tecnick\Pdf\Output
+ * @phpstan-import-type TValidationMaterial from \Com\Tecnick\Pdf\Output
  */
 class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
 {
@@ -419,6 +420,12 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeBuildTimestampRequest(string $signature): string
     {
         return $this->buildTimestampRequest($signature);
+    }
+
+    /** @phpstan-return TValidationMaterial */
+    public function exposeCollectValidationMaterial(): array
+    {
+        return $this->collectValidationMaterial();
     }
 
     public function exposeExtractTimestampTokenFromResponse(string $response): string

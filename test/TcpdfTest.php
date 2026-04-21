@@ -189,6 +189,36 @@ class TcpdfTest extends TestUtil
         ]);
     }
 
+    public function testSetSignatureStoresLtvOptions(): void
+    {
+        $obj = $this->getTestObject();
+
+        $obj->setSignature([
+            'appearance' => ['empty' => [], 'name' => '', 'page' => 0, 'rect' => ''],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => 'dummy-signcert',
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        /** @var array{ltv: array{enabled: bool, embed_ocsp: bool, embed_crl: bool}} $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertTrue($signature['ltv']['enabled']);
+        $this->assertFalse($signature['ltv']['embed_ocsp']);
+        $this->assertFalse($signature['ltv']['embed_crl']);
+    }
+
     public function testSetSignatureThrowsOnMissingSigningCertificate(): void
     {
         $obj = $this->getTestObject();
