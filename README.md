@@ -169,6 +169,12 @@ Then open <http://localhost:8971/index.php>.
 
 `tc-lib-pdf` supports detached CMS (PKCS#7) signatures with optional RFC 3161 timestamps and LTV (Long-Term Validation) material, all embedded in a single PDF revision.
 
+Signature-focused runnable examples:
+
+- [examples/007_example_signature_basic.php](examples/007_example_signature_basic.php) : basic detached CMS signature with visible signature fields.
+- [examples/008_example_signature_timestamp.php](examples/008_example_signature_timestamp.php) : detached CMS signature with RFC 3161 TSA timestamp configuration.
+- [examples/009_example_signature_ltv.php](examples/009_example_signature_ltv.php) : detached CMS signature with LTV validation material embedding.
+
 ### Basic signature
 
 ```php
