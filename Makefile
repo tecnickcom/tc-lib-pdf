@@ -29,6 +29,12 @@ VERSION=$(shell cat VERSION)
 # Project release number (packaging build number)
 RELEASE=$(shell cat RELEASE)
 
+# Debian revision cannot be zero; map 0 to 1 for Debian packaging only.
+DEBRELEASE=$(if $(filter 0,$(RELEASE)),1,$(RELEASE))
+
+# RPM release is conventionally >= 1; map 0 to 1 for RPM packaging only.
+RPMRELEASE=$(if $(filter 0,$(RELEASE)),1,$(RELEASE))
+
 # Name of RPM or DEB package
 PKGNAME=php-${OWNER}-${PROJECT}
 
@@ -151,7 +157,7 @@ deb:
 	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#PROJECT#~/$(PROJECT)/" {} \;
 	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#PKGNAME#~/$(PKGNAME)/" {} \;
 	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#VERSION#~/$(VERSION)/" {} \;
-	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#RELEASE#~/$(RELEASE)/" {} \;
+	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#RELEASE#~/$(DEBRELEASE)/" {} \;
 	echo $(LIBPATH) > $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/$(PKGNAME).dirs
 	echo "$(LIBPATH)* $(LIBPATH)" > $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/install
 	echo $(DOCPATH) >> $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/$(PKGNAME).dirs
@@ -160,7 +166,6 @@ ifneq ($(strip $(CONFIGPATH)),)
 	echo $(CONFIGPATH) >> $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/$(PKGNAME).dirs
 	echo "$(CONFIGPATH)* $(CONFIGPATH)" >> $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/install
 endif
-	echo "new-package-should-close-itp-bug" > $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/$(PKGNAME).lintian-overrides
 	cd $(PATHDEBPKG)/$(PKGNAME)-$(VERSION) && debuild -us -uc
 
 ## Clean all artifacts and download all dependencies
@@ -241,7 +246,7 @@ rpm:
 	--define "_project $(PROJECT)" \
 	--define "_package $(PKGNAME)" \
 	--define "_version $(VERSION)" \
-	--define "_release $(RELEASE)" \
+	--define "_release $(RPMRELEASE)" \
 	--define "_current_directory $(CURRENTDIR)" \
 	--define "_libpath /$(LIBPATH)" \
 	--define "_docpath /$(DOCPATH)" \

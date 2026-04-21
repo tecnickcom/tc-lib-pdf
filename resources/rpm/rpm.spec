@@ -9,11 +9,9 @@ Version:   %{_version}
 Release:   %{_release}%{?dist}
 Summary:   PHP library to generate PDF documents
 
-Group:     Development/Libraries
 License:   LGPLv3+
 URL:       https://github.com/%{gh_owner}/%{gh_project}
 
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-%(%{__id_u} -n)
 BuildArch: noarch
 
 Requires:  php(language) >= 8.1.0
@@ -64,5 +62,5 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_configpath}*
 
 %changelog
-* Fri Jun 10 2026 Nicola Asuni <info@tecnick.com> 8.0.0-1
-- Initial commit
+* Tue Apr 21 2026 Nicola Asuni <info@tecnick.com> 8.7.0-1
+- Update RPM packaging metadata and release mapping.
