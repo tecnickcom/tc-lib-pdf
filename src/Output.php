@@ -3732,7 +3732,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $value = (int) ($value / 256);
         }
 
-        return \chr(0x80 | \strlen($encoded)) . $encoded;
+        $encodedLength = \strlen($encoded);
+        if ($encodedLength > 0x7F) {
+            throw new PdfException('ASN.1 length encoding overflow');
+        }
+
+        /** @var int<0, 127> $encodedLength */
+        return \chr(0x80 | $encodedLength) . $encoded;
     }
 
     /** @param int<0, max> $value */
