@@ -31,12 +31,15 @@ $pdf->setTitle('Signature Timestamp Example');
 $pdf->setKeywords('TCPDF tc-lib-pdf example signature timestamp tsa');
 $pdf->setPDFFilename('008_example_signature_timestamp.pdf');
 
-$page = $pdf->addPage();
+// Insert font before adding the first page.
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
+
+$page = $pdf->addPage();
 $pdf->page->addContent($bfont['out']);
 
 $text = 'This document requests an RFC 3161 TSA timestamp for the CMS signature.';
-$pdf->addTextCell($text, -1, 15, 20, 180, 0, 0, 1, 'T', 'L');
+$textCell = $pdf->getTextCell($text, 15, 20, 180, 0, 0, 1, 'T', 'L');
+$pdf->page->addContent($textCell);
 
 $certPath = \realpath(__DIR__ . '/data/cert/tcpdf.crt');
 if ($certPath === false) {

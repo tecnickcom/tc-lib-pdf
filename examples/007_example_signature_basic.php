@@ -31,13 +31,16 @@ $pdf->setTitle('Basic Digital Signature Example');
 $pdf->setKeywords('TCPDF tc-lib-pdf example signature');
 $pdf->setPDFFilename('007_example_signature_basic.pdf');
 
+// Insert font before adding the first page.
+$bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
+
 // Add a page and a simple signed-content block.
 $page = $pdf->addPage();
-$bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
 $pdf->page->addContent($bfont['out']);
 
 $text = 'This document is signed using a detached CMS (PKCS#7) signature.';
-$pdf->addTextCell($text, -1, 15, 20, 180, 0, 0, 1, 'T', 'L');
+$textCell = $pdf->getTextCell($text, 15, 20, 180, 0, 0, 1, 'T', 'L');
+$pdf->page->addContent($textCell);
 
 $certPath = \realpath(__DIR__ . '/data/cert/tcpdf.crt');
 if ($certPath === false) {
