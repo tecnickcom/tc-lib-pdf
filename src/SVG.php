@@ -1729,6 +1729,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         ?float $nonstrokingAlpha = null,
         string $blendMode = 'Normal',
     ): string {
+        if (!$this->isTransparencyAllowed()) {
+            return '';
+        }
+
         $parms = [];
         if ($strokingAlpha !== null) {
             $parms['CA'] = $strokingAlpha;
@@ -1914,7 +1918,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out = '';
         $blendMode = $this->normalizeSVGBlendMode($svgstyle['mix-blend-mode']);
 
-        if (($svgstyle['opacity'] < 1) || ($blendMode !== 'Normal')) {
+        if ($this->isTransparencyAllowed() && (($svgstyle['opacity'] < 1) || ($blendMode !== 'Normal'))) {
             $out .= $this->graph->getAlpha($svgstyle['opacity'], $blendMode);
         }
 

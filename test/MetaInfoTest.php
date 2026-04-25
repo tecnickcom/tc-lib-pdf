@@ -86,6 +86,22 @@ class MetaInfoTest extends TestUtil
         $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
     }
 
+    #[DataProvider('pdfuaVersionFixtureProvider')]
+    public function testSetPDFVersionHonorsPdfuaModes(
+        string $pdfuaMode,
+        string $inputVersion,
+        string $expectedVersion
+    ): void {
+        $obj = $this->getTestObject();
+        $pdfua = new \ReflectionProperty(\Com\Tecnick\Pdf\Tcpdf::class, 'pdfuaMode');
+        $pdfua->setAccessible(true);
+        $pdfua->setValue($obj, $pdfuaMode);
+
+        $obj->setPDFVersion($inputVersion);
+
+        $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
+    }
+
     public function testSetPDFVersionThrowsOnInvalidFormat(): void
     {
         $obj = $this->getTestObject();
@@ -276,6 +292,86 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('<pdfaid:conformance>U</pdfaid:conformance>', $result);
     }
 
+    public function testGetOutXMPIncludesPdfuaBlockWhenPdfuaEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua2');
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringContainsString('xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/"', $result);
+        $this->assertStringContainsString('<pdfuaid:part>2</pdfuaid:part>', $result);
+    }
+
+    #[DataProvider('pdfxVersionFixtureProvider')]
+    public function testSetPDFVersionHonorsPdfxModes(
+        string $pdfxMode,
+        string $inputVersion,
+        string $expectedVersion
+    ): void {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'pdfxMode', $pdfxMode);
+
+        $obj->setPDFVersion($inputVersion);
+
+        $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
+    }
+
+    #[DataProvider('pdfxGtsVersionStringFixtureProvider')]
+    public function testGetGtsPdfxVersionStringReturnsExpectedValue(
+        string $pdfxMode,
+        string $expected
+    ): void {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'pdfxMode', $pdfxMode);
+
+        $this->assertSame($expected, $obj->exposeGetGtsPdfxVersionString());
+    }
+
+    public function testGetOutMetaInfoIncludesGtsPdfxVersionWhenPdfxEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
+
+        $result = $obj->exposeGetOutMetaInfo();
+
+        // The key is a PDF name (ASCII); the value is encoded as a PDF text string.
+        $this->assertStringContainsString('/GTS_PDFXVersion', $result);
+    }
+
+    public function testGetOutMetaInfoOmitsGtsPdfxVersionWhenPdfxDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetOutMetaInfo();
+
+        $this->assertStringNotContainsString('/GTS_PDFXVersion', $result);
+    }
+
+    public function testGetOutXMPIncludesPdfxidBlockWhenPdfxEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringContainsString('xmlns:pdfxid="http://www.npes.org/pdfx/ns/id/"', $result);
+        $this->assertStringContainsString('<pdfxid:GTS_PDFXVersion>PDF/X-1a:2003</pdfxid:GTS_PDFXVersion>', $result);
+    }
+
+    public function testGetOutXMPOmitsPdfxidBlockWhenPdfxDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringNotContainsString('pdfxid', $result);
+    }
+
     public function testGetOutViewerPrefIncludesDirectionAndKnownFlags(): void
     {
         $obj = $this->getInternalTestObject();
@@ -314,6 +410,62 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/NumCopies 2', $result);
     }
 
+    public function testGetOutViewerPrefForceDisplayDocTitleTrueInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $result = $obj->exposeGetOutViewerPref();
+
+        $this->assertStringContainsString('/DisplayDocTitle true', $result);
+    }
+
+    public function testGetOutViewerPrefRespectsExplicitDisplayDocTitleFalseInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setViewerPreferences(['DisplayDocTitle' => false]);
+
+        $result = $obj->exposeGetOutViewerPref();
+
+        $this->assertStringContainsString('/DisplayDocTitle false', $result);
+    }
+
+    public function testGetOutViewerPrefDoesNotForceDisplayDocTitleOutsidePdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetOutViewerPref();
+
+        $this->assertStringNotContainsString('/DisplayDocTitle', $result);
+    }
+
+    /** @return array<string, array{0: string, 1: string, 2: string}> */
+    public static function pdfxVersionFixtureProvider(): array
+    {
+        return [
+            'pdfx1a_enforces_min_1_3_when_lower'   => ['pdfx1a', '1.1', '1.3'],
+            'pdfx1a_allows_higher_explicit'         => ['pdfx1a', '1.6', '1.6'],
+            'pdfx3_enforces_min_1_3'                => ['pdfx3', '1.2', '1.3'],
+            'pdfx4_enforces_min_1_6_when_lower'     => ['pdfx4', '1.3', '1.6'],
+            'pdfx4_allows_higher_explicit'          => ['pdfx4', '1.7', '1.7'],
+            'pdfx5_enforces_min_1_6'                => ['pdfx5', '1.4', '1.6'],
+            'pdfx_generic_enforces_min_1_3'         => ['pdfx', '1.1', '1.3'],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    public static function pdfxGtsVersionStringFixtureProvider(): array
+    {
+        return [
+            'pdfx1a' => ['pdfx1a', 'PDF/X-1a:2003'],
+            'pdfx3'  => ['pdfx3',  'PDF/X-3:2003'],
+            'pdfx4'  => ['pdfx4',  'PDF/X-4:2010'],
+            'pdfx5'  => ['pdfx5',  'PDF/X-5g:2010'],
+            'pdfx_generic_defaults_to_x3' => ['pdfx', 'PDF/X-3:2003'],
+        ];
+    }
+
     /** @return array<string, array{0: int, 1: string, 2: string}> */
     public static function pdfaVersionFixtureProvider(): array
     {
@@ -321,6 +473,16 @@ class MetaInfoTest extends TestUtil
             'pdfa1_forces_1_4' => [1, '1.9', '1.4'],
             'pdfa2_forces_1_7' => [2, '1.5', '1.7'],
             'pdfa4_forces_2_0' => [4, '1.5', '2.0'],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: string, 2: string}> */
+    public static function pdfuaVersionFixtureProvider(): array
+    {
+        return [
+            'pdfua_defaults_to_1_7' => ['pdfua', '1.4', '1.7'],
+            'pdfua1_forces_1_7' => ['pdfua1', '1.5', '1.7'],
+            'pdfua2_forces_2_0' => ['pdfua2', '1.7', '2.0'],
         ];
     }
 

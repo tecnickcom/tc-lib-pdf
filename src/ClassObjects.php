@@ -25,6 +25,7 @@ use Com\Tecnick\Pdf\Font\Stack as ObjFont;
 use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
 use Com\Tecnick\Pdf\Image\Import as ObjImage;
 use Com\Tecnick\Pdf\Page\Page as ObjPage;
+use Com\Tecnick\Pdf\PdfColor as ObjPdfColor;
 use Com\Tecnick\Unicode\Convert as ObjUniConvert;
 
 /**
@@ -58,7 +59,8 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
             $this->encrypt = new ObjEncrypt();
         }
 
-        $this->color = new ObjColor();
+        $this->color = new ObjPdfColor();
+        $this->color->setForceDeviceCmyk($this->requiresPdfxDeviceCmyk());
         $this->barcode = new ObjBarcode();
         $this->file = new ObjFile();
         $this->cache = new ObjCache();

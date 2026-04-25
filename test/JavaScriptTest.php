@@ -81,6 +81,52 @@ class JavaScriptTest extends TestUtil
         $this->assertCount(0, $jsobjects);
     }
 
+    public function testAppendRawJavaScriptIsIgnoredInPdfuaMode(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->appendRawJavaScript('var blocked = true;');
+
+        /** @var string $javascript */
+        $javascript = $this->getObjectProperty($obj, 'javascript');
+        $this->assertSame('', $javascript);
+    }
+
+    public function testAddRawJavaScriptObjReturnsMinusOneInPdfuaMode(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua2');
+
+        $objectId = $obj->addRawJavaScriptObj('app.alert("no");');
+        $this->assertSame(-1, $objectId);
+        /** @var array<int, mixed> $jsobjects */
+        $jsobjects = $this->getObjectProperty($obj, 'jsobjects');
+        $this->assertCount(0, $jsobjects);
+    }
+
+    public function testAppendRawJavaScriptIsIgnoredInPdfxMode(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $obj->appendRawJavaScript('var blocked = true;');
+
+        /** @var string $javascript */
+        $javascript = $this->getObjectProperty($obj, 'javascript');
+        $this->assertSame('', $javascript);
+    }
+
+    public function testAddRawJavaScriptObjReturnsMinusOneInPdfxMode(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+
+        $objectId = $obj->addRawJavaScriptObj('app.alert("no");');
+        $this->assertSame(-1, $objectId);
+        /** @var array<int, mixed> $jsobjects */
+        $jsobjects = $this->getObjectProperty($obj, 'jsobjects');
+        $this->assertCount(0, $jsobjects);
+    }
+
     public function testSetAndGetDefaultAnnotationProperties(): void
     {
         $obj = $this->getTestObject();
@@ -377,6 +423,60 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('Widget', $ann[$oid]['opt']['Subtype']);
         $this->assertSame('Tx', $ann[$oid]['opt']['ft']);
         $this->assertSame('field1', $ann[$oid]['opt']['t']);
+    }
+
+    public function testSetAnnotationWidgetIsSuppressedInPdfxMode(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        $oid = $obj->setAnnotation(1, 2, 40, 8, 'field1', ['subtype' => 'Widget']);
+
+        $this->assertSame(0, $oid);
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertSame([], $ann);
+    }
+
+    public function testSetAnnotationLinkStillWorksInPdfxMode(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        $oid = $obj->setLink(1, 2, 10, 4, '#dest');
+
+        $this->assertGreaterThan(0, $oid);
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertArrayHasKey($oid, $ann);
+        $this->assertSame('Link', $ann[$oid]['opt']['subtype']);
+    }
+
+    public function testSetAnnotationInteractiveSubtypesAreSuppressedInPdfxMode(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        $file = (string) \realpath(__DIR__ . '/../README.md');
+        $this->assertNotSame('', $file);
+
+        $subtypes = ['screen', 'movie', 'sound', 'fileattachment', '3d'];
+        foreach ($subtypes as $subtype) {
+            $opt = ['subtype' => $subtype];
+            if ($subtype === 'fileattachment' || $subtype === 'sound') {
+                $opt['fs'] = $file;
+            }
+            $oid = $obj->setAnnotation(1, 2, 10, 4, 'blocked', $opt);
+            $this->assertSame(0, $oid);
+        }
+
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertSame([], $ann);
+
+        /** @var array<string, mixed> $embeddedfiles */
+        $embeddedfiles = $this->getObjectProperty($obj, 'embeddedfiles');
+        $this->assertSame([], $embeddedfiles);
     }
 
     public function testAddFFButtonCreatesButtonWidgetWithAction(): void

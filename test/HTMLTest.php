@@ -2736,6 +2736,73 @@ class HTMLTest extends TestUtil
         $this->assertSame(140.0, $tpy);
     }
 
+    public function testPdfuaClampHeadingRolePassesThroughNonHeadingRoles(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $this->assertSame('P', $obj->exposePdfuaClampHeadingRole('P'));
+        $this->assertSame('L', $obj->exposePdfuaClampHeadingRole('L'));
+        $this->assertSame('Figure', $obj->exposePdfuaClampHeadingRole('Figure'));
+    }
+
+    public function testPdfuaClampHeadingRoleAllowsFirstH1(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $this->assertSame('H1', $obj->exposePdfuaClampHeadingRole('H1'));
+        $this->assertSame(1, $this->getObjectProperty($obj, 'pdfuaHeadingLevel'));
+    }
+
+    public function testPdfuaClampHeadingRoleClampsFirstH2ToH1(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        // First heading in document is H2 — must be clamped to H1
+        $this->assertSame('H1', $obj->exposePdfuaClampHeadingRole('H2'));
+        $this->assertSame(1, $this->getObjectProperty($obj, 'pdfuaHeadingLevel'));
+    }
+
+    public function testPdfuaClampHeadingRoleClampsSkippedLevel(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        // H1 → H3 skips H2; H3 should be clamped to H2
+        $this->assertSame('H1', $obj->exposePdfuaClampHeadingRole('H1'));
+        $this->assertSame('H2', $obj->exposePdfuaClampHeadingRole('H3'));
+        $this->assertSame(2, $this->getObjectProperty($obj, 'pdfuaHeadingLevel'));
+    }
+
+    public function testPdfuaClampHeadingRoleSequentialLevelsUnclamped(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        // H1 → H2 → H3 is valid; no clamping should occur
+        $this->assertSame('H1', $obj->exposePdfuaClampHeadingRole('H1'));
+        $this->assertSame('H2', $obj->exposePdfuaClampHeadingRole('H2'));
+        $this->assertSame('H3', $obj->exposePdfuaClampHeadingRole('H3'));
+        $this->assertSame(3, $this->getObjectProperty($obj, 'pdfuaHeadingLevel'));
+    }
+
+    public function testPdfuaClampHeadingRoleAllowsGoingBackUp(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        // H1 → H2 → H3 → H1 is allowed; then H3 should be clamped to H2
+        $obj->exposePdfuaClampHeadingRole('H1');
+        $obj->exposePdfuaClampHeadingRole('H2');
+        $obj->exposePdfuaClampHeadingRole('H3');
+        $this->assertSame('H1', $obj->exposePdfuaClampHeadingRole('H1'));
+        $this->assertSame(1, $this->getObjectProperty($obj, 'pdfuaHeadingLevel'));
+        $this->assertSame('H2', $obj->exposePdfuaClampHeadingRole('H3'));
+        $this->assertSame(2, $this->getObjectProperty($obj, 'pdfuaHeadingLevel'));
+    }
+
     public function testBrAtLineStartAfterWrappedPlainTextAdvancesOnce(): void
     {
         $obj = $this->getInternalTestObject();

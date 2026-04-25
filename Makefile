@@ -235,6 +235,11 @@ report: ensuretarget
 	./vendor/bin/pdepend --jdepend-xml=$(TARGETDIR)/report/dependencies.xml --summary-xml=$(TARGETDIR)/report/metrics.xml --jdepend-chart=$(TARGETDIR)/report/dependecies.svg --overview-pyramid=$(TARGETDIR)/report/overview-pyramid.svg --ignore=vendor ./src
 	#./vendor/bartlett/php-compatinfo/bin/phpcompatinfo --no-ansi analyser:run src/ > $(TARGETDIR)/report/phpcompatinfo.txt
 
+## Generate mode samples and run external preflight validators (if installed)
+.PHONY: preflight
+preflight: ensuretarget
+	bash ./resources/preflight/run_preflight_matrix.sh
+
 ## Build the RPM package for RedHat-like Linux distributions
 .PHONY: rpm
 rpm:

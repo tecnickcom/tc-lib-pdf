@@ -77,4 +77,9 @@ class TestablMetaInfo extends \Com\Tecnick\Pdf\Tcpdf
     {
         return $this->getProducer();
     }
+
+    public function exposeGetGtsPdfxVersionString(): string
+    {
+        return $this->getGtsPdfxVersionString();
+    }
 }

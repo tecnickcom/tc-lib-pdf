@@ -50,6 +50,20 @@ use Com\Tecnick\Pdf\Exception as PdfException;
 abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 {
     /**
+     * Interactive annotation subtypes disallowed in PDF/X mode.
+     *
+     * @var array<int, string>
+     */
+    protected const PDFX_BLOCKED_ANNOT_SUBTYPES = [
+        'widget',
+        'screen',
+        'movie',
+        'sound',
+        'fileattachment',
+        '3d',
+    ];
+
+    /**
      * Fonts used in annotations.
      *
      * @var array<string, int>
@@ -136,6 +150,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function appendRawJavaScript(string $script): void
     {
+        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '')) {
+            return;
+        }
+
         $this->javascript .= $script;
     }
 
@@ -149,7 +167,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addRawJavaScriptObj(string $script, bool $onload = false): int
     {
-        if ($this->pdfa > 0) {
+        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '')) {
             return -1;
         }
         $oid = ++$this->pon;
@@ -718,6 +736,14 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (empty($opt['subtype'])) {
             $opt['subtype'] = 'text';
         }
+
+        $subtype = \strtolower((string) $opt['subtype']);
+
+        // PDF/X interaction restriction: suppress interactive annotation subtypes.
+        if ($this->pdfx && \in_array($subtype, self::PDFX_BLOCKED_ANNOT_SUBTYPES, true)) {
+            return 0;
+        }
+
         if (!empty($this->xobjtid)) {
             // Store annotationparameters for later use on a XObject template.
             $this->xobjects[$this->xobjtid]['annotations'][] = [
@@ -742,7 +768,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             'txt' => $txt,
             'opt' => $opt,
         ];
-        switch (\strtolower($opt['subtype'])) {
+        switch ($subtype) {
             case 'fileattachment':
             case 'sound':
                 $this->addEmbeddedFile($opt['fs']);

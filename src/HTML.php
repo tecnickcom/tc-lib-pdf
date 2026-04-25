@@ -3733,7 +3733,56 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
 
+        $role = $this->getHTMLStructRole($elm);
+        if ($role !== '') {
+            if ($this->pdfuaMode !== '') {
+                $role = $this->pdfuaClampHeadingRole($role);
+            }
+            $this->beginStructElem($role, $this->page->getPageId());
+        }
+
         return '';
+    }
+
+    /**
+     * Clamp a heading structure role (H1-H6) to prevent skipped levels in PDF/UA mode.
+     * Going back to a higher level (e.g. H3 then H1) is always allowed.
+     * Going down more than one step (e.g. H1 then H3) clamps to the next sequential level.
+     * Non-heading roles are returned unchanged.
+     */
+    protected function pdfuaClampHeadingRole(string $role): string
+    {
+        if (\preg_match('/^H([1-6])$/', $role, $mtch) !== 1) {
+            return $role;
+        }
+        $requested = (int) $mtch[1];
+        $clamped = ($requested > $this->pdfuaHeadingLevel + 1) ? $this->pdfuaHeadingLevel + 1 : $requested;
+        $this->pdfuaHeadingLevel = $clamped;
+        return 'H' . $clamped;
+    }
+
+    /**
+     * Map an HTML element to the corresponding PDF structure role, or return '' for non-semantic elements.
+     *
+     * @param array<string, mixed> $elm DOM element.
+     */
+    protected function getHTMLStructRole(array $elm): string
+    {
+        $tag = isset($elm['value']) && \is_string($elm['value']) ? $elm['value'] : '';
+        return match ($tag) {
+            'p'          => 'P',
+            'h1'         => 'H1',
+            'h2'         => 'H2',
+            'h3'         => 'H3',
+            'h4'         => 'H4',
+            'h5'         => 'H5',
+            'h6'         => 'H6',
+            'ul', 'ol'   => 'L',
+            'li'         => 'LI',
+            'blockquote' => 'BlockQuote',
+            'pre'        => 'Code',
+            default      => '',
+        };
     }
 
     /**
@@ -3785,6 +3834,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B']
             + $this->getHTMLTagVSpace($hrc, $key, 1);
+
+        $role = $this->getHTMLStructRole($elm);
+        if ($role !== '') {
+            $this->endStructElem();
+        }
 
         return $out;
     }
@@ -4147,6 +4201,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         if ($hrc['cellctx']['maxwidth'] > 0) {
             $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
+        }
+
+        if ($this->pdfuaMode !== '') {
+            $out = $this->tagPdfUaFigureContent($out, $this->page->getPageId(), $alt);
         }
 
         return $out;

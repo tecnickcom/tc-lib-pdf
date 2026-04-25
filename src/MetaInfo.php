@@ -170,6 +170,34 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             return $this;
         }
 
+        // PDF/UA-2 uses PDF 2.0.
+        if ($this->pdfuaMode === 'pdfua2') {
+            $this->pdfver = '2.0';
+            return $this;
+        }
+
+        // PDF/UA and PDF/UA-1 use PDF 1.7.
+        if ($this->pdfuaMode !== '') {
+            $this->pdfver = '1.7';
+            return $this;
+        }
+
+        // PDF/X-1a and PDF/X-3 require a minimum of PDF 1.3.
+        // PDF/X-4 and PDF/X-5 require a minimum of PDF 1.6.
+        if ($this->pdfx) {
+            $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
+            if ($isvalid !== 1) {
+                throw new PdfException('Invalid PDF version format');
+            }
+
+            $minVersion = match ($this->pdfxMode) {
+                'pdfx4', 'pdfx5' => '1.6',
+                default => '1.3',
+            };
+            $this->pdfver = \version_compare($version, $minVersion, '<') ? $minVersion : $version;
+            return $this;
+        }
+
         $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
         if ($isvalid !== 1) {
             throw new PdfException('Invalid PDF version format');
@@ -177,6 +205,21 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
 
         $this->pdfver = $version;
         return $this;
+    }
+
+    /**
+     * Returns the canonical GTS_PDFXVersion string for the active PDF/X variant.
+     * Used in both the Info dictionary and XMP metadata.
+     */
+    protected function getGtsPdfxVersionString(): string
+    {
+        return match ($this->pdfxMode) {
+            'pdfx1a' => 'PDF/X-1a:2003',
+            'pdfx3'  => 'PDF/X-3:2003',
+            'pdfx4'  => 'PDF/X-4:2010',
+            'pdfx5'  => 'PDF/X-5g:2010',
+            default  => 'PDF/X-3:2003',
+        };
     }
 
     /**
@@ -263,6 +306,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
         . ' /CreationDate ' . $this->getOutDateTimeString($this->doctime, $oid)
         . ' /ModDate ' . $this->getOutDateTimeString($this->docmodtime, $oid)
         . ' /Trapped /False'
+        . ($this->pdfx ? ' /GTS_PDFXVersion ' . $this->getOutTextString($this->getGtsPdfxVersionString(), $oid, true) : '')
         . ' >>' . "\n"
         . 'endobj' . "\n";
     }
@@ -362,6 +406,23 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             . "\t\t\t" . '<pdfaid:part>' . $this->pdfa . '</pdfaid:part>' . "\n"
             . "\t\t\t" . '<pdfaid:conformance>' . $this->pdfaConformance . '</pdfaid:conformance>' . "\n"
             . "\t\t" . '</rdf:Description>' . "\n";
+        }
+
+        if ($this->pdfuaMode !== '') {
+            $part = 1;
+            if (\preg_match('/^pdfua([12])$/', $this->pdfuaMode, $matches) === 1) {
+                $part = (int) $matches[1];
+            }
+
+            $xmp .= "\t\t" . '<rdf:Description rdf:about="" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">' . "\n"
+                . "\t\t\t" . '<pdfuaid:part>' . $part . '</pdfuaid:part>' . "\n"
+                . "\t\t" . '</rdf:Description>' . "\n";
+        }
+
+        if ($this->pdfx) {
+            $xmp .= "\t\t" . '<rdf:Description rdf:about="" xmlns:pdfxid="http://www.npes.org/pdfx/ns/id/">' . "\n"
+                . "\t\t\t" . '<pdfxid:GTS_PDFXVersion>' . $this->getGtsPdfxVersionString() . '</pdfxid:GTS_PDFXVersion>' . "\n"
+                . "\t\t" . '</rdf:Description>' . "\n";
         }
 
         // XMP extension schemas
@@ -552,7 +613,12 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
         $out .= $this->getBooleanMode('HideWindowUI');
         $out .= $this->getBooleanMode('FitWindow');
         $out .= $this->getBooleanMode('CenterWindow');
-        $out .= $this->getBooleanMode('DisplayDocTitle');
+        // PDF/UA requires DisplayDocTitle true (ISO 14289-1 §7.1); force it if not already explicitly set.
+        if ($this->pdfuaMode !== '' && !isset($this->viewerpref['DisplayDocTitle'])) {
+            $out .= ' /DisplayDocTitle true';
+        } else {
+            $out .= $this->getBooleanMode('DisplayDocTitle');
+        }
         if (isset($vpr['NonFullScreenPageMode'])) {
             $out .= ' /NonFullScreenPageMode /' . $this->page->getDisplay($vpr['NonFullScreenPageMode']);
         }

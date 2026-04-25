@@ -53,7 +53,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * @param bool        $isunicode  True if the document is in Unicode mode.
      * @param bool        $subsetfont If true subset the embedded fonts to remove the unused characters.
      * @param bool        $compress   Set to false to disable stream compression.
-     * @param string      $mode       PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx" or empty.
+     * @param string      $mode       PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx", "pdfx1a", "pdfx3",
+     *                                "pdfx4", "pdfx5", "pdfua", "pdfua1", "pdfua2" or empty.
      * @param ?ObjEncrypt $objEncrypt Encryption object.
      */
     public function __construct(
@@ -86,22 +87,39 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      * - 'pdfa1', 'pdfa1a', 'pdfa1b': PDF/A-1 with optional conformance level
      * - 'pdfa2', 'pdfa2a', 'pdfa2b', 'pdfa2u': PDF/A-2 with optional conformance level
      * - 'pdfa3', 'pdfa3a', 'pdfa3b', 'pdfa3u': PDF/A-3 with optional conformance level
-     * - 'pdfx': PDF/X mode
+     * - 'pdfx', 'pdfx1a', 'pdfx3', 'pdfx4', 'pdfx5': PDF/X modes
+     * - 'pdfua', 'pdfua1', 'pdfua2': PDF/UA modes
      *
      * Conformance levels:
      * - 'a': Accessible (tagged PDF + Unicode)
      * - 'b': Basic (visual appearance only)
      * - 'u': Unicode (basic + Unicode mapping, PDF/A-2 and PDF/A-3 only)
      *
-     * @param string $mode Input PDF/A mode.
+     * @param string $mode Input PDF conformance mode.
      */
     protected function setPDFMode(string $mode): void
     {
-        $this->pdfx = ($mode == 'pdfx');
+        $normalizedMode = \trim(\strtolower($mode));
+
+        $this->pdfx = false;
+        $this->pdfxMode = '';
+        $this->pdfuaMode = '';
         $this->pdfa = 0;
         $this->pdfaConformance = 'B';
+
+        if (\preg_match('/^pdfx(?:1a|3|4|5)?$/', $normalizedMode) === 1) {
+            $this->pdfx = true;
+            $this->pdfxMode = $normalizedMode;
+            return;
+        }
+
+        if (\preg_match('/^pdfua(?:1|2)?$/', $normalizedMode) === 1) {
+            $this->pdfuaMode = $normalizedMode;
+            return;
+        }
+
         $matches = [];
-        if (\preg_match('/^pdfa([1-3])([abu])?$/i', $mode, $matches) === 1) {
+        if (\preg_match('/^pdfa([1-3])([abu])?$/i', $normalizedMode, $matches) === 1) {
             $this->pdfa = (int) $matches[1];
             if (!empty($matches[2])) {
                 $conf = \strtoupper($matches[2]);

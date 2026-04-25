@@ -35,6 +35,11 @@ class OutputTest extends TestUtil
         return new TestableOutput();
     }
 
+    protected function getInternalUncompressedTestObject(): TestableOutput
+    {
+        return new TestableOutput('mm', true, false, false);
+    }
+
     /** @return array{pid:int,n:int,content:array<int,string>} */
     protected function addRawPageWithObjectNumber(\Com\Tecnick\Pdf\Tcpdf $obj, int $objectNumber): array
     {
@@ -607,6 +612,116 @@ PHP;
         $this->assertStringContainsString(' /H /I', $embeddedFile);
     }
 
+    public function testGetOutAnnotationOptSubtypeLinkSkipsEmbeddedFileJavascriptInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua2');
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'attach.bin' => ['a' => 2],
+        ]);
+
+        $embeddedFile = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '*attach.bin', 'opt' => []], 1, 12);
+
+        $this->assertStringNotContainsString(' /S /JavaScript /JS ', $embeddedFile);
+        $this->assertStringContainsString(' /H /I', $embeddedFile);
+    }
+
+    public function testGetOutAnnotationOptSubtypeLinkSkipsEmbeddedFileJavascriptInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'attach.bin' => ['a' => 2],
+        ]);
+
+        $embeddedFile = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '*attach.bin', 'opt' => []], 1, 12);
+
+        $this->assertStringNotContainsString(' /S /JavaScript /JS ', $embeddedFile);
+        $this->assertStringContainsString(' /H /I', $embeddedFile);
+    }
+
+    public function testGetOutAnnotationOptSubtypeLinkSuppressesGotoeAndGotorInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'sample.pdf' => ['a' => 4],
+        ]);
+
+        $namedDest = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '#dest-1', 'opt' => ['h' => 'N']], 2, 10);
+        $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'https://example.com', 'opt' => []], 2, 11);
+        $embeddedPdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '%sample.pdf', 'opt' => []], 2, 12);
+        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(
+            ['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []],
+            2,
+            13
+        );
+
+        $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
+        $this->assertStringContainsString(' /H /N', $namedDest);
+
+        $this->assertStringNotContainsString(' /S /URI /URI ', $externalUri);
+        $this->assertStringNotContainsString(' /A <<', $externalUri);
+        $this->assertStringContainsString(' /H /I', $externalUri);
+
+        $this->assertStringNotContainsString(' /S /GoToE', $embeddedPdf);
+        $this->assertStringNotContainsString(' /A <<', $embeddedPdf);
+        $this->assertStringContainsString(' /H /I', $embeddedPdf);
+
+        $this->assertStringNotContainsString(' /S /GoToR', $relativePdf);
+        $this->assertStringNotContainsString(' /A <<', $relativePdf);
+        $this->assertStringContainsString(' /H /I', $relativePdf);
+    }
+
+    public function testGetOutAnnotationOptSubtypeLinkSuppressesExternalUriInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+
+        $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(
+            ['txt' => 'https://example.com/docs?a=1&b=2', 'opt' => []],
+            2,
+            11
+        );
+
+        $this->assertStringNotContainsString(' /S /URI', $externalUri);
+        $this->assertStringNotContainsString(' /A <<', $externalUri);
+        $this->assertStringContainsString(' /H /I', $externalUri);
+    }
+
+    #[DataProvider('pdfxModeProvider')]
+    public function testPdfxModeMatrixSuppressesInteractiveLinkActions(string $mode): void
+    {
+        $obj = new TestableOutput('mm', true, false, true, $mode);
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'sample.pdf' => ['a' => 4],
+        ]);
+
+        $namedDest = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '#dest-1', 'opt' => ['h' => 'N']], 2, 10);
+        $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'https://example.com', 'opt' => []], 2, 11);
+        $embeddedPdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '%sample.pdf', 'opt' => []], 2, 12);
+        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(
+            ['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []],
+            2,
+            13
+        );
+
+        $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
+        $this->assertStringContainsString(' /H /N', $namedDest);
+
+        $this->assertStringNotContainsString(' /S /URI', $externalUri);
+        $this->assertStringNotContainsString(' /A <<', $externalUri);
+        $this->assertStringContainsString(' /H /I', $externalUri);
+
+        $this->assertStringNotContainsString(' /S /GoToE', $embeddedPdf);
+        $this->assertStringNotContainsString(' /A <<', $embeddedPdf);
+        $this->assertStringContainsString(' /H /I', $embeddedPdf);
+
+        $this->assertStringNotContainsString(' /S /GoToR', $relativePdf);
+        $this->assertStringNotContainsString(' /A <<', $relativePdf);
+        $this->assertStringContainsString(' /H /I', $relativePdf);
+    }
+
     public function testGetOutAnnotationOptSubtypeFreetextFormatsKnownOptions(): void
     {
         $obj = $this->getInternalTestObject();
@@ -736,6 +851,66 @@ PHP;
         $this->assertStringContainsString(' /I [0 2 ]', $out);
     }
 
+    public function testGetOutAnnotationOptSubtypeWidgetOmitsJavascriptActionsInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $annot = [
+            'txt' => 'field-choice',
+            'opt' => [
+                'a' => '/S /JavaScript /JS (alert)',
+                'aa' => '/E << /S /JavaScript /JS (x) >>',
+                'h' => 'T',
+                'ff' => 5,
+            ],
+        ];
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeWidget($annot, 31);
+
+        $this->assertStringNotContainsString(' /A << /S /JavaScript', $out);
+        $this->assertStringNotContainsString(' /AA << /E << /S /JavaScript', $out);
+    }
+
+    public function testGetOutAnnotationOptSubtypeWidgetOmitsJavascriptActionsInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $annot = [
+            'txt' => 'field-choice',
+            'opt' => [
+                'a' => '/S /JavaScript /JS (alert)',
+                'aa' => '/E << /S /JavaScript /JS (x) >>',
+                'h' => 'T',
+                'ff' => 5,
+            ],
+        ];
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeWidget($annot, 31);
+
+        $this->assertStringNotContainsString(' /A << /S /JavaScript', $out);
+        $this->assertStringNotContainsString(' /AA << /E << /S /JavaScript', $out);
+    }
+
+    public function testGetOutAnnotationOptSubtypeWidgetOmitsNonJavascriptActionsInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $annot = [
+            'txt' => 'field-choice',
+            'opt' => [
+                'a' => '/S /ResetForm',
+                'aa' => '/E << /S /URI /URI (https://example.test) >>',
+                'h' => 'T',
+                'ff' => 5,
+            ],
+        ];
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeWidget($annot, 31);
+
+        $this->assertStringNotContainsString(' /A << /S /ResetForm >>', $out);
+        $this->assertStringNotContainsString(' /AA << /E << /S /URI /URI', $out);
+    }
+
     public function testGetOutAnnotationOptSubtypeDispatcherRoutesKnownAndUnknownSubtypes(): void
     {
         $obj = $this->getInternalTestObject();
@@ -805,6 +980,128 @@ PHP;
         $this->assertStringContainsString('/Type /Pages', $out);
         $this->assertStringContainsString('/Type /Catalog', $out);
         $this->assertStringContainsString('/Type /Page', $out);
+    }
+
+    public function testGetOutPDFBodyIncludesStructTreeRootInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->addTextCell('Tagged PDF/UA text', $page['pid'], 10, 10, 60, 10);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/StructParents 0', $out);
+        $this->assertMatchesRegularExpression('/\/Nums \[ 0 \[\s*\d+ 0 R\s*\]\s*\]/', $out);
+        $this->assertStringContainsString('/Type /StructTreeRoot', $out);
+        $this->assertStringContainsString('/ParentTree ', $out);
+        $this->assertStringContainsString('/ParentTreeNextKey 1', $out);
+        $this->assertStringContainsString('/K [ ', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /Document', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /P', $out);
+        $this->assertStringContainsString('/Type /MCR', $out);
+        $this->assertStringContainsString('/MCID 0', $out);
+        $this->assertMatchesRegularExpression('/\/Pg \d+ 0 R/', $out);
+        $this->assertStringContainsString('/StructTreeRoot ', $out);
+    }
+
+    public function testGetOutPDFBodyWrapsFirstPageContentInMarkedContentForPdfuaMode(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->addTextCell('Tagged PDF/UA text', $page['pid'], 10, 10, 60, 10);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/P <</MCID 0>> BDC', $out);
+        $this->assertStringContainsString('EMC', $out);
+        $this->assertStringContainsString('/Type /MCR', $out);
+    }
+
+    public function testGetOutPDFBodyIncludesMultipleMcidsForMultipleTextCellsInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->addTextCell('First PDF/UA text block', $page['pid'], 10, 10, 60, 10);
+        $obj->addTextCell('Second PDF/UA text block', $page['pid'], 10, 20, 60, 10);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/MCID 0', $out);
+        $this->assertStringContainsString('/MCID 1', $out);
+        $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/P.*\/MCID 0/s', $out);
+        $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/P.*\/MCID 1/s', $out);
+    }
+
+    public function testGetOutPDFBodyBracketedTextCellsShareOneStructElem(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->beginStructElem('H1', $page['pid']);
+        $obj->addTextCell('Heading text', $page['pid'], 10, 10, 60, 10);
+        $obj->addTextCell('Continuation', $page['pid'], 10, 20, 60, 10);
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        // Both MCIDs should appear in the output.
+        $this->assertStringContainsString('/MCID 0', $out);
+        $this->assertStringContainsString('/MCID 1', $out);
+        // There should be exactly one H1 StructElem containing both MCID references.
+        $this->assertMatchesRegularExpression(
+            '/\/Type \/StructElem \/S \/H1.*\/MCID 0.*\/MCID 1/s',
+            $out
+        );
+        // There should be no separate P StructElem for these fragments.
+        $this->assertStringNotContainsString('/Type /StructElem /S /P', $out);
+    }
+
+    public function testGetOutPDFBodyBracketedContentUsesStructRoleInBdcTag(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->beginStructElem('H2', $page['pid']);
+        $obj->addTextCell('Subheading', $page['pid'], 10, 10, 60, 10);
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        // BDC tag in the content stream must use the struct elem role, not the fallback /P.
+        $this->assertStringContainsString('/H2 <</MCID 0>> BDC', $out);
+        $this->assertStringNotContainsString('/P <</MCID 0>> BDC', $out);
+    }
+
+    public function testGetOutPDFBodyTagsHtmlImageAsFigureWithAltInPdfuaMode(): void
+    {
+        $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $this->assertIsString($raw);
+        $src = 'data:image/png;base64,' . \base64_encode($raw);
+
+        $html = '<img src="' . $src . '" alt="Chart icon" width="4" height="4" />';
+        $htmlOut = $obj->getHTMLCell($html, 0, 0, 20, 10);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addContent($htmlOut, $page->getPageId());
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Figure <</MCID 0>> BDC', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /Figure', $out);
+        $this->assertStringContainsString('/Alt ', $out);
     }
 
     public function testGetOutCatalogIncludesRequiredEntries(): void
@@ -916,6 +1213,24 @@ PHP;
         $this->setObjectProperty($obj, 'pdfx', true);
         $this->assertStringContainsString('/GTS_PDFX', $obj->exposeGetOutputIntentsPdfX());
         $this->assertStringContainsString('/GTS_PDFX', $obj->exposeGetOutputIntents());
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
+        $this->assertStringContainsString(
+            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x004",
+            $obj->exposeGetOutputIntentsPdfX()
+        );
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
+        $this->assertStringContainsString(
+            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x001\x00a",
+            $obj->exposeGetOutputIntentsPdfX()
+        );
+
+        $this->setObjectProperty($obj, 'pdfxMode', '');
+        $this->assertStringContainsString(
+            "\xfe\xff\x00O\x00F\x00C\x00O\x00M\x00_\x00P\x00O\x00_\x00P\x001\x00_\x00F\x006\x000\x00_\x009\x005",
+            $obj->exposeGetOutputIntentsPdfX()
+        );
     }
 
     public function testGetPDFLayersAndGetOutOCGDefaultAndNonEmpty(): void
@@ -1666,6 +1981,94 @@ PHP;
         ]);
     }
 
+    public function testGetOutCatalogOmitsJavascriptTreeInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 3);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
+        $this->setObjectProperty($obj, 'jstree', '<< /Names [(JS) 1 0 R] >>');
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringNotContainsString('/JavaScript', $out);
+    }
+
+    public function testGetOutCatalogOmitsJavascriptTreeInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 3);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
+        $this->setObjectProperty($obj, 'jstree', '<< /Names [(JS) 1 0 R] >>');
+        $this->setObjectProperty($obj, 'pdfx', true);
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringNotContainsString('/JavaScript', $out);
+    }
+
+    public function testGetOutCatalogIncludesMarkInfoAndDefaultLanguageInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 3);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringContainsString('/MarkInfo << /Marked true >>', $out);
+        $this->assertStringContainsString('/Lang ', $out);
+        $this->assertStringContainsString("\x00e\x00n\x00-\x00U\x00S", $out);
+    }
+
+    public function testGetOutCatalogIncludesStructTreeRootReferenceWhenAvailable(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 3);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $this->setObjectProperty($obj, 'structtreerootoid', 42);
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringContainsString('/StructTreeRoot 42 0 R', $out);
+    }
+
+    public function testGetOutPDFBodyResetsStructureObjectIdsOutsidePdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'parenttreeoid', 12);
+        $this->setObjectProperty($obj, 'structtreerootoid', 34);
+        $this->setObjectProperty($obj, 'pagestructparents', [9 => 0]);
+        $this->setObjectProperty($obj, 'pagestructmcids', [9 => 1]);
+
+        $method = new \ReflectionMethod($obj, 'getOutStructTreeRoot');
+        $method->setAccessible(true);
+        $out = $method->invoke($obj);
+
+        $this->assertSame('', $out);
+        $this->assertSame([], $this->getObjectProperty($obj, 'pagestructparents'));
+        $this->assertSame([], $this->getObjectProperty($obj, 'pagestructmcids'));
+        $this->assertSame(0, $this->getObjectProperty($obj, 'parenttreeoid'));
+        $this->assertSame(0, $this->getObjectProperty($obj, 'structtreerootoid'));
+    }
+
+    public function testGetOutCatalogUsesConfiguredLanguageInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 3);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $this->setObjectProperty($obj, 'lang', ['a_meta_language' => 'it-IT']);
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringContainsString('/MarkInfo << /Marked true >>', $out);
+        $this->assertStringContainsString('/Lang ', $out);
+        $this->assertStringContainsString("\x00i\x00t\x00-\x00I\x00T", $out);
+        $this->assertStringNotContainsString("\x00e\x00n\x00-\x00U\x00S", $out);
+    }
+
     #[DataProvider('catalogZoomModeProvider')]
     public function testGetOutCatalogZoomModes(string|int $zoom, string $expectedFragment): void
     {
@@ -1925,6 +2328,47 @@ PHP;
         ]);
     }
 
+    public function testGetOutXObjectsSuppressesTransparencyGroupInPdfx3(): void
+    {
+        $obj = new TestableOutput('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XT3' => [
+                'id' => 'XT3',
+                'n' => 3,
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 50.0,
+                'h' => 25.0,
+                'pheight' => 0.0,
+                'gheight' => 0.0,
+                'outdata' => 'q Q',
+                'spot_colors' => [],
+                'extgstate' => [],
+                'gradient' => [],
+                'font' => [],
+                'image' => [],
+                'xobject' => [],
+                'annotations' => [],
+                'transparency' => ['CS' => 'DeviceRGB', 'I' => true, 'K' => false],
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutXObjects();
+
+        $this->assertStringNotContainsString('/Group << /Type /Group /S /Transparency', $out);
+    }
+
     public function testGetOutEmbeddedFilesWithContent(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2017,6 +2461,40 @@ PHP;
 
         $this->assertStringContainsString('/Subtype /Link', $out);
         $this->assertStringNotContainsString('/Contents ', $out);
+    }
+
+    public function testGetOutAnnotationsLinkAnnotationIncludesContentsInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+            $pageInfo = $this->initFontAndPage($obj);
+            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+            $pageObj = $this->getObjectProperty($obj, 'page');
+            /** @var array<int, array<string, mixed>> $pgdata */
+            $pgdata = $this->getObjectProperty($pageObj, 'page');
+            $pgdata[$pageInfo['pid']]['n'] = 5;
+                $pgdata[$pageInfo['pid']]['num'] = 1;
+            $this->setObjectProperty($pageObj, 'page', $pgdata);
+
+        $aoid = $obj->setAnnotation(10.0, 20.0, 50.0, 10.0, 'https://example.com', ['subtype' => 'Link']);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addAnnotRef($aoid);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $out = $obj->exposeGetOutAnnotations();
+
+        $this->assertStringContainsString('/Subtype /Link', $out);
+        $this->assertStringContainsString('/Contents ', $out);
     }
 
     public function testGetOutAnnotationsWithFormFieldAnnotation(): void
@@ -2139,6 +2617,62 @@ PHP;
         $this->assertStringContainsString('/S /JavaScript', $out);
     }
 
+    public function testGetOutBookmarksWithStarEmbeddedFileLinkOmitsJavascriptInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $page = $this->addRawPageWithObjectNumber($obj, 5);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'report.bin' => [
+                'a' => 2,
+                'f' => 3,
+                'n' => 4,
+                'file' => '',
+                'content' => 'data',
+                'mimeType' => 'application/octet-stream',
+                'afRelationship' => 'Source',
+                'description' => '',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+        $obj->setBookmark('Embedded File', '*report.bin', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /JavaScript', $out);
+    }
+
+    public function testGetOutBookmarksWithStarEmbeddedFileLinkOmitsJavascriptInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $page = $this->addRawPageWithObjectNumber($obj, 5);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'report.bin' => [
+                'a' => 2,
+                'f' => 3,
+                'n' => 4,
+                'file' => '',
+                'content' => 'data',
+                'mimeType' => 'application/octet-stream',
+                'afRelationship' => 'Source',
+                'description' => '',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+        $obj->setBookmark('Embedded File', '*report.bin', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /JavaScript', $out);
+    }
+
     public function testGetOutBookmarksWithPercentEmbeddedPdfLink(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2167,6 +2701,35 @@ PHP;
         $this->assertStringContainsString('/A 5', $out);
     }
 
+    public function testGetOutBookmarksWithPercentEmbeddedPdfLinkOmitsGotoeInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 7);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'manual.pdf' => [
+                'a' => 5,
+                'f' => 3,
+                'n' => 4,
+                'file' => '',
+                'content' => 'data',
+                'mimeType' => 'application/pdf',
+                'afRelationship' => 'Source',
+                'description' => 'Embedded PDF',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+        $obj->setBookmark('Embedded PDF', '%manual.pdf', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /GoToE', $out);
+        $this->assertStringNotContainsString('/A 5', $out);
+    }
+
     public function testGetOutBookmarksWithExternalUriLink(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2179,6 +2742,53 @@ PHP;
 
         $this->assertStringContainsString('/S /URI', $out);
         $this->assertStringContainsString('/URI ', $out);
+    }
+
+    public function testGetOutBookmarksWithExternalUriLinkOmitsUriActionInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+
+        $obj->setBookmark('External Site', 'https://example.com/docs?a=1&b=2', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /URI', $out);
+        $this->assertStringNotContainsString('/URI ', $out);
+    }
+
+    #[DataProvider('pdfxModeProvider')]
+    public function testPdfxModeMatrixSuppressesInteractiveBookmarkActions(string $mode): void
+    {
+        $obj = new TestableOutput('mm', true, false, true, $mode);
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 7);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'manual.pdf' => [
+                'a' => 5,
+                'f' => 3,
+                'n' => 4,
+                'file' => '',
+                'content' => 'data',
+                'mimeType' => 'application/pdf',
+                'afRelationship' => 'Source',
+                'description' => 'Embedded PDF',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+
+        $obj->setBookmark('External Site', 'https://example.com/docs?a=1&b=2', 0, $page['pid']);
+        $obj->setBookmark('Embedded PDF', '%manual.pdf', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /URI', $out);
+        $this->assertStringNotContainsString('/URI ', $out);
+        $this->assertStringNotContainsString('/S /GoToE', $out);
     }
 
     public function testGetOutBookmarksWithNoUrlUsesPageDest(): void
@@ -2211,6 +2821,18 @@ PHP;
         $this->assertStringContainsString('/Last ', $out);
     }
 
+    /** @return array<string, array{0: string}> */
+    public static function pdfxModeProvider(): array
+    {
+        return [
+            'pdfx_alias' => ['pdfx'],
+            'pdfx1a' => ['pdfx1a'],
+            'pdfx3' => ['pdfx3'],
+            'pdfx4' => ['pdfx4'],
+            'pdfx5' => ['pdfx5'],
+        ];
+    }
+
     public function testGetOutJavascriptWithAddFieldTriggersWrapper(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2223,6 +2845,34 @@ PHP;
         $jsmod = $this->getObjectProperty($obj, 'javascript');
         $this->assertStringContainsString('ftcpdfdocsaved', $jsmod);
         $this->assertStringContainsString('/S /JavaScript', $out);
+    }
+
+    public function testGetOutJavascriptReturnsEmptyInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $this->setObjectProperty($obj, 'javascript', 'app.alert("hi");');
+        $this->setObjectProperty($obj, 'jsobjects', [[
+            'n' => 1,
+            'js' => 'console.println("x")',
+            'onload' => true,
+        ]]);
+
+        $this->assertSame('', $obj->exposeGetOutJavascript());
+    }
+
+    public function testGetOutJavascriptReturnsEmptyInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'javascript', 'app.alert("hi");');
+        $this->setObjectProperty($obj, 'jsobjects', [[
+            'n' => 1,
+            'js' => 'console.println("x")',
+            'onload' => true,
+        ]]);
+
+        $this->assertSame('', $obj->exposeGetOutJavascript());
     }
 
     public function testGetOutSignatureUserRightsWithAllFields(): void
@@ -2763,6 +3413,17 @@ PHP;
 
         $this->assertStringContainsString('/FT /Btn', $out);
         $this->assertStringContainsString('/Parent 88 0 R', $out);
+    }
+
+    public function testGetOutPDFTrailerSuppressesEncryptInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $obj->setOutputState(4, ['catalog' => 7, 'info' => 8], 'FEEDBEEF', 12);
+
+        $trailer = $obj->exposeGetOutPDFTrailer();
+
+        $this->assertStringNotContainsString('/Encrypt', $trailer);
     }
 
     private function setPdfaModeOnObject(TestableOutput $obj, int $pdfa): void

@@ -111,6 +111,13 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag': string,
  * }
  *
+ * @phpstan-type TPdfUaStructElem array{
+ *    role: string,
+ *    pid: int,
+ *    mcids: int[],
+ *    alt?: string,
+ * }
+ *
  * @phpstan-type TStackBBox array<int, TBBox>
  *
  * @phpstan-import-type TAnnot from Output
@@ -180,7 +187,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.7.1';
+    protected string $version = '8.8.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -390,6 +397,45 @@ abstract class Base
      * True if we are in PDF/X mode.
      */
     protected bool $pdfx = false;
+
+    /**
+     * Normalized PDF/X mode string or empty when disabled.
+     */
+    protected string $pdfxMode = '';
+
+    /**
+     * Normalized PDF/UA mode string or empty when disabled.
+     */
+    protected string $pdfuaMode = '';
+
+    /**
+     * Count of MCID-tagged content blocks per page (keyed by page PID) for PDF/UA output.
+     *
+     * @var array<int, int>
+     */
+    protected array $pdfuapagemcid = [];
+
+    /**
+     * Stack of currently open PDF/UA structure elements.
+     * Each entry: ['role' => string, 'pid' => int, 'mcids' => int[]]
+     *
+     * @var array<int, TPdfUaStructElem>
+     */
+    protected array $pdfuaStructStack = [];
+
+    /**
+     * Log of completed PDF/UA structure elements in document order.
+     * Each entry: ['role' => string, 'pid' => int (page index), 'mcids' => int[]]
+     *
+     * @var array<int, TPdfUaStructElem>
+     */
+    protected array $pdfuaStructLog = [];
+
+    /**
+     * Tracks the last emitted heading level (1-6) for PDF/UA heading-nesting validation.
+     * 0 means no heading has been emitted yet in the current document.
+     */
+    protected int $pdfuaHeadingLevel = 0;
 
     /**
      * True if the document is signed.
@@ -862,5 +908,35 @@ abstract class Base
     protected function isRTL(): bool
     {
         return ($this->rtl || $this->tmprtl);
+    }
+
+    /**
+     * Return true when transparency features are allowed for the active conformance mode.
+     *
+     * PDF/X-1a and PDF/X-3 (including generic PDF/X alias handling) disallow live transparency,
+     * while PDF/X-4 and PDF/X-5 allow it.
+     */
+    protected function isTransparencyAllowed(): bool
+    {
+        if (!$this->pdfx) {
+            return true;
+        }
+
+        return \in_array($this->pdfxMode, ['pdfx4', 'pdfx5'], true);
+    }
+
+    /**
+     * Return true when the active PDF/X variant should avoid DeviceRGB process colors.
+     *
+     * PDF/X-1a and PDF/X-3 are treated as restrictive process-color variants in this
+     * implementation. PDF/X-4 and PDF/X-5 remain unrestricted.
+     */
+    protected function requiresPdfxDeviceCmyk(): bool
+    {
+        if (!$this->pdfx) {
+            return false;
+        }
+
+        return !\in_array($this->pdfxMode, ['pdfx4', 'pdfx5'], true);
     }
 }
