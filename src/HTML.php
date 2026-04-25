@@ -3005,7 +3005,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             /** @var THTMLBlockBuf $blk */
             $blk = $hrc['blockbuf'][$i];
             $openkey = (int) $blk['openkey'];
-            $partialHeight = $pageBottom - (float) $blk['by'];
+            // For <table> blocks the outer border must end at the last
+            // rendered row's bottom, not the page region bottom: row borders
+            // already draw horizontals and the next page replays the head
+            // with its own top border, so extending the outer frame to the
+            // page bottom would leave a tall empty bordered rectangle below
+            // the last row on this page.
+            $isTable = ($openkey >= 0)
+                && isset($hrc['dom'][$openkey]['value'])
+                && ($hrc['dom'][$openkey]['value'] === 'table');
+            $blockBottom = $isTable ? $tpy : $pageBottom;
+            $partialHeight = $blockBottom - (float) $blk['by'];
             $content = (string) $blk['buffer'] . $rendered;
             if (((float) $blk['bw'] > 0.0) && ($partialHeight > 0.0)) {
                 $bstyles = ($openkey >= 0)
