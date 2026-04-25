@@ -5451,6 +5451,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
+
+        // Generic page/region overflow guard for plain inline text flow.
+        // Skipped while a block-level buffer or a table cell is active so that
+        // block borders/backgrounds and table row pagination keep working.
+        // Also skipped when the cell has an explicit max height: the caller
+        // bounded the HTML box and content must stay within it.
+        if (
+            empty($hrc['blockbuf'])
+            && empty($hrc['tablestack'])
+            && empty($hrc['bcellctx'])
+            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+            && ($lineAdvance > 0.0)
+        ) {
+            $breakout = $this->breakHTMLIfNeeded($hrc, $lineAdvance, $tpx, $tpy, $tpw, $tph);
+            if ($breakout !== '') {
+                $out = $breakout . $out;
+            }
+        }
+
         $fragmentWidth = $this->getStringWidth($text);
 
         // When a continuation fragment's trailing collapsible whitespace is the

@@ -692,6 +692,46 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString(' re', $content);
     }
 
+    public function testAddHTMLCellAutoFlowSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+            . ' Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
+        $html = \str_repeat($chunk, 220);
+
+        $obj->addHTMLCell($html, 20, 10, 150, 0);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
+    public function testAddHTMLCellWithFixedHeightDoesNotAutoBreak(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+            . ' Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
+        $html = \str_repeat($chunk, 220);
+
+        $obj->addHTMLCell($html, 20, 10, 150, 30);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertSame($beforePages, $afterPages);
+    }
+
     public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
     {
         $obj = $this->getTestObject();
