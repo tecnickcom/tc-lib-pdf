@@ -656,7 +656,8 @@ PHP;
         $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
         $this->assertStringContainsString(' /H /N', $namedDest);
 
-        $this->assertStringContainsString(' /S /URI /URI ', $externalUri);
+        $this->assertStringNotContainsString(' /S /URI /URI ', $externalUri);
+        $this->assertStringNotContainsString(' /A <<', $externalUri);
         $this->assertStringContainsString(' /H /I', $externalUri);
 
         $this->assertStringNotContainsString(' /S /GoToE', $embeddedPdf);
@@ -666,6 +667,22 @@ PHP;
         $this->assertStringNotContainsString(' /S /GoToR', $relativePdf);
         $this->assertStringNotContainsString(' /A <<', $relativePdf);
         $this->assertStringContainsString(' /H /I', $relativePdf);
+    }
+
+    public function testGetOutAnnotationOptSubtypeLinkSuppressesExternalUriInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+
+        $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(
+            ['txt' => 'https://example.com/docs?a=1&b=2', 'opt' => []],
+            2,
+            11
+        );
+
+        $this->assertStringNotContainsString(' /S /URI', $externalUri);
+        $this->assertStringNotContainsString(' /A <<', $externalUri);
+        $this->assertStringContainsString(' /H /I', $externalUri);
     }
 
     public function testGetOutAnnotationOptSubtypeFreetextFormatsKnownOptions(): void
@@ -2685,6 +2702,21 @@ PHP;
 
         $this->assertStringContainsString('/S /URI', $out);
         $this->assertStringContainsString('/URI ', $out);
+    }
+
+    public function testGetOutBookmarksWithExternalUriLinkOmitsUriActionInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+
+        $obj->setBookmark('External Site', 'https://example.com/docs?a=1&b=2', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /URI', $out);
+        $this->assertStringNotContainsString('/URI ', $out);
     }
 
     public function testGetOutBookmarksWithNoUrlUsesPageDest(): void

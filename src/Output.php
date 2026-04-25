@@ -2055,9 +2055,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         }
                     } else {
                         // external URI link
-                        $out .= ' /A << /S /URI /URI '
-                            . $this->encrypt->escapeDataString($this->unhtmlentities($annot['txt']), $oid)
-                            . ' >>';
+                        if (! $this->pdfx) {
+                            $out .= ' /A << /S /URI /URI '
+                                . $this->encrypt->escapeDataString($this->unhtmlentities($annot['txt']), $oid)
+                                . ' >>';
+                        }
                     }
                     break;
             }
@@ -2928,9 +2930,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         break;
                     default:
                         // external URI link
-                        $out .= ' /A << /S /URI /URI '
-                            . $this->encrypt->escapeDataString($this->unhtmlentities($outline['u']), $oid)
-                            . ' >>';
+                        if (! $this->pdfx) {
+                            $out .= ' /A << /S /URI /URI '
+                                . $this->encrypt->escapeDataString($this->unhtmlentities($outline['u']), $oid)
+                                . ' >>';
+                        }
                         break;
                 }
             } else {
