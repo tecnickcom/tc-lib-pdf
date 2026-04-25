@@ -12,7 +12,13 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/X-4</h1><p>Mode: pdfx4</p>', 15, 20, 180);
+$html = '<h1>PDF/X-4</h1>'
+	. '<p>Mode: pdfx4</p>'
+	. '<p>PDF/X-4 modernizes print exchange by allowing live transparency in a color-managed workflow.</p>'
+	. '<p>Highlights: minimum PDF 1.6 output, PDF/X-4 identification metadata, transparency retained, '
+	. 'encryption disabled, and interactive actions still suppressed for print conformance.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

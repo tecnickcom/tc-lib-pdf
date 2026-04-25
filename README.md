@@ -255,6 +255,9 @@ make help
 
 # Run the full quality pipeline (lint, static analysis, tests, coverage)
 make qa
+
+# Generate PDF/X + PDF/UA sample matrix and run external validators (if installed)
+make preflight
 ```
 
 Build artifacts and reports are written to the `target/` directory.

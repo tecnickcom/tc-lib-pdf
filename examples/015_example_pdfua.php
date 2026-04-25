@@ -12,7 +12,13 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/UA</h1><p>Mode: pdfua</p>', 15, 20, 180);
+$html = '<h1>PDF/UA</h1>'
+	. '<p>Mode: pdfua</p>'
+	. '<p>This generic alias enables the library\'s accessible tagged-PDF workflow.</p>'
+	. '<p>Highlights: tagged structure, document language and MarkInfo output, accessible link content, '
+	. 'and ActualText support for ligatures and special glyphs.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

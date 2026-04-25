@@ -12,7 +12,13 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/X-1a</h1><p>Mode: pdfx1a</p>', 15, 20, 180);
+$html = '<h1>PDF/X-1a</h1>'
+	. '<p>Mode: pdfx1a</p>'
+	. '<p>PDF/X-1a targets an older, press-safe workflow centered on CMYK and spot colors.</p>'
+	. '<p>Highlights: minimum PDF 1.3 output, transparency disabled, encryption disabled, '
+	. 'and interactive annotations/actions suppressed for a classic print handoff.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

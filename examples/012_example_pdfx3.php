@@ -12,7 +12,14 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/X-3</h1><p>Mode: pdfx3</p>', 15, 20, 180);
+$html = '<h1>PDF/X-3</h1>'
+	. '<p>Mode: pdfx3</p>'
+	. '<p>PDF/X-3 keeps the print-exchange restrictions of early PDF/X while allowing '
+	. 'color-managed workflows beyond device CMYK.</p>'
+	. '<p>Highlights: minimum PDF 1.3 output, output-intent identification, no transparency, '
+	. 'and no interactive actions that would conflict with print-only delivery.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

@@ -12,7 +12,13 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/UA-2</h1><p>Mode: pdfua2</p>', 15, 20, 180);
+$html = '<h1>PDF/UA-2</h1>'
+	. '<p>Mode: pdfua2</p>'
+	. '<p>PDF/UA-2 moves accessible output onto the PDF 2.0 generation of the standard.</p>'
+	. '<p>Highlights: PDF/UA-2 identification metadata, tagged structure output, accessible text semantics, '
+	. 'and the same library accessibility protections applied to links, figures, and document metadata.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

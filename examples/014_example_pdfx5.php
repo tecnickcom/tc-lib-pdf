@@ -12,7 +12,13 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/X-5</h1><p>Mode: pdfx5</p>', 15, 20, 180);
+$html = '<h1>PDF/X-5</h1>'
+	. '<p>Mode: pdfx5</p>'
+	. '<p>PDF/X-5 builds on the PDF/X-4 family for more advanced print workflows and external references.</p>'
+	. '<p>Highlights: minimum PDF 1.6 output, transparency retained, modern PDF/X identification, '
+	. 'and the same print-safe suppression of unsupported interactive actions.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

@@ -12,7 +12,13 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/UA-1</h1><p>Mode: pdfua1</p>', 15, 20, 180);
+$html = '<h1>PDF/UA-1</h1>'
+	. '<p>Mode: pdfua1</p>'
+	. '<p>PDF/UA-1 is the original accessible-PDF profile built on PDF 1.7 semantics.</p>'
+	. '<p>Highlights: forced accessible viewer preferences, structure-tree output, tagged text content, '
+	. 'language metadata, and semantic handling for headings, figures, and links.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

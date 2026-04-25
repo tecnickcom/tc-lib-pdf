@@ -22,7 +22,14 @@ $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $page = $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
-$pdf->addHTMLCell('<h1>PDF/X</h1><p>Mode: pdfx</p>', 15, 20, 180);
+$html = '<h1>PDF/X</h1>'
+	. '<p>Mode: pdfx</p>'
+	. '<p>This generic alias currently maps to the library\'s baseline PDF/X print workflow.</p>'
+	. '<p>Highlights: PDF/X identification metadata, print-oriented output intent handling, '
+	. 'CMYK-oriented process colors, and suppression of interactive actions that are not allowed '
+	. 'in a print-exchange profile.</p>';
+
+$pdf->addHTMLCell($html, 15, 20, 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);
