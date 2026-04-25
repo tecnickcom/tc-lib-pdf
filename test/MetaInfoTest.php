@@ -86,6 +86,19 @@ class MetaInfoTest extends TestUtil
         $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
     }
 
+    #[DataProvider('pdfuaVersionFixtureProvider')]
+    public function testSetPDFVersionHonorsPdfuaModes(string $pdfuaMode, string $inputVersion, string $expectedVersion): void
+    {
+        $obj = $this->getTestObject();
+        $pdfua = new \ReflectionProperty(\Com\Tecnick\Pdf\Tcpdf::class, 'pdfuaMode');
+        $pdfua->setAccessible(true);
+        $pdfua->setValue($obj, $pdfuaMode);
+
+        $obj->setPDFVersion($inputVersion);
+
+        $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
+    }
+
     public function testSetPDFVersionThrowsOnInvalidFormat(): void
     {
         $obj = $this->getTestObject();
@@ -276,6 +289,17 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('<pdfaid:conformance>U</pdfaid:conformance>', $result);
     }
 
+    public function testGetOutXMPIncludesPdfuaBlockWhenPdfuaEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua2');
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringContainsString('xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/"', $result);
+        $this->assertStringContainsString('<pdfuaid:part>2</pdfuaid:part>', $result);
+    }
+
     public function testGetOutViewerPrefIncludesDirectionAndKnownFlags(): void
     {
         $obj = $this->getInternalTestObject();
@@ -321,6 +345,16 @@ class MetaInfoTest extends TestUtil
             'pdfa1_forces_1_4' => [1, '1.9', '1.4'],
             'pdfa2_forces_1_7' => [2, '1.5', '1.7'],
             'pdfa4_forces_2_0' => [4, '1.5', '2.0'],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: string, 2: string}> */
+    public static function pdfuaVersionFixtureProvider(): array
+    {
+        return [
+            'pdfua_defaults_to_1_7' => ['pdfua', '1.4', '1.7'],
+            'pdfua1_forces_1_7' => ['pdfua1', '1.5', '1.7'],
+            'pdfua2_forces_2_0' => ['pdfua2', '1.7', '2.0'],
         ];
     }
 

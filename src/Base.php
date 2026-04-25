@@ -392,6 +392,16 @@ abstract class Base
     protected bool $pdfx = false;
 
     /**
+     * Normalized PDF/X mode string or empty when disabled.
+     */
+    protected string $pdfxMode = '';
+
+    /**
+     * Normalized PDF/UA mode string or empty when disabled.
+     */
+    protected string $pdfuaMode = '';
+
+    /**
      * True if the document is signed.
      */
     protected bool $sign = false;

@@ -170,6 +170,18 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             return $this;
         }
 
+        // PDF/UA-2 uses PDF 2.0.
+        if ($this->pdfuaMode === 'pdfua2') {
+            $this->pdfver = '2.0';
+            return $this;
+        }
+
+        // PDF/UA and PDF/UA-1 use PDF 1.7.
+        if ($this->pdfuaMode !== '') {
+            $this->pdfver = '1.7';
+            return $this;
+        }
+
         $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
         if ($isvalid !== 1) {
             throw new PdfException('Invalid PDF version format');
@@ -362,6 +374,17 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             . "\t\t\t" . '<pdfaid:part>' . $this->pdfa . '</pdfaid:part>' . "\n"
             . "\t\t\t" . '<pdfaid:conformance>' . $this->pdfaConformance . '</pdfaid:conformance>' . "\n"
             . "\t\t" . '</rdf:Description>' . "\n";
+        }
+
+        if ($this->pdfuaMode !== '') {
+            $part = 1;
+            if (\preg_match('/^pdfua([12])$/', $this->pdfuaMode, $matches) === 1) {
+                $part = (int) $matches[1];
+            }
+
+            $xmp .= "\t\t" . '<rdf:Description rdf:about="" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">' . "\n"
+                . "\t\t\t" . '<pdfuaid:part>' . $part . '</pdfuaid:part>' . "\n"
+                . "\t\t" . '</rdf:Description>' . "\n";
         }
 
         // XMP extension schemas

@@ -700,13 +700,25 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Get OutputIntents for PDF-X if required.
      */
+    protected function getOutputIntentsPdfXIdentifier(): string
+    {
+        return match ($this->pdfxMode) {
+            'pdfx1a' => 'PDF/X-1a',
+            'pdfx3' => 'PDF/X-3',
+            'pdfx4' => 'PDF/X-4',
+            'pdfx5' => 'PDF/X-5',
+            default => 'OFCOM_PO_P1_F60_95',
+        };
+    }
+
     protected function getOutputIntentsPdfX(): string
     {
         $oid = $this->objid['catalog'];
+        $identifier = $this->getOutputIntentsPdfXIdentifier();
         return ' /OutputIntents [<< /Type /OutputIntent /S /GTS_PDFX /OutputConditionIdentifier '
-            . $this->getOutTextString('OFCOM_PO_P1_F60_95', $oid, true)
+            . $this->getOutTextString($identifier, $oid, true)
             . ' /RegistryName ' . $this->getOutTextString('http://www.color.org', $oid, true)
-            . ' /Info ' . $this->getOutTextString('OFCOM_PO_P1_F60_95', $oid, true)
+            . ' /Info ' . $this->getOutTextString($identifier, $oid, true)
             . ' >>]';
     }
 
@@ -783,7 +795,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' /Pages ' . $this->objid['pages'] . ' 0 R'
             //.' /PageLabels ' //...
             . ' /Names <<';
-        if ($this->pdfa === 0 && $this->jstree !== '') {
+        if ($this->pdfa === 0 && $this->pdfuaMode === '' && $this->jstree !== '') {
             $out .= ' /JavaScript ' . $this->jstree;
         }
 
@@ -1819,8 +1831,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
                         . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                    $out .= ' /A << /S /JavaScript /JS '
-                        . $this->getOutTextString($jsa, $oid, true) . ' >>';
+                    if ($this->pdfuaMode === '') {
+                        $out .= ' /A << /S /JavaScript /JS '
+                            . $this->getOutTextString($jsa, $oid, true) . ' >>';
+                    }
                     break;
                 default:
                     $parsedUrl = \parse_url($annot['txt']);
@@ -2384,12 +2398,22 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
         }
 
-        if (! empty($annot['opt']['a'])) {
-            $out .= ' /A << ' . $annot['opt']['a'] . ' >>';
+        $action = $annot['opt']['a'] ?? '';
+        if (
+            \is_string($action)
+            && ($action !== '')
+            && (($this->pdfuaMode === '') || ! \str_contains($action, '/JavaScript'))
+        ) {
+            $out .= ' /A << ' . $action . ' >>';
         }
 
-        if (! empty($annot['opt']['aa'])) {
-            $out .= ' /AA << ' . $annot['opt']['aa'] . ' >>';
+        $additionalAction = $annot['opt']['aa'] ?? '';
+        if (
+            \is_string($additionalAction)
+            && ($additionalAction !== '')
+            && (($this->pdfuaMode === '') || ! \str_contains($additionalAction, '/JavaScript'))
+        ) {
+            $out .= ' /AA << ' . $additionalAction . ' >>';
         }
 
         if (! empty($annot['opt']['da'])) {
@@ -2511,7 +2535,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutJavascript(): string
     {
-        if (($this->pdfa > 0) || (empty($this->javascript) && empty($this->jsobjects))) {
+        if (($this->pdfa > 0) || ($this->pdfuaMode !== '') || (empty($this->javascript) && empty($this->jsobjects))) {
             return '';
         }
 
@@ -2696,8 +2720,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         . 'for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
                         . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                        $out .= ' /A <</S /JavaScript /JS '
-                        . $this->getOutTextString($jsa, $oid, true) . '>>';
+                        if ($this->pdfuaMode === '') {
+                            $out .= ' /A <</S /JavaScript /JS '
+                            . $this->getOutTextString($jsa, $oid, true) . '>>';
+                        }
                         break;
                     default:
                         // external URI link
