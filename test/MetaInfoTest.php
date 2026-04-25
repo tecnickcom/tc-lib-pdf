@@ -87,8 +87,11 @@ class MetaInfoTest extends TestUtil
     }
 
     #[DataProvider('pdfuaVersionFixtureProvider')]
-    public function testSetPDFVersionHonorsPdfuaModes(string $pdfuaMode, string $inputVersion, string $expectedVersion): void
-    {
+    public function testSetPDFVersionHonorsPdfuaModes(
+        string $pdfuaMode,
+        string $inputVersion,
+        string $expectedVersion
+    ): void {
         $obj = $this->getTestObject();
         $pdfua = new \ReflectionProperty(\Com\Tecnick\Pdf\Tcpdf::class, 'pdfuaMode');
         $pdfua->setAccessible(true);

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="${1:-${ROOT_DIR}/target/preflight}"
 REPORT_DIR="${OUT_DIR}/report"
-GENERATOR="${ROOT_DIR}/tools/preflight/generate_mode_samples.php"
+GENERATOR="${ROOT_DIR}/resources/preflight/generate_mode_samples.php"
 
 PDFX_MODES=(pdfx pdfx1a pdfx3 pdfx4 pdfx5)
 PDFUA_MODES=(pdfua pdfua1 pdfua2)

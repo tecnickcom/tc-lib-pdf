@@ -35,7 +35,7 @@ The script runs the command through `bash -lc` with these environment variables 
 Optional custom output directory:
 
 ```bash
-bash tools/preflight/run_preflight_matrix.sh /tmp/tc-lib-pdf-preflight
+bash resources/preflight/run_preflight_matrix.sh /tmp/tc-lib-pdf-preflight
 ```
 
 Reports are written under `target/preflight/report/` (or the custom output path).

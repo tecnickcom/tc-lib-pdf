@@ -651,7 +651,11 @@ PHP;
         $namedDest = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '#dest-1', 'opt' => ['h' => 'N']], 2, 10);
         $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'https://example.com', 'opt' => []], 2, 11);
         $embeddedPdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '%sample.pdf', 'opt' => []], 2, 12);
-        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []], 2, 13);
+        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(
+            ['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []],
+            2,
+            13
+        );
 
         $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
         $this->assertStringContainsString(' /H /N', $namedDest);
@@ -696,7 +700,11 @@ PHP;
         $namedDest = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '#dest-1', 'opt' => ['h' => 'N']], 2, 10);
         $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'https://example.com', 'opt' => []], 2, 11);
         $embeddedPdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '%sample.pdf', 'opt' => []], 2, 12);
-        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []], 2, 13);
+        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(
+            ['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []],
+            2,
+            13
+        );
 
         $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
         $this->assertStringContainsString(' /H /N', $namedDest);
@@ -1207,7 +1215,10 @@ PHP;
         $this->assertStringContainsString('/GTS_PDFX', $obj->exposeGetOutputIntents());
 
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
-        $this->assertStringContainsString("\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x004", $obj->exposeGetOutputIntentsPdfX());
+        $this->assertStringContainsString(
+            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x004",
+            $obj->exposeGetOutputIntentsPdfX()
+        );
 
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
         $this->assertStringContainsString(
@@ -3420,4 +3431,3 @@ PHP;
         $obj->setPdfaMode($pdfa);
     }
 }
-

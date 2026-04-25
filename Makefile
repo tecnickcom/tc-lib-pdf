@@ -238,7 +238,7 @@ report: ensuretarget
 ## Generate mode samples and run external preflight validators (if installed)
 .PHONY: preflight
 preflight: ensuretarget
-	bash ./tools/preflight/run_preflight_matrix.sh
+	bash ./resources/preflight/run_preflight_matrix.sh
 
 ## Build the RPM package for RedHat-like Linux distributions
 .PHONY: rpm

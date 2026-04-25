@@ -49,6 +49,12 @@ jobs:
             ${{ runner.os }}-php-${{ matrix.php-version }}-composer-
       - name: Install dependencies
         run: make deps
+      - name: Install qpdf
+        if: matrix.php-version == '8.4'
+        run: sudo apt-get update && sudo apt-get install -y qpdf
+      - name: Run preflight
+        if: matrix.php-version == '8.4'
+        run: make preflight
       - name: Run all tests
         run: make qa
       - name: Send coverage

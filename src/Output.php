@@ -2736,7 +2736,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutJavascript(): string
     {
-        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '') || (empty($this->javascript) && empty($this->jsobjects))) {
+        if (
+            ($this->pdfa > 0)
+            || $this->pdfx
+            || ($this->pdfuaMode !== '')
+            || (empty($this->javascript) && empty($this->jsobjects))
+        ) {
             return '';
         }
 

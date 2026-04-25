@@ -3,7 +3,7 @@
  * Generate one minimal PDF sample per supported PDF/X and PDF/UA mode.
  *
  * Usage:
- *   php tools/preflight/generate_mode_samples.php [output-directory]
+ *   php resources/preflight/generate_mode_samples.php [output-directory]
  */
 
 declare(strict_types=1);
