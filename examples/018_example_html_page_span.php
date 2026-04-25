@@ -125,6 +125,58 @@ $pdf->addHTMLCell(
 );
 
 // =============================================================
+// Styled block (background + border) spanning multiple pages.
+
+$blockchunk = '<p>'
+    . 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium '
+    . 'doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore '
+    . 'veritatis et quasi architecto beatae vitae dicta sunt explicabo.'
+    . '</p>';
+
+$blockhtml = '<h2>Styled block across pages</h2>'
+    . '<div style="background-color:#ffeeaa;border:1px solid #888;padding:4px">'
+    . '<p><b>Block-level container</b> &mdash; the background and border continue '
+    . 'on each page until the content ends.</p>'
+    . \str_repeat($blockchunk, 30)
+    . '</div>';
+
+$pdf->addHTMLCell(
+    $blockhtml,
+    20, // float $posx
+    100, // float $posy
+    150, // float $width
+);
+
+// =============================================================
+// Table spanning multiple pages with header row replay.
+
+$tableRows = '';
+for ($i = 1; $i <= 20; ++$i) {
+    $tableRows .= '<tr>'
+        . '<td>' . $i . '</td>'
+        . '<td>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</td>'
+        . '<td style="text-align:right">' . \number_format($i * 12.34, 2) . '</td>'
+        . '</tr>';
+}
+
+$tablehtml = '<h2>Table across pages</h2>'
+    . '<table border="1" cellpadding="3" cellspacing="0">'
+    . '<thead>'
+    . '<tr style="background-color:#cccccc">'
+    . '<th>#</th><th>Description</th><th>Amount</th>'
+    . '</tr>'
+    . '</thead>'
+    . $tableRows
+    . '</table>';
+
+$pdf->addHTMLCell(
+    $tablehtml,
+    20, // float $posx
+    100, // float $posy
+    150, // float $width
+);
+
+// =============================================================
 
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
