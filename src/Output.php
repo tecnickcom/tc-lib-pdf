@@ -32,6 +32,8 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
+ *
  * @phpstan-type TFourFloat array{
  *        float,
  *        float,
@@ -522,6 +524,30 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected array $lang = [];
 
     /**
+     * StructTreeRoot object ID.
+     */
+    protected int $structtreerootoid = 0;
+
+    /**
+     * ParentTree object ID.
+     */
+    protected int $parenttreeoid = 0;
+
+    /**
+     * Struct parent keys assigned to page object IDs.
+     *
+     * @var array<int, int>
+     */
+    protected array $pagestructparents = [];
+
+    /**
+     * Struct element object IDs assigned to page MCIDs.
+     *
+     * @var array<int, array<int, int>>
+     */
+    protected array $pagestructmcids = [];
+
+    /**
      * Returns the RAW PDF string.
      */
     public function getOutPDFString(): string
@@ -552,8 +578,19 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutPDFBody(): string
     {
+        if ($this->pdfuaMode !== '') {
+            $this->preparePageMarkedContent();
+        } else {
+            $this->pagestructmcids = [];
+        }
+
         $out = $this->page->getPdfPages($this->pon);
         $this->objid['pages'] = $this->page->getRootObjID();
+        if ($this->pdfuaMode !== '') {
+            $out = $this->setPageStructParents($out);
+        } else {
+            $this->pagestructparents = [];
+        }
         $out .= $this->graph->getOutExtGState($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutOCG();
@@ -573,6 +610,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->getOutResourcesDict();
         $out .= $this->getOutDestinations();
         $out .= $this->getOutEmbeddedFiles();
+        $out .= $this->getOutStructTreeRoot();
         $out .= $this->getOutAnnotations();
         $out .= $this->getOutJavascript();
         $out .= $this->getOutBookmarks();
@@ -795,7 +833,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' /Pages ' . $this->objid['pages'] . ' 0 R'
             //.' /PageLabels ' //...
             . ' /Names <<';
-        if ($this->pdfa === 0 && $this->pdfuaMode === '' && $this->jstree !== '') {
+        if ($this->pdfa === 0 && ! $this->pdfx && $this->pdfuaMode === '' && $this->jstree !== '') {
             $out .= ' /JavaScript ' . $this->jstree;
         }
 
@@ -854,11 +892,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         //$out .= ' /AA <<>>';
         //$out .= ' /URI <<>>';
         $out .= ' /Metadata ' . $this->objid['xmp'] . ' 0 R';
-        //$out .= ' /StructTreeRoot <<>>';
-        //$out .= ' /MarkInfo <<>>';
+        if ($this->structtreerootoid > 0) {
+            $out .= ' /StructTreeRoot ' . $this->structtreerootoid . ' 0 R';
+        }
 
-        if (! empty($this->lang['a_meta_language'])) {
-            $out .= ' /Lang ' . $this->getOutTextString($this->lang['a_meta_language'], $oid, true);
+        if ($this->pdfuaMode !== '') {
+            $out .= ' /MarkInfo << /Marked true >>';
+        }
+
+        $language = $this->lang['a_meta_language'] ?? (($this->pdfuaMode !== '') ? 'en-US' : '');
+
+        if ($language !== '') {
+            $out .= ' /Lang ' . $this->getOutTextString($language, $oid, true);
         }
 
         //$out .= ' /SpiderInfo <<>>';
@@ -1252,6 +1297,196 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         return $out;
+    }
+
+    /**
+     * Returns the PDF StructTreeRoot entry for tagged PDF modes.
+     */
+    protected function getOutStructTreeRoot(): string
+    {
+        if ($this->pdfuaMode === '') {
+            $this->pagestructparents = [];
+            $this->pagestructmcids = [];
+            $this->parenttreeoid = 0;
+            $this->structtreerootoid = 0;
+            return '';
+        }
+
+        $firstTaggedPageOid = empty($this->pagestructmcids)
+            ? 0
+            : (int) array_key_first($this->pagestructmcids);
+
+        $parentTreeOid = ++$this->pon;
+        $structTreeRootOid = $parentTreeOid + 1;
+        $documentStructElemOid = $parentTreeOid + 2;
+        $paragraphStructElemOid = ($firstTaggedPageOid > 0) ? ($parentTreeOid + 3) : 0;
+        if (($paragraphStructElemOid > 0) && isset($this->pagestructmcids[$firstTaggedPageOid])) {
+            $this->pagestructmcids[$firstTaggedPageOid] = [$paragraphStructElemOid];
+        }
+
+        $parentNums = '';
+        foreach ($this->pagestructparents as $pageOid => $key) {
+            $parentNums .= ' ' . $key . ' [';
+            if (isset($this->pagestructmcids[$pageOid])) {
+                foreach ($this->pagestructmcids[$pageOid] as $structElemOid) {
+                    $parentNums .= ' ' . $structElemOid . ' 0 R';
+                }
+            }
+
+            $parentNums .= ' ]';
+        }
+        $this->parenttreeoid = $parentTreeOid;
+        $out = $parentTreeOid . ' 0 obj' . "\n"
+            . '<< /Nums [' . $parentNums . ' ] >>' . "\n"
+            . 'endobj' . "\n";
+
+        $this->pon = ($paragraphStructElemOid > 0) ? $paragraphStructElemOid : $documentStructElemOid;
+        $this->structtreerootoid = $structTreeRootOid;
+
+        $firstPageOid = empty($this->pagestructparents)
+            ? 0
+            : (int) array_key_first($this->pagestructparents);
+        $documentStructElem = '<< /Type /StructElem /S /Document /P ' . $structTreeRootOid . ' 0 R';
+        if ($firstPageOid > 0) {
+            $documentStructElem .= ' /Pg ' . $firstPageOid . ' 0 R';
+        }
+
+        if ($paragraphStructElemOid > 0) {
+            $documentStructElem .= ' /K [ ' . $paragraphStructElemOid . ' 0 R ] >>';
+        } else {
+            $documentStructElem .= ' /K [] >>';
+        }
+
+        $paragraphStructElem = '';
+        if ($paragraphStructElemOid > 0) {
+            $paragraphStructElem = '<< /Type /StructElem /S /P /P ' . $documentStructElemOid . ' 0 R'
+                . ' /Pg ' . $firstTaggedPageOid . ' 0 R'
+                . ' /K [ << /Type /MCR /Pg ' . $firstTaggedPageOid . ' 0 R /MCID 0 >> ] >>';
+        }
+
+        return $out
+            . $structTreeRootOid . ' 0 obj' . "\n"
+            . '<< /Type /StructTreeRoot /ParentTree ' . $parentTreeOid . ' 0 R /ParentTreeNextKey '
+            . \count($this->pagestructparents) . ' /K [ ' . $documentStructElemOid . ' 0 R ] >>' . "\n"
+            . 'endobj' . "\n"
+            . $documentStructElemOid . ' 0 obj' . "\n"
+            . $documentStructElem . "\n"
+            . 'endobj' . "\n"
+            . (($paragraphStructElemOid > 0)
+                ? ($paragraphStructElemOid . ' 0 obj' . "\n" . $paragraphStructElem . "\n" . 'endobj' . "\n")
+                : '');
+    }
+
+    /**
+     * Inject StructParents entries into serialized page objects for PDF/UA mode.
+     */
+    protected function setPageStructParents(string $pdfpages): string
+    {
+        $this->pagestructparents = [];
+        $this->pagestructmcids = [];
+        $pages = $this->page->getPages();
+        $parentKey = 0;
+        foreach ($pages as $page) {
+            if (! isset($page['n']) || ! \is_int($page['n'])) {
+                continue;
+            }
+
+            $needle = $page['n'] . ' 0 obj' . "\n<<" . "\n/Type /Page" . "\n";
+            $replacement = $page['n'] . ' 0 obj' . "\n<<" . "\n/Type /Page" . "\n/StructParents " . $parentKey . "\n";
+            $pdfpages = \str_replace($needle, $replacement, $pdfpages);
+            $this->pagestructparents[$page['n']] = $parentKey;
+            if ($this->isMarkedContentPage($page)) {
+                $this->pagestructmcids[$page['n']] = [];
+            }
+            ++$parentKey;
+        }
+
+        return $pdfpages;
+    }
+
+    /**
+     * Wrap the first populated page stream with a minimal marked-content sequence.
+     */
+    protected function preparePageMarkedContent(): void
+    {
+        $pageProperty = $this->getPageStackProperty();
+        if ($pageProperty === null) {
+            return;
+        }
+
+        /** @var mixed $pageStackValue */
+        $pageStackValue = $pageProperty->getValue($this->page);
+        if (! \is_array($pageStackValue)) {
+            return;
+        }
+
+        /** @var array<int, PageData> $pageStack */
+        $pageStack = $pageStackValue;
+
+        $open = '/P <</MCID 0>> BDC' . "\n";
+        $close = 'EMC' . "\n";
+
+        foreach ($pageStack as $index => $page) {
+            $content = $page['content'];
+            if ($content === []) {
+                continue;
+            }
+            $firstKey = array_key_first($content);
+            $lastKey = array_key_last($content);
+            if (($firstKey === null) || ($lastKey === null)) {
+                continue;
+            }
+
+            $firstContent = $content[$firstKey];
+            if (! str_starts_with($firstContent, $open)) {
+                $pageStack[$index]['content'][$firstKey] = $open . $firstContent;
+            }
+
+            $lastContent = $content[$lastKey];
+            if (! str_ends_with($lastContent, $close)) {
+                $pageStack[$index]['content'][$lastKey] = $lastContent . $close;
+            }
+
+            break;
+        }
+
+        $pageProperty->setValue($this->page, $pageStack);
+    }
+
+    /**
+     * Locate the internal page stack property on the page serializer.
+     */
+    protected function getPageStackProperty(): ?\ReflectionProperty
+    {
+        $reflection = new \ReflectionObject($this->page);
+        do {
+            if ($reflection->hasProperty('page')) {
+                return $reflection->getProperty('page');
+            }
+
+            $reflection = $reflection->getParentClass();
+        } while ($reflection !== false);
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $page
+     */
+    protected function isMarkedContentPage(array $page): bool
+    {
+        if (! isset($page['content']) || ! \is_array($page['content']) || ($page['content'] === [])) {
+            return false;
+        }
+
+        /** @var array<string> $content */
+        $content = $page['content'];
+        $firstKey = array_key_first($content);
+        if ($firstKey === null) {
+            return false;
+        }
+
+        return str_starts_with($content[$firstKey], '/P <</MCID 0>> BDC' . "\n");
     }
 
     /**
@@ -1831,7 +2066,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $jsa = 'var D=event.target.doc;var MyData=D.dataObjects;for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
                         . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                    if ($this->pdfuaMode === '') {
+                    if (! $this->pdfx && ($this->pdfuaMode === '')) {
                         $out .= ' /A << /S /JavaScript /JS '
                             . $this->getOutTextString($jsa, $oid, true) . ' >>';
                     }
@@ -2402,7 +2637,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (
             \is_string($action)
             && ($action !== '')
-            && (($this->pdfuaMode === '') || ! \str_contains($action, '/JavaScript'))
+            && ((! $this->pdfx && ($this->pdfuaMode === '')) || ! \str_contains($action, '/JavaScript'))
         ) {
             $out .= ' /A << ' . $action . ' >>';
         }
@@ -2411,7 +2646,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (
             \is_string($additionalAction)
             && ($additionalAction !== '')
-            && (($this->pdfuaMode === '') || ! \str_contains($additionalAction, '/JavaScript'))
+            && ((! $this->pdfx && ($this->pdfuaMode === '')) || ! \str_contains($additionalAction, '/JavaScript'))
         ) {
             $out .= ' /AA << ' . $additionalAction . ' >>';
         }
@@ -2535,7 +2770,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutJavascript(): string
     {
-        if (($this->pdfa > 0) || ($this->pdfuaMode !== '') || (empty($this->javascript) && empty($this->jsobjects))) {
+        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '') || (empty($this->javascript) && empty($this->jsobjects))) {
             return '';
         }
 
@@ -2720,7 +2955,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         . 'for (var i in MyData) if (MyData[i].path=="'
                         . $filename . '")'
                         . ' D.exportDataObject( { cName : MyData[i].name, nLaunch : 2});';
-                        if ($this->pdfuaMode === '') {
+                        if (! $this->pdfx && ($this->pdfuaMode === '')) {
                             $out .= ' /A <</S /JavaScript /JS '
                             . $this->getOutTextString($jsa, $oid, true) . '>>';
                         }

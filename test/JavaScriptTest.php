@@ -104,6 +104,29 @@ class JavaScriptTest extends TestUtil
         $this->assertCount(0, $jsobjects);
     }
 
+    public function testAppendRawJavaScriptIsIgnoredInPdfxMode(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $obj->appendRawJavaScript('var blocked = true;');
+
+        /** @var string $javascript */
+        $javascript = $this->getObjectProperty($obj, 'javascript');
+        $this->assertSame('', $javascript);
+    }
+
+    public function testAddRawJavaScriptObjReturnsMinusOneInPdfxMode(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+
+        $objectId = $obj->addRawJavaScriptObj('app.alert("no");');
+        $this->assertSame(-1, $objectId);
+        /** @var array<int, mixed> $jsobjects */
+        $jsobjects = $this->getObjectProperty($obj, 'jsobjects');
+        $this->assertCount(0, $jsobjects);
+    }
+
     public function testSetAndGetDefaultAnnotationProperties(): void
     {
         $obj = $this->getTestObject();

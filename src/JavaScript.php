@@ -136,7 +136,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function appendRawJavaScript(string $script): void
     {
-        if (($this->pdfa > 0) || ($this->pdfuaMode !== '')) {
+        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '')) {
             return;
         }
 
@@ -153,7 +153,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addRawJavaScriptObj(string $script, bool $onload = false): int
     {
-        if (($this->pdfa > 0) || ($this->pdfuaMode !== '')) {
+        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '')) {
             return -1;
         }
         $oid = ++$this->pon;
