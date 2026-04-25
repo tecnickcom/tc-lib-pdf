@@ -425,6 +425,33 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('field1', $ann[$oid]['opt']['t']);
     }
 
+    public function testSetAnnotationWidgetIsSuppressedInPdfxMode(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        $oid = $obj->setAnnotation(1, 2, 40, 8, 'field1', ['subtype' => 'Widget']);
+
+        $this->assertSame(0, $oid);
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertSame([], $ann);
+    }
+
+    public function testSetAnnotationLinkStillWorksInPdfxMode(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        $oid = $obj->setLink(1, 2, 10, 4, '#dest');
+
+        $this->assertGreaterThan(0, $oid);
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertArrayHasKey($oid, $ann);
+        $this->assertSame('Link', $ann[$oid]['opt']['subtype']);
+    }
+
     public function testAddFFButtonCreatesButtonWidgetWithAction(): void
     {
         $obj = $this->getTestObject();

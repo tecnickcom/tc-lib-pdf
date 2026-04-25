@@ -722,6 +722,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (empty($opt['subtype'])) {
             $opt['subtype'] = 'text';
         }
+
+        // PDF/X interaction restriction: do not emit form widget annotations.
+        if ($this->pdfx && (\strtolower((string) $opt['subtype']) === 'widget')) {
+            return 0;
+        }
+
         if (!empty($this->xobjtid)) {
             // Store annotationparameters for later use on a XObject template.
             $this->xobjects[$this->xobjtid]['annotations'][] = [
