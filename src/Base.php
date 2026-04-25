@@ -115,6 +115,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    role: string,
  *    pid: int,
  *    mcids: int[],
+ *    alt?: string,
  * }
  *
  * @phpstan-type TStackBBox array<int, TBBox>

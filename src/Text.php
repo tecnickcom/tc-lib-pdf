@@ -607,6 +607,40 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Wrap non-text content (such as images) with a PDF/UA Figure marked-content sequence.
+     *
+     * The generated MCID is logged as a standalone Figure structure element and can include
+     * an alternate description via the StructElem /Alt entry.
+     */
+    protected function tagPdfUaFigureContent(string $content, int $pid, string $alt = ''): string
+    {
+        if ($this->pdfuaMode === '' || $content === '') {
+            return $content;
+        }
+
+        $mcid = $this->pdfuapagemcid[$pid] ?? 0;
+        $this->pdfuapagemcid[$pid] = $mcid + 1;
+
+        $entry = [
+            'role'  => 'Figure',
+            'pid'   => $pid,
+            'mcids' => [$mcid],
+        ];
+        if ($alt !== '') {
+            $entry['alt'] = $alt;
+        }
+        $this->pdfuaStructLog[] = $entry;
+
+        $open = '/Figure <</MCID ' . $mcid . '>> BDC' . "\n";
+        $close = 'EMC' . "\n";
+        if (!\str_ends_with($content, "\n")) {
+            $content .= "\n";
+        }
+
+        return $open . $content . $close;
+    }
+
+    /**
      * Returns the PDF code to render a contiguous text block with automatic line breaks.
      *
      * @param array<int, int> $ordarr  Array of UTF-8 codepoints (integer values).

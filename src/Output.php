@@ -1399,9 +1399,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $mcrList .= ' << /Type /MCR /Pg ' . $entryPageOid . ' 0 R /MCID ' . $mcid . ' >>';
             }
 
+            $altOut = '';
+            if (isset($entry['alt']) && \is_string($entry['alt']) && $entry['alt'] !== '') {
+                $altOut = ' /Alt ' . $this->getOutTextString($entry['alt'], $elemOids[$idx], true);
+            }
+
             $structElemsOut .= $elemOids[$idx] . ' 0 obj' . "\n"
                 . '<< /Type /StructElem /S /' . $entry['role'] . ' /P ' . $documentStructElemOid . ' 0 R'
                 . ' /Pg ' . $entryPageOid . ' 0 R'
+                . $altOut
                 . ' /K [' . $mcrList . ' ] >>' . "\n"
                 . 'endobj' . "\n";
         }

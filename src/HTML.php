@@ -4183,6 +4183,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
         }
 
+        if ($this->pdfuaMode !== '') {
+            $out = $this->tagPdfUaFigureContent($out, $this->page->getPageId(), $alt);
+        }
+
         return $out;
     }
 

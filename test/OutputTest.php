@@ -975,6 +975,33 @@ PHP;
         $this->assertStringNotContainsString('/P <</MCID 0>> BDC', $out);
     }
 
+    public function testGetOutPDFBodyTagsHtmlImageAsFigureWithAltInPdfuaMode(): void
+    {
+        $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $this->assertIsString($raw);
+        $src = 'data:image/png;base64,' . \base64_encode($raw);
+
+        $html = '<img src="' . $src . '" alt="Chart icon" width="4" height="4" />';
+        $htmlOut = $obj->getHTMLCell($html, 0, 0, 20, 10);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addContent($htmlOut, $page->getPageId());
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Figure <</MCID 0>> BDC', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /Figure', $out);
+        $this->assertStringContainsString('/Alt ', $out);
+    }
+
     public function testGetOutCatalogIncludesRequiredEntries(): void
     {
         $obj = $this->getInternalTestObject();
