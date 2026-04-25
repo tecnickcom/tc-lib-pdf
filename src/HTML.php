@@ -5667,6 +5667,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Process HTML Text (content between tags).
      *
      * @param THTMLRenderContext $hrc HTML render context.
+    * @param-out THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
      * @param float  $tpx  Abscissa of upper-left corner.
      * @param float  $tpy  Ordinate of upper-left corner.
@@ -5859,8 +5860,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
 
                         if (($head !== '') && ($tail !== '')) {
-                            $origValue = $hrc['dom'][$key]['value'];
-                            $hrc['dom'][$key]['value'] = $head;
+                            /** @var THTMLAttrib $origElm */
+                            $origElm = $hrc['dom'][$key];
+                            $headElm = $origElm;
+                            $headElm['value'] = $head;
+                            $hrc['dom'][$key] = $headElm;
                             $headOut = $this->parseHTMLText(
                                 $hrc,
                                 $key,
@@ -5925,7 +5929,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
                             }
 
-                            $hrc['dom'][$key]['value'] = $tail;
+                            $tailElm = $origElm;
+                            $tailElm['value'] = $tail;
+                            $hrc['dom'][$key] = $tailElm;
                             $tailOut = $this->parseHTMLText(
                                 $hrc,
                                 $key,
@@ -5936,7 +5942,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 $appendFragment,
                             );
 
-                            $hrc['dom'][$key]['value'] = $origValue;
+                            $hrc['dom'][$key] = $origElm;
 
                             // HEAD has already been dispatched above onto the
                             // current (now previous) page; only return $brk and
