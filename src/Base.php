@@ -111,6 +111,12 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag': string,
  * }
  *
+ * @phpstan-type TPdfUaStructElem array{
+ *    role: string,
+ *    pid: int,
+ *    mcids: int[],
+ * }
+ *
  * @phpstan-type TStackBBox array<int, TBBox>
  *
  * @phpstan-import-type TAnnot from Output
@@ -412,7 +418,7 @@ abstract class Base
      * Stack of currently open PDF/UA structure elements.
      * Each entry: ['role' => string, 'pid' => int, 'mcids' => int[]]
      *
-     * @var array<int, array{role: string, pid: int, mcids: int[]}>
+     * @var array<int, TPdfUaStructElem>
      */
     protected array $pdfuaStructStack = [];
 
@@ -420,7 +426,7 @@ abstract class Base
      * Log of completed PDF/UA structure elements in document order.
      * Each entry: ['role' => string, 'pid' => int (page index), 'mcids' => int[]]
      *
-     * @var array<int, array{role: string, pid: int, mcids: int[]}>
+     * @var array<int, TPdfUaStructElem>
      */
     protected array $pdfuaStructLog = [];
 
