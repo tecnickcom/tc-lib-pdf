@@ -3733,7 +3733,36 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
 
+        $role = $this->getHTMLStructRole($elm);
+        if ($role !== '') {
+            $this->beginStructElem($role, $this->page->getPageId());
+        }
+
         return '';
+    }
+
+    /**
+     * Map an HTML element to the corresponding PDF structure role, or return '' for non-semantic elements.
+     *
+     * @param array<string, mixed> $elm DOM element.
+     */
+    protected function getHTMLStructRole(array $elm): string
+    {
+        $tag = isset($elm['value']) && \is_string($elm['value']) ? $elm['value'] : '';
+        return match ($tag) {
+            'p'          => 'P',
+            'h1'         => 'H1',
+            'h2'         => 'H2',
+            'h3'         => 'H3',
+            'h4'         => 'H4',
+            'h5'         => 'H5',
+            'h6'         => 'H6',
+            'ul', 'ol'   => 'L',
+            'li'         => 'LI',
+            'blockquote' => 'BlockQuote',
+            'pre'        => 'Code',
+            default      => '',
+        };
     }
 
     /**
@@ -3785,6 +3814,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B']
             + $this->getHTMLTagVSpace($hrc, $key, 1);
+
+        $role = $this->getHTMLStructRole($elm);
+        if ($role !== '') {
+            $this->endStructElem();
+        }
 
         return $out;
     }

@@ -409,6 +409,22 @@ abstract class Base
     protected array $pdfuapagemcid = [];
 
     /**
+     * Stack of currently open PDF/UA structure elements.
+     * Each entry: ['role' => string, 'pid' => int, 'mcids' => int[]]
+     *
+     * @var array<int, array{role: string, pid: int, mcids: int[]}>
+     */
+    protected array $pdfuaStructStack = [];
+
+    /**
+     * Log of completed PDF/UA structure elements in document order.
+     * Each entry: ['role' => string, 'pid' => int (page index), 'mcids' => int[]]
+     *
+     * @var array<int, array{role: string, pid: int, mcids: int[]}>
+     */
+    protected array $pdfuaStructLog = [];
+
+    /**
      * True if the document is signed.
      */
     protected bool $sign = false;

@@ -580,6 +580,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         if ($this->pdfuaMode === '') {
             $this->pagestructmcids = [];
+            $this->pdfuaStructLog = [];
+            $this->pdfuaStructStack = [];
         }
 
         $out = $this->page->getPdfPages($this->pon);
@@ -1310,34 +1312,56 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
+        $structLog = $this->pdfuaStructLog;
+        if ($structLog === []) {
+            $this->parenttreeoid = 0;
+            $this->structtreerootoid = 0;
+            return '';
+        }
+
+        // Build pid -> page OID map from serialized page data.
+        $pidToOid = [];
+        foreach ($this->page->getPages() as $page) {
+            if (isset($page['pid']) && \is_int($page['pid']) && isset($page['n']) && \is_int($page['n'])) {
+                $pidToOid[$page['pid']] = $page['n'];
+            }
+        }
+
         $parentTreeOid = ++$this->pon;
         $structTreeRootOid = $parentTreeOid + 1;
         $documentStructElemOid = $parentTreeOid + 2;
 
-        // Assign sequential OIDs to paragraph StructElems (one per MCID per page).
-        // $pageStructElems[pageOid][mcid] = structElemOid
-        $pageStructElems = [];
-        $allStructElemOids = [];
+        // Assign OIDs to each struct elem entry.
+        // $elemOids[i] = OID for $structLog[i]
+        $elemOids = [];
         $nextOid = $parentTreeOid + 3;
-        foreach ($this->pagestructmcids as $pageOid => $mcidCount) {
-            $pageStructElems[$pageOid] = [];
-            for ($mcid = 0; $mcid < $mcidCount; ++$mcid) {
-                $pageStructElems[$pageOid][$mcid] = $nextOid;
-                $allStructElemOids[] = $nextOid;
-                ++$nextOid;
-            }
+        foreach ($structLog as $idx => $_entry) {
+            $elemOids[$idx] = $nextOid++;
         }
 
         $this->pon = $nextOid - 1;
         $this->parenttreeoid = $parentTreeOid;
         $this->structtreerootoid = $structTreeRootOid;
 
-        // Build ParentTree /Nums array.
+        // Build ParentTree /Nums array:
+        // For each page, collect which struct elem OIDs correspond to each MCID in order.
+        // pageoid -> mcid -> structElemOid
+        $parentTreeMap = [];
+        foreach ($structLog as $idx => $entry) {
+            $pageOid = $pidToOid[$entry['pid']] ?? 0;
+            if ($pageOid > 0) {
+                foreach ($entry['mcids'] as $mcid) {
+                    $parentTreeMap[$pageOid][$mcid] = $elemOids[$idx];
+                }
+            }
+        }
+
         $parentNums = '';
         foreach ($this->pagestructparents as $pageOid => $key) {
             $parentNums .= ' ' . $key . ' [';
-            if (isset($pageStructElems[$pageOid])) {
-                foreach ($pageStructElems[$pageOid] as $structElemOid) {
+            if (isset($parentTreeMap[$pageOid])) {
+                \ksort($parentTreeMap[$pageOid]);
+                foreach ($parentTreeMap[$pageOid] as $structElemOid) {
                     $parentNums .= ' ' . $structElemOid . ' 0 R';
                 }
             }
@@ -1349,31 +1373,35 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . '<< /Nums [' . $parentNums . ' ] >>' . "\n"
             . 'endobj' . "\n";
 
+        // Document StructElem.
         $firstPageOid = empty($this->pagestructparents) ? 0 : (int) array_key_first($this->pagestructparents);
-        $firstTaggedPageOid = empty($pageStructElems) ? 0 : (int) array_key_first($pageStructElems);
+        $firstTaggedPageOid = $pidToOid[$structLog[0]['pid']] ?? 0;
         if ($firstTaggedPageOid > 0) {
             $firstPageOid = $firstTaggedPageOid;
         }
 
-        // Document StructElem: /K lists all paragraph StructElems across all pages.
-        $documentKStr = \implode(' ', \array_map(static fn(int $oid) => $oid . ' 0 R', $allStructElemOids));
+        $allElemRefsStr = \implode(' ', \array_map(static fn(int $oid) => $oid . ' 0 R', $elemOids));
         $documentStructElem = '<< /Type /StructElem /S /Document /P ' . $structTreeRootOid . ' 0 R';
         if ($firstPageOid > 0) {
             $documentStructElem .= ' /Pg ' . $firstPageOid . ' 0 R';
         }
 
-        $documentStructElem .= ' /K [ ' . $documentKStr . ' ] >>';
+        $documentStructElem .= ' /K [ ' . $allElemRefsStr . ' ] >>';
 
-        // Paragraph StructElems: one per MCID per page.
-        $paragraphStructElemsOut = '';
-        foreach ($pageStructElems as $pageOid => $mcidMap) {
-            foreach ($mcidMap as $mcid => $structElemOid) {
-                $paragraphStructElemsOut .= $structElemOid . ' 0 obj' . "\n"
-                    . '<< /Type /StructElem /S /P /P ' . $documentStructElemOid . ' 0 R'
-                    . ' /Pg ' . $pageOid . ' 0 R'
-                    . ' /K [ << /Type /MCR /Pg ' . $pageOid . ' 0 R /MCID ' . $mcid . ' >> ] >>' . "\n"
-                    . 'endobj' . "\n";
+        // Paragraph/heading StructElems.
+        $structElemsOut = '';
+        foreach ($structLog as $idx => $entry) {
+            $entryPageOid = $pidToOid[$entry['pid']] ?? 0;
+            $mcrList = '';
+            foreach ($entry['mcids'] as $mcid) {
+                $mcrList .= ' << /Type /MCR /Pg ' . $entryPageOid . ' 0 R /MCID ' . $mcid . ' >>';
             }
+
+            $structElemsOut .= $elemOids[$idx] . ' 0 obj' . "\n"
+                . '<< /Type /StructElem /S /' . $entry['role'] . ' /P ' . $documentStructElemOid . ' 0 R'
+                . ' /Pg ' . $entryPageOid . ' 0 R'
+                . ' /K [' . $mcrList . ' ] >>' . "\n"
+                . 'endobj' . "\n";
         }
 
         return $out
@@ -1384,7 +1412,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . $documentStructElemOid . ' 0 obj' . "\n"
             . $documentStructElem . "\n"
             . 'endobj' . "\n"
-            . $paragraphStructElemsOut;
+            . $structElemsOut;
     }
 
     /**
@@ -1405,38 +1433,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $replacement = $page['n'] . ' 0 obj' . "\n<<" . "\n/Type /Page" . "\n/StructParents " . $parentKey . "\n";
             $pdfpages = \str_replace($needle, $replacement, $pdfpages);
             $this->pagestructparents[$page['n']] = $parentKey;
-            if ($this->isMarkedContentPage($page)) {
-                $pagePid = (isset($page['pid']) && \is_int($page['pid'])) ? $page['pid'] : -1;
-                $mcidCount = ($pagePid >= 0 && isset($this->pdfuapagemcid[$pagePid]))
-                    ? $this->pdfuapagemcid[$pagePid]
-                    : 1;
-                $this->pagestructmcids[$page['n']] = $mcidCount;
-            }
-
             ++$parentKey;
         }
 
         return $pdfpages;
-    }
-
-    /**
-     * @param array<string, mixed> $page
-     */
-    protected function isMarkedContentPage(array $page): bool
-    {
-        if (! isset($page['content']) || ! \is_array($page['content']) || ($page['content'] === [])) {
-            return false;
-        }
-
-        /** @var array<string> $content */
-        $content = $page['content'];
-        foreach ($content as $contentBlock) {
-            if (str_contains($contentBlock, '/P <</MCID 0>> BDC' . "\n")) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
