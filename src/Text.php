@@ -568,8 +568,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Wrap a semantic text block with a PDF/UA marked-content sequence.
      *
      * If a structure element bracket is open (via beginStructElem) the MCID is registered
-     * to that element. Otherwise an implicit /P element is auto-opened and auto-closed so
-     * that direct addTextCell() calls outside HTML rendering are still properly tagged.
+     * to that element and the BDC tag uses the open element's role. Otherwise an implicit
+     * /P element is auto-opened and auto-closed so that direct addTextCell() calls outside
+     * HTML rendering are still properly tagged.
      */
     protected function tagPdfUaTextContent(string $content, int $pid): string
     {
@@ -578,7 +579,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         $mcid = $this->pdfuapagemcid[$pid] ?? 0;
-        $open = '/P <</MCID ' . $mcid . '>> BDC' . "\n";
+        $stackTop = ($this->pdfuaStructStack !== []) ? (\count($this->pdfuaStructStack) - 1) : -1;
+        $role = ($stackTop >= 0) ? $this->pdfuaStructStack[$stackTop]['role'] : 'P';
+        $open = '/' . $role . ' <</MCID ' . $mcid . '>> BDC' . "\n";
         $close = 'EMC' . "\n";
         $wrapped = \preg_replace('/BT .*? ET\n/s', $open . '$0' . $close, $content, 1, $count);
         if (($wrapped === null) || ($count !== 1)) {
@@ -588,10 +591,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $this->pdfuapagemcid[$pid] = $mcid + 1;
 
         // Register this MCID.
-        if ($this->pdfuaStructStack !== []) {
+        if ($stackTop >= 0) {
             // Assign to the top open struct elem.
-            $top = \count($this->pdfuaStructStack) - 1;
-            $this->pdfuaStructStack[$top]['mcids'][] = $mcid;
+            $this->pdfuaStructStack[$stackTop]['mcids'][] = $mcid;
         } else {
             // No open bracket: auto-log an implicit /P element.
             $this->pdfuaStructLog[] = [

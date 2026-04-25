@@ -933,6 +933,48 @@ PHP;
         $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/P.*\/MCID 1/s', $out);
     }
 
+    public function testGetOutPDFBodyBracketedTextCellsShareOneStructElem(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->beginStructElem('H1', $page['pid']);
+        $obj->addTextCell('Heading text', $page['pid'], 10, 10, 60, 10);
+        $obj->addTextCell('Continuation', $page['pid'], 10, 20, 60, 10);
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        // Both MCIDs should appear in the output.
+        $this->assertStringContainsString('/MCID 0', $out);
+        $this->assertStringContainsString('/MCID 1', $out);
+        // There should be exactly one H1 StructElem containing both MCID references.
+        $this->assertMatchesRegularExpression(
+            '/\/Type \/StructElem \/S \/H1.*\/MCID 0.*\/MCID 1/s',
+            $out
+        );
+        // There should be no separate P StructElem for these fragments.
+        $this->assertStringNotContainsString('/Type /StructElem /S /P', $out);
+    }
+
+    public function testGetOutPDFBodyBracketedContentUsesStructRoleInBdcTag(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->beginStructElem('H2', $page['pid']);
+        $obj->addTextCell('Subheading', $page['pid'], 10, 10, 60, 10);
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        // BDC tag in the content stream must use the struct elem role, not the fallback /P.
+        $this->assertStringContainsString('/H2 <</MCID 0>> BDC', $out);
+        $this->assertStringNotContainsString('/P <</MCID 0>> BDC', $out);
+    }
+
     public function testGetOutCatalogIncludesRequiredEntries(): void
     {
         $obj = $this->getInternalTestObject();
