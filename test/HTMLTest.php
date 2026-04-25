@@ -732,6 +732,54 @@ class HTMLTest extends TestUtil
         $this->assertSame($beforePages, $afterPages);
     }
 
+    public function testAddHTMLCellLongOrderedListSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $items = '';
+        for ($i = 0; $i < 200; ++$i) {
+            $items .= '<li>Item ' . $i . ' Lorem ipsum dolor sit amet consectetur</li>';
+        }
+
+        $obj->addHTMLCell('<ol>' . $items . '</ol>', 20, 10, 150, 0);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
+    public function testAddHTMLCellLongTableSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $rows = '';
+        for ($i = 0; $i < 200; ++$i) {
+            $rows .= '<tr><td>Row ' . $i . '</td><td>Lorem ipsum dolor sit amet</td></tr>';
+        }
+
+        $obj->addHTMLCell(
+            '<table border="1"><tr><th>A</th><th>B</th></tr>' . $rows . '</table>',
+            20,
+            10,
+            150,
+            0,
+        );
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
     public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
     {
         $obj = $this->getTestObject();
