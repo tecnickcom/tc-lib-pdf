@@ -407,6 +407,36 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/NumCopies 2', $result);
     }
 
+    public function testGetOutViewerPrefForceDisplayDocTitleTrueInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $result = $obj->exposeGetOutViewerPref();
+
+        $this->assertStringContainsString('/DisplayDocTitle true', $result);
+    }
+
+    public function testGetOutViewerPrefRespectsExplicitDisplayDocTitleFalseInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setViewerPreferences(['DisplayDocTitle' => false]);
+
+        $result = $obj->exposeGetOutViewerPref();
+
+        $this->assertStringContainsString('/DisplayDocTitle false', $result);
+    }
+
+    public function testGetOutViewerPrefDoesNotForceDisplayDocTitleOutsidePdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetOutViewerPref();
+
+        $this->assertStringNotContainsString('/DisplayDocTitle', $result);
+    }
+
     /** @return array<string, array{0: string, 1: string, 2: string}> */
     public static function pdfxVersionFixtureProvider(): array
     {

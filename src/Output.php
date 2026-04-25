@@ -615,7 +615,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->getOutJavascript();
         $out .= $this->getOutBookmarks();
         $enc = $this->encrypt->getEncryptionData();
-        if ($enc['encrypted']) {
+        // PDF/X prohibits encryption (ISO 15930); skip the encryption object when PDF/X mode is active.
+        if ($enc['encrypted'] && !$this->pdfx) {
             $out .= $this->encrypt->getPdfEncryptionObj($this->pon);
         }
 
@@ -682,7 +683,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' /Root ' . $this->objid['catalog'] . ' 0 R'
             . ' /Info ' . $this->objid['info'] . ' 0 R';
         $enc = $this->encrypt->getEncryptionData();
-        if (! empty($enc['objid'])) {
+        // PDF/X prohibits encryption; omit the /Encrypt trailer entry when PDF/X mode is active.
+        if (! empty($enc['objid']) && !$this->pdfx) {
             $out .= ' /Encrypt ' . $enc['objid'] . ' 0 R';
         }
 

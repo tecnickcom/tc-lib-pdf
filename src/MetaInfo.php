@@ -613,7 +613,12 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
         $out .= $this->getBooleanMode('HideWindowUI');
         $out .= $this->getBooleanMode('FitWindow');
         $out .= $this->getBooleanMode('CenterWindow');
-        $out .= $this->getBooleanMode('DisplayDocTitle');
+        // PDF/UA requires DisplayDocTitle true (ISO 14289-1 §7.1); force it if not already explicitly set.
+        if ($this->pdfuaMode !== '' && !isset($this->viewerpref['DisplayDocTitle'])) {
+            $out .= ' /DisplayDocTitle true';
+        } else {
+            $out .= $this->getBooleanMode('DisplayDocTitle');
+        }
         if (isset($vpr['NonFullScreenPageMode'])) {
             $out .= ' /NonFullScreenPageMode /' . $this->page->getDisplay($vpr['NonFullScreenPageMode']);
         }

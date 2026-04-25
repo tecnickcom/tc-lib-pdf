@@ -3120,8 +3120,20 @@ PHP;
         $this->assertStringContainsString('/Parent 88 0 R', $out);
     }
 
+    public function testGetOutPDFTrailerSuppressesEncryptInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $obj->setOutputState(4, ['catalog' => 7, 'info' => 8], 'FEEDBEEF', 12);
+
+        $trailer = $obj->exposeGetOutPDFTrailer();
+
+        $this->assertStringNotContainsString('/Encrypt', $trailer);
+    }
+
     private function setPdfaModeOnObject(TestableOutput $obj, int $pdfa): void
     {
         $obj->setPdfaMode($pdfa);
     }
 }
+
