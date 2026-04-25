@@ -380,6 +380,35 @@ class TcpdfTest extends TestUtil
         $this->assertSame('/[^\S\xa0]/', $regexp['r']);
     }
 
+    public function testPdfxRestrictiveModesForceDeviceCmykProcessColors(): void
+    {
+        foreach (['pdfx', 'pdfx1a', 'pdfx3'] as $mode) {
+            $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, $mode);
+
+            $fill = $obj->color->getPdfColor('#336699');
+            $stroke = $obj->color->getPdfColor('#336699', true);
+
+            $this->assertStringContainsString(" k\n", $fill);
+            $this->assertStringNotContainsString(" rg\n", $fill);
+            $this->assertStringContainsString(" K\n", $stroke);
+            $this->assertStringNotContainsString(" RG\n", $stroke);
+
+            // Spot colors remain spot operators in restrictive PDF/X modes.
+            $spot = $obj->color->getPdfColor('cyan');
+            $this->assertStringContainsString('scn', $spot);
+            $this->assertStringContainsString('/CS', $spot);
+        }
+    }
+
+    public function testDefaultAndPdfx4KeepRgbProcessColors(): void
+    {
+        $default = new \Com\Tecnick\Pdf\Tcpdf();
+        $pdfx4 = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx4');
+
+        $this->assertStringContainsString(" rg\n", $default->color->getPdfColor('#336699'));
+        $this->assertStringContainsString(" rg\n", $pdfx4->color->getPdfColor('#336699'));
+    }
+
     public function testSetSignatureSetsDefaultPrivkeyAndSignFlag(): void
     {
         $obj = $this->getTestObject();

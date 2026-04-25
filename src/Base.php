@@ -924,4 +924,19 @@ abstract class Base
 
         return \in_array($this->pdfxMode, ['pdfx4', 'pdfx5'], true);
     }
+
+    /**
+     * Return true when the active PDF/X variant should avoid DeviceRGB process colors.
+     *
+     * PDF/X-1a and PDF/X-3 are treated as restrictive process-color variants in this
+     * implementation. PDF/X-4 and PDF/X-5 remain unrestricted.
+     */
+    protected function requiresPdfxDeviceCmyk(): bool
+    {
+        if (!$this->pdfx) {
+            return false;
+        }
+
+        return !\in_array($this->pdfxMode, ['pdfx4', 'pdfx5'], true);
+    }
 }
