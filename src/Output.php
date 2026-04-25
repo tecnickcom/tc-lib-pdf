@@ -2906,11 +2906,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         break;
                     case '%':
                         // embedded PDF file
-                        $filename = \basename(\substr($outline['u'], 1));
-                        $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P '
-                            . ($outline['p'] - 1)
-                            . ' /A ' . $this->embeddedfiles[$filename]['a'] . ' >>'
-                            . ' >>';
+                        if (! $this->pdfx) {
+                            $filename = \basename(\substr($outline['u'], 1));
+                            $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P '
+                                . ($outline['p'] - 1)
+                                . ' /A ' . $this->embeddedfiles[$filename]['a'] . ' >>'
+                                . ' >>';
+                        }
                         break;
                     case '*':
                         // embedded generic file

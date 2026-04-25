@@ -2644,6 +2644,35 @@ PHP;
         $this->assertStringContainsString('/A 5', $out);
     }
 
+    public function testGetOutBookmarksWithPercentEmbeddedPdfLinkOmitsGotoeInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 7);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'manual.pdf' => [
+                'a' => 5,
+                'f' => 3,
+                'n' => 4,
+                'file' => '',
+                'content' => 'data',
+                'mimeType' => 'application/pdf',
+                'afRelationship' => 'Source',
+                'description' => 'Embedded PDF',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+        $obj->setBookmark('Embedded PDF', '%manual.pdf', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /GoToE', $out);
+        $this->assertStringNotContainsString('/A 5', $out);
+    }
+
     public function testGetOutBookmarksWithExternalUriLink(): void
     {
         $obj = $this->getInternalTestObject();
