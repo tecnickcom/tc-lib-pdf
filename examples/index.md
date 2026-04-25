@@ -18,3 +18,4 @@
 - [015_example_pdfua.php](015_example_pdfua.php) : Generic PDF/UA example showing the baseline accessible tagged-PDF workflow (`pdfua`).
 - [016_example_pdfua1.php](016_example_pdfua1.php) : PDF/UA-1 example highlighting PDF 1.7 accessibility semantics and tagged structure output (`pdfua1`).
 - [017_example_pdfua2.php](017_example_pdfua2.php) : PDF/UA-2 example highlighting PDF 2.0 accessibility semantics and updated identification metadata (`pdfua2`).
+- [018_example_html_page_span.php](018_example_html_page_span.php) : HTML page-break functionality.

@@ -179,6 +179,28 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
+     * Sets the language array used for document metadata (for example
+     * the 'a_meta_language' entry that maps to the PDF Catalog /Lang key).
+     *
+     * @param array<string, string> $lang Associative array of language entries.
+     */
+    public function setLanguageArray(array $lang): void
+    {
+        $this->lang = $lang;
+    }
+
+    /**
+     * Sets the document language code (PDF Catalog /Lang entry),
+     * for example 'en-US' or 'it-IT'.
+     *
+     * @param string $code Language code (RFC 3066 / BCP 47).
+     */
+    public function setLanguage(string $code): void
+    {
+        $this->lang['a_meta_language'] = $code;
+    }
+
+    /**
      * Set the pdf document base file name.
      * If the file extension is present, it must be '.pdf' or '.PDF'.
      *

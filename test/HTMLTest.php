@@ -692,6 +692,115 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString(' re', $content);
     }
 
+    public function testAddHTMLCellAutoFlowSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+            . ' Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
+        $html = \str_repeat($chunk, 220);
+
+        $obj->addHTMLCell($html, 20, 10, 150, 0);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
+    public function testAddHTMLCellWithFixedHeightDoesNotAutoBreak(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+            . ' Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
+        $html = \str_repeat($chunk, 220);
+
+        $obj->addHTMLCell($html, 20, 10, 150, 30);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertSame($beforePages, $afterPages);
+    }
+
+    public function testAddHTMLCellLongOrderedListSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $items = '';
+        for ($i = 0; $i < 200; ++$i) {
+            $items .= '<li>Item ' . $i . ' Lorem ipsum dolor sit amet consectetur</li>';
+        }
+
+        $obj->addHTMLCell('<ol>' . $items . '</ol>', 20, 10, 150, 0);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
+    public function testAddHTMLCellLongTableSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $rows = '';
+        for ($i = 0; $i < 200; ++$i) {
+            $rows .= '<tr><td>Row ' . $i . '</td><td>Lorem ipsum dolor sit amet</td></tr>';
+        }
+
+        $obj->addHTMLCell(
+            '<table border="1"><tr><th>A</th><th>B</th></tr>' . $rows . '</table>',
+            20,
+            10,
+            150,
+            0,
+        );
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
+    public function testAddHTMLCellStyledBlockSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>';
+        $html = '<div style="background-color:#ffeeaa;border:1px solid #000">'
+            . \str_repeat($chunk, 150)
+            . '</div>';
+
+        $obj->addHTMLCell($html, 20, 10, 150, 0);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
     public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
     {
         $obj = $this->getTestObject();
@@ -2462,6 +2571,65 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThanOrEqual(2, \substr_count($out, '(H)'));
         $this->assertStringContainsString('(Tall)', $out);
         $this->assertStringContainsString('(Next)', $out);
+    }
+
+    public function testGetHTMLCellTableHeadReplayDoesNotOverlapBodyRowWithCellpadding(): void
+    {
+        // Regression: estimateHTMLTableHeadHeight previously ignored the
+        // <table cellpadding="N"> attribute when measuring the replayed
+        // header on a new page (parseHTMLTagOPENtable applies that padding
+        // as a default to TD/TH cells with zero CSS padding at render time,
+        // but the estimate parses the standalone thead DOM and never ran
+        // those handlers). The under-estimated header height caused the
+        // first body row on the next page to overlap the replayed header
+        // (see example 018 row 14 vs page-6 header).
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $region = $page->getRegion();
+        $starty = \max(0.0, ((float) $region['RH']) - 5.0);
+
+        $out = $obj->getHTMLCell(
+            '<table cellpadding="6">'
+            . '<thead><tr><th>HDR</th></tr></thead>'
+            . '<tr><td>BODY</td></tr></table>',
+            0,
+            $starty,
+            30,
+            0,
+        );
+
+        $this->assertNotSame('', $out);
+
+        $hdrMatches = [];
+        $this->assertGreaterThanOrEqual(
+            2,
+            \preg_match_all('/BT .*? [-0-9.]+ ([-0-9.]+) Td \(HDR\) Tj ET/s', $out, $hdrMatches),
+            'Header text must be rendered both on the original page and replayed on the new page.',
+        );
+        $bodyMatches = [];
+        $this->assertSame(
+            1,
+            \preg_match('/BT .*? [-0-9.]+ ([-0-9.]+) Td \(BODY\) Tj ET/s', $out, $bodyMatches),
+            'Body text must be rendered exactly once.',
+        );
+
+        $hdrSecondY = (float) $hdrMatches[1][\count($hdrMatches[1]) - 1];
+        $bodyY = (float) $bodyMatches[1];
+        // The y values are PDF user-space points. Without the fix the
+        // estimated header height excluded the table cellpadding (~9pt
+        // vertical), so the body row text on the new page sat about 11.5pt
+        // below the replayed header (visibly overlapping it). With the fix
+        // the gap is roughly 20pt. Threshold 14 pt cleanly separates the
+        // two regimes.
+        $this->assertGreaterThan(
+            14.0,
+            \abs($hdrSecondY - $bodyY),
+            'Replayed header and the first body row on the new page must not overlap; '
+            . 'the vertical gap must include the table cellpadding.',
+        );
     }
 
     public function testGetHTMLCellRespectsExplicitTdColumnWidth(): void
@@ -5482,6 +5650,53 @@ class HTMLTest extends TestUtil
         $this->assertSame(80.0, $tpw);
     }
 
+    public function testEstimateHTMLTableHeadHeightAccountsForTableCellpaddingAttribute(): void
+    {
+        // Regression: estimateHTMLTableHeadHeight previously ignored the
+        // table-level cellpadding attribute. parseHTMLTagOPENtd applies it
+        // as a default for cells with zero CSS padding, so the standalone
+        // thead estimate must mirror that or the replayed header on a new
+        // page is shorter than what is actually rendered (see example 018).
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 80.0, 0.0);
+
+        $bare = $obj->exposeEstimateHTMLTableHeadHeight(
+            '<table cellpadding="0" cellspacing="0"><tr><th>H</th></tr></table>',
+        );
+        $padded = $obj->exposeEstimateHTMLTableHeadHeight(
+            '<table cellpadding="6" cellspacing="0"><tr><th>H</th></tr></table>',
+        );
+
+        $this->assertGreaterThan(0.0, $bare);
+        $this->assertGreaterThan($bare, $padded);
+        // 2 * 6 (default unit 'px') of vertical cellpadding converted to the
+        // default 'mm' unit is roughly 3.17 mm (6px = 4.5pt; 2 sides ≈ 3.17 mm);
+        // allow generous tolerance for any minor rounding/font interplay.
+        $delta = $padded - $bare;
+        $this->assertGreaterThanOrEqual(2.5, $delta);
+        $this->assertLessThanOrEqual(4.0, $delta);
+    }
+
+    public function testEstimateHTMLTableHeadHeightAccountsForTableCellspacingAttribute(): void
+    {
+        // Regression: the standalone thead estimate must also mirror the
+        // cellspacing the runtime adds in parseHTMLTagOPENtable (one initial
+        // gap) and parseHTMLTagCLOSEtr (one gap per closed row).
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 80.0, 0.0);
+
+        $nospacing = $obj->exposeEstimateHTMLTableHeadHeight(
+            '<table cellpadding="0" cellspacing="0"><tr><th>H</th></tr></table>',
+        );
+        $spaced = $obj->exposeEstimateHTMLTableHeadHeight(
+            '<table cellpadding="0" cellspacing="6"><tr><th>H</th></tr></table>',
+        );
+
+        $this->assertGreaterThan($nospacing, $spaced);
+    }
+
     public function testHtmlEstimateHelpersCoverTableTextAndNobrBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -5492,9 +5707,7 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(
             0.0,
             $obj->exposeEstimateHTMLTableHeadHeight('<tr></tr><tr><td height="8">Head</td></tr>'),
-        );
-
-        $dom = [
+        );        $dom = [
             $this->makeHtmlNode(['value' => 'tr', 'opening' => true, 'parent' => -1]),
             $this->makeHtmlNode([
                 'value' => 'td',

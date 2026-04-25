@@ -2450,6 +2450,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $height = 0.0;
         $rowheight = 0.0;
         $inrow = false;
+        $rowcount = 0;
+
+        // Resolve the table-level cellpadding/cellspacing defaults the renderer
+        // would apply at runtime (parseHTMLTagOPENtable / parseHTMLTagOPENtd).
+        // The standalone thead DOM does not run those handlers, so the cell
+        // padding default from the <table cellpadding="..."> attribute would
+        // otherwise be lost, causing the estimated header height to be smaller
+        // than the actually rendered one.
+        $tablecellpadding = 0.0;
+        $tablecellspacing = 0.0;
+        foreach ($dom as $elm) {
+            if (
+                empty($elm['tag']) || empty($elm['opening']) || empty($elm['value'])
+                || !\is_string($elm['value'])
+                || (($elm['value'] !== 'table') && ($elm['value'] !== 'tablehead'))
+            ) {
+                continue;
+            }
+            $attr = (isset($elm['attribute']) && \is_array($elm['attribute'])) ? $elm['attribute'] : [];
+            if (!empty($attr['cellpadding']) && \is_numeric($attr['cellpadding'])) {
+                $tablecellpadding = $this->toUnit($this->getUnitValuePoints((string) $attr['cellpadding']));
+            }
+            if (!empty($attr['cellspacing']) && \is_numeric($attr['cellspacing'])) {
+                $tablecellspacing = $this->toUnit($this->getUnitValuePoints((string) $attr['cellspacing']));
+            }
+            break;
+        }
 
         $savedDom = $hrc['dom'];
         $hrc['dom'] = $dom;
@@ -2466,9 +2493,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if ($inrow && $elm['opening'] && (($elm['value'] === 'td') || ($elm['value'] === 'th'))) {
+                $padT = (float) $elm['padding']['T'];
+                $padR = (float) $elm['padding']['R'];
+                $padB = (float) $elm['padding']['B'];
+                $padL = (float) $elm['padding']['L'];
+                if (
+                    ($tablecellpadding > 0.0)
+                    && ($padT === 0.0) && ($padR === 0.0)
+                    && ($padB === 0.0) && ($padL === 0.0)
+                ) {
+                    $padT = $tablecellpadding;
+                    $padB = $tablecellpadding;
+                }
                 $cellh = $this->getHTMLLineAdvance($hrc, $key)
-                    + (float) $elm['padding']['T']
-                    + (float) $elm['padding']['B']
+                    + $padT
+                    + $padB
                     + (float) $elm['margin']['T']
                     + (float) $elm['margin']['B'];
                 if (!empty($elm['height']) && \is_numeric($elm['height'])) {
@@ -2483,7 +2522,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $curfont = $this->font->getCurrentFont();
                     $rowheight = $this->toUnit((float) $curfont['height']);
                 }
-                $height += $rowheight;
+                // Each closed row advances the cursor by rowheight + cellspacing
+                // (parseHTMLTagCLOSEtr); the table opening also advances by one
+                // cellspacing (parseHTMLTagOPENtable).
+                $height += $rowheight + $tablecellspacing;
+                if ($rowcount === 0) {
+                    $height += $tablecellspacing;
+                }
+                ++$rowcount;
                 $rowheight = 0.0;
                 $inrow = false;
             }
@@ -2535,8 +2581,39 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 0.0;
         }
 
+        // Fetch parent-table per-column widths and cellpadding fallback so we can
+        // measure the wrapped text height inside each cell, mirroring what the
+        // renderer will actually produce. Without this the estimate uses a single
+        // line advance and misses multi-line cell content, leading to late page
+        // breaks where the last row spills below the page bottom (see example 018).
+        $tableColWidths = [];
+        $tableCellPad = 0.0;
+        $parentTableKey = isset($dom[$trkey]['parent']) && \is_int($dom[$trkey]['parent'])
+            ? $dom[$trkey]['parent'] : 0;
+        if (
+            $parentTableKey > 0
+            && isset($dom[$parentTableKey])
+            && !empty($dom[$parentTableKey]['tag'])
+            && \is_string($dom[$parentTableKey]['value'])
+            && \in_array($dom[$parentTableKey]['value'], ['table', 'tablehead'], true)
+        ) {
+            if (
+                isset($dom[$parentTableKey]['pendingcolwidths'])
+                && \is_array($dom[$parentTableKey]['pendingcolwidths'])
+            ) {
+                $tableColWidths = $dom[$parentTableKey]['pendingcolwidths'];
+            }
+            if (
+                isset($dom[$parentTableKey]['pendingcellpadding'])
+                && \is_numeric($dom[$parentTableKey]['pendingcellpadding'])
+            ) {
+                $tableCellPad = (float) $dom[$parentTableKey]['pendingcellpadding'];
+            }
+        }
+
         $rowheight = 0.0;
         $depth = 0;
+        $colidx = -1;
         $numel = \count($dom);
         for ($key = $trkey + 1; $key < $numel; ++$key) {
             $elm = $dom[$key];
@@ -2566,9 +2643,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            $cellh = $this->getHTMLLineAdvance($hrc, $key)
-                + (float) $elm['padding']['T']
-                + (float) $elm['padding']['B']
+            ++$colidx;
+
+            // Determine the cell's content area width for line-wrap measurement.
+            $padL = (float) $elm['padding']['L'];
+            $padR = (float) $elm['padding']['R'];
+            $padT = (float) $elm['padding']['T'];
+            $padB = (float) $elm['padding']['B'];
+            if (($padL <= 0.0) && ($padR <= 0.0) && ($padT <= 0.0) && ($padB <= 0.0)) {
+                // Apply the table's cellpadding HTML attribute fallback when no
+                // explicit CSS/per-cell padding was set, mirroring parseHTMLTagOPENtd.
+                $padL = $padR = $padT = $padB = $tableCellPad;
+            }
+
+            $colwidth = (isset($tableColWidths[$colidx]) && \is_numeric($tableColWidths[$colidx]))
+                ? (float) $tableColWidths[$colidx] : 0.0;
+            $contentWidth = \max(0.0, $colwidth - $padL - $padR);
+
+            $cellInner = $this->estimateHTMLCellContentHeight($hrc, $key, $contentWidth);
+            $cellh = $cellInner
+                + $padT
+                + $padB
                 + (float) $elm['margin']['T']
                 + (float) $elm['margin']['B'];
             if (!empty($elm['height']) && \is_numeric($elm['height'])) {
@@ -2584,6 +2679,76 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $rowheight;
+    }
+
+    /**
+     * Estimate the height of a single TD/TH cell's inner content for the given
+     * content-area width (already net of padding). Walks inline text fragments
+     * and common inline tags to measure wrapped line count.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function estimateHTMLCellContentHeight(array &$hrc, int $cellkey, float $width): float
+    {
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = &$hrc['dom'];
+
+        if (empty($dom[$cellkey]) || empty($dom[$cellkey]['tag']) || empty($dom[$cellkey]['opening'])) {
+            return 0.0;
+        }
+
+        $endkey = $this->findHTMLClosingTagIndex($dom, $cellkey);
+        if ($endkey <= $cellkey) {
+            return $this->getHTMLLineAdvance($hrc, $cellkey);
+        }
+
+        $lineadvance = $this->getHTMLLineAdvance($hrc, $cellkey);
+        $height = 0.0;
+
+        for ($key = ($cellkey + 1); $key < $endkey; ++$key) {
+            $elm = $dom[$key];
+
+            if (empty($elm['tag'])) {
+                $text = (string) $elm['value'];
+                if ($text === '') {
+                    continue;
+                }
+
+                $height += $this->estimateHTMLTextHeight($hrc, $key, $text, $width);
+                continue;
+            }
+
+            if (!empty($elm['opening'])) {
+                if ($elm['value'] === 'br') {
+                    $height += $lineadvance;
+                    continue;
+                }
+
+                if ($elm['value'] === 'img') {
+                    $height += (!empty($elm['height']) && \is_numeric($elm['height']))
+                        ? (float) $elm['height']
+                        : $lineadvance;
+                    continue;
+                }
+
+                if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
+                    $height += (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
+                }
+
+                continue;
+            }
+
+            // Closing tag.
+            if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
+                $height += (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
+            }
+        }
+
+        if ($height <= 0.0) {
+            $height = $lineadvance;
+        }
+
+        return $height;
     }
 
     /**
@@ -2806,6 +2971,106 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
 
         return ($thead === '') ? '' : $this->replayHTMLTableHead($hrc, $thead, $tpx, $tpy, $tpw, $tph);
+    }
+
+    /**
+     * Render the partial styled rectangles for all currently-open block-level
+     * buffers up to the given vertical position, reset their accumulated
+     * content, and return the concatenated PDF code so the caller can emit it
+     * onto the current (about-to-end) page before triggering a page break.
+     *
+     * Buffers are rendered innermost-first so that nested blocks remain wrapped
+     * inside their outer block's rectangle, mirroring the behavior of
+     * closeHTMLBlock(). The caller is expected to update each remaining
+     * buffer's `by` to the new region top after the page break.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function flushOpenBlockBuffers(array &$hrc, float $tpy): string
+    {
+        if (empty($hrc['blockbuf'])) {
+            return '';
+        }
+
+        // Extend the partial rectangle bottom to the page region bottom so the
+        // styled block (background/border) appears visually continuous across
+        // the page break. After the break, each buffer's `by` is reset to the
+        // new region top, so the next page's rectangle abuts this one with no
+        // visible gap. Without this extension the rectangle would end at the
+        // last rendered line and leave an empty strip down to the page margin.
+        $pageBottom = $tpy + $this->getHTMLRemainingHeight($hrc, $tpy);
+
+        $rendered = '';
+        for ($i = \count($hrc['blockbuf']) - 1; $i >= 0; --$i) {
+            /** @var THTMLBlockBuf $blk */
+            $blk = $hrc['blockbuf'][$i];
+            $openkey = (int) $blk['openkey'];
+            // For <table> blocks the outer border must end at the last
+            // rendered row's bottom, not the page region bottom: row borders
+            // already draw horizontals and the next page replays the head
+            // with its own top border, so extending the outer frame to the
+            // page bottom would leave a tall empty bordered rectangle below
+            // the last row on this page.
+            $isTable = ($openkey >= 0)
+                && isset($hrc['dom'][$openkey]['value'])
+                && ($hrc['dom'][$openkey]['value'] === 'table');
+            $blockBottom = $isTable ? $tpy : $pageBottom;
+            $partialHeight = $blockBottom - (float) $blk['by'];
+            $content = (string) $blk['buffer'] . $rendered;
+            if (((float) $blk['bw'] > 0.0) && ($partialHeight > 0.0)) {
+                $bstyles = ($openkey >= 0)
+                    ? $this->getHTMLTableCellBorderStyles($hrc, $openkey)
+                    : [];
+                $fillstyle = ($openkey >= 0)
+                    ? $this->getHTMLTableCellFillStyle($hrc, $openkey)
+                    : null;
+                $rendered = $this->renderHTMLTableCell(
+                    (float) $blk['bx'],
+                    (float) $blk['by'],
+                    (float) $blk['bw'],
+                    $partialHeight,
+                    $bstyles,
+                    $fillstyle,
+                    $content,
+                );
+            } else {
+                $rendered = $content;
+            }
+
+            $blk['buffer'] = '';
+            $hrc['blockbuf'][$i] = $blk;
+        }
+
+        return $rendered;
+    }
+
+    /**
+     * After a page break occurs while one or more HTML tables are open,
+     * reset each open table's per-page top references (`originy`, `rowtop`)
+     * to the new region top. Without this, the closing `</table>` would draw
+     * the outer frame using the previous page's top, leaving a stale narrow
+     * rectangle on the new page.
+     *
+     * Any in-progress rowspan cells reference the previous page's `rowtop`
+     * and would render incorrectly across the break, so they are dropped.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function resetHTMLTableStackOnPageBreak(array &$hrc, float $tpy): void
+    {
+        if (empty($hrc['tablestack'])) {
+            return;
+        }
+
+        foreach ($hrc['tablestack'] as $tidx => $table) {
+            $cellspacing = (float) $table['cellspacing'];
+            $table['originy'] = $tpy;
+            $table['rowtop'] = $tpy + $cellspacing;
+            $table['rowheight'] = 0.0;
+            $table['cells'] = [];
+            $table['rowspans'] = [];
+            $hrc['tablestack'][$tidx] = $table;
+        }
     }
 
     /**
@@ -4828,17 +5093,48 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                         $requiredh = $this->estimateHTMLTableRowHeight($hrc, $key);
 
-                        $appendFragment(
-                            $this->breakHTMLIfNeeded(
-                                $hrc,
-                                $requiredh,
-                                $tpx,
-                                $tpy,
-                                $tpw,
-                                $tph,
-                                $theadhtml,
-                            )
+                        // If a page break is about to happen for this row, flush
+                        // any open block-level buffers (e.g. <table border>) onto
+                        // the current page before the break, so previously
+                        // rendered rows are committed to the right page rather
+                        // than carried over via the buffer to the next page.
+                        $region = $this->page->getRegion();
+                        $regiontop = (float) $region['RY'];
+                        $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
+                        $willBreak = ($requiredh > 0.0)
+                            && ($requiredh > ($remaining + self::WIDTH_TOLERANCE))
+                            && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+
+                        if ($willBreak && !empty($hrc['blockbuf'])) {
+                            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                            if ($flush !== '') {
+                                $appendFragment($flush);
+                            }
+                        }
+
+                        $breakout = $this->breakHTMLIfNeeded(
+                            $hrc,
+                            $requiredh,
+                            $tpx,
+                            $tpy,
+                            $tpw,
+                            $tph,
+                            $theadhtml,
                         );
+
+                        if ($willBreak && !empty($hrc['blockbuf'])) {
+                            foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+                                /** @var THTMLBlockBuf $blkEntry */
+                                $blkEntry['by'] = $tpy;
+                                $hrc['blockbuf'][$bidx] = $blkEntry;
+                            }
+                        }
+
+                        if ($willBreak && !empty($hrc['tablestack'])) {
+                            $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                        }
+
+                        $appendFragment($breakout);
                     }
 
                     if (!empty($elm['attribute']['id']) && \is_string($elm['attribute']['id'])) {
@@ -5075,7 +5371,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             } else { // Text Content
                 $hrc['currentkey'] = $key;
-                $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph);
+                $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
                 $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
                 $capturedByBlock = false;
                 if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
@@ -5371,11 +5667,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Process HTML Text (content between tags).
      *
      * @param THTMLRenderContext $hrc HTML render context.
+    * @param-out THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
      * @param float  $tpx  Abscissa of upper-left corner.
      * @param float  $tpy  Ordinate of upper-left corner.
      * @param float  $tpw  Width.
      * @param float  $tph  Height.
+     * @param ?callable(string):void $appendFragment Optional sink used to
+     *        emit the partial flush of any open block-level buffers onto the
+     *        current page right before a region/page break, so block-level
+     *        backgrounds and borders continue across pages.
      *
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      *
@@ -5388,6 +5689,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpy,
         float &$tpw,
         float &$tph,
+        ?callable $appendFragment = null,
     ): string {
         if (($key < 0) || !isset($hrc['dom'][$key])) {
             return '';
@@ -5426,6 +5728,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $currentkey = $key;
         $hrc['currentkey'] = $currentkey;
 
+        $breakoutPrefix = '';
         $out = $this->getHTMLTextPrefix($hrc, $currentkey);
 
         $curfont = $this->font->getCurrentFont();
@@ -5451,6 +5754,208 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
+
+        // Generic page/region overflow guard for plain inline text flow.
+        // Skipped while a table cell is active so that table row pagination
+        // keeps working through its dedicated path. Also skipped when the
+        // cell has an explicit max height: the caller bounded the HTML box
+        // and content must stay within it.
+        // Block-level buffers (background/border) are split across pages by
+        // flushing the partial rectangle onto the current page before the
+        // break and updating each buffer's origin to the new region top.
+        if (
+            empty($hrc['tablestack'])
+            && empty($hrc['bcellctx'])
+            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+            && ($lineAdvance > 0.0)
+        ) {
+            $region = $this->page->getRegion();
+            $regiontop = (float) $region['RY'];
+            $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
+            $willBreak = ($lineAdvance > ($remaining + self::WIDTH_TOLERANCE))
+                && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+
+            if ($willBreak && !empty($hrc['blockbuf']) && ($appendFragment !== null)) {
+                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                if ($flush !== '') {
+                    $appendFragment($flush);
+                }
+            }
+
+            $breakout = $this->breakHTMLIfNeeded($hrc, $lineAdvance, $tpx, $tpy, $tpw, $tph);
+
+            if ($willBreak && !empty($hrc['blockbuf'])) {
+                foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+                    /** @var THTMLBlockBuf $blkEntry */
+                    $blkEntry['by'] = $tpy;
+                    $hrc['blockbuf'][$bidx] = $blkEntry;
+                }
+            }
+
+            if ($willBreak && !empty($hrc['tablestack'])) {
+                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+            }
+
+            $breakoutPrefix = $breakout;
+        }
+
+        // Multi-line vertical fit guard: when a wrappable fragment will produce
+        // more wrapped lines than fit in the remaining region height, render
+        // only the lines that fit, page-break, then process the remainder
+        // recursively on the new page region.
+        if (
+            empty($hrc['tablestack'])
+            && empty($hrc['bcellctx'])
+            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+            && ($lineAdvance > 0.0)
+            && $this->hasHTMLTextBreakOpportunity($text)
+        ) {
+            $regionMV = $this->page->getRegion();
+            $regiontopMV = (float) $regionMV['RY'];
+            $remainingMV = $this->getHTMLRemainingHeight($hrc, $tpy);
+            $maxFitLines = (int) \floor(($remainingMV + self::WIDTH_TOLERANCE) / $lineAdvance);
+            if ($maxFitLines < 1) {
+                $maxFitLines = 1;
+            }
+
+            $lineOffsetMV = (float) ($tpx - $hrc['cellctx']['originx']);
+            if ($lineOffsetMV < 0.0) {
+                $lineOffsetMV = 0.0;
+            }
+
+            $availableWidthMV = ($hrc['cellctx']['maxwidth'] > 0)
+                ? (float) $hrc['cellctx']['maxwidth']
+                : (float) $tpw;
+            if ($availableWidthMV <= 0.0) {
+                $availableWidthMV = (float) $tpw;
+            }
+
+            if ($availableWidthMV > 0.0) {
+                $probeText = $text;
+                $probeOrd = [];
+                $probeDim = self::DIM_DEFAULT;
+                $this->prepareText($probeText, $probeOrd, $probeDim, $forcedir);
+                $probeLines = $this->splitLines(
+                    $probeOrd,
+                    $probeDim,
+                    $this->toPoints($availableWidthMV),
+                    $this->toPoints(\min($lineOffsetMV, $availableWidthMV)),
+                );
+                $probeCount = \count($probeLines);
+
+                if (
+                    ($probeCount > $maxFitLines)
+                    && ($tpy > ($regiontopMV + self::WIDTH_TOLERANCE))
+                ) {
+                    $cut = 0;
+                    for ($i = 0; $i < $maxFitLines; ++$i) {
+                        $cut = (int) $probeLines[$i]['pos'] + (int) $probeLines[$i]['chars'];
+                    }
+                    $probeLen = \mb_strlen($probeText);
+                    if (($cut > 0) && ($cut < $probeLen)) {
+                        $head = \mb_substr($probeText, 0, $cut);
+                        $tail = \mb_substr($probeText, $cut);
+                        if ($hrc['prelevel'] <= 0) {
+                            $tail = \ltrim($tail);
+                        }
+
+                        if (($head !== '') && ($tail !== '')) {
+                            /** @var THTMLAttrib $origElm */
+                            $origElm = $hrc['dom'][$key];
+                            $headElm = $origElm;
+                            $headElm['value'] = $head;
+                            $hrc['dom'][$key] = $headElm;
+                            $headOut = $this->parseHTMLText(
+                                $hrc,
+                                $key,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                                $appendFragment,
+                            );
+
+                            // The HEAD portion belongs to the current (about-to-end)
+                            // page and must be dispatched before the page break, using
+                            // the same routing the caller applies to fragments
+                            // (table-cell capture, block-level buffer, or direct page
+                            // append). Mirroring this dispatch here ensures the head
+                            // bytes are emitted on the correct page and not carried
+                            // over to the new page along with the tail.
+                            $headDispatch = $breakoutPrefix . $headOut;
+                            $breakoutPrefix = '';
+                            if ($headDispatch !== '') {
+                                if (!$this->captureHTMLTableCellBuffer($hrc, $headDispatch)) {
+                                    if (!empty($hrc['blockbuf'])) {
+                                        $blockidxMV = \count($hrc['blockbuf']) - 1;
+                                        /** @var THTMLBlockBuf $blockbufMV */
+                                        $blockbufMV = $hrc['blockbuf'][$blockidxMV];
+                                        $blockbufMV['buffer'] .= $headDispatch;
+                                        $hrc['blockbuf'][$blockidxMV] = $blockbufMV;
+                                    } elseif ($appendFragment !== null) {
+                                        $appendFragment($headDispatch);
+                                    }
+                                }
+                            }
+
+                            if (!empty($hrc['blockbuf']) && ($appendFragment !== null)) {
+                                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                                if ($flush !== '') {
+                                    $appendFragment($flush);
+                                }
+                            }
+
+                            $forceH = $this->getHTMLRemainingHeight($hrc, $tpy)
+                                + $lineAdvance
+                                + 1.0;
+                            $brk = $this->breakHTMLIfNeeded(
+                                $hrc,
+                                $forceH,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                            );
+
+                            if (!empty($hrc['blockbuf'])) {
+                                foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
+                                    /** @var THTMLBlockBuf $blkEntry2 */
+                                    $blkEntry2['by'] = $tpy;
+                                    $hrc['blockbuf'][$bidx2] = $blkEntry2;
+                                }
+                            }
+
+                            if (!empty($hrc['tablestack'])) {
+                                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                            }
+
+                            $tailElm = $origElm;
+                            $tailElm['value'] = $tail;
+                            $hrc['dom'][$key] = $tailElm;
+                            $tailOut = $this->parseHTMLText(
+                                $hrc,
+                                $key,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                                $appendFragment,
+                            );
+
+                            $hrc['dom'][$key] = $origElm;
+
+                            // HEAD has already been dispatched above onto the
+                            // current (now previous) page; only return $brk and
+                            // $tailOut, which belong to the new page.
+                            return $brk . $tailOut;
+                        }
+                    }
+                }
+            }
+        }
+
+        $out = $breakoutPrefix . $this->getHTMLTextPrefix($hrc, $currentkey);
+
         $fragmentWidth = $this->getStringWidth($text);
 
         // When a continuation fragment's trailing collapsible whitespace is the
@@ -6581,11 +7086,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
-        unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
             return $out;
+        }
+
+        // Break to the next page region if a single line of this list item
+        // does not fit in the remaining height. Otherwise the bullet marker
+        // would be drawn at the bottom of the current page while the inline
+        // content (rendered later) page-breaks, leaving an orphaned marker.
+        if (
+            empty($hrc['tablestack'])
+            && empty($hrc['bcellctx'])
+            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+        ) {
+            $liLineAdvance = $this->getHTMLLineAdvance($hrc, $key);
+            if ($liLineAdvance > 0.0) {
+                $out .= $this->breakHTMLIfNeeded($hrc, $liLineAdvance, $tpx, $tpy, $tpw, $tph);
+            }
         }
 
         $font = $this->getHTMLFontMetric($hrc, $key);
