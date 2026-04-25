@@ -2992,12 +2992,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
+        // Extend the partial rectangle bottom to the page region bottom so the
+        // styled block (background/border) appears visually continuous across
+        // the page break. After the break, each buffer's `by` is reset to the
+        // new region top, so the next page's rectangle abuts this one with no
+        // visible gap. Without this extension the rectangle would end at the
+        // last rendered line and leave an empty strip down to the page margin.
+        $pageBottom = $tpy + $this->getHTMLRemainingHeight($hrc, $tpy);
+
         $rendered = '';
         for ($i = \count($hrc['blockbuf']) - 1; $i >= 0; --$i) {
             /** @var THTMLBlockBuf $blk */
             $blk = $hrc['blockbuf'][$i];
             $openkey = (int) $blk['openkey'];
-            $partialHeight = $tpy - (float) $blk['by'];
+            $partialHeight = $pageBottom - (float) $blk['by'];
             $content = (string) $blk['buffer'] . $rendered;
             if (((float) $blk['bw'] > 0.0) && ($partialHeight > 0.0)) {
                 $bstyles = ($openkey >= 0)
