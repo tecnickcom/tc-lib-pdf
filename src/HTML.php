@@ -2450,6 +2450,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $height = 0.0;
         $rowheight = 0.0;
         $inrow = false;
+        $rowcount = 0;
+
+        // Resolve the table-level cellpadding/cellspacing defaults the renderer
+        // would apply at runtime (parseHTMLTagOPENtable / parseHTMLTagOPENtd).
+        // The standalone thead DOM does not run those handlers, so the cell
+        // padding default from the <table cellpadding="..."> attribute would
+        // otherwise be lost, causing the estimated header height to be smaller
+        // than the actually rendered one.
+        $tablecellpadding = 0.0;
+        $tablecellspacing = 0.0;
+        foreach ($dom as $elm) {
+            if (
+                empty($elm['tag']) || empty($elm['opening']) || empty($elm['value'])
+                || !\is_string($elm['value'])
+                || (($elm['value'] !== 'table') && ($elm['value'] !== 'tablehead'))
+            ) {
+                continue;
+            }
+            $attr = (isset($elm['attribute']) && \is_array($elm['attribute'])) ? $elm['attribute'] : [];
+            if (!empty($attr['cellpadding']) && \is_numeric($attr['cellpadding'])) {
+                $tablecellpadding = $this->toUnit($this->getUnitValuePoints((string) $attr['cellpadding']));
+            }
+            if (!empty($attr['cellspacing']) && \is_numeric($attr['cellspacing'])) {
+                $tablecellspacing = $this->toUnit($this->getUnitValuePoints((string) $attr['cellspacing']));
+            }
+            break;
+        }
 
         $savedDom = $hrc['dom'];
         $hrc['dom'] = $dom;
@@ -2466,9 +2493,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if ($inrow && $elm['opening'] && (($elm['value'] === 'td') || ($elm['value'] === 'th'))) {
+                $padT = (float) $elm['padding']['T'];
+                $padR = (float) $elm['padding']['R'];
+                $padB = (float) $elm['padding']['B'];
+                $padL = (float) $elm['padding']['L'];
+                if (
+                    ($tablecellpadding > 0.0)
+                    && ($padT === 0.0) && ($padR === 0.0)
+                    && ($padB === 0.0) && ($padL === 0.0)
+                ) {
+                    $padT = $tablecellpadding;
+                    $padB = $tablecellpadding;
+                }
                 $cellh = $this->getHTMLLineAdvance($hrc, $key)
-                    + (float) $elm['padding']['T']
-                    + (float) $elm['padding']['B']
+                    + $padT
+                    + $padB
                     + (float) $elm['margin']['T']
                     + (float) $elm['margin']['B'];
                 if (!empty($elm['height']) && \is_numeric($elm['height'])) {
@@ -2483,7 +2522,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $curfont = $this->font->getCurrentFont();
                     $rowheight = $this->toUnit((float) $curfont['height']);
                 }
-                $height += $rowheight;
+                // Each closed row advances the cursor by rowheight + cellspacing
+                // (parseHTMLTagCLOSEtr); the table opening also advances by one
+                // cellspacing (parseHTMLTagOPENtable).
+                $height += $rowheight + $tablecellspacing;
+                if ($rowcount === 0) {
+                    $height += $tablecellspacing;
+                }
+                ++$rowcount;
                 $rowheight = 0.0;
                 $inrow = false;
             }
