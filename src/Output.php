@@ -2599,7 +2599,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (
             \is_string($action)
             && ($action !== '')
-            && ((! $this->pdfx && ($this->pdfuaMode === '')) || ! \str_contains($action, '/JavaScript'))
+            && (! $this->pdfx)
+            && (($this->pdfuaMode === '') || ! \str_contains($action, '/JavaScript'))
         ) {
             $out .= ' /A << ' . $action . ' >>';
         }
@@ -2608,7 +2609,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (
             \is_string($additionalAction)
             && ($additionalAction !== '')
-            && ((! $this->pdfx && ($this->pdfuaMode === '')) || ! \str_contains($additionalAction, '/JavaScript'))
+            && (! $this->pdfx)
+            && (($this->pdfuaMode === '') || ! \str_contains($additionalAction, '/JavaScript'))
         ) {
             $out .= ' /AA << ' . $additionalAction . ' >>';
         }

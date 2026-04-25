@@ -837,6 +837,26 @@ PHP;
         $this->assertStringNotContainsString(' /AA << /E << /S /JavaScript', $out);
     }
 
+    public function testGetOutAnnotationOptSubtypeWidgetOmitsNonJavascriptActionsInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $annot = [
+            'txt' => 'field-choice',
+            'opt' => [
+                'a' => '/S /ResetForm',
+                'aa' => '/E << /S /URI /URI (https://example.test) >>',
+                'h' => 'T',
+                'ff' => 5,
+            ],
+        ];
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeWidget($annot, 31);
+
+        $this->assertStringNotContainsString(' /A << /S /ResetForm >>', $out);
+        $this->assertStringNotContainsString(' /AA << /E << /S /URI /URI', $out);
+    }
+
     public function testGetOutAnnotationOptSubtypeDispatcherRoutesKnownAndUnknownSubtypes(): void
     {
         $obj = $this->getInternalTestObject();
