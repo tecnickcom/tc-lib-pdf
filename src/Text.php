@@ -496,7 +496,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 ) . $out;
             }
 
-            $this->page->addContent($out, $pid);
+            $this->page->addContent($this->tagPdfUaTextContent($out, $pid), $pid);
 
             if ($lastblock) {
                 return;
@@ -519,6 +519,27 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $this->setPageContext($pid);
             }
         }
+    }
+
+    /**
+     * Wrap a semantic text block with a PDF/UA marked-content sequence using an auto-incrementing MCID.
+     */
+    protected function tagPdfUaTextContent(string $content, int $pid): string
+    {
+        if ($this->pdfuaMode === '') {
+            return $content;
+        }
+
+        $mcid = $this->pdfuapagemcid[$pid] ?? 0;
+        $open = '/P <</MCID ' . $mcid . '>> BDC' . "\n";
+        $close = 'EMC' . "\n";
+        $wrapped = \preg_replace('/BT .*? ET\n/s', $open . '$0' . $close, $content, 1, $count);
+        if (($wrapped === null) || ($count !== 1)) {
+            return $content;
+        }
+
+        $this->pdfuapagemcid[$pid] = $mcid + 1;
+        return $wrapped;
     }
 
     /**

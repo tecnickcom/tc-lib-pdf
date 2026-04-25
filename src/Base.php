@@ -402,6 +402,13 @@ abstract class Base
     protected string $pdfuaMode = '';
 
     /**
+     * Count of MCID-tagged content blocks per page (keyed by page PID) for PDF/UA output.
+     *
+     * @var array<int, int>
+     */
+    protected array $pdfuapagemcid = [];
+
+    /**
      * True if the document is signed.
      */
     protected bool $sign = false;

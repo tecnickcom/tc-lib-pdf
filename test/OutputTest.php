@@ -883,8 +883,9 @@ PHP;
     public function testGetOutPDFBodyIncludesStructTreeRootInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
-        $this->initFontAndPage($obj);
+        $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->addTextCell('Tagged PDF/UA text', $page['pid'], 10, 10, 60, 10);
 
         $out = $obj->exposeGetOutPDFBody();
 
@@ -905,14 +906,31 @@ PHP;
     public function testGetOutPDFBodyWrapsFirstPageContentInMarkedContentForPdfuaMode(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
-        $this->initFontAndPage($obj);
+        $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->addTextCell('Tagged PDF/UA text', $page['pid'], 10, 10, 60, 10);
 
         $out = $obj->exposeGetOutPDFBody();
 
         $this->assertStringContainsString('/P <</MCID 0>> BDC', $out);
         $this->assertStringContainsString('EMC', $out);
         $this->assertStringContainsString('/Type /MCR', $out);
+    }
+
+    public function testGetOutPDFBodyIncludesMultipleMcidsForMultipleTextCellsInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->addTextCell('First PDF/UA text block', $page['pid'], 10, 10, 60, 10);
+        $obj->addTextCell('Second PDF/UA text block', $page['pid'], 10, 20, 60, 10);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/MCID 0', $out);
+        $this->assertStringContainsString('/MCID 1', $out);
+        $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/P.*\/MCID 0/s', $out);
+        $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/P.*\/MCID 1/s', $out);
     }
 
     public function testGetOutCatalogIncludesRequiredEntries(): void
@@ -1848,7 +1866,7 @@ PHP;
         $this->setObjectProperty($obj, 'parenttreeoid', 12);
         $this->setObjectProperty($obj, 'structtreerootoid', 34);
         $this->setObjectProperty($obj, 'pagestructparents', [9 => 0]);
-        $this->setObjectProperty($obj, 'pagestructmcids', [9 => [21]]);
+        $this->setObjectProperty($obj, 'pagestructmcids', [9 => 1]);
 
         $method = new \ReflectionMethod($obj, 'getOutStructTreeRoot');
         $method->setAccessible(true);
