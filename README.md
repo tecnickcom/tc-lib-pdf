@@ -87,7 +87,9 @@ Because it is part of the broader `tc-lib-*` ecosystem, `tc-lib-pdf` can coordin
   - each feature (OCSP, CRL, cert embedding, DSS, VRI) can be enabled independently via `setSignature()` LTV options
 - **PDF annotations**: links, text notes, file attachments, markup, shapes, media, and widgets
 - **JavaScript** embedding
-- **PDF/A** (1/2/3, including a/b/u conformance levels) and **PDF/X** support
+- **PDF/A** (1/2/3, including a/b/u conformance levels) — see [Factur-X / ZUGFeRD](#other) below
+- **PDF/X** (generic alias, PDF/X-1a, PDF/X-3, PDF/X-4, PDF/X-5) — print-exchange conformance: per-variant OutputIntent identifiers, GTS_PDFXVersion in Info dict and XMP, PDF version enforcement, CMYK color forcing for restrictive profiles (X-1a, X-3), transparency restrictions, and suppression of encryption and JavaScript
+- **PDF/UA** (generic alias, PDF/UA-1, PDF/UA-2) — accessibility conformance: tagged structure tree (`StructTreeRoot` / `ParentTree`), `MarkInfo /Marked true`, document language (`/Lang`), `DisplayDocTitle true`, `ActualText` for ligatures and special glyphs, figure alt-text tagging, and heading-level clamping to prevent skipped levels; PDF/UA-2 targets PDF 2.0
 
 ### Other
 - **1D and 2D barcodes** via [`tc-lib-barcode`](https://github.com/tecnickcom/tc-lib-barcode)
@@ -152,7 +154,7 @@ $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);
 ```
 
-For more complete examples — including invoices, images, barcodes, and HTML tables — see the [examples](examples) directory.
+For more complete examples — including invoices, images, barcodes, HTML tables, PDF/X, and PDF/UA — see the [examples](examples) directory.
 
 To run the bundled examples locally:
 
@@ -241,6 +243,70 @@ openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
 # convert to PKCS#12 if needed
 openssl pkcs12 -export -in tcpdf.crt -inkey tcpdf.key -out tcpdf.p12
 ```
+
+---
+
+## PDF/X Conformance
+
+`tc-lib-pdf` supports multiple PDF/X profiles for print-exchange workflows. Pass the mode string as the fifth argument to the `Tcpdf` constructor:
+
+```php
+// Generic PDF/X alias (maps to the library's baseline print-exchange workflow)
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx');
+
+// Specific variants
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx1a'); // PDF/X-1a:2003
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');  // PDF/X-3:2003
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx4');  // PDF/X-4:2010
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx5');  // PDF/X-5g:2010
+```
+
+Each variant automatically applies the appropriate conformance constraints:
+
+| Mode | Min PDF version | Transparency | Process colors | GTS_PDFXVersion |
+|------|-----------------|--------------|----------------|-----------------|
+| `pdfx` / `pdfx3` | 1.3 | blocked | CMYK forced | PDF/X-3:2003 |
+| `pdfx1a` | 1.3 | blocked | CMYK forced | PDF/X-1a:2003 |
+| `pdfx4` | 1.6 | allowed | unrestricted | PDF/X-4:2010 |
+| `pdfx5` | 1.6 | allowed | unrestricted | PDF/X-5g:2010 |
+
+All PDF/X modes suppress encryption and JavaScript (not permitted by the ISO 15930 standard).
+
+Runnable examples: [examples/010_example_pdfx.php](examples/010_example_pdfx.php) through [examples/014_example_pdfx5.php](examples/014_example_pdfx5.php).
+
+---
+
+## PDF/UA Accessibility
+
+`tc-lib-pdf` supports tagged PDF output conforming to PDF/UA (ISO 14289). Pass the mode string as the fifth argument to the `Tcpdf` constructor:
+
+```php
+// Generic PDF/UA alias
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfua');
+
+// Specific parts
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfua1'); // PDF/UA-1 (PDF 1.7)
+$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfua2'); // PDF/UA-2 (PDF 2.0)
+```
+
+When a PDF/UA mode is active the library automatically:
+
+- Writes a `StructTreeRoot` with a `ParentTree` that maps every page to its tagged content blocks
+- Emits `MarkInfo << /Marked true >>` in the document catalog
+- Sets `/Lang` (defaults to `en-US` when not explicitly provided)
+- Forces `ViewerPreferences /DisplayDocTitle true`
+- Maps HTML heading elements (`h1`–`h6`) to PDF structure roles `H1`–`H6` with level-clamping to prevent skipped heading levels
+- Tags text content with MCIDs and wraps each run in the appropriate structure element (`P`, `H1`–`H6`, `Link`, etc.)
+- Tags `<img>` elements as `Figure` with their `alt` attribute written as `/Alt` in the structure element
+- Emits `ActualText` entries for ligatures and special glyphs so text extraction and screen readers work correctly
+
+To provide the document language explicitly:
+
+```php
+$pdf->setDocInfo(['a_meta_language' => 'de-DE']);
+```
+
+Runnable examples: [examples/015_example_pdfua.php](examples/015_example_pdfua.php) through [examples/017_example_pdfua2.php](examples/017_example_pdfua2.php).
 
 ---
 
