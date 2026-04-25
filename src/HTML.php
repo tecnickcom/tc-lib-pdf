@@ -4881,17 +4881,44 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                         $requiredh = $this->estimateHTMLTableRowHeight($hrc, $key);
 
-                        $appendFragment(
-                            $this->breakHTMLIfNeeded(
-                                $hrc,
-                                $requiredh,
-                                $tpx,
-                                $tpy,
-                                $tpw,
-                                $tph,
-                                $theadhtml,
-                            )
+                        // If a page break is about to happen for this row, flush
+                        // any open block-level buffers (e.g. <table border>) onto
+                        // the current page before the break, so previously
+                        // rendered rows are committed to the right page rather
+                        // than carried over via the buffer to the next page.
+                        $region = $this->page->getRegion();
+                        $regiontop = (float) $region['RY'];
+                        $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
+                        $willBreak = ($requiredh > 0.0)
+                            && ($requiredh > ($remaining + self::WIDTH_TOLERANCE))
+                            && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+
+                        if ($willBreak && !empty($hrc['blockbuf'])) {
+                            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                            if ($flush !== '') {
+                                $appendFragment($flush);
+                            }
+                        }
+
+                        $breakout = $this->breakHTMLIfNeeded(
+                            $hrc,
+                            $requiredh,
+                            $tpx,
+                            $tpy,
+                            $tpw,
+                            $tph,
+                            $theadhtml,
                         );
+
+                        if ($willBreak && !empty($hrc['blockbuf'])) {
+                            foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+                                /** @var THTMLBlockBuf $blkEntry */
+                                $blkEntry['by'] = $tpy;
+                                $hrc['blockbuf'][$bidx] = $blkEntry;
+                            }
+                        }
+
+                        $appendFragment($breakout);
                     }
 
                     if (!empty($elm['attribute']['id']) && \is_string($elm['attribute']['id'])) {
