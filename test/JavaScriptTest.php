@@ -452,6 +452,33 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('Link', $ann[$oid]['opt']['subtype']);
     }
 
+    public function testSetAnnotationInteractiveSubtypesAreSuppressedInPdfxMode(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        $file = (string) \realpath(__DIR__ . '/../README.md');
+        $this->assertNotSame('', $file);
+
+        $subtypes = ['screen', 'movie', 'sound', 'fileattachment', '3d'];
+        foreach ($subtypes as $subtype) {
+            $opt = ['subtype' => $subtype];
+            if ($subtype === 'fileattachment' || $subtype === 'sound') {
+                $opt['fs'] = $file;
+            }
+            $oid = $obj->setAnnotation(1, 2, 10, 4, 'blocked', $opt);
+            $this->assertSame(0, $oid);
+        }
+
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertSame([], $ann);
+
+        /** @var array<string, mixed> $embeddedfiles */
+        $embeddedfiles = $this->getObjectProperty($obj, 'embeddedfiles');
+        $this->assertSame([], $embeddedfiles);
+    }
+
     public function testAddFFButtonCreatesButtonWidgetWithAction(): void
     {
         $obj = $this->getTestObject();

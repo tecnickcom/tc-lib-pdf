@@ -50,6 +50,20 @@ use Com\Tecnick\Pdf\Exception as PdfException;
 abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
 {
     /**
+     * Interactive annotation subtypes disallowed in PDF/X mode.
+     *
+     * @var array<int, string>
+     */
+    protected const PDFX_BLOCKED_ANNOT_SUBTYPES = [
+        'widget',
+        'screen',
+        'movie',
+        'sound',
+        'fileattachment',
+        '3d',
+    ];
+
+    /**
      * Fonts used in annotations.
      *
      * @var array<string, int>
@@ -723,8 +737,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $opt['subtype'] = 'text';
         }
 
-        // PDF/X interaction restriction: do not emit form widget annotations.
-        if ($this->pdfx && (\strtolower((string) $opt['subtype']) === 'widget')) {
+        $subtype = \strtolower((string) $opt['subtype']);
+
+        // PDF/X interaction restriction: suppress interactive annotation subtypes.
+        if ($this->pdfx && \in_array($subtype, self::PDFX_BLOCKED_ANNOT_SUBTYPES, true)) {
             return 0;
         }
 
@@ -752,7 +768,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             'txt' => $txt,
             'opt' => $opt,
         ];
-        switch (\strtolower($opt['subtype'])) {
+        switch ($subtype) {
             case 'fileattachment':
             case 'sound':
                 $this->addEmbeddedFile($opt['fs']);
