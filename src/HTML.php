@@ -2581,8 +2581,39 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 0.0;
         }
 
+        // Fetch parent-table per-column widths and cellpadding fallback so we can
+        // measure the wrapped text height inside each cell, mirroring what the
+        // renderer will actually produce. Without this the estimate uses a single
+        // line advance and misses multi-line cell content, leading to late page
+        // breaks where the last row spills below the page bottom (see example 018).
+        $tableColWidths = [];
+        $tableCellPad = 0.0;
+        $parentTableKey = isset($dom[$trkey]['parent']) && \is_int($dom[$trkey]['parent'])
+            ? $dom[$trkey]['parent'] : 0;
+        if (
+            $parentTableKey > 0
+            && isset($dom[$parentTableKey])
+            && !empty($dom[$parentTableKey]['tag'])
+            && \is_string($dom[$parentTableKey]['value'])
+            && \in_array($dom[$parentTableKey]['value'], ['table', 'tablehead'], true)
+        ) {
+            if (
+                isset($dom[$parentTableKey]['pendingcolwidths'])
+                && \is_array($dom[$parentTableKey]['pendingcolwidths'])
+            ) {
+                $tableColWidths = $dom[$parentTableKey]['pendingcolwidths'];
+            }
+            if (
+                isset($dom[$parentTableKey]['pendingcellpadding'])
+                && \is_numeric($dom[$parentTableKey]['pendingcellpadding'])
+            ) {
+                $tableCellPad = (float) $dom[$parentTableKey]['pendingcellpadding'];
+            }
+        }
+
         $rowheight = 0.0;
         $depth = 0;
+        $colidx = -1;
         $numel = \count($dom);
         for ($key = $trkey + 1; $key < $numel; ++$key) {
             $elm = $dom[$key];
@@ -2612,9 +2643,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            $cellh = $this->getHTMLLineAdvance($hrc, $key)
-                + (float) $elm['padding']['T']
-                + (float) $elm['padding']['B']
+            ++$colidx;
+
+            // Determine the cell's content area width for line-wrap measurement.
+            $padL = (float) $elm['padding']['L'];
+            $padR = (float) $elm['padding']['R'];
+            $padT = (float) $elm['padding']['T'];
+            $padB = (float) $elm['padding']['B'];
+            if (($padL <= 0.0) && ($padR <= 0.0) && ($padT <= 0.0) && ($padB <= 0.0)) {
+                // Apply the table's cellpadding HTML attribute fallback when no
+                // explicit CSS/per-cell padding was set, mirroring parseHTMLTagOPENtd.
+                $padL = $padR = $padT = $padB = $tableCellPad;
+            }
+
+            $colwidth = (isset($tableColWidths[$colidx]) && \is_numeric($tableColWidths[$colidx]))
+                ? (float) $tableColWidths[$colidx] : 0.0;
+            $contentWidth = \max(0.0, $colwidth - $padL - $padR);
+
+            $cellInner = $this->estimateHTMLCellContentHeight($hrc, $key, $contentWidth);
+            $cellh = $cellInner
+                + $padT
+                + $padB
                 + (float) $elm['margin']['T']
                 + (float) $elm['margin']['B'];
             if (!empty($elm['height']) && \is_numeric($elm['height'])) {
@@ -2630,6 +2679,76 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $rowheight;
+    }
+
+    /**
+     * Estimate the height of a single TD/TH cell's inner content for the given
+     * content-area width (already net of padding). Walks inline text fragments
+     * and common inline tags to measure wrapped line count.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function estimateHTMLCellContentHeight(array &$hrc, int $cellkey, float $width): float
+    {
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = &$hrc['dom'];
+
+        if (empty($dom[$cellkey]) || empty($dom[$cellkey]['tag']) || empty($dom[$cellkey]['opening'])) {
+            return 0.0;
+        }
+
+        $endkey = $this->findHTMLClosingTagIndex($dom, $cellkey);
+        if ($endkey <= $cellkey) {
+            return $this->getHTMLLineAdvance($hrc, $cellkey);
+        }
+
+        $lineadvance = $this->getHTMLLineAdvance($hrc, $cellkey);
+        $height = 0.0;
+
+        for ($key = ($cellkey + 1); $key < $endkey; ++$key) {
+            $elm = $dom[$key];
+
+            if (empty($elm['tag'])) {
+                $text = (string) $elm['value'];
+                if ($text === '') {
+                    continue;
+                }
+
+                $height += $this->estimateHTMLTextHeight($hrc, $key, $text, $width);
+                continue;
+            }
+
+            if (!empty($elm['opening'])) {
+                if ($elm['value'] === 'br') {
+                    $height += $lineadvance;
+                    continue;
+                }
+
+                if ($elm['value'] === 'img') {
+                    $height += (!empty($elm['height']) && \is_numeric($elm['height']))
+                        ? (float) $elm['height']
+                        : $lineadvance;
+                    continue;
+                }
+
+                if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
+                    $height += (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
+                }
+
+                continue;
+            }
+
+            // Closing tag.
+            if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
+                $height += (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
+            }
+        }
+
+        if ($height <= 0.0) {
+            $height = $lineadvance;
+        }
+
+        return $height;
     }
 
     /**
