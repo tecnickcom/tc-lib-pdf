@@ -2358,6 +2358,40 @@ PHP;
         $this->assertStringNotContainsString('/Contents ', $out);
     }
 
+    public function testGetOutAnnotationsLinkAnnotationIncludesContentsInPdfuaMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+            $pageInfo = $this->initFontAndPage($obj);
+            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+            $pageObj = $this->getObjectProperty($obj, 'page');
+            /** @var array<int, array<string, mixed>> $pgdata */
+            $pgdata = $this->getObjectProperty($pageObj, 'page');
+            $pgdata[$pageInfo['pid']]['n'] = 5;
+                $pgdata[$pageInfo['pid']]['num'] = 1;
+            $this->setObjectProperty($pageObj, 'page', $pgdata);
+
+        $aoid = $obj->setAnnotation(10.0, 20.0, 50.0, 10.0, 'https://example.com', ['subtype' => 'Link']);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addAnnotRef($aoid);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $out = $obj->exposeGetOutAnnotations();
+
+        $this->assertStringContainsString('/Subtype /Link', $out);
+        $this->assertStringContainsString('/Contents ', $out);
+    }
+
     public function testGetOutAnnotationsWithFormFieldAnnotation(): void
     {
         $obj = $this->getInternalTestObject();

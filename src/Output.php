@@ -1515,7 +1515,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $out .= ' /FT /' . $annot['opt']['ft']; // @phpstan-ignore-line
                 }
 
-                if ($annot['opt']['subtype'] !== 'Link') {
+                if ($annot['opt']['subtype'] !== 'Link' || $this->pdfuaMode !== '') {
                     $out .= ' /Contents ' . $this->getOutTextString($annot['txt'], $oid, true);
                 }
 
