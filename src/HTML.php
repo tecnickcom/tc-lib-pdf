@@ -3735,10 +3735,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $role = $this->getHTMLStructRole($elm);
         if ($role !== '') {
+            if ($this->pdfuaMode !== '') {
+                $role = $this->pdfuaClampHeadingRole($role);
+            }
             $this->beginStructElem($role, $this->page->getPageId());
         }
 
         return '';
+    }
+
+    /**
+     * Clamp a heading structure role (H1-H6) to prevent skipped levels in PDF/UA mode.
+     * Going back to a higher level (e.g. H3 then H1) is always allowed.
+     * Going down more than one step (e.g. H1 then H3) clamps to the next sequential level.
+     * Non-heading roles are returned unchanged.
+     */
+    protected function pdfuaClampHeadingRole(string $role): string
+    {
+        if (\preg_match('/^H([1-6])$/', $role, $mtch) !== 1) {
+            return $role;
+        }
+        $requested = (int) $mtch[1];
+        $clamped = ($requested > $this->pdfuaHeadingLevel + 1) ? $this->pdfuaHeadingLevel + 1 : $requested;
+        $this->pdfuaHeadingLevel = $clamped;
+        return 'H' . $clamped;
     }
 
     /**

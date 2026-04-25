@@ -247,6 +247,11 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->closeHTMLBlock($this->testhrc, 0, $tpx, $tpy, $tpw);
     }
 
+    public function exposePdfuaClampHeadingRole(string $role): string
+    {
+        return $this->pdfuaClampHeadingRole($role);
+    }
+
     /**
      * @phpstan-param array<int, THTMLAttrib> $dom
      */

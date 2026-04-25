@@ -432,6 +432,12 @@ abstract class Base
     protected array $pdfuaStructLog = [];
 
     /**
+     * Tracks the last emitted heading level (1-6) for PDF/UA heading-nesting validation.
+     * 0 means no heading has been emitted yet in the current document.
+     */
+    protected int $pdfuaHeadingLevel = 0;
+
+    /**
      * True if the document is signed.
      */
     protected bool $sign = false;
