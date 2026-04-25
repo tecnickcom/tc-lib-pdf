@@ -3027,6 +3027,35 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * After a page break occurs while one or more HTML tables are open,
+     * reset each open table's per-page top references (`originy`, `rowtop`)
+     * to the new region top. Without this, the closing `</table>` would draw
+     * the outer frame using the previous page's top, leaving a stale narrow
+     * rectangle on the new page.
+     *
+     * Any in-progress rowspan cells reference the previous page's `rowtop`
+     * and would render incorrectly across the break, so they are dropped.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function resetHTMLTableStackOnPageBreak(array &$hrc, float $tpy): void
+    {
+        if (empty($hrc['tablestack'])) {
+            return;
+        }
+
+        foreach ($hrc['tablestack'] as $tidx => $table) {
+            $cellspacing = (float) $table['cellspacing'];
+            $table['originy'] = $tpy;
+            $table['rowtop'] = $tpy + $cellspacing;
+            $table['rowheight'] = 0.0;
+            $table['cells'] = [];
+            $table['rowspans'] = [];
+            $hrc['tablestack'][$tidx] = $table;
+        }
+    }
+
+    /**
      * Push a new active HTML link.
         *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -5083,6 +5112,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             }
                         }
 
+                        if ($willBreak && !empty($hrc['tablestack'])) {
+                            $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                        }
+
                         $appendFragment($breakout);
                     }
 
@@ -5740,6 +5773,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
 
+            if ($willBreak && !empty($hrc['tablestack'])) {
+                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+            }
+
             $breakoutPrefix = $breakout;
         }
 
@@ -5864,6 +5901,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                     $blkEntry2['by'] = $tpy;
                                     $hrc['blockbuf'][$bidx2] = $blkEntry2;
                                 }
+                            }
+
+                            if (!empty($hrc['tablestack'])) {
+                                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
                             }
 
                             $hrc['dom'][$key]['value'] = $tail;
