@@ -182,6 +182,22 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             return $this;
         }
 
+        // PDF/X-1a and PDF/X-3 require a minimum of PDF 1.3.
+        // PDF/X-4 and PDF/X-5 require a minimum of PDF 1.6.
+        if ($this->pdfx) {
+            $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
+            if ($isvalid !== 1) {
+                throw new PdfException('Invalid PDF version format');
+            }
+
+            $minVersion = match ($this->pdfxMode) {
+                'pdfx4', 'pdfx5' => '1.6',
+                default => '1.3',
+            };
+            $this->pdfver = \version_compare($version, $minVersion, '<') ? $minVersion : $version;
+            return $this;
+        }
+
         $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
         if ($isvalid !== 1) {
             throw new PdfException('Invalid PDF version format');
@@ -189,6 +205,21 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
 
         $this->pdfver = $version;
         return $this;
+    }
+
+    /**
+     * Returns the canonical GTS_PDFXVersion string for the active PDF/X variant.
+     * Used in both the Info dictionary and XMP metadata.
+     */
+    protected function getGtsPdfxVersionString(): string
+    {
+        return match ($this->pdfxMode) {
+            'pdfx1a' => 'PDF/X-1a:2003',
+            'pdfx3'  => 'PDF/X-3:2003',
+            'pdfx4'  => 'PDF/X-4:2010',
+            'pdfx5'  => 'PDF/X-5g:2010',
+            default  => 'PDF/X-3:2003',
+        };
     }
 
     /**
@@ -275,6 +306,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
         . ' /CreationDate ' . $this->getOutDateTimeString($this->doctime, $oid)
         . ' /ModDate ' . $this->getOutDateTimeString($this->docmodtime, $oid)
         . ' /Trapped /False'
+        . ($this->pdfx ? ' /GTS_PDFXVersion ' . $this->getOutTextString($this->getGtsPdfxVersionString(), $oid, true) : '')
         . ' >>' . "\n"
         . 'endobj' . "\n";
     }
@@ -384,6 +416,12 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
 
             $xmp .= "\t\t" . '<rdf:Description rdf:about="" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">' . "\n"
                 . "\t\t\t" . '<pdfuaid:part>' . $part . '</pdfuaid:part>' . "\n"
+                . "\t\t" . '</rdf:Description>' . "\n";
+        }
+
+        if ($this->pdfx) {
+            $xmp .= "\t\t" . '<rdf:Description rdf:about="" xmlns:pdfxid="http://www.npes.org/pdfx/ns/id/">' . "\n"
+                . "\t\t\t" . '<pdfxid:GTS_PDFXVersion>' . $this->getGtsPdfxVersionString() . '</pdfxid:GTS_PDFXVersion>' . "\n"
                 . "\t\t" . '</rdf:Description>' . "\n";
         }
 
