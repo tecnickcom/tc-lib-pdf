@@ -2013,11 +2013,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         $out .= \sprintf(' /Dest [%u 0 R /XYZ 0 %F null]', $page['n'], $y);
                     break;
                 case '%': // embedded PDF file
-                    $filename = \basename(\substr($annot['txt'], 1));
-                    $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P ' . ($pagenum - 1)
-                        . ' /A ' . $this->embeddedfiles[$filename]['a']
-                        . ' >>'
-                        . ' >>';
+                    if (! $this->pdfx) {
+                        $filename = \basename(\substr($annot['txt'], 1));
+                        $out .= ' /A << /S /GoToE /D [0 /Fit] /NewWindow true /T << /R /C /P ' . ($pagenum - 1)
+                            . ' /A ' . $this->embeddedfiles[$filename]['a']
+                            . ' >>'
+                            . ' >>';
+                    }
                     break;
                 case '*': // embedded generic file
                     $filename = \basename(\substr($annot['txt'], 1));
@@ -2044,11 +2046,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                             $dest = '(' . ((\count($tmp) == 2) ? $tmp[1] : $tmp[0]) . ')';
                         }
 
-                        $out .= ' /A << /S /GoToR /D ' . $dest
-                            . ' /F '
-                            . $this->encrypt->escapeDataString($this->unhtmlentities($parsedUrl['path']), $oid)
-                            . ' /NewWindow true'
-                            . ' >>';
+                        if (! $this->pdfx) {
+                            $out .= ' /A << /S /GoToR /D ' . $dest
+                                . ' /F '
+                                . $this->encrypt->escapeDataString($this->unhtmlentities($parsedUrl['path']), $oid)
+                                . ' /NewWindow true'
+                                . ' >>';
+                        }
                     } else {
                         // external URI link
                         $out .= ' /A << /S /URI /URI '

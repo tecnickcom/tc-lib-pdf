@@ -640,6 +640,34 @@ PHP;
         $this->assertStringContainsString(' /H /I', $embeddedFile);
     }
 
+    public function testGetOutAnnotationOptSubtypeLinkSuppressesGotoeAndGotorInPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'sample.pdf' => ['a' => 4],
+        ]);
+
+        $namedDest = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '#dest-1', 'opt' => ['h' => 'N']], 2, 10);
+        $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'https://example.com', 'opt' => []], 2, 11);
+        $embeddedPdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '%sample.pdf', 'opt' => []], 2, 12);
+        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []], 2, 13);
+
+        $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
+        $this->assertStringContainsString(' /H /N', $namedDest);
+
+        $this->assertStringContainsString(' /S /URI /URI ', $externalUri);
+        $this->assertStringContainsString(' /H /I', $externalUri);
+
+        $this->assertStringNotContainsString(' /S /GoToE', $embeddedPdf);
+        $this->assertStringNotContainsString(' /A <<', $embeddedPdf);
+        $this->assertStringContainsString(' /H /I', $embeddedPdf);
+
+        $this->assertStringNotContainsString(' /S /GoToR', $relativePdf);
+        $this->assertStringNotContainsString(' /A <<', $relativePdf);
+        $this->assertStringContainsString(' /H /I', $relativePdf);
+    }
+
     public function testGetOutAnnotationOptSubtypeFreetextFormatsKnownOptions(): void
     {
         $obj = $this->getInternalTestObject();
