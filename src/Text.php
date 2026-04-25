@@ -93,6 +93,24 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected const ORD_ZERO_WIDTH_SPACE = 0x200B;
 
     /**
+     * Unicode ligature codepoints that require /ActualText in PDF/UA mode,
+     * mapped to their decomposed UTF-8 text equivalents.
+     *
+     * @var array<int, string>
+     */
+    protected const LIGATURE_MAP = [
+        0xFB00 => 'ff',
+        0xFB01 => 'fi',
+        0xFB02 => 'fl',
+        0xFB03 => 'ffi',
+        0xFB04 => 'ffl',
+        0xFB05 => 'st',
+        0xFB06 => 'st',
+        0x0132 => 'IJ',
+        0x0133 => 'ij',
+    ];
+
+    /**
      * The array of hyphenation patterns used for text processing.
      *
      * @var array<string, string> Array of hyphenation patterns.
@@ -369,6 +387,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $dim = self::DIM_DEFAULT;
         $this->prepareText($txt, $ordarr, $dim, $forcedir);
         $txt_pwidth = $dim['totwidth'];
+        $actualText = ($this->pdfuaMode !== '') ? $this->getActualTextForOrdarr($ordarr) : '';
 
         $curfont = $this->font->getCurrentFont();
         $fontascent = $this->toUnit($curfont['ascent']);
@@ -496,7 +515,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 ) . $out;
             }
 
-            $this->page->addContent($this->tagPdfUaTextContent($out, $pid), $pid);
+            $this->page->addContent($this->tagPdfUaTextContent($out, $pid, $actualText), $pid);
 
             if ($lastblock) {
                 return;
@@ -572,7 +591,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * /P element is auto-opened and auto-closed so that direct addTextCell() calls outside
      * HTML rendering are still properly tagged.
      */
-    protected function tagPdfUaTextContent(string $content, int $pid): string
+    protected function tagPdfUaTextContent(string $content, int $pid, string $actualText = ''): string
     {
         if ($this->pdfuaMode === '') {
             return $content;
@@ -581,7 +600,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $mcid = $this->pdfuapagemcid[$pid] ?? 0;
         $stackTop = ($this->pdfuaStructStack !== []) ? (\count($this->pdfuaStructStack) - 1) : -1;
         $role = ($stackTop >= 0) ? $this->pdfuaStructStack[$stackTop]['role'] : 'P';
-        $open = '/' . $role . ' <</MCID ' . $mcid . '>> BDC' . "\n";
+        $atEntry = '';
+        if ($actualText !== '') {
+            $atEntry = ' /ActualText ' . $this->formatPdfUaActualText($actualText);
+        }
+        $open = '/' . $role . ' <</MCID ' . $mcid . $atEntry . '>> BDC' . "\n";
         $close = 'EMC' . "\n";
         $wrapped = \preg_replace('/BT .*? ET\n/s', $open . '$0' . $close, $content, 1, $count);
         if (($wrapped === null) || ($count !== 1)) {
@@ -604,6 +627,39 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return $wrapped;
+    }
+
+    /**
+     * Return a PDF hex string representing the given UTF-8 text as UTF-16BE with BOM,
+     * suitable for use as /ActualText in a marked-content BDC property list.
+     */
+    protected function formatPdfUaActualText(string $txt): string
+    {
+        $utf16 = "\xFE\xFF" . $this->uniconv->toUTF16BE($txt);
+        return '<' . \bin2hex($utf16) . '>';
+    }
+
+    /**
+     * Inspect a codepoint array and return the Unicode-decomposed UTF-8 equivalent
+     * if any codepoints are known ligatures or multi-character glyphs that require
+     * /ActualText for PDF/UA §7.2 compliance.
+     * Returns an empty string if no ActualText is needed.
+     *
+     * @param array<int, int> $ordarr Array of Unicode codepoints.
+     */
+    protected function getActualTextForOrdarr(array $ordarr): string
+    {
+        $needsActual = false;
+        $result = '';
+        foreach ($ordarr as $cp) {
+            if (isset(self::LIGATURE_MAP[$cp])) {
+                $needsActual = true;
+                $result .= self::LIGATURE_MAP[$cp];
+            } else {
+                $result .= $this->uniconv->chr($cp);
+            }
+        }
+        return $needsActual ? $result : '';
     }
 
     /**

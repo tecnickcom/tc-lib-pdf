@@ -534,4 +534,20 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         /** @var array<int, int> $ords */
         return $ords;
     }
+
+    /** @phpstan-param array<int, int> $ordarr */
+    public function exposeGetActualTextForOrdarr(array $ordarr): string
+    {
+        return $this->getActualTextForOrdarr($ordarr);
+    }
+
+    public function exposeFormatPdfUaActualText(string $txt): string
+    {
+        return $this->formatPdfUaActualText($txt);
+    }
+
+    public function exposeTagPdfUaTextContent(string $content, int $pid, string $actualText = ''): string
+    {
+        return $this->tagPdfUaTextContent($content, $pid, $actualText);
+    }
 }
