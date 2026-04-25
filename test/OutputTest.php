@@ -685,6 +685,35 @@ PHP;
         $this->assertStringContainsString(' /H /I', $externalUri);
     }
 
+    #[DataProvider('pdfxModeProvider')]
+    public function testPdfxModeMatrixSuppressesInteractiveLinkActions(string $mode): void
+    {
+        $obj = new TestableOutput('mm', true, false, true, $mode);
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'sample.pdf' => ['a' => 4],
+        ]);
+
+        $namedDest = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '#dest-1', 'opt' => ['h' => 'N']], 2, 10);
+        $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'https://example.com', 'opt' => []], 2, 11);
+        $embeddedPdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => '%sample.pdf', 'opt' => []], 2, 12);
+        $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []], 2, 13);
+
+        $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
+        $this->assertStringContainsString(' /H /N', $namedDest);
+
+        $this->assertStringNotContainsString(' /S /URI', $externalUri);
+        $this->assertStringNotContainsString(' /A <<', $externalUri);
+        $this->assertStringContainsString(' /H /I', $externalUri);
+
+        $this->assertStringNotContainsString(' /S /GoToE', $embeddedPdf);
+        $this->assertStringNotContainsString(' /A <<', $embeddedPdf);
+        $this->assertStringContainsString(' /H /I', $embeddedPdf);
+
+        $this->assertStringNotContainsString(' /S /GoToR', $relativePdf);
+        $this->assertStringNotContainsString(' /A <<', $relativePdf);
+        $this->assertStringContainsString(' /H /I', $relativePdf);
+    }
+
     public function testGetOutAnnotationOptSubtypeFreetextFormatsKnownOptions(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2719,6 +2748,38 @@ PHP;
         $this->assertStringNotContainsString('/URI ', $out);
     }
 
+    #[DataProvider('pdfxModeProvider')]
+    public function testPdfxModeMatrixSuppressesInteractiveBookmarkActions(string $mode): void
+    {
+        $obj = new TestableOutput('mm', true, false, true, $mode);
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 7);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'manual.pdf' => [
+                'a' => 5,
+                'f' => 3,
+                'n' => 4,
+                'file' => '',
+                'content' => 'data',
+                'mimeType' => 'application/pdf',
+                'afRelationship' => 'Source',
+                'description' => 'Embedded PDF',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+
+        $obj->setBookmark('External Site', 'https://example.com/docs?a=1&b=2', 0, $page['pid']);
+        $obj->setBookmark('Embedded PDF', '%manual.pdf', 0, $page['pid']);
+
+        $out = $obj->exposeGetOutBookmarks();
+
+        $this->assertStringNotContainsString('/S /URI', $out);
+        $this->assertStringNotContainsString('/URI ', $out);
+        $this->assertStringNotContainsString('/S /GoToE', $out);
+    }
+
     public function testGetOutBookmarksWithNoUrlUsesPageDest(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2747,6 +2808,18 @@ PHP;
 
         $this->assertStringContainsString('/First ', $out);
         $this->assertStringContainsString('/Last ', $out);
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function pdfxModeProvider(): array
+    {
+        return [
+            'pdfx_alias' => ['pdfx'],
+            'pdfx1a' => ['pdfx1a'],
+            'pdfx3' => ['pdfx3'],
+            'pdfx4' => ['pdfx4'],
+            'pdfx5' => ['pdfx5'],
+        ];
     }
 
     public function testGetOutJavascriptWithAddFieldTriggersWrapper(): void
