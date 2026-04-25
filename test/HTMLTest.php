@@ -780,6 +780,27 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan($beforePages, $afterPages);
     }
 
+    public function testAddHTMLCellStyledBlockSpansMultiplePages(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>';
+        $html = '<div style="background-color:#ffeeaa;border:1px solid #000">'
+            . \str_repeat($chunk, 150)
+            . '</div>';
+
+        $obj->addHTMLCell($html, 20, 10, 150, 0);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertGreaterThan($beforePages, $afterPages);
+    }
+
     public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
     {
         $obj = $this->getTestObject();

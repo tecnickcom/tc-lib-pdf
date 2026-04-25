@@ -2809,6 +2809,59 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Render the partial styled rectangles for all currently-open block-level
+     * buffers up to the given vertical position, reset their accumulated
+     * content, and return the concatenated PDF code so the caller can emit it
+     * onto the current (about-to-end) page before triggering a page break.
+     *
+     * Buffers are rendered innermost-first so that nested blocks remain wrapped
+     * inside their outer block's rectangle, mirroring the behavior of
+     * closeHTMLBlock(). The caller is expected to update each remaining
+     * buffer's `by` to the new region top after the page break.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function flushOpenBlockBuffers(array &$hrc, float $tpy): string
+    {
+        if (empty($hrc['blockbuf'])) {
+            return '';
+        }
+
+        $rendered = '';
+        for ($i = \count($hrc['blockbuf']) - 1; $i >= 0; --$i) {
+            /** @var THTMLBlockBuf $blk */
+            $blk = $hrc['blockbuf'][$i];
+            $openkey = (int) $blk['openkey'];
+            $partialHeight = $tpy - (float) $blk['by'];
+            $content = (string) $blk['buffer'] . $rendered;
+            if (((float) $blk['bw'] > 0.0) && ($partialHeight > 0.0)) {
+                $bstyles = ($openkey >= 0)
+                    ? $this->getHTMLTableCellBorderStyles($hrc, $openkey)
+                    : [];
+                $fillstyle = ($openkey >= 0)
+                    ? $this->getHTMLTableCellFillStyle($hrc, $openkey)
+                    : null;
+                $rendered = $this->renderHTMLTableCell(
+                    (float) $blk['bx'],
+                    (float) $blk['by'],
+                    (float) $blk['bw'],
+                    $partialHeight,
+                    $bstyles,
+                    $fillstyle,
+                    $content,
+                );
+            } else {
+                $rendered = $content;
+            }
+
+            $blk['buffer'] = '';
+            $hrc['blockbuf'][$i] = $blk;
+        }
+
+        return $rendered;
+    }
+
+    /**
      * Push a new active HTML link.
         *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -5075,7 +5128,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             } else { // Text Content
                 $hrc['currentkey'] = $key;
-                $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph);
+                $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
                 $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
                 $capturedByBlock = false;
                 if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
@@ -5376,6 +5429,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float  $tpy  Ordinate of upper-left corner.
      * @param float  $tpw  Width.
      * @param float  $tph  Height.
+     * @param ?callable(string):void $appendFragment Optional sink used to
+     *        emit the partial flush of any open block-level buffers onto the
+     *        current page right before a region/page break, so block-level
+     *        backgrounds and borders continue across pages.
      *
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      *
@@ -5388,6 +5445,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpy,
         float &$tpw,
         float &$tph,
+        ?callable $appendFragment = null,
     ): string {
         if (($key < 0) || !isset($hrc['dom'][$key])) {
             return '';
@@ -5453,18 +5511,42 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
 
         // Generic page/region overflow guard for plain inline text flow.
-        // Skipped while a block-level buffer or a table cell is active so that
-        // block borders/backgrounds and table row pagination keep working.
-        // Also skipped when the cell has an explicit max height: the caller
-        // bounded the HTML box and content must stay within it.
+        // Skipped while a table cell is active so that table row pagination
+        // keeps working through its dedicated path. Also skipped when the
+        // cell has an explicit max height: the caller bounded the HTML box
+        // and content must stay within it.
+        // Block-level buffers (background/border) are split across pages by
+        // flushing the partial rectangle onto the current page before the
+        // break and updating each buffer's origin to the new region top.
         if (
-            empty($hrc['blockbuf'])
-            && empty($hrc['tablestack'])
+            empty($hrc['tablestack'])
             && empty($hrc['bcellctx'])
             && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
             && ($lineAdvance > 0.0)
         ) {
+            $region = $this->page->getRegion();
+            $regiontop = (float) $region['RY'];
+            $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
+            $willBreak = ($lineAdvance > ($remaining + self::WIDTH_TOLERANCE))
+                && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+
+            if ($willBreak && !empty($hrc['blockbuf']) && ($appendFragment !== null)) {
+                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                if ($flush !== '') {
+                    $appendFragment($flush);
+                }
+            }
+
             $breakout = $this->breakHTMLIfNeeded($hrc, $lineAdvance, $tpx, $tpy, $tpw, $tph);
+
+            if ($willBreak && !empty($hrc['blockbuf'])) {
+                foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+                    /** @var THTMLBlockBuf $blkEntry */
+                    $blkEntry['by'] = $tpy;
+                    $hrc['blockbuf'][$bidx] = $blkEntry;
+                }
+            }
+
             if ($breakout !== '') {
                 $out = $breakout . $out;
             }
