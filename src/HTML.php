@@ -7021,11 +7021,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
-        unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
             return $out;
+        }
+
+        // Break to the next page region if a single line of this list item
+        // does not fit in the remaining height. Otherwise the bullet marker
+        // would be drawn at the bottom of the current page while the inline
+        // content (rendered later) page-breaks, leaving an orphaned marker.
+        if (
+            empty($hrc['tablestack'])
+            && empty($hrc['bcellctx'])
+            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+        ) {
+            $liLineAdvance = $this->getHTMLLineAdvance($hrc, $key);
+            if ($liLineAdvance > 0.0) {
+                $out .= $this->breakHTMLIfNeeded($hrc, $liLineAdvance, $tpx, $tpy, $tpw, $tph);
+            }
         }
 
         $font = $this->getHTMLFontMetric($hrc, $key);
