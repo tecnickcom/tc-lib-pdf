@@ -5557,6 +5557,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $currentkey = $key;
         $hrc['currentkey'] = $currentkey;
 
+        $breakoutPrefix = '';
         $out = $this->getHTMLTextPrefix($hrc, $currentkey);
 
         $curfont = $this->font->getCurrentFont();
@@ -5620,10 +5621,156 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
 
-            if ($breakout !== '') {
-                $out = $breakout . $out;
+            $breakoutPrefix = $breakout;
+        }
+
+        // Multi-line vertical fit guard: when a wrappable fragment will produce
+        // more wrapped lines than fit in the remaining region height, render
+        // only the lines that fit, page-break, then process the remainder
+        // recursively on the new page region.
+        if (
+            empty($hrc['tablestack'])
+            && empty($hrc['bcellctx'])
+            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+            && ($lineAdvance > 0.0)
+            && $this->hasHTMLTextBreakOpportunity($text)
+        ) {
+            $regionMV = $this->page->getRegion();
+            $regiontopMV = (float) $regionMV['RY'];
+            $remainingMV = $this->getHTMLRemainingHeight($hrc, $tpy);
+            $maxFitLines = (int) \floor(($remainingMV + self::WIDTH_TOLERANCE) / $lineAdvance);
+            if ($maxFitLines < 1) {
+                $maxFitLines = 1;
+            }
+
+            $lineOffsetMV = (float) ($tpx - $hrc['cellctx']['originx']);
+            if ($lineOffsetMV < 0.0) {
+                $lineOffsetMV = 0.0;
+            }
+
+            $availableWidthMV = ($hrc['cellctx']['maxwidth'] > 0)
+                ? (float) $hrc['cellctx']['maxwidth']
+                : (float) $tpw;
+            if ($availableWidthMV <= 0.0) {
+                $availableWidthMV = (float) $tpw;
+            }
+
+            if ($availableWidthMV > 0.0) {
+                $probeText = $text;
+                $probeOrd = [];
+                $probeDim = self::DIM_DEFAULT;
+                $this->prepareText($probeText, $probeOrd, $probeDim, $forcedir);
+                $probeLines = $this->splitLines(
+                    $probeOrd,
+                    $probeDim,
+                    $this->toPoints($availableWidthMV),
+                    $this->toPoints(\min($lineOffsetMV, $availableWidthMV)),
+                );
+                $probeCount = \count($probeLines);
+
+                if (
+                    ($probeCount > $maxFitLines)
+                    && ($tpy > ($regiontopMV + self::WIDTH_TOLERANCE))
+                ) {
+                    $cut = 0;
+                    for ($i = 0; $i < $maxFitLines; ++$i) {
+                        $cut = (int) $probeLines[$i]['pos'] + (int) $probeLines[$i]['chars'];
+                    }
+                    $probeLen = \mb_strlen($probeText);
+                    if (($cut > 0) && ($cut < $probeLen)) {
+                        $head = \mb_substr($probeText, 0, $cut);
+                        $tail = \mb_substr($probeText, $cut);
+                        if ($hrc['prelevel'] <= 0) {
+                            $tail = \ltrim($tail);
+                        }
+
+                        if (($head !== '') && ($tail !== '')) {
+                            $origValue = $hrc['dom'][$key]['value'];
+                            $hrc['dom'][$key]['value'] = $head;
+                            $headOut = $this->parseHTMLText(
+                                $hrc,
+                                $key,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                                $appendFragment,
+                            );
+
+                            // The HEAD portion belongs to the current (about-to-end)
+                            // page and must be dispatched before the page break, using
+                            // the same routing the caller applies to fragments
+                            // (table-cell capture, block-level buffer, or direct page
+                            // append). Mirroring this dispatch here ensures the head
+                            // bytes are emitted on the correct page and not carried
+                            // over to the new page along with the tail.
+                            $headDispatch = $breakoutPrefix . $headOut;
+                            $breakoutPrefix = '';
+                            if ($headDispatch !== '') {
+                                if (!$this->captureHTMLTableCellBuffer($hrc, $headDispatch)) {
+                                    if (!empty($hrc['blockbuf'])) {
+                                        $blockidxMV = \count($hrc['blockbuf']) - 1;
+                                        /** @var THTMLBlockBuf $blockbufMV */
+                                        $blockbufMV = $hrc['blockbuf'][$blockidxMV];
+                                        $blockbufMV['buffer'] .= $headDispatch;
+                                        $hrc['blockbuf'][$blockidxMV] = $blockbufMV;
+                                    } elseif ($appendFragment !== null) {
+                                        $appendFragment($headDispatch);
+                                    }
+                                }
+                            }
+
+                            if (!empty($hrc['blockbuf']) && ($appendFragment !== null)) {
+                                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                                if ($flush !== '') {
+                                    $appendFragment($flush);
+                                }
+                            }
+
+                            $forceH = $this->getHTMLRemainingHeight($hrc, $tpy)
+                                + $lineAdvance
+                                + 1.0;
+                            $brk = $this->breakHTMLIfNeeded(
+                                $hrc,
+                                $forceH,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                            );
+
+                            if (!empty($hrc['blockbuf'])) {
+                                foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
+                                    /** @var THTMLBlockBuf $blkEntry2 */
+                                    $blkEntry2['by'] = $tpy;
+                                    $hrc['blockbuf'][$bidx2] = $blkEntry2;
+                                }
+                            }
+
+                            $hrc['dom'][$key]['value'] = $tail;
+                            $tailOut = $this->parseHTMLText(
+                                $hrc,
+                                $key,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                                $appendFragment,
+                            );
+
+                            $hrc['dom'][$key]['value'] = $origValue;
+
+                            // HEAD has already been dispatched above onto the
+                            // current (now previous) page; only return $brk and
+                            // $tailOut, which belong to the new page.
+                            return $brk . $tailOut;
+                        }
+                    }
+                }
             }
         }
+
+        $out = $breakoutPrefix . $this->getHTMLTextPrefix($hrc, $currentkey);
 
         $fragmentWidth = $this->getStringWidth($text);
 
