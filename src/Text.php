@@ -896,7 +896,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
             $out .= $this->graph->getStartTransform();
             $out .= $this->color->getPdfColor($shadow['color'], false);
-            $out .= $this->graph->getAlpha($shadow['opacity'], $shadow['mode']);
+            if ($this->isTransparencyAllowed()) {
+                $out .= $this->graph->getAlpha($shadow['opacity'], $shadow['mode']);
+            }
             $out .= $this->outTextLine(
                 $txt,
                 $ordarr,

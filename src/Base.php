@@ -902,4 +902,19 @@ abstract class Base
     {
         return ($this->rtl || $this->tmprtl);
     }
+
+    /**
+     * Return true when transparency features are allowed for the active conformance mode.
+     *
+     * PDF/X-1a and PDF/X-3 (including generic PDF/X alias handling) disallow live transparency,
+     * while PDF/X-4 and PDF/X-5 allow it.
+     */
+    protected function isTransparencyAllowed(): bool
+    {
+        if (!$this->pdfx) {
+            return true;
+        }
+
+        return \in_array($this->pdfxMode, ['pdfx4', 'pdfx5'], true);
+    }
 }

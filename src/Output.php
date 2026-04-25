@@ -1147,7 +1147,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             $out .= ' >>'; // end of /Resources.
 
-            if (isset($data['transparency'])) {
+            if (isset($data['transparency']) && $this->isTransparencyAllowed()) {
                 // set transparency group
                 $out .= ' /Group << /Type /Group /S /Transparency';
                 if (!empty($data['transparency'])) {

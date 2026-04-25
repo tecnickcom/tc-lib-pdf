@@ -2196,6 +2196,47 @@ PHP;
         ]);
     }
 
+    public function testGetOutXObjectsSuppressesTransparencyGroupInPdfx3(): void
+    {
+        $obj = new TestableOutput('mm', true, false, true, 'pdfx3');
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XT3' => [
+                'id' => 'XT3',
+                'n' => 3,
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 50.0,
+                'h' => 25.0,
+                'pheight' => 0.0,
+                'gheight' => 0.0,
+                'outdata' => 'q Q',
+                'spot_colors' => [],
+                'extgstate' => [],
+                'gradient' => [],
+                'font' => [],
+                'image' => [],
+                'xobject' => [],
+                'annotations' => [],
+                'transparency' => ['CS' => 'DeviceRGB', 'I' => true, 'K' => false],
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutXObjects();
+
+        $this->assertStringNotContainsString('/Group << /Type /Group /S /Transparency', $out);
+    }
+
     public function testGetOutEmbeddedFilesWithContent(): void
     {
         $obj = $this->getInternalTestObject();

@@ -466,7 +466,6 @@ class TextTest extends TestUtil
         );
         $this->assertSame(2, \substr_count($shadowOut, 'BT '));
         $this->assertStringContainsString('/GS', $shadowOut);
-
         $soft = $obj->exposeStrToOrdArr("test\u{00AD}ing words");
         $softDim = $obj->exposeGetOrdArrDims($soft);
         $softLines = $obj->exposeSplitLines($soft, $softDim, 5);
@@ -506,5 +505,43 @@ class TextTest extends TestUtil
         } finally {
             @\unlink((string) $invalid);
         }
+    }
+
+    public function testGetTextLineOmitsShadowAlphaInPdfx3(): void
+    {
+        $obj = new TestableText('mm', true, false, true, 'pdfx3');
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $shadow = [
+            'xoffset' => -1.5,
+            'yoffset' => -2.0,
+            'opacity' => 0.5,
+            'mode' => 'Normal',
+            'color' => 'gray',
+        ];
+
+        $shadowOut = $obj->getTextLine(
+            'Hello world',
+            5,
+            6,
+            0,
+            0,
+            0,
+            0,
+            0,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            '',
+            '',
+            $shadow
+        );
+
+        $this->assertSame(2, \substr_count($shadowOut, 'BT '));
+        $this->assertStringNotContainsString('/GS', $shadowOut);
     }
 }

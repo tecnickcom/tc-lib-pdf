@@ -238,6 +238,12 @@ class SVGTest extends TestUtil
         $this->assertSame('', $obj->exposeGetSVGExtGState(null, null, ''));
         $gstate = $obj->exposeGetSVGExtGState(0.8, 0.5, 'Multiply');
         $this->assertStringContainsString('gs', $gstate);
+
+        $pdfx3 = new TestableSVG('mm', true, false, true, 'pdfx3');
+        $this->assertSame('', $pdfx3->exposeGetSVGExtGState(0.8, 0.5, 'Multiply'));
+
+        $pdfx4 = new TestableSVG('mm', true, false, true, 'pdfx4');
+        $this->assertStringContainsString('gs', $pdfx4->exposeGetSVGExtGState(0.8, 0.5, 'Multiply'));
     }
 
     public function testSvgPathCommandHelpersProducePathOperations(): void
@@ -319,6 +325,10 @@ class SVGTest extends TestUtil
         $colorStyle['text-color'] = '#00ff00';
         [$colorOut] = $obj->exposeParseSVGStyleColor($colorStyle);
         $this->assertNotSame('', $colorOut);
+
+        $pdfx3 = new TestableSVG('mm', true, false, true, 'pdfx3');
+        [$pdfx3ColorOut] = $pdfx3->exposeParseSVGStyleColor($colorStyle);
+        $this->assertStringNotContainsString('/GS', $pdfx3ColorOut);
 
         $clipStyle = $base;
         $clipStyle['clip'] = 'rect(1 2 3 4)';
