@@ -1403,6 +1403,79 @@ class SVGTest extends TestUtil
         $this->assertArrayNotHasKey('PARENT_RECT', $resolvedChild);
     }
 
+    public function testSvgPatternHrefMissingParentFallsBackToChildDefinition(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(546);
+
+        $obj->patchSvgObj(546, [
+            'defs' => [
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'href' => '#missingPattern',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '5',
+                        'height' => '5',
+                    ],
+                    'child' => [
+                        'CHILD_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '5',
+                                'height' => '5',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'CHILD_RECT_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(546, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+        $this->assertSame('5', $resolvedAttr['width'] ?? '');
+        $this->assertSame('5', $resolvedAttr['height'] ?? '');
+        $this->assertArrayNotHasKey('patternUnits', $resolvedAttr);
+        $this->assertArrayHasKey('CHILD_RECT', $resolvedChild);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['fill'] = 'url(#patRef)';
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            546,
+            $style,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+    }
+
     public function testSvgPatternPreserveAspectRatioChangesViewBoxTransform(): void
     {
         $obj = $this->getInternalTestObject();
