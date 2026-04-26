@@ -2734,7 +2734,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $out = '';
 
-        if (!empty($xlist) || !empty($ylist)) {
+        if (!empty($xlist) || !empty($ylist) || !empty($rotlist)) {
             // Emit individual character positions for multi-value coordinate lists.
             $chars = \mb_str_split($this->svgobjs[$soid]['text'], 1, 'UTF-8');
             foreach ($chars as $idx => $ch) {
@@ -4231,20 +4231,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             : 0.0;
         $this->svgobjs[$soid]['textmode']['lengthadjust'] = $attr['lengthAdjust'] ?? 'spacing';
 
-        // S-4: per-glyph rotate — first listed angle applied to the whole run.
-        // Unsupported SVG feature: per-glyph rotate — only first angle is applied.
+        // S-4: parse rotate list; first angle remains run fallback.
         $this->svgobjs[$soid]['textmode']['rotate'] = 0.0;
+        $this->svgobjs[$soid]['textmode']['rotlist'] = [];
         if (isset($attr['rotate']) && ($attr['rotate'] !== '')) {
             $rotvals = \preg_split('/[\s,]+/', \trim($attr['rotate']), -1, \PREG_SPLIT_NO_EMPTY);
             if (!empty($rotvals)) {
                 $this->svgobjs[$soid]['textmode']['rotate'] = (float) $rotvals[0];
+                foreach ($rotvals as $rotval) {
+                    $this->svgobjs[$soid]['textmode']['rotlist'][] = (float) $rotval;
+                }
             }
         }
 
         // R-1: multi-value x / y coordinate lists.
         $this->svgobjs[$soid]['textmode']['xlist'] = [];
         $this->svgobjs[$soid]['textmode']['ylist'] = [];
-        $this->svgobjs[$soid]['textmode']['rotlist'] = [];
         $this->svgobjs[$soid]['textmode']['textpathpoints'] = [];
         $this->svgobjs[$soid]['textmode']['textpathoffset'] = 0.0;
         $this->svgobjs[$soid]['textmode']['textpathmethod'] = 'align';

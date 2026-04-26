@@ -2492,6 +2492,54 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * S-4: multi-value rotate is parsed and applied per glyph.
+     */
+    public function testSvgTextRotateListAppliesPerGlyph(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // First run: single zero rotation should not add per-glyph transforms.
+        $obj->initSvgObjForHandlers(1001);
+        $obj->patchSvgObj(1001, [
+            'styles' => [$base],
+        ]);
+        $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            1001,
+            ['x' => '5', 'y' => '10', 'rotate' => '0'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'AB');
+        $outSingle = $obj->exposeParseSVGTagENDtext(1001);
+
+        // Second run: second glyph rotates, forcing per-glyph transforms.
+        $obj->initSvgObjForHandlers(1002);
+        $obj->patchSvgObj(1002, [
+            'styles' => [$base],
+        ]);
+        $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            1002,
+            ['x' => '5', 'y' => '10', 'rotate' => '0 45'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'AB');
+        $outList = $obj->exposeParseSVGTagENDtext(1002);
+        $svgobj = $obj->getSvgObj(1002);
+        $rotlist = $svgobj['textmode']['rotlist'] ?? [];
+
+        $this->assertGreaterThanOrEqual(2, \count($rotlist));
+        $this->assertEqualsWithDelta(0.0, (float) $rotlist[0], 0.001);
+        $this->assertEqualsWithDelta(45.0, (float) $rotlist[1], 0.001);
+        $this->assertGreaterThan(\strlen($outSingle), \strlen($outList));
+    }
+
+    /**
      * R-1: multi-value x list triggers per-character rendering (more operators).
      */
     public function testSvgMultiValueXListRendersPerCharacter(): void
