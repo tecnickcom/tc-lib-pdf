@@ -3387,9 +3387,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDdefs(int $soid): string
     {
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = false;
-        return '';
+        return $this->setSVGDefsMode($soid, false);
     }
 
     /**
@@ -3938,9 +3936,45 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTdefs(int $soid): string
     {
+        return $this->setSVGDefsMode($soid, true);
+    }
+
+    /**
+     * Toggle defs capture mode.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param bool $enabled Whether defs capture is enabled.
+     *
+     * @return string
+     */
+    protected function setSVGDefsMode(int $soid, bool $enabled): string
+    {
         // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = true;
+        $this->svgobjs[$soid]['defsmode'] = $enabled;
         return '';
+    }
+
+    /**
+     * Register a defs-backed container and enable defs capture mode.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $name SVG tag name.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function registerSVGDefsContainer(int $soid, string $name, array $attr): string
+    {
+        if (isset($attr['id'])) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['defs'][$attr['id']] = [
+                'name' => $name,
+                'attr' => $attr,
+                'child' => [],
+            ];
+        }
+
+        return $this->setSVGDefsMode($soid, true);
     }
 
     /**
@@ -4019,19 +4053,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $height,
             'CNZ',
         );
-        $out .= $this->parseSVGStyle(
-            $parser,
-            $soid,
-            $svgstyle,
-            $prev_svgstyle,
-            $posx,
-            $posy,
-            $width,
-            $height,
-        );
         // parse viewbox, calculate extra transformation matrix
         if (empty($attr['viewBox'])) {
-            $out .= $this->parseSVGStyle(
+            return $out . $this->parseSVGStyle(
                 $parser,
                 $soid,
                 $svgstyle,
@@ -4041,13 +4065,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $width,
                 $height,
             );
-            return $out;
         }
         $tmp = [];
         \preg_match_all("/[0-9]+/", $attr['viewBox'], $tmp);
         $tmp = $tmp[0];
         if (\sizeof($tmp) != 4) {
-            $out .= $this->parseSVGStyle(
+            return $out . $this->parseSVGStyle(
                 $parser,
                 $soid,
                 $svgstyle,
@@ -4057,7 +4080,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $width,
                 $height,
             );
-            return $out;
         }
         $vbx = \floatval($tmp[0]);
         $vby = \floatval($tmp[1]);
@@ -6746,20 +6768,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTsymbol(int $soid, array $attr): string
     {
-        // Store symbol metadata in defs so that <use> can look it up by id.
-        if (isset($attr['id'])) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['defs'][$attr['id']] = [
-                'name' => 'symbol',
-                'attr' => $attr,
-                'child' => [],
-            ];
-        }
-
-        // Enter defs-capture mode so child elements are buffered, not rendered.
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = true;
-        return '';
+        return $this->registerSVGDefsContainer($soid, 'symbol', $attr);
     }
 
     /**
@@ -6771,9 +6780,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDsymbol(int $soid): string
     {
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = false;
-        return '';
+        return $this->setSVGDefsMode($soid, false);
     }
 
     /**
@@ -6789,18 +6796,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTmarker(int $soid, array $attr): string
     {
-        if (isset($attr['id'])) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['defs'][$attr['id']] = [
-                'name' => 'marker',
-                'attr' => $attr,
-                'child' => [],
-            ];
-        }
-
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = true;
-        return '';
+        return $this->registerSVGDefsContainer($soid, 'marker', $attr);
     }
 
     /**
@@ -6812,9 +6808,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDmarker(int $soid): string
     {
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = false;
-        return '';
+        return $this->setSVGDefsMode($soid, false);
     }
 
     /**
@@ -6827,18 +6821,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTpattern(int $soid, array $attr): string
     {
-        if (isset($attr['id'])) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['defs'][$attr['id']] = [
-                'name' => 'pattern',
-                'attr' => $attr,
-                'child' => [],
-            ];
-        }
-
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = true;
-        return '';
+        return $this->registerSVGDefsContainer($soid, 'pattern', $attr);
     }
 
     /**
@@ -6850,9 +6833,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDpattern(int $soid): string
     {
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = false;
-        return '';
+        return $this->setSVGDefsMode($soid, false);
     }
 
     /**
@@ -6865,18 +6846,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTmask(int $soid, array $attr): string
     {
-        if (isset($attr['id'])) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['defs'][$attr['id']] = [
-                'name' => 'mask',
-                'attr' => $attr,
-                'child' => [],
-            ];
-        }
-
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = true;
-        return '';
+        return $this->registerSVGDefsContainer($soid, 'mask', $attr);
     }
 
     /**
@@ -6888,9 +6858,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDmask(int $soid): string
     {
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = false;
-        return '';
+        return $this->setSVGDefsMode($soid, false);
     }
 
     /**
@@ -6919,18 +6887,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // fe* child elements captured by SVGCHARDATASKIPTAGS are discarded, and
         // register a placeholder in defs so a filter="url(#id)" reference does
         // not trigger spurious fallback paths elsewhere.
-        if (isset($attr['id'])) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['defs'][$attr['id']] = [
-                'name'  => 'filter',
-                'attr'  => $attr,
-                'child' => [],
-            ];
-        }
-
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = true;
-        return '';
+        return $this->registerSVGDefsContainer($soid, 'filter', $attr);
     }
 
     /**
@@ -6942,9 +6899,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDfilter(int $soid): string
     {
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = false;
-        return '';
+        return $this->setSVGDefsMode($soid, false);
     }
 
     /**
