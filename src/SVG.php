@@ -4287,14 +4287,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Resolve textPath reference to a simple start/end segment.
+     * Resolve textPath reference to a sequence of points.
      *
      * @param int $soid ID of the current SVG object.
      * @param string $href Reference URI (typically '#id').
      *
-     * @return array{0: float, 1: float, 2: float, 3: float}|null
+     * @return array<int, array{0: float, 1: float}>|null
      */
-    protected function getTextPathSegment(int $soid, string $href): ?array
+    protected function getTextPathPoints(int $soid, string $href): ?array
     {
         if (($href === '') || ($href[0] !== '#')) {
             return null;
@@ -4320,7 +4320,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $startY = $this->svgUnitToUnit((string) ($defAttr['y1'] ?? '0'), $soid);
             $endX = $this->svgUnitToUnit((string) ($defAttr['x2'] ?? '0'), $soid);
             $endY = $this->svgUnitToUnit((string) ($defAttr['y2'] ?? '0'), $soid);
-            return [$startX, $startY, $endX, $endY];
+            return [[$startX, $startY], [$endX, $endY]];
         }
 
         if (($defName === 'polyline') || ($defName === 'polygon')) {
@@ -4329,12 +4329,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (!\is_array($points) || (\count($points) < 4)) {
                 return null;
             }
-            $startX = $this->svgUnitToUnit((string) $points[0], $soid);
-            $startY = $this->svgUnitToUnit((string) $points[1], $soid);
-            $lastIdx = \count($points) - 2;
-            $endX = $this->svgUnitToUnit((string) $points[$lastIdx], $soid);
-            $endY = $this->svgUnitToUnit((string) $points[$lastIdx + 1], $soid);
-            return [$startX, $startY, $endX, $endY];
+            $ptlist = [];
+            for ($idx = 0; $idx + 1 < \count($points); $idx += 2) {
+                $ptlist[] = [
+                    $this->svgUnitToUnit((string) $points[$idx], $soid),
+                    $this->svgUnitToUnit((string) $points[$idx + 1], $soid),
+                ];
+            }
+            if ($defName === 'polygon') {
+                $ptlist[] = [$ptlist[0][0], $ptlist[0][1]];
+            }
+            return (\count($ptlist) >= 2) ? $ptlist : null;
         }
 
         if ($defName === 'path') {
@@ -4343,15 +4348,78 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if (empty($pathVals[0]) || (\count($pathVals[0]) < 4)) {
                 return null;
             }
-            $startX = $this->svgUnitToUnit((string) $pathVals[0][0], $soid);
-            $startY = $this->svgUnitToUnit((string) $pathVals[0][1], $soid);
-            $endIdx = \count($pathVals[0]) - 2;
-            $endX = $this->svgUnitToUnit((string) $pathVals[0][$endIdx], $soid);
-            $endY = $this->svgUnitToUnit((string) $pathVals[0][$endIdx + 1], $soid);
-            return [$startX, $startY, $endX, $endY];
+            $ptlist = [];
+            for ($idx = 0; $idx + 1 < \count($pathVals[0]); $idx += 2) {
+                $ptlist[] = [
+                    $this->svgUnitToUnit((string) $pathVals[0][$idx], $soid),
+                    $this->svgUnitToUnit((string) $pathVals[0][$idx + 1], $soid),
+                ];
+            }
+            return (\count($ptlist) >= 2) ? $ptlist : null;
         }
 
         return null;
+    }
+
+    /**
+     * Get total polyline length from point list.
+     *
+     * @param array<int, array{0: float, 1: float}> $points
+     */
+    protected function getTextPathLength(array $points): float
+    {
+        $length = 0.0;
+        for ($idx = 1; $idx < \count($points); ++$idx) {
+            $deltaX = $points[$idx][0] - $points[$idx - 1][0];
+            $deltaY = $points[$idx][1] - $points[$idx - 1][1];
+            $length += \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
+        }
+        return $length;
+    }
+
+    /**
+     * Interpolate the point and angle at a given offset along the polyline.
+     *
+     * @param array<int, array{0: float, 1: float}> $points
+     * @return array{0: float, 1: float, 2: float}|null (x, y, angleDeg)
+     */
+    protected function getTextPathPointAtOffset(array $points, float $offset): ?array
+    {
+        if (\count($points) < 2) {
+            return null;
+        }
+
+        $total = $this->getTextPathLength($points);
+        if ($total <= 0.0) {
+            return null;
+        }
+
+        $remaining = \max(0.0, \min($offset, $total));
+        for ($idx = 1; $idx < \count($points); ++$idx) {
+            $startX = $points[$idx - 1][0];
+            $startY = $points[$idx - 1][1];
+            $endX = $points[$idx][0];
+            $endY = $points[$idx][1];
+            $deltaX = $endX - $startX;
+            $deltaY = $endY - $startY;
+            $segLength = \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
+            if ($segLength <= 0.0) {
+                continue;
+            }
+            if ($remaining <= $segLength) {
+                $ratio = $remaining / $segLength;
+                $pointX = $startX + ($deltaX * $ratio);
+                $pointY = $startY + ($deltaY * $ratio);
+                $angle = \rad2deg(\atan2($deltaY, $deltaX));
+                return [$pointX, $pointY, $angle];
+            }
+            $remaining -= $segLength;
+        }
+
+        $last = $points[\count($points) - 1];
+        $prev = $points[\count($points) - 2];
+        $angle = \rad2deg(\atan2(($last[1] - $prev[1]), ($last[0] - $prev[0])));
+        return [$last[0], $last[1], $angle];
     }
 
     /**
@@ -4376,16 +4444,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $href = (string) ($attr['xlink:href'] ?? $attr['href'] ?? '');
         $startOffsetRaw = (string) ($attr['startOffset'] ?? '0');
 
-        $segment = $this->getTextPathSegment($soid, $href);
-        if (!empty($segment)) {
-            $startX = $segment[0];
-            $startY = $segment[1];
-            $endX = $segment[2];
-            $endY = $segment[3];
-
-            $deltaX = ($endX - $startX);
-            $deltaY = ($endY - $startY);
-            $pathLength = \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
+        $points = $this->getTextPathPoints($soid, $href);
+        if (!empty($points)) {
+            $pathLength = $this->getTextPathLength($points);
             $startOffset = 0.0;
 
             if (\strpos($startOffsetRaw, '%') !== false) {
@@ -4395,11 +4456,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
 
             if ($pathLength > 0.0) {
-                $ratio = $startOffset / $pathLength;
-                $textPathAttr['x'] = (string) ($startX + ($deltaX * $ratio));
-                $textPathAttr['y'] = (string) ($startY + ($deltaY * $ratio));
-                if (empty($textPathAttr['rotate'])) {
-                    $textPathAttr['rotate'] = (string) \rad2deg(\atan2($deltaY, $deltaX));
+                $pathPoint = $this->getTextPathPointAtOffset($points, $startOffset);
+                if (!empty($pathPoint)) {
+                    $textPathAttr['x'] = (string) $pathPoint[0];
+                    $textPathAttr['y'] = (string) $pathPoint[1];
+                    if (empty($textPathAttr['rotate'])) {
+                        $textPathAttr['rotate'] = (string) $pathPoint[2];
+                    }
                 }
             }
         }

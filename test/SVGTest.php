@@ -2659,6 +2659,48 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: offset on bent path uses cumulative segment length and local tangent.
+     */
+    public function testSvgTextPathOffsetUsesBendSegmentTangent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1041);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Polyline path: (0,0)->(10,0)->(10,10), total length 20.
+        // At 75% offset (=15), point is on second segment at (10,5), tangent 90°.
+        $obj->patchSvgObj(1041, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_bend' => [
+                    'name' => 'polyline',
+                    'attr' => [
+                        'points' => '0,0 10,0 10,10',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1041,
+            ['href' => '#tp_bend', 'startOffset' => '75%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1041);
+        $textX = (float) $svgobj['x'];
+        $textY = (float) $svgobj['y'];
+        $this->assertGreaterThan(0.0, $textY);
+        $this->assertGreaterThan($textY, $textX);
+        $this->assertNotEqualsWithDelta($textX, $textY, 0.001);
+        $this->assertEqualsWithDelta(90.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
      * E-6: textPath with unresolved href still behaves like a nested text run.
      */
     public function testSvgTextPathMissingReferenceStillRendersText(): void
