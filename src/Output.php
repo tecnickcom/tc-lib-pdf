@@ -1273,7 +1273,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getPatternStreamResourceDict(string $stream): string
     {
-        $usesFont = (\preg_match('/\sTf\b/', $stream) === 1);
+        $fontNames = [];
+        if (\preg_match_all('/\/(F[0-9]+)\s+[0-9\.\-]+\s+Tf\b/', $stream, $matchFont) === 1) {
+            foreach (($matchFont[1] ?? []) as $name) {
+                if (\is_string($name) && ($name !== '')) {
+                    $fontNames[$name] = true;
+                }
+            }
+        }
 
         $extgstate = [];
         if (\preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $matchGs) === 1) {
@@ -1289,7 +1296,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
         }
 
-        $usesSpotColor = (\preg_match('/\s[cC]s\b/', $stream) === 1);
+        $spotNames = [];
+        if (\preg_match_all('/\/(CS[0-9]+)\s+[cC]s\b/', $stream, $matchCs) === 1) {
+            foreach (($matchCs[1] ?? []) as $name) {
+                if (\is_string($name) && ($name !== '')) {
+                    $spotNames[$name] = true;
+                }
+            }
+        }
 
         $imageKeys = [];
         $xobjectKeys = [];
@@ -1309,8 +1323,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out = '';
-        if ($usesFont) {
-            $out .= $this->outfont->getOutFontDict();
+        if (!empty($fontNames)) {
+            $fontEntries = $this->extractNamedResourceRefs($this->outfont->getOutFontDict(), \array_keys($fontNames));
+            if ($fontEntries !== '') {
+                $out .= ' /Font <<' . $fontEntries . ' >>';
+            }
         }
         if (!empty($extgstate)) {
             $out .= $this->graph->getOutExtGStateResourcesByKeys(\array_map('intval', \array_keys($extgstate)));
@@ -1318,8 +1335,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (!empty($gradient)) {
             $out .= $this->graph->getOutGradientResourcesByKeys(\array_map('intval', \array_keys($gradient)));
         }
-        if ($usesSpotColor) {
-            $out .= $this->color->getPdfSpotResources();
+        if (!empty($spotNames)) {
+            $spotEntries = $this->extractNamedResourceRefs($this->color->getPdfSpotResources(), \array_keys($spotNames));
+            if ($spotEntries !== '') {
+                $out .= ' /ColorSpace <<' . $spotEntries . ' >>';
+            }
         }
         if (!empty($imageKeys) || !empty($xobjectKeys)) {
             $out .= ' /XObject <<';
@@ -1332,6 +1352,34 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
             }
             $out .= ' >>';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Extract named object references from a resource dictionary fragment.
+     *
+     * @param string $dict Full dictionary fragment (e.g. '/Font << /F1 1 0 R >>').
+     * @param array<string> $names Resource names to retain.
+     */
+    protected function extractNamedResourceRefs(string $dict, array $names): string
+    {
+        if (($dict === '') || empty($names)) {
+            return '';
+        }
+
+        $out = '';
+        foreach ($names as $name) {
+            if (!\is_string($name) || ($name === '')) {
+                continue;
+            }
+
+            $match = [];
+            $ok = \preg_match('/\/' . \preg_quote($name, '/') . '\s+([0-9]+)\s+0\s+R\b/', $dict, $match);
+            if (($ok === 1) && isset($match[1])) {
+                $out .= ' /' . $name . ' ' . (int) $match[1] . ' 0 R';
+            }
         }
 
         return $out;
