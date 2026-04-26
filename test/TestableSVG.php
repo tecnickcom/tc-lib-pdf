@@ -478,6 +478,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             'cliptm' => self::TMXID,
             'styles' => [self::DEFSVGSTYLE],
             'child' => [],
+            'xmldepth' => 0,
+            'switchstack' => [],
             'textmode' => [
                 'rtl' => false,
                 'invisible' => false,

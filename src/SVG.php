@@ -408,6 +408,8 @@ use TSVGStyle;
  *    'cliptm': TTMatrix,
  *    'styles': array<int, TSVGStyle>,
  *    'child': array<int>,
+ *    'xmldepth': int,
+ *    'switchstack': array<int, array{depth: int, selected: bool, skipdepth: int}>,
  *    'textmode': TSVGTextMode,
  *    'charskip': int,
  *    'text': string,
@@ -663,6 +665,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'defs' => [],
         'styles' => [0 => self::DEFSVGSTYLE],
         'child' => [],
+        'xmldepth' => 0,
+        'switchstack' => [],
         'textmode' => [
             'rtl' => false,
             'invisible' => false,
@@ -2438,29 +2442,66 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
-            // @phpstan-ignore assign.propertyType
-            $this->svgobjs[$soid]['charskip'] = \max(0, ((int)($this->svgobjs[$soid]['charskip'] ?? 0)) - 1);
-            return;
+        $xmldepth = (int) ($this->svgobjs[$soid]['xmldepth'] ?? 0);
+        if ($xmldepth <= 0) {
+            $xmldepth = 1;
         }
 
-        if (
-            $this->svgobjs[$soid]['defsmode']
-            && !\in_array($name, self::SVGDEFSMODEEND)
-        ) {
-            if (\end($this->svgobjs[$soid]['defs']) !== false) {
-                $last_svgdefs_id = (string)\array_key_last($this->svgobjs[$soid]['defs']);
-                if (!empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
-                    foreach (
-                        $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'] as $child
-                    ) {
-                        if (
-                            isset($child['attr']['id']) &&
-                            \is_scalar($child['attr']['id']) &&
-                            ($child['name'] == $name)
+        try {
+            if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['charskip'] = \max(0, ((int)($this->svgobjs[$soid]['charskip'] ?? 0)) - 1);
+                return;
+            }
+
+            // E-8: skip subtree ends for non-selected <switch> siblings.
+            if (!empty($this->svgobjs[$soid]['switchstack'])) {
+                $switchkey = (int) \array_key_last($this->svgobjs[$soid]['switchstack']);
+                $switchctx = $this->svgobjs[$soid]['switchstack'][$switchkey];
+                $skipDepth = (int) ($switchctx['skipdepth'] ?? 0);
+
+                if (($skipDepth > 0) && ($xmldepth > $skipDepth)) {
+                    return;
+                }
+
+                if (($skipDepth > 0) && ($xmldepth === $skipDepth)) {
+                    $switchctx['skipdepth'] = 0;
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['switchstack'][$switchkey] = $switchctx;
+                    return;
+                }
+            }
+
+            if (
+                $this->svgobjs[$soid]['defsmode']
+                && !\in_array($name, self::SVGDEFSMODEEND)
+            ) {
+                if (\end($this->svgobjs[$soid]['defs']) !== false) {
+                    $last_svgdefs_id = (string)\array_key_last($this->svgobjs[$soid]['defs']);
+                    if (!empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
+                        foreach (
+                            $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'] as $child
                         ) {
-                            // @phpstan-ignore assign.propertyType
-                            $closeKey = (string)$child['attr']['id'] . '_CLOSE';
+                            if (
+                                isset($child['attr']['id']) &&
+                                \is_scalar($child['attr']['id']) &&
+                                ($child['name'] == $name)
+                            ) {
+                                // @phpstan-ignore assign.propertyType
+                                $closeKey = (string)$child['attr']['id'] . '_CLOSE';
+                                // @phpstan-ignore assign.propertyType
+                                $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$closeKey] = [
+                                    'name' => $name,
+                                    'attr' => [
+                                        'closing_tag' => true,
+                                        'content' => $this->svgobjs[$soid]['text'],
+                                    ],
+                                ];
+                                return;
+                            }
+                        }
+                        if ($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['name'] == $name) {
+                            $closeKey = (string)$last_svgdefs_id . '_CLOSE';
                             // @phpstan-ignore assign.propertyType
                             $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$closeKey] = [
                                 'name' => $name,
@@ -2472,37 +2513,38 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                             return;
                         }
                     }
-                    if ($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['name'] == $name) {
-                        $closeKey = (string)$last_svgdefs_id . '_CLOSE';
-                        // @phpstan-ignore assign.propertyType
-                        $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$closeKey] = [
-                            'name' => $name,
-                            'attr' => [
-                                'closing_tag' => true,
-                                'content' => $this->svgobjs[$soid]['text'],
-                            ],
-                        ];
-                        return;
-                    }
+                }
+                return;
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['out'] .= match ($name) {
+                'defs' => $this->parseSVGTagENDdefs($soid),
+                'clipPath' => $this->parseSVGTagENDclipPath($soid),
+                'svg' => $this->parseSVGTagENDsvg($soid),
+                'g' => $this->parseSVGTagENDg($soid),
+                'text' => $this->parseSVGTagENDtext($soid),
+                'tspan' => $this->parseSVGTagENDtspan($soid),
+                'textPath' => $this->parseSVGTagENDtextPath($soid),
+                'symbol' => $this->parseSVGTagENDsymbol($soid),
+                'a' => $this->parseSVGTagENDa($soid),
+                'switch' => $this->parseSVGTagENDswitch($soid),
+                default => null,
+            };
+
+            // Pop completed switch context.
+            if (!empty($this->svgobjs[$soid]['switchstack']) && ($name === 'switch')) {
+                $switchkey = (int) \array_key_last($this->svgobjs[$soid]['switchstack']);
+                $switchctx = $this->svgobjs[$soid]['switchstack'][$switchkey];
+                if ($xmldepth === (int) ($switchctx['depth'] ?? -1)) {
+                    // @phpstan-ignore assign.propertyType
+                    unset($this->svgobjs[$soid]['switchstack'][$switchkey]);
                 }
             }
-            return;
+        } finally {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['xmldepth'] = \max(0, ((int)($this->svgobjs[$soid]['xmldepth'] ?? 0)) - 1);
         }
-
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= match ($name) {
-            'defs' => $this->parseSVGTagENDdefs($soid),
-            'clipPath' => $this->parseSVGTagENDclipPath($soid),
-            'svg' => $this->parseSVGTagENDsvg($soid),
-            'g' => $this->parseSVGTagENDg($soid),
-            'text' => $this->parseSVGTagENDtext($soid),
-            'tspan' => $this->parseSVGTagENDtspan($soid),
-            'textPath' => $this->parseSVGTagENDtextPath($soid),
-            'symbol' => $this->parseSVGTagENDsymbol($soid),
-            'a' => $this->parseSVGTagENDa($soid),
-            'switch' => $this->parseSVGTagENDswitch($soid),
-            default => null,
-        };
     }
 
     /**
@@ -2844,10 +2886,48 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $name = $this->removeTagNamespace($name);
 
+        // Track absolute XML nesting depth for switch child selection.
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['xmldepth'] = ((int)($this->svgobjs[$soid]['xmldepth'] ?? 0)) + 1;
+        $xmldepth = (int) $this->svgobjs[$soid]['xmldepth'];
+
         if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
             // @phpstan-ignore assign.propertyType
             $this->svgobjs[$soid]['charskip'] = ((int)($this->svgobjs[$soid]['charskip'] ?? 0)) + 1;
             return;
+        }
+
+        // E-8: render only the first direct child of each <switch>.
+        if (!empty($this->svgobjs[$soid]['switchstack'])) {
+            $switchkey = (int) \array_key_last($this->svgobjs[$soid]['switchstack']);
+            $switchctx = $this->svgobjs[$soid]['switchstack'][$switchkey];
+            $skipDepth = (int) ($switchctx['skipdepth'] ?? 0);
+
+            if (($skipDepth > 0) && ($xmldepth > $skipDepth)) {
+                return;
+            }
+
+            if ($xmldepth === ((int) ($switchctx['depth'] ?? 0) + 1)) {
+                if (!empty($switchctx['selected'])) {
+                    $switchctx['skipdepth'] = $xmldepth;
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['switchstack'][$switchkey] = $switchctx;
+                    return;
+                }
+
+                $switchctx['selected'] = true;
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['switchstack'][$switchkey] = $switchctx;
+            }
+        }
+
+        if ($name === 'switch') {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['switchstack'][] = [
+                'depth' => $xmldepth,
+                'selected' => false,
+                'skipdepth' => 0,
+            ];
         }
 
         if ($this->svgobjs[$soid]['clipmode']) {
@@ -2906,6 +2986,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // last style
         $sid = (int)\array_key_last($this->svgobjs[$soid]['styles']);
         $psid = \max(0, $sid - 1);
+        /** @var TSVGStyle $prev_svgstyle */
         $prev_svgstyle = (array) $this->svgobjs[$soid]['styles'][$psid];
 
         if (

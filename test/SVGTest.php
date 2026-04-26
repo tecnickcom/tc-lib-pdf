@@ -2195,6 +2195,43 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-8: only first direct child of switch is rendered.
+     */
+    public function testSvgSwitchRendersOnlyFirstChild(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(960);
+
+        $obj->exposeHandleSVGTagStart($parser, 'switch', [], 960);
+
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['x' => '1', 'y' => '1', 'width' => '10', 'height' => '5', 'fill' => '#000000'],
+            960,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'rect');
+        $outAfterFirst = (string) $obj->getSvgObj(960)['out'];
+        $this->assertNotSame('', $outAfterFirst);
+
+        // Second sibling should be skipped by switch selection logic.
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'circle',
+            ['cx' => '5', 'cy' => '5', 'r' => '2', 'fill' => '#ff0000'],
+            960,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'circle');
+        $outAfterSecond = (string) $obj->getSvgObj(960)['out'];
+        $this->assertSame($outAfterFirst, $outAfterSecond);
+
+        $obj->exposeHandleSVGTagEnd($parser, 'switch');
+        $this->assertEmpty($obj->getSvgObj(960)['switchstack']);
+    }
+
+    /**
      * S-1: dominant-baseline='hanging' shifts renderY by -ascent.
      * We verify that the output changes when baseline keyword differs.
      */
