@@ -387,7 +387,7 @@ class SVGTest extends TestUtil
             ],
         ]);
         $fillPattern = $base;
-        $fillPattern['fill'] = 'url(#patA)';
+        $fillPattern['fill'] = 'url(#patEmpty)';
         $fillPattern['opacity'] = 1.0;
         $fillPattern['fill-opacity'] = 1.0;
         $obj->patchSvgObj(3, ['out' => 'BASE']);
@@ -1182,6 +1182,80 @@ class SVGTest extends TestUtil
 
         $this->assertSame('', $obj->exposeParseSVGTagENDpattern(539));
         $this->assertFalse($obj->getSvgObj(539)['defsmode']);
+    }
+
+    public function testSvgPatternHrefInheritanceIsResolvedByFill(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(540);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['fill'] = 'url(#patRef)';
+        $base['opacity'] = 1.0;
+        $base['fill-opacity'] = 1.0;
+
+        $obj->patchSvgObj(540, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => 'none',
+                                'stroke' => '#111111',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'xlink:href' => '#patBase',
+                    ],
+                    'child' => [],
+                ],
+            ],
+            'out' => 'BASE',
+        ]);
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            540,
+            $base,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertSame('BASE', $obj->getSvgObj(540)['out']);
+        $this->assertSame(0, $obj->getSvgObj(540)['patternmode']);
     }
 
     public function testSvgLineRendersStartEndMarkersWhenDefined(): void

@@ -2270,6 +2270,68 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Resolve a pattern definition, including href inheritance chain.
+     *
+     * Child pattern attributes override inherited parent values.
+     * Child pattern content is inherited only when the child has no own content.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $patternId Pattern ID without '#'.
+     *
+     * @return ?TSVGAttribs
+     */
+    protected function resolveSVGPatternDef(int $soid, string $patternId): ?array
+    {
+        if (empty($this->svgobjs[$soid]['defs'][$patternId])) {
+            return null;
+        }
+
+        /** @var TSVGAttribs $resolved */
+        $resolved = $this->svgobjs[$soid]['defs'][$patternId];
+        if (($resolved['name'] ?? '') !== 'pattern') {
+            return null;
+        }
+
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+
+        $seen = [$patternId => true];
+        $href = (string) ($resolvedAttr['xlink:href'] ?? $resolvedAttr['href'] ?? '');
+        while (($href !== '') && ($href[0] === '#')) {
+            $parentId = \substr($href, 1);
+            if (($parentId === '') || !empty($seen[$parentId])) {
+                break;
+            }
+            $seen[$parentId] = true;
+
+            if (empty($this->svgobjs[$soid]['defs'][$parentId])) {
+                break;
+            }
+
+            /** @var TSVGAttribs $parent */
+            $parent = $this->svgobjs[$soid]['defs'][$parentId];
+            if (($parent['name'] ?? '') !== 'pattern') {
+                break;
+            }
+
+            $parentAttr = (isset($parent['attr']) && \is_array($parent['attr'])) ? $parent['attr'] : [];
+            $resolvedAttr = \array_replace($parentAttr, $resolvedAttr);
+
+            if (empty($resolvedChild) && !empty($parent['child']) && \is_array($parent['child'])) {
+                $resolvedChild = $parent['child'];
+            }
+
+            $href = (string) ($parentAttr['xlink:href'] ?? $parentAttr['href'] ?? '');
+        }
+
+        return [
+            'name' => 'pattern',
+            'attr' => $resolvedAttr,
+            'child' => $resolvedChild,
+        ];
+    }
+
+    /**
      * Parse SVG pattern fill style from defs.
      *
      * @param int $soid SVG object ID.
@@ -2297,13 +2359,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        if (empty($this->svgobjs[$soid]['defs'][$patternId])) {
-            return '';
-        }
-
-        /** @var TSVGAttribs $patterndef */
-        $patterndef = $this->svgobjs[$soid]['defs'][$patternId];
-        if (($patterndef['name'] ?? '') !== 'pattern') {
+        $patterndef = $this->resolveSVGPatternDef($soid, $patternId);
+        if ($patterndef === null) {
             return '';
         }
 
