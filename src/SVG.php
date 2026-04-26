@@ -5071,7 +5071,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $gapAdjust = 0.0;
         if (($pathSpacing === 'auto') && ($charCount > 1) && ($availableLength > 0.0)) {
-            $gapAdjust = ($availableLength - $baseAdvance) / (float) ($charCount - 1);
+            $remainingGap = $availableLength - $baseAdvance;
+            if ($remainingGap > 0.0) {
+                $gapAdjust = $remainingGap / (float) ($charCount - 1);
+            }
         }
 
         $xcoords = [];

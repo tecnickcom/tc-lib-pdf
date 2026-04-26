@@ -3117,6 +3117,71 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: spacing="auto" distributes extra length as equal inter-glyph gaps.
+     */
+    public function testSvgTextPathSpacingAutoPreservesMixedWidthGapDelta(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'tp_mixed_gap' => [
+                'name' => 'line',
+                'attr' => [
+                    'x1' => '0',
+                    'y1' => '0',
+                    'x2' => '600',
+                    'y2' => '0',
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(1053);
+        $obj->patchSvgObj(1053, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1053,
+            ['href' => '#tp_mixed_gap', 'spacing' => 'exact'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'WiW');
+        $obj->exposeParseSVGTagENDtextPath(1053);
+        $exact = $obj->getSvgObj(1053);
+        $xExact = $exact['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(3, \count($xExact));
+        $gapExactOne = (float) $xExact[1] - (float) $xExact[0];
+        $gapExactTwo = (float) $xExact[2] - (float) $xExact[1];
+
+        $obj->initSvgObjForHandlers(1054);
+        $obj->patchSvgObj(1054, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1054,
+            ['href' => '#tp_mixed_gap', 'spacing' => 'auto'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'WiW');
+        $obj->exposeParseSVGTagENDtextPath(1054);
+        $auto = $obj->getSvgObj(1054);
+        $xAuto = $auto['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(3, \count($xAuto));
+        $gapAutoOne = (float) $xAuto[1] - (float) $xAuto[0];
+        $gapAutoTwo = (float) $xAuto[2] - (float) $xAuto[1];
+
+        $this->assertGreaterThan($gapExactOne, $gapAutoOne);
+        $this->assertGreaterThan($gapExactTwo, $gapAutoTwo);
+        $this->assertEqualsWithDelta(
+            $gapExactOne - $gapExactTwo,
+            $gapAutoOne - $gapAutoTwo,
+            0.5,
+        );
+    }
+
+    /**
      * E-6: textPath with unresolved href still behaves like a nested text run.
      */
     public function testSvgTextPathMissingReferenceStillRendersText(): void
