@@ -778,6 +778,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'gradientUnits',
         'gradientTransform',
         'xlink:href',
+        'href',
         'stop-color',
         'stop-opacity',
         'style',

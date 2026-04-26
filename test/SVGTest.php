@@ -4114,6 +4114,30 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * S-5: gradient prescan preserves plain href so xref inheritance works.
+     */
+    public function testSvgPrescanGradientsKeepsPlainHrefXref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(851);
+
+        $obj->exposePrescanSVGGradients(
+            '<svg><defs>'
+            . '<linearGradient id="baseLg"><stop offset="0%" stop-color="#000"/></linearGradient>'
+            . '<linearGradient id="refLg" href="#baseLg" />'
+            . '<radialGradient id="baseRg"><stop offset="0%" stop-color="#000"/></radialGradient>'
+            . '<radialGradient id="refRg" href="#baseRg" />'
+            . '</defs></svg>',
+            851,
+        );
+
+        $svgobj = $obj->getSvgObj(851);
+        $this->assertSame('baseLg', (string) ($svgobj['gradients']['refLg']['xref'] ?? ''));
+        $this->assertSame('baseRg', (string) ($svgobj['gradients']['refRg']['xref'] ?? ''));
+    }
+
+    /**
      * R-4: stroke-dasharray values with unit suffixes are normalised to user units.
      */
     public function testSvgDasharrayWithUnitSuffixIsNormalised(): void
