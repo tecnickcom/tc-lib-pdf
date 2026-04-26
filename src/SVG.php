@@ -638,6 +638,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'radialGradient',
         'stop',
         'symbol',
+        'marker',
     ];
 
     /**
@@ -652,6 +653,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'radialGradient',
         'stop',
         'symbol',
+        'marker',
     ];
 
     /**
@@ -2538,6 +2540,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 'tspan' => $this->parseSVGTagENDtspan($soid),
                 'textPath' => $this->parseSVGTagENDtextPath($soid),
                 'symbol' => $this->parseSVGTagENDsymbol($soid),
+                'marker' => $this->parseSVGTagENDmarker($soid),
                 'a' => $this->parseSVGTagENDa($soid),
                 'switch' => $this->parseSVGTagENDswitch($soid),
                 default => null,
@@ -3099,6 +3102,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'textPath' => $this->parseSVGTagSTARTtextPath($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'use' => $this->parseSVGTagSTARTuse($parser, $soid, $attr),
             'symbol' => $this->parseSVGTagSTARTsymbol($soid, $attr),
+            'marker' => $this->parseSVGTagSTARTmarker($soid, $attr),
             'a' => $this->parseSVGTagSTARTa($soid, $attr),
             'switch' => $this->parseSVGTagSTARTswitch($soid),
             default => null,
@@ -5153,6 +5157,47 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string
      */
     protected function parseSVGTagENDsymbol(int $soid): string
+    {
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['defsmode'] = false;
+        return '';
+    }
+
+    /**
+     * Parse the SVG Start tag 'marker'.
+     *
+     * Markers are reusable defs objects referenced by marker-start/mid/end.
+     * This handler captures marker metadata and enables defs-child buffering.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTmarker(int $soid, array $attr): string
+    {
+        if (isset($attr['id'])) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['defs'][$attr['id']] = [
+                'name' => 'marker',
+                'attr' => $attr,
+                'child' => [],
+            ];
+        }
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['defsmode'] = true;
+        return '';
+    }
+
+    /**
+     * Parse the SVG End tag 'marker'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDmarker(int $soid): string
     {
         // @phpstan-ignore assign.propertyType
         $this->svgobjs[$soid]['defsmode'] = false;

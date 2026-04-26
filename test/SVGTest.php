@@ -1012,6 +1012,63 @@ class SVGTest extends TestUtil
         $this->assertArrayHasKey('grp1_CLOSE', $child);
     }
 
+    public function testSvgMarkerDefsCaptureAndLifecycle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(521);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 521);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'marker',
+            [
+                'id' => 'mk1',
+                'viewBox' => '0 0 10 10',
+                'refX' => '5',
+                'refY' => '5',
+                'markerWidth' => '5',
+                'markerHeight' => '5',
+                'orient' => 'auto',
+            ],
+            521,
+        );
+
+        $obj->exposeHandleSVGTagStart($parser, 'path', ['d' => 'M 0 0 L 10 5 L 0 10 Z'], 521);
+        $obj->exposeHandleSVGTagEnd($parser, 'path');
+        $obj->exposeHandleSVGTagEnd($parser, 'marker');
+
+        $svgobj = $obj->getSvgObj(521);
+        $this->assertFalse($svgobj['defsmode']);
+        $this->assertArrayHasKey('mk1', $svgobj['defs']);
+
+        /** @var array<string, mixed> $marker */
+        $marker = $svgobj['defs']['mk1'];
+        $this->assertSame('marker', $marker['name']);
+
+        /** @var array<string, mixed> $child */
+        $child = (isset($marker['child']) && \is_array($marker['child'])) ? $marker['child'] : [];
+        $this->assertArrayHasKey('DF_1', $child);
+        $this->assertArrayHasKey('DF_1_CLOSE', $child);
+    }
+
+    public function testSvgMarkerStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(522);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTmarker(522, []));
+        $svgobj = $obj->getSvgObj(522);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDmarker(522));
+        $this->assertFalse($obj->getSvgObj(522)['defsmode']);
+    }
+
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
     {
         $obj = $this->getInternalTestObject();
