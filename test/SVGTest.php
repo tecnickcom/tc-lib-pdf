@@ -1210,6 +1210,65 @@ class SVGTest extends TestUtil
         $this->assertFalse($obj->getSvgObj(539)['defsmode']);
     }
 
+    public function testSvgMaskDefsCaptureAndLifecycle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(549);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 549);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'mask',
+            [
+                'id' => 'msk1',
+                'x' => '0',
+                'y' => '0',
+                'width' => '10',
+                'height' => '10',
+            ],
+            549,
+        );
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '10', 'fill' => '#ffffff'],
+            549,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'rect');
+        $obj->exposeHandleSVGTagEnd($parser, 'mask');
+
+        $svgobj = $obj->getSvgObj(549);
+        $this->assertFalse($svgobj['defsmode']);
+        $this->assertArrayHasKey('msk1', $svgobj['defs']);
+
+        /** @var array<string, mixed> $mask */
+        $mask = $svgobj['defs']['msk1'];
+        $this->assertSame('mask', $mask['name']);
+
+        /** @var array<string, mixed> $child */
+        $child = (isset($mask['child']) && \is_array($mask['child'])) ? $mask['child'] : [];
+        $this->assertArrayHasKey('DF_1', $child);
+        $this->assertArrayHasKey('DF_1_CLOSE', $child);
+    }
+
+    public function testSvgMaskStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(550);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTmask(550, []));
+        $svgobj = $obj->getSvgObj(550);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDmask(550));
+        $this->assertFalse($obj->getSvgObj(550)['defsmode']);
+    }
+
     public function testSvgPatternHrefInheritanceIsResolvedByFill(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1571,6 +1630,131 @@ class SVGTest extends TestUtil
         );
 
         $this->assertNotSame('', $out);
+    }
+
+    public function testSvgPatternHrefInheritsViewBoxAndPatternTransformInteraction(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(548);
+
+        $defsPatternChild = [
+            'DF_1' => [
+                'name' => 'rect',
+                'attr' => [
+                    'x' => '0',
+                    'y' => '0',
+                    'width' => '10',
+                    'height' => '20',
+                    'fill' => 'none',
+                    'stroke' => '#000000',
+                    'stroke-width' => '1',
+                ],
+            ],
+            'DF_1_CLOSE' => [
+                'name' => 'rect',
+                'attr' => [
+                    'closing_tag' => true,
+                    'content' => '',
+                ],
+            ],
+        ];
+
+        $obj->patchSvgObj(548, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                        'patternTransform' => 'translate(1,2) scale(0.5)',
+                    ],
+                    'child' => $defsPatternChild,
+                ],
+                'patRefInherit' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRefInherit',
+                        'href' => '#patBase',
+                    ],
+                    'child' => [],
+                ],
+                'patRefOverride' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRefOverride',
+                        'xlink:href' => '#patBase',
+                        'patternTransform' => 'translate(0,0) scale(1)',
+                    ],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $resolvedInherit = $obj->exposeResolveSVGPatternDef(548, 'patRefInherit');
+        $resolvedOverride = $obj->exposeResolveSVGPatternDef(548, 'patRefOverride');
+        $this->assertNotNull($resolvedInherit);
+        $this->assertNotNull($resolvedOverride);
+
+        $attrInherit = (isset($resolvedInherit['attr']) && \is_array($resolvedInherit['attr'])) ? $resolvedInherit['attr'] : [];
+        $attrOverride = (isset($resolvedOverride['attr']) && \is_array($resolvedOverride['attr'])) ? $resolvedOverride['attr'] : [];
+        $this->assertSame('0 0 10 20', $attrInherit['viewBox'] ?? '');
+        $this->assertSame('translate(1,2) scale(0.5)', $attrInherit['patternTransform'] ?? '');
+        $this->assertSame('0 0 10 20', $attrOverride['viewBox'] ?? '');
+        $this->assertSame('translate(0,0) scale(1)', $attrOverride['patternTransform'] ?? '');
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $style['fill'] = 'url(#patBase)';
+        [$outBase] = $obj->exposeParseSVGStyleFill(
+            548,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patRefInherit)';
+        [$outInherit] = $obj->exposeParseSVGStyleFill(
+            548,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patRefOverride)';
+        [$outOverride] = $obj->exposeParseSVGStyleFill(
+            548,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $this->assertNotSame('', $outBase);
+        $this->assertNotSame('', $outInherit);
+        $this->assertNotSame('', $outOverride);
     }
 
     public function testSvgPatternPreserveAspectRatioChangesViewBoxTransform(): void

@@ -861,6 +861,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagENDpattern($soid);
     }
 
+    public function exposeParseSVGTagENDmask(int $soid): string
+    {
+        return $this->parseSVGTagENDmask($soid);
+    }
+
     /** @phpstan-return ?TSVGAttribs */
     public function exposeResolveSVGPatternDef(int $soid, string $patternId): ?array
     {
@@ -883,6 +888,12 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeParseSVGTagSTARTpattern(int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTpattern($soid, $attr);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTmask(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTmask($soid, $attr);
     }
 
     public function exposeParseSVGTagENDa(int $soid): string

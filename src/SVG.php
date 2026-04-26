@@ -642,6 +642,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'symbol',
         'marker',
         'pattern',
+        'mask',
     ];
 
     /**
@@ -658,6 +659,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'symbol',
         'marker',
         'pattern',
+        'mask',
     ];
 
     /**
@@ -3098,6 +3100,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 'symbol' => $this->parseSVGTagENDsymbol($soid),
                 'marker' => $this->parseSVGTagENDmarker($soid),
                 'pattern' => $this->parseSVGTagENDpattern($soid),
+                'mask' => $this->parseSVGTagENDmask($soid),
                 'a' => $this->parseSVGTagENDa($soid),
                 'switch' => $this->parseSVGTagENDswitch($soid),
                 default => null,
@@ -3661,6 +3664,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'symbol' => $this->parseSVGTagSTARTsymbol($soid, $attr),
             'marker' => $this->parseSVGTagSTARTmarker($soid, $attr),
             'pattern' => $this->parseSVGTagSTARTpattern($soid, $attr),
+            'mask' => $this->parseSVGTagSTARTmask($soid, $attr),
             'a' => $this->parseSVGTagSTARTa($soid, $attr),
             'switch' => $this->parseSVGTagSTARTswitch($soid),
             default => null,
@@ -6584,6 +6588,44 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string
      */
     protected function parseSVGTagENDpattern(int $soid): string
+    {
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['defsmode'] = false;
+        return '';
+    }
+
+    /**
+     * Parse the SVG Start tag 'mask'.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTmask(int $soid, array $attr): string
+    {
+        if (isset($attr['id'])) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['defs'][$attr['id']] = [
+                'name' => 'mask',
+                'attr' => $attr,
+                'child' => [],
+            ];
+        }
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['defsmode'] = true;
+        return '';
+    }
+
+    /**
+     * Parse the SVG End tag 'mask'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDmask(int $soid): string
     {
         // @phpstan-ignore assign.propertyType
         $this->svgobjs[$soid]['defsmode'] = false;
