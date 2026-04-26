@@ -3981,7 +3981,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             (string) ($svgstyle['marker-start'] ?? ''),
             $first['x1'],
             $first['y1'],
-            $first['angle'],
+            (float) ($first['startAngle'] ?? $first['angle']),
             $strokeWidth,
             true,
         );
@@ -3991,12 +3991,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             for ($idx = 1, $max = \count($segments); $idx < $max; ++$idx) {
                 $prev = $segments[$idx - 1];
                 $next = $segments[$idx];
-                $a1 = \deg2rad($prev['angle']);
-                $a2 = \deg2rad($next['angle']);
+                $a1 = \deg2rad((float) ($prev['endAngle'] ?? $prev['angle']));
+                $a2 = \deg2rad((float) ($next['startAngle'] ?? $next['angle']));
                 $vx = \cos($a1) + \cos($a2);
                 $vy = \sin($a1) + \sin($a2);
                 $midAngle = ((\abs($vx) < self::SVGMINFLOATDIFF) && (\abs($vy) < self::SVGMINFLOATDIFF))
-                    ? $next['angle']
+                    ? (float) ($next['startAngle'] ?? $next['angle'])
                     : \rad2deg(\atan2($vy, $vx));
                 $out .= $this->renderSVGMarker(
                     $parser,
@@ -4017,7 +4017,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             (string) ($svgstyle['marker-end'] ?? ''),
             $last['x2'],
             $last['y2'],
-            $last['angle'],
+            (float) ($last['endAngle'] ?? $last['angle']),
             $strokeWidth,
             false,
         );
@@ -4088,6 +4088,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     'x2' => $x2,
                     'y2' => $y2,
                     'angle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                    'startAngle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                    'endAngle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
                 ];
             };
 
@@ -4144,11 +4146,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if ($upper === 'C') {
                 for ($i = 0; ($i + 5) < \count($params); $i += 6) {
+                    $cp1x = $params[$i] + ($rel ? $cx : 0.0);
+                    $cp1y = $params[$i + 1] + ($rel ? $cy : 0.0);
                     $cp2x = $params[$i + 2] + ($rel ? $cx : 0.0);
                     $cp2y = $params[$i + 3] + ($rel ? $cy : 0.0);
                     $nx = $params[$i + 4] + ($rel ? $cx : 0.0);
                     $ny = $params[$i + 5] + ($rel ? $cy : 0.0);
                     $addSegment($cx, $cy, $nx, $ny);
+                    $last = \count($segments) - 1;
+                    if ($last >= 0) {
+                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($cp1y - $cy), ($cp1x - $cx)));
+                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($ny - $cp2y), ($nx - $cp2x)));
+                    }
                     $cx = $nx;
                     $cy = $ny;
                 }
@@ -4158,18 +4167,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if ($upper === 'S') {
                 for ($i = 0; ($i + 3) < \count($params); $i += 4) {
+                    $cp1x = $cx;
+                    $cp1y = $cy;
                     if (($prevCmd === 'C') || ($prevCmd === 'S')) {
-                        $cp2x = (2 * $cx) - $cp2x;
-                        $cp2y = (2 * $cy) - $cp2y;
-                    } else {
-                        $cp2x = $cx;
-                        $cp2y = $cy;
+                        $cp1x = (2 * $cx) - $cp2x;
+                        $cp1y = (2 * $cy) - $cp2y;
                     }
                     $cp2x = $params[$i] + ($rel ? $cx : 0.0);
                     $cp2y = $params[$i + 1] + ($rel ? $cy : 0.0);
                     $nx = $params[$i + 2] + ($rel ? $cx : 0.0);
                     $ny = $params[$i + 3] + ($rel ? $cy : 0.0);
                     $addSegment($cx, $cy, $nx, $ny);
+                    $last = \count($segments) - 1;
+                    if ($last >= 0) {
+                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($cp1y - $cy), ($cp1x - $cx)));
+                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($ny - $cp2y), ($nx - $cp2x)));
+                    }
                     $cx = $nx;
                     $cy = $ny;
                 }
@@ -4184,6 +4197,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $nx = $params[$i + 2] + ($rel ? $cx : 0.0);
                     $ny = $params[$i + 3] + ($rel ? $cy : 0.0);
                     $addSegment($cx, $cy, $nx, $ny);
+                    $last = \count($segments) - 1;
+                    if ($last >= 0) {
+                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($qp1y - $cy), ($qp1x - $cx)));
+                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($ny - $qp1y), ($nx - $qp1x)));
+                    }
                     $cx = $nx;
                     $cy = $ny;
                 }
@@ -4203,6 +4221,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $nx = $params[$i] + ($rel ? $cx : 0.0);
                     $ny = $params[$i + 1] + ($rel ? $cy : 0.0);
                     $addSegment($cx, $cy, $nx, $ny);
+                    $last = \count($segments) - 1;
+                    if ($last >= 0) {
+                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($qp1y - $cy), ($qp1x - $cx)));
+                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($ny - $qp1y), ($nx - $qp1x)));
+                    }
                     $cx = $nx;
                     $cy = $ny;
                 }
@@ -4263,6 +4286,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 'x2' => $x2,
                 'y2' => $y2,
                 'angle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                'startAngle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                'endAngle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
             ];
         }
 
@@ -4278,6 +4303,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     'x2' => $x2,
                     'y2' => $y2,
                     'angle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                    'startAngle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                    'endAngle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
                 ];
             }
         }

@@ -1280,6 +1280,68 @@ class SVGTest extends TestUtil
         $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
     }
 
+    public function testSvgCurvedPathRendersMarkersWithoutErrors(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(527);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkcurve)';
+        $base['marker-mid'] = 'url(#mkcurve)';
+        $base['marker-end'] = 'url(#mkcurve)';
+
+        $obj->patchSvgObj(527, [
+            'styles' => [$base],
+            'defs' => [
+                'mkcurve' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkcurve',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpath(
+            $parser,
+            527,
+            ['d' => 'M 1 1 C 3 9 7 -1 9 7 L 12 9'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
     {
         $obj = $this->getInternalTestObject();
