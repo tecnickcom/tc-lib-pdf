@@ -76,6 +76,30 @@ class SVGTest extends TestUtil
         $this->assertStringEndsWith("Q\nQ\n", $out);
     }
 
+    public function testSvgPatternFillEmitsPdfPatternResources(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false);
+        $page = $this->initFontAndPage($obj);
+        $svg = '@<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">'
+            . '<defs>'
+            . '<pattern id="p1" patternUnits="userSpaceOnUse" x="0" y="0" width="4" height="4">'
+            . '<rect x="0" y="0" width="4" height="4" fill="none" stroke="#000000" stroke-width="1"/>'
+            . '</pattern>'
+            . '</defs>'
+            . '<rect x="0" y="0" width="20" height="20" fill="url(#p1)"/>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 5, 6, 12, 12, $page['height']);
+        $svgOut = $obj->getSetSVG($soid);
+        $pdf = $obj->getOutPDFString();
+
+        $this->assertStringContainsString('/Pattern cs /PTN_', $svgOut);
+        $this->assertStringContainsString(' scn', $svgOut);
+        $this->assertStringContainsString('/Type /Pattern', $pdf);
+        $this->assertStringContainsString('/Pattern <<', $pdf);
+        $this->assertMatchesRegularExpression('/\/PTN_[A-F0-9]{16}\s+\d+\s+0\s+R/', $pdf);
+    }
+
     public function testGetSetSVGThrowsForUnknownId(): void
     {
         $obj = $this->getTestObject();
@@ -1544,7 +1568,9 @@ class SVGTest extends TestUtil
 
         $this->assertNotSame('', $outUser);
         $this->assertNotSame('', $outObj);
-        $this->assertSame($outUser, $outObj);
+        $normUser = (string) \preg_replace('/PTN_[A-F0-9]{16}/', 'PTN_ID', $outUser);
+        $normObj = (string) \preg_replace('/PTN_[A-F0-9]{16}/', 'PTN_ID', $outObj);
+        $this->assertSame($normUser, $normObj);
     }
 
     public function testSvgLineRendersStartEndMarkersWhenDefined(): void

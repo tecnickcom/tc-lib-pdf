@@ -2332,6 +2332,208 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Register a PDF tiling pattern resource for an SVG pattern definition.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $patternId Pattern ID without '#'.
+     * @param TSVGAttribs $patterndef Resolved pattern definition.
+     * @param TSVGAttributes $attr Resolved pattern attributes.
+     * @param float $tileX Tile origin x in user units.
+     * @param float $tileY Tile origin y in user units.
+     * @param float $tileW Tile width in user units.
+     * @param float $tileH Tile height in user units.
+     * @param float $width Target object width in user units.
+     * @param float $height Target object height in user units.
+     *
+     * @return string Pattern resource ID or empty string on failure.
+     */
+    protected function registerSVGPatternResource(
+        int $soid,
+        string $patternId,
+        array $patterndef,
+        array $attr,
+        float $tileX,
+        float $tileY,
+        float $tileW,
+        float $tileH,
+        float $width,
+        float $height,
+    ): string {
+        if (($tileW <= $this->svgminunitlen) || ($tileH <= $this->svgminunitlen)) {
+            return '';
+        }
+
+        $contentUnits = (string) ($attr['patternContentUnits'] ?? 'userSpaceOnUse');
+        $patternTransform = !empty($attr['patternTransform']) && \is_string($attr['patternTransform'])
+            ? $this->getSVGTransformMatrix($attr['patternTransform'])
+            : self::TMXID;
+        $viewBoxTm = self::TMXID;
+        $hasViewBox = false;
+        if (!empty($attr['viewBox']) && \is_string($attr['viewBox'])) {
+            $vals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (\is_array($vals) && (\count($vals) >= 4)) {
+                $vbx = (float) $this->svgUnitToUnit((string) $vals[0], $soid);
+                $vby = (float) $this->svgUnitToUnit((string) $vals[1], $soid);
+                $vbw = \abs((float) $this->svgUnitToUnit((string) $vals[2], $soid));
+                $vbh = \abs((float) $this->svgUnitToUnit((string) $vals[3], $soid));
+
+                if (($vbw > 0.0) && ($vbh > 0.0)) {
+                    $hasViewBox = true;
+                    $viewScaleX = ($tileW / $vbw);
+                    $viewScaleY = ($tileH / $vbh);
+                    $viewOffsetX = 0.0;
+                    $viewOffsetY = 0.0;
+
+                    $aspectRaw = (string) ($attr['preserveAspectRatio'] ?? 'xMidYMid meet');
+                    $aspectFit = 'meet';
+                    $aspectX = 'xMid';
+                    $aspectY = 'YMid';
+                    if (\trim($aspectRaw) === 'none') {
+                        $aspectFit = 'none';
+                    } else {
+                        $am = [];
+                        \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $am);
+                        $tokens = $am[0] ?? [];
+                        if (!empty($tokens)) {
+                            if (\strtolower((string) $tokens[0]) === 'defer') {
+                                \array_shift($tokens);
+                            }
+
+                            if (!empty($tokens) && (\strlen((string) $tokens[0]) === 8)) {
+                                $alignToken = (string) $tokens[0];
+                                $aspectX = \substr($alignToken, 0, 4);
+                                $aspectY = \substr($alignToken, 4, 4);
+                                if (isset($tokens[1]) && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)) {
+                                    $aspectFit = (string) $tokens[1];
+                                }
+                            } elseif (!empty($tokens) && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)) {
+                                $aspectFit = (string) $tokens[0];
+                            }
+                        }
+                    }
+
+                    if ($aspectFit !== 'none') {
+                        $sx = ($tileW / $vbw);
+                        $sy = ($tileH / $vbh);
+                        $scale = ($aspectFit === 'slice') ? \max($sx, $sy) : \min($sx, $sy);
+                        $viewScaleX = $scale;
+                        $viewScaleY = $scale;
+                        $scaledW = $vbw * $scale;
+                        $scaledH = $vbh * $scale;
+                        $viewOffsetX = match ($aspectX) {
+                            'xMax' => ($tileW - $scaledW),
+                            'xMid' => (($tileW - $scaledW) / 2.0),
+                            default => 0.0,
+                        };
+                        $viewOffsetY = match ($aspectY) {
+                            'YMax' => ($tileH - $scaledH),
+                            'YMid' => (($tileH - $scaledH) / 2.0),
+                            default => 0.0,
+                        };
+                    }
+
+                    $viewBoxTm = [
+                        $viewScaleX,
+                        0.0,
+                        0.0,
+                        $viewScaleY,
+                        ($viewOffsetX - ($viewScaleX * $vbx)),
+                        ($viewOffsetY - ($viewScaleY * $vby)),
+                    ];
+                }
+            }
+        }
+
+        $contentTm = self::TMXID;
+        // SVG2: patternContentUnits has no effect when a viewBox is specified.
+        if (($contentUnits === 'objectBoundingBox') && !$hasViewBox) {
+            $contentTm = $this->graph->getCtmProduct($contentTm, [$width, 0.0, 0.0, $height, 0.0, 0.0]);
+        }
+        $contentTm = $this->graph->getCtmProduct($contentTm, $viewBoxTm);
+
+        $stream = $this->graph->getStartTransform();
+        $stream .= $this->getOutSVGTransformation($contentTm, $soid);
+
+        $patParser = \xml_parser_create('UTF-8');
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['patternmode'] = ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) + 1;
+        try {
+            if (!empty($patterndef['child']) && \is_array($patterndef['child'])) {
+                foreach ($patterndef['child'] as $child) {
+                    if (!\is_array($child) || !isset($child['name'])) {
+                        continue;
+                    }
+                    $prevOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                    $prevLen = \strlen($prevOut);
+                    if (!empty($child['attr']['closing_tag'])) {
+                        if (!empty($child['attr']['content']) && \is_string($child['attr']['content'])) {
+                            // @phpstan-ignore assign.propertyType
+                            $this->svgobjs[$soid]['text'] .= $child['attr']['content'];
+                        }
+                        $this->handleSVGTagEnd($patParser, (string) $child['name']);
+                    } else {
+                        /** @var TSVGAttributes $childAttr */
+                        $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
+                        $this->handleSVGTagStart($patParser, (string) $child['name'], $childAttr, $soid);
+                    }
+
+                    $currOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                    $currLen = \strlen($currOut);
+                    if ($currLen > $prevLen) {
+                        $stream .= \substr($currOut, $prevLen);
+                        // @phpstan-ignore assign.propertyType
+                        $this->svgobjs[$soid]['out'] = $prevOut;
+                    }
+                }
+            }
+        } finally {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
+            \xml_parser_free($patParser);
+        }
+
+        $stream .= $this->graph->getStopTransform();
+        if (\trim($stream) === '') {
+            return '';
+        }
+
+        $patternMatrix = $this->graph->getCtmProduct([1.0, 0.0, 0.0, 1.0, $tileX, $tileY], $patternTransform);
+        $pid = 'PTN_' . \strtoupper(\substr(\md5($patternId . '|' . \sprintf(
+            '%F|%F|%F|%F|%F|%F|%F|%F',
+            $tileX,
+            $tileY,
+            $tileW,
+            $tileH,
+            $width,
+            $height,
+            $patternMatrix[4],
+            $patternMatrix[5],
+        )), 0, 16));
+
+        if (empty($this->patterns[$pid])) {
+            $this->patterns[$pid] = [
+                'id' => $pid,
+                'n' => 0,
+                'outdata' => $stream,
+                'bbox' => [0.0, 0.0, $tileW, $tileH],
+                'xstep' => $tileW,
+                'ystep' => $tileH,
+                'matrix' => [
+                    $patternMatrix[0],
+                    $patternMatrix[1],
+                    $patternMatrix[2],
+                    $patternMatrix[3],
+                    $patternMatrix[4],
+                    $patternMatrix[5],
+                ],
+                'resoid' => $this->page->getResourceDictObjID(),
+            ];
+        }
+
+        return $pid;
+    }
+
+    /**
      * Parse SVG pattern fill style from defs.
      *
      * @param int $soid SVG object ID.
@@ -2380,6 +2582,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if (($tileW <= $this->svgminunitlen) || ($tileH <= $this->svgminunitlen)) {
             return '';
+        }
+
+        $patternResId = $this->registerSVGPatternResource(
+            $soid,
+            $patternId,
+            $patterndef,
+            $attr,
+            $tileX,
+            $tileY,
+            $tileW,
+            $tileH,
+            $width,
+            $height,
+        );
+        if ($patternResId !== '') {
+            return '/Pattern cs /' . $patternResId . " scn\n";
         }
 
         $ixStart = (int) \floor((($posx - $tileX) / $tileW)) - 1;
@@ -2599,7 +2817,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 /** @var TSVGAttribs $filldef */
                 $filldef = $this->svgobjs[$soid]['defs'][$regs[1]];
                 if (($filldef['name'] ?? '') === 'pattern') {
-                    return $out . $this->parseSVGStylePattern(
+                    $patternOut = $this->parseSVGStylePattern(
                         $soid,
                         $regs[1],
                         $posx,
@@ -2609,6 +2827,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                         $clip_fnc,
                         $clip_par,
                     );
+                    if (\str_contains($patternOut, '/Pattern cs /')) {
+                        $objstyle = ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
+                        if (\strpos($svgstyle['objstyle'], $objstyle) === false) {
+                            $svgstyle['objstyle'] .= $objstyle; // @phpstan-ignore-line
+                        }
+                    }
+
+                    return $out . $patternOut;
                 }
             }
 

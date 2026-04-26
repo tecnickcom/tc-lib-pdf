@@ -358,6 +358,17 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'gheight': float,
  *     }
  *
+ * @phpstan-type TPatternObject array{
+ *         'id': string,
+ *         'n': int,
+ *         'outdata': string,
+ *         'bbox': array{float, float, float, float},
+ *         'xstep': float,
+ *         'ystep': float,
+ *         'matrix': array{float, float, float, float, float, float},
+ *         'resoid'?: int,
+ *     }
+ *
  * @phpstan-type TOutline array{
  *         't': string,
  *         'u': string,
@@ -607,6 +618,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->graph->getOutGradientShaders($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutXObjects();
+        $out .= $this->getOutPatterns();
         $out .= $this->getOutResourcesDict();
         $out .= $this->getOutDestinations();
         $out .= $this->getOutEmbeddedFiles();
@@ -1181,12 +1193,78 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
             . $this->outfont->getOutFontDict()
             . $this->getXObjectDict()
+            . $this->getPatternDict()
             . $this->getLayerDict()
             . $this->graph->getOutExtGStateResources()
             . $this->graph->getOutGradientResources()
             . $this->color->getPdfSpotResources()
             . ' >>' . "\n"
             . 'endobj' . "\n";
+    }
+
+    /**
+     * Returns the PDF Pattern objects entry.
+     */
+    protected function getOutPatterns(): string
+    {
+        $out = '';
+        foreach ($this->patterns as $pid => $data) {
+            if (empty($data['outdata'])) {
+                continue;
+            }
+
+            if (empty($this->patterns[$pid]['n'])) {
+                $this->patterns[$pid]['n'] = ++$this->pon;
+            }
+
+            $oid = $this->patterns[$pid]['n'];
+            $stream = \trim($data['outdata']);
+            $out .= $oid . ' 0 obj' . "\n"
+                . '<<'
+                . ' /Type /Pattern'
+                . ' /PatternType 1'
+                . ' /PaintType 1'
+                . ' /TilingType 1'
+                . \sprintf(
+                    ' /BBox [%F %F %F %F]',
+                    $data['bbox'][0],
+                    $data['bbox'][1],
+                    $data['bbox'][2],
+                    $data['bbox'][3],
+                )
+                . ' /XStep ' . \sprintf('%F', $data['xstep'])
+                . ' /YStep ' . \sprintf('%F', $data['ystep'])
+                . \sprintf(
+                    ' /Matrix [%F %F %F %F %F %F]',
+                    $data['matrix'][0],
+                    $data['matrix'][1],
+                    $data['matrix'][2],
+                    $data['matrix'][3],
+                    $data['matrix'][4],
+                    $data['matrix'][5],
+                );
+
+            $resoid = $data['resoid'] ?? ($this->objid['resdic'] ?? $this->page->getResourceDictObjID());
+            $out .= ' /Resources ' . $resoid . ' 0 R';
+
+            if ($this->compress) {
+                $stream = \gzcompress($stream);
+                if ($stream === false) {
+                    throw new PdfException('Unable to compress stream');
+                }
+                $out .= ' /Filter /FlateDecode';
+            }
+
+            $stream = $this->encrypt->encryptString($stream, $oid);
+            $out .= ' /Length ' . \strlen($stream)
+                . ' >>'
+                . ' stream' . "\n"
+                . $stream . "\n"
+                . 'endstream' . "\n"
+                . 'endobj' . "\n";
+        }
+
+        return $out;
     }
 
     /**
@@ -4264,6 +4342,26 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out .= $this->image->getXobjectDict();
+
+        return $out . ' >>';
+    }
+
+    /**
+     * Get the PDF output string for Pattern resources dictionary.
+     */
+    protected function getPatternDict(): string
+    {
+        if (empty($this->patterns)) {
+            return '';
+        }
+
+        $out = ' /Pattern <<';
+        foreach ($this->patterns as $pid => $pattern) {
+            if (empty($pattern['n'])) {
+                continue;
+            }
+            $out .= ' /' . $pid . ' ' . $pattern['n'] . ' 0 R';
+        }
 
         return $out . ' >>';
     }
