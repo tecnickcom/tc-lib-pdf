@@ -4537,12 +4537,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $am = [];
             \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $am);
             $tokens = $am[0] ?? [];
-            if (\count($tokens) >= 1) {
-                $alignToken = (\strlen((string) $tokens[0]) === 8) ? $tokens[0] : 'xMidYMid';
-                $aspectX = \substr($alignToken, 0, 4);
-                $aspectY = \substr($alignToken, 4, 4);
-                if (\count($tokens) >= 2 && \in_array($tokens[1], ['meet', 'slice', 'none'], true)) {
-                    $aspectFit = $tokens[1];
+            if (!empty($tokens)) {
+                if (\strtolower((string) $tokens[0]) === 'defer') {
+                    \array_shift($tokens);
+                }
+
+                if (!empty($tokens) && (\strlen((string) $tokens[0]) === 8)) {
+                    $alignToken = (string) $tokens[0];
+                    $aspectX = \substr($alignToken, 0, 4);
+                    $aspectY = \substr($alignToken, 4, 4);
+                    if (isset($tokens[1]) && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)) {
+                        $aspectFit = (string) $tokens[1];
+                    }
+                } elseif (!empty($tokens) && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)) {
+                    $aspectFit = (string) $tokens[0];
                 }
             }
         }
