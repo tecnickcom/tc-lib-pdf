@@ -2907,6 +2907,102 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: arc sweep flag influences initial tangent direction.
+     */
+    public function testSvgTextPathArcSweepDirectionAffectsInitialTangentSign(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // sweep=1 should start with upward tangent for this semicircle.
+        $obj->initSvgObjForHandlers(1050);
+        $obj->patchSvgObj(1050, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc_sweep1' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A50 50 0 0 1 100 0',
+                    ],
+                ],
+            ],
+        ]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1050,
+            ['href' => '#tp_arc_sweep1', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+        $angleUp = (float) ($obj->getSvgObj(1050)['textmode']['rotate'] ?? 0.0);
+
+        // sweep=0 should mirror direction, yielding a negative initial tangent.
+        $obj->initSvgObjForHandlers(1051);
+        $obj->patchSvgObj(1051, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc_sweep0' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A50 50 0 0 0 100 0',
+                    ],
+                ],
+            ],
+        ]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1051,
+            ['href' => '#tp_arc_sweep0', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+        $angleDown = (float) ($obj->getSvgObj(1051)['textmode']['rotate'] ?? 0.0);
+
+        $this->assertGreaterThan(45.0, \abs($angleUp));
+        $this->assertGreaterThan(45.0, \abs($angleDown));
+        $this->assertLessThan(0.0, $angleUp * $angleDown);
+    }
+
+    /**
+     * E-6: zero-radius arc falls back to a straight segment endpoint behavior.
+     */
+    public function testSvgTextPathZeroRadiusArcFallsBackToLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1052);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->patchSvgObj(1052, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc_zero' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A0 0 0 0 1 100 0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1052,
+            ['href' => '#tp_arc_zero', 'startOffset' => '50%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1052);
+        $this->assertGreaterThan(0.0, (float) $svgobj['x']);
+        $this->assertEqualsWithDelta(0.0, (float) $svgobj['y'], 0.001);
+        $this->assertEqualsWithDelta(0.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
      * E-6: spacing="auto" expands inter-glyph distance to fill path.
      */
     public function testSvgTextPathSpacingAutoExpandsGlyphGap(): void
