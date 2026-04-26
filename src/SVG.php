@@ -3974,11 +3974,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $first = $segments[0];
         $last = $segments[\count($segments) - 1];
 
+        $markerAll = (string) ($svgstyle['marker'] ?? '');
+        $markerStart = $this->getSVGResolvedMarker((string) ($svgstyle['marker-start'] ?? ''), $markerAll);
+        $markerMid = $this->getSVGResolvedMarker((string) ($svgstyle['marker-mid'] ?? ''), $markerAll);
+        $markerEnd = $this->getSVGResolvedMarker((string) ($svgstyle['marker-end'] ?? ''), $markerAll);
+
         $out = '';
         $out .= $this->renderSVGMarker(
             $parser,
             $soid,
-            (string) ($svgstyle['marker-start'] ?? ''),
+            $markerStart,
             $first['x1'],
             $first['y1'],
             (float) ($first['startAngle'] ?? $first['angle']),
@@ -3986,7 +3991,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             true,
         );
 
-        $midMarker = (string) ($svgstyle['marker-mid'] ?? '');
+        $midMarker = $markerMid;
         if (($midMarker !== '') && ($midMarker !== 'none') && (\count($segments) > 1)) {
             for ($idx = 1, $max = \count($segments); $idx < $max; ++$idx) {
                 $prev = $segments[$idx - 1];
@@ -4038,7 +4043,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out .= $this->renderSVGMarker(
             $parser,
             $soid,
-            (string) ($svgstyle['marker-end'] ?? ''),
+            $markerEnd,
             $last['x2'],
             $last['y2'],
             (float) ($last['endAngle'] ?? $last['angle']),
@@ -4047,6 +4052,27 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
 
         return $out;
+    }
+
+    /**
+     * Resolve marker shorthand fallback for marker-start/mid/end.
+     *
+     * @param string $specific Marker-specific value.
+     * @param string $markerAll Shorthand marker value.
+     *
+     * @return string
+     */
+    protected function getSVGResolvedMarker(string $specific, string $markerAll): string
+    {
+        if (($specific !== '') && ($specific !== 'none')) {
+            return $specific;
+        }
+
+        if (($markerAll !== '') && ($markerAll !== 'none')) {
+            return $markerAll;
+        }
+
+        return $specific;
     }
 
     /**
@@ -4477,8 +4503,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             if ($isStart && ($orient === 'auto-start-reverse')) {
                 $angle += 180.0;
             }
-        } elseif (\is_numeric($orient)) {
-            $angle = (float) $orient;
+        } else {
+            $omatch = [];
+            if (\preg_match('/^([+-]?\d+(?:\.\d+)?)(deg)?$/i', $orient, $omatch) === 1) {
+                $angle = (float) $omatch[1];
+            }
         }
 
         $rad = \deg2rad(-$angle);
