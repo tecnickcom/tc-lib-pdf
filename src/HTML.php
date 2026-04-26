@@ -35,6 +35,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
  * @phpstan-type THTMLTableCell array{
  *     cellx: float, cellw: float, contenth: float,
  *     bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string
@@ -2812,7 +2813,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
         $this->getHTMLFontMetric($hrc, $key);
         $ordarr = [];
-        $dim = self::DIM_DEFAULT;
+        $dim = $this->getHTMLDefaultTextDims();
         $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
 
         $lineadvance = $this->getHTMLLineAdvance($hrc, $key);
@@ -3482,6 +3483,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return a typed default text-dimension structure for HTML text helpers.
+     *
+     * @return TTextDims
+     */
+    protected function getHTMLDefaultTextDims(): array
+    {
+        return self::DIM_DEFAULT;
+    }
+
+    /**
      * Prepare HTML text preserving explicit soft hyphen characters.
      *
      * @param string $txt Input text to normalize and convert.
@@ -3730,7 +3741,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
             $ordarr = [];
-            $dim = self::DIM_DEFAULT;
+            $dim = $this->getHTMLDefaultTextDims();
             $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
             $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
             $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining));
@@ -3820,7 +3831,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $ordarr = [];
-        $dim = self::DIM_DEFAULT;
+        $dim = $this->getHTMLDefaultTextDims();
         $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
         if ($ordarr === [] || ((int) $dim['spaces'] <= 0)) {
             return 0;
@@ -3982,7 +3993,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $ordarr = [];
-        $dim = self::DIM_DEFAULT;
+        $dim = $this->getHTMLDefaultTextDims();
         $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
         // Give splitLines the same tolerance used by wrap guards so boundary fits
         // (for example: one more word after an italic fragment) are not rejected.
@@ -5902,7 +5913,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($availableWidthMV > 0.0) {
                 $probeText = $text;
                 $probeOrd = [];
-                $probeDim = self::DIM_DEFAULT;
+                $probeDim = $this->getHTMLDefaultTextDims();
                 $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir);
                 $probeLines = $this->splitLines(
                     $probeOrd,
