@@ -3495,12 +3495,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array &$dim,
         string $forcedir = '',
     ): void {
-        $prevHtmlRenderSoftHyphen = $this->htmlRenderSoftHyphen;
+        $prevSoftHyphen = $this->htmlRenderSoftHyphen;
         $this->htmlRenderSoftHyphen = true;
         try {
             $this->prepareText($txt, $ordarr, $dim, $forcedir);
         } finally {
-            $this->htmlRenderSoftHyphen = $prevHtmlRenderSoftHyphen;
+            $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
     }
 
@@ -6246,7 +6246,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Re-sync the active font metric for accurate glyph placement.
         $this->getHTMLFontMetric($hrc, $currentkey);
 
-        $prevHtmlRenderSoftHyphen = $this->htmlRenderSoftHyphen;
+        $prevSoftHyphen = $this->htmlRenderSoftHyphen;
         $this->htmlRenderSoftHyphen = true;
         try {
             $out .= $this->getTextCell(
@@ -6276,7 +6276,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $forcedir,
             );
         } finally {
-            $this->htmlRenderSoftHyphen = $prevHtmlRenderSoftHyphen;
+            $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
 
         $bbox = $this->getLastBBox();
