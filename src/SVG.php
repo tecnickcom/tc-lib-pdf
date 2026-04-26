@@ -2849,15 +2849,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if (\end($this->svgobjs[$soid]['defs']) !== false) {
                 $last_svgdefs_id = \key($this->svgobjs[$soid]['defs']);
-                if (
-                    !empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])
-                    && \is_array($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])
-                ) {
+                if (!isset($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'] = [];
+                }
+
+                if (\is_array($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
                     $attr['id'] = 'DF_' .
-                    (\count($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child']) + 1);
+                        (\count($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child']) + 1);
                     $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$attr['id']] = [
                         'name' => $name,
-                        'attr' => $attr
+                        'attr' => $attr,
                     ];
                     return;
                 }

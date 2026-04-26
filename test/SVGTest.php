@@ -2065,6 +2065,36 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-1: first non-id child inside symbol is captured in defs child list.
+     */
+    public function testSvgSymbolCapturesFirstAnonymousChild(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(92);
+
+        $obj->exposeParseSVGTagSTARTsymbol(92, ['id' => 'symChild']);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['width' => '10', 'height' => '5'],
+            92,
+        );
+
+        $svgobj = $obj->getSvgObj(92);
+        $this->assertArrayHasKey('symChild', $svgobj['defs']);
+        $symbolDef = $svgobj['defs']['symChild'];
+        $children = $symbolDef['child'] ?? [];
+        $this->assertIsArray($children);
+        $this->assertNotSame([], $children);
+
+        $first = \reset($children);
+        $this->assertIsArray($first);
+        $this->assertSame('rect', $first['name'] ?? '');
+    }
+
+    /**
      * E-7: <a> start stores link metadata and </a> emits an annotation ref.
      */
     public function testSvgATagCreatesAnnotationReference(): void
