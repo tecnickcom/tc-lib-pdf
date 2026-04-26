@@ -4362,17 +4362,137 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if ($defName === 'path') {
             $pathData = (string) ($defAttr['d'] ?? '');
-            \preg_match_all('/-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/', $pathData, $pathVals);
-            if (empty($pathVals[0]) || (\count($pathVals[0]) < 4)) {
+            \preg_match_all('/[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/', $pathData, $tokenMatch);
+            $tokens = $tokenMatch[0];
+            if (empty($tokens)) {
                 return null;
             }
+
             $ptlist = [];
-            for ($idx = 0; $idx + 1 < \count($pathVals[0]); $idx += 2) {
-                $ptlist[] = [
-                    $this->svgUnitToUnit((string) $pathVals[0][$idx], $soid),
-                    $this->svgUnitToUnit((string) $pathVals[0][$idx + 1], $soid),
-                ];
+            $curX = 0.0;
+            $curY = 0.0;
+            $subX = 0.0;
+            $subY = 0.0;
+            $command = '';
+            $tokCount = \count($tokens);
+            $idx = 0;
+
+            while ($idx < $tokCount) {
+                $token = (string) $tokens[$idx];
+                if (\preg_match('/^[A-Za-z]$/', $token) === 1) {
+                    $command = $token;
+                    ++$idx;
+                    if (($command === 'Z') || ($command === 'z')) {
+                        if (!empty($ptlist)) {
+                            $ptlist[] = [$subX, $subY];
+                            $curX = $subX;
+                            $curY = $subY;
+                        }
+                    }
+                    continue;
+                }
+
+                if ($command === '') {
+                    ++$idx;
+                    continue;
+                }
+
+                $isRel = \ctype_lower($command);
+                $cmd = \strtolower($command);
+
+                if (($cmd === 'm') || ($cmd === 'l') || ($cmd === 't')) {
+                    if (($idx + 1) >= $tokCount) {
+                        break;
+                    }
+                    $valX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                    $valY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                    if ($isRel) {
+                        $valX += $curX;
+                        $valY += $curY;
+                    }
+                    $curX = $valX;
+                    $curY = $valY;
+                    $ptlist[] = [$curX, $curY];
+                    if ($cmd === 'm') {
+                        $subX = $curX;
+                        $subY = $curY;
+                        $command = $isRel ? 'l' : 'L';
+                    }
+                    $idx += 2;
+                    continue;
+                }
+
+                if ($cmd === 'h') {
+                    $valX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                    $curX = $isRel ? ($curX + $valX) : $valX;
+                    $ptlist[] = [$curX, $curY];
+                    ++$idx;
+                    continue;
+                }
+
+                if ($cmd === 'v') {
+                    $valY = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                    $curY = $isRel ? ($curY + $valY) : $valY;
+                    $ptlist[] = [$curX, $curY];
+                    ++$idx;
+                    continue;
+                }
+
+                if (($cmd === 'c') || ($cmd === 'q')) {
+                    $need = ($cmd === 'c') ? 6 : 4;
+                    if (($idx + $need - 1) >= $tokCount) {
+                        break;
+                    }
+                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + $need - 2], $soid);
+                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + $need - 1], $soid);
+                    if ($isRel) {
+                        $endX += $curX;
+                        $endY += $curY;
+                    }
+                    $curX = $endX;
+                    $curY = $endY;
+                    $ptlist[] = [$curX, $curY];
+                    $idx += $need;
+                    continue;
+                }
+
+                if ($cmd === 's') {
+                    if (($idx + 3) >= $tokCount) {
+                        break;
+                    }
+                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                    if ($isRel) {
+                        $endX += $curX;
+                        $endY += $curY;
+                    }
+                    $curX = $endX;
+                    $curY = $endY;
+                    $ptlist[] = [$curX, $curY];
+                    $idx += 4;
+                    continue;
+                }
+
+                if ($cmd === 'a') {
+                    if (($idx + 6) >= $tokCount) {
+                        break;
+                    }
+                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
+                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 6], $soid);
+                    if ($isRel) {
+                        $endX += $curX;
+                        $endY += $curY;
+                    }
+                    $curX = $endX;
+                    $curY = $endY;
+                    $ptlist[] = [$curX, $curY];
+                    $idx += 7;
+                    continue;
+                }
+
+                ++$idx;
             }
+
             return (\count($ptlist) >= 2) ? $ptlist : null;
         }
 

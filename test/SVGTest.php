@@ -2744,6 +2744,44 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: path-command decomposition handles H/V bends for tangent angle.
+     */
+    public function testSvgTextPathPathHVCommandsUseLocalVerticalTangent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1047);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Path: M0,0 H100 V100 has total length 200.
+        // At 75% offset (=150), point is on the vertical segment.
+        $obj->patchSvgObj(1047, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_hv' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 H100 V100',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1047,
+            ['href' => '#tp_hv', 'startOffset' => '75%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1047);
+        $this->assertEqualsWithDelta(90.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+        $this->assertGreaterThan(0.0, (float) $svgobj['y']);
+    }
+
+    /**
      * E-6: spacing="auto" expands inter-glyph distance to fill path.
      */
     public function testSvgTextPathSpacingAutoExpandsGlyphGap(): void
