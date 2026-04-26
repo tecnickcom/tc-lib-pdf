@@ -1906,7 +1906,6 @@ class SVGTest extends TestUtil
         $this->initFontAndPage($obj);
         $parser = \xml_parser_create('UTF-8');
         $obj->initSvgObjForHandlers(83);
-        $base = $obj->exposeDefaultSVGStyle();
 
         // Register a simple rect in defs under id 'shape83'.
         $obj->patchSvgObj(83, [
@@ -1969,7 +1968,7 @@ class SVGTest extends TestUtil
             $this->assertNotSame('', $e->getMessage());
             return;
         }
-        $this->assertIsString($out);
+        $this->assertSame('', $out);
     }
 
     /**
@@ -2015,5 +2014,351 @@ class SVGTest extends TestUtil
         [$strokeNone] = $obj->exposeParseSVGStyleStroke(86, $styleNone);
         // dashArray=[] means no 'w' dash command prefix — still has stroke output.
         $this->assertIsString($strokeNone);
+    }
+
+    /**
+     * E-1: <symbol id="sym"> enters defs-capture mode and stores the id in defs.
+     */
+    public function testSvgSymbolEnterDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(90);
+
+        $obj->exposeParseSVGTagSTARTsymbol(90, ['id' => 'mySymbol', 'viewBox' => '0 0 100 100']);
+
+        $svgobj = $obj->getSvgObj(90);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertArrayHasKey('mySymbol', $svgobj['defs']);
+        $this->assertSame('symbol', $svgobj['defs']['mySymbol']['name']);
+    }
+
+    /**
+     * E-1: </symbol> exits defs-capture mode.
+     */
+    public function testSvgSymbolEndExitsDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(91);
+        $obj->patchSvgObj(91, ['defsmode' => true]);
+
+        $out = $obj->exposeParseSVGTagENDsymbol(91);
+
+        $this->assertSame('', $out);
+        $this->assertFalse($obj->getSvgObj(91)['defsmode']);
+    }
+
+    /**
+     * E-1: symbol without id does not crash and defsmode is still entered.
+     */
+    public function testSvgSymbolWithoutIdStillEntersDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(92);
+
+        $out = $obj->exposeParseSVGTagSTARTsymbol(92, []);
+
+        $this->assertSame('', $out);
+        $this->assertTrue($obj->getSvgObj(92)['defsmode']);
+    }
+
+    /**
+     * E-7 stub: <a> start returns empty string.
+     */
+    public function testSvgATagStartReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(93);
+
+        $out = $obj->exposeParseSVGTagSTARTa(93, ['href' => 'https://example.com']);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * E-7 stub: </a> end returns empty string.
+     */
+    public function testSvgATagEndReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(93);
+
+        $out = $obj->exposeParseSVGTagENDa(93);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * E-8 stub: <switch> start returns empty string.
+     */
+    public function testSvgSwitchTagStartReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(94);
+
+        $out = $obj->exposeParseSVGTagSTARTswitch(94, []);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * E-8 stub: </switch> end returns empty string.
+     */
+    public function testSvgSwitchTagEndReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(94);
+
+        $out = $obj->exposeParseSVGTagENDswitch(94);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * S-1: dominant-baseline='hanging' shifts renderY by -ascent.
+     * We verify that the output changes when baseline keyword differs.
+     */
+    public function testSvgDominantBaselineHangingChangesOutput(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Render with default (auto) baseline.
+        $obj->initSvgObjForHandlers(95);
+        $obj->patchSvgObj(95, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Hi',
+            'x' => 10.0,
+            'y' => 20.0,
+        ]);
+        $outAuto = $obj->exposeParseSVGTagENDtext(95);
+
+        // Render with hanging baseline.
+        $obj->initSvgObjForHandlers(96);
+        $obj->patchSvgObj(96, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'hanging',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Hi',
+            'x' => 10.0,
+            'y' => 20.0,
+        ]);
+        $outHanging = $obj->exposeParseSVGTagENDtext(96);
+
+        // Both must produce non-empty drawing output.
+        $this->assertNotSame('', $outAuto);
+        $this->assertNotSame('', $outHanging);
+        // The Y coordinate embedded in the output should differ between the two.
+        $this->assertNotSame($outAuto, $outHanging);
+    }
+
+    /**
+     * S-3: textLength with spacingAndGlyphs wraps output in an extra transform.
+     */
+    public function testSvgTextLengthGlyphsAddsScaleTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Without textLength.
+        $obj->initSvgObjForHandlers(97);
+        $obj->patchSvgObj(97, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacingAndGlyphs',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Test',
+            'x' => 0.0,
+            'y' => 20.0,
+        ]);
+        $outNoScale = $obj->exposeParseSVGTagENDtext(97);
+
+        // With textLength=200 (much wider than natural).
+        $obj->initSvgObjForHandlers(98);
+        $obj->patchSvgObj(98, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 200.0,
+                'lengthadjust' => 'spacingAndGlyphs',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Test',
+            'x' => 0.0,
+            'y' => 20.0,
+        ]);
+        $outWithScale = $obj->exposeParseSVGTagENDtext(98);
+
+        $this->assertNotSame('', $outNoScale);
+        $this->assertNotSame('', $outWithScale);
+        // The scaled variant must be longer (extra transform operators).
+        $this->assertGreaterThan(\strlen($outNoScale), \strlen($outWithScale));
+    }
+
+    /**
+     * S-4: rotate adds extra transform operators around the text output.
+     */
+    public function testSvgTextRotateAddsTransformOperators(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Without rotation.
+        $obj->initSvgObjForHandlers(99);
+        $obj->patchSvgObj(99, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Abc',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outNoRotate = $obj->exposeParseSVGTagENDtext(99);
+
+        // With 45-degree rotation.
+        $obj->initSvgObjForHandlers(100);
+        $obj->patchSvgObj(100, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 45.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Abc',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outRotated = $obj->exposeParseSVGTagENDtext(100);
+
+        $this->assertNotSame('', $outNoRotate);
+        $this->assertNotSame('', $outRotated);
+        // Rotated output should be longer due to extra transform save/restore.
+        $this->assertGreaterThan(\strlen($outNoRotate), \strlen($outRotated));
+    }
+
+    /**
+     * R-1: multi-value x list triggers per-character rendering (more operators).
+     */
+    public function testSvgMultiValueXListRendersPerCharacter(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Single-position (normal) rendering.
+        $obj->initSvgObjForHandlers(101);
+        $obj->patchSvgObj(101, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'AB',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outNormal = $obj->exposeParseSVGTagENDtext(101);
+
+        // Multi-value x list (two characters, two explicit x positions).
+        $obj->initSvgObjForHandlers(102);
+        $obj->patchSvgObj(102, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [5.0, 15.0],
+                'ylist' => [],
+            ],
+            'text' => 'AB',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outMultiX = $obj->exposeParseSVGTagENDtext(102);
+
+        $this->assertNotSame('', $outNormal);
+        $this->assertNotSame('', $outMultiX);
+        // Per-character rendering emits multiple text operators so output is longer.
+        $this->assertGreaterThan(\strlen($outNormal), \strlen($outMultiX));
     }
 }
