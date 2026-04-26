@@ -22,3 +22,6 @@
 - [019_example_page_regions.php](019_example_page_regions.php) : Two-column page regions with text that automatically flows across page boundaries.
 - [020_example_barcodes.php](020_example_barcodes.php) : Catalog of all available barcode types with standards, usage notes, and rendered samples.
 - [021_example_font_stretch_spacing.php](021_example_font_stretch_spacing.php) : Demonstrates font stretching, scaling-to-fit, and character spacing behaviors.
+- [022_example_cell_borders.php](022_example_cell_borders.php) : Demonstrates basic and advanced Cell border rendering options.
+- [023_example_cell_alignment.php](023_example_cell_alignment.php) : Demonstrates Cell vertical alignment options and row anchor positions.
+- [024_example_colors.php](024_example_colors.php) : Ports TCPDF examples 022 and 037, demonstrating CMYK/RGB/grayscale and spot color rendering.
