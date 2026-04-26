@@ -3459,6 +3459,68 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Render an SVG text run, optionally wrapped in a rotation transform.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $text Text to render.
+     * @param float $posx X coordinate.
+     * @param float $posy Y coordinate.
+     * @param float $width Forced text width.
+     * @param float $strokeWidth Text stroke width.
+     * @param string $txtanchor Text anchor mode.
+     * @param float $rotate Rotation in degrees.
+     *
+     * @return string
+     */
+    protected function getSVGTextRunOutput(
+        int $soid,
+        string $text,
+        float $posx,
+        float $posy,
+        float $width,
+        float $strokeWidth,
+        string $txtanchor,
+        float $rotate = 0.0,
+    ): string {
+        $out = '';
+        if ($rotate !== 0.0) {
+            $rad = \deg2rad(-$rotate);
+            $cos = \cos($rad);
+            $sin = \sin($rad);
+            $out .= $this->graph->getStartTransform();
+            $out .= $this->getOutSVGTransformation([$cos, $sin, -$sin, $cos, $posx, $posy], $soid);
+            $posx = 0.0;
+            $posy = 0.0;
+        }
+
+        $out .= $this->getTextLine(
+            $text,
+            $posx,
+            $posy,
+            $width,
+            $strokeWidth,
+            0,
+            0,
+            0,
+            true,
+            ($strokeWidth > 0),
+            false,
+            false,
+            false,
+            false,
+            ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
+            $txtanchor,
+            null,
+        );
+
+        if ($rotate !== 0.0) {
+            $out .= $this->graph->getStopTransform();
+        }
+
+        return $out;
+    }
+
+    /**
      * Parse the SVG End tag 'text'.
      *
      * @param int $soid ID of the current SVG object.
@@ -3561,37 +3623,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $charRotate = $rotlist[$idx] ?? $rotate;
                 $originX = $charX;
                 $originY = $charY;
-                if ($charRotate !== 0.0) {
-                    $rad = \deg2rad(-$charRotate);
-                    $cos = \cos($rad);
-                    $sin = \sin($rad);
-                    $out .= $this->graph->getStartTransform();
-                    $out .= $this->getOutSVGTransformation([$cos, $sin, -$sin, $cos, $charX, $charY], $soid);
-                    $charX = 0.0;
-                    $charY = 0.0;
-                }
-                $out .= $this->getTextLine(
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
                     $ch,
                     $charX,
                     $charY,
                     0,
                     $this->svgobjs[$soid]['textmode']['stroke'],
-                    0,
-                    0,
-                    0,
-                    true,
-                    ($this->svgobjs[$soid]['textmode']['stroke'] > 0),
-                    false,
-                    false,
-                    false,
-                    false,
-                    ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
                     $txtanchor,
-                    null,
+                    $charRotate,
                 );
-                if ($charRotate !== 0.0) {
-                    $out .= $this->graph->getStopTransform();
-                }
                 if ($isVertical) {
                     $cury = $originY + $this->getStringWidth($ch);
                 } else {
@@ -3605,37 +3646,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             foreach ($chars as $ch) {
                 $charX = $curx;
                 $charY = $cury + $baselineOffset;
-                if ($rotate !== 0.0) {
-                    $rad = \deg2rad(-$rotate);
-                    $cos = \cos($rad);
-                    $sin = \sin($rad);
-                    $out .= $this->graph->getStartTransform();
-                    $out .= $this->getOutSVGTransformation([$cos, $sin, -$sin, $cos, $charX, $charY], $soid);
-                    $charX = 0.0;
-                    $charY = 0.0;
-                }
-                $out .= $this->getTextLine(
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
                     $ch,
                     $charX,
                     $charY,
                     0,
                     $strokeWidth,
-                    0,
-                    0,
-                    0,
-                    true,
-                    ($strokeWidth > 0),
-                    false,
-                    false,
-                    false,
-                    false,
-                    ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
                     $txtanchor,
-                    null,
+                    $rotate,
                 );
-                if ($rotate !== 0.0) {
-                    $out .= $this->graph->getStopTransform();
-                }
                 $cury += $this->getStringWidth($ch);
             }
         } else {
@@ -3645,35 +3665,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $out .= $this->getOutSVGTransformation([$scaleX, 0.0, 0.0, 1.0, 0.0, 0.0], $soid);
             }
             if ($rotate !== 0.0) {
-                $rad = \deg2rad(-$rotate);
-                $cos = \cos($rad);
-                $sin = \sin($rad);
-                $out .= $this->graph->getStartTransform();
-                $out .= $this->getOutSVGTransformation([$cos, $sin, -$sin, $cos, $curx, $renderY], $soid);
-                $curx = 0.0;
-                $renderY = 0.0;
-            }
-            $out .= $this->getTextLine(
-                $this->svgobjs[$soid]['text'],
-                $curx,
-                $renderY,
-                $forcedWidth,
-                $this->svgobjs[$soid]['textmode']['stroke'],
-                0,
-                0,
-                0,
-                true,
-                ($this->svgobjs[$soid]['textmode']['stroke'] > 0),
-                false,
-                false,
-                false,
-                false,
-                ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
-                $txtanchor,
-                null,
-            );
-            if ($rotate !== 0.0) {
-                $out .= $this->graph->getStopTransform();
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
+                    $this->svgobjs[$soid]['text'],
+                    $curx,
+                    $renderY,
+                    $forcedWidth,
+                    $this->svgobjs[$soid]['textmode']['stroke'],
+                    $txtanchor,
+                    $rotate,
+                );
+            } else {
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
+                    $this->svgobjs[$soid]['text'],
+                    $curx,
+                    $renderY,
+                    $forcedWidth,
+                    $this->svgobjs[$soid]['textmode']['stroke'],
+                    $txtanchor,
+                );
             }
             if ($scaleX !== 1.0) {
                 $out .= $this->graph->getStopTransform();
