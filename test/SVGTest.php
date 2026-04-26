@@ -1476,6 +1476,103 @@ class SVGTest extends TestUtil
         $this->assertNotSame('', $out);
     }
 
+    public function testSvgPatternHrefNonFragmentKeepsLocalPatternDefinition(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(547);
+
+        $obj->patchSvgObj(547, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'PARENT_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => '#00ff00',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'href' => 'https://example.com/patterns.svg#patBase',
+                        'x' => '1',
+                        'y' => '1',
+                        'width' => '5',
+                        'height' => '5',
+                    ],
+                    'child' => [
+                        'CHILD_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '1',
+                                'y' => '1',
+                                'width' => '3',
+                                'height' => '3',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'CHILD_RECT_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(547, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+        $this->assertSame('5', $resolvedAttr['width'] ?? '');
+        $this->assertSame('5', $resolvedAttr['height'] ?? '');
+        $this->assertArrayNotHasKey('patternUnits', $resolvedAttr);
+        $this->assertArrayHasKey('CHILD_RECT', $resolvedChild);
+        $this->assertArrayNotHasKey('PARENT_RECT', $resolvedChild);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['fill'] = 'url(#patRef)';
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            547,
+            $style,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+    }
+
     public function testSvgPatternPreserveAspectRatioChangesViewBoxTransform(): void
     {
         $obj = $this->getInternalTestObject();
