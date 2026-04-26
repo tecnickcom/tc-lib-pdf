@@ -4529,8 +4529,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Build per-glyph layout arrays for an active textPath run.
      *
-     * Unsupported SVG features: `method="stretch"` and `spacing="auto"`
-     * currently use the same advance model as `align`/`exact`.
+        * `method="stretch"` scales glyph advances to fill available path length.
+        * `spacing="auto"` adjusts inter-glyph gaps to consume the available path.
      *
      * @param int $soid ID of the current SVG object.
      */
@@ -4546,14 +4546,44 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
+        $textPathLength = $this->getTextPathLength($textPathPoints);
         $startOffset = (float) ($this->svgobjs[$soid]['textmode']['textpathoffset'] ?? 0.0);
+        $availableLength = \max(0.0, $textPathLength - $startOffset);
+        $pathMethod = (string) ($this->svgobjs[$soid]['textmode']['textpathmethod'] ?? 'align');
+        $pathSpacing = (string) ($this->svgobjs[$soid]['textmode']['textpathspacing'] ?? 'exact');
         $chars = \mb_str_split($text, 1, 'UTF-8');
+        $charCount = \count($chars);
+        if ($charCount === 0) {
+            return;
+        }
+
+        $advances = [];
+        $baseAdvance = 0.0;
+        foreach ($chars as $charGlyph) {
+            $charAdvance = $this->getStringWidth($charGlyph);
+            $advances[] = $charAdvance;
+            $baseAdvance += $charAdvance;
+        }
+
+        if (($pathMethod === 'stretch') && ($baseAdvance > 0.0) && ($availableLength > 0.0)) {
+            $stretchScale = $availableLength / $baseAdvance;
+            foreach ($advances as $key => $charAdvance) {
+                $advances[$key] = $charAdvance * $stretchScale;
+            }
+            $baseAdvance = $availableLength;
+        }
+
+        $gapAdjust = 0.0;
+        if (($pathSpacing === 'auto') && ($charCount > 1) && ($availableLength > 0.0)) {
+            $gapAdjust = ($availableLength - $baseAdvance) / (float) ($charCount - 1);
+        }
+
         $xcoords = [];
         $ycoords = [];
         $angles = [];
         $pathOffset = $startOffset;
 
-        foreach ($chars as $charGlyph) {
+        foreach ($chars as $charIndex => $charGlyph) {
             $pathPoint = $this->getTextPathPointAtOffset($textPathPoints, $pathOffset);
             if (empty($pathPoint)) {
                 break;
@@ -4561,7 +4591,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $xcoords[] = (float) $pathPoint[0];
             $ycoords[] = (float) $pathPoint[1];
             $angles[] = (float) $pathPoint[2];
-            $pathOffset += $this->getStringWidth($charGlyph);
+            $pathOffset += ($advances[$charIndex] ?? $this->getStringWidth($charGlyph));
+            if ($charIndex < ($charCount - 1)) {
+                $pathOffset += $gapAdjust;
+            }
         }
 
         if (!empty($xcoords) && !empty($ycoords)) {

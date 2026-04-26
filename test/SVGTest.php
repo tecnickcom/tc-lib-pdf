@@ -2744,6 +2744,120 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: spacing="auto" expands inter-glyph distance to fill path.
+     */
+    public function testSvgTextPathSpacingAutoExpandsGlyphGap(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'tp_space' => [
+                'name' => 'line',
+                'attr' => [
+                    'x1' => '0',
+                    'y1' => '0',
+                    'x2' => '300',
+                    'y2' => '0',
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(1043);
+        $obj->patchSvgObj(1043, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1043,
+            ['href' => '#tp_space', 'spacing' => 'exact'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1043);
+        $exact = $obj->getSvgObj(1043);
+        $xExact = $exact['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xExact));
+
+        $obj->initSvgObjForHandlers(1044);
+        $obj->patchSvgObj(1044, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1044,
+            ['href' => '#tp_space', 'spacing' => 'auto'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1044);
+        $auto = $obj->getSvgObj(1044);
+        $xAuto = $auto['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xAuto));
+
+        $gapExact = (float) $xExact[1] - (float) $xExact[0];
+        $gapAuto = (float) $xAuto[1] - (float) $xAuto[0];
+        $this->assertGreaterThan($gapExact, $gapAuto);
+    }
+
+    /**
+     * E-6: method="stretch" scales glyph advances to consume path length.
+     */
+    public function testSvgTextPathMethodStretchExpandsGlyphGap(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'tp_stretch' => [
+                'name' => 'line',
+                'attr' => [
+                    'x1' => '0',
+                    'y1' => '0',
+                    'x2' => '250',
+                    'y2' => '0',
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(1045);
+        $obj->patchSvgObj(1045, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1045,
+            ['href' => '#tp_stretch', 'method' => 'align'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1045);
+        $align = $obj->getSvgObj(1045);
+        $xAlign = $align['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xAlign));
+
+        $obj->initSvgObjForHandlers(1046);
+        $obj->patchSvgObj(1046, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1046,
+            ['href' => '#tp_stretch', 'method' => 'stretch'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1046);
+        $stretch = $obj->getSvgObj(1046);
+        $xStretch = $stretch['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xStretch));
+
+        $gapAlign = (float) $xAlign[1] - (float) $xAlign[0];
+        $gapStretch = (float) $xStretch[1] - (float) $xStretch[0];
+        $this->assertGreaterThan($gapAlign, $gapStretch);
+    }
+
+    /**
      * E-6: textPath with unresolved href still behaves like a nested text run.
      */
     public function testSvgTextPathMissingReferenceStillRendersText(): void
