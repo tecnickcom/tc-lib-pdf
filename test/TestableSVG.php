@@ -855,6 +855,11 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagENDmarker($soid);
     }
 
+    public function exposeParseSVGTagENDpattern(int $soid): string
+    {
+        return $this->parseSVGTagENDpattern($soid);
+    }
+
     /** @phpstan-param TSVGAttributes $attr */
     public function exposeParseSVGTagSTARTa(int $soid, array $attr): string
     {
@@ -865,6 +870,12 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeParseSVGTagSTARTmarker(int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTmarker($soid, $attr);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTpattern(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTpattern($soid, $attr);
     }
 
     public function exposeParseSVGTagENDa(int $soid): string

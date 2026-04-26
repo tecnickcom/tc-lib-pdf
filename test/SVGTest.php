@@ -1069,6 +1069,66 @@ class SVGTest extends TestUtil
         $this->assertFalse($obj->getSvgObj(522)['defsmode']);
     }
 
+    public function testSvgPatternDefsCaptureAndLifecycle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(538);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 538);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'pattern',
+            [
+                'id' => 'pat1',
+                'patternUnits' => 'userSpaceOnUse',
+                'x' => '0',
+                'y' => '0',
+                'width' => '10',
+                'height' => '10',
+            ],
+            538,
+        );
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '10', 'fill' => '#ff0000'],
+            538,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'rect');
+        $obj->exposeHandleSVGTagEnd($parser, 'pattern');
+
+        $svgobj = $obj->getSvgObj(538);
+        $this->assertFalse($svgobj['defsmode']);
+        $this->assertArrayHasKey('pat1', $svgobj['defs']);
+
+        /** @var array<string, mixed> $pattern */
+        $pattern = $svgobj['defs']['pat1'];
+        $this->assertSame('pattern', $pattern['name']);
+
+        /** @var array<string, mixed> $child */
+        $child = (isset($pattern['child']) && \is_array($pattern['child'])) ? $pattern['child'] : [];
+        $this->assertArrayHasKey('DF_1', $child);
+        $this->assertArrayHasKey('DF_1_CLOSE', $child);
+    }
+
+    public function testSvgPatternStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(539);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTpattern(539, []));
+        $svgobj = $obj->getSvgObj(539);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDpattern(539));
+        $this->assertFalse($obj->getSvgObj(539)['defsmode']);
+    }
+
     public function testSvgLineRendersStartEndMarkersWhenDefined(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2038,6 +2098,107 @@ class SVGTest extends TestUtil
 
         $this->assertNotSame('', $outThin);
         $this->assertNotSame($outThin, $outThick);
+    }
+
+    public function testSvgMarkerAutoStartReverseDiffersFromAutoAtStart(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(537);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = 'none';
+        $base['stroke-width'] = 1.0;
+        $base['marker-start'] = 'url(#mkauto)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(537, [
+            'styles' => [$base],
+            'defs' => [
+                'mkauto' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkauto',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'mkrev' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkrev',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto-start-reverse',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $outAuto = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            537,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['marker-start'] = 'url(#mkrev)';
+        $outRev = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            537,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outAuto);
+        $this->assertNotSame('', $outRev);
+        $this->assertNotSame($outAuto, $outRev);
     }
 
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
