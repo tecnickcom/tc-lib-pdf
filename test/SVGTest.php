@@ -1258,6 +1258,122 @@ class SVGTest extends TestUtil
         $this->assertSame(0, $obj->getSvgObj(540)['patternmode']);
     }
 
+    public function testSvgPatternPreserveAspectRatioChangesViewBoxTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(541);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $obj->patchSvgObj(541, [
+            'defs' => [
+                'patNone' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patNone',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'none',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '10',
+                                'height' => '20',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'patMeet' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patMeet',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '10',
+                                'height' => '20',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $style['fill'] = 'url(#patNone)';
+        [$outNone] = $obj->exposeParseSVGStyleFill(
+            541,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patMeet)';
+        [$outMeet] = $obj->exposeParseSVGStyleFill(
+            541,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $this->assertNotSame('', $outNone);
+        $this->assertNotSame('', $outMeet);
+        $this->assertNotSame($outNone, $outMeet);
+    }
+
     public function testSvgLineRendersStartEndMarkersWhenDefined(): void
     {
         $obj = $this->getInternalTestObject();

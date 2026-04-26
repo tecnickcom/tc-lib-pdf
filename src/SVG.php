@@ -2406,6 +2406,80 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $patternTransform = !empty($attr['patternTransform']) && \is_string($attr['patternTransform'])
             ? $this->getSVGTransformMatrix($attr['patternTransform'])
             : self::TMXID;
+        $viewBoxTm = self::TMXID;
+        if (!empty($attr['viewBox']) && \is_string($attr['viewBox'])) {
+            $vals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (\is_array($vals) && (\count($vals) >= 4)) {
+                $vbx = (float) $this->svgUnitToUnit((string) $vals[0], $soid);
+                $vby = (float) $this->svgUnitToUnit((string) $vals[1], $soid);
+                $vbw = \abs((float) $this->svgUnitToUnit((string) $vals[2], $soid));
+                $vbh = \abs((float) $this->svgUnitToUnit((string) $vals[3], $soid));
+
+                if (($vbw > 0.0) && ($vbh > 0.0)) {
+                    $viewScaleX = ($tileW / $vbw);
+                    $viewScaleY = ($tileH / $vbh);
+                    $viewOffsetX = 0.0;
+                    $viewOffsetY = 0.0;
+
+                    $aspectRaw = (string) ($attr['preserveAspectRatio'] ?? 'xMidYMid meet');
+                    $aspectFit = 'meet';
+                    $aspectX = 'xMid';
+                    $aspectY = 'YMid';
+                    if (\trim($aspectRaw) === 'none') {
+                        $aspectFit = 'none';
+                    } else {
+                        $am = [];
+                        \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $am);
+                        $tokens = $am[0] ?? [];
+                        if (!empty($tokens)) {
+                            if (\strtolower((string) $tokens[0]) === 'defer') {
+                                \array_shift($tokens);
+                            }
+
+                            if (!empty($tokens) && (\strlen((string) $tokens[0]) === 8)) {
+                                $alignToken = (string) $tokens[0];
+                                $aspectX = \substr($alignToken, 0, 4);
+                                $aspectY = \substr($alignToken, 4, 4);
+                                if (isset($tokens[1]) && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)) {
+                                    $aspectFit = (string) $tokens[1];
+                                }
+                            } elseif (!empty($tokens) && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)) {
+                                $aspectFit = (string) $tokens[0];
+                            }
+                        }
+                    }
+
+                    if ($aspectFit !== 'none') {
+                        $sx = ($tileW / $vbw);
+                        $sy = ($tileH / $vbh);
+                        $scale = ($aspectFit === 'slice') ? \max($sx, $sy) : \min($sx, $sy);
+                        $viewScaleX = $scale;
+                        $viewScaleY = $scale;
+                        $scaledW = $vbw * $scale;
+                        $scaledH = $vbh * $scale;
+                        $viewOffsetX = match ($aspectX) {
+                            'xMax' => ($tileW - $scaledW),
+                            'xMid' => (($tileW - $scaledW) / 2.0),
+                            default => 0.0,
+                        };
+                        $viewOffsetY = match ($aspectY) {
+                            'YMax' => ($tileH - $scaledH),
+                            'YMid' => (($tileH - $scaledH) / 2.0),
+                            default => 0.0,
+                        };
+                    }
+
+                    $viewBoxTm = [
+                        $viewScaleX,
+                        0.0,
+                        0.0,
+                        $viewScaleY,
+                        ($viewOffsetX - ($viewScaleX * $vbx)),
+                        ($viewOffsetY - ($viewScaleY * $vby)),
+                    ];
+                }
+            }
+        }
         $patParser = \xml_parser_create('UTF-8');
 
         // @phpstan-ignore assign.propertyType
@@ -2425,6 +2499,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                         $tileTm = $this->graph->getCtmProduct($tileTm, [$width, 0.0, 0.0, $height, 0.0, 0.0]);
                     }
                     $tileTm = $this->graph->getCtmProduct($tileTm, $patternTransform);
+                    $tileTm = $this->graph->getCtmProduct($tileTm, $viewBoxTm);
                     $out .= $this->getOutSVGTransformation($tileTm, $soid);
 
                     if (!empty($patterndef['child']) && \is_array($patterndef['child'])) {
