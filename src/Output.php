@@ -1242,13 +1242,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $data['matrix'][4],
                     $data['matrix'][5],
                 );
+            $res = $this->getPatternStreamResourceDict($stream);
             $out .= ' /Resources <<'
                 . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
-                . $this->outfont->getOutFontDict()
-                . $this->getXObjectDict()
-                . $this->graph->getOutExtGStateResources()
-                . $this->graph->getOutGradientResources()
-                . $this->color->getPdfSpotResources()
+                . $res
                 . ' >>';
 
             if ($this->compress) {
@@ -1266,6 +1263,75 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . $stream . "\n"
                 . 'endstream' . "\n"
                 . 'endobj' . "\n";
+        }
+
+        return $out;
+    }
+
+    /**
+     * Build a minimized resources dictionary fragment for a pattern stream.
+     */
+    protected function getPatternStreamResourceDict(string $stream): string
+    {
+        $usesFont = (\preg_match('/\sTf\b/', $stream) === 1);
+
+        $extgstate = [];
+        if (\preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $matchGs) === 1) {
+            foreach (($matchGs[1] ?? []) as $idx) {
+                $extgstate[(int) $idx] = true;
+            }
+        }
+
+        $gradient = [];
+        if (\preg_match_all('/\/Sh([0-9]+)\s+sh\b/', $stream, $matchSh) === 1) {
+            foreach (($matchSh[1] ?? []) as $idx) {
+                $gradient[(int) $idx] = true;
+            }
+        }
+
+        $usesSpotColor = (\preg_match('/\s[cC]s\b/', $stream) === 1);
+
+        $imageKeys = [];
+        $xobjectKeys = [];
+        if (\preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $matchDo) === 1) {
+            foreach (($matchDo[1] ?? []) as $key) {
+                if (!\is_string($key) || ($key === '')) {
+                    continue;
+                }
+                if (\preg_match('/^I([0-9]+)$/', $key, $imgm) === 1) {
+                    $imageKeys[(int) $imgm[1]] = true;
+                    continue;
+                }
+                if (isset($this->xobjects[$key])) {
+                    $xobjectKeys[$key] = true;
+                }
+            }
+        }
+
+        $out = '';
+        if ($usesFont) {
+            $out .= $this->outfont->getOutFontDict();
+        }
+        if (!empty($extgstate)) {
+            $out .= $this->graph->getOutExtGStateResourcesByKeys(\array_map('intval', \array_keys($extgstate)));
+        }
+        if (!empty($gradient)) {
+            $out .= $this->graph->getOutGradientResourcesByKeys(\array_map('intval', \array_keys($gradient)));
+        }
+        if ($usesSpotColor) {
+            $out .= $this->color->getPdfSpotResources();
+        }
+        if (!empty($imageKeys) || !empty($xobjectKeys)) {
+            $out .= ' /XObject <<';
+            if (!empty($imageKeys)) {
+                $out .= $this->image->getXobjectDictByKeys(\array_map('intval', \array_keys($imageKeys)));
+            }
+            if (!empty($xobjectKeys)) {
+                foreach (\array_keys($xobjectKeys) as $xid) {
+                    $out .= ' /' . $xid . ' ' . $this->xobjects[$xid]['n'] . ' 0 R';
+                }
+            }
+            $out .= ' >>';
         }
 
         return $out;
