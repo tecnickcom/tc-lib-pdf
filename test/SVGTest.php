@@ -2821,6 +2821,44 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: arc path sampling uses local arc tangent at small offsets.
+     */
+    public function testSvgTextPathArcUsesLocalStartTangentAtSmallOffset(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1049);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // A semicircular arc from left to right: endpoint chord is horizontal,
+        // while local tangent near the start is near vertical.
+        $obj->patchSvgObj(1049, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A50 50 0 0 1 100 0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1049,
+            ['href' => '#tp_arc', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1049);
+        $angle = (float) ($svgobj['textmode']['rotate'] ?? 0.0);
+        $this->assertGreaterThan(45.0, \abs($angle));
+    }
+
+    /**
      * E-6: spacing="auto" expands inter-glyph distance to fill path.
      */
     public function testSvgTextPathSpacingAutoExpandsGlyphGap(): void

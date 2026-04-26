@@ -4653,15 +4653,36 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 if (($idx + 6) >= $tokCount) {
                     break;
                 }
+                $radiusX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $radiusY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $xAxisRot = (float) $tokens[$idx + 2];
+                $largeArcFlag = ((float) $tokens[$idx + 3] >= 0.5);
+                $sweepFlag = ((float) $tokens[$idx + 4] >= 0.5);
                 $endX = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
                 $endY = $this->svgUnitToUnit((string) $tokens[$idx + 6], $soid);
                 if ($isRel) {
                     $endX += $curX;
                     $endY += $curY;
                 }
+                $samples = $this->sampleTextPathArc(
+                    $curX,
+                    $curY,
+                    $radiusX,
+                    $radiusY,
+                    $xAxisRot,
+                    $largeArcFlag,
+                    $sweepFlag,
+                    $endX,
+                    $endY,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
                 $curX = $endX;
                 $curY = $endY;
-                $ptlist[] = [$curX, $curY];
+                if (empty($samples)) {
+                    $ptlist[] = [$curX, $curY];
+                }
                 $hasCurveCtrl = false;
                 $hasQuadCtrl = false;
                 $idx += 7;
@@ -4742,6 +4763,114 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $points[] = [$pointX, $pointY];
         }
         return $points;
+    }
+
+    /**
+     * Sample an elliptical arc segment into a sequence of points.
+     *
+     * @return array<int, array{0: float, 1: float}>
+     */
+    protected function sampleTextPathArc(
+        float $startX,
+        float $startY,
+        float $radiusX,
+        float $radiusY,
+        float $xAxisRotation,
+        bool $largeArcFlag,
+        bool $sweepFlag,
+        float $endX,
+        float $endY,
+    ): array {
+        if ((\abs($startX - $endX) < self::SVGMINFLOATDIFF)
+            && (\abs($startY - $endY) < self::SVGMINFLOATDIFF)) {
+            return [];
+        }
+
+        $radiusX = \abs($radiusX);
+        $radiusY = \abs($radiusY);
+        if (($radiusX <= self::SVGMINFLOATDIFF) || ($radiusY <= self::SVGMINFLOATDIFF)) {
+            return [[$endX, $endY]];
+        }
+
+        $phi = \deg2rad(\fmod($xAxisRotation, 360.0));
+        $cosPhi = \cos($phi);
+        $sinPhi = \sin($phi);
+
+        $deltaX = ($startX - $endX) / 2.0;
+        $deltaY = ($startY - $endY) / 2.0;
+        $xPrime = ($cosPhi * $deltaX) + ($sinPhi * $deltaY);
+        $yPrime = (-$sinPhi * $deltaX) + ($cosPhi * $deltaY);
+
+        $rx2 = $radiusX * $radiusX;
+        $ry2 = $radiusY * $radiusY;
+        $xp2 = $xPrime * $xPrime;
+        $yp2 = $yPrime * $yPrime;
+
+        $lambda = ($xp2 / $rx2) + ($yp2 / $ry2);
+        if ($lambda > 1.0) {
+            $scale = \sqrt($lambda);
+            $radiusX *= $scale;
+            $radiusY *= $scale;
+            $rx2 = $radiusX * $radiusX;
+            $ry2 = $radiusY * $radiusY;
+        }
+
+        $sign = ($largeArcFlag === $sweepFlag) ? -1.0 : 1.0;
+        $numerator = ($rx2 * $ry2) - ($rx2 * $yp2) - ($ry2 * $xp2);
+        $denominator = ($rx2 * $yp2) + ($ry2 * $xp2);
+        $coef = 0.0;
+        if ($denominator > self::SVGMINFLOATDIFF) {
+            $coef = $sign * \sqrt(\max(0.0, $numerator / $denominator));
+        }
+
+        $centerPrimeX = $coef * (($radiusX * $yPrime) / $radiusY);
+        $centerPrimeY = $coef * (-(($radiusY * $xPrime) / $radiusX));
+
+        $centerX = ($cosPhi * $centerPrimeX) - ($sinPhi * $centerPrimeY) + (($startX + $endX) / 2.0);
+        $centerY = ($sinPhi * $centerPrimeX) + ($cosPhi * $centerPrimeY) + (($startY + $endY) / 2.0);
+
+        $unitStartX = ($xPrime - $centerPrimeX) / $radiusX;
+        $unitStartY = ($yPrime - $centerPrimeY) / $radiusY;
+        $unitEndX = (-$xPrime - $centerPrimeX) / $radiusX;
+        $unitEndY = (-$yPrime - $centerPrimeY) / $radiusY;
+
+        $thetaStart = $this->getArcVectorAngle(1.0, 0.0, $unitStartX, $unitStartY);
+        $thetaDelta = $this->getArcVectorAngle($unitStartX, $unitStartY, $unitEndX, $unitEndY);
+
+        if (!$sweepFlag && ($thetaDelta > 0.0)) {
+            $thetaDelta -= (2.0 * \M_PI);
+        } elseif ($sweepFlag && ($thetaDelta < 0.0)) {
+            $thetaDelta += (2.0 * \M_PI);
+        }
+
+        $segmentCount = \max(4, (int) \ceil(\abs($thetaDelta) / (\M_PI / 12.0)));
+        $points = [];
+        for ($seg = 1; $seg <= $segmentCount; ++$seg) {
+            $ratio = ((float) $seg) / ((float) $segmentCount);
+            $theta = $thetaStart + ($thetaDelta * $ratio);
+            $cosTheta = \cos($theta);
+            $sinTheta = \sin($theta);
+            $pointX = $centerX + ($cosPhi * $radiusX * $cosTheta) - ($sinPhi * $radiusY * $sinTheta);
+            $pointY = $centerY + ($sinPhi * $radiusX * $cosTheta) + ($cosPhi * $radiusY * $sinTheta);
+            $points[] = [$pointX, $pointY];
+        }
+
+        return $points;
+    }
+
+    /**
+     * Return signed angle between two vectors.
+     */
+    protected function getArcVectorAngle(
+        float $vectorStartX,
+        float $vectorStartY,
+        float $vectorEndX,
+        float $vectorEndY,
+    ): float
+    {
+        $dot = ($vectorStartX * $vectorEndX) + ($vectorStartY * $vectorEndY);
+        $det = ($vectorStartX * $vectorEndY) - ($vectorStartY * $vectorEndX);
+        return \atan2($det, $dot);
     }
 
     /**
