@@ -2465,6 +2465,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'g' => $this->parseSVGTagENDg($soid),
             'text' => $this->parseSVGTagENDtext($soid),
             'tspan' => $this->parseSVGTagENDtspan($soid),
+            'textPath' => $this->parseSVGTagENDtextPath($soid),
             'symbol' => $this->parseSVGTagENDsymbol($soid),
             'a' => $this->parseSVGTagENDa($soid),
             'switch' => $this->parseSVGTagENDswitch($soid),
@@ -2538,6 +2539,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string
      */
     protected function parseSVGTagENDtspan(int $soid): string
+    {
+        return $this->parseSVGTagENDtext($soid);
+    }
+
+    /**
+     * Parse the SVG End tag 'textPath'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDtextPath(int $soid): string
     {
         return $this->parseSVGTagENDtext($soid);
     }
@@ -2893,6 +2906,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'image' => $this->parseSVGTagSTARTimage($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'text' => $this->parseSVGTagSTARTtext($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'tspan' => $this->parseSVGTagSTARTtspan($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
+            'textPath' => $this->parseSVGTagSTARTtextPath($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'use' => $this->parseSVGTagSTARTuse($parser, $soid, $attr),
             'symbol' => $this->parseSVGTagSTARTsymbol($soid, $attr),
             'a' => $this->parseSVGTagSTARTa($soid, $attr),
@@ -4079,6 +4093,143 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $parser,
             $soid,
             $attr,
+            $svgstyle,
+            $prev_svgstyle,
+            true,
+        );
+    }
+
+    /**
+     * Resolve textPath reference to a simple start/end segment.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $href Reference URI (typically '#id').
+     *
+     * @return array{0: float, 1: float, 2: float, 3: float}|null
+     */
+    protected function getTextPathSegment(int $soid, string $href): ?array
+    {
+        if (($href === '') || ($href[0] !== '#')) {
+            return null;
+        }
+
+        $pathId = \substr($href, 1);
+        if ($pathId === '' || empty($this->svgobjs[$soid]['defs'][$pathId])) {
+            return null;
+        }
+
+        /** @var TSVGAttribs $def */
+        $def = $this->svgobjs[$soid]['defs'][$pathId];
+        if (empty($def['name']) || empty($def['attr']) || !\is_array($def['attr'])) {
+            return null;
+        }
+
+        $defName = (string) $def['name'];
+        /** @var TSVGAttributes $defAttr */
+        $defAttr = $def['attr'];
+
+        if ($defName === 'line') {
+            $startX = $this->svgUnitToUnit((string) ($defAttr['x1'] ?? '0'), $soid);
+            $startY = $this->svgUnitToUnit((string) ($defAttr['y1'] ?? '0'), $soid);
+            $endX = $this->svgUnitToUnit((string) ($defAttr['x2'] ?? '0'), $soid);
+            $endY = $this->svgUnitToUnit((string) ($defAttr['y2'] ?? '0'), $soid);
+            return [$startX, $startY, $endX, $endY];
+        }
+
+        if (($defName === 'polyline') || ($defName === 'polygon')) {
+            $attrPoints = (string) ($defAttr['points'] ?? '');
+            $points = \preg_split('/[\,\s]+/si', \trim($attrPoints), -1, \PREG_SPLIT_NO_EMPTY);
+            if (!\is_array($points) || (\count($points) < 4)) {
+                return null;
+            }
+            $startX = $this->svgUnitToUnit((string) $points[0], $soid);
+            $startY = $this->svgUnitToUnit((string) $points[1], $soid);
+            $lastIdx = \count($points) - 2;
+            $endX = $this->svgUnitToUnit((string) $points[$lastIdx], $soid);
+            $endY = $this->svgUnitToUnit((string) $points[$lastIdx + 1], $soid);
+            return [$startX, $startY, $endX, $endY];
+        }
+
+        if ($defName === 'path') {
+            $pathData = (string) ($defAttr['d'] ?? '');
+            \preg_match_all('/-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/', $pathData, $pathVals);
+            if (empty($pathVals[0]) || (\count($pathVals[0]) < 4)) {
+                return null;
+            }
+            $startX = $this->svgUnitToUnit((string) $pathVals[0][0], $soid);
+            $startY = $this->svgUnitToUnit((string) $pathVals[0][1], $soid);
+            $endIdx = \count($pathVals[0]) - 2;
+            $endX = $this->svgUnitToUnit((string) $pathVals[0][$endIdx], $soid);
+            $endY = $this->svgUnitToUnit((string) $pathVals[0][$endIdx + 1], $soid);
+            return [$startX, $startY, $endX, $endY];
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse the SVG Start tag 'textPath'.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     * @param TSVGStyle $prev_svgstyle Previous SVG style.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTtextPath(
+        \XMLParser $parser,
+        int $soid,
+        array $attr,
+        array $svgstyle,
+        array $prev_svgstyle,
+    ): string {
+        $textPathAttr = $attr;
+        $href = (string) ($attr['xlink:href'] ?? $attr['href'] ?? '');
+        $startOffsetRaw = (string) ($attr['startOffset'] ?? '0');
+
+        $segment = $this->getTextPathSegment($soid, $href);
+        if (!empty($segment)) {
+            $startX = $segment[0];
+            $startY = $segment[1];
+            $endX = $segment[2];
+            $endY = $segment[3];
+
+            $deltaX = ($endX - $startX);
+            $deltaY = ($endY - $startY);
+            $pathLength = \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
+            $startOffset = 0.0;
+
+            if (\strpos($startOffsetRaw, '%') !== false) {
+                $startOffset = ($pathLength * \floatval(\str_replace('%', '', $startOffsetRaw))) / 100.0;
+            } elseif ($startOffsetRaw !== '') {
+                $startOffset = $this->svgUnitToUnit($startOffsetRaw, $soid);
+            }
+
+            if ($pathLength > 0.0) {
+                $ratio = $startOffset / $pathLength;
+                $textPathAttr['x'] = (string) ($startX + ($deltaX * $ratio));
+                $textPathAttr['y'] = (string) ($startY + ($deltaY * $ratio));
+                if (empty($textPathAttr['rotate'])) {
+                    $textPathAttr['rotate'] = (string) \rad2deg(\atan2($deltaY, $deltaX));
+                }
+            }
+        }
+
+        if (isset($textPathAttr['xlink:href'])) {
+            unset($textPathAttr['xlink:href']);
+        }
+        if (isset($textPathAttr['href'])) {
+            unset($textPathAttr['href']);
+        }
+
+        /** @var TSVGAttributes $textPathAttr */
+
+        return $this->parseSVGTagSTARTtext(
+            $parser,
+            $soid,
+            $textPathAttr,
             $svgstyle,
             $prev_svgstyle,
             true,

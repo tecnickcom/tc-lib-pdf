@@ -2361,4 +2361,137 @@ class SVGTest extends TestUtil
         // Per-character rendering emits multiple text operators so output is longer.
         $this->assertGreaterThan(\strlen($outNormal), \strlen($outMultiX));
     }
+
+    /**
+     * E-6: textPath startOffset maps text origin along referenced path.
+     */
+    public function testSvgTextPathStartOffsetUpdatesPosition(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(103);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->patchSvgObj(103, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_line' => [
+                    'name' => 'line',
+                    'attr' => [
+                        'x1' => '0',
+                        'y1' => '0',
+                        'x2' => '200',
+                        'y2' => '0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $out = $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            103,
+            ['href' => '#tp_line', 'startOffset' => '25%'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $svgobj = $obj->getSvgObj(103);
+        $pos25 = (float) $svgobj['x'];
+
+        $obj->initSvgObjForHandlers(106);
+        $obj->patchSvgObj(106, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_line' => [
+                    'name' => 'line',
+                    'attr' => [
+                        'x1' => '0',
+                        'y1' => '0',
+                        'x2' => '200',
+                        'y2' => '0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            106,
+            ['href' => '#tp_line', 'startOffset' => '50%'],
+            $base,
+            $base,
+        );
+        $pos50 = (float) $obj->getSvgObj(106)['x'];
+
+        $this->assertGreaterThan(0.0, $pos25);
+        $this->assertGreaterThan($pos25, $pos50);
+        $this->assertEqualsWithDelta(0.0, $svgobj['y'], 0.001);
+    }
+
+    /**
+     * E-6: textPath on vertical segment sets rotate to path angle.
+     */
+    public function testSvgTextPathVerticalSegmentSetsRotate(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(104);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->patchSvgObj(104, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_vertical' => [
+                    'name' => 'line',
+                    'attr' => [
+                        'x1' => '10',
+                        'y1' => '10',
+                        'x2' => '10',
+                        'y2' => '110',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            104,
+            ['href' => '#tp_vertical', 'startOffset' => '10'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(104);
+        $this->assertEqualsWithDelta(90.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * E-6: textPath with unresolved href still behaves like a nested text run.
+     */
+    public function testSvgTextPathMissingReferenceStillRendersText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(105);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(105, ['styles' => [$base]]);
+
+        $startOut = $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            105,
+            ['href' => '#missing_path', 'x' => '12', 'y' => '34'],
+            $base,
+            $base,
+        );
+        $this->assertNotSame('', $startOut);
+
+        $obj->exposeHandleSVGCharacter($parser, 'abc');
+        $endOut = $obj->exposeParseSVGTagENDtextPath(105);
+        $this->assertNotSame('', $endOut);
+        $this->assertSame('', $obj->getSvgObj(105)['text']);
+    }
 }

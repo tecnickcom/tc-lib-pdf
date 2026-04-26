@@ -798,6 +798,26 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTtspan($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
+    public function exposeParseSVGTagSTARTtextPath(
+        \XMLParser $parser,
+        int $soid,
+        array $attr,
+        array $svgstyle,
+        array $prev_svgstyle,
+    ): string {
+        return $this->parseSVGTagSTARTtextPath($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
+    }
+
+    public function exposeParseSVGTagENDtextPath(int $soid): string
+    {
+        return $this->parseSVGTagENDtextPath($soid);
+    }
+
     /** @phpstan-param TSVGAttributes $attr */
     public function exposeParseSVGTagSTARTuse(\XMLParser $parser, int $soid, array $attr): string
     {
