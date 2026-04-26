@@ -5445,6 +5445,61 @@ class SVGTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $this->assertTrue((bool) ($obj->getSvgObj(107)['textmode']['vertical'] ?? false));
+        $this->assertEqualsWithDelta(90.0, (float) ($obj->getSvgObj(107)['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * S-2: glyph-orientation-vertical overrides default 90deg vertical rotation.
+     */
+    public function testSvgWritingModeVerticalGlyphOrientationOverride(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(109);
+        $base = $obj->exposeDefaultSVGStyle();
+        $vertical = $base;
+        $vertical['writing-mode'] = 'tb-rl';
+        $vertical['glyph-orientation-vertical'] = '0deg';
+
+        $out = $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            109,
+            ['x' => '10', 'y' => '20'],
+            $vertical,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertTrue((bool) ($obj->getSvgObj(109)['textmode']['vertical'] ?? false));
+        $this->assertEqualsWithDelta(0.0, (float) ($obj->getSvgObj(109)['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * S-2: glyph-orientation-horizontal is applied in horizontal writing mode.
+     */
+    public function testSvgHorizontalGlyphOrientationSetsRotation(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(110);
+        $base = $obj->exposeDefaultSVGStyle();
+        $hstyle = $base;
+        $hstyle['writing-mode'] = 'lr-tb';
+        $hstyle['glyph-orientation-horizontal'] = '180deg';
+
+        $out = $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            110,
+            ['x' => '10', 'y' => '20'],
+            $hstyle,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertFalse((bool) ($obj->getSvgObj(110)['textmode']['vertical'] ?? false));
+        $this->assertEqualsWithDelta(180.0, (float) ($obj->getSvgObj(110)['textmode']['rotate'] ?? 0.0), 0.001);
     }
 
     /**

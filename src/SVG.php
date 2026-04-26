@@ -2126,8 +2126,68 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 'gs_n'   => 0,
             ];
         }
-
         return '/' . $maskKey . ' gs' . "\n";
+    }
+
+    /**
+     * Parse an SVG glyph-orientation angle value.
+     *
+     * Accepts bare numbers (degrees) and explicit `deg`, `rad`, `grad` units.
+     *
+     * @param string $value Raw CSS value.
+     * @param float $default Default angle in degrees when parsing fails.
+     *
+     * @return float Angle in degrees.
+     */
+    protected function parseSVGGlyphOrientationAngle(string $value, float $default): float
+    {
+        $val = \trim(\strtolower($value));
+        if ($val === '') {
+            return $default;
+        }
+
+        if (!\preg_match('/^([-+]?\d*\.?\d+)(deg|rad|grad)?$/', $val, $regs)) {
+            return $default;
+        }
+
+        $ang = (float) $regs[1];
+        $unit = $regs[2] ?? 'deg';
+
+        return match ($unit) {
+            'rad'  => \rad2deg($ang),
+            'grad' => ($ang * 0.9),
+            default => $ang,
+        };
+    }
+
+    /**
+     * Resolve text rotation implied by writing-mode and glyph-orientation.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @param bool $isVertical True when writing-mode is vertical.
+     *
+     * @return float Rotation in degrees.
+     */
+    protected function getSVGGlyphOrientationRotation(array $svgstyle, bool $isVertical): float
+    {
+        if ($isVertical) {
+            // S-2 baseline: vertical writing stacks glyphs and rotates them 90°.
+            $default = 90.0;
+            $gvert = \strtolower((string)($svgstyle['glyph-orientation-vertical'] ?? 'auto'));
+            if ($gvert === 'auto') {
+                return $default;
+            }
+
+            return $this->parseSVGGlyphOrientationAngle($gvert, $default);
+        }
+
+        $default = 0.0;
+        $ghorz = \strtolower((string)($svgstyle['glyph-orientation-horizontal'] ?? '0deg'));
+        if ($ghorz === 'auto') {
+            return $default;
+        }
+
+        return $this->parseSVGGlyphOrientationAngle($ghorz, $default);
     }
 
     /**
@@ -5761,6 +5821,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             \str_starts_with($wmode, 'tb')
             || \str_starts_with($wmode, 'vertical')
         );
+        $this->svgobjs[$soid]['textmode']['rotate'] = $this->getSVGGlyphOrientationRotation(
+            $svgstyle,
+            (bool) $this->svgobjs[$soid]['textmode']['vertical'],
+        );
         if (
             isset($svgstyle['stroke'])
             && ($svgstyle['stroke'] != 'none')
@@ -5784,7 +5848,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $this->svgobjs[$soid]['textmode']['lengthadjust'] = $attr['lengthAdjust'] ?? 'spacing';
 
         // S-4: parse rotate list; first angle remains run fallback.
-        $this->svgobjs[$soid]['textmode']['rotate'] = 0.0;
         $this->svgobjs[$soid]['textmode']['rotlist'] = [];
         if (isset($attr['rotate']) && ($attr['rotate'] !== '')) {
             $rotvals = \preg_split('/[\s,]+/', \trim($attr['rotate']), -1, \PREG_SPLIT_NO_EMPTY);
