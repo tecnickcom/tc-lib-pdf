@@ -488,6 +488,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
                 'linkx' => 0.0,
                 'linky' => 0.0,
             ],
+            'charskip' => 0,
             'text' => '',
             'dir' => '',
             'out' => '',

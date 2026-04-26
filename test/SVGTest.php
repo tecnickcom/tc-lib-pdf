@@ -1858,6 +1858,23 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * Metadata text like <desc> must not leak into renderable SVG text buffer.
+     */
+    public function testSvgDescCharacterDataIsNotRenderedAsText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(811);
+
+        $obj->exposeHandleSVGTagStart($parser, 'desc', [], 811);
+        $obj->exposeHandleSVGCharacter($parser, 'TCPDF SVG EXAMPLE');
+        $obj->exposeHandleSVGTagEnd($parser, 'desc');
+
+        $this->assertSame('', $obj->getSvgObj(811)['text']);
+    }
+
+    /**
      * T-2: starting a new text/tspan while buffered text exists flushes the run.
      */
     public function testSvgStartTextFlushesBufferedRun(): void

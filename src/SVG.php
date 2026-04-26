@@ -409,6 +409,7 @@ use TSVGStyle;
  *    'styles': array<int, TSVGStyle>,
  *    'child': array<int>,
  *    'textmode': TSVGTextMode,
+ *    'charskip': int,
  *    'text': string,
  *    'dir': string,
  *    'out': string,
@@ -418,6 +419,19 @@ use TSVGStyle;
  */
 abstract class SVG extends \Com\Tecnick\Pdf\Text
 {
+    /**
+     * Tags whose character data must not be rendered as drawing text.
+     *
+     * @var array<int, string>
+     */
+    protected const SVGCHARDATASKIPTAGS = [
+        'desc',
+        'title',
+        'metadata',
+        'style',
+        'script',
+    ];
+
     /**
      * Deafult unit of measure for SVG (px = pixels).
      *
@@ -659,6 +673,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'linkx' => 0.0,
             'linky' => 0.0,
         ],
+        'charskip' => 0,
         'text' => '',
         'dir' => '',
         'out' => '',
@@ -2395,6 +2410,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (($soid < 0) || !isset($this->svgobjs[$soid]['text'])) {
             return;
         }
+        if (((int)($this->svgobjs[$soid]['charskip'] ?? 0)) > 0) {
+            return;
+        }
         // @phpstan-ignore assign.propertyType
         $this->svgobjs[$soid]['text'] .= $data;
     }
@@ -2417,6 +2435,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $soid = (int)\array_key_last($this->svgobjs);
         if ($soid < 0) {
+            return;
+        }
+
+        if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['charskip'] = \max(0, ((int)($this->svgobjs[$soid]['charskip'] ?? 0)) - 1);
             return;
         }
 
@@ -2819,6 +2843,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $name = $this->removeTagNamespace($name);
+
+        if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['charskip'] = ((int)($this->svgobjs[$soid]['charskip'] ?? 0)) + 1;
+            return;
+        }
 
         if ($this->svgobjs[$soid]['clipmode']) {
             // @phpstan-ignore assign.propertyType
