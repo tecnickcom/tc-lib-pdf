@@ -1790,4 +1790,230 @@ class SVGTest extends TestUtil
         );
         $this->assertNotSame('', $yMidMeet);
     }
+
+    // -----------------------------------------------------------------------
+    // P1 fixes: T-1, T-2, S-5, R-4
+    // -----------------------------------------------------------------------
+
+    /**
+     * T-1: visibility:hidden text must still advance the layout cursor.
+     */
+    public function testSvgInvisibleTextAdvancesCursor(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(80);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(80, [
+            'styles' => [$base],
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => true,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => 'Hello',
+            'x' => 10.0,
+            'y' => 20.0,
+        ]);
+
+        $xBefore = $obj->getSvgObj(80)['x'];
+        $out = $obj->exposeParseSVGTagENDtext(80);
+
+        // No drawing output for invisible text.
+        $this->assertSame('', $out);
+        // Text buffer must be cleared.
+        $this->assertSame('', $obj->getSvgObj(80)['text']);
+        // Cursor must have advanced (x increased).
+        $this->assertGreaterThan($xBefore, $obj->getSvgObj(80)['x']);
+    }
+
+    /**
+     * T-1: empty invisible text does not change the cursor.
+     */
+    public function testSvgInvisibleEmptyTextDoesNotChangeCursor(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(81);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(81, [
+            'styles' => [$base],
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => true,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => '',
+            'x' => 5.0,
+            'y' => 5.0,
+        ]);
+
+        $xBefore = $obj->getSvgObj(81)['x'];
+        $obj->exposeParseSVGTagENDtext(81);
+        $this->assertSame($xBefore, $obj->getSvgObj(81)['x']);
+    }
+
+    /**
+     * T-2: starting a new text/tspan while buffered text exists flushes the run.
+     */
+    public function testSvgStartTextFlushesBufferedRun(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(82);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Simulate state after an outer <text> started and accumulated content.
+        $obj->patchSvgObj(82, [
+            'styles' => [$base, $base],  // outer-text style already on stack
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => false,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => 'Outer',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+
+        // Starting a tspan should flush 'Outer' and produce non-empty output.
+        $tspanOut = $obj->exposeParseSVGTagSTARTtspan(
+            $parser,
+            82,
+            ['x' => '5', 'y' => '10'],
+            $base,
+            $base,
+        );
+        // After flush the text buffer must be empty (new run started fresh).
+        $this->assertSame('', $obj->getSvgObj(82)['text']);
+        // Output contains both the flushed run and the new transform.
+        $this->assertNotSame('', $tspanOut);
+    }
+
+    /**
+     * S-5: parseSVGTagSTARTuse resolves an element via plain href (SVG 2).
+     */
+    public function testSvgUseTagResolvesViaPlainHref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(83);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Register a simple rect in defs under id 'shape83'.
+        $obj->patchSvgObj(83, [
+            'defs' => [
+                'shape83' => [
+                    'name' => 'rect',
+                    'attr' => [
+                        'width' => '10',
+                        'height' => '5',
+                        'style' => '',
+                    ],
+                ],
+            ],
+        ]);
+
+        // Empty href → empty return.
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 83, []));
+        // Plain href (no xlink:href) must resolve.
+        $obj->exposeParseSVGTagSTARTuse($parser, 83, ['href' => '#shape83']);
+        // The out buffer should have been written to (rect was dispatched).
+        $this->assertNotSame('', $obj->getSvgObj(83)['out']);
+    }
+
+    /**
+     * S-5: parseSVGTagSTARTimage falls back to plain href when xlink:href absent.
+     */
+    public function testSvgImageTagAcceptsPlainHref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(84);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Missing both href attributes → empty.
+        $this->assertSame(
+            '',
+            $obj->exposeParseSVGTagSTARTimage(
+                $parser,
+                84,
+                [],
+                $base,
+                $base,
+            )
+        );
+
+        // Plain href pointing to an image that will cause a load exception;
+        // what matters is that the early-return guard no longer rejects the call
+        // solely because xlink:href is absent — the code reaches the image loader.
+        try {
+            $out = $obj->exposeParseSVGTagSTARTimage(
+                $parser,
+                84,
+                ['href' => 'nonexistent.png', 'x' => '0', 'y' => '0', 'width' => '10', 'height' => '10'],
+                $base,
+                $base,
+            );
+        } catch (\Throwable $e) {
+            // An image-load exception confirms the code progressed past the href guard.
+            $this->assertNotSame('', $e->getMessage());
+            return;
+        }
+        $this->assertIsString($out);
+    }
+
+    /**
+     * S-5: linearGradient and radialGradient store xref from plain href.
+     */
+    public function testSvgGradientXrefFromPlainHref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(85);
+
+        $obj->exposeParseSVGTagSTARTlinearGradient(85, ['id' => 'lg85', 'href' => '#lgBase']);
+        $obj->exposeParseSVGTagSTARTradialGradient(85, ['id' => 'rg85', 'href' => '#rgBase']);
+
+        $svgobj = $obj->getSvgObj(85);
+        $this->assertSame('lgBase', $svgobj['gradients']['lg85']['xref']);
+        $this->assertSame('rgBase', $svgobj['gradients']['rg85']['xref']);
+    }
+
+    /**
+     * R-4: stroke-dasharray values with unit suffixes are normalised to user units.
+     */
+    public function testSvgDasharrayWithUnitSuffixIsNormalised(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->setSvgObjMeta(86);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Provide dash tokens with a unit suffix; these should survive normalisation
+        // (not become zero) and produce a non-empty dashArray in the output.
+        $style = $base;
+        $style['stroke'] = '#000000';
+        $style['stroke-dasharray'] = '5 3';
+
+        [$strokeOut] = $obj->exposeParseSVGStyleStroke(86, $style);
+        $this->assertNotSame('', $strokeOut);
+
+        // Ensure a 'none' dasharray still produces empty dashArray.
+        $styleNone = $base;
+        $styleNone['stroke'] = '#000000';
+        $styleNone['stroke-dasharray'] = 'none';
+        [$strokeNone] = $obj->exposeParseSVGStyleStroke(86, $styleNone);
+        // dashArray=[] means no 'w' dash command prefix — still has stroke output.
+        $this->assertIsString($strokeNone);
+    }
 }

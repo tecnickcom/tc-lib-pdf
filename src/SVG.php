@@ -1885,12 +1885,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $strokestyle['lineCap'] = $svgstyle['stroke-linecap'];
         $strokestyle['lineJoin'] = $svgstyle['stroke-linejoin'];
         //  $strokestyle['miterLimit'] = (10.0 / $this->kunit),
-        $strokestyle['dashArray'] = (
-            empty($svgstyle['stroke-dasharray']) || ($svgstyle['stroke-dasharray'] == 'none')
-        ) ? [] : \array_map(
-            'intval',
-            \explode(' ', $svgstyle['stroke-dasharray'], 100),
-        );
+        if (empty($svgstyle['stroke-dasharray']) || ($svgstyle['stroke-dasharray'] == 'none')) {
+            $strokestyle['dashArray'] = [];
+        } else {
+            // Normalise each dash/gap token to user units so that values with
+            // unit suffixes (px, pt, mm, %, …) produce correct dash lengths.
+            $ref = $this->svgobjs[$soid]['refunitval'];
+            $ref['parent'] = 0;
+            $strokestyle['dashArray'] = \array_map(
+                fn(string $tok): float => $this->svgUnitToUnit(\trim($tok), -1, $ref),
+                \explode(' ', $svgstyle['stroke-dasharray'], 100),
+            );
+        }
         // $strokestyle['dashPhase'] = 0,
         $strokestyle['lineColor'] = $svgstyle['stroke'];
         unset($strokestyle['fillColor']);
@@ -2534,9 +2540,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function parseSVGTagENDtext(int $soid): string
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
-            // @TODO : This implementation must be fixed to following the rule:
-            // If the 'visibility' property is set to hidden on a 'tspan', 'tref' or 'altGlyph' element,
-            // then the text is invisible but still takes up space in text layout calculations.
+            // Per SVG spec, visibility:hidden text is invisible but still consumes layout space.
+            // Advance the cursor by the text width without emitting any drawing operators.
+            $txt = (string)($this->svgobjs[$soid]['text'] ?? '');
+            if ($txt !== '') {
+                $this->svgobjs[$soid]['x'] += $this->getStringWidth($txt);
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['text'] = '';
+            if (!$this->svgobjs[$soid]['defsmode']) {
+                // @phpstan-ignore assign.propertyType
+                \array_pop($this->svgobjs[$soid]['styles']);
+            }
+
             return '';
         }
 
@@ -3055,9 +3072,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
         }
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$px1, $py1, $px2, $py2];
-        if (!empty($attr['xlink:href'])) {
+        $gradHref = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (!empty($gradHref)) {
             // gradient is defined on another place
-            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($attr['xlink:href'], 1);
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($gradHref, 1);
         }
         return '';
     }
@@ -3112,9 +3130,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
         }
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$pcx, $pcy, $pfx, $pfy, $grr];
-        if (!empty($attr['xlink:href'])) {
+        $gradHref = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (!empty($gradHref)) {
             // gradient is defined on another place
-            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($attr['xlink:href'], 1);
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($gradHref, 1);
         }
         return '';
     }
@@ -3652,10 +3671,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if ($this->svgobjs[$soid]['clipmode']) {
             return '';
         }
-        if (empty($attr['xlink:href'])) {
+        // SVG 2 uses plain 'href'; fall back from xlink:href for compatibility.
+        $img = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (empty($img)) {
             return '';
         }
-        $img = $attr['xlink:href'];
         $posx = (isset($attr['x']) ? $this->svgUnitToUnit($attr['x'], $soid) : 0.0);
         $posy = (isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0);
         $width = (isset($attr['width']) ? $this->svgUnitToUnit($attr['width'], $soid) : 0.0);
@@ -3736,11 +3756,51 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $prev_svgstyle,
         bool $is_tspan = false,
     ): string {
-        if (isset($this->svgobjs[$soid]['textmode']['text-anchor']) && !empty($this->svgobjs[$soid]['text'])) {
-            // @TODO: unsupported feature
+        $out = '';
+        if (!empty($this->svgobjs[$soid]['text'])) {
+            // Flush the text accumulated between an outer <text> start and this
+            // nested <text>/<tspan> start.  We only emit the text-line operator and
+            // clear the buffer.  We deliberately do NOT close the outer transform or
+            // pop the styles stack — those bookkeeping operations are the
+            // responsibility of the matching </text> end handler; duplicating them
+            // here would corrupt the PDF graphics-state stack.
+            $anchor = $this->svgobjs[$soid]['textmode']['text-anchor'] ?? 'start';
+            $txtanchor = match ($anchor) {
+                'end' => 'E',
+                'middle' => 'M',
+                default => 'S',
+            };
+            if (empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+                $out .= $this->getTextLine(
+                    $this->svgobjs[$soid]['text'],
+                    $this->svgobjs[$soid]['x'],
+                    $this->svgobjs[$soid]['y'],
+                    0,
+                    $this->svgobjs[$soid]['textmode']['stroke'],
+                    0,
+                    0,
+                    0,
+                    true,
+                    ($this->svgobjs[$soid]['textmode']['stroke'] > 0),
+                    false,
+                    false,
+                    false,
+                    false,
+                    ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
+                    $txtanchor,
+                    null,
+                );
+            } else {
+                // Invisible text still advances the cursor by the text width.
+                $this->svgobjs[$soid]['x'] += $this->getStringWidth($this->svgobjs[$soid]['text']);
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['text'] = '';
         }
+
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
-            return '';
+            return $out;
         }
         // @phpstan-ignore assign.propertyType
         \array_push($this->svgobjs[$soid]['styles'], $svgstyle);
@@ -3784,7 +3844,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $this->svgobjs[$soid]['textmode']['stroke'] = false;
         }
-        $out = '';
         $out .= $this->graph->getStartTransform();
         $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
         $out .= $this->parseSVGStyle(
@@ -3841,10 +3900,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTuse(\XMLParser $parser, int $soid, array $attr): string
     {
-        if (empty($attr['xlink:href'])) {
+        // SVG 2 uses plain 'href'; fall back from xlink:href for compatibility.
+        $href = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (empty($href)) {
             return '';
         }
-        $svgdefid = \substr($attr['xlink:href'], 1);
+
+        $svgdefid = \substr($href, 1);
         if (empty($this->svgobjs[$soid]['defs'][$svgdefid])) {
             return '';
         }
@@ -3853,6 +3915,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         if (isset($attr['xlink:href'])) {
             unset($attr['xlink:href']);
+        }
+        if (isset($attr['href'])) {
+            unset($attr['href']);
         }
         if (isset($attr['id'])) {
             unset($attr['id']);
