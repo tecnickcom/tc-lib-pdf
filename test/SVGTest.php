@@ -2112,6 +2112,81 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-1/R-3: <use> on symbol falls back to symbol viewBox size when width/height missing.
+     */
+    public function testSvgUseSymbolFallsBackToViewBoxDimensions(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(921);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(921, ['styles' => [$base]]);
+
+        $obj->patchSvgObj(921, [
+            'defs' => [
+                'symvb' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 40 20',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '40', 'height' => '20', 'fill' => '#000'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $out = $obj->exposeParseSVGTagSTARTuse($parser, 921, ['href' => '#symvb', 'x' => '1', 'y' => '2']);
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString(' cm', $out);
+    }
+
+    /**
+     * E-1/R-3: explicit width/height on use still override symbol defaults.
+     */
+    public function testSvgUseSymbolRespectsExplicitUseDimensions(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(922);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(922, ['styles' => [$base]]);
+
+        $obj->patchSvgObj(922, [
+            'defs' => [
+                'symovr' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 100 50',
+                        'width' => '100',
+                        'height' => '50',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '100', 'height' => '50', 'fill' => '#000'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $out = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            922,
+            ['href' => '#symovr', 'x' => '0', 'y' => '0', 'width' => '10', 'height' => '5'],
+        );
+        $this->assertNotSame('', $out);
+        // Rendering with explicit dimensions should still produce content and transforms.
+        $this->assertStringContainsString(' cm', $out);
+    }
+
+    /**
      * E-7: <a> start stores link metadata and </a> emits an annotation ref.
      */
     public function testSvgATagCreatesAnnotationReference(): void

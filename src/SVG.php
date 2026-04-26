@@ -4634,6 +4634,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 ? $this->svgUnitToUnit((string) $attr['height'], $soid)
                 : (isset($symAttr['height']) ? $this->svgUnitToUnit((string) $symAttr['height'], $soid) : 0.0);
 
+            // E-1/R-3 hardening: if use width/height are omitted, use viewBox size.
+            if ((($useW <= 0.0) || ($useH <= 0.0)) && !empty($symAttr['viewBox']) && \is_string($symAttr['viewBox'])) {
+                $viewBoxVals = \preg_split('/[\s,]+/', \trim($symAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+                if (\is_array($viewBoxVals) && (\count($viewBoxVals) >= 4)) {
+                    $vbw = \abs($this->svgUnitToUnit((string) $viewBoxVals[2], $soid));
+                    $vbh = \abs($this->svgUnitToUnit((string) $viewBoxVals[3], $soid));
+                    if (($useW <= 0.0) && ($vbw > 0.0)) {
+                        $useW = $vbw;
+                    }
+                    if (($useH <= 0.0) && ($vbh > 0.0)) {
+                        $useH = $vbh;
+                    }
+                }
+            }
+
             // Build an attr array that looks like an inner <svg> with the symbol's
             // viewBox so that parseSVGTagSTARTsvg applies the correct transform.
             /** @var TSVGAttributes $svglikeAttr */
