@@ -1385,44 +1385,37 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getPatternStreamResourceDict(string $stream): string
     {
         $fontNames = [];
-        if (\preg_match_all('/\/(F[0-9]+)\s+[0-9\.\-]+\s+Tf\b/', $stream, $matchFont) === 1) {
-            foreach (($matchFont[1] ?? []) as $name) {
-                if (\is_string($name) && ($name !== '')) {
-                    $fontNames[$name] = true;
-                }
+        if (\preg_match_all('/\/(F[0-9]+)\s+[0-9\.\-]+\s+Tf\b/', $stream, $matchFont) > 0) {
+            foreach ($matchFont[1] as $name) {
+                $fontNames[$name] = true;
             }
         }
 
         $extgstate = [];
-        if (\preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $matchGs) === 1) {
-            foreach (($matchGs[1] ?? []) as $idx) {
+        if (\preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $matchGs) > 0) {
+            foreach ($matchGs[1] as $idx) {
                 $extgstate[(int) $idx] = true;
             }
         }
 
         $gradient = [];
-        if (\preg_match_all('/\/Sh([0-9]+)\s+sh\b/', $stream, $matchSh) === 1) {
-            foreach (($matchSh[1] ?? []) as $idx) {
+        if (\preg_match_all('/\/Sh([0-9]+)\s+sh\b/', $stream, $matchSh) > 0) {
+            foreach ($matchSh[1] as $idx) {
                 $gradient[(int) $idx] = true;
             }
         }
 
         $spotNames = [];
-        if (\preg_match_all('/\/(CS[0-9]+)\s+[cC]s\b/', $stream, $matchCs) === 1) {
-            foreach (($matchCs[1] ?? []) as $name) {
-                if (\is_string($name) && ($name !== '')) {
-                    $spotNames[$name] = true;
-                }
+        if (\preg_match_all('/\/(CS[0-9]+)\s+[cC]s\b/', $stream, $matchCs) > 0) {
+            foreach ($matchCs[1] as $name) {
+                $spotNames[$name] = true;
             }
         }
 
         $imageKeys = [];
         $xobjectKeys = [];
-        if (\preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $matchDo) === 1) {
-            foreach (($matchDo[1] ?? []) as $key) {
-                if (!\is_string($key) || ($key === '')) {
-                    continue;
-                }
+        if (\preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $matchDo) > 0) {
+            foreach ($matchDo[1] as $key) {
                 if (\preg_match('/^I([0-9]+)$/', $key, $imgm) === 1) {
                     $imageKeys[(int) $imgm[1]] = true;
                     continue;

@@ -5740,10 +5740,12 @@ class SVGTest extends TestUtil
         $this->assertNotEmpty($masks, 'svgmasks must contain the registered mask');
 
         $maskKey = \array_key_first($masks);
+        $this->assertIsString($maskKey);
         $this->assertStringContainsString($maskKey, $out);
-        $this->assertStringStartsWith('MSK_', (string) $maskKey);
+        $this->assertStringStartsWith('MSK_', $maskKey);
 
         $maskData = $masks[$maskKey];
+        $this->assertIsArray($maskData);
         $this->assertArrayHasKey('stream', $maskData);
         $this->assertArrayHasKey('bbox', $maskData);
         $this->assertSame(0, $maskData['gs_n'], 'gs_n is 0 until PDF output phase');

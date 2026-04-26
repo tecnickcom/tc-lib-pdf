@@ -2649,7 +2649,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     } else {
                         $aspectMatches = [];
                         \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $aspectMatches);
-                        $tokens = $aspectMatches[0] ?? [];
+                        $tokens = $aspectMatches[0];
                         if (!empty($tokens)) {
                             if (\strtolower((string) $tokens[0]) === 'defer') {
                                 \array_shift($tokens);
@@ -2915,7 +2915,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     } else {
                         $aspectMatches = [];
                         \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $aspectMatches);
-                        $tokens = $aspectMatches[0] ?? [];
+                        $tokens = $aspectMatches[0];
                         if (!empty($tokens)) {
                             if (\strtolower((string) $tokens[0]) === 'defer') {
                                 \array_shift($tokens);
@@ -3001,22 +3001,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
                     if (!empty($patterndef['child']) && \is_array($patterndef['child'])) {
                         foreach ($patterndef['child'] as $child) {
-                            if (!\is_array($child) || !isset($child['name'])) {
+                            if (!\is_array($child) || !isset($child['name']) || !\is_string($child['name'])) {
                                 continue;
                             }
+                            /** @var string $childName */
+                            $childName = $child['name'];
+                            /** @var TSVGAttributes $childAttr */
+                            $childAttr = (isset($child['attr']) && \is_array($child['attr'])) ? $child['attr'] : [];
                             $prevOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
                             $prevLen = \strlen($prevOut);
-                            if (!empty($child['attr']['closing_tag'])) {
-                                if (!empty($child['attr']['content']) && \is_string($child['attr']['content'])) {
+                            if (!empty($childAttr['closing_tag'])) {
+                                $childContent = $childAttr['content'] ?? null;
+                                if (\is_string($childContent) && ($childContent !== '')) {
                                     // Replay text captured in defs before closing the element.
                                     // @phpstan-ignore assign.propertyType
-                                    $this->svgobjs[$soid]['text'] .= $child['attr']['content'];
+                                    $this->svgobjs[$soid]['text'] .= $childContent;
                                 }
-                                $this->handleSVGTagEnd($patParser, (string) $child['name']);
+                                $this->handleSVGTagEnd($patParser, $childName);
                             } else {
-                                /** @var TSVGAttributes $childAttr */
-                                $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
-                                $this->handleSVGTagStart($patParser, (string) $child['name'], $childAttr, $soid);
+                                $this->handleSVGTagStart($patParser, $childName, $childAttr, $soid);
                             }
 
                             $currOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
@@ -4979,7 +4982,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param int $soid SVG object ID.
      * @param string $attrd Path data.
      *
-     * @return array<int, array{x1: float, y1: float, x2: float, y2: float, angle: float}>
+        * @return array<
+        *   int,
+        *   array{x1: float, y1: float, x2: float, y2: float, angle: float, startAngle: float, endAngle: float}
+        * >
      */
     protected function getSVGPathMarkerSegments(int $soid, string $attrd): array
     {
@@ -5011,7 +5017,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $qp1y = 0.0;
 
         foreach ($paths as $path) {
-            $cmd = \trim((string) ($path[1] ?? ''));
+            $cmd = \trim($path[1]);
             if ($cmd === '') {
                 continue;
             }
@@ -5019,8 +5025,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $upper = \strtoupper($cmd);
             $rel = (\strtolower($cmd) === $cmd);
             $raw = [];
-            \preg_match_all('/-?\d+(?:\.\d+)?/', \trim((string) ($path[2] ?? '')), $raw);
-            $rawparams = $raw[0] ?? [];
+            \preg_match_all('/-?\d+(?:\.\d+)?/', \trim($path[2]), $raw);
+            $rawparams = $raw[0];
             $params = [];
             foreach ($rawparams as $prv) {
                 $val = $this->svgUnitToUnit($prv, $soid);
@@ -5028,7 +5034,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
 
             $addSegment = function (float $startX, float $startY, float $endX, float $endY) use (&$segments): void {
-                if ((\abs($endX - $startX) < self::SVGMINFLOATDIFF) && (\abs($endY - $startY) < self::SVGMINFLOATDIFF)) {
+                if (
+                    (\abs($endX - $startX) < self::SVGMINFLOATDIFF)
+                    && (\abs($endY - $startY) < self::SVGMINFLOATDIFF)
+                ) {
                     return;
                 }
                 $segments[] = [
@@ -5040,6 +5049,18 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     'startAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
                     'endAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
                 ];
+            };
+
+            $setLastSegmentAngles = function (float $startAngle, float $endAngle) use (&$segments): void {
+                $last = \array_key_last($segments);
+                if (!\is_int($last)) {
+                    return;
+                }
+
+                $lastSegment = $segments[$last];
+                $lastSegment['startAngle'] = $startAngle;
+                $lastSegment['endAngle'] = $endAngle;
+                $segments[$last] = $lastSegment;
             };
 
             if ($upper === 'M') {
@@ -5102,11 +5123,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $nextX = $params[$i + 4] + ($rel ? $currentX : 0.0);
                     $nextY = $params[$i + 5] + ($rel ? $currentY : 0.0);
                     $addSegment($currentX, $currentY, $nextX, $nextY);
-                    $last = \count($segments) - 1;
-                    if ($last >= 0) {
-                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($cp1y - $currentY), ($cp1x - $currentX)));
-                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($nextY - $cp2y), ($nextX - $cp2x)));
-                    }
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($cp1y - $currentY), ($cp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $cp2y), ($nextX - $cp2x))),
+                    );
                     $currentX = $nextX;
                     $currentY = $nextY;
                 }
@@ -5127,11 +5147,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $nextX = $params[$i + 2] + ($rel ? $currentX : 0.0);
                     $nextY = $params[$i + 3] + ($rel ? $currentY : 0.0);
                     $addSegment($currentX, $currentY, $nextX, $nextY);
-                    $last = \count($segments) - 1;
-                    if ($last >= 0) {
-                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($cp1y - $currentY), ($cp1x - $currentX)));
-                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($nextY - $cp2y), ($nextX - $cp2x)));
-                    }
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($cp1y - $currentY), ($cp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $cp2y), ($nextX - $cp2x))),
+                    );
                     $currentX = $nextX;
                     $currentY = $nextY;
                 }
@@ -5146,11 +5165,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $nextX = $params[$i + 2] + ($rel ? $currentX : 0.0);
                     $nextY = $params[$i + 3] + ($rel ? $currentY : 0.0);
                     $addSegment($currentX, $currentY, $nextX, $nextY);
-                    $last = \count($segments) - 1;
-                    if ($last >= 0) {
-                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($qp1y - $currentY), ($qp1x - $currentX)));
-                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($nextY - $qp1y), ($nextX - $qp1x)));
-                    }
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($qp1y - $currentY), ($qp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $qp1y), ($nextX - $qp1x))),
+                    );
                     $currentX = $nextX;
                     $currentY = $nextY;
                 }
@@ -5170,11 +5188,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $nextX = $params[$i] + ($rel ? $currentX : 0.0);
                     $nextY = $params[$i + 1] + ($rel ? $currentY : 0.0);
                     $addSegment($currentX, $currentY, $nextX, $nextY);
-                    $last = \count($segments) - 1;
-                    if ($last >= 0) {
-                        $segments[$last]['startAngle'] = \rad2deg(\atan2(($qp1y - $currentY), ($qp1x - $currentX)));
-                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($nextY - $qp1y), ($nextX - $qp1x)));
-                    }
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($qp1y - $currentY), ($qp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $qp1y), ($nextX - $qp1x))),
+                    );
                     $currentX = $nextX;
                     $currentY = $nextY;
                 }
@@ -5194,48 +5211,45 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $nextX = $params[$i + 5] + ($rel ? $currentX : 0.0);
                     $nextY = $params[$i + 6] + ($rel ? $currentY : 0.0);
                     $addSegment($currentX, $currentY, $nextX, $nextY);
-                    $last = \count($segments) - 1;
-                    if ($last >= 0) {
-                        $samples = $this->sampleTextPathArc(
-                            $startX0,
-                            $startY0,
-                            $radiusX,
-                            $radiusY,
-                            $xAxisRot,
-                            $largeArcFlag,
-                            $sweepFlag,
-                            $nextX,
-                            $nextY,
-                        );
+                    $samples = $this->sampleTextPathArc(
+                        $startX0,
+                        $startY0,
+                        $radiusX,
+                        $radiusY,
+                        $xAxisRot,
+                        $largeArcFlag,
+                        $sweepFlag,
+                        $nextX,
+                        $nextY,
+                    );
 
-                        $startPx = $nextX;
-                        $startPy = $nextY;
-                        if (!empty($samples)) {
-                            $startPx = $samples[0][0];
-                            $startPy = $samples[0][1];
-                        }
-                        $startDx = ($startPx - $startX0);
-                        $startDy = ($startPy - $startY0);
-                        if ((\abs($startDx) < self::SVGMINFLOATDIFF) && (\abs($startDy) < self::SVGMINFLOATDIFF)) {
-                            $startDx = ($nextX - $startX0);
-                            $startDy = ($nextY - $startY0);
-                        }
-                        $segments[$last]['startAngle'] = \rad2deg(\atan2($startDy, $startDx));
-
-                        $endAx = $startX0;
-                        $endAy = $startY0;
-                        if (!empty($samples)) {
-                            $sampleCount = \count($samples);
-                            if ($sampleCount >= 2) {
-                                $endAx = $samples[$sampleCount - 2][0];
-                                $endAy = $samples[$sampleCount - 2][1];
-                            } else {
-                                $endAx = $startX0;
-                                $endAy = $startY0;
-                            }
-                        }
-                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($nextY - $endAy), ($nextX - $endAx)));
+                    $startPx = $nextX;
+                    $startPy = $nextY;
+                    if (!empty($samples)) {
+                        $startPx = $samples[0][0];
+                        $startPy = $samples[0][1];
                     }
+                    $startDx = ($startPx - $startX0);
+                    $startDy = ($startPy - $startY0);
+                    if ((\abs($startDx) < self::SVGMINFLOATDIFF) && (\abs($startDy) < self::SVGMINFLOATDIFF)) {
+                        $startDx = ($nextX - $startX0);
+                        $startDy = ($nextY - $startY0);
+                    }
+
+                    $endAx = $startX0;
+                    $endAy = $startY0;
+                    if (!empty($samples)) {
+                        $sampleCount = \count($samples);
+                        if ($sampleCount >= 2) {
+                            $endAx = $samples[$sampleCount - 2][0];
+                            $endAy = $samples[$sampleCount - 2][1];
+                        }
+                    }
+
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2($startDy, $startDx)),
+                        \rad2deg(\atan2(($nextY - $endAy), ($nextX - $endAx))),
+                    );
                     $currentX = $nextX;
                     $currentY = $nextY;
                 }
@@ -5407,7 +5421,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $aspectMatches = [];
             \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $aspectMatches);
-            $tokens = $aspectMatches[0] ?? [];
+            $tokens = $aspectMatches[0];
             if (!empty($tokens)) {
                 if (\strtolower((string) $tokens[0]) === 'defer') {
                     \array_shift($tokens);

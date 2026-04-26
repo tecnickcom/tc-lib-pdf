@@ -3568,7 +3568,11 @@ PHP;
 
         // gs_n must be set to the ExtGState object number.
         $masks = $obj->getSvgMasks();
-        $this->assertGreaterThan(0, $masks['MSK_AABBCCDD']['gs_n']);
+        $this->assertArrayHasKey('MSK_AABBCCDD', $masks);
+        $this->assertIsArray($masks['MSK_AABBCCDD']);
+        $mask = $masks['MSK_AABBCCDD'];
+        $this->assertArrayHasKey('gs_n', $mask);
+        $this->assertGreaterThan(0, $mask['gs_n']);
     }
 
     /**
@@ -3606,6 +3610,10 @@ PHP;
 
         $this->assertSame('', $out);
         $masks = $obj->getSvgMasks();
-        $this->assertSame(0, $masks['MSK_EMPTY']['gs_n']);
+        $this->assertArrayHasKey('MSK_EMPTY', $masks);
+        $this->assertIsArray($masks['MSK_EMPTY']);
+        $mask = $masks['MSK_EMPTY'];
+        $this->assertArrayHasKey('gs_n', $mask);
+        $this->assertSame(0, $mask['gs_n']);
     }
 }
