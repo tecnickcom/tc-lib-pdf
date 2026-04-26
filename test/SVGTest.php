@@ -2701,6 +2701,49 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: per-glyph textPath layout updates rotation as glyphs pass a bend.
+     */
+    public function testSvgTextPathPerGlyphRotationFollowsBend(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1042);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // First segment is intentionally tiny so the second glyph lands on
+        // the vertical segment and picks a near-90deg local tangent.
+        $obj->patchSvgObj(1042, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_glyph_bend' => [
+                    'name' => 'polyline',
+                    'attr' => [
+                        'points' => '0,0 0.1,0 0.1,100',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1042,
+            ['href' => '#tp_glyph_bend', 'startOffset' => '0'],
+            $base,
+            $base,
+        );
+
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1042);
+
+        $svgobj = $obj->getSvgObj(1042);
+        $rotlist = $svgobj['textmode']['rotlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($rotlist));
+        $this->assertLessThan(45.0, (float) $rotlist[0]);
+        $this->assertGreaterThan(45.0, (float) $rotlist[1]);
+    }
+
+    /**
      * E-6: textPath with unresolved href still behaves like a nested text run.
      */
     public function testSvgTextPathMissingReferenceStillRendersText(): void

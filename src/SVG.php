@@ -165,6 +165,11 @@ use TSVGStyle;
  *    'lengthadjust'?: string,
  *    'xlist'?: array<int, float>,
  *    'ylist'?: array<int, float>,
+ *    'rotlist'?: array<int, float>,
+ *    'textpathpoints'?: array<int, array{0: float, 1: float}>,
+ *    'textpathoffset'?: float,
+ *    'textpathmethod'?: string,
+ *    'textpathspacing'?: string,
  * }
  *
  * @phpstan-type TSVGAttributes array{
@@ -2699,6 +2704,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // S-4: first-angle rotation for the text run.
         $rotate = (float) ($this->svgobjs[$soid]['textmode']['rotate'] ?? 0.0);
 
+        // E-6: when a textPath is active, derive per-glyph x/y/angle lists
+        // from the sampled path and glyph advances before rendering.
+        $this->applyTextPathGlyphLayout($soid);
+
         // S-3: textLength adjustment.
         $textLengthTarget = (float) ($this->svgobjs[$soid]['textmode']['textlength'] ?? 0.0);
         $lengthAdjust     = (string) ($this->svgobjs[$soid]['textmode']['lengthadjust'] ?? 'spacing');
@@ -2720,6 +2729,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // R-1: multi-value x / y lists — emit one call per character if lists present.
         $xlist = $this->svgobjs[$soid]['textmode']['xlist'] ?? [];
         $ylist = $this->svgobjs[$soid]['textmode']['ylist'] ?? [];
+        $rotlist = $this->svgobjs[$soid]['textmode']['rotlist'] ?? [];
         $isVertical = !empty($this->svgobjs[$soid]['textmode']['vertical']);
 
         $out = '';
@@ -2730,8 +2740,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             foreach ($chars as $idx => $ch) {
                 $charX = $xlist[$idx] ?? $curx;
                 $charY = ($ylist[$idx] ?? $cury) + $baselineOffset;
-                if ($rotate !== 0.0) {
-                    $rad = \deg2rad(-$rotate);
+                $charRotate = $rotlist[$idx] ?? $rotate;
+                $originX = $charX;
+                $originY = $charY;
+                if ($charRotate !== 0.0) {
+                    $rad = \deg2rad(-$charRotate);
                     $cos = \cos($rad);
                     $sin = \sin($rad);
                     $out .= $this->graph->getStartTransform();
@@ -2758,13 +2771,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $txtanchor,
                     null,
                 );
-                if ($rotate !== 0.0) {
+                if ($charRotate !== 0.0) {
                     $out .= $this->graph->getStopTransform();
                 }
                 if ($isVertical) {
-                    $cury = $charY + $this->getStringWidth($ch);
+                    $cury = $originY + $this->getStringWidth($ch);
                 } else {
-                    $curx = $charX + $this->getStringWidth($ch);
+                    $curx = $originX + $this->getStringWidth($ch);
                 }
             }
         } elseif ($isVertical) {
@@ -4231,6 +4244,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // R-1: multi-value x / y coordinate lists.
         $this->svgobjs[$soid]['textmode']['xlist'] = [];
         $this->svgobjs[$soid]['textmode']['ylist'] = [];
+        $this->svgobjs[$soid]['textmode']['rotlist'] = [];
+        $this->svgobjs[$soid]['textmode']['textpathpoints'] = [];
+        $this->svgobjs[$soid]['textmode']['textpathoffset'] = 0.0;
+        $this->svgobjs[$soid]['textmode']['textpathmethod'] = 'align';
+        $this->svgobjs[$soid]['textmode']['textpathspacing'] = 'exact';
         if (isset($attr['x']) && (\strpos($attr['x'], ' ') !== false)) {
             foreach (\preg_split('/[\s,]+/', \trim($attr['x']), -1, \PREG_SPLIT_NO_EMPTY) ?: [] as $xv) {
                 $this->svgobjs[$soid]['textmode']['xlist'][] = $this->svgUnitToUnit($xv, $soid);
@@ -4476,7 +4494,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         /** @var TSVGAttributes $textPathAttr */
 
-        return $this->parseSVGTagSTARTtext(
+        $out = $this->parseSVGTagSTARTtext(
             $parser,
             $soid,
             $textPathAttr,
@@ -4484,6 +4502,84 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $prev_svgstyle,
             true,
         );
+
+        if (!empty($points)) {
+            $pathLength = $this->getTextPathLength($points);
+            $startOffset = 0.0;
+            if ($pathLength > 0.0) {
+                if (\strpos($startOffsetRaw, '%') !== false) {
+                    $startOffset = ($pathLength * \floatval(\str_replace('%', '', $startOffsetRaw))) / 100.0;
+                } elseif ($startOffsetRaw !== '') {
+                    $startOffset = $this->svgUnitToUnit($startOffsetRaw, $soid);
+                }
+            }
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathpoints'] = $points;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathoffset'] = $startOffset;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathmethod'] = (string) ($attr['method'] ?? 'align');
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathspacing'] = (string) ($attr['spacing'] ?? 'exact');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Build per-glyph layout arrays for an active textPath run.
+     *
+     * Unsupported SVG features: `method="stretch"` and `spacing="auto"`
+     * currently use the same advance model as `align`/`exact`.
+     *
+     * @param int $soid ID of the current SVG object.
+     */
+    protected function applyTextPathGlyphLayout(int $soid): void
+    {
+        $text = (string) ($this->svgobjs[$soid]['text'] ?? '');
+        if ($text === '') {
+            return;
+        }
+
+        $textPathPoints = $this->svgobjs[$soid]['textmode']['textpathpoints'] ?? [];
+        if (\count($textPathPoints) < 2) {
+            return;
+        }
+
+        $startOffset = (float) ($this->svgobjs[$soid]['textmode']['textpathoffset'] ?? 0.0);
+        $chars = \mb_str_split($text, 1, 'UTF-8');
+        $xcoords = [];
+        $ycoords = [];
+        $angles = [];
+        $pathOffset = $startOffset;
+
+        foreach ($chars as $charGlyph) {
+            $pathPoint = $this->getTextPathPointAtOffset($textPathPoints, $pathOffset);
+            if (empty($pathPoint)) {
+                break;
+            }
+            $xcoords[] = (float) $pathPoint[0];
+            $ycoords[] = (float) $pathPoint[1];
+            $angles[] = (float) $pathPoint[2];
+            $pathOffset += $this->getStringWidth($charGlyph);
+        }
+
+        if (!empty($xcoords) && !empty($ycoords)) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['xlist'] = $xcoords;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['ylist'] = $ycoords;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['rotlist'] = $angles;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['x'] = $xcoords[0];
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['y'] = $ycoords[0];
+            if (empty($this->svgobjs[$soid]['textmode']['rotate']) && !empty($angles)) {
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['textmode']['rotate'] = (float) $angles[0];
+            }
+        }
     }
 
     /**
