@@ -143,6 +143,11 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutResourcesDict();
     }
 
+    public function exposeGetPatternStreamResourceDict(string $stream): string
+    {
+        return $this->getPatternStreamResourceDict($stream);
+    }
+
     /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeLine(array $annot): string
     {

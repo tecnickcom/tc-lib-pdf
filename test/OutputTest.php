@@ -480,6 +480,44 @@ PHP;
         $this->assertStringEndsWith(" >>\nendobj\n", $out);
     }
 
+    public function testPatternStreamResourcesKeepOnlyReferencedFontAndSpotAliases(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+
+        $timesfile = (string) \realpath(
+            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json'
+        );
+        $font->insert($pon, 'times', '', 10, null, null, $timesfile);
+
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        /** @var \Com\Tecnick\Color\Pdf $color */
+        $color = $this->getObjectProperty($obj, 'color');
+        $this->setObjectProperty($color, 'spot_colors', [
+            'spotA' => ['i' => 1, 'n' => 111],
+            'spotB' => ['i' => 2, 'n' => 222],
+        ]);
+
+        $stream = '/F1 12 Tf /CS1 cs';
+        $out = $obj->exposeGetPatternStreamResourceDict($stream);
+
+        $this->assertStringContainsString(' /Font <<', $out);
+        $this->assertStringContainsString(' /F1 ', $out);
+        $this->assertStringNotContainsString(' /F2 ', $out);
+        $this->assertStringContainsString(' /ColorSpace <<', $out);
+        $this->assertStringContainsString(' /CS1 ', $out);
+        $this->assertStringNotContainsString(' /CS2 ', $out);
+    }
+
     public function testTodoAnnotationSubtypeHelpersCurrentlyReturnEmptyString(): void
     {
         $obj = $this->getInternalTestObject();
