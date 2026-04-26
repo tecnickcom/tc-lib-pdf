@@ -1702,8 +1702,14 @@ class SVGTest extends TestUtil
         $this->assertNotNull($resolvedInherit);
         $this->assertNotNull($resolvedOverride);
 
-        $attrInherit = (isset($resolvedInherit['attr']) && \is_array($resolvedInherit['attr'])) ? $resolvedInherit['attr'] : [];
-        $attrOverride = (isset($resolvedOverride['attr']) && \is_array($resolvedOverride['attr'])) ? $resolvedOverride['attr'] : [];
+        $attrInherit = (
+            isset($resolvedInherit['attr'])
+            && \is_array($resolvedInherit['attr'])
+        ) ? $resolvedInherit['attr'] : [];
+        $attrOverride = (
+            isset($resolvedOverride['attr'])
+            && \is_array($resolvedOverride['attr'])
+        ) ? $resolvedOverride['attr'] : [];
         $this->assertSame('0 0 10 20', $attrInherit['viewBox'] ?? '');
         $this->assertSame('translate(1,2) scale(0.5)', $attrInherit['patternTransform'] ?? '');
         $this->assertSame('0 0 10 20', $attrOverride['viewBox'] ?? '');

@@ -2659,10 +2659,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                                 $alignToken = (string) $tokens[0];
                                 $aspectX = \substr($alignToken, 0, 4);
                                 $aspectY = \substr($alignToken, 4, 4);
-                                if (isset($tokens[1]) && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)) {
+                                if (
+                                    isset($tokens[1])
+                                    && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)
+                                ) {
                                     $aspectFit = (string) $tokens[1];
                                 }
-                            } elseif (!empty($tokens) && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)) {
+                            } elseif (
+                                !empty($tokens)
+                                && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)
+                            ) {
                                 $aspectFit = (string) $tokens[0];
                             }
                         }
@@ -2828,7 +2834,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $tileX = $this->resolveSVGPatternLength((string) ($attr['x'] ?? '0'), ($isObjectBox ? $width : 1.0), $soid);
         $tileY = $this->resolveSVGPatternLength((string) ($attr['y'] ?? '0'), ($isObjectBox ? $height : 1.0), $soid);
         $tileW = $this->resolveSVGPatternLength((string) ($attr['width'] ?? '0'), ($isObjectBox ? $width : 1.0), $soid);
-        $tileH = $this->resolveSVGPatternLength((string) ($attr['height'] ?? '0'), ($isObjectBox ? $height : 1.0), $soid);
+        $tileH = $this->resolveSVGPatternLength(
+            (string) ($attr['height'] ?? '0'),
+            ($isObjectBox ? $height : 1.0),
+            $soid,
+        );
 
         if ($isObjectBox) {
             $tileX += $posx;
@@ -2915,10 +2925,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                                 $alignToken = (string) $tokens[0];
                                 $aspectX = \substr($alignToken, 0, 4);
                                 $aspectY = \substr($alignToken, 4, 4);
-                                if (isset($tokens[1]) && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)) {
+                                if (
+                                    isset($tokens[1])
+                                    && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)
+                                ) {
                                     $aspectFit = (string) $tokens[1];
                                 }
-                            } elseif (!empty($tokens) && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)) {
+                            } elseif (
+                                !empty($tokens)
+                                && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)
+                            ) {
                                 $aspectFit = (string) $tokens[0];
                             }
                         }
@@ -2964,7 +2980,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 for ($ix = $ixStart; $ix <= $ixEnd; ++$ix) {
                     $tx = $tileX + ($ix * $tileW);
                     $ty = $tileY + ($iy * $tileH);
-                    if (($tx > ($posx + $width)) || (($tx + $tileW) < $posx) || ($ty > ($posy + $height)) || (($ty + $tileH) < $posy)) {
+                    if (
+                        ($tx > ($posx + $width))
+                        || (($tx + $tileW) < $posx)
+                        || ($ty > ($posy + $height))
+                        || (($ty + $tileH) < $posy)
+                    ) {
                         continue;
                     }
 
@@ -4931,8 +4952,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         string $specific,
         string $markerAll,
         bool $fallbackFromNone = true,
-    ): string
-    {
+    ): string {
         if ($specific !== '') {
             if (($specific === 'none') && !$fallbackFromNone) {
                 return 'none';
@@ -6433,8 +6453,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         float $endX,
         float $endY,
     ): array {
-        if ((\abs($startX - $endX) < self::SVGMINFLOATDIFF)
-            && (\abs($startY - $endY) < self::SVGMINFLOATDIFF)) {
+        if (
+            (\abs($startX - $endX) < self::SVGMINFLOATDIFF)
+            && (\abs($startY - $endY) < self::SVGMINFLOATDIFF)
+        ) {
             return [];
         }
 
@@ -6518,8 +6540,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         float $vectorStartY,
         float $vectorEndX,
         float $vectorEndY,
-    ): float
-    {
+    ): float {
         $dot = ($vectorStartX * $vectorEndX) + ($vectorStartY * $vectorEndY);
         $det = ($vectorStartX * $vectorEndY) - ($vectorStartY * $vectorEndX);
         return \atan2($det, $dot);
@@ -7137,7 +7158,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 if (!empty($symAttr[$styleKey]) && \is_string($symAttr[$styleKey])) {
                     $useStyle[$styleKey] = $symAttr[$styleKey];
                 } elseif ($symbolStyleTag !== '') {
-                    $useStyle[$styleKey] = $this->parseCSSAttrib($symbolStyleTag, $styleKey, (string) $useStyle[$styleKey]);
+                    $useStyle[$styleKey] = $this->parseCSSAttrib(
+                        $symbolStyleTag,
+                        $styleKey,
+                        (string) $useStyle[$styleKey],
+                    );
                 }
             }
 

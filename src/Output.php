@@ -1447,7 +1447,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= $this->graph->getOutGradientResourcesByKeys(\array_map('intval', \array_keys($gradient)));
         }
         if (!empty($spotNames)) {
-            $spotEntries = $this->extractNamedResourceRefs($this->color->getPdfSpotResources(), \array_keys($spotNames));
+            $spotEntries = $this->extractNamedResourceRefs(
+                $this->color->getPdfSpotResources(),
+                \array_keys($spotNames),
+            );
             if ($spotEntries !== '') {
                 $out .= ' /ColorSpace <<' . $spotEntries . ' >>';
             }
