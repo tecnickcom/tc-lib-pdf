@@ -1732,6 +1732,70 @@ class SVGTest extends TestUtil
         $this->assertNotSame($outNone, $outMeet);
     }
 
+    public function testSvgMarkerSpecificAnchorsOverrideShorthand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(533);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker'] = 'url(#mkall2)';
+        $base['marker-start'] = 'none';
+        $base['marker-mid'] = 'url(#mkall2)';
+        $base['marker-end'] = 'url(#mkall2)';
+
+        $obj->patchSvgObj(533, [
+            'styles' => [$base],
+            'defs' => [
+                'mkall2' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkall2',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            533,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        // Base line transform + one end marker only (no start marker).
+        $this->assertSame(2, \substr_count($out, "q\n"));
+    }
+
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
     {
         $obj = $this->getInternalTestObject();

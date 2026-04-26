@@ -3975,9 +3975,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $last = $segments[\count($segments) - 1];
 
         $markerAll = (string) ($svgstyle['marker'] ?? '');
-        $markerStart = $this->getSVGResolvedMarker((string) ($svgstyle['marker-start'] ?? ''), $markerAll);
-        $markerMid = $this->getSVGResolvedMarker((string) ($svgstyle['marker-mid'] ?? ''), $markerAll);
-        $markerEnd = $this->getSVGResolvedMarker((string) ($svgstyle['marker-end'] ?? ''), $markerAll);
+        $markerStartRaw = (string) ($svgstyle['marker-start'] ?? '');
+        $markerMidRaw = (string) ($svgstyle['marker-mid'] ?? '');
+        $markerEndRaw = (string) ($svgstyle['marker-end'] ?? '');
+
+        // If any specific marker anchor is explicitly set to a non-default
+        // value, respect explicit 'none' on other anchors instead of falling
+        // back from shorthand.
+        $hasExplicitSpecific = (
+            (($markerStartRaw !== '') && ($markerStartRaw !== 'none'))
+            || (($markerMidRaw !== '') && ($markerMidRaw !== 'none'))
+            || (($markerEndRaw !== '') && ($markerEndRaw !== 'none'))
+        );
+
+        $markerStart = $this->getSVGResolvedMarker($markerStartRaw, $markerAll, !$hasExplicitSpecific);
+        $markerMid = $this->getSVGResolvedMarker($markerMidRaw, $markerAll, !$hasExplicitSpecific);
+        $markerEnd = $this->getSVGResolvedMarker($markerEndRaw, $markerAll, !$hasExplicitSpecific);
 
         $out = '';
         $out .= $this->renderSVGMarker(
@@ -4059,12 +4072,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param string $specific Marker-specific value.
      * @param string $markerAll Shorthand marker value.
+     * @param bool $fallbackFromNone If true, 'none' can fallback to shorthand.
      *
      * @return string
      */
-    protected function getSVGResolvedMarker(string $specific, string $markerAll): string
+    protected function getSVGResolvedMarker(
+        string $specific,
+        string $markerAll,
+        bool $fallbackFromNone = true,
+    ): string
     {
-        if (($specific !== '') && ($specific !== 'none')) {
+        if ($specific !== '') {
+            if (($specific === 'none') && !$fallbackFromNone) {
+                return 'none';
+            }
+            if ($specific !== 'none') {
+                return $specific;
+            }
+        }
+
+        if ($specific === 'none' && $fallbackFromNone && (($markerAll === '') || ($markerAll === 'none'))) {
             return $specific;
         }
 
