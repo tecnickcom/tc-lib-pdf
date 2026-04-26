@@ -5632,4 +5632,179 @@ class SVGTest extends TestUtil
         $this->assertSame($out1, $out2, 'Both calls return the same GS command');
         $this->assertCount(1, $obj->getSvgMasks(), 'Only one mask entry registered');
     }
+
+    // -------------------------------------------------------------------------
+    // E-5 filter unsupported / no-op tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * parseSVGTagSTARTfilter with an id registers a placeholder in defs and
+     * enables defsmode so fe* children are swallowed.
+     */
+    public function testSvgFilterStartRegistersPlaceholderAndEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(570);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTfilter(570, ['id' => 'f1', 'x' => '0', 'y' => '0']));
+
+        $svgobj = $obj->getSvgObj(570);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertArrayHasKey('f1', $svgobj['defs']);
+        $this->assertSame('filter', $svgobj['defs']['f1']['name']);
+    }
+
+    /**
+     * parseSVGTagSTARTfilter without an id still enables defsmode but does not
+     * add a defs entry.
+     */
+    public function testSvgFilterStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(571);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTfilter(571, []));
+
+        $svgobj = $obj->getSvgObj(571);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+    }
+
+    /**
+     * parseSVGTagENDfilter clears defsmode.
+     */
+    public function testSvgFilterEndClearsDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(572);
+
+        $obj->exposeParseSVGTagSTARTfilter(572, ['id' => 'f2']);
+        $this->assertTrue($obj->getSvgObj(572)['defsmode']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDfilter(572));
+        $this->assertFalse($obj->getSvgObj(572)['defsmode']);
+    }
+
+    // -------------------------------------------------------------------------
+    // S-6 rendering-hint tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * 'auto' hints for all properties emit no ri operator (use PDF default).
+     */
+    public function testSvgRenderingHintsAllAutoEmitsNothing(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        // defaults are already 'auto'
+        $this->assertSame('', $obj->exposeParseSVGStyleRenderingHints($style));
+    }
+
+    /**
+     * 'optimizeQuality' on any property emits /RelativeColorimetric ri.
+     */
+    public function testSvgRenderingHintsOptimizeQualityEmitsRelativeColorimetric(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['image-rendering'] = 'optimizeQuality';
+
+        $out = $obj->exposeParseSVGStyleRenderingHints($style);
+        $this->assertSame("/RelativeColorimetric ri\n", $out);
+    }
+
+    /**
+     * 'optimizeSpeed' on any property emits /AbsoluteColorimetric ri.
+     */
+    public function testSvgRenderingHintsOptimizeSpeedEmitsAbsoluteColorimetric(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['color-rendering'] = 'optimizeSpeed';
+
+        $out = $obj->exposeParseSVGStyleRenderingHints($style);
+        $this->assertSame("/AbsoluteColorimetric ri\n", $out);
+    }
+
+    /**
+     * 'crispEdges' and 'geometricPrecision' map to RelativeColorimetric.
+     */
+    public function testSvgRenderingHintsCrispEdgesAndGeometricPrecision(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['shape-rendering'] = 'crispEdges';
+        $this->assertSame("/RelativeColorimetric ri\n", $obj->exposeParseSVGStyleRenderingHints($style));
+
+        $style['shape-rendering'] = 'geometricPrecision';
+        $this->assertSame("/RelativeColorimetric ri\n", $obj->exposeParseSVGStyleRenderingHints($style));
+    }
+
+    /**
+     * When both optimizeQuality and optimizeSpeed hints are present,
+     * optimizeSpeed wins (last in priority order).
+     */
+    public function testSvgRenderingHintsSpeedBeatsQualityWhenBothPresent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['image-rendering']  = 'optimizeQuality';
+        $style['color-rendering'] = 'optimizeSpeed';
+
+        $out = $obj->exposeParseSVGStyleRenderingHints($style);
+        $this->assertSame("/AbsoluteColorimetric ri\n", $out);
+    }
+    /**
+     * <filter> is in SVGCHARDATASKIPTAGS so the entire filter+fe* subtree is
+     * silently skipped via the charskip counter: charskip is balanced (back to
+     * zero) after the subtree, defsmode is correctly restored by </defs>, and
+     * no output is written.
+     */
+    public function testSvgFilterRoundTripViaHandlersProducesNoOutput(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(573);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        // Enter defs context.
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 573);
+
+        // <filter> and all fe* children are in SVGCHARDATASKIPTAGS so the start
+        // handler just does charskip++ and returns immediately (no dispatch).
+        $obj->exposeHandleSVGTagStart($parser, 'filter', ['id' => 'blur1'], 573);
+        $obj->exposeHandleSVGTagStart($parser, 'feGaussianBlur', [], 573);
+        $obj->exposeHandleSVGTagEnd($parser, 'feGaussianBlur');
+        $obj->exposeHandleSVGTagEnd($parser, 'filter');
+
+        // Close defs.
+        $obj->exposeHandleSVGTagEnd($parser, 'defs');
+
+        \xml_parser_free($parser);
+
+        $svgobj = $obj->getSvgObj(573);
+
+        // charskip counter must be balanced back to zero after the subtree.
+        $this->assertSame(0, (int)($svgobj['charskip'] ?? 0), 'charskip balanced');
+
+        // defsmode off after </defs>
+        $this->assertFalse($svgobj['defsmode'], 'defsmode false after </defs>');
+
+        // No stray rendered output.
+        $this->assertSame('', $svgobj['out'], 'no output from filter subtree');
+    }
 }

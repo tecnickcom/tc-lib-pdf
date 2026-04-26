@@ -923,4 +923,21 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     {
         return $this->svgmasks;
     }
+
+    /** @phpstan-param TSVGStyle $svgstyle */
+    public function exposeParseSVGStyleRenderingHints(array $svgstyle): string
+    {
+        return $this->parseSVGStyleRenderingHints($svgstyle);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTfilter(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTfilter($soid, $attr);
+    }
+
+    public function exposeParseSVGTagENDfilter(int $soid): string
+    {
+        return $this->parseSVGTagENDfilter($soid);
+    }
 }

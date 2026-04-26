@@ -445,6 +445,34 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'metadata',
         'style',
         'script',
+        // SVG filter primitives — PDF has no equivalent pixel-pipeline; entire
+        // subtree content is discarded to avoid garbled output.
+        'filter',
+        'feBlend',
+        'feColorMatrix',
+        'feComponentTransfer',
+        'feComposite',
+        'feConvolveMatrix',
+        'feDiffuseLighting',
+        'feDisplacementMap',
+        'feDistantLight',
+        'feDropShadow',
+        'feFlood',
+        'feFuncA',
+        'feFuncB',
+        'feFuncG',
+        'feFuncR',
+        'feGaussianBlur',
+        'feImage',
+        'feMerge',
+        'feMergeNode',
+        'feMorphology',
+        'feOffset',
+        'fePointLight',
+        'feSpecularLighting',
+        'feSpotLight',
+        'feTile',
+        'feTurbulence',
     ];
 
     /**
@@ -643,6 +671,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'marker',
         'pattern',
         'mask',
+        'filter',
     ];
 
     /**
@@ -660,6 +689,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'marker',
         'pattern',
         'mask',
+        'filter',
     ];
 
     /**
@@ -2101,6 +2131,64 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Map SVG rendering-hint properties to PDF rendering-intent operators.
+     *
+     * SVG `color-rendering`, `image-rendering`, `shape-rendering`, and
+     * `text-rendering` are advisory hints with no guaranteed effect in any
+     * renderer.  PDF supports a /ri (rendering intent) operator with four
+     * standard values; this method performs a best-effort mapping:
+     *
+     *  - `optimizeQuality`  / `crispEdges`     → /RelativeColorimetric (default)
+     *  - `optimizeSpeed`    / `pixelated`      → /AbsoluteColorimetric
+     *  - `auto`             (any)              → no operator emitted (use PDF default)
+     *
+     * The SVG `color-interpolation` / `color-interpolation-filters` values
+     * (`sRGB`, `linearRGB`) cannot be faithfully represented through the ri
+     * operator alone and are therefore silently accepted but not forwarded.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     *
+     * @return string Raw PDF command or empty string.
+     */
+    protected function parseSVGStyleRenderingHints(array $svgstyle): string
+    {
+        // Collect the most-demanding rendering hint across the four properties.
+        $hints = [
+            (string) ($svgstyle['color-rendering']  ?? 'auto'),
+            (string) ($svgstyle['image-rendering']  ?? 'auto'),
+            (string) ($svgstyle['shape-rendering']  ?? 'auto'),
+            (string) ($svgstyle['text-rendering']   ?? 'auto'),
+        ];
+
+        $intent = '';
+        foreach ($hints as $h) {
+            switch (\strtolower($h)) {
+                case 'optimizequality':
+                case 'crispedges':
+                case 'geometricprecision':
+                    // Quality-first hints → RelativeColorimetric (PDF default, but
+                    // emit explicitly so the value is recorded in the content stream).
+                    if ($intent === '') {
+                        $intent = 'RelativeColorimetric';
+                    }
+
+                    break;
+                case 'optimizespeed':
+                case 'pixelated':
+                    // Speed-first hints → AbsoluteColorimetric.
+                    $intent = 'AbsoluteColorimetric';
+                    break;
+            }
+        }
+
+        if ($intent === '') {
+            return '';
+        }
+
+        return '/' . $intent . ' ri' . "\n";
+    }
+
+    /**
      * Parse the SVG clip style.
      *
      * @param TSVGStyle $svgstyle SVG style.
@@ -3066,6 +3154,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $svgstyle,
             $prev_svgstyle,
         );
+        $out .= $this->parseSVGStyleRenderingHints($svgstyle);
 
         $objstyle = $svgstyle['objstyle'];
 
@@ -3206,6 +3295,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 'marker' => $this->parseSVGTagENDmarker($soid),
                 'pattern' => $this->parseSVGTagENDpattern($soid),
                 'mask' => $this->parseSVGTagENDmask($soid),
+                'filter' => $this->parseSVGTagENDfilter($soid),
                 'a' => $this->parseSVGTagENDa($soid),
                 'switch' => $this->parseSVGTagENDswitch($soid),
                 default => null,
@@ -3770,6 +3860,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'marker' => $this->parseSVGTagSTARTmarker($soid, $attr),
             'pattern' => $this->parseSVGTagSTARTpattern($soid, $attr),
             'mask' => $this->parseSVGTagSTARTmask($soid, $attr),
+            'filter' => $this->parseSVGTagSTARTfilter($soid, $attr),
             'a' => $this->parseSVGTagSTARTa($soid, $attr),
             'switch' => $this->parseSVGTagSTARTswitch($soid),
             default => null,
@@ -6731,6 +6822,60 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string
      */
     protected function parseSVGTagENDmask(int $soid): string
+    {
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['defsmode'] = false;
+        return '';
+    }
+
+    /**
+     * Parse the SVG Start tag 'filter'.
+     *
+     * SVG filters (<filter> with fe* primitives) define a pixel-level processing
+     * pipeline that has no direct equivalent in static PDF.  This handler is a
+     * deliberate no-op: the <filter> element and all its fe* children are already
+     * excluded from the character-data parser (see SVGCHARDATASKIPTAGS), so this
+     * method exists only to silence the dispatch-table default branch and to make
+     * the intentional non-support self-documenting.
+     *
+     * A filter reference on a shape element (filter="url(#f)") is also silently
+     * ignored — the shape is rendered without the filter effect applied.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string Empty string — filters are not supported in PDF output.
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function parseSVGTagSTARTfilter(int $soid, array $attr): string
+    {
+        // Filters cannot be represented in static PDF.  Mark defs-mode so the
+        // fe* child elements captured by SVGCHARDATASKIPTAGS are discarded, and
+        // register a placeholder in defs so a filter="url(#id)" reference does
+        // not trigger spurious fallback paths elsewhere.
+        if (isset($attr['id'])) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['defs'][$attr['id']] = [
+                'name'  => 'filter',
+                'attr'  => $attr,
+                'child' => [],
+            ];
+        }
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['defsmode'] = true;
+        return '';
+    }
+
+    /**
+     * Parse the SVG End tag 'filter'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string Empty string — filters are not supported in PDF output.
+     */
+    protected function parseSVGTagENDfilter(int $soid): string
     {
         // @phpstan-ignore assign.propertyType
         $this->svgobjs[$soid]['defsmode'] = false;
