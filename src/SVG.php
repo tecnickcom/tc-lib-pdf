@@ -5340,19 +5340,22 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             }
 
-            // Build an attr array that looks like an inner <svg> with the symbol's
-            // viewBox so that parseSVGTagSTARTsvg applies the correct transform.
+            // Build an attr array that looks like an inner <svg> while preserving
+            // use-level style/transform/inherited attributes for compatibility.
             /** @var TSVGAttributes $svglikeAttr */
-            $svglikeAttr = [
-                'x' => (string) $useX,
-                'y' => (string) $useY,
-                'width' => (string) $useW,
-                'height' => (string) $useH,
-            ];
-            if (!empty($symAttr['viewBox']) && \is_string($symAttr['viewBox'])) {
+            $svglikeAttr = $attr;
+            $svglikeAttr['x'] = (string) $useX;
+            $svglikeAttr['y'] = (string) $useY;
+            $svglikeAttr['width'] = (string) $useW;
+            $svglikeAttr['height'] = (string) $useH;
+            if (!isset($svglikeAttr['viewBox']) && !empty($symAttr['viewBox']) && \is_string($symAttr['viewBox'])) {
                 $svglikeAttr['viewBox'] = $symAttr['viewBox'];
             }
-            if (!empty($symAttr['preserveAspectRatio']) && \is_string($symAttr['preserveAspectRatio'])) {
+            if (
+                !isset($svglikeAttr['preserveAspectRatio'])
+                && !empty($symAttr['preserveAspectRatio'])
+                && \is_string($symAttr['preserveAspectRatio'])
+            ) {
                 $svglikeAttr['preserveAspectRatio'] = $symAttr['preserveAspectRatio'];
             }
 
@@ -5366,7 +5369,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
 
             $out = '';
-            $out .= $this->parseSVGTagSTARTsvg($parser, $soid, $svglikeAttr, $defStyle, $defStyle);
+            /** @var TSVGStyle $useStyle */
+            $useStyle = $defStyle;
+            if (!empty($svglikeAttr['transform']) && \is_string($svglikeAttr['transform'])) {
+                $useStyle['transfmatrix'] = $this->graph->getCtmProduct(
+                    $useStyle['transfmatrix'],
+                    $this->getSVGTransformMatrix($svglikeAttr['transform']),
+                );
+            }
+
+            $out .= $this->parseSVGTagSTARTsvg($parser, $soid, $svglikeAttr, $useStyle, $defStyle);
 
             // Replay each child element stored under the symbol def.
             if (!empty($use['child']) && \is_array($use['child'])) {

@@ -2187,6 +2187,59 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-1: use-level transform is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesUseLevelTransformAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'symstyle' => [
+                'name' => 'symbol',
+                'attr' => [
+                    'viewBox' => '0 0 20 10',
+                ],
+                'child' => [
+                    'c1' => [
+                        'name' => 'rect',
+                        'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                    ],
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(923);
+        $obj->patchSvgObj(923, ['styles' => [$base], 'defs' => $defs]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            923,
+            ['href' => '#symstyle', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(924);
+        $obj->patchSvgObj(924, ['styles' => [$base], 'defs' => $defs]);
+        $outTransformed = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            924,
+            [
+                'href' => '#symstyle',
+                'x' => '0',
+                'y' => '0',
+                'width' => '20',
+                'height' => '10',
+                'transform' => 'translate(5,7)',
+            ],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outTransformed);
+        $this->assertNotSame($outDefault, $outTransformed);
+    }
+
+    /**
      * E-7: <a> start stores link metadata and </a> emits an annotation ref.
      */
     public function testSvgATagCreatesAnnotationReference(): void
