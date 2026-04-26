@@ -421,6 +421,7 @@ use TSVGStyle;
  *    'child': array<int>,
  *    'xmldepth': int,
  *    'switchstack': array<int, TSVGSwitchState>,
+ *    'markermode': int,
  *    'textmode': TSVGTextMode,
  *    'charskip': int,
  *    'text': string,
@@ -680,6 +681,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'child' => [],
         'xmldepth' => 0,
         'switchstack' => [],
+        'markermode' => 0,
         'textmode' => [
             'rtl' => false,
             'invisible' => false,
@@ -3888,6 +3890,215 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $posx2,
             $posy2,
         );
+        $out .= $this->parseSVGLineMarkers(
+            $parser,
+            $soid,
+            $svgstyle,
+            $posx1,
+            $posy1,
+            $posx2,
+            $posy2,
+        );
+        $out .= $this->graph->getStopTransform();
+        return $out;
+    }
+
+    /**
+     * Parse marker URLs and render start/end markers for a straight line segment.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     * @param float $x1 Segment start X.
+     * @param float $y1 Segment start Y.
+     * @param float $x2 Segment end X.
+     * @param float $y2 Segment end Y.
+     *
+     * @return string
+     */
+    protected function parseSVGLineMarkers(
+        \XMLParser $parser,
+        int $soid,
+        array $svgstyle,
+        float $x1,
+        float $y1,
+        float $x2,
+        float $y2,
+    ): string {
+        if (!empty($this->svgobjs[$soid]['markermode'])) {
+            return '';
+        }
+
+        $angle = \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1)));
+        $strokeWidth = (float) ($svgstyle['stroke-width'] ?? 1.0);
+        if ($strokeWidth <= 0.0) {
+            $strokeWidth = 1.0;
+        }
+
+        $out = '';
+        $out .= $this->renderSVGMarker(
+            $parser,
+            $soid,
+            (string) ($svgstyle['marker-start'] ?? ''),
+            $x1,
+            $y1,
+            $angle,
+            $strokeWidth,
+            true,
+        );
+        $out .= $this->renderSVGMarker(
+            $parser,
+            $soid,
+            (string) ($svgstyle['marker-end'] ?? ''),
+            $x2,
+            $y2,
+            $angle,
+            $strokeWidth,
+            false,
+        );
+
+        return $out;
+    }
+
+    /**
+     * Extract marker definition ID from a marker style value.
+     *
+     * @param string $marker Marker style value.
+     *
+     * @return string
+     */
+    protected function getSVGMarkerId(string $marker): string
+    {
+        if (($marker === '') || ($marker === 'none')) {
+            return '';
+        }
+
+        $matches = [];
+        if (!\preg_match('/^url\([\s]*#([^)\s]+)[\s]*\)$/', \trim($marker), $matches)) {
+            return '';
+        }
+
+        return $matches[1];
+    }
+
+    /**
+     * Render a marker definition at a given anchor point.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param string $marker Marker style value.
+     * @param float $x Anchor X.
+     * @param float $y Anchor Y.
+     * @param float $segmentAngle Segment angle in degrees.
+     * @param float $strokeWidth Segment stroke width.
+     * @param bool $isStart Whether this is a start marker.
+     *
+     * @return string
+     */
+    protected function renderSVGMarker(
+        \XMLParser $parser,
+        int $soid,
+        string $marker,
+        float $x,
+        float $y,
+        float $segmentAngle,
+        float $strokeWidth,
+        bool $isStart,
+    ): string {
+        $markerId = $this->getSVGMarkerId($marker);
+        if (($markerId === '') || empty($this->svgobjs[$soid]['defs'][$markerId])) {
+            return '';
+        }
+
+        /** @var TSVGAttribs $markerdef */
+        $markerdef = $this->svgobjs[$soid]['defs'][$markerId];
+        if (($markerdef['name'] ?? '') !== 'marker') {
+            return '';
+        }
+
+        $markerAttr = (isset($markerdef['attr']) && \is_array($markerdef['attr'])) ? $markerdef['attr'] : [];
+        $refX = isset($markerAttr['refX']) ? $this->svgUnitToUnit((string) $markerAttr['refX'], $soid) : 0.0;
+        $refY = isset($markerAttr['refY']) ? $this->svgUnitToUnit((string) $markerAttr['refY'], $soid) : 0.0;
+        $markerUnits = (string) ($markerAttr['markerUnits'] ?? 'strokeWidth');
+        $markerScale = (($markerUnits === 'userSpaceOnUse') ? 1.0 : $strokeWidth);
+
+        $viewScaleX = 1.0;
+        $viewScaleY = 1.0;
+        if (!empty($markerAttr['viewBox']) && \is_string($markerAttr['viewBox'])) {
+            $vals = \preg_split('/[\s,]+/', \trim($markerAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (\is_array($vals) && (\count($vals) >= 4)) {
+                $vbw = \abs($this->svgUnitToUnit((string) $vals[2], $soid));
+                $vbh = \abs($this->svgUnitToUnit((string) $vals[3], $soid));
+                $mkw = isset($markerAttr['markerWidth'])
+                    ? $this->svgUnitToUnit((string) $markerAttr['markerWidth'], $soid)
+                    : 3.0;
+                $mkh = isset($markerAttr['markerHeight'])
+                    ? $this->svgUnitToUnit((string) $markerAttr['markerHeight'], $soid)
+                    : 3.0;
+                if (($vbw > 0.0) && ($mkw > 0.0)) {
+                    $viewScaleX = ($mkw / $vbw);
+                }
+                if (($vbh > 0.0) && ($mkh > 0.0)) {
+                    $viewScaleY = ($mkh / $vbh);
+                }
+            }
+        }
+
+        $orient = \trim((string) ($markerAttr['orient'] ?? '0'));
+        $angle = 0.0;
+        if (($orient === 'auto') || ($orient === 'auto-start-reverse')) {
+            $angle = $segmentAngle;
+            if ($isStart && ($orient === 'auto-start-reverse')) {
+                $angle += 180.0;
+            }
+        } elseif (\is_numeric($orient)) {
+            $angle = (float) $orient;
+        }
+
+        $rad = \deg2rad(-$angle);
+        $cos = \cos($rad);
+        $sin = \sin($rad);
+
+        $tm = $this->graph->getCtmProduct(
+            [1.0, 0.0, 0.0, 1.0, $x, $y],
+            [$cos, $sin, -$sin, $cos, 0.0, 0.0],
+        );
+        $tm = $this->graph->getCtmProduct(
+            $tm,
+            [($markerScale * $viewScaleX), 0.0, 0.0, ($markerScale * $viewScaleY), 0.0, 0.0],
+        );
+        $tm = $this->graph->getCtmProduct(
+            $tm,
+            [1.0, 0.0, 0.0, 1.0, -$refX, -$refY],
+        );
+
+        $out = $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($tm, $soid);
+
+        // Prevent marker content from recursively emitting nested markers.
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['markermode'] = ((int) ($this->svgobjs[$soid]['markermode'] ?? 0)) + 1;
+
+        try {
+            if (!empty($markerdef['child']) && \is_array($markerdef['child'])) {
+                foreach ($markerdef['child'] as $child) {
+                    if (!\is_array($child) || !isset($child['name'])) {
+                        continue;
+                    }
+                    if (!empty($child['attr']['closing_tag'])) {
+                        $this->handleSVGTagEnd($parser, (string) $child['name']);
+                    } else {
+                        /** @var TSVGAttributes $childAttr */
+                        $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
+                        $this->handleSVGTagStart($parser, (string) $child['name'], $childAttr, $soid);
+                    }
+                }
+            }
+        } finally {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['markermode'] = \max(0, ((int) ($this->svgobjs[$soid]['markermode'] ?? 0)) - 1);
+        }
+
         $out .= $this->graph->getStopTransform();
         return $out;
     }

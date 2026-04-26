@@ -1069,6 +1069,92 @@ class SVGTest extends TestUtil
         $this->assertFalse($obj->getSvgObj(522)['defsmode']);
     }
 
+    public function testSvgLineRendersStartEndMarkersWhenDefined(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(523);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkline)';
+        $base['marker-end'] = 'url(#mkline)';
+
+        $obj->patchSvgObj(523, [
+            'styles' => [$base],
+            'defs' => [
+                'mkline' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkline',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            523,
+            ['x1' => '1', 'y1' => '1', 'x2' => '9', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(3, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgLineIgnoresMissingMarkerRefsGracefully(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(524);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#missing)';
+        $base['marker-end'] = 'none';
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            524,
+            ['x1' => '0', 'y1' => '0', 'x2' => '5', 'y2' => '0'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertSame(1, \substr_count($out, "q\n"));
+    }
+
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
     {
         $obj = $this->getInternalTestObject();
