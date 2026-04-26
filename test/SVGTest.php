@@ -6007,7 +6007,7 @@ class SVGTest extends TestUtil
         // Close defs.
         $obj->exposeHandleSVGTagEnd($parser, 'defs');
 
-        \xml_parser_free($parser);
+        unset($parser);
 
         $svgobj = $obj->getSvgObj(573);
 

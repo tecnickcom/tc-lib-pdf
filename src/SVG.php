@@ -2117,7 +2117,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             } finally {
                 // @phpstan-ignore assign.propertyType
                 $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
-                \xml_parser_free($maskParser);
+                unset($maskParser);
             }
 
             // @phpstan-ignore assign.propertyType
@@ -2751,7 +2751,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } finally {
             // @phpstan-ignore assign.propertyType
             $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
-            \xml_parser_free($patParser);
+            unset($patParser);
         }
 
         $stream .= $this->graph->getStopTransform();
@@ -3036,7 +3036,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } finally {
             // @phpstan-ignore assign.propertyType
             $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
-            \xml_parser_free($patParser);
+            unset($patParser);
         }
 
         $out .= $this->graph->getStopTransform();
