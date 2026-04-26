@@ -19,3 +19,14 @@
 - [016_example_pdfua1.php](016_example_pdfua1.php) : PDF/UA-1 example highlighting PDF 1.7 accessibility semantics and tagged structure output (`pdfua1`).
 - [017_example_pdfua2.php](017_example_pdfua2.php) : PDF/UA-2 example highlighting PDF 2.0 accessibility semantics and updated identification metadata (`pdfua2`).
 - [018_example_html_page_span.php](018_example_html_page_span.php) : HTML page-break functionality.
+- [019_example_page_regions.php](019_example_page_regions.php) : Two-column page regions with text that automatically flows across page boundaries.
+- [020_example_barcodes.php](020_example_barcodes.php) : Catalog of all available barcode types with standards, usage notes, and rendered samples.
+- [021_example_font_stretch_spacing.php](021_example_font_stretch_spacing.php) : Demonstrates font stretching, scaling-to-fit, and character spacing behaviors.
+- [022_example_cell_borders.php](022_example_cell_borders.php) : Demonstrates basic and advanced Cell border rendering options.
+- [023_example_cell_alignment.php](023_example_cell_alignment.php) : Demonstrates Cell vertical alignment options and row anchor positions.
+- [024_example_colors.php](024_example_colors.php) : Ports TCPDF examples 022 and 037, demonstrating CMYK/RGB/grayscale and spot color rendering.
+- [025_example_transparency.php](025_example_transparency.php) : Ports TCPDF example 025, demonstrating object transparency with overlapping shapes and an image.
+- [026_example_text_rendering_modes.php](026_example_text_rendering_modes.php) : Ports TCPDF example 026, demonstrating fill/stroke text rendering modes and text clipping with an image.
+- [027_example_annotations.php](027_example_annotations.php) : Ports TCPDF examples 036 and 041, demonstrating text and file-attachment annotations.
+- [028_example_text_hyphenation.php](028_example_text_hyphenation.php) : Ports TCPDF example 046, demonstrating soft-hyphen-based text hyphenation in a narrow justified HTML column.
+- [029_example_xobject_template.php](029_example_xobject_template.php) : Ports TCPDF example 062, demonstrating reusable Form XObject templates with clipping and transparency.

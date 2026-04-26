@@ -801,6 +801,28 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan($beforePages, $afterPages);
     }
 
+    public function testAddHTMLCellSoftHyphenBreakUsesVisibleHyphenOnWrappedLine(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $cell = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+        ];
+
+        $obj->addHTMLCell('<p>de&shy;nounce</p>', 0, 0, 8, 0, $cell, []);
+
+        $content = \implode("\n", $page->getPage()['content']);
+
+        $this->assertStringContainsString('(de-) Tj', $content);
+        $this->assertStringContainsString('(nounce) Tj', $content);
+        $this->assertStringNotContainsString('(denounce) Tj', $content);
+    }
+
     public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
     {
         $obj = $this->getTestObject();
