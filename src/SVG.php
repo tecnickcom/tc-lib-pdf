@@ -4314,6 +4314,25 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function getTextPathPoints(int $soid, string $href): ?array
     {
+        $pathDef = $this->resolveTextPathDef($soid, $href);
+        if (empty($pathDef)) {
+            return null;
+        }
+
+        /** @var array{name: string, attr: TSVGAttributes} $pathDef */
+        return $this->getTextPathPointsFromDef($soid, $pathDef['name'], $pathDef['attr']);
+    }
+
+    /**
+     * Resolve textPath href to a defs entry.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $href Reference URI (typically '#id').
+     *
+     * @return array{name: string, attr: TSVGAttributes}|null
+     */
+    protected function resolveTextPathDef(int $soid, string $href): ?array
+    {
         if (($href === '') || ($href[0] !== '#')) {
             return null;
         }
@@ -4329,10 +4348,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return null;
         }
 
-        $defName = (string) $def['name'];
         /** @var TSVGAttributes $defAttr */
         $defAttr = $def['attr'];
 
+        return [
+            'name' => (string) $def['name'],
+            'attr' => $defAttr,
+        ];
+    }
+
+    /**
+     * Resolve shape-specific points for textPath layout.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $defName Defs element name.
+     * @param TSVGAttributes $defAttr Defs element attributes.
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    protected function getTextPathPointsFromDef(int $soid, string $defName, array $defAttr): ?array
+    {
         if ($defName === 'line') {
             $startX = $this->svgUnitToUnit((string) ($defAttr['x1'] ?? '0'), $soid);
             $startY = $this->svgUnitToUnit((string) ($defAttr['y1'] ?? '0'), $soid);
@@ -4361,221 +4396,84 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         if ($defName === 'path') {
-            $pathData = (string) ($defAttr['d'] ?? '');
-            \preg_match_all('/[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/', $pathData, $tokenMatch);
-            $tokens = $tokenMatch[0];
-            if (empty($tokens)) {
-                return null;
-            }
+            return $this->getTextPathPointsFromPathData($soid, (string) ($defAttr['d'] ?? ''));
+        }
 
-            $ptlist = [];
-            $curX = 0.0;
-            $curY = 0.0;
-            $subX = 0.0;
-            $subY = 0.0;
-            $command = '';
-            $lastCurveCtrlX = 0.0;
-            $lastCurveCtrlY = 0.0;
-            $lastQuadCtrlX = 0.0;
-            $lastQuadCtrlY = 0.0;
-            $hasCurveCtrl = false;
-            $hasQuadCtrl = false;
-            $tokCount = \count($tokens);
-            $idx = 0;
+        return null;
+    }
 
-            while ($idx < $tokCount) {
-                $token = (string) $tokens[$idx];
-                if (\preg_match('/^[A-Za-z]$/', $token) === 1) {
-                    $command = $token;
-                    ++$idx;
-                    if (($command === 'Z') || ($command === 'z')) {
-                        if (!empty($ptlist)) {
-                            $ptlist[] = [$subX, $subY];
-                            $curX = $subX;
-                            $curY = $subY;
-                            $hasCurveCtrl = false;
-                            $hasQuadCtrl = false;
-                        }
-                    }
-                    continue;
-                }
+    /**
+     * Parse path data into sampled points for textPath layout.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $pathData Path d attribute.
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    protected function getTextPathPointsFromPathData(int $soid, string $pathData): ?array
+    {
+        \preg_match_all('/[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/', $pathData, $tokenMatch);
+        $tokens = $tokenMatch[0];
+        if (empty($tokens)) {
+            return null;
+        }
 
-                if ($command === '') {
-                    ++$idx;
-                    continue;
-                }
+        $ptlist = [];
+        $curX = 0.0;
+        $curY = 0.0;
+        $subX = 0.0;
+        $subY = 0.0;
+        $command = '';
+        $lastCurveCtrlX = 0.0;
+        $lastCurveCtrlY = 0.0;
+        $lastQuadCtrlX = 0.0;
+        $lastQuadCtrlY = 0.0;
+        $hasCurveCtrl = false;
+        $hasQuadCtrl = false;
+        $tokCount = \count($tokens);
+        $idx = 0;
 
-                $isRel = \ctype_lower($command);
-                $cmd = \strtolower($command);
-
-                if (($cmd === 'm') || ($cmd === 'l') || ($cmd === 't')) {
-                    if (($idx + 1) >= $tokCount) {
-                        break;
-                    }
-                    $endX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
-                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
-                    if ($isRel) {
-                        $endX += $curX;
-                        $endY += $curY;
-                    }
-                    if ($cmd === 't') {
-                        $ctrlX = $curX;
-                        $ctrlY = $curY;
-                        if ($hasQuadCtrl) {
-                            $ctrlX = (2.0 * $curX) - $lastQuadCtrlX;
-                            $ctrlY = (2.0 * $curY) - $lastQuadCtrlY;
-                        }
-                        $samples = $this->sampleTextPathQuadratic(
-                            $curX,
-                            $curY,
-                            $ctrlX,
-                            $ctrlY,
-                            $endX,
-                            $endY,
-                            12,
-                        );
-                        foreach ($samples as $point) {
-                            $ptlist[] = $point;
-                        }
-                        $lastQuadCtrlX = $ctrlX;
-                        $lastQuadCtrlY = $ctrlY;
-                        $hasQuadCtrl = true;
-                        $hasCurveCtrl = false;
-                    } else {
-                        $ptlist[] = [$endX, $endY];
+        while ($idx < $tokCount) {
+            $token = (string) $tokens[$idx];
+            if (\preg_match('/^[A-Za-z]$/', $token) === 1) {
+                $command = $token;
+                ++$idx;
+                if (($command === 'Z') || ($command === 'z')) {
+                    if (!empty($ptlist)) {
+                        $ptlist[] = [$subX, $subY];
+                        $curX = $subX;
+                        $curY = $subY;
                         $hasCurveCtrl = false;
                         $hasQuadCtrl = false;
                     }
-                    $curX = $endX;
-                    $curY = $endY;
-                    if ($cmd === 'm') {
-                        $subX = $curX;
-                        $subY = $curY;
-                        $command = $isRel ? 'l' : 'L';
-                    }
-                    $idx += 2;
-                    continue;
                 }
+                continue;
+            }
 
-                if ($cmd === 'h') {
-                    $valX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
-                    $curX = $isRel ? ($curX + $valX) : $valX;
-                    $ptlist[] = [$curX, $curY];
-                    $hasCurveCtrl = false;
-                    $hasQuadCtrl = false;
-                    ++$idx;
-                    continue;
+            if ($command === '') {
+                ++$idx;
+                continue;
+            }
+
+            $isRel = \ctype_lower($command);
+            $cmd = \strtolower($command);
+
+            if (($cmd === 'm') || ($cmd === 'l') || ($cmd === 't')) {
+                if (($idx + 1) >= $tokCount) {
+                    break;
                 }
-
-                if ($cmd === 'v') {
-                    $valY = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
-                    $curY = $isRel ? ($curY + $valY) : $valY;
-                    $ptlist[] = [$curX, $curY];
-                    $hasCurveCtrl = false;
-                    $hasQuadCtrl = false;
-                    ++$idx;
-                    continue;
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                if ($isRel) {
+                    $endX += $curX;
+                    $endY += $curY;
                 }
-
-                if ($cmd === 'c') {
-                    if (($idx + 5) >= $tokCount) {
-                        break;
-                    }
-                    $ctrl1X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
-                    $ctrl1Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
-                    $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
-                    $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
-                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 4], $soid);
-                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
-                    if ($isRel) {
-                        $ctrl1X += $curX;
-                        $ctrl1Y += $curY;
-                        $ctrl2X += $curX;
-                        $ctrl2Y += $curY;
-                        $endX += $curX;
-                        $endY += $curY;
-                    }
-                    $samples = $this->sampleTextPathCubic(
-                        $curX,
-                        $curY,
-                        $ctrl1X,
-                        $ctrl1Y,
-                        $ctrl2X,
-                        $ctrl2Y,
-                        $endX,
-                        $endY,
-                        12,
-                    );
-                    foreach ($samples as $point) {
-                        $ptlist[] = $point;
-                    }
-                    $curX = $endX;
-                    $curY = $endY;
-                    $lastCurveCtrlX = $ctrl2X;
-                    $lastCurveCtrlY = $ctrl2Y;
-                    $hasCurveCtrl = true;
-                    $hasQuadCtrl = false;
-                    $idx += 6;
-                    continue;
-                }
-
-                if ($cmd === 's') {
-                    if (($idx + 3) >= $tokCount) {
-                        break;
-                    }
-                    $ctrl1X = $curX;
-                    $ctrl1Y = $curY;
-                    if ($hasCurveCtrl) {
-                        $ctrl1X = (2.0 * $curX) - $lastCurveCtrlX;
-                        $ctrl1Y = (2.0 * $curY) - $lastCurveCtrlY;
-                    }
-                    $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
-                    $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
-                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
-                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
-                    if ($isRel) {
-                        $ctrl2X += $curX;
-                        $ctrl2Y += $curY;
-                        $endX += $curX;
-                        $endY += $curY;
-                    }
-                    $samples = $this->sampleTextPathCubic(
-                        $curX,
-                        $curY,
-                        $ctrl1X,
-                        $ctrl1Y,
-                        $ctrl2X,
-                        $ctrl2Y,
-                        $endX,
-                        $endY,
-                        12,
-                    );
-                    foreach ($samples as $point) {
-                        $ptlist[] = $point;
-                    }
-                    $curX = $endX;
-                    $curY = $endY;
-                    $lastCurveCtrlX = $ctrl2X;
-                    $lastCurveCtrlY = $ctrl2Y;
-                    $hasCurveCtrl = true;
-                    $hasQuadCtrl = false;
-                    $idx += 4;
-                    continue;
-                }
-
-                if ($cmd === 'q') {
-                    if (($idx + 3) >= $tokCount) {
-                        break;
-                    }
-                    $ctrlX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
-                    $ctrlY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
-                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
-                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
-                    if ($isRel) {
-                        $ctrlX += $curX;
-                        $ctrlY += $curY;
-                        $endX += $curX;
-                        $endY += $curY;
+                if ($cmd === 't') {
+                    $ctrlX = $curX;
+                    $ctrlY = $curY;
+                    if ($hasQuadCtrl) {
+                        $ctrlX = (2.0 * $curX) - $lastQuadCtrlX;
+                        $ctrlY = (2.0 * $curY) - $lastQuadCtrlY;
                     }
                     $samples = $this->sampleTextPathQuadratic(
                         $curX,
@@ -4589,44 +4487,193 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     foreach ($samples as $point) {
                         $ptlist[] = $point;
                     }
-                    $curX = $endX;
-                    $curY = $endY;
                     $lastQuadCtrlX = $ctrlX;
                     $lastQuadCtrlY = $ctrlY;
                     $hasQuadCtrl = true;
                     $hasCurveCtrl = false;
-                    $idx += 4;
-                    continue;
-                }
-
-                if ($cmd === 'a') {
-                    if (($idx + 6) >= $tokCount) {
-                        break;
-                    }
-                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
-                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 6], $soid);
-                    if ($isRel) {
-                        $endX += $curX;
-                        $endY += $curY;
-                    }
-                    $curX = $endX;
-                    $curY = $endY;
-                    $ptlist[] = [$curX, $curY];
+                } else {
+                    $ptlist[] = [$endX, $endY];
                     $hasCurveCtrl = false;
                     $hasQuadCtrl = false;
-                    $idx += 7;
-                    continue;
                 }
+                $curX = $endX;
+                $curY = $endY;
+                if ($cmd === 'm') {
+                    $subX = $curX;
+                    $subY = $curY;
+                    $command = $isRel ? 'l' : 'L';
+                }
+                $idx += 2;
+                continue;
+            }
 
+            if ($cmd === 'h') {
+                $valX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $curX = $isRel ? ($curX + $valX) : $valX;
+                $ptlist[] = [$curX, $curY];
                 $hasCurveCtrl = false;
                 $hasQuadCtrl = false;
                 ++$idx;
+                continue;
             }
 
-            return (\count($ptlist) >= 2) ? $ptlist : null;
+            if ($cmd === 'v') {
+                $valY = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $curY = $isRel ? ($curY + $valY) : $valY;
+                $ptlist[] = [$curX, $curY];
+                $hasCurveCtrl = false;
+                $hasQuadCtrl = false;
+                ++$idx;
+                continue;
+            }
+
+            if ($cmd === 'c') {
+                if (($idx + 5) >= $tokCount) {
+                    break;
+                }
+                $ctrl1X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $ctrl1Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 4], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
+                if ($isRel) {
+                    $ctrl1X += $curX;
+                    $ctrl1Y += $curY;
+                    $ctrl2X += $curX;
+                    $ctrl2Y += $curY;
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $samples = $this->sampleTextPathCubic(
+                    $curX,
+                    $curY,
+                    $ctrl1X,
+                    $ctrl1Y,
+                    $ctrl2X,
+                    $ctrl2Y,
+                    $endX,
+                    $endY,
+                    12,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                $lastCurveCtrlX = $ctrl2X;
+                $lastCurveCtrlY = $ctrl2Y;
+                $hasCurveCtrl = true;
+                $hasQuadCtrl = false;
+                $idx += 6;
+                continue;
+            }
+
+            if ($cmd === 's') {
+                if (($idx + 3) >= $tokCount) {
+                    break;
+                }
+                $ctrl1X = $curX;
+                $ctrl1Y = $curY;
+                if ($hasCurveCtrl) {
+                    $ctrl1X = (2.0 * $curX) - $lastCurveCtrlX;
+                    $ctrl1Y = (2.0 * $curY) - $lastCurveCtrlY;
+                }
+                $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                if ($isRel) {
+                    $ctrl2X += $curX;
+                    $ctrl2Y += $curY;
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $samples = $this->sampleTextPathCubic(
+                    $curX,
+                    $curY,
+                    $ctrl1X,
+                    $ctrl1Y,
+                    $ctrl2X,
+                    $ctrl2Y,
+                    $endX,
+                    $endY,
+                    12,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                $lastCurveCtrlX = $ctrl2X;
+                $lastCurveCtrlY = $ctrl2Y;
+                $hasCurveCtrl = true;
+                $hasQuadCtrl = false;
+                $idx += 4;
+                continue;
+            }
+
+            if ($cmd === 'q') {
+                if (($idx + 3) >= $tokCount) {
+                    break;
+                }
+                $ctrlX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $ctrlY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                if ($isRel) {
+                    $ctrlX += $curX;
+                    $ctrlY += $curY;
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $samples = $this->sampleTextPathQuadratic(
+                    $curX,
+                    $curY,
+                    $ctrlX,
+                    $ctrlY,
+                    $endX,
+                    $endY,
+                    12,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                $lastQuadCtrlX = $ctrlX;
+                $lastQuadCtrlY = $ctrlY;
+                $hasQuadCtrl = true;
+                $hasCurveCtrl = false;
+                $idx += 4;
+                continue;
+            }
+
+            if ($cmd === 'a') {
+                if (($idx + 6) >= $tokCount) {
+                    break;
+                }
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 6], $soid);
+                if ($isRel) {
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                $ptlist[] = [$curX, $curY];
+                $hasCurveCtrl = false;
+                $hasQuadCtrl = false;
+                $idx += 7;
+                continue;
+            }
+
+            $hasCurveCtrl = false;
+            $hasQuadCtrl = false;
+            ++$idx;
         }
 
-        return null;
+        return (\count($ptlist) >= 2) ? $ptlist : null;
     }
 
     /**
