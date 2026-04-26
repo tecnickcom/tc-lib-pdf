@@ -391,6 +391,12 @@ use TSVGStyle;
  *    'child'?: array<string, TSVGAttribChild>,
  * }
  *
+ * @phpstan-type TSVGSwitchState array{
+ *    'depth': int,
+ *    'selected': bool,
+ *    'skipdepth': int,
+ * }
+ *
  * @phpstan-type TSVGObj array{
  *    'defsmode': bool,
  *    'clipmode': bool,
@@ -409,7 +415,7 @@ use TSVGStyle;
  *    'styles': array<int, TSVGStyle>,
  *    'child': array<int>,
  *    'xmldepth': int,
- *    'switchstack': array<int, array{depth: int, selected: bool, skipdepth: int}>,
+ *    'switchstack': array<int, TSVGSwitchState>,
  *    'textmode': TSVGTextMode,
  *    'charskip': int,
  *    'text': string,
