@@ -4009,6 +4009,30 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     false,
                 );
             }
+
+            $closedPath = (
+                (\abs($first['x1'] - $last['x2']) < self::SVGMINFLOATDIFF)
+                && (\abs($first['y1'] - $last['y2']) < self::SVGMINFLOATDIFF)
+            );
+            if ($closedPath) {
+                $a1 = \deg2rad((float) ($last['endAngle'] ?? $last['angle']));
+                $a2 = \deg2rad((float) ($first['startAngle'] ?? $first['angle']));
+                $vx = \cos($a1) + \cos($a2);
+                $vy = \sin($a1) + \sin($a2);
+                $midAngle = ((\abs($vx) < self::SVGMINFLOATDIFF) && (\abs($vy) < self::SVGMINFLOATDIFF))
+                    ? (float) ($first['startAngle'] ?? $first['angle'])
+                    : \rad2deg(\atan2($vy, $vx));
+                $out .= $this->renderSVGMarker(
+                    $parser,
+                    $soid,
+                    $midMarker,
+                    $first['x1'],
+                    $first['y1'],
+                    $midAngle,
+                    $strokeWidth,
+                    false,
+                );
+            }
         }
 
         $out .= $this->renderSVGMarker(
@@ -4072,8 +4096,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $rel = (\strtolower($cmd) === $cmd);
             $raw = [];
             \preg_match_all('/-?\d+(?:\.\d+)?/', \trim((string) ($path[2] ?? '')), $raw);
+            $rawparams = $raw[0] ?? [];
             $params = [];
-            foreach (($raw[0] ?? []) as $prv) {
+            foreach ($rawparams as $prv) {
                 $val = $this->svgUnitToUnit($prv, $soid);
                 $params[] = (\abs($val) < $this->svgminunitlen) ? 0.0 : $val;
             }
@@ -4235,9 +4260,58 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if ($upper === 'A') {
                 for ($i = 0; ($i + 6) < \count($params); $i += 7) {
+                    $sx0 = $cx;
+                    $sy0 = $cy;
+                    $radiusX = (float) \max(\abs($params[$i]), .000000001);
+                    $radiusY = (float) \max(\abs($params[$i + 1]), .000000001);
+                    $xAxisRot = (float) ($rawparams[$i + 2] ?? 0.0);
+                    $largeArcFlag = ((float) ($rawparams[$i + 3] ?? 0.0) >= 0.5);
+                    $sweepFlag = ((float) ($rawparams[$i + 4] ?? 0.0) >= 0.5);
                     $nx = $params[$i + 5] + ($rel ? $cx : 0.0);
                     $ny = $params[$i + 6] + ($rel ? $cy : 0.0);
                     $addSegment($cx, $cy, $nx, $ny);
+                    $last = \count($segments) - 1;
+                    if ($last >= 0) {
+                        $samples = $this->sampleTextPathArc(
+                            $sx0,
+                            $sy0,
+                            $radiusX,
+                            $radiusY,
+                            $xAxisRot,
+                            $largeArcFlag,
+                            $sweepFlag,
+                            $nx,
+                            $ny,
+                        );
+
+                        $startPx = $nx;
+                        $startPy = $ny;
+                        if (!empty($samples)) {
+                            $startPx = $samples[0][0];
+                            $startPy = $samples[0][1];
+                        }
+                        $startDx = ($startPx - $sx0);
+                        $startDy = ($startPy - $sy0);
+                        if ((\abs($startDx) < self::SVGMINFLOATDIFF) && (\abs($startDy) < self::SVGMINFLOATDIFF)) {
+                            $startDx = ($nx - $sx0);
+                            $startDy = ($ny - $sy0);
+                        }
+                        $segments[$last]['startAngle'] = \rad2deg(\atan2($startDy, $startDx));
+
+                        $endAx = $sx0;
+                        $endAy = $sy0;
+                        if (!empty($samples)) {
+                            $ls = \count($samples);
+                            if ($ls >= 2) {
+                                $endAx = $samples[$ls - 2][0];
+                                $endAy = $samples[$ls - 2][1];
+                            } else {
+                                $endAx = $sx0;
+                                $endAy = $sy0;
+                            }
+                        }
+                        $segments[$last]['endAngle'] = \rad2deg(\atan2(($ny - $endAy), ($nx - $endAx)));
+                    }
                     $cx = $nx;
                     $cy = $ny;
                 }

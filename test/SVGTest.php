@@ -1342,6 +1342,69 @@ class SVGTest extends TestUtil
         $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
     }
 
+    public function testSvgClosedPathAddsMidMarkerAtClosureJoin(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(528);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'none';
+        $base['marker-mid'] = 'url(#mkclose)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(528, [
+            'styles' => [$base],
+            'defs' => [
+                'mkclose' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkclose',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpath(
+            $parser,
+            528,
+            ['d' => 'M 1 1 L 8 1 L 8 6 Z'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        // Closed triangle has 3 vertices, each should receive marker-mid.
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
     {
         $obj = $this->getInternalTestObject();
