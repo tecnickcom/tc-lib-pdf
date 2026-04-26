@@ -518,6 +518,61 @@ PHP;
         $this->assertStringNotContainsString(' /CS2 ', $out);
     }
 
+    public function testPatternStreamResourcesFilterMixedCategoriesByStreamUsage(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var \Com\Tecnick\Color\Pdf $color */
+        $color = $this->getObjectProperty($obj, 'color');
+        /** @var \Com\Tecnick\Pdf\Graph\Draw $graph */
+        $graph = $this->getObjectProperty($obj, 'graph');
+
+        $timesfile = (string) \realpath(
+            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json'
+        );
+        $font->insert($pon, 'times', '', 10, null, null, $timesfile);
+
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $this->setObjectProperty($color, 'spot_colors', [
+            'spotA' => ['i' => 1, 'n' => 111],
+            'spotB' => ['i' => 2, 'n' => 222],
+        ]);
+
+        // Register at least two ExtGState entries so we can verify selective inclusion.
+        $graph->getAlpha(0.9);
+        $graph->getAlpha(0.5);
+
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XO1' => ['n' => 201],
+            'XO2' => ['n' => 202],
+        ]);
+
+        $stream = '/F1 10 Tf /CS1 cs /GS2 gs /XO2 Do';
+        $out = $obj->exposeGetPatternStreamResourceDict($stream);
+
+        $this->assertStringContainsString(' /Font <<', $out);
+        $this->assertStringContainsString(' /F1 ', $out);
+        $this->assertStringNotContainsString(' /F2 ', $out);
+        $this->assertStringContainsString(' /ColorSpace <<', $out);
+        $this->assertStringContainsString(' /CS1 ', $out);
+        $this->assertStringNotContainsString(' /CS2 ', $out);
+        $this->assertStringContainsString(' /ExtGState <<', $out);
+        $this->assertStringContainsString(' /GS2 ', $out);
+        $this->assertStringNotContainsString(' /GS1 ', $out);
+        $this->assertStringContainsString(' /XObject <<', $out);
+        $this->assertStringContainsString(' /XO2 202 0 R', $out);
+        $this->assertStringNotContainsString(' /XO1 201 0 R', $out);
+    }
+
     public function testTodoAnnotationSubtypeHelpersCurrentlyReturnEmptyString(): void
     {
         $obj = $this->getInternalTestObject();
