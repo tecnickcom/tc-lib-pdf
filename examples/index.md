@@ -29,3 +29,4 @@
 - [026_example_text_rendering_modes.php](026_example_text_rendering_modes.php) : Ports TCPDF example 026, demonstrating fill/stroke text rendering modes and text clipping with an image.
 - [027_example_annotations.php](027_example_annotations.php) : Ports TCPDF examples 036 and 041, demonstrating text and file-attachment annotations.
 - [028_example_text_hyphenation.php](028_example_text_hyphenation.php) : Ports TCPDF example 046, demonstrating soft-hyphen-based text hyphenation in a narrow justified HTML column.
+- [029_example_xobject_template.php](029_example_xobject_template.php) : Ports TCPDF example 062, demonstrating reusable Form XObject templates with clipping and transparency.
