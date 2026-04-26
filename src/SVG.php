@@ -2375,12 +2375,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                             if (!\is_array($child) || !isset($child['name'])) {
                                 continue;
                             }
+                            $prevOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                            $prevLen = \strlen($prevOut);
                             if (!empty($child['attr']['closing_tag'])) {
+                                if (!empty($child['attr']['content']) && \is_string($child['attr']['content'])) {
+                                    // Replay text captured in defs before closing the element.
+                                    // @phpstan-ignore assign.propertyType
+                                    $this->svgobjs[$soid]['text'] .= $child['attr']['content'];
+                                }
                                 $this->handleSVGTagEnd($patParser, (string) $child['name']);
                             } else {
                                 /** @var TSVGAttributes $childAttr */
                                 $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
                                 $this->handleSVGTagStart($patParser, (string) $child['name'], $childAttr, $soid);
+                            }
+
+                            $currOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                            $currLen = \strlen($currOut);
+                            if ($currLen > $prevLen) {
+                                $out .= \substr($currOut, $prevLen);
+                                // keep replay output scoped to this pattern fill stream
+                                // @phpstan-ignore assign.propertyType
+                                $this->svgobjs[$soid]['out'] = $prevOut;
                             }
                         }
                     }

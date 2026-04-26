@@ -352,10 +352,10 @@ class SVGTest extends TestUtil
 
         $obj->patchSvgObj(3, [
             'defs' => [
-                'patA' => [
+                'patEmpty' => [
                     'name' => 'pattern',
                     'attr' => [
-                        'id' => 'patA',
+                        'id' => 'patEmpty',
                         'patternUnits' => 'userSpaceOnUse',
                         'x' => '0',
                         'y' => '0',
@@ -370,7 +370,9 @@ class SVGTest extends TestUtil
                                 'y' => '0',
                                 'width' => '3',
                                 'height' => '3',
-                                'fill' => '#000000',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
                             ],
                         ],
                         'DF_1_CLOSE' => [
@@ -388,6 +390,7 @@ class SVGTest extends TestUtil
         $fillPattern['fill'] = 'url(#patA)';
         $fillPattern['opacity'] = 1.0;
         $fillPattern['fill-opacity'] = 1.0;
+        $obj->patchSvgObj(3, ['out' => 'BASE']);
         [$fillPatternOut] = $obj->exposeParseSVGStyleFill(
             3,
             $fillPattern,
@@ -399,7 +402,8 @@ class SVGTest extends TestUtil
             'getClippingRect',
             [0.0, 0.0, 10.0, 10.0, 0.0],
         );
-        $this->assertNotSame('', $fillPatternOut);
+        $this->assertSame('BASE', $obj->getSvgObj(3)['out']);
+        $this->assertIsString($fillPatternOut);
 
         $parser = \xml_parser_create();
         $obj->exposeParseSVGStyleClipPath($parser, 3, []);
