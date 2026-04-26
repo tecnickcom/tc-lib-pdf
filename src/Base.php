@@ -127,6 +127,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TSignTimeStamp from Output
  * @phpstan-import-type TPatternObject from Output
+ * @phpstan-import-type TSVGMaskObject from Output
  * @phpstan-import-type TGTransparency from Output
  * @phpstan-import-type TUserRights from Output
  * @phpstan-import-type TXOBject from Output
@@ -663,6 +664,13 @@ abstract class Base
      * @var array<string, TPatternObject>
      */
     protected array $patterns = [];
+
+    /**
+     * SVG mask objects data (Form XObject + SMask + ExtGState pipeline).
+     *
+     * @var array<string, TSVGMaskObject>
+     */
+    protected array $svgmasks = [];
 
     /**
      * Stack of bounding boxes [x, y, width, height] in user units.

@@ -368,6 +368,13 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'matrix': array{float, float, float, float, float, float},
  *     }
  *
+ * @phpstan-type TSVGMaskObject array{
+ *         'id': string,
+ *         'stream': string,
+ *         'bbox': array{float, float, float, float},
+ *         'gs_n': int,
+ *     }
+ *
  * @phpstan-type TOutline array{
  *         't': string,
  *         'u': string,
@@ -618,6 +625,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutXObjects();
         $out .= $this->getOutPatterns();
+        $out .= $this->getOutSVGMasks();
         $out .= $this->getOutResourcesDict();
         $out .= $this->getOutDestinations();
         $out .= $this->getOutEmbeddedFiles();
@@ -1187,6 +1195,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutResourcesDict(): string
     {
         $this->objid['resdic'] = $this->page->getResourceDictObjID();
+        // Merge SVG mask ExtGState entries into the /ExtGState resource dict.
+        $gsResources    = $this->graph->getOutExtGStateResources();
+        $maskGsEntries  = $this->getSVGMaskExtGStateEntries();
+        if ($maskGsEntries !== '') {
+            if ($gsResources === '') {
+                $gsResources = ' /ExtGState <<' . $maskGsEntries . ' >>' . "\n";
+            } else {
+                // Strip closing ' >>\n' and re-append with mask entries.
+                $gsResources = \substr(\rtrim($gsResources), 0, -2) . $maskGsEntries . ' >>' . "\n";
+            }
+        }
+
         return $this->objid['resdic'] . ' 0 obj' . "\n"
             . '<<'
             . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
@@ -1194,7 +1214,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . $this->getXObjectDict()
             . $this->getPatternDict()
             . $this->getLayerDict()
-            . $this->graph->getOutExtGStateResources()
+            . $gsResources
             . $this->graph->getOutGradientResources()
             . $this->color->getPdfSpotResources()
             . ' >>' . "\n"
@@ -1263,6 +1283,97 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . $stream . "\n"
                 . 'endstream' . "\n"
                 . 'endobj' . "\n";
+        }
+
+        return $out;
+    }
+
+    /**
+     * Returns the PDF Form XObject + SMask + ExtGState objects for SVG masks.
+     *
+     * Each registered SVG mask produces three chained PDF objects:
+     *  1. A Form XObject with a DeviceGray transparency group containing the
+     *     mask shape stream.
+     *  2. A Mask dict pointing at that Form XObject (Luminosity mode).
+     *  3. An ExtGState with /SMask referencing the Mask dict.
+     *
+     * After emission the gs_n for each mask is set so that
+     * getSVGMaskExtGStateEntries() can include them in the resources dict.
+     *
+     * @return string Raw PDF objects.
+     */
+    protected function getOutSVGMasks(): string
+    {
+        $out = '';
+        foreach ($this->svgmasks as $key => $data) {
+            if (empty($data['stream'])) {
+                continue;
+            }
+
+            $stream  = $data['stream'];
+            $bbox    = $data['bbox'];
+            $bboxStr = \sprintf('%F %F %F %F', $bbox[0], $bbox[1], $bbox[2], $bbox[3]);
+
+            // Form XObject (DeviceGray transparency group for luminosity mask).
+            $formOid    = ++$this->pon;
+            $formStream = $stream;
+            $formHead   = $formOid . ' 0 obj' . "\n"
+                . '<<'
+                . ' /Type /XObject'
+                . ' /Subtype /Form'
+                . ' /FormType 1'
+                . ' /BBox [' . $bboxStr . ']'
+                . ' /Group << /Type /Group /S /Transparency /CS /DeviceGray /I true >>';
+            if ($this->compress) {
+                $comp = \gzcompress($formStream);
+                if ($comp !== false) {
+                    $formStream = $comp;
+                    $formHead  .= ' /Filter /FlateDecode';
+                }
+            }
+
+            $formStream = $this->encrypt->encryptString($formStream, $formOid);
+            $out .= $formHead
+                . ' /Length ' . \strlen($formStream)
+                . ' >>' . "\n"
+                . 'stream' . "\n"
+                . $formStream . "\n"
+                . 'endstream' . "\n"
+                . 'endobj' . "\n";
+
+            // SMask dictionary.
+            $smaskOid = ++$this->pon;
+            $out .= $smaskOid . ' 0 obj' . "\n"
+                . '<< /Type /Mask /S /Luminosity /G ' . $formOid . ' 0 R >>' . "\n"
+                . 'endobj' . "\n";
+
+            // ExtGState with SMask reference.
+            $gsOid = ++$this->pon;
+            $out .= $gsOid . ' 0 obj' . "\n"
+                . '<< /Type /ExtGState /SMask ' . $smaskOid . ' 0 R /AIS false >>' . "\n"
+                . 'endobj' . "\n";
+
+            $this->svgmasks[$key]['gs_n'] = $gsOid;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Returns ExtGState resource-dict entries for SVG masks.
+     *
+     * Returns a string like " /MSK_xxx N 0 R /MSK_yyy M 0 R" for inclusion
+     * inside the page /ExtGState resource dictionary.
+     *
+     * @return string
+     */
+    protected function getSVGMaskExtGStateEntries(): string
+    {
+        $out = '';
+        foreach ($this->svgmasks as $key => $mask) {
+            if ($mask['gs_n'] > 0) {
+                $out .= ' /' . $key . ' ' . $mask['gs_n'] . ' 0 R';
+            }
         }
 
         return $out;

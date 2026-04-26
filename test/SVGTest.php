@@ -5479,4 +5479,157 @@ class SVGTest extends TestUtil
         $this->assertSame($xBefore, (float) $obj->getSvgObj(108)['x']);
         $this->assertGreaterThan($yBefore, (float) $obj->getSvgObj(108)['y']);
     }
+
+    // -------------------------------------------------------------------------
+    // E-4 mask application tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * parseSVGStyleMask with a valid url(#id) registers the mask stream and
+     * returns a PDF ExtGState activation command containing the mask key.
+     */
+    public function testSvgMaskStyleResolvesUrlAndRegistersMaskStream(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(560);
+
+        // Build defs: one mask with a white rect child (captured structure).
+        $obj->patchSvgObj(560, [
+            'defs' => [
+                'myMask' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'myMask'],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '10', 'fill' => '#ffffff'],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => ['closing_tag' => true, 'content' => ''],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#myMask)';
+
+        $out = $obj->exposeParseSVGStyleMask(560, $style);
+
+        // Must return a GS activation command.
+        $this->assertStringContainsString(' gs', $out);
+
+        // The mask key used in the command must match what's registered.
+        $masks = $obj->getSvgMasks();
+        $this->assertNotEmpty($masks, 'svgmasks must contain the registered mask');
+
+        $maskKey = \array_key_first($masks);
+        $this->assertStringContainsString($maskKey, $out);
+        $this->assertStringStartsWith('MSK_', (string) $maskKey);
+
+        $maskData = $masks[$maskKey];
+        $this->assertArrayHasKey('stream', $maskData);
+        $this->assertArrayHasKey('bbox', $maskData);
+        $this->assertSame(0, $maskData['gs_n'], 'gs_n is 0 until PDF output phase');
+    }
+
+    /**
+     * Calling parseSVGStyleMask with mask="none" returns empty string and does
+     * not register anything.
+     */
+    public function testSvgMaskStyleNoneIsNoOp(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(561);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'none';
+
+        $out = $obj->exposeParseSVGStyleMask(561, $style);
+
+        $this->assertSame('', $out);
+        $this->assertEmpty($obj->getSvgMasks());
+    }
+
+    /**
+     * A mask url that references a missing def returns empty string.
+     */
+    public function testSvgMaskStyleMissingDefIsNoOp(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(562);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#nonExistent)';
+
+        $out = $obj->exposeParseSVGStyleMask(562, $style);
+
+        $this->assertSame('', $out);
+        $this->assertEmpty($obj->getSvgMasks());
+    }
+
+    /**
+     * Calling parseSVGStyleMask while patternmode > 0 returns empty string
+     * (guard against recursion during mask/pattern child replay).
+     */
+    public function testSvgMaskStyleSkippedInsidePatternMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(563);
+
+        $obj->patchSvgObj(563, [
+            'patternmode' => 1,
+            'defs' => [
+                'mskX' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'mskX'],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#mskX)';
+
+        $out = $obj->exposeParseSVGStyleMask(563, $style);
+
+        $this->assertSame('', $out);
+        $this->assertEmpty($obj->getSvgMasks());
+    }
+
+    /**
+     * Calling parseSVGStyleMask twice with the same mask id re-uses the
+     * already-registered mask entry without duplicating it.
+     */
+    public function testSvgMaskStyleSameMaskIsRegisteredOnce(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(564);
+
+        $obj->patchSvgObj(564, [
+            'defs' => [
+                'sharedMask' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'sharedMask'],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#sharedMask)';
+
+        $out1 = $obj->exposeParseSVGStyleMask(564, $style);
+        $out2 = $obj->exposeParseSVGStyleMask(564, $style);
+
+        $this->assertSame($out1, $out2, 'Both calls return the same GS command');
+        $this->assertCount(1, $obj->getSvgMasks(), 'Only one mask entry registered');
+    }
 }

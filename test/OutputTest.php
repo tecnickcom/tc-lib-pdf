@@ -3523,4 +3523,89 @@ PHP;
     {
         $obj->setPdfaMode($pdfa);
     }
+
+    // -------------------------------------------------------------------------
+    // E-4 SVG mask PDF output tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * getOutSVGMasks emits Form XObject + SMask + ExtGState for a registered mask
+     * and records the ExtGState object number in gs_n.
+     */
+    public function testGetOutSVGMasksEmitsThreePdfObjectsAndSetsGsN(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->setSvgMasks([
+            'MSK_AABBCCDD' => [
+                'id'     => 'MSK_AABBCCDD',
+                'stream' => 'q Q',
+                'bbox'   => [0.0, 0.0, 595.0, 841.0],
+                'gs_n'   => 0,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSVGMasks();
+
+        // Three PDF objects emitted.
+        $this->assertSame(3, \substr_count($out, 'endobj'));
+
+        // Form XObject.
+        $this->assertStringContainsString('/Type /XObject', $out);
+        $this->assertStringContainsString('/Subtype /Form', $out);
+        $this->assertStringContainsString('/Group <<', $out);
+        $this->assertStringContainsString('/CS /DeviceGray', $out);
+
+        // SMask dict.
+        $this->assertStringContainsString('/Type /Mask', $out);
+        $this->assertStringContainsString('/S /Luminosity', $out);
+
+        // ExtGState.
+        $this->assertStringContainsString('/Type /ExtGState', $out);
+        $this->assertStringContainsString('/SMask', $out);
+        $this->assertStringContainsString('/AIS false', $out);
+
+        // gs_n must be set to the ExtGState object number.
+        $masks = $obj->getSvgMasks();
+        $this->assertGreaterThan(0, $masks['MSK_AABBCCDD']['gs_n']);
+    }
+
+    /**
+     * getSVGMaskExtGStateEntries returns an entry for each mask with gs_n > 0.
+     */
+    public function testGetSVGMaskExtGStateEntriesReturnsResourceEntries(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->setSvgMasks([
+            'MSK_AA' => ['id' => 'MSK_AA', 'stream' => 'q Q', 'bbox' => [0.0, 0.0, 1.0, 1.0], 'gs_n' => 42],
+            'MSK_BB' => ['id' => 'MSK_BB', 'stream' => 'q Q', 'bbox' => [0.0, 0.0, 1.0, 1.0], 'gs_n' => 0],
+        ]);
+
+        $entries = $obj->exposeGetSVGMaskExtGStateEntries();
+
+        $this->assertStringContainsString('/MSK_AA 42 0 R', $entries);
+        $this->assertStringNotContainsString('/MSK_BB', $entries);
+    }
+
+    /**
+     * getOutSVGMasks skips masks with empty streams.
+     */
+    public function testGetOutSVGMasksSkipsEmptyStreamMasks(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->setSvgMasks([
+            'MSK_EMPTY' => ['id' => 'MSK_EMPTY', 'stream' => '', 'bbox' => [0.0, 0.0, 1.0, 1.0], 'gs_n' => 0],
+        ]);
+
+        $out = $obj->exposeGetOutSVGMasks();
+
+        $this->assertSame('', $out);
+        $masks = $obj->getSvgMasks();
+        $this->assertSame(0, $masks['MSK_EMPTY']['gs_n']);
+    }
 }

@@ -617,4 +617,27 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     {
         return $this->jstree;
     }
+
+    public function exposeGetOutSVGMasks(): string
+    {
+        return $this->getOutSVGMasks();
+    }
+
+    public function exposeGetSVGMaskExtGStateEntries(): string
+    {
+        return $this->getSVGMaskExtGStateEntries();
+    }
+
+    /** @phpstan-param array<string, mixed> $masks */
+    public function setSvgMasks(array $masks): void
+    {
+        // @phpstan-ignore assign.propertyType
+        $this->svgmasks = $masks;
+    }
+
+    /** @return array<string, mixed> */
+    public function getSvgMasks(): array
+    {
+        return $this->svgmasks;
+    }
 }

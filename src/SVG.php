@@ -1997,6 +1997,110 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Apply an SVG mask="url(#id)" as a PDF SMask ExtGState.
+     *
+     * Renders the mask's child content to a stream that will be emitted as a
+     * Form XObject (with a DeviceGray transparency group) at PDF body time.
+     * The Form XObject is referenced by an SMask dict which is in turn
+     * referenced by an ExtGState.  The returned PDF command activates that
+     * ExtGState before the masked element is drawn.
+     *
+     * @param int $soid SVG object ID.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     *
+     * @return string Raw PDF command or empty string.
+     */
+    protected function parseSVGStyleMask(int $soid, array $svgstyle): string
+    {
+        if (!$this->isTransparencyAllowed()) {
+            return '';
+        }
+
+        if (!empty($this->svgobjs[$soid]['patternmode'])) {
+            return '';
+        }
+
+        $maskRef = (string) ($svgstyle['mask'] ?? 'none');
+        if ($maskRef === 'none' || $maskRef === '') {
+            return '';
+        }
+
+        $regs = [];
+        if (!\preg_match('/url\(\s*#([^)]+)\s*\)/i', $maskRef, $regs)) {
+            return '';
+        }
+
+        $maskId = \trim($regs[1]);
+        if (empty($this->svgobjs[$soid]['defs'][$maskId])) {
+            return '';
+        }
+
+        /** @var TSVGAttribs $maskDef */
+        $maskDef = $this->svgobjs[$soid]['defs'][$maskId];
+        if (!isset($maskDef['name']) || $maskDef['name'] !== 'mask') {
+            return '';
+        }
+
+        $maskKey = 'MSK_' . \strtoupper(\substr(\md5($maskId), 0, 16));
+
+        if (!isset($this->svgmasks[$maskKey])) {
+            $pheight = (float) ($this->svgobjs[$soid]['refunitval']['page']['height']);
+            $pwidth  = (float) ($this->svgobjs[$soid]['refunitval']['page']['width']);
+
+            $maskParser = \xml_parser_create('UTF-8');
+            $stream = '';
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['patternmode'] = ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) + 1;
+            try {
+                if (!empty($maskDef['child']) && \is_array($maskDef['child'])) {
+                    foreach ($maskDef['child'] as $child) {
+                        if (!\is_array($child) || !isset($child['name'])) {
+                            continue;
+                        }
+
+                        $prevOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                        $prevLen = \strlen($prevOut);
+                        if (!empty($child['attr']['closing_tag'])) {
+                            if (!empty($child['attr']['content']) && \is_string($child['attr']['content'])) {
+                                // @phpstan-ignore assign.propertyType
+                                $this->svgobjs[$soid]['text'] .= $child['attr']['content'];
+                            }
+
+                            $this->handleSVGTagEnd($maskParser, (string) $child['name']);
+                        } else {
+                            /** @var TSVGAttributes $childAttr */
+                            $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
+                            $this->handleSVGTagStart($maskParser, (string) $child['name'], $childAttr, $soid);
+                        }
+
+                        $currOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                        $currLen = \strlen($currOut);
+                        if ($currLen > $prevLen) {
+                            $stream .= \substr($currOut, $prevLen);
+                            // @phpstan-ignore assign.propertyType
+                            $this->svgobjs[$soid]['out'] = $prevOut;
+                        }
+                    }
+                }
+            } finally {
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
+                \xml_parser_free($maskParser);
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgmasks[$maskKey] = [
+                'id'     => $maskKey,
+                'stream' => $stream,
+                'bbox'   => [0.0, 0.0, $pwidth, $pheight],
+                'gs_n'   => 0,
+            ];
+        }
+
+        return '/' . $maskKey . ' gs' . "\n";
+    }
+
+    /**
      * Parse the SVG clip style.
      *
      * @param TSVGStyle $svgstyle SVG style.
@@ -2938,6 +3042,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $out = '';
         $out .= $this->parseSVGStyleColor($svgstyle);
+        $out .= $this->parseSVGStyleMask($soid, $svgstyle);
         $out .= $this->parseSVGStyleClip(
             $svgstyle,
             $posx,
