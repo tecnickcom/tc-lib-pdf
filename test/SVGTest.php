@@ -350,6 +350,57 @@ class SVGTest extends TestUtil
         [$fillUrlOut] = $obj->exposeParseSVGStyleFill(3, $fillUrl, [], 0, 0, 10, 10);
         $this->assertSame('', $fillUrlOut);
 
+        $obj->patchSvgObj(3, [
+            'defs' => [
+                'patA' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patA',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '3',
+                        'height' => '3',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '3',
+                                'height' => '3',
+                                'fill' => '#000000',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $fillPattern = $base;
+        $fillPattern['fill'] = 'url(#patA)';
+        $fillPattern['opacity'] = 1.0;
+        $fillPattern['fill-opacity'] = 1.0;
+        [$fillPatternOut] = $obj->exposeParseSVGStyleFill(
+            3,
+            $fillPattern,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+        $this->assertNotSame('', $fillPatternOut);
+
         $parser = \xml_parser_create();
         $obj->exposeParseSVGStyleClipPath($parser, 3, []);
 
