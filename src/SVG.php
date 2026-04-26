@@ -2526,7 +2526,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $patternMatrix[4],
                     $patternMatrix[5],
                 ],
-                'resoid' => $this->page->getResourceDictObjID(),
             ];
         }
 

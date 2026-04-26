@@ -366,7 +366,6 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'xstep': float,
  *         'ystep': float,
  *         'matrix': array{float, float, float, float, float, float},
- *         'resoid'?: int,
  *     }
  *
  * @phpstan-type TOutline array{
@@ -1243,9 +1242,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $data['matrix'][4],
                     $data['matrix'][5],
                 );
-
-            $resoid = $data['resoid'] ?? ($this->objid['resdic'] ?? $this->page->getResourceDictObjID());
-            $out .= ' /Resources ' . $resoid . ' 0 R';
+            $out .= ' /Resources <<'
+                . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
+                . $this->outfont->getOutFontDict()
+                . $this->getXObjectDict()
+                . $this->graph->getOutExtGStateResources()
+                . $this->graph->getOutGradientResources()
+                . $this->color->getPdfSpotResources()
+                . ' >>';
 
             if ($this->compress) {
                 $stream = \gzcompress($stream);

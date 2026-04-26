@@ -97,6 +97,8 @@ class SVGTest extends TestUtil
         $this->assertStringContainsString(' scn', $svgOut);
         $this->assertStringContainsString('/Type /Pattern', $pdf);
         $this->assertStringContainsString('/Pattern <<', $pdf);
+        $this->assertStringContainsString('/Type /Pattern /PatternType 1', $pdf);
+        $this->assertStringContainsString('/Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]', $pdf);
         $this->assertMatchesRegularExpression('/\/PTN_[A-F0-9]{16}\s+\d+\s+0\s+R/', $pdf);
     }
 
