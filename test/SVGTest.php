@@ -2782,6 +2782,45 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-6: cubic path sampling uses local start tangent instead of endpoint chord.
+     */
+    public function testSvgTextPathCubicUsesLocalStartTangentAtSmallOffset(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1048);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // C endpoint chord is vertical (0,0)->(0,100), but the curve starts
+        // with an almost horizontal tangent due to the first control point.
+        $obj->patchSvgObj(1048, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_cubic' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 C100 0 100 100 0 100',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1048,
+            ['href' => '#tp_cubic', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1048);
+        $angle = (float) ($svgobj['textmode']['rotate'] ?? 0.0);
+        $this->assertGreaterThan(-45.0, $angle);
+        $this->assertLessThan(45.0, $angle);
+    }
+
+    /**
      * E-6: spacing="auto" expands inter-glyph distance to fill path.
      */
     public function testSvgTextPathSpacingAutoExpandsGlyphGap(): void

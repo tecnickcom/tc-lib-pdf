@@ -4374,6 +4374,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $subX = 0.0;
             $subY = 0.0;
             $command = '';
+            $lastCurveCtrlX = 0.0;
+            $lastCurveCtrlY = 0.0;
+            $lastQuadCtrlX = 0.0;
+            $lastQuadCtrlY = 0.0;
+            $hasCurveCtrl = false;
+            $hasQuadCtrl = false;
             $tokCount = \count($tokens);
             $idx = 0;
 
@@ -4387,6 +4393,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                             $ptlist[] = [$subX, $subY];
                             $curX = $subX;
                             $curY = $subY;
+                            $hasCurveCtrl = false;
+                            $hasQuadCtrl = false;
                         }
                     }
                     continue;
@@ -4404,15 +4412,42 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     if (($idx + 1) >= $tokCount) {
                         break;
                     }
-                    $valX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
-                    $valY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                    $endX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
                     if ($isRel) {
-                        $valX += $curX;
-                        $valY += $curY;
+                        $endX += $curX;
+                        $endY += $curY;
                     }
-                    $curX = $valX;
-                    $curY = $valY;
-                    $ptlist[] = [$curX, $curY];
+                    if ($cmd === 't') {
+                        $ctrlX = $curX;
+                        $ctrlY = $curY;
+                        if ($hasQuadCtrl) {
+                            $ctrlX = (2.0 * $curX) - $lastQuadCtrlX;
+                            $ctrlY = (2.0 * $curY) - $lastQuadCtrlY;
+                        }
+                        $samples = $this->sampleTextPathQuadratic(
+                            $curX,
+                            $curY,
+                            $ctrlX,
+                            $ctrlY,
+                            $endX,
+                            $endY,
+                            12,
+                        );
+                        foreach ($samples as $point) {
+                            $ptlist[] = $point;
+                        }
+                        $lastQuadCtrlX = $ctrlX;
+                        $lastQuadCtrlY = $ctrlY;
+                        $hasQuadCtrl = true;
+                        $hasCurveCtrl = false;
+                    } else {
+                        $ptlist[] = [$endX, $endY];
+                        $hasCurveCtrl = false;
+                        $hasQuadCtrl = false;
+                    }
+                    $curX = $endX;
+                    $curY = $endY;
                     if ($cmd === 'm') {
                         $subX = $curX;
                         $subY = $curY;
@@ -4426,6 +4461,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $valX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
                     $curX = $isRel ? ($curX + $valX) : $valX;
                     $ptlist[] = [$curX, $curY];
+                    $hasCurveCtrl = false;
+                    $hasQuadCtrl = false;
                     ++$idx;
                     continue;
                 }
@@ -4434,25 +4471,51 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $valY = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
                     $curY = $isRel ? ($curY + $valY) : $valY;
                     $ptlist[] = [$curX, $curY];
+                    $hasCurveCtrl = false;
+                    $hasQuadCtrl = false;
                     ++$idx;
                     continue;
                 }
 
-                if (($cmd === 'c') || ($cmd === 'q')) {
-                    $need = ($cmd === 'c') ? 6 : 4;
-                    if (($idx + $need - 1) >= $tokCount) {
+                if ($cmd === 'c') {
+                    if (($idx + 5) >= $tokCount) {
                         break;
                     }
-                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + $need - 2], $soid);
-                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + $need - 1], $soid);
+                    $ctrl1X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                    $ctrl1Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                    $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                    $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 4], $soid);
+                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
                     if ($isRel) {
+                        $ctrl1X += $curX;
+                        $ctrl1Y += $curY;
+                        $ctrl2X += $curX;
+                        $ctrl2Y += $curY;
                         $endX += $curX;
                         $endY += $curY;
                     }
+                    $samples = $this->sampleTextPathCubic(
+                        $curX,
+                        $curY,
+                        $ctrl1X,
+                        $ctrl1Y,
+                        $ctrl2X,
+                        $ctrl2Y,
+                        $endX,
+                        $endY,
+                        12,
+                    );
+                    foreach ($samples as $point) {
+                        $ptlist[] = $point;
+                    }
                     $curX = $endX;
                     $curY = $endY;
-                    $ptlist[] = [$curX, $curY];
-                    $idx += $need;
+                    $lastCurveCtrlX = $ctrl2X;
+                    $lastCurveCtrlY = $ctrl2Y;
+                    $hasCurveCtrl = true;
+                    $hasQuadCtrl = false;
+                    $idx += 6;
                     continue;
                 }
 
@@ -4460,15 +4523,78 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     if (($idx + 3) >= $tokCount) {
                         break;
                     }
+                    $ctrl1X = $curX;
+                    $ctrl1Y = $curY;
+                    if ($hasCurveCtrl) {
+                        $ctrl1X = (2.0 * $curX) - $lastCurveCtrlX;
+                        $ctrl1Y = (2.0 * $curY) - $lastCurveCtrlY;
+                    }
+                    $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                    $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
                     $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
                     $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
                     if ($isRel) {
+                        $ctrl2X += $curX;
+                        $ctrl2Y += $curY;
                         $endX += $curX;
                         $endY += $curY;
                     }
+                    $samples = $this->sampleTextPathCubic(
+                        $curX,
+                        $curY,
+                        $ctrl1X,
+                        $ctrl1Y,
+                        $ctrl2X,
+                        $ctrl2Y,
+                        $endX,
+                        $endY,
+                        12,
+                    );
+                    foreach ($samples as $point) {
+                        $ptlist[] = $point;
+                    }
                     $curX = $endX;
                     $curY = $endY;
-                    $ptlist[] = [$curX, $curY];
+                    $lastCurveCtrlX = $ctrl2X;
+                    $lastCurveCtrlY = $ctrl2Y;
+                    $hasCurveCtrl = true;
+                    $hasQuadCtrl = false;
+                    $idx += 4;
+                    continue;
+                }
+
+                if ($cmd === 'q') {
+                    if (($idx + 3) >= $tokCount) {
+                        break;
+                    }
+                    $ctrlX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                    $ctrlY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                    $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                    $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                    if ($isRel) {
+                        $ctrlX += $curX;
+                        $ctrlY += $curY;
+                        $endX += $curX;
+                        $endY += $curY;
+                    }
+                    $samples = $this->sampleTextPathQuadratic(
+                        $curX,
+                        $curY,
+                        $ctrlX,
+                        $ctrlY,
+                        $endX,
+                        $endY,
+                        12,
+                    );
+                    foreach ($samples as $point) {
+                        $ptlist[] = $point;
+                    }
+                    $curX = $endX;
+                    $curY = $endY;
+                    $lastQuadCtrlX = $ctrlX;
+                    $lastQuadCtrlY = $ctrlY;
+                    $hasQuadCtrl = true;
+                    $hasCurveCtrl = false;
                     $idx += 4;
                     continue;
                 }
@@ -4486,10 +4612,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     $curX = $endX;
                     $curY = $endY;
                     $ptlist[] = [$curX, $curY];
+                    $hasCurveCtrl = false;
+                    $hasQuadCtrl = false;
                     $idx += 7;
                     continue;
                 }
 
+                $hasCurveCtrl = false;
+                $hasQuadCtrl = false;
                 ++$idx;
             }
 
@@ -4497,6 +4627,74 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         return null;
+    }
+
+    /**
+     * Sample a quadratic bezier into a sequence of points.
+     *
+     * @return array<int, array{0: float, 1: float}>
+     */
+    protected function sampleTextPathQuadratic(
+        float $startX,
+        float $startY,
+        float $ctrlX,
+        float $ctrlY,
+        float $endX,
+        float $endY,
+        int $steps,
+    ): array {
+        $points = [];
+        $stepCount = \max(2, $steps);
+        for ($step = 1; $step <= $stepCount; ++$step) {
+            $param = ((float) $step) / ((float) $stepCount);
+            $inv = 1.0 - $param;
+            $pointX = ($inv * $inv * $startX)
+                + (2.0 * $inv * $param * $ctrlX)
+                + ($param * $param * $endX);
+            $pointY = ($inv * $inv * $startY)
+                + (2.0 * $inv * $param * $ctrlY)
+                + ($param * $param * $endY);
+            $points[] = [$pointX, $pointY];
+        }
+        return $points;
+    }
+
+    /**
+     * Sample a cubic bezier into a sequence of points.
+     *
+     * @return array<int, array{0: float, 1: float}>
+     */
+    protected function sampleTextPathCubic(
+        float $startX,
+        float $startY,
+        float $ctrl1X,
+        float $ctrl1Y,
+        float $ctrl2X,
+        float $ctrl2Y,
+        float $endX,
+        float $endY,
+        int $steps,
+    ): array {
+        $points = [];
+        $stepCount = \max(2, $steps);
+        for ($step = 1; $step <= $stepCount; ++$step) {
+            $param = ((float) $step) / ((float) $stepCount);
+            $inv = 1.0 - $param;
+            $inv2 = $inv * $inv;
+            $inv3 = $inv2 * $inv;
+            $par2 = $param * $param;
+            $par3 = $par2 * $param;
+            $pointX = ($inv3 * $startX)
+                + (3.0 * $inv2 * $param * $ctrl1X)
+                + (3.0 * $inv * $par2 * $ctrl2X)
+                + ($par3 * $endX);
+            $pointY = ($inv3 * $startY)
+                + (3.0 * $inv2 * $param * $ctrl1Y)
+                + (3.0 * $inv * $par2 * $ctrl2Y)
+                + ($par3 * $endY);
+            $points[] = [$pointX, $pointY];
+        }
+        return $points;
     }
 
     /**
