@@ -2240,6 +2240,59 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-1: use-level style is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesUseLevelStyleAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'symstyle2' => [
+                'name' => 'symbol',
+                'attr' => [
+                    'viewBox' => '0 0 20 10',
+                ],
+                'child' => [
+                    'c1' => [
+                        'name' => 'rect',
+                        'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                    ],
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(925);
+        $obj->patchSvgObj(925, ['styles' => [$base], 'defs' => $defs]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            925,
+            ['href' => '#symstyle2', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(926);
+        $obj->patchSvgObj(926, ['styles' => [$base], 'defs' => $defs]);
+        $outStyled = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            926,
+            [
+                'href' => '#symstyle2',
+                'x' => '0',
+                'y' => '0',
+                'width' => '20',
+                'height' => '10',
+                'style' => 'fill:#ff0000;stroke:none;',
+            ],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outStyled);
+        $this->assertNotSame($outDefault, $outStyled);
+    }
+
+    /**
      * E-7: <a> start stores link metadata and </a> emits an annotation ref.
      */
     public function testSvgATagCreatesAnnotationReference(): void

@@ -5371,6 +5371,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $out = '';
             /** @var TSVGStyle $useStyle */
             $useStyle = $defStyle;
+
+            // Preserve use-level presentation/style attributes for symbol expansion.
+            $styleTag = '';
+            if (!empty($svglikeAttr['style']) && \is_string($svglikeAttr['style'])) {
+                $styleTag = ($svglikeAttr['style'][0] === ';') ? $svglikeAttr['style'] : (';' . $svglikeAttr['style']);
+            }
+            foreach (self::SVGINHPROP as $styleKey) {
+                if (!empty($svglikeAttr[$styleKey]) && \is_string($svglikeAttr[$styleKey])) {
+                    $useStyle[$styleKey] = $svglikeAttr[$styleKey];
+                } elseif ($styleTag !== '') {
+                    $useStyle[$styleKey] = $this->parseCSSAttrib($styleTag, $styleKey, (string) $useStyle[$styleKey]);
+                }
+            }
+
             if (!empty($svglikeAttr['transform']) && \is_string($svglikeAttr['transform'])) {
                 $useStyle['transfmatrix'] = $this->graph->getCtmProduct(
                     $useStyle['transfmatrix'],
@@ -5378,6 +5392,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 );
             }
 
+            // @phpstan-ignore argument.type
             $out .= $this->parseSVGTagSTARTsvg($parser, $soid, $svglikeAttr, $useStyle, $defStyle);
 
             // Replay each child element stored under the symbol def.
