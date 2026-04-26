@@ -1284,6 +1284,125 @@ class SVGTest extends TestUtil
         $this->assertSame(0, $obj->getSvgObj(540)['patternmode']);
     }
 
+    public function testSvgPatternHrefInheritanceUsesChildAttrAndParentFallback(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(544);
+
+        $obj->patchSvgObj(544, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '1',
+                        'y' => '2',
+                        'width' => '4',
+                        'height' => '6',
+                    ],
+                    'child' => [
+                        'PARENT_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '6',
+                                'fill' => 'none',
+                                'stroke' => '#111111',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'href' => '#patBase',
+                        'width' => '9',
+                    ],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(544, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+
+        $this->assertSame('9', $resolvedAttr['width'] ?? '');
+        $this->assertSame('6', $resolvedAttr['height'] ?? '');
+        $this->assertSame('1', $resolvedAttr['x'] ?? '');
+        $this->assertSame('2', $resolvedAttr['y'] ?? '');
+        $this->assertSame('userSpaceOnUse', $resolvedAttr['patternUnits'] ?? '');
+        $this->assertArrayHasKey('PARENT_RECT', $resolvedChild);
+    }
+
+    public function testSvgPatternHrefInheritanceKeepsChildContentWhenPresent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(545);
+
+        $obj->patchSvgObj(545, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'PARENT_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => '#aaaaaa',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'xlink:href' => '#patBase',
+                    ],
+                    'child' => [
+                        'CHILD_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '1',
+                                'y' => '1',
+                                'width' => '2',
+                                'height' => '2',
+                                'fill' => '#222222',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(545, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+        $this->assertArrayHasKey('CHILD_RECT', $resolvedChild);
+        $this->assertArrayNotHasKey('PARENT_RECT', $resolvedChild);
+    }
+
     public function testSvgPatternPreserveAspectRatioChangesViewBoxTransform(): void
     {
         $obj = $this->getInternalTestObject();
