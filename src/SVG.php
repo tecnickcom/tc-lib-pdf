@@ -4469,30 +4469,79 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $markerAttr = (isset($markerdef['attr']) && \is_array($markerdef['attr'])) ? $markerdef['attr'] : [];
-        $refX = isset($markerAttr['refX']) ? $this->svgUnitToUnit((string) $markerAttr['refX'], $soid) : 0.0;
-        $refY = isset($markerAttr['refY']) ? $this->svgUnitToUnit((string) $markerAttr['refY'], $soid) : 0.0;
+
+        $mkw = isset($markerAttr['markerWidth'])
+            ? $this->svgUnitToUnit((string) $markerAttr['markerWidth'], $soid)
+            : 3.0;
+        $mkh = isset($markerAttr['markerHeight'])
+            ? $this->svgUnitToUnit((string) $markerAttr['markerHeight'], $soid)
+            : 3.0;
+
+        $vbx = 0.0;
+        $vby = 0.0;
+        $vbw = $mkw;
+        $vbh = $mkh;
+        if (!empty($markerAttr['viewBox']) && \is_string($markerAttr['viewBox'])) {
+            $vals = \preg_split('/[\s,]+/', \trim($markerAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (\is_array($vals) && (\count($vals) >= 4)) {
+                $vbx = (float) $this->svgUnitToUnit((string) $vals[0], $soid);
+                $vby = (float) $this->svgUnitToUnit((string) $vals[1], $soid);
+                $vbw = \abs((float) $this->svgUnitToUnit((string) $vals[2], $soid));
+                $vbh = \abs((float) $this->svgUnitToUnit((string) $vals[3], $soid));
+            }
+        }
+
+        $refX = $this->resolveSVGMarkerRefCoordinate((string) ($markerAttr['refX'] ?? ''), $vbx, $vbw, $soid);
+        $refY = $this->resolveSVGMarkerRefCoordinate((string) ($markerAttr['refY'] ?? ''), $vby, $vbh, $soid);
         $markerUnits = (string) ($markerAttr['markerUnits'] ?? 'strokeWidth');
         $markerScale = (($markerUnits === 'userSpaceOnUse') ? 1.0 : $strokeWidth);
 
         $viewScaleX = 1.0;
         $viewScaleY = 1.0;
-        if (!empty($markerAttr['viewBox']) && \is_string($markerAttr['viewBox'])) {
-            $vals = \preg_split('/[\s,]+/', \trim($markerAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
-            if (\is_array($vals) && (\count($vals) >= 4)) {
-                $vbw = \abs($this->svgUnitToUnit((string) $vals[2], $soid));
-                $vbh = \abs($this->svgUnitToUnit((string) $vals[3], $soid));
-                $mkw = isset($markerAttr['markerWidth'])
-                    ? $this->svgUnitToUnit((string) $markerAttr['markerWidth'], $soid)
-                    : 3.0;
-                $mkh = isset($markerAttr['markerHeight'])
-                    ? $this->svgUnitToUnit((string) $markerAttr['markerHeight'], $soid)
-                    : 3.0;
-                if (($vbw > 0.0) && ($mkw > 0.0)) {
-                    $viewScaleX = ($mkw / $vbw);
+        $viewOffsetX = 0.0;
+        $viewOffsetY = 0.0;
+        $aspectRaw = (string) ($markerAttr['preserveAspectRatio'] ?? 'xMidYMid meet');
+        $aspectFit = 'meet';
+        $aspectX = 'xMid';
+        $aspectY = 'YMid';
+        if (\trim($aspectRaw) === 'none') {
+            $aspectFit = 'none';
+        } else {
+            $am = [];
+            \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $am);
+            $tokens = $am[0] ?? [];
+            if (\count($tokens) >= 1) {
+                $alignToken = (\strlen((string) $tokens[0]) === 8) ? $tokens[0] : 'xMidYMid';
+                $aspectX = \substr($alignToken, 0, 4);
+                $aspectY = \substr($alignToken, 4, 4);
+                if (\count($tokens) >= 2 && \in_array($tokens[1], ['meet', 'slice', 'none'], true)) {
+                    $aspectFit = $tokens[1];
                 }
-                if (($vbh > 0.0) && ($mkh > 0.0)) {
-                    $viewScaleY = ($mkh / $vbh);
-                }
+            }
+        }
+
+        if (($vbw > 0.0) && ($vbh > 0.0) && ($mkw > 0.0) && ($mkh > 0.0)) {
+            if ($aspectFit === 'none') {
+                $viewScaleX = ($mkw / $vbw);
+                $viewScaleY = ($mkh / $vbh);
+            } else {
+                $sx = ($mkw / $vbw);
+                $sy = ($mkh / $vbh);
+                $scale = ($aspectFit === 'slice') ? \max($sx, $sy) : \min($sx, $sy);
+                $viewScaleX = $scale;
+                $viewScaleY = $scale;
+                $scaledW = $vbw * $scale;
+                $scaledH = $vbh * $scale;
+                $viewOffsetX = match ($aspectX) {
+                    'xMax' => ($mkw - $scaledW),
+                    'xMid' => (($mkw - $scaledW) / 2.0),
+                    default => 0.0,
+                };
+                $viewOffsetY = match ($aspectY) {
+                    'YMax' => ($mkh - $scaledH),
+                    'YMid' => (($mkh - $scaledH) / 2.0),
+                    default => 0.0,
+                };
             }
         }
 
@@ -4520,7 +4569,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         );
         $tm = $this->graph->getCtmProduct(
             $tm,
+            [1.0, 0.0, 0.0, 1.0, $viewOffsetX, $viewOffsetY],
+        );
+        $tm = $this->graph->getCtmProduct(
+            $tm,
             [($markerScale * $viewScaleX), 0.0, 0.0, ($markerScale * $viewScaleY), 0.0, 0.0],
+        );
+        $tm = $this->graph->getCtmProduct(
+            $tm,
+            [1.0, 0.0, 0.0, 1.0, -$vbx, -$vby],
         );
         $tm = $this->graph->getCtmProduct(
             $tm,
@@ -4556,6 +4613,35 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $out .= $this->graph->getStopTransform();
         return $out;
+    }
+
+    /**
+     * Resolve marker refX/refY values, including percentage coordinates.
+     *
+     * @param string $raw Ref attribute value.
+     * @param float $viewBoxMin ViewBox minimum coordinate (x or y).
+     * @param float $viewBoxSize ViewBox size (width or height).
+     * @param int $soid SVG object ID.
+     *
+     * @return float
+     */
+    protected function resolveSVGMarkerRefCoordinate(
+        string $raw,
+        float $viewBoxMin,
+        float $viewBoxSize,
+        int $soid,
+    ): float {
+        $raw = \trim($raw);
+        if ($raw === '') {
+            return 0.0;
+        }
+
+        if (\str_ends_with($raw, '%')) {
+            $pct = (float) \substr($raw, 0, -1);
+            return $viewBoxMin + (($pct / 100.0) * $viewBoxSize);
+        }
+
+        return $this->svgUnitToUnit($raw, $soid);
     }
 
     /**

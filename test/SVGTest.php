@@ -1529,6 +1529,209 @@ class SVGTest extends TestUtil
         $this->assertGreaterThanOrEqual(3, \substr_count($out, "q\n"));
     }
 
+    public function testSvgMarkerPercentRefMatchesAbsoluteRefInViewBox(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(531);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkpct)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(531, [
+            'styles' => [$base],
+            'defs' => [
+                'mkpct' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkpct',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '50%',
+                        'refY' => '50%',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'mkabs' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkabs',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '5',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $outPct = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            531,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['marker-start'] = 'url(#mkabs)';
+        $outAbs = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            531,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outPct);
+        $this->assertSame($outAbs, $outPct);
+    }
+
+    public function testSvgMarkerPreserveAspectRatioChangesOutputTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(532);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mknone)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(532, [
+            'styles' => [$base],
+            'defs' => [
+                'mknone' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mknone',
+                        'viewBox' => '0 0 10 20',
+                        'refX' => '0',
+                        'refY' => '0',
+                        'markerWidth' => '6',
+                        'markerHeight' => '6',
+                        'preserveAspectRatio' => 'none',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'mkmeet' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkmeet',
+                        'viewBox' => '0 0 10 20',
+                        'refX' => '0',
+                        'refY' => '0',
+                        'markerWidth' => '6',
+                        'markerHeight' => '6',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $outNone = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            532,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['marker-start'] = 'url(#mkmeet)';
+        $outMeet = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            532,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outNone);
+        $this->assertNotSame('', $outMeet);
+        $this->assertNotSame($outNone, $outMeet);
+    }
+
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
     {
         $obj = $this->getInternalTestObject();
