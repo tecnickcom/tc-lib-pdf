@@ -4425,6 +4425,134 @@ class SVGTest extends TestUtil
     }
 
     /**
+     * E-1: symbol-level style is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesSymbolLevelStyleAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->initSvgObjForHandlers(927);
+        $obj->patchSvgObj(927, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle3' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            927,
+            ['href' => '#symstyle3', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(928);
+        $obj->patchSvgObj(928, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle3' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                        'style' => 'fill:#ff0000;stroke:none;',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outStyled = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            928,
+            ['href' => '#symstyle3', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outStyled);
+        $this->assertNotSame($outDefault, $outStyled);
+    }
+
+    /**
+     * E-1: symbol-level transform is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesSymbolLevelTransformAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->initSvgObjForHandlers(929);
+        $obj->patchSvgObj(929, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle4' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            929,
+            ['href' => '#symstyle4', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(930);
+        $obj->patchSvgObj(930, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle4' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                        'transform' => 'translate(3,4)',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outTransformed = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            930,
+            ['href' => '#symstyle4', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outTransformed);
+        $this->assertNotSame($outDefault, $outTransformed);
+    }
+
+    /**
      * E-7: <a> start stores link metadata and </a> emits an annotation ref.
      */
     public function testSvgATagCreatesAnnotationReference(): void

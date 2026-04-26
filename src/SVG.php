@@ -644,6 +644,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * List of possible SVG font attributes to parse.
      *
      * @var array<string>
+
      */
     protected const FONTATTRIBS = [
         'font-family',
@@ -7158,6 +7159,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $out = '';
             /** @var TSVGStyle $useStyle */
             $useStyle = $defStyle;
+
+            // Preserve symbol-level presentation/style attributes first so the
+            // symbol container behaves like an inner <svg> wrapper. Use-level
+            // presentation/style attrs are then applied on top as the final override.
+            $symbolStyleTag = '';
+            if (!empty($symAttr['style']) && \is_string($symAttr['style'])) {
+                $symbolStyleTag = ($symAttr['style'][0] === ';') ? $symAttr['style'] : (';' . $symAttr['style']);
+            }
+            foreach (self::SVGINHPROP as $styleKey) {
+                if (!empty($symAttr[$styleKey]) && \is_string($symAttr[$styleKey])) {
+                    $useStyle[$styleKey] = $symAttr[$styleKey];
+                } elseif ($symbolStyleTag !== '') {
+                    $useStyle[$styleKey] = $this->parseCSSAttrib($symbolStyleTag, $styleKey, (string) $useStyle[$styleKey]);
+                }
+            }
+
+            if (!empty($symAttr['transform']) && \is_string($symAttr['transform'])) {
+                $useStyle['transfmatrix'] = $this->graph->getCtmProduct(
+                    $useStyle['transfmatrix'],
+                    $this->getSVGTransformMatrix($symAttr['transform']),
+                );
+            }
 
             // Preserve use-level presentation/style attributes for symbol expansion.
             $styleTag = '';
