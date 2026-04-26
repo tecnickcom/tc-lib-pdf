@@ -126,6 +126,8 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @phpstan-import-type TOutline from Output
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TSignTimeStamp from Output
+ * @phpstan-import-type TPatternObject from Output
+ * @phpstan-import-type TSVGMaskObject from Output
  * @phpstan-import-type TGTransparency from Output
  * @phpstan-import-type TUserRights from Output
  * @phpstan-import-type TXOBject from Output
@@ -187,7 +189,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.8.2';
+    protected string $version = '8.8.3';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -655,6 +657,20 @@ abstract class Base
      * @var array<string, TXOBject>
      */
     protected array $xobjects = [];
+
+    /**
+     * Pattern objects data.
+     *
+     * @var array<string, TPatternObject>
+     */
+    protected array $patterns = [];
+
+    /**
+     * SVG mask objects data (Form XObject + SMask + ExtGState pipeline).
+     *
+     * @var array<string, TSVGMaskObject>
+     */
+    protected array $svgmasks = [];
 
     /**
      * Stack of bounding boxes [x, y, width, height] in user units.

@@ -358,6 +358,23 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'gheight': float,
  *     }
  *
+ * @phpstan-type TPatternObject array{
+ *         'id': string,
+ *         'n': int,
+ *         'outdata': string,
+ *         'bbox': array{float, float, float, float},
+ *         'xstep': float,
+ *         'ystep': float,
+ *         'matrix': array{float, float, float, float, float, float},
+ *     }
+ *
+ * @phpstan-type TSVGMaskObject array{
+ *         'id': string,
+ *         'stream': string,
+ *         'bbox': array{float, float, float, float},
+ *         'gs_n': int,
+ *     }
+ *
  * @phpstan-type TOutline array{
  *         't': string,
  *         'u': string,
@@ -607,6 +624,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->graph->getOutGradientShaders($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutXObjects();
+        $out .= $this->getOutPatterns();
+        $out .= $this->getOutSVGMasks();
         $out .= $this->getOutResourcesDict();
         $out .= $this->getOutDestinations();
         $out .= $this->getOutEmbeddedFiles();
@@ -1176,17 +1195,301 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutResourcesDict(): string
     {
         $this->objid['resdic'] = $this->page->getResourceDictObjID();
+        // Merge SVG mask ExtGState entries into the /ExtGState resource dict.
+        $gsResources    = $this->graph->getOutExtGStateResources();
+        $maskGsEntries  = $this->getSVGMaskExtGStateEntries();
+        if ($maskGsEntries !== '') {
+            if ($gsResources === '') {
+                $gsResources = ' /ExtGState <<' . $maskGsEntries . ' >>' . "\n";
+            } else {
+                // Strip closing ' >>\n' and re-append with mask entries.
+                $gsResources = \substr(\rtrim($gsResources), 0, -2) . $maskGsEntries . ' >>' . "\n";
+            }
+        }
+
         return $this->objid['resdic'] . ' 0 obj' . "\n"
             . '<<'
             . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
             . $this->outfont->getOutFontDict()
             . $this->getXObjectDict()
+            . $this->getPatternDict()
             . $this->getLayerDict()
-            . $this->graph->getOutExtGStateResources()
+            . $gsResources
             . $this->graph->getOutGradientResources()
             . $this->color->getPdfSpotResources()
             . ' >>' . "\n"
             . 'endobj' . "\n";
+    }
+
+    /**
+     * Returns the PDF Pattern objects entry.
+     */
+    protected function getOutPatterns(): string
+    {
+        $out = '';
+        foreach ($this->patterns as $pid => $data) {
+            if (empty($data['outdata'])) {
+                continue;
+            }
+
+            if (empty($this->patterns[$pid]['n'])) {
+                $this->patterns[$pid]['n'] = ++$this->pon;
+            }
+
+            $oid = $this->patterns[$pid]['n'];
+            $stream = \trim($data['outdata']);
+            $out .= $oid . ' 0 obj' . "\n"
+                . '<<'
+                . ' /Type /Pattern'
+                . ' /PatternType 1'
+                . ' /PaintType 1'
+                . ' /TilingType 1'
+                . \sprintf(
+                    ' /BBox [%F %F %F %F]',
+                    $data['bbox'][0],
+                    $data['bbox'][1],
+                    $data['bbox'][2],
+                    $data['bbox'][3],
+                )
+                . ' /XStep ' . \sprintf('%F', $data['xstep'])
+                . ' /YStep ' . \sprintf('%F', $data['ystep'])
+                . \sprintf(
+                    ' /Matrix [%F %F %F %F %F %F]',
+                    $data['matrix'][0],
+                    $data['matrix'][1],
+                    $data['matrix'][2],
+                    $data['matrix'][3],
+                    $data['matrix'][4],
+                    $data['matrix'][5],
+                );
+            $res = $this->getPatternStreamResourceDict($stream);
+            $out .= ' /Resources <<'
+                . ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]'
+                . $res
+                . ' >>';
+
+            if ($this->compress) {
+                $stream = \gzcompress($stream);
+                if ($stream === false) {
+                    throw new PdfException('Unable to compress stream');
+                }
+                $out .= ' /Filter /FlateDecode';
+            }
+
+            $stream = $this->encrypt->encryptString($stream, $oid);
+            $out .= ' /Length ' . \strlen($stream)
+                . ' >>'
+                . ' stream' . "\n"
+                . $stream . "\n"
+                . 'endstream' . "\n"
+                . 'endobj' . "\n";
+        }
+
+        return $out;
+    }
+
+    /**
+     * Returns the PDF Form XObject + SMask + ExtGState objects for SVG masks.
+     *
+     * Each registered SVG mask produces three chained PDF objects:
+     *  1. A Form XObject with a DeviceGray transparency group containing the
+     *     mask shape stream.
+     *  2. A Mask dict pointing at that Form XObject (Luminosity mode).
+     *  3. An ExtGState with /SMask referencing the Mask dict.
+     *
+     * After emission the gs_n for each mask is set so that
+     * getSVGMaskExtGStateEntries() can include them in the resources dict.
+     *
+     * @return string Raw PDF objects.
+     */
+    protected function getOutSVGMasks(): string
+    {
+        $out = '';
+        foreach ($this->svgmasks as $key => $data) {
+            if (empty($data['stream'])) {
+                continue;
+            }
+
+            $stream  = $data['stream'];
+            $bbox    = $data['bbox'];
+            $bboxStr = \sprintf('%F %F %F %F', $bbox[0], $bbox[1], $bbox[2], $bbox[3]);
+
+            // Form XObject (DeviceGray transparency group for luminosity mask).
+            $formOid    = ++$this->pon;
+            $formStream = $stream;
+            $formHead   = $formOid . ' 0 obj' . "\n"
+                . '<<'
+                . ' /Type /XObject'
+                . ' /Subtype /Form'
+                . ' /FormType 1'
+                . ' /BBox [' . $bboxStr . ']'
+                . ' /Group << /Type /Group /S /Transparency /CS /DeviceGray /I true >>';
+            if ($this->compress) {
+                $comp = \gzcompress($formStream);
+                if ($comp !== false) {
+                    $formStream = $comp;
+                    $formHead  .= ' /Filter /FlateDecode';
+                }
+            }
+
+            $formStream = $this->encrypt->encryptString($formStream, $formOid);
+            $out .= $formHead
+                . ' /Length ' . \strlen($formStream)
+                . ' >>' . "\n"
+                . 'stream' . "\n"
+                . $formStream . "\n"
+                . 'endstream' . "\n"
+                . 'endobj' . "\n";
+
+            // SMask dictionary.
+            $smaskOid = ++$this->pon;
+            $out .= $smaskOid . ' 0 obj' . "\n"
+                . '<< /Type /Mask /S /Luminosity /G ' . $formOid . ' 0 R >>' . "\n"
+                . 'endobj' . "\n";
+
+            // ExtGState with SMask reference.
+            $gsOid = ++$this->pon;
+            $out .= $gsOid . ' 0 obj' . "\n"
+                . '<< /Type /ExtGState /SMask ' . $smaskOid . ' 0 R /AIS false >>' . "\n"
+                . 'endobj' . "\n";
+
+            $this->svgmasks[$key]['gs_n'] = $gsOid;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Returns ExtGState resource-dict entries for SVG masks.
+     *
+     * Returns a string like " /MSK_xxx N 0 R /MSK_yyy M 0 R" for inclusion
+     * inside the page /ExtGState resource dictionary.
+     *
+     * @return string
+     */
+    protected function getSVGMaskExtGStateEntries(): string
+    {
+        $out = '';
+        foreach ($this->svgmasks as $key => $mask) {
+            if ($mask['gs_n'] > 0) {
+                $out .= ' /' . $key . ' ' . $mask['gs_n'] . ' 0 R';
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Build a minimized resources dictionary fragment for a pattern stream.
+     */
+    protected function getPatternStreamResourceDict(string $stream): string
+    {
+        $fontNames = [];
+        if (\preg_match_all('/\/(F[0-9]+)\s+[0-9\.\-]+\s+Tf\b/', $stream, $matchFont) > 0) {
+            foreach ($matchFont[1] as $name) {
+                $fontNames[$name] = true;
+            }
+        }
+
+        $extgstate = [];
+        if (\preg_match_all('/\/GS([0-9]+)\s+gs\b/', $stream, $matchGs) > 0) {
+            foreach ($matchGs[1] as $idx) {
+                $extgstate[(int) $idx] = true;
+            }
+        }
+
+        $gradient = [];
+        if (\preg_match_all('/\/Sh([0-9]+)\s+sh\b/', $stream, $matchSh) > 0) {
+            foreach ($matchSh[1] as $idx) {
+                $gradient[(int) $idx] = true;
+            }
+        }
+
+        $spotNames = [];
+        if (\preg_match_all('/\/(CS[0-9]+)\s+[cC]s\b/', $stream, $matchCs) > 0) {
+            foreach ($matchCs[1] as $name) {
+                $spotNames[$name] = true;
+            }
+        }
+
+        $imageKeys = [];
+        $xobjectKeys = [];
+        if (\preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $matchDo) > 0) {
+            foreach ($matchDo[1] as $key) {
+                if (\preg_match('/^I([0-9]+)$/', $key, $imgm) === 1) {
+                    $imageKeys[(int) $imgm[1]] = true;
+                    continue;
+                }
+                if (isset($this->xobjects[$key])) {
+                    $xobjectKeys[$key] = true;
+                }
+            }
+        }
+
+        $out = '';
+        if (!empty($fontNames)) {
+            $fontEntries = $this->extractNamedResourceRefs($this->outfont->getOutFontDict(), \array_keys($fontNames));
+            if ($fontEntries !== '') {
+                $out .= ' /Font <<' . $fontEntries . ' >>';
+            }
+        }
+        if (!empty($extgstate)) {
+            $out .= $this->graph->getOutExtGStateResourcesByKeys(\array_map('intval', \array_keys($extgstate)));
+        }
+        if (!empty($gradient)) {
+            $out .= $this->graph->getOutGradientResourcesByKeys(\array_map('intval', \array_keys($gradient)));
+        }
+        if (!empty($spotNames)) {
+            $spotEntries = $this->extractNamedResourceRefs(
+                $this->color->getPdfSpotResources(),
+                \array_keys($spotNames),
+            );
+            if ($spotEntries !== '') {
+                $out .= ' /ColorSpace <<' . $spotEntries . ' >>';
+            }
+        }
+        if (!empty($imageKeys) || !empty($xobjectKeys)) {
+            $out .= ' /XObject <<';
+            if (!empty($imageKeys)) {
+                $out .= $this->image->getXobjectDictByKeys(\array_map('intval', \array_keys($imageKeys)));
+            }
+            if (!empty($xobjectKeys)) {
+                foreach (\array_keys($xobjectKeys) as $xid) {
+                    $out .= ' /' . $xid . ' ' . $this->xobjects[$xid]['n'] . ' 0 R';
+                }
+            }
+            $out .= ' >>';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Extract named object references from a resource dictionary fragment.
+     *
+     * @param string $dict Full dictionary fragment (e.g. '/Font << /F1 1 0 R >>').
+     * @param array<string> $names Resource names to retain.
+     */
+    protected function extractNamedResourceRefs(string $dict, array $names): string
+    {
+        if (($dict === '') || empty($names)) {
+            return '';
+        }
+
+        $out = '';
+        foreach ($names as $name) {
+            if (!\is_string($name) || ($name === '')) {
+                continue;
+            }
+
+            $match = [];
+            $ok = \preg_match('/\/' . \preg_quote($name, '/') . '\s+([0-9]+)\s+0\s+R\b/', $dict, $match);
+            if (($ok === 1) && isset($match[1])) {
+                $out .= ' /' . $name . ' ' . (int) $match[1] . ' 0 R';
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -4264,6 +4567,26 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $out .= $this->image->getXobjectDict();
+
+        return $out . ' >>';
+    }
+
+    /**
+     * Get the PDF output string for Pattern resources dictionary.
+     */
+    protected function getPatternDict(): string
+    {
+        if (empty($this->patterns)) {
+            return '';
+        }
+
+        $out = ' /Pattern <<';
+        foreach ($this->patterns as $pid => $pattern) {
+            if (empty($pattern['n'])) {
+                continue;
+            }
+            $out .= ' /' . $pid . ' ' . $pattern['n'] . ' 0 R';
+        }
 
         return $out . ' >>';
     }

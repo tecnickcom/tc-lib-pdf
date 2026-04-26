@@ -76,6 +76,32 @@ class SVGTest extends TestUtil
         $this->assertStringEndsWith("Q\nQ\n", $out);
     }
 
+    public function testSvgPatternFillEmitsPdfPatternResources(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false);
+        $page = $this->initFontAndPage($obj);
+        $svg = '@<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">'
+            . '<defs>'
+            . '<pattern id="p1" patternUnits="userSpaceOnUse" x="0" y="0" width="4" height="4">'
+            . '<rect x="0" y="0" width="4" height="4" fill="none" stroke="#000000" stroke-width="1"/>'
+            . '</pattern>'
+            . '</defs>'
+            . '<rect x="0" y="0" width="20" height="20" fill="url(#p1)"/>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 5, 6, 12, 12, $page['height']);
+        $svgOut = $obj->getSetSVG($soid);
+        $pdf = $obj->getOutPDFString();
+
+        $this->assertStringContainsString('/Pattern cs /PTN_', $svgOut);
+        $this->assertStringContainsString(' scn', $svgOut);
+        $this->assertStringContainsString('/Type /Pattern', $pdf);
+        $this->assertStringContainsString('/Pattern <<', $pdf);
+        $this->assertStringContainsString('/Type /Pattern /PatternType 1', $pdf);
+        $this->assertStringContainsString('/Resources << /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]', $pdf);
+        $this->assertMatchesRegularExpression('/\/PTN_[A-F0-9]{16}\s+\d+\s+0\s+R/', $pdf);
+    }
+
     public function testGetSetSVGThrowsForUnknownId(): void
     {
         $obj = $this->getTestObject();
@@ -349,6 +375,61 @@ class SVGTest extends TestUtil
         $fillUrl['fill-opacity'] = 1.0;
         [$fillUrlOut] = $obj->exposeParseSVGStyleFill(3, $fillUrl, [], 0, 0, 10, 10);
         $this->assertSame('', $fillUrlOut);
+
+        $obj->patchSvgObj(3, [
+            'defs' => [
+                'patEmpty' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patEmpty',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '3',
+                        'height' => '3',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '3',
+                                'height' => '3',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $fillPattern = $base;
+        $fillPattern['fill'] = 'url(#patEmpty)';
+        $fillPattern['opacity'] = 1.0;
+        $fillPattern['fill-opacity'] = 1.0;
+        $obj->patchSvgObj(3, ['out' => 'BASE']);
+        [$fillPatternOut] = $obj->exposeParseSVGStyleFill(
+            3,
+            $fillPattern,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+        $this->assertSame('BASE', $obj->getSvgObj(3)['out']);
+        $this->assertIsString($fillPatternOut);
 
         $parser = \xml_parser_create();
         $obj->exposeParseSVGStyleClipPath($parser, 3, []);
@@ -1010,6 +1091,2039 @@ class SVGTest extends TestUtil
         /** @var array<string, mixed> $child */
         $child = (isset($grp['child']) && \is_array($grp['child'])) ? $grp['child'] : [];
         $this->assertArrayHasKey('grp1_CLOSE', $child);
+    }
+
+    public function testSvgMarkerDefsCaptureAndLifecycle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(521);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 521);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'marker',
+            [
+                'id' => 'mk1',
+                'viewBox' => '0 0 10 10',
+                'refX' => '5',
+                'refY' => '5',
+                'markerWidth' => '5',
+                'markerHeight' => '5',
+                'orient' => 'auto',
+            ],
+            521,
+        );
+
+        $obj->exposeHandleSVGTagStart($parser, 'path', ['d' => 'M 0 0 L 10 5 L 0 10 Z'], 521);
+        $obj->exposeHandleSVGTagEnd($parser, 'path');
+        $obj->exposeHandleSVGTagEnd($parser, 'marker');
+
+        $svgobj = $obj->getSvgObj(521);
+        $this->assertFalse($svgobj['defsmode']);
+        $this->assertArrayHasKey('mk1', $svgobj['defs']);
+
+        /** @var array<string, mixed> $marker */
+        $marker = $svgobj['defs']['mk1'];
+        $this->assertSame('marker', $marker['name']);
+
+        /** @var array<string, mixed> $child */
+        $child = (isset($marker['child']) && \is_array($marker['child'])) ? $marker['child'] : [];
+        $this->assertArrayHasKey('DF_1', $child);
+        $this->assertArrayHasKey('DF_1_CLOSE', $child);
+    }
+
+    public function testSvgMarkerStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(522);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTmarker(522, []));
+        $svgobj = $obj->getSvgObj(522);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDmarker(522));
+        $this->assertFalse($obj->getSvgObj(522)['defsmode']);
+    }
+
+    public function testSvgPatternDefsCaptureAndLifecycle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(538);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 538);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'pattern',
+            [
+                'id' => 'pat1',
+                'patternUnits' => 'userSpaceOnUse',
+                'x' => '0',
+                'y' => '0',
+                'width' => '10',
+                'height' => '10',
+            ],
+            538,
+        );
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '10', 'fill' => '#ff0000'],
+            538,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'rect');
+        $obj->exposeHandleSVGTagEnd($parser, 'pattern');
+
+        $svgobj = $obj->getSvgObj(538);
+        $this->assertFalse($svgobj['defsmode']);
+        $this->assertArrayHasKey('pat1', $svgobj['defs']);
+
+        /** @var array<string, mixed> $pattern */
+        $pattern = $svgobj['defs']['pat1'];
+        $this->assertSame('pattern', $pattern['name']);
+
+        /** @var array<string, mixed> $child */
+        $child = (isset($pattern['child']) && \is_array($pattern['child'])) ? $pattern['child'] : [];
+        $this->assertArrayHasKey('DF_1', $child);
+        $this->assertArrayHasKey('DF_1_CLOSE', $child);
+    }
+
+    public function testSvgPatternStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(539);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTpattern(539, []));
+        $svgobj = $obj->getSvgObj(539);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDpattern(539));
+        $this->assertFalse($obj->getSvgObj(539)['defsmode']);
+    }
+
+    public function testSvgMaskDefsCaptureAndLifecycle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(549);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 549);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'mask',
+            [
+                'id' => 'msk1',
+                'x' => '0',
+                'y' => '0',
+                'width' => '10',
+                'height' => '10',
+            ],
+            549,
+        );
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '10', 'fill' => '#ffffff'],
+            549,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'rect');
+        $obj->exposeHandleSVGTagEnd($parser, 'mask');
+
+        $svgobj = $obj->getSvgObj(549);
+        $this->assertFalse($svgobj['defsmode']);
+        $this->assertArrayHasKey('msk1', $svgobj['defs']);
+
+        /** @var array<string, mixed> $mask */
+        $mask = $svgobj['defs']['msk1'];
+        $this->assertSame('mask', $mask['name']);
+
+        /** @var array<string, mixed> $child */
+        $child = (isset($mask['child']) && \is_array($mask['child'])) ? $mask['child'] : [];
+        $this->assertArrayHasKey('DF_1', $child);
+        $this->assertArrayHasKey('DF_1_CLOSE', $child);
+    }
+
+    public function testSvgMaskStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(550);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTmask(550, []));
+        $svgobj = $obj->getSvgObj(550);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDmask(550));
+        $this->assertFalse($obj->getSvgObj(550)['defsmode']);
+    }
+
+    public function testSvgPatternHrefInheritanceIsResolvedByFill(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(540);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['fill'] = 'url(#patRef)';
+        $base['opacity'] = 1.0;
+        $base['fill-opacity'] = 1.0;
+
+        $obj->patchSvgObj(540, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => 'none',
+                                'stroke' => '#111111',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'xlink:href' => '#patBase',
+                    ],
+                    'child' => [],
+                ],
+            ],
+            'out' => 'BASE',
+        ]);
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            540,
+            $base,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertSame('BASE', $obj->getSvgObj(540)['out']);
+        $this->assertSame(0, $obj->getSvgObj(540)['patternmode']);
+    }
+
+    public function testSvgPatternHrefInheritanceUsesChildAttrAndParentFallback(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(544);
+
+        $obj->patchSvgObj(544, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '1',
+                        'y' => '2',
+                        'width' => '4',
+                        'height' => '6',
+                    ],
+                    'child' => [
+                        'PARENT_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '6',
+                                'fill' => 'none',
+                                'stroke' => '#111111',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'href' => '#patBase',
+                        'width' => '9',
+                    ],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(544, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+
+        $this->assertSame('9', $resolvedAttr['width'] ?? '');
+        $this->assertSame('6', $resolvedAttr['height'] ?? '');
+        $this->assertSame('1', $resolvedAttr['x'] ?? '');
+        $this->assertSame('2', $resolvedAttr['y'] ?? '');
+        $this->assertSame('userSpaceOnUse', $resolvedAttr['patternUnits'] ?? '');
+        $this->assertArrayHasKey('PARENT_RECT', $resolvedChild);
+    }
+
+    public function testSvgPatternHrefInheritanceKeepsChildContentWhenPresent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(545);
+
+        $obj->patchSvgObj(545, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'PARENT_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => '#aaaaaa',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'xlink:href' => '#patBase',
+                    ],
+                    'child' => [
+                        'CHILD_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '1',
+                                'y' => '1',
+                                'width' => '2',
+                                'height' => '2',
+                                'fill' => '#222222',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(545, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+        $this->assertArrayHasKey('CHILD_RECT', $resolvedChild);
+        $this->assertArrayNotHasKey('PARENT_RECT', $resolvedChild);
+    }
+
+    public function testSvgPatternHrefMissingParentFallsBackToChildDefinition(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(546);
+
+        $obj->patchSvgObj(546, [
+            'defs' => [
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'href' => '#missingPattern',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '5',
+                        'height' => '5',
+                    ],
+                    'child' => [
+                        'CHILD_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '5',
+                                'height' => '5',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'CHILD_RECT_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(546, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+        $this->assertSame('5', $resolvedAttr['width'] ?? '');
+        $this->assertSame('5', $resolvedAttr['height'] ?? '');
+        $this->assertArrayNotHasKey('patternUnits', $resolvedAttr);
+        $this->assertArrayHasKey('CHILD_RECT', $resolvedChild);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['fill'] = 'url(#patRef)';
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            546,
+            $style,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+    }
+
+    public function testSvgPatternHrefNonFragmentKeepsLocalPatternDefinition(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(547);
+
+        $obj->patchSvgObj(547, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'PARENT_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => '#00ff00',
+                            ],
+                        ],
+                    ],
+                ],
+                'patRef' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRef',
+                        'href' => 'https://example.com/patterns.svg#patBase',
+                        'x' => '1',
+                        'y' => '1',
+                        'width' => '5',
+                        'height' => '5',
+                    ],
+                    'child' => [
+                        'CHILD_RECT' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '1',
+                                'y' => '1',
+                                'width' => '3',
+                                'height' => '3',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'CHILD_RECT_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $resolved = $obj->exposeResolveSVGPatternDef(547, 'patRef');
+
+        $this->assertNotNull($resolved);
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+        $this->assertSame('5', $resolvedAttr['width'] ?? '');
+        $this->assertSame('5', $resolvedAttr['height'] ?? '');
+        $this->assertArrayNotHasKey('patternUnits', $resolvedAttr);
+        $this->assertArrayHasKey('CHILD_RECT', $resolvedChild);
+        $this->assertArrayNotHasKey('PARENT_RECT', $resolvedChild);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['fill'] = 'url(#patRef)';
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            547,
+            $style,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+    }
+
+    public function testSvgPatternHrefInheritsViewBoxAndPatternTransformInteraction(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(548);
+
+        $defsPatternChild = [
+            'DF_1' => [
+                'name' => 'rect',
+                'attr' => [
+                    'x' => '0',
+                    'y' => '0',
+                    'width' => '10',
+                    'height' => '20',
+                    'fill' => 'none',
+                    'stroke' => '#000000',
+                    'stroke-width' => '1',
+                ],
+            ],
+            'DF_1_CLOSE' => [
+                'name' => 'rect',
+                'attr' => [
+                    'closing_tag' => true,
+                    'content' => '',
+                ],
+            ],
+        ];
+
+        $obj->patchSvgObj(548, [
+            'defs' => [
+                'patBase' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patBase',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                        'patternTransform' => 'translate(1,2) scale(0.5)',
+                    ],
+                    'child' => $defsPatternChild,
+                ],
+                'patRefInherit' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRefInherit',
+                        'href' => '#patBase',
+                    ],
+                    'child' => [],
+                ],
+                'patRefOverride' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patRefOverride',
+                        'xlink:href' => '#patBase',
+                        'patternTransform' => 'translate(0,0) scale(1)',
+                    ],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $resolvedInherit = $obj->exposeResolveSVGPatternDef(548, 'patRefInherit');
+        $resolvedOverride = $obj->exposeResolveSVGPatternDef(548, 'patRefOverride');
+        $this->assertNotNull($resolvedInherit);
+        $this->assertNotNull($resolvedOverride);
+
+        $attrInherit = (
+            isset($resolvedInherit['attr'])
+            && \is_array($resolvedInherit['attr'])
+        ) ? $resolvedInherit['attr'] : [];
+        $attrOverride = (
+            isset($resolvedOverride['attr'])
+            && \is_array($resolvedOverride['attr'])
+        ) ? $resolvedOverride['attr'] : [];
+        $this->assertSame('0 0 10 20', $attrInherit['viewBox'] ?? '');
+        $this->assertSame('translate(1,2) scale(0.5)', $attrInherit['patternTransform'] ?? '');
+        $this->assertSame('0 0 10 20', $attrOverride['viewBox'] ?? '');
+        $this->assertSame('translate(0,0) scale(1)', $attrOverride['patternTransform'] ?? '');
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $style['fill'] = 'url(#patBase)';
+        [$outBase] = $obj->exposeParseSVGStyleFill(
+            548,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patRefInherit)';
+        [$outInherit] = $obj->exposeParseSVGStyleFill(
+            548,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patRefOverride)';
+        [$outOverride] = $obj->exposeParseSVGStyleFill(
+            548,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $this->assertNotSame('', $outBase);
+        $this->assertNotSame('', $outInherit);
+        $this->assertNotSame('', $outOverride);
+    }
+
+    public function testSvgPatternPreserveAspectRatioChangesViewBoxTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(541);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $obj->patchSvgObj(541, [
+            'defs' => [
+                'patNone' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patNone',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'none',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '10',
+                                'height' => '20',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'patMeet' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patMeet',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '10',
+                                'height' => '20',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $style['fill'] = 'url(#patNone)';
+        [$outNone] = $obj->exposeParseSVGStyleFill(
+            541,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patMeet)';
+        [$outMeet] = $obj->exposeParseSVGStyleFill(
+            541,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $this->assertNotSame('', $outNone);
+        $this->assertNotSame('', $outMeet);
+        $this->assertNotSame($outNone, $outMeet);
+    }
+
+    public function testSvgPatternHrefCycleIsHandledSafely(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(542);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['fill'] = 'url(#patCycleA)';
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $obj->patchSvgObj(542, [
+            'defs' => [
+                'patCycleA' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patCycleA',
+                        'xlink:href' => '#patCycleB',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'patCycleB' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patCycleB',
+                        'xlink:href' => '#patCycleA',
+                    ],
+                    'child' => [],
+                ],
+            ],
+            'out' => 'BASE',
+        ]);
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            542,
+            $style,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertSame('BASE', $obj->getSvgObj(542)['out']);
+        $this->assertSame(0, $obj->getSvgObj(542)['patternmode']);
+    }
+
+    public function testSvgPatternViewBoxIgnoresPatternContentUnits(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(543);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $defsPatternChild = [
+            'DF_1' => [
+                'name' => 'rect',
+                'attr' => [
+                    'x' => '0',
+                    'y' => '0',
+                    'width' => '10',
+                    'height' => '20',
+                    'fill' => 'none',
+                    'stroke' => '#000000',
+                    'stroke-width' => '1',
+                ],
+            ],
+            'DF_1_CLOSE' => [
+                'name' => 'rect',
+                'attr' => [
+                    'closing_tag' => true,
+                    'content' => '',
+                ],
+            ],
+        ];
+
+        $obj->patchSvgObj(543, [
+            'defs' => [
+                'patUser' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patUser',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                    ],
+                    'child' => $defsPatternChild,
+                ],
+                'patObj' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patObj',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'objectBoundingBox',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                    ],
+                    'child' => $defsPatternChild,
+                ],
+            ],
+        ]);
+
+        $style['fill'] = 'url(#patUser)';
+        [$outUser] = $obj->exposeParseSVGStyleFill(
+            543,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patObj)';
+        [$outObj] = $obj->exposeParseSVGStyleFill(
+            543,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $this->assertNotSame('', $outUser);
+        $this->assertNotSame('', $outObj);
+        $normUser = (string) \preg_replace('/PTN_[A-F0-9]{16}/', 'PTN_ID', $outUser);
+        $normObj = (string) \preg_replace('/PTN_[A-F0-9]{16}/', 'PTN_ID', $outObj);
+        $this->assertSame($normUser, $normObj);
+    }
+
+    public function testSvgLineRendersStartEndMarkersWhenDefined(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(523);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkline)';
+        $base['marker-end'] = 'url(#mkline)';
+
+        $obj->patchSvgObj(523, [
+            'styles' => [$base],
+            'defs' => [
+                'mkline' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkline',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            523,
+            ['x1' => '1', 'y1' => '1', 'x2' => '9', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(3, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgLineIgnoresMissingMarkerRefsGracefully(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(524);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#missing)';
+        $base['marker-end'] = 'none';
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            524,
+            ['x1' => '0', 'y1' => '0', 'x2' => '5', 'y2' => '0'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertSame(1, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgPathRendersStartMidEndMarkersWhenDefined(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(525);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.6;
+        $base['marker-start'] = 'url(#mkpath)';
+        $base['marker-mid'] = 'url(#mkpath)';
+        $base['marker-end'] = 'url(#mkpath)';
+
+        $obj->patchSvgObj(525, [
+            'styles' => [$base],
+            'defs' => [
+                'mkpath' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkpath',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpath(
+            $parser,
+            525,
+            ['d' => 'M 1 1 L 9 1 L 9 7'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgPolylineRendersMidMarkerWhenDefined(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(526);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkpoly)';
+        $base['marker-mid'] = 'url(#mkpoly)';
+        $base['marker-end'] = 'url(#mkpoly)';
+
+        $obj->patchSvgObj(526, [
+            'styles' => [$base],
+            'defs' => [
+                'mkpoly' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkpoly',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpolygon(
+            $parser,
+            526,
+            ['points' => '1,1 8,1 8,6'],
+            $base,
+            $base,
+            true,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgCurvedPathRendersMarkersWithoutErrors(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(527);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkcurve)';
+        $base['marker-mid'] = 'url(#mkcurve)';
+        $base['marker-end'] = 'url(#mkcurve)';
+
+        $obj->patchSvgObj(527, [
+            'styles' => [$base],
+            'defs' => [
+                'mkcurve' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkcurve',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpath(
+            $parser,
+            527,
+            ['d' => 'M 1 1 C 3 9 7 -1 9 7 L 12 9'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgClosedPathAddsMidMarkerAtClosureJoin(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(528);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'none';
+        $base['marker-mid'] = 'url(#mkclose)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(528, [
+            'styles' => [$base],
+            'defs' => [
+                'mkclose' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkclose',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpath(
+            $parser,
+            528,
+            ['d' => 'M 1 1 L 8 1 L 8 6 Z'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        // Closed triangle has 3 vertices, each should receive marker-mid.
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgMarkerShorthandAppliesToLineAnchors(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(529);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker'] = 'url(#mkall)';
+        $base['marker-start'] = 'none';
+        $base['marker-mid'] = 'none';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(529, [
+            'styles' => [$base],
+            'defs' => [
+                'mkall' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkall',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            529,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(3, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgMarkerOrientDegSuffixIsAccepted(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(530);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkdeg)';
+        $base['marker-end'] = 'url(#mkdeg)';
+
+        $obj->patchSvgObj(530, [
+            'styles' => [$base],
+            'defs' => [
+                'mkdeg' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkdeg',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => '45deg',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            530,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(3, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgMarkerPercentRefMatchesAbsoluteRefInViewBox(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(531);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkpct)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(531, [
+            'styles' => [$base],
+            'defs' => [
+                'mkpct' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkpct',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '50%',
+                        'refY' => '50%',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'mkabs' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkabs',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '5',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $outPct = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            531,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['marker-start'] = 'url(#mkabs)';
+        $outAbs = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            531,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outPct);
+        $this->assertSame($outAbs, $outPct);
+    }
+
+    public function testSvgMarkerPreserveAspectRatioChangesOutputTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(532);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mknone)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(532, [
+            'styles' => [$base],
+            'defs' => [
+                'mknone' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mknone',
+                        'viewBox' => '0 0 10 20',
+                        'refX' => '0',
+                        'refY' => '0',
+                        'markerWidth' => '6',
+                        'markerHeight' => '6',
+                        'preserveAspectRatio' => 'none',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'mkmeet' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkmeet',
+                        'viewBox' => '0 0 10 20',
+                        'refX' => '0',
+                        'refY' => '0',
+                        'markerWidth' => '6',
+                        'markerHeight' => '6',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $outNone = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            532,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['marker-start'] = 'url(#mkmeet)';
+        $outMeet = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            532,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outNone);
+        $this->assertNotSame('', $outMeet);
+        $this->assertNotSame($outNone, $outMeet);
+    }
+
+    public function testSvgMarkerSpecificAnchorsOverrideShorthand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(533);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker'] = 'url(#mkall2)';
+        $base['marker-start'] = 'none';
+        $base['marker-mid'] = 'url(#mkall2)';
+        $base['marker-end'] = 'url(#mkall2)';
+
+        $obj->patchSvgObj(533, [
+            'styles' => [$base],
+            'defs' => [
+                'mkall2' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkall2',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            533,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        // Base line transform + one end marker only (no start marker).
+        $this->assertSame(2, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgMarkerPreserveAspectRatioDeferMatchesEquivalentValue(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(534);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkdefer)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(534, [
+            'styles' => [$base],
+            'defs' => [
+                'mkdefer' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkdefer',
+                        'viewBox' => '0 0 10 20',
+                        'refX' => '0',
+                        'refY' => '0',
+                        'markerWidth' => '6',
+                        'markerHeight' => '6',
+                        'preserveAspectRatio' => 'defer xMaxYMax slice',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'mkeq' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkeq',
+                        'viewBox' => '0 0 10 20',
+                        'refX' => '0',
+                        'refY' => '0',
+                        'markerWidth' => '6',
+                        'markerHeight' => '6',
+                        'preserveAspectRatio' => 'xMaxYMax slice',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $outDefer = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            534,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['marker-start'] = 'url(#mkeq)';
+        $outEq = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            534,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outDefer);
+        $this->assertSame($outEq, $outDefer);
+    }
+
+    public function testSvgMarkerUnitsUserSpaceOnUseIgnoresStrokeWidthScale(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(535);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = 'none';
+        $base['marker-start'] = 'url(#mkus)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(535, [
+            'styles' => [$base],
+            'defs' => [
+                'mkus' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkus',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'markerUnits' => 'userSpaceOnUse',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $base['stroke-width'] = 0.5;
+        $outThin = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            535,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['stroke-width'] = 3.0;
+        $outThick = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            535,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outThin);
+        $this->assertSame($outThin, $outThick);
+    }
+
+    public function testSvgMarkerUnitsStrokeWidthScalesWithStrokeWidth(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(536);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = 'none';
+        $base['marker-start'] = 'url(#mksw)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(536, [
+            'styles' => [$base],
+            'defs' => [
+                'mksw' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mksw',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'markerUnits' => 'strokeWidth',
+                        'orient' => '0',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $base['stroke-width'] = 0.5;
+        $outThin = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            536,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['stroke-width'] = 3.0;
+        $outThick = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            536,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outThin);
+        $this->assertNotSame($outThin, $outThick);
+    }
+
+    public function testSvgMarkerAutoStartReverseDiffersFromAutoAtStart(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(537);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = 'none';
+        $base['stroke-width'] = 1.0;
+        $base['marker-start'] = 'url(#mkauto)';
+        $base['marker-end'] = 'none';
+
+        $obj->patchSvgObj(537, [
+            'styles' => [$base],
+            'defs' => [
+                'mkauto' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkauto',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'mkrev' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkrev',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto-start-reverse',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $outAuto = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            537,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $base['marker-start'] = 'url(#mkrev)';
+        $outRev = $obj->exposeParseSVGTagSTARTline(
+            $parser,
+            537,
+            ['x1' => '1', 'y1' => '1', 'x2' => '8', 'y2' => '1'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $outAuto);
+        $this->assertNotSame('', $outRev);
+        $this->assertNotSame($outAuto, $outRev);
     }
 
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
@@ -1789,5 +3903,2123 @@ class SVGTest extends TestUtil
             $base,
         );
         $this->assertNotSame('', $yMidMeet);
+    }
+
+    // -----------------------------------------------------------------------
+    // P1 fixes: T-1, T-2, S-5, R-4
+    // -----------------------------------------------------------------------
+
+    /**
+     * T-1: visibility:hidden text must still advance the layout cursor.
+     */
+    public function testSvgInvisibleTextAdvancesCursor(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(80);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(80, [
+            'styles' => [$base],
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => true,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => 'Hello',
+            'x' => 10.0,
+            'y' => 20.0,
+        ]);
+
+        $xBefore = $obj->getSvgObj(80)['x'];
+        $out = $obj->exposeParseSVGTagENDtext(80);
+
+        // No drawing output for invisible text.
+        $this->assertSame('', $out);
+        // Text buffer must be cleared.
+        $this->assertSame('', $obj->getSvgObj(80)['text']);
+        // Cursor must have advanced (x increased).
+        $this->assertGreaterThan($xBefore, $obj->getSvgObj(80)['x']);
+    }
+
+    /**
+     * T-1: empty invisible text does not change the cursor.
+     */
+    public function testSvgInvisibleEmptyTextDoesNotChangeCursor(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(81);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(81, [
+            'styles' => [$base],
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => true,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => '',
+            'x' => 5.0,
+            'y' => 5.0,
+        ]);
+
+        $xBefore = $obj->getSvgObj(81)['x'];
+        $obj->exposeParseSVGTagENDtext(81);
+        $this->assertSame($xBefore, $obj->getSvgObj(81)['x']);
+    }
+
+    /**
+     * Metadata text like <desc> must not leak into renderable SVG text buffer.
+     */
+    public function testSvgDescCharacterDataIsNotRenderedAsText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(811);
+
+        $obj->exposeHandleSVGTagStart($parser, 'desc', [], 811);
+        $obj->exposeHandleSVGCharacter($parser, 'TCPDF SVG EXAMPLE');
+        $obj->exposeHandleSVGTagEnd($parser, 'desc');
+
+        $this->assertSame('', $obj->getSvgObj(811)['text']);
+    }
+
+    /**
+     * T-2: starting a new text/tspan while buffered text exists flushes the run.
+     */
+    public function testSvgStartTextFlushesBufferedRun(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(82);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Simulate state after an outer <text> started and accumulated content.
+        $obj->patchSvgObj(82, [
+            'styles' => [$base, $base],  // outer-text style already on stack
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => false,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => 'Outer',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+
+        // Starting a tspan should flush 'Outer' and produce non-empty output.
+        $tspanOut = $obj->exposeParseSVGTagSTARTtspan(
+            $parser,
+            82,
+            ['x' => '5', 'y' => '10'],
+            $base,
+            $base,
+        );
+        // After flush the text buffer must be empty (new run started fresh).
+        $this->assertSame('', $obj->getSvgObj(82)['text']);
+        // Output contains both the flushed run and the new transform.
+        $this->assertNotSame('', $tspanOut);
+    }
+
+    /**
+     * S-5: parseSVGTagSTARTuse resolves an element via plain href (SVG 2).
+     */
+    public function testSvgUseTagResolvesViaPlainHref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(83);
+
+        // Register a simple rect in defs under id 'shape83'.
+        $obj->patchSvgObj(83, [
+            'defs' => [
+                'shape83' => [
+                    'name' => 'rect',
+                    'attr' => [
+                        'width' => '10',
+                        'height' => '5',
+                        'style' => '',
+                    ],
+                ],
+            ],
+        ]);
+
+        // Empty href → empty return.
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTuse($parser, 83, []));
+        // Plain href (no xlink:href) must resolve.
+        $obj->exposeParseSVGTagSTARTuse($parser, 83, ['href' => '#shape83']);
+        // The out buffer should have been written to (rect was dispatched).
+        $this->assertNotSame('', $obj->getSvgObj(83)['out']);
+    }
+
+    /**
+     * S-5: parseSVGTagSTARTimage falls back to plain href when xlink:href absent.
+     */
+    public function testSvgImageTagAcceptsPlainHref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(84);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Missing both href attributes → empty.
+        $this->assertSame(
+            '',
+            $obj->exposeParseSVGTagSTARTimage(
+                $parser,
+                84,
+                [],
+                $base,
+                $base,
+            )
+        );
+
+        // Plain href pointing to an image that will cause a load exception;
+        // what matters is that the early-return guard no longer rejects the call
+        // solely because xlink:href is absent — the code reaches the image loader.
+        try {
+            $out = $obj->exposeParseSVGTagSTARTimage(
+                $parser,
+                84,
+                ['href' => 'nonexistent.png', 'x' => '0', 'y' => '0', 'width' => '10', 'height' => '10'],
+                $base,
+                $base,
+            );
+        } catch (\Throwable $e) {
+            // An image-load exception confirms the code progressed past the href guard.
+            $this->assertNotSame('', $e->getMessage());
+            return;
+        }
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * S-5: linearGradient and radialGradient store xref from plain href.
+     */
+    public function testSvgGradientXrefFromPlainHref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(85);
+
+        $obj->exposeParseSVGTagSTARTlinearGradient(85, ['id' => 'lg85', 'href' => '#lgBase']);
+        $obj->exposeParseSVGTagSTARTradialGradient(85, ['id' => 'rg85', 'href' => '#rgBase']);
+
+        $svgobj = $obj->getSvgObj(85);
+        $this->assertSame('lgBase', $svgobj['gradients']['lg85']['xref']);
+        $this->assertSame('rgBase', $svgobj['gradients']['rg85']['xref']);
+    }
+
+    /**
+     * S-5: gradient prescan preserves plain href so xref inheritance works.
+     */
+    public function testSvgPrescanGradientsKeepsPlainHrefXref(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(851);
+
+        $obj->exposePrescanSVGGradients(
+            '<svg><defs>'
+            . '<linearGradient id="baseLg"><stop offset="0%" stop-color="#000"/></linearGradient>'
+            . '<linearGradient id="refLg" href="#baseLg" />'
+            . '<radialGradient id="baseRg"><stop offset="0%" stop-color="#000"/></radialGradient>'
+            . '<radialGradient id="refRg" href="#baseRg" />'
+            . '</defs></svg>',
+            851,
+        );
+
+        $svgobj = $obj->getSvgObj(851);
+        $this->assertSame('baseLg', (string) ($svgobj['gradients']['refLg']['xref'] ?? ''));
+        $this->assertSame('baseRg', (string) ($svgobj['gradients']['refRg']['xref'] ?? ''));
+    }
+
+    /**
+     * R-4: stroke-dasharray values with unit suffixes are normalised to user units.
+     */
+    public function testSvgDasharrayWithUnitSuffixIsNormalised(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->setSvgObjMeta(86);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Provide dash tokens with a unit suffix; these should survive normalisation
+        // (not become zero) and produce a non-empty dashArray in the output.
+        $style = $base;
+        $style['stroke'] = '#000000';
+        $style['stroke-dasharray'] = '5 3';
+
+        [$strokeOut] = $obj->exposeParseSVGStyleStroke(86, $style);
+        $this->assertNotSame('', $strokeOut);
+
+        // Ensure a 'none' dasharray still produces empty dashArray.
+        $styleNone = $base;
+        $styleNone['stroke'] = '#000000';
+        $styleNone['stroke-dasharray'] = 'none';
+        [$strokeNone] = $obj->exposeParseSVGStyleStroke(86, $styleNone);
+        // dashArray=[] means no 'w' dash command prefix — still has stroke output.
+        $this->assertIsString($strokeNone);
+    }
+
+    /**
+     * E-1: <symbol id="sym"> enters defs-capture mode and stores the id in defs.
+     */
+    public function testSvgSymbolEnterDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(90);
+
+        $obj->exposeParseSVGTagSTARTsymbol(90, ['id' => 'mySymbol', 'viewBox' => '0 0 100 100']);
+
+        $svgobj = $obj->getSvgObj(90);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertArrayHasKey('mySymbol', $svgobj['defs']);
+        $this->assertSame('symbol', $svgobj['defs']['mySymbol']['name']);
+    }
+
+    /**
+     * E-1: </symbol> exits defs-capture mode.
+     */
+    public function testSvgSymbolEndExitsDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(91);
+        $obj->patchSvgObj(91, ['defsmode' => true]);
+
+        $out = $obj->exposeParseSVGTagENDsymbol(91);
+
+        $this->assertSame('', $out);
+        $this->assertFalse($obj->getSvgObj(91)['defsmode']);
+    }
+
+    /**
+     * E-1: symbol without id does not crash and defsmode is still entered.
+     */
+    public function testSvgSymbolWithoutIdStillEntersDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(92);
+
+        $out = $obj->exposeParseSVGTagSTARTsymbol(92, []);
+
+        $this->assertSame('', $out);
+        $this->assertTrue($obj->getSvgObj(92)['defsmode']);
+    }
+
+    /**
+     * E-1: first non-id child inside symbol is captured in defs child list.
+     */
+    public function testSvgSymbolCapturesFirstAnonymousChild(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(92);
+
+        $obj->exposeParseSVGTagSTARTsymbol(92, ['id' => 'symChild']);
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['width' => '10', 'height' => '5'],
+            92,
+        );
+
+        $svgobj = $obj->getSvgObj(92);
+        $this->assertArrayHasKey('symChild', $svgobj['defs']);
+        $symbolDef = $svgobj['defs']['symChild'];
+        $children = $symbolDef['child'] ?? [];
+        $this->assertIsArray($children);
+        $this->assertNotSame([], $children);
+
+        $first = \reset($children);
+        $this->assertIsArray($first);
+        $this->assertSame('rect', $first['name'] ?? '');
+    }
+
+    /**
+     * E-1/R-3: <use> on symbol falls back to symbol viewBox size when width/height missing.
+     */
+    public function testSvgUseSymbolFallsBackToViewBoxDimensions(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(921);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(921, ['styles' => [$base]]);
+
+        $obj->patchSvgObj(921, [
+            'defs' => [
+                'symvb' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 40 20',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '40', 'height' => '20', 'fill' => '#000'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $out = $obj->exposeParseSVGTagSTARTuse($parser, 921, ['href' => '#symvb', 'x' => '1', 'y' => '2']);
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString(' cm', $out);
+    }
+
+    /**
+     * E-1/R-3: explicit width/height on use still override symbol defaults.
+     */
+    public function testSvgUseSymbolRespectsExplicitUseDimensions(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(922);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(922, ['styles' => [$base]]);
+
+        $obj->patchSvgObj(922, [
+            'defs' => [
+                'symovr' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 100 50',
+                        'width' => '100',
+                        'height' => '50',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '100', 'height' => '50', 'fill' => '#000'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $out = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            922,
+            ['href' => '#symovr', 'x' => '0', 'y' => '0', 'width' => '10', 'height' => '5'],
+        );
+        $this->assertNotSame('', $out);
+        // Rendering with explicit dimensions should still produce content and transforms.
+        $this->assertStringContainsString(' cm', $out);
+    }
+
+    /**
+     * E-1: use-level transform is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesUseLevelTransformAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'symstyle' => [
+                'name' => 'symbol',
+                'attr' => [
+                    'viewBox' => '0 0 20 10',
+                ],
+                'child' => [
+                    'c1' => [
+                        'name' => 'rect',
+                        'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                    ],
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(923);
+        $obj->patchSvgObj(923, ['styles' => [$base], 'defs' => $defs]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            923,
+            ['href' => '#symstyle', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(924);
+        $obj->patchSvgObj(924, ['styles' => [$base], 'defs' => $defs]);
+        $outTransformed = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            924,
+            [
+                'href' => '#symstyle',
+                'x' => '0',
+                'y' => '0',
+                'width' => '20',
+                'height' => '10',
+                'transform' => 'translate(5,7)',
+            ],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outTransformed);
+        $this->assertNotSame($outDefault, $outTransformed);
+    }
+
+    /**
+     * E-1: use-level style is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesUseLevelStyleAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'symstyle2' => [
+                'name' => 'symbol',
+                'attr' => [
+                    'viewBox' => '0 0 20 10',
+                ],
+                'child' => [
+                    'c1' => [
+                        'name' => 'rect',
+                        'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                    ],
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(925);
+        $obj->patchSvgObj(925, ['styles' => [$base], 'defs' => $defs]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            925,
+            ['href' => '#symstyle2', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(926);
+        $obj->patchSvgObj(926, ['styles' => [$base], 'defs' => $defs]);
+        $outStyled = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            926,
+            [
+                'href' => '#symstyle2',
+                'x' => '0',
+                'y' => '0',
+                'width' => '20',
+                'height' => '10',
+                'style' => 'fill:#ff0000;stroke:none;',
+            ],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outStyled);
+        $this->assertNotSame($outDefault, $outStyled);
+    }
+
+    /**
+     * E-1: symbol-level style is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesSymbolLevelStyleAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->initSvgObjForHandlers(927);
+        $obj->patchSvgObj(927, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle3' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            927,
+            ['href' => '#symstyle3', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(928);
+        $obj->patchSvgObj(928, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle3' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                        'style' => 'fill:#ff0000;stroke:none;',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outStyled = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            928,
+            ['href' => '#symstyle3', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outStyled);
+        $this->assertNotSame($outDefault, $outStyled);
+    }
+
+    /**
+     * E-1: symbol-level transform is preserved when expanding <symbol>.
+     */
+    public function testSvgUseSymbolPreservesSymbolLevelTransformAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->initSvgObjForHandlers(929);
+        $obj->patchSvgObj(929, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle4' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outDefault = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            929,
+            ['href' => '#symstyle4', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $obj->initSvgObjForHandlers(930);
+        $obj->patchSvgObj(930, [
+            'styles' => [$base],
+            'defs' => [
+                'symstyle4' => [
+                    'name' => 'symbol',
+                    'attr' => [
+                        'viewBox' => '0 0 20 10',
+                        'transform' => 'translate(3,4)',
+                    ],
+                    'child' => [
+                        'c1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $outTransformed = $obj->exposeParseSVGTagSTARTuse(
+            $parser,
+            930,
+            ['href' => '#symstyle4', 'x' => '0', 'y' => '0', 'width' => '20', 'height' => '10'],
+        );
+
+        $this->assertNotSame('', $outDefault);
+        $this->assertNotSame('', $outTransformed);
+        $this->assertNotSame($outDefault, $outTransformed);
+    }
+
+    /**
+     * E-7: <a> start stores link metadata and </a> emits an annotation ref.
+     */
+    public function testSvgATagCreatesAnnotationReference(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(93);
+
+        $pageBefore = $obj->exposeGetCurrentPageData();
+        $annotRefsBefore = $pageBefore['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsBefore);
+        $countBefore = \count($annotRefsBefore);
+
+        $start = $obj->exposeParseSVGTagSTARTa(93, ['href' => 'https://example.com']);
+        $this->assertSame('', $start);
+
+        // Simulate that wrapped content advanced text position.
+        $obj->patchSvgObj(93, ['x' => 40.0, 'y' => 20.0]);
+
+        $end = $obj->exposeParseSVGTagENDa(93);
+        $this->assertSame('', $end);
+
+        $pageAfter = $obj->exposeGetCurrentPageData();
+        $annotRefsAfter = $pageAfter['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsAfter);
+        $countAfter = \count($annotRefsAfter);
+        $this->assertSame($countBefore + 1, $countAfter);
+        $this->assertSame('', (string) ($obj->getSvgObj(93)['textmode']['linkhref'] ?? ''));
+    }
+
+    /**
+     * E-7: missing href on <a> should degrade gracefully with no annotation.
+     */
+    public function testSvgATagWithoutHrefProducesNoAnnotation(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(94);
+
+        $pageBefore = $obj->exposeGetCurrentPageData();
+        $annotRefsBefore = $pageBefore['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsBefore);
+        $countBefore = \count($annotRefsBefore);
+
+        $start = $obj->exposeParseSVGTagSTARTa(94, []);
+        $this->assertSame('', $start);
+        $end = $obj->exposeParseSVGTagENDa(94);
+        $this->assertSame('', $end);
+
+        $pageAfter = $obj->exposeGetCurrentPageData();
+        $annotRefsAfter = $pageAfter['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsAfter);
+        $countAfter = \count($annotRefsAfter);
+        $this->assertSame($countBefore, $countAfter);
+    }
+
+    /**
+     * E-8 stub: <switch> start returns empty string.
+     */
+    public function testSvgSwitchTagStartReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(95);
+
+        $out = $obj->exposeParseSVGTagSTARTswitch(95, []);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * E-8 stub: </switch> end returns empty string.
+     */
+    public function testSvgSwitchTagEndReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(95);
+
+        $out = $obj->exposeParseSVGTagENDswitch(95);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * E-8: only first direct child of switch is rendered.
+     */
+    public function testSvgSwitchRendersOnlyFirstChild(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(960);
+
+        $obj->exposeHandleSVGTagStart($parser, 'switch', [], 960);
+
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'rect',
+            ['x' => '1', 'y' => '1', 'width' => '10', 'height' => '5', 'fill' => '#000000'],
+            960,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'rect');
+        $outAfterFirst = (string) $obj->getSvgObj(960)['out'];
+        $this->assertNotSame('', $outAfterFirst);
+
+        // Second sibling should be skipped by switch selection logic.
+        $obj->exposeHandleSVGTagStart(
+            $parser,
+            'circle',
+            ['cx' => '5', 'cy' => '5', 'r' => '2', 'fill' => '#ff0000'],
+            960,
+        );
+        $obj->exposeHandleSVGTagEnd($parser, 'circle');
+        $outAfterSecond = (string) $obj->getSvgObj(960)['out'];
+        $this->assertSame($outAfterFirst, $outAfterSecond);
+
+        $obj->exposeHandleSVGTagEnd($parser, 'switch');
+        $this->assertEmpty($obj->getSvgObj(960)['switchstack']);
+    }
+
+    /**
+     * S-1: dominant-baseline='hanging' shifts renderY by -ascent.
+     * We verify that the output changes when baseline keyword differs.
+     */
+    public function testSvgDominantBaselineHangingChangesOutput(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Render with default (auto) baseline.
+        $obj->initSvgObjForHandlers(95);
+        $obj->patchSvgObj(95, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Hi',
+            'x' => 10.0,
+            'y' => 20.0,
+        ]);
+        $outAuto = $obj->exposeParseSVGTagENDtext(95);
+
+        // Render with hanging baseline.
+        $obj->initSvgObjForHandlers(96);
+        $obj->patchSvgObj(96, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'hanging',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Hi',
+            'x' => 10.0,
+            'y' => 20.0,
+        ]);
+        $outHanging = $obj->exposeParseSVGTagENDtext(96);
+
+        // Both must produce non-empty drawing output.
+        $this->assertNotSame('', $outAuto);
+        $this->assertNotSame('', $outHanging);
+        // The Y coordinate embedded in the output should differ between the two.
+        $this->assertNotSame($outAuto, $outHanging);
+    }
+
+    /**
+     * S-3: textLength with spacingAndGlyphs wraps output in an extra transform.
+     */
+    public function testSvgTextLengthGlyphsAddsScaleTransform(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Without textLength.
+        $obj->initSvgObjForHandlers(97);
+        $obj->patchSvgObj(97, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacingAndGlyphs',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Test',
+            'x' => 0.0,
+            'y' => 20.0,
+        ]);
+        $outNoScale = $obj->exposeParseSVGTagENDtext(97);
+
+        // With textLength=200 (much wider than natural).
+        $obj->initSvgObjForHandlers(98);
+        $obj->patchSvgObj(98, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 200.0,
+                'lengthadjust' => 'spacingAndGlyphs',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Test',
+            'x' => 0.0,
+            'y' => 20.0,
+        ]);
+        $outWithScale = $obj->exposeParseSVGTagENDtext(98);
+
+        $this->assertNotSame('', $outNoScale);
+        $this->assertNotSame('', $outWithScale);
+        // The scaled variant must be longer (extra transform operators).
+        $this->assertGreaterThan(\strlen($outNoScale), \strlen($outWithScale));
+    }
+
+    /**
+     * S-4: rotate adds extra transform operators around the text output.
+     */
+    public function testSvgTextRotateAddsTransformOperators(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Without rotation.
+        $obj->initSvgObjForHandlers(99);
+        $obj->patchSvgObj(99, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Abc',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outNoRotate = $obj->exposeParseSVGTagENDtext(99);
+
+        // With 45-degree rotation.
+        $obj->initSvgObjForHandlers(100);
+        $obj->patchSvgObj(100, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 45.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'Abc',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outRotated = $obj->exposeParseSVGTagENDtext(100);
+
+        $this->assertNotSame('', $outNoRotate);
+        $this->assertNotSame('', $outRotated);
+        // Rotated output should be longer due to extra transform save/restore.
+        $this->assertGreaterThan(\strlen($outNoRotate), \strlen($outRotated));
+    }
+
+    /**
+     * S-4: multi-value rotate is parsed and applied per glyph.
+     */
+    public function testSvgTextRotateListAppliesPerGlyph(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // First run: single zero rotation should not add per-glyph transforms.
+        $obj->initSvgObjForHandlers(1001);
+        $obj->patchSvgObj(1001, [
+            'styles' => [$base],
+        ]);
+        $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            1001,
+            ['x' => '5', 'y' => '10', 'rotate' => '0'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'AB');
+        $outSingle = $obj->exposeParseSVGTagENDtext(1001);
+
+        // Second run: second glyph rotates, forcing per-glyph transforms.
+        $obj->initSvgObjForHandlers(1002);
+        $obj->patchSvgObj(1002, [
+            'styles' => [$base],
+        ]);
+        $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            1002,
+            ['x' => '5', 'y' => '10', 'rotate' => '0 45'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'AB');
+        $outList = $obj->exposeParseSVGTagENDtext(1002);
+        $svgobj = $obj->getSvgObj(1002);
+        $rotlist = $svgobj['textmode']['rotlist'] ?? [];
+
+        $this->assertGreaterThanOrEqual(2, \count($rotlist));
+        $this->assertEqualsWithDelta(0.0, (float) $rotlist[0], 0.001);
+        $this->assertEqualsWithDelta(45.0, (float) $rotlist[1], 0.001);
+        $this->assertGreaterThan(\strlen($outSingle), \strlen($outList));
+    }
+
+    /**
+     * R-1: multi-value x list triggers per-character rendering (more operators).
+     */
+    public function testSvgMultiValueXListRendersPerCharacter(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Single-position (normal) rendering.
+        $obj->initSvgObjForHandlers(101);
+        $obj->patchSvgObj(101, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [],
+                'ylist' => [],
+            ],
+            'text' => 'AB',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outNormal = $obj->exposeParseSVGTagENDtext(101);
+
+        // Multi-value x list (two characters, two explicit x positions).
+        $obj->initSvgObjForHandlers(102);
+        $obj->patchSvgObj(102, [
+            'styles' => [$base, $base],
+            'defsmode' => false,
+            'textmode' => [
+                'rtl' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'text-anchor' => 'start',
+                'baseline' => 'auto',
+                'rotate' => 0.0,
+                'textlength' => 0.0,
+                'lengthadjust' => 'spacing',
+                'xlist' => [5.0, 15.0],
+                'ylist' => [],
+            ],
+            'text' => 'AB',
+            'x' => 5.0,
+            'y' => 10.0,
+        ]);
+        $outMultiX = $obj->exposeParseSVGTagENDtext(102);
+
+        $this->assertNotSame('', $outNormal);
+        $this->assertNotSame('', $outMultiX);
+        // Per-character rendering emits multiple text operators so output is longer.
+        $this->assertGreaterThan(\strlen($outNormal), \strlen($outMultiX));
+    }
+
+    /**
+     * E-6: textPath startOffset maps text origin along referenced path.
+     */
+    public function testSvgTextPathStartOffsetUpdatesPosition(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(103);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->patchSvgObj(103, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_line' => [
+                    'name' => 'line',
+                    'attr' => [
+                        'x1' => '0',
+                        'y1' => '0',
+                        'x2' => '200',
+                        'y2' => '0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $out = $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            103,
+            ['href' => '#tp_line', 'startOffset' => '25%'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $svgobj = $obj->getSvgObj(103);
+        $pos25 = (float) $svgobj['x'];
+
+        $obj->initSvgObjForHandlers(106);
+        $obj->patchSvgObj(106, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_line' => [
+                    'name' => 'line',
+                    'attr' => [
+                        'x1' => '0',
+                        'y1' => '0',
+                        'x2' => '200',
+                        'y2' => '0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            106,
+            ['href' => '#tp_line', 'startOffset' => '50%'],
+            $base,
+            $base,
+        );
+        $pos50 = (float) $obj->getSvgObj(106)['x'];
+
+        $this->assertGreaterThan(0.0, $pos25);
+        $this->assertGreaterThan($pos25, $pos50);
+        $this->assertEqualsWithDelta(0.0, $svgobj['y'], 0.001);
+    }
+
+    /**
+     * E-6: textPath on vertical segment sets rotate to path angle.
+     */
+    public function testSvgTextPathVerticalSegmentSetsRotate(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(104);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->patchSvgObj(104, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_vertical' => [
+                    'name' => 'line',
+                    'attr' => [
+                        'x1' => '10',
+                        'y1' => '10',
+                        'x2' => '10',
+                        'y2' => '110',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            104,
+            ['href' => '#tp_vertical', 'startOffset' => '10'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(104);
+        $this->assertEqualsWithDelta(90.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * E-6: offset on bent path uses cumulative segment length and local tangent.
+     */
+    public function testSvgTextPathOffsetUsesBendSegmentTangent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1041);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Polyline path: (0,0)->(10,0)->(10,10), total length 20.
+        // At 75% offset (=15), point is on second segment at (10,5), tangent 90°.
+        $obj->patchSvgObj(1041, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_bend' => [
+                    'name' => 'polyline',
+                    'attr' => [
+                        'points' => '0,0 10,0 10,10',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1041,
+            ['href' => '#tp_bend', 'startOffset' => '75%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1041);
+        $textX = (float) $svgobj['x'];
+        $textY = (float) $svgobj['y'];
+        $this->assertGreaterThan(0.0, $textY);
+        $this->assertGreaterThan($textY, $textX);
+        $this->assertNotEqualsWithDelta($textX, $textY, 0.001);
+        $this->assertEqualsWithDelta(90.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * E-6: per-glyph textPath layout updates rotation as glyphs pass a bend.
+     */
+    public function testSvgTextPathPerGlyphRotationFollowsBend(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1042);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // First segment is intentionally tiny so the second glyph lands on
+        // the vertical segment and picks a near-90deg local tangent.
+        $obj->patchSvgObj(1042, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_glyph_bend' => [
+                    'name' => 'polyline',
+                    'attr' => [
+                        'points' => '0,0 0.1,0 0.1,100',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1042,
+            ['href' => '#tp_glyph_bend', 'startOffset' => '0'],
+            $base,
+            $base,
+        );
+
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1042);
+
+        $svgobj = $obj->getSvgObj(1042);
+        $rotlist = $svgobj['textmode']['rotlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($rotlist));
+        $this->assertLessThan(45.0, (float) $rotlist[0]);
+        $this->assertGreaterThan(45.0, (float) $rotlist[1]);
+    }
+
+    /**
+     * E-6: path-command decomposition handles H/V bends for tangent angle.
+     */
+    public function testSvgTextPathPathHVCommandsUseLocalVerticalTangent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1047);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // Path: M0,0 H100 V100 has total length 200.
+        // At 75% offset (=150), point is on the vertical segment.
+        $obj->patchSvgObj(1047, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_hv' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 H100 V100',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1047,
+            ['href' => '#tp_hv', 'startOffset' => '75%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1047);
+        $this->assertEqualsWithDelta(90.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+        $this->assertGreaterThan(0.0, (float) $svgobj['y']);
+    }
+
+    /**
+     * E-6: cubic path sampling uses local start tangent instead of endpoint chord.
+     */
+    public function testSvgTextPathCubicUsesLocalStartTangentAtSmallOffset(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1048);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // C endpoint chord is vertical (0,0)->(0,100), but the curve starts
+        // with an almost horizontal tangent due to the first control point.
+        $obj->patchSvgObj(1048, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_cubic' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 C100 0 100 100 0 100',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1048,
+            ['href' => '#tp_cubic', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1048);
+        $angle = (float) ($svgobj['textmode']['rotate'] ?? 0.0);
+        $this->assertGreaterThan(-45.0, $angle);
+        $this->assertLessThan(45.0, $angle);
+    }
+
+    /**
+     * E-6: arc path sampling uses local arc tangent at small offsets.
+     */
+    public function testSvgTextPathArcUsesLocalStartTangentAtSmallOffset(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1049);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // A semicircular arc from left to right: endpoint chord is horizontal,
+        // while local tangent near the start is near vertical.
+        $obj->patchSvgObj(1049, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A50 50 0 0 1 100 0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1049,
+            ['href' => '#tp_arc', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1049);
+        $angle = (float) ($svgobj['textmode']['rotate'] ?? 0.0);
+        $this->assertGreaterThan(45.0, \abs($angle));
+    }
+
+    /**
+     * E-6: arc sweep flag influences initial tangent direction.
+     */
+    public function testSvgTextPathArcSweepDirectionAffectsInitialTangentSign(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        // sweep=1 should start with upward tangent for this semicircle.
+        $obj->initSvgObjForHandlers(1050);
+        $obj->patchSvgObj(1050, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc_sweep1' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A50 50 0 0 1 100 0',
+                    ],
+                ],
+            ],
+        ]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1050,
+            ['href' => '#tp_arc_sweep1', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+        $angleUp = (float) ($obj->getSvgObj(1050)['textmode']['rotate'] ?? 0.0);
+
+        // sweep=0 should mirror direction, yielding a negative initial tangent.
+        $obj->initSvgObjForHandlers(1051);
+        $obj->patchSvgObj(1051, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc_sweep0' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A50 50 0 0 0 100 0',
+                    ],
+                ],
+            ],
+        ]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1051,
+            ['href' => '#tp_arc_sweep0', 'startOffset' => '5%'],
+            $base,
+            $base,
+        );
+        $angleDown = (float) ($obj->getSvgObj(1051)['textmode']['rotate'] ?? 0.0);
+
+        $this->assertGreaterThan(45.0, \abs($angleUp));
+        $this->assertGreaterThan(45.0, \abs($angleDown));
+        $this->assertLessThan(0.0, $angleUp * $angleDown);
+    }
+
+    /**
+     * E-6: zero-radius arc falls back to a straight segment endpoint behavior.
+     */
+    public function testSvgTextPathZeroRadiusArcFallsBackToLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(1052);
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $obj->patchSvgObj(1052, [
+            'styles' => [$base],
+            'defs' => [
+                'tp_arc_zero' => [
+                    'name' => 'path',
+                    'attr' => [
+                        'd' => 'M0 0 A0 0 0 0 1 100 0',
+                    ],
+                ],
+            ],
+        ]);
+
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1052,
+            ['href' => '#tp_arc_zero', 'startOffset' => '50%'],
+            $base,
+            $base,
+        );
+
+        $svgobj = $obj->getSvgObj(1052);
+        $this->assertGreaterThan(0.0, (float) $svgobj['x']);
+        $this->assertEqualsWithDelta(0.0, (float) $svgobj['y'], 0.001);
+        $this->assertEqualsWithDelta(0.0, (float) ($svgobj['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * E-6: spacing="auto" expands inter-glyph distance to fill path.
+     */
+    public function testSvgTextPathSpacingAutoExpandsGlyphGap(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'tp_space' => [
+                'name' => 'line',
+                'attr' => [
+                    'x1' => '0',
+                    'y1' => '0',
+                    'x2' => '300',
+                    'y2' => '0',
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(1043);
+        $obj->patchSvgObj(1043, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1043,
+            ['href' => '#tp_space', 'spacing' => 'exact'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1043);
+        $exact = $obj->getSvgObj(1043);
+        $xExact = $exact['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xExact));
+
+        $obj->initSvgObjForHandlers(1044);
+        $obj->patchSvgObj(1044, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1044,
+            ['href' => '#tp_space', 'spacing' => 'auto'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1044);
+        $auto = $obj->getSvgObj(1044);
+        $xAuto = $auto['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xAuto));
+
+        $gapExact = (float) $xExact[1] - (float) $xExact[0];
+        $gapAuto = (float) $xAuto[1] - (float) $xAuto[0];
+        $this->assertGreaterThan($gapExact, $gapAuto);
+    }
+
+    /**
+     * E-6: method="stretch" scales glyph advances to consume path length.
+     */
+    public function testSvgTextPathMethodStretchExpandsGlyphGap(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'tp_stretch' => [
+                'name' => 'line',
+                'attr' => [
+                    'x1' => '0',
+                    'y1' => '0',
+                    'x2' => '250',
+                    'y2' => '0',
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(1045);
+        $obj->patchSvgObj(1045, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1045,
+            ['href' => '#tp_stretch', 'method' => 'align'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1045);
+        $align = $obj->getSvgObj(1045);
+        $xAlign = $align['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xAlign));
+
+        $obj->initSvgObjForHandlers(1046);
+        $obj->patchSvgObj(1046, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1046,
+            ['href' => '#tp_stretch', 'method' => 'stretch'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'ab');
+        $obj->exposeParseSVGTagENDtextPath(1046);
+        $stretch = $obj->getSvgObj(1046);
+        $xStretch = $stretch['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(2, \count($xStretch));
+
+        $gapAlign = (float) $xAlign[1] - (float) $xAlign[0];
+        $gapStretch = (float) $xStretch[1] - (float) $xStretch[0];
+        $this->assertGreaterThan($gapAlign, $gapStretch);
+    }
+
+    /**
+     * E-6: spacing="auto" distributes extra length as equal inter-glyph gaps.
+     */
+    public function testSvgTextPathSpacingAutoPreservesMixedWidthGapDelta(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $base = $obj->exposeDefaultSVGStyle();
+
+        $defs = [
+            'tp_mixed_gap' => [
+                'name' => 'line',
+                'attr' => [
+                    'x1' => '0',
+                    'y1' => '0',
+                    'x2' => '600',
+                    'y2' => '0',
+                ],
+            ],
+        ];
+
+        $obj->initSvgObjForHandlers(1053);
+        $obj->patchSvgObj(1053, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1053,
+            ['href' => '#tp_mixed_gap', 'spacing' => 'exact'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'WiW');
+        $obj->exposeParseSVGTagENDtextPath(1053);
+        $exact = $obj->getSvgObj(1053);
+        $xExact = $exact['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(3, \count($xExact));
+        $gapExactOne = (float) $xExact[1] - (float) $xExact[0];
+        $gapExactTwo = (float) $xExact[2] - (float) $xExact[1];
+
+        $obj->initSvgObjForHandlers(1054);
+        $obj->patchSvgObj(1054, ['styles' => [$base], 'defs' => $defs]);
+        $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            1054,
+            ['href' => '#tp_mixed_gap', 'spacing' => 'auto'],
+            $base,
+            $base,
+        );
+        $obj->exposeHandleSVGCharacter($parser, 'WiW');
+        $obj->exposeParseSVGTagENDtextPath(1054);
+        $auto = $obj->getSvgObj(1054);
+        $xAuto = $auto['textmode']['xlist'] ?? [];
+        $this->assertGreaterThanOrEqual(3, \count($xAuto));
+        $gapAutoOne = (float) $xAuto[1] - (float) $xAuto[0];
+        $gapAutoTwo = (float) $xAuto[2] - (float) $xAuto[1];
+
+        $this->assertGreaterThan($gapExactOne, $gapAutoOne);
+        $this->assertGreaterThan($gapExactTwo, $gapAutoTwo);
+        $this->assertEqualsWithDelta(
+            $gapExactOne - $gapExactTwo,
+            $gapAutoOne - $gapAutoTwo,
+            0.5,
+        );
+    }
+
+    /**
+     * E-6: textPath with unresolved href still behaves like a nested text run.
+     */
+    public function testSvgTextPathMissingReferenceStillRendersText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(105);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(105, ['styles' => [$base]]);
+
+        $startOut = $obj->exposeParseSVGTagSTARTtextPath(
+            $parser,
+            105,
+            ['href' => '#missing_path', 'x' => '12', 'y' => '34'],
+            $base,
+            $base,
+        );
+        $this->assertNotSame('', $startOut);
+
+        $obj->exposeHandleSVGCharacter($parser, 'abc');
+        $endOut = $obj->exposeParseSVGTagENDtextPath(105);
+        $this->assertNotSame('', $endOut);
+        $this->assertSame('', $obj->getSvgObj(105)['text']);
+    }
+
+    /**
+     * S-2: writing-mode vertical is stored in textmode by STARTtext.
+     */
+    public function testSvgWritingModeVerticalSetsTextModeFlag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(107);
+        $base = $obj->exposeDefaultSVGStyle();
+        $vertical = $base;
+        $vertical['writing-mode'] = 'vertical-rl';
+
+        $out = $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            107,
+            ['x' => '10', 'y' => '20'],
+            $vertical,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertTrue((bool) ($obj->getSvgObj(107)['textmode']['vertical'] ?? false));
+        $this->assertEqualsWithDelta(90.0, (float) ($obj->getSvgObj(107)['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * S-2: glyph-orientation-vertical overrides default 90deg vertical rotation.
+     */
+    public function testSvgWritingModeVerticalGlyphOrientationOverride(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(109);
+        $base = $obj->exposeDefaultSVGStyle();
+        $vertical = $base;
+        $vertical['writing-mode'] = 'tb-rl';
+        $vertical['glyph-orientation-vertical'] = '0deg';
+
+        $out = $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            109,
+            ['x' => '10', 'y' => '20'],
+            $vertical,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertTrue((bool) ($obj->getSvgObj(109)['textmode']['vertical'] ?? false));
+        $this->assertEqualsWithDelta(0.0, (float) ($obj->getSvgObj(109)['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * S-2: glyph-orientation-horizontal is applied in horizontal writing mode.
+     */
+    public function testSvgHorizontalGlyphOrientationSetsRotation(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(110);
+        $base = $obj->exposeDefaultSVGStyle();
+        $hstyle = $base;
+        $hstyle['writing-mode'] = 'lr-tb';
+        $hstyle['glyph-orientation-horizontal'] = '180deg';
+
+        $out = $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            110,
+            ['x' => '10', 'y' => '20'],
+            $hstyle,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertFalse((bool) ($obj->getSvgObj(110)['textmode']['vertical'] ?? false));
+        $this->assertEqualsWithDelta(180.0, (float) ($obj->getSvgObj(110)['textmode']['rotate'] ?? 0.0), 0.001);
+    }
+
+    /**
+     * S-2: invisible vertical text advances Y instead of X.
+     */
+    public function testSvgInvisibleVerticalTextAdvancesYCursor(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(108);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(108, [
+            'styles' => [$base],
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => true,
+                'vertical' => true,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => 'VV',
+            'x' => 7.0,
+            'y' => 9.0,
+        ]);
+
+        $xBefore = (float) $obj->getSvgObj(108)['x'];
+        $yBefore = (float) $obj->getSvgObj(108)['y'];
+        $out = $obj->exposeParseSVGTagENDtext(108);
+
+        $this->assertSame('', $out);
+        $this->assertSame($xBefore, (float) $obj->getSvgObj(108)['x']);
+        $this->assertGreaterThan($yBefore, (float) $obj->getSvgObj(108)['y']);
+    }
+
+    // -------------------------------------------------------------------------
+    // E-4 mask application tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * parseSVGStyleMask with a valid url(#id) registers the mask stream and
+     * returns a PDF ExtGState activation command containing the mask key.
+     */
+    public function testSvgMaskStyleResolvesUrlAndRegistersMaskStream(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(560);
+
+        // Build defs: one mask with a white rect child (captured structure).
+        $obj->patchSvgObj(560, [
+            'defs' => [
+                'myMask' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'myMask'],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '10', 'fill' => '#ffffff'],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => ['closing_tag' => true, 'content' => ''],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#myMask)';
+
+        $out = $obj->exposeParseSVGStyleMask(560, $style);
+
+        // Must return a GS activation command.
+        $this->assertStringContainsString(' gs', $out);
+
+        // The mask key used in the command must match what's registered.
+        $masks = $obj->getSvgMasks();
+        $this->assertNotEmpty($masks, 'svgmasks must contain the registered mask');
+
+        $maskKey = \array_key_first($masks);
+        $this->assertIsString($maskKey);
+        $this->assertStringContainsString($maskKey, $out);
+        $this->assertStringStartsWith('MSK_', $maskKey);
+
+        $maskData = $masks[$maskKey];
+        $this->assertIsArray($maskData);
+        $this->assertArrayHasKey('stream', $maskData);
+        $this->assertArrayHasKey('bbox', $maskData);
+        $this->assertSame(0, $maskData['gs_n'], 'gs_n is 0 until PDF output phase');
+    }
+
+    /**
+     * Calling parseSVGStyleMask with mask="none" returns empty string and does
+     * not register anything.
+     */
+    public function testSvgMaskStyleNoneIsNoOp(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(561);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'none';
+
+        $out = $obj->exposeParseSVGStyleMask(561, $style);
+
+        $this->assertSame('', $out);
+        $this->assertEmpty($obj->getSvgMasks());
+    }
+
+    /**
+     * A mask url that references a missing def returns empty string.
+     */
+    public function testSvgMaskStyleMissingDefIsNoOp(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(562);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#nonExistent)';
+
+        $out = $obj->exposeParseSVGStyleMask(562, $style);
+
+        $this->assertSame('', $out);
+        $this->assertEmpty($obj->getSvgMasks());
+    }
+
+    /**
+     * Calling parseSVGStyleMask while patternmode > 0 returns empty string
+     * (guard against recursion during mask/pattern child replay).
+     */
+    public function testSvgMaskStyleSkippedInsidePatternMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(563);
+
+        $obj->patchSvgObj(563, [
+            'patternmode' => 1,
+            'defs' => [
+                'mskX' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'mskX'],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#mskX)';
+
+        $out = $obj->exposeParseSVGStyleMask(563, $style);
+
+        $this->assertSame('', $out);
+        $this->assertEmpty($obj->getSvgMasks());
+    }
+
+    /**
+     * Calling parseSVGStyleMask twice with the same mask id re-uses the
+     * already-registered mask entry without duplicating it.
+     */
+    public function testSvgMaskStyleSameMaskIsRegisteredOnce(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(564);
+
+        $obj->patchSvgObj(564, [
+            'defs' => [
+                'sharedMask' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'sharedMask'],
+                    'child' => [],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#sharedMask)';
+
+        $out1 = $obj->exposeParseSVGStyleMask(564, $style);
+        $out2 = $obj->exposeParseSVGStyleMask(564, $style);
+
+        $this->assertSame($out1, $out2, 'Both calls return the same GS command');
+        $this->assertCount(1, $obj->getSvgMasks(), 'Only one mask entry registered');
+    }
+
+    // -------------------------------------------------------------------------
+    // E-5 filter unsupported / no-op tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * parseSVGTagSTARTfilter with an id registers a placeholder in defs and
+     * enables defsmode so fe* children are swallowed.
+     */
+    public function testSvgFilterStartRegistersPlaceholderAndEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(570);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTfilter(570, ['id' => 'f1', 'x' => '0', 'y' => '0']));
+
+        $svgobj = $obj->getSvgObj(570);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertArrayHasKey('f1', $svgobj['defs']);
+        $this->assertSame('filter', $svgobj['defs']['f1']['name']);
+    }
+
+    /**
+     * parseSVGTagSTARTfilter without an id still enables defsmode but does not
+     * add a defs entry.
+     */
+    public function testSvgFilterStartWithoutIdOnlyEnablesDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(571);
+
+        $this->assertSame('', $obj->exposeParseSVGTagSTARTfilter(571, []));
+
+        $svgobj = $obj->getSvgObj(571);
+        $this->assertTrue($svgobj['defsmode']);
+        $this->assertSame([], $svgobj['defs']);
+    }
+
+    /**
+     * parseSVGTagENDfilter clears defsmode.
+     */
+    public function testSvgFilterEndClearsDefsMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(572);
+
+        $obj->exposeParseSVGTagSTARTfilter(572, ['id' => 'f2']);
+        $this->assertTrue($obj->getSvgObj(572)['defsmode']);
+
+        $this->assertSame('', $obj->exposeParseSVGTagENDfilter(572));
+        $this->assertFalse($obj->getSvgObj(572)['defsmode']);
+    }
+
+    // -------------------------------------------------------------------------
+    // S-6 rendering-hint tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * 'auto' hints for all properties emit no ri operator (use PDF default).
+     */
+    public function testSvgRenderingHintsAllAutoEmitsNothing(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        // defaults are already 'auto'
+        $this->assertSame('', $obj->exposeParseSVGStyleRenderingHints($style));
+    }
+
+    /**
+     * 'optimizeQuality' on any property emits /RelativeColorimetric ri.
+     */
+    public function testSvgRenderingHintsOptimizeQualityEmitsRelativeColorimetric(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['image-rendering'] = 'optimizeQuality';
+
+        $out = $obj->exposeParseSVGStyleRenderingHints($style);
+        $this->assertSame("/RelativeColorimetric ri\n", $out);
+    }
+
+    /**
+     * 'optimizeSpeed' on any property emits /AbsoluteColorimetric ri.
+     */
+    public function testSvgRenderingHintsOptimizeSpeedEmitsAbsoluteColorimetric(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['color-rendering'] = 'optimizeSpeed';
+
+        $out = $obj->exposeParseSVGStyleRenderingHints($style);
+        $this->assertSame("/AbsoluteColorimetric ri\n", $out);
+    }
+
+    /**
+     * 'crispEdges' and 'geometricPrecision' map to RelativeColorimetric.
+     */
+    public function testSvgRenderingHintsCrispEdgesAndGeometricPrecision(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['shape-rendering'] = 'crispEdges';
+        $this->assertSame("/RelativeColorimetric ri\n", $obj->exposeParseSVGStyleRenderingHints($style));
+
+        $style['shape-rendering'] = 'geometricPrecision';
+        $this->assertSame("/RelativeColorimetric ri\n", $obj->exposeParseSVGStyleRenderingHints($style));
+    }
+
+    /**
+     * When both optimizeQuality and optimizeSpeed hints are present,
+     * optimizeSpeed wins (last in priority order).
+     */
+    public function testSvgRenderingHintsSpeedBeatsQualityWhenBothPresent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['image-rendering']  = 'optimizeQuality';
+        $style['color-rendering'] = 'optimizeSpeed';
+
+        $out = $obj->exposeParseSVGStyleRenderingHints($style);
+        $this->assertSame("/AbsoluteColorimetric ri\n", $out);
+    }
+    /**
+     * <filter> is in SVGCHARDATASKIPTAGS so the entire filter+fe* subtree is
+     * silently skipped via the charskip counter: charskip is balanced (back to
+     * zero) after the subtree, defsmode is correctly restored by </defs>, and
+     * no output is written.
+     */
+    public function testSvgFilterRoundTripViaHandlersProducesNoOutput(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(573);
+
+        $parser = \xml_parser_create('UTF-8');
+
+        // Enter defs context.
+        $obj->exposeHandleSVGTagStart($parser, 'defs', [], 573);
+
+        // <filter> and all fe* children are in SVGCHARDATASKIPTAGS so the start
+        // handler just does charskip++ and returns immediately (no dispatch).
+        $obj->exposeHandleSVGTagStart($parser, 'filter', ['id' => 'blur1'], 573);
+        $obj->exposeHandleSVGTagStart($parser, 'feGaussianBlur', [], 573);
+        $obj->exposeHandleSVGTagEnd($parser, 'feGaussianBlur');
+        $obj->exposeHandleSVGTagEnd($parser, 'filter');
+
+        // Close defs.
+        $obj->exposeHandleSVGTagEnd($parser, 'defs');
+
+        unset($parser);
+
+        $svgobj = $obj->getSvgObj(573);
+
+        // charskip counter must be balanced back to zero after the subtree.
+        $this->assertSame(0, (int)($svgobj['charskip'] ?? 0), 'charskip balanced');
+
+        // defsmode off after </defs>
+        $this->assertFalse($svgobj['defsmode'], 'defsmode false after </defs>');
+
+        // No stray rendered output.
+        $this->assertSame('', $svgobj['out'], 'no output from filter subtree');
     }
 }

@@ -155,6 +155,21 @@ use TSVGStyle;
  *    'invisible': bool,
  *    'stroke': int,
  *    'text-anchor': string,
+ *    'vertical'?: bool,
+ *    'linkhref'?: string,
+ *    'linkx'?: float,
+ *    'linky'?: float,
+ *    'baseline'?: string,
+ *    'rotate'?: float,
+ *    'textlength'?: float,
+ *    'lengthadjust'?: string,
+ *    'xlist'?: array<int, float>,
+ *    'ylist'?: array<int, float>,
+ *    'rotlist'?: array<int, float>,
+ *    'textpathpoints'?: array<int, array{0: float, 1: float}>,
+ *    'textpathoffset'?: float,
+ *    'textpathmethod'?: string,
+ *    'textpathspacing'?: string,
  * }
  *
  * @phpstan-type TSVGAttributes array{
@@ -381,6 +396,12 @@ use TSVGStyle;
  *    'child'?: array<string, TSVGAttribChild>,
  * }
  *
+ * @phpstan-type TSVGSwitchState array{
+ *    'depth': int,
+ *    'selected': bool,
+ *    'skipdepth': int,
+ * }
+ *
  * @phpstan-type TSVGObj array{
  *    'defsmode': bool,
  *    'clipmode': bool,
@@ -398,7 +419,12 @@ use TSVGStyle;
  *    'cliptm': TTMatrix,
  *    'styles': array<int, TSVGStyle>,
  *    'child': array<int>,
+ *    'xmldepth': int,
+ *    'switchstack': array<int, TSVGSwitchState>,
+ *    'markermode': int,
+ *    'patternmode': int,
  *    'textmode': TSVGTextMode,
+ *    'charskip': int,
  *    'text': string,
  *    'dir': string,
  *    'out': string,
@@ -408,6 +434,47 @@ use TSVGStyle;
  */
 abstract class SVG extends \Com\Tecnick\Pdf\Text
 {
+    /**
+     * Tags whose character data must not be rendered as drawing text.
+     *
+     * @var array<int, string>
+     */
+    protected const SVGCHARDATASKIPTAGS = [
+        'desc',
+        'title',
+        'metadata',
+        'style',
+        'script',
+        // SVG filter primitives — PDF has no equivalent pixel-pipeline; entire
+        // subtree content is discarded to avoid garbled output.
+        'filter',
+        'feBlend',
+        'feColorMatrix',
+        'feComponentTransfer',
+        'feComposite',
+        'feConvolveMatrix',
+        'feDiffuseLighting',
+        'feDisplacementMap',
+        'feDistantLight',
+        'feDropShadow',
+        'feFlood',
+        'feFuncA',
+        'feFuncB',
+        'feFuncG',
+        'feFuncR',
+        'feGaussianBlur',
+        'feImage',
+        'feMerge',
+        'feMergeNode',
+        'feMorphology',
+        'feOffset',
+        'fePointLight',
+        'feSpecularLighting',
+        'feSpotLight',
+        'feTile',
+        'feTurbulence',
+    ];
+
     /**
      * Deafult unit of measure for SVG (px = pixels).
      *
@@ -577,6 +644,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * List of possible SVG font attributes to parse.
      *
      * @var array<string>
+
      */
     protected const FONTATTRIBS = [
         'font-family',
@@ -600,6 +668,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'linearGradient',
         'radialGradient',
         'stop',
+        'symbol',
+        'marker',
+        'pattern',
+        'mask',
+        'filter',
     ];
 
     /**
@@ -613,6 +686,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'linearGradient',
         'radialGradient',
         'stop',
+        'symbol',
+        'marker',
+        'pattern',
+        'mask',
+        'filter',
     ];
 
     /**
@@ -637,12 +715,21 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'defs' => [],
         'styles' => [0 => self::DEFSVGSTYLE],
         'child' => [],
+        'xmldepth' => 0,
+        'switchstack' => [],
+        'markermode' => 0,
+        'patternmode' => 0,
         'textmode' => [
             'rtl' => false,
             'invisible' => false,
             'stroke' => 0,
             'text-anchor' => 'start',
+            'vertical' => false,
+            'linkhref' => '',
+            'linkx' => 0.0,
+            'linky' => 0.0,
         ],
+        'charskip' => 0,
         'text' => '',
         'dir' => '',
         'out' => '',
@@ -692,6 +779,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'gradientUnits',
         'gradientTransform',
         'xlink:href',
+        'href',
         'stop-color',
         'stop-opacity',
         'style',
@@ -1885,16 +1973,23 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $strokestyle['lineCap'] = $svgstyle['stroke-linecap'];
         $strokestyle['lineJoin'] = $svgstyle['stroke-linejoin'];
         //  $strokestyle['miterLimit'] = (10.0 / $this->kunit),
-        $strokestyle['dashArray'] = (
-            empty($svgstyle['stroke-dasharray']) || ($svgstyle['stroke-dasharray'] == 'none')
-        ) ? [] : \array_map(
-            'intval',
-            \explode(' ', $svgstyle['stroke-dasharray'], 100),
-        );
+        if (empty($svgstyle['stroke-dasharray']) || ($svgstyle['stroke-dasharray'] == 'none')) {
+            $strokestyle['dashArray'] = [];
+        } else {
+            // Normalise each dash/gap token to user units so that values with
+            // unit suffixes (px, pt, mm, %, …) produce correct dash lengths.
+            $ref = $this->svgobjs[$soid]['refunitval'];
+            $ref['parent'] = 0;
+            $strokestyle['dashArray'] = \array_map(
+                fn(string $tok): float => $this->svgUnitToUnit(\trim($tok), -1, $ref),
+                \explode(' ', $svgstyle['stroke-dasharray'], 100),
+            );
+        }
         // $strokestyle['dashPhase'] = 0,
         $strokestyle['lineColor'] = $svgstyle['stroke'];
         unset($strokestyle['fillColor']);
 
+    // @phpstan-ignore argument.type
         $out .= $this->graph->getStyleCmd($strokestyle);
 
         $objstyle = 'D';
@@ -1931,6 +2026,228 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         return $out;
+    }
+
+    /**
+     * Apply an SVG mask="url(#id)" as a PDF SMask ExtGState.
+     *
+     * Renders the mask's child content to a stream that will be emitted as a
+     * Form XObject (with a DeviceGray transparency group) at PDF body time.
+     * The Form XObject is referenced by an SMask dict which is in turn
+     * referenced by an ExtGState.  The returned PDF command activates that
+     * ExtGState before the masked element is drawn.
+     *
+     * @param int $soid SVG object ID.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     *
+     * @return string Raw PDF command or empty string.
+     */
+    protected function parseSVGStyleMask(int $soid, array $svgstyle): string
+    {
+        if (!$this->isTransparencyAllowed()) {
+            return '';
+        }
+
+        if (!empty($this->svgobjs[$soid]['patternmode'])) {
+            return '';
+        }
+
+        $maskRef = (string) ($svgstyle['mask'] ?? 'none');
+        if ($maskRef === 'none' || $maskRef === '') {
+            return '';
+        }
+
+        $regs = [];
+        if (!\preg_match('/url\(\s*#([^)]+)\s*\)/i', $maskRef, $regs)) {
+            return '';
+        }
+
+        $maskId = \trim($regs[1]);
+        if (empty($this->svgobjs[$soid]['defs'][$maskId])) {
+            return '';
+        }
+
+        /** @var TSVGAttribs $maskDef */
+        $maskDef = $this->svgobjs[$soid]['defs'][$maskId];
+        if (!isset($maskDef['name']) || $maskDef['name'] !== 'mask') {
+            return '';
+        }
+
+        $maskKey = 'MSK_' . \strtoupper(\substr(\md5($maskId), 0, 16));
+
+        if (!isset($this->svgmasks[$maskKey])) {
+            $pheight = (float) ($this->svgobjs[$soid]['refunitval']['page']['height']);
+            $pwidth  = (float) ($this->svgobjs[$soid]['refunitval']['page']['width']);
+
+            $maskParser = \xml_parser_create('UTF-8');
+            $stream = '';
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['patternmode'] = ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) + 1;
+            try {
+                if (!empty($maskDef['child']) && \is_array($maskDef['child'])) {
+                    foreach ($maskDef['child'] as $child) {
+                        if (!\is_array($child) || !isset($child['name'])) {
+                            continue;
+                        }
+
+                        $prevOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                        $prevLen = \strlen($prevOut);
+                        if (!empty($child['attr']['closing_tag'])) {
+                            if (!empty($child['attr']['content']) && \is_string($child['attr']['content'])) {
+                                // @phpstan-ignore assign.propertyType
+                                $this->svgobjs[$soid]['text'] .= $child['attr']['content'];
+                            }
+
+                            $this->handleSVGTagEnd($maskParser, (string) $child['name']);
+                        } else {
+                            /** @var TSVGAttributes $childAttr */
+                            $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
+                            $this->handleSVGTagStart($maskParser, (string) $child['name'], $childAttr, $soid);
+                        }
+
+                        $currOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                        $currLen = \strlen($currOut);
+                        if ($currLen > $prevLen) {
+                            $stream .= \substr($currOut, $prevLen);
+                            // @phpstan-ignore assign.propertyType
+                            $this->svgobjs[$soid]['out'] = $prevOut;
+                        }
+                    }
+                }
+            } finally {
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
+                unset($maskParser);
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgmasks[$maskKey] = [
+                'id'     => $maskKey,
+                'stream' => $stream,
+                'bbox'   => [0.0, 0.0, $pwidth, $pheight],
+                'gs_n'   => 0,
+            ];
+        }
+        return '/' . $maskKey . ' gs' . "\n";
+    }
+
+    /**
+     * Parse an SVG glyph-orientation angle value.
+     *
+     * Accepts bare numbers (degrees) and explicit `deg`, `rad`, `grad` units.
+     *
+     * @param string $value Raw CSS value.
+     * @param float $default Default angle in degrees when parsing fails.
+     *
+     * @return float Angle in degrees.
+     */
+    protected function parseSVGGlyphOrientationAngle(string $value, float $default): float
+    {
+        $val = \trim(\strtolower($value));
+        if ($val === '') {
+            return $default;
+        }
+
+        if (!\preg_match('/^([-+]?\d*\.?\d+)(deg|rad|grad)?$/', $val, $regs)) {
+            return $default;
+        }
+
+        $ang = (float) $regs[1];
+        $unit = $regs[2] ?? 'deg';
+
+        return match ($unit) {
+            'rad'  => \rad2deg($ang),
+            'grad' => ($ang * 0.9),
+            default => $ang,
+        };
+    }
+
+    /**
+     * Resolve text rotation implied by writing-mode and glyph-orientation.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     * @param bool $isVertical True when writing-mode is vertical.
+     *
+     * @return float Rotation in degrees.
+     */
+    protected function getSVGGlyphOrientationRotation(array $svgstyle, bool $isVertical): float
+    {
+        if ($isVertical) {
+            // S-2 baseline: vertical writing stacks glyphs and rotates them 90°.
+            $default = 90.0;
+            $gvert = \strtolower((string)($svgstyle['glyph-orientation-vertical'] ?? 'auto'));
+            if ($gvert === 'auto') {
+                return $default;
+            }
+
+            return $this->parseSVGGlyphOrientationAngle($gvert, $default);
+        }
+
+        $default = 0.0;
+        $ghorz = \strtolower((string)($svgstyle['glyph-orientation-horizontal'] ?? '0deg'));
+        if ($ghorz === 'auto') {
+            return $default;
+        }
+
+        return $this->parseSVGGlyphOrientationAngle($ghorz, $default);
+    }
+
+    /**
+     * Map SVG rendering-hint properties to PDF rendering-intent operators.
+     *
+     * SVG `color-rendering`, `image-rendering`, `shape-rendering`, and
+     * `text-rendering` are advisory hints with no guaranteed effect in any
+     * renderer.  PDF supports a /ri (rendering intent) operator with four
+     * standard values; this method performs a best-effort mapping:
+     *
+     *  - `optimizeQuality`  / `crispEdges`     → /RelativeColorimetric (default)
+     *  - `optimizeSpeed`    / `pixelated`      → /AbsoluteColorimetric
+     *  - `auto`             (any)              → no operator emitted (use PDF default)
+     *
+     * The SVG `color-interpolation` / `color-interpolation-filters` values
+     * (`sRGB`, `linearRGB`) cannot be faithfully represented through the ri
+     * operator alone and are therefore silently accepted but not forwarded.
+     *
+     * @param TSVGStyle $svgstyle SVG style.
+     *
+     * @return string Raw PDF command or empty string.
+     */
+    protected function parseSVGStyleRenderingHints(array $svgstyle): string
+    {
+        // Collect the most-demanding rendering hint across the four properties.
+        $hints = [
+            (string) ($svgstyle['color-rendering']  ?? 'auto'),
+            (string) ($svgstyle['image-rendering']  ?? 'auto'),
+            (string) ($svgstyle['shape-rendering']  ?? 'auto'),
+            (string) ($svgstyle['text-rendering']   ?? 'auto'),
+        ];
+
+        $intent = '';
+        foreach ($hints as $h) {
+            switch (\strtolower($h)) {
+                case 'optimizequality':
+                case 'crispedges':
+                case 'geometricprecision':
+                    // Quality-first hints → RelativeColorimetric (PDF default, but
+                    // emit explicitly so the value is recorded in the content stream).
+                    if ($intent === '') {
+                        $intent = 'RelativeColorimetric';
+                    }
+
+                    break;
+                case 'optimizespeed':
+                case 'pixelated':
+                    // Speed-first hints → AbsoluteColorimetric.
+                    $intent = 'AbsoluteColorimetric';
+                    break;
+            }
+        }
+
+        if ($intent === '') {
+            return '';
+        }
+
+        return '/' . $intent . ' ri' . "\n";
     }
 
     /**
@@ -2185,6 +2502,551 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Resolve a pattern length optionally expressed as percentage.
+     *
+     * @param string $raw Raw pattern length value.
+     * @param float $base Base value for percentages.
+     * @param int $soid SVG object ID.
+     *
+     * @return float
+     */
+    protected function resolveSVGPatternLength(string $raw, float $base, int $soid): float
+    {
+        $raw = \trim($raw);
+        if ($raw === '') {
+            return 0.0;
+        }
+
+        if (\str_ends_with($raw, '%')) {
+            $pct = (float) \substr($raw, 0, -1);
+            return (($pct / 100.0) * $base);
+        }
+
+        return $this->svgUnitToUnit($raw, $soid);
+    }
+
+    /**
+     * Resolve a pattern definition, including href inheritance chain.
+     *
+     * Child pattern attributes override inherited parent values.
+     * Child pattern content is inherited only when the child has no own content.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $patternId Pattern ID without '#'.
+     *
+     * @return ?TSVGAttribs
+     */
+    protected function resolveSVGPatternDef(int $soid, string $patternId): ?array
+    {
+        if (empty($this->svgobjs[$soid]['defs'][$patternId])) {
+            return null;
+        }
+
+        /** @var TSVGAttribs $resolved */
+        $resolved = $this->svgobjs[$soid]['defs'][$patternId];
+        if (($resolved['name'] ?? '') !== 'pattern') {
+            return null;
+        }
+
+        $resolvedAttr = (isset($resolved['attr']) && \is_array($resolved['attr'])) ? $resolved['attr'] : [];
+        $resolvedChild = (isset($resolved['child']) && \is_array($resolved['child'])) ? $resolved['child'] : [];
+
+        $seen = [$patternId => true];
+        $href = (string) ($resolvedAttr['xlink:href'] ?? $resolvedAttr['href'] ?? '');
+        while (($href !== '') && ($href[0] === '#')) {
+            $parentId = \substr($href, 1);
+            if (($parentId === '') || !empty($seen[$parentId])) {
+                break;
+            }
+            $seen[$parentId] = true;
+
+            if (empty($this->svgobjs[$soid]['defs'][$parentId])) {
+                break;
+            }
+
+            /** @var TSVGAttribs $parent */
+            $parent = $this->svgobjs[$soid]['defs'][$parentId];
+            if (($parent['name'] ?? '') !== 'pattern') {
+                break;
+            }
+
+            $parentAttr = (isset($parent['attr']) && \is_array($parent['attr'])) ? $parent['attr'] : [];
+            $resolvedAttr = \array_replace($parentAttr, $resolvedAttr);
+
+            if (empty($resolvedChild) && !empty($parent['child']) && \is_array($parent['child'])) {
+                $resolvedChild = $parent['child'];
+            }
+
+            $href = (string) ($parentAttr['xlink:href'] ?? $parentAttr['href'] ?? '');
+        }
+
+        return [
+            'name' => 'pattern',
+            'attr' => $resolvedAttr,
+            'child' => $resolvedChild,
+        ];
+    }
+
+    /**
+     * Register a PDF tiling pattern resource for an SVG pattern definition.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $patternId Pattern ID without '#'.
+     * @param TSVGAttribs $patterndef Resolved pattern definition.
+     * @param TSVGAttributes $attr Resolved pattern attributes.
+     * @param float $tileX Tile origin x in user units.
+     * @param float $tileY Tile origin y in user units.
+     * @param float $tileW Tile width in user units.
+     * @param float $tileH Tile height in user units.
+     * @param float $width Target object width in user units.
+     * @param float $height Target object height in user units.
+     *
+     * @return string Pattern resource ID or empty string on failure.
+     */
+    protected function registerSVGPatternResource(
+        int $soid,
+        string $patternId,
+        array $patterndef,
+        array $attr,
+        float $tileX,
+        float $tileY,
+        float $tileW,
+        float $tileH,
+        float $width,
+        float $height,
+    ): string {
+        if (($tileW <= $this->svgminunitlen) || ($tileH <= $this->svgminunitlen)) {
+            return '';
+        }
+
+        $contentUnits = (string) ($attr['patternContentUnits'] ?? 'userSpaceOnUse');
+        $patternTransform = !empty($attr['patternTransform']) && \is_string($attr['patternTransform'])
+            ? $this->getSVGTransformMatrix($attr['patternTransform'])
+            : self::TMXID;
+        $viewBoxTm = self::TMXID;
+        $hasViewBox = false;
+        if (!empty($attr['viewBox']) && \is_string($attr['viewBox'])) {
+            $vals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (\is_array($vals) && (\count($vals) >= 4)) {
+                $vbx = (float) $this->svgUnitToUnit((string) $vals[0], $soid);
+                $vby = (float) $this->svgUnitToUnit((string) $vals[1], $soid);
+                $vbw = \abs((float) $this->svgUnitToUnit((string) $vals[2], $soid));
+                $vbh = \abs((float) $this->svgUnitToUnit((string) $vals[3], $soid));
+
+                if (($vbw > 0.0) && ($vbh > 0.0)) {
+                    $hasViewBox = true;
+                    $viewScaleX = ($tileW / $vbw);
+                    $viewScaleY = ($tileH / $vbh);
+                    $viewOffsetX = 0.0;
+                    $viewOffsetY = 0.0;
+
+                    $aspectRaw = (string) ($attr['preserveAspectRatio'] ?? 'xMidYMid meet');
+                    $aspectFit = 'meet';
+                    $aspectX = 'xMid';
+                    $aspectY = 'YMid';
+                    if (\trim($aspectRaw) === 'none') {
+                        $aspectFit = 'none';
+                    } else {
+                        $aspectMatches = [];
+                        \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $aspectMatches);
+                        $tokens = $aspectMatches[0];
+                        if (!empty($tokens)) {
+                            if (\strtolower((string) $tokens[0]) === 'defer') {
+                                \array_shift($tokens);
+                            }
+
+                            if (!empty($tokens) && (\strlen((string) $tokens[0]) === 8)) {
+                                $alignToken = (string) $tokens[0];
+                                $aspectX = \substr($alignToken, 0, 4);
+                                $aspectY = \substr($alignToken, 4, 4);
+                                if (
+                                    isset($tokens[1])
+                                    && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)
+                                ) {
+                                    $aspectFit = (string) $tokens[1];
+                                }
+                            } elseif (
+                                !empty($tokens)
+                                && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)
+                            ) {
+                                $aspectFit = (string) $tokens[0];
+                            }
+                        }
+                    }
+
+                    if ($aspectFit !== 'none') {
+                        $scaleX = ($tileW / $vbw);
+                        $scaleY = ($tileH / $vbh);
+                        $scale = ($aspectFit === 'slice') ? \max($scaleX, $scaleY) : \min($scaleX, $scaleY);
+                        $viewScaleX = $scale;
+                        $viewScaleY = $scale;
+                        $scaledW = $vbw * $scale;
+                        $scaledH = $vbh * $scale;
+                        $viewOffsetX = match ($aspectX) {
+                            'xMax' => ($tileW - $scaledW),
+                            'xMid' => (($tileW - $scaledW) / 2.0),
+                            default => 0.0,
+                        };
+                        $viewOffsetY = match ($aspectY) {
+                            'YMax' => ($tileH - $scaledH),
+                            'YMid' => (($tileH - $scaledH) / 2.0),
+                            default => 0.0,
+                        };
+                    }
+
+                    $viewBoxTm = [
+                        $viewScaleX,
+                        0.0,
+                        0.0,
+                        $viewScaleY,
+                        ($viewOffsetX - ($viewScaleX * $vbx)),
+                        ($viewOffsetY - ($viewScaleY * $vby)),
+                    ];
+                }
+            }
+        }
+
+        $contentTm = self::TMXID;
+        // SVG2: patternContentUnits has no effect when a viewBox is specified.
+        if (($contentUnits === 'objectBoundingBox') && !$hasViewBox) {
+            $contentTm = $this->graph->getCtmProduct($contentTm, [$width, 0.0, 0.0, $height, 0.0, 0.0]);
+        }
+        $contentTm = $this->graph->getCtmProduct($contentTm, $viewBoxTm);
+
+        $stream = $this->graph->getStartTransform();
+        $stream .= $this->getOutSVGTransformation($contentTm, $soid);
+
+        $patParser = \xml_parser_create('UTF-8');
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['patternmode'] = ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) + 1;
+        try {
+            if (!empty($patterndef['child']) && \is_array($patterndef['child'])) {
+                foreach ($patterndef['child'] as $child) {
+                    if (!\is_array($child) || !isset($child['name'])) {
+                        continue;
+                    }
+                    $prevOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                    $prevLen = \strlen($prevOut);
+                    if (!empty($child['attr']['closing_tag'])) {
+                        if (!empty($child['attr']['content']) && \is_string($child['attr']['content'])) {
+                            // @phpstan-ignore assign.propertyType
+                            $this->svgobjs[$soid]['text'] .= $child['attr']['content'];
+                        }
+                        $this->handleSVGTagEnd($patParser, (string) $child['name']);
+                    } else {
+                        /** @var TSVGAttributes $childAttr */
+                        $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
+                        $this->handleSVGTagStart($patParser, (string) $child['name'], $childAttr, $soid);
+                    }
+
+                    $currOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                    $currLen = \strlen($currOut);
+                    if ($currLen > $prevLen) {
+                        $stream .= \substr($currOut, $prevLen);
+                        // @phpstan-ignore assign.propertyType
+                        $this->svgobjs[$soid]['out'] = $prevOut;
+                    }
+                }
+            }
+        } finally {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
+            unset($patParser);
+        }
+
+        $stream .= $this->graph->getStopTransform();
+        if (\trim($stream) === '') {
+            return '';
+        }
+
+        $patternMatrix = $this->graph->getCtmProduct([1.0, 0.0, 0.0, 1.0, $tileX, $tileY], $patternTransform);
+        $pid = 'PTN_' . \strtoupper(\substr(\md5($patternId . '|' . \sprintf(
+            '%F|%F|%F|%F|%F|%F|%F|%F',
+            $tileX,
+            $tileY,
+            $tileW,
+            $tileH,
+            $width,
+            $height,
+            $patternMatrix[4],
+            $patternMatrix[5],
+        )), 0, 16));
+
+        if (empty($this->patterns[$pid])) {
+            $this->patterns[$pid] = [
+                'id' => $pid,
+                'n' => 0,
+                'outdata' => $stream,
+                'bbox' => [0.0, 0.0, $tileW, $tileH],
+                'xstep' => $tileW,
+                'ystep' => $tileH,
+                'matrix' => [
+                    $patternMatrix[0],
+                    $patternMatrix[1],
+                    $patternMatrix[2],
+                    $patternMatrix[3],
+                    $patternMatrix[4],
+                    $patternMatrix[5],
+                ],
+            ];
+        }
+
+        return $pid;
+    }
+
+    /**
+     * Parse SVG pattern fill style from defs.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $patternId Pattern ID without '#'.
+     * @param float $posx X position in user units.
+     * @param float $posy Y position in user units.
+     * @param float $width Width in user units.
+     * @param float $height Height in user units.
+     * @param string $clip_fnc Optional clipping function name.
+     * @param array<mixed> $clip_par Optional clipping function parameters.
+     *
+     * @return string
+     */
+    protected function parseSVGStylePattern(
+        int $soid,
+        string $patternId,
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        string $clip_fnc = '',
+        array $clip_par = [],
+    ): string {
+        if (!empty($this->svgobjs[$soid]['patternmode'])) {
+            return '';
+        }
+
+        $patterndef = $this->resolveSVGPatternDef($soid, $patternId);
+        if ($patterndef === null) {
+            return '';
+        }
+
+        $attr = (isset($patterndef['attr']) && \is_array($patterndef['attr'])) ? $patterndef['attr'] : [];
+        $units = (string) ($attr['patternUnits'] ?? 'objectBoundingBox');
+        $isObjectBox = ($units !== 'userSpaceOnUse');
+
+        $tileX = $this->resolveSVGPatternLength((string) ($attr['x'] ?? '0'), ($isObjectBox ? $width : 1.0), $soid);
+        $tileY = $this->resolveSVGPatternLength((string) ($attr['y'] ?? '0'), ($isObjectBox ? $height : 1.0), $soid);
+        $tileW = $this->resolveSVGPatternLength((string) ($attr['width'] ?? '0'), ($isObjectBox ? $width : 1.0), $soid);
+        $tileH = $this->resolveSVGPatternLength(
+            (string) ($attr['height'] ?? '0'),
+            ($isObjectBox ? $height : 1.0),
+            $soid,
+        );
+
+        if ($isObjectBox) {
+            $tileX += $posx;
+            $tileY += $posy;
+        }
+
+        if (($tileW <= $this->svgminunitlen) || ($tileH <= $this->svgminunitlen)) {
+            return '';
+        }
+
+        $patternResId = $this->registerSVGPatternResource(
+            $soid,
+            $patternId,
+            $patterndef,
+            $attr,
+            $tileX,
+            $tileY,
+            $tileW,
+            $tileH,
+            $width,
+            $height,
+        );
+        if ($patternResId !== '') {
+            return '/Pattern cs /' . $patternResId . " scn\n";
+        }
+
+        $ixStart = (int) \floor((($posx - $tileX) / $tileW)) - 1;
+        $ixEnd = (int) \ceil(((($posx + $width) - $tileX) / $tileW)) + 1;
+        $iyStart = (int) \floor((($posy - $tileY) / $tileH)) - 1;
+        $iyEnd = (int) \ceil(((($posy + $height) - $tileY) / $tileH)) + 1;
+
+        $out = '';
+        $out .= $this->graph->getStartTransform();
+
+        if ($clip_fnc !== '') {
+            $fnout = null;
+            if (\method_exists($this, $clip_fnc)) {
+                $fnout = $this->$clip_fnc(...$clip_par);
+            } elseif (\method_exists($this->graph, $clip_fnc)) {
+                $fnout = $this->graph->$clip_fnc(...$clip_par);
+            }
+            if (\is_string($fnout)) {
+                $out .= $fnout;
+            }
+        }
+
+        $contentUnits = (string) ($attr['patternContentUnits'] ?? 'userSpaceOnUse');
+        $patternTransform = !empty($attr['patternTransform']) && \is_string($attr['patternTransform'])
+            ? $this->getSVGTransformMatrix($attr['patternTransform'])
+            : self::TMXID;
+        $viewBoxTm = self::TMXID;
+        $hasViewBox = false;
+        if (!empty($attr['viewBox']) && \is_string($attr['viewBox'])) {
+            $vals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (\is_array($vals) && (\count($vals) >= 4)) {
+                $vbx = (float) $this->svgUnitToUnit((string) $vals[0], $soid);
+                $vby = (float) $this->svgUnitToUnit((string) $vals[1], $soid);
+                $vbw = \abs((float) $this->svgUnitToUnit((string) $vals[2], $soid));
+                $vbh = \abs((float) $this->svgUnitToUnit((string) $vals[3], $soid));
+
+                if (($vbw > 0.0) && ($vbh > 0.0)) {
+                    $hasViewBox = true;
+                    $viewScaleX = ($tileW / $vbw);
+                    $viewScaleY = ($tileH / $vbh);
+                    $viewOffsetX = 0.0;
+                    $viewOffsetY = 0.0;
+
+                    $aspectRaw = (string) ($attr['preserveAspectRatio'] ?? 'xMidYMid meet');
+                    $aspectFit = 'meet';
+                    $aspectX = 'xMid';
+                    $aspectY = 'YMid';
+                    if (\trim($aspectRaw) === 'none') {
+                        $aspectFit = 'none';
+                    } else {
+                        $aspectMatches = [];
+                        \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $aspectMatches);
+                        $tokens = $aspectMatches[0];
+                        if (!empty($tokens)) {
+                            if (\strtolower((string) $tokens[0]) === 'defer') {
+                                \array_shift($tokens);
+                            }
+
+                            if (!empty($tokens) && (\strlen((string) $tokens[0]) === 8)) {
+                                $alignToken = (string) $tokens[0];
+                                $aspectX = \substr($alignToken, 0, 4);
+                                $aspectY = \substr($alignToken, 4, 4);
+                                if (
+                                    isset($tokens[1])
+                                    && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)
+                                ) {
+                                    $aspectFit = (string) $tokens[1];
+                                }
+                            } elseif (
+                                !empty($tokens)
+                                && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)
+                            ) {
+                                $aspectFit = (string) $tokens[0];
+                            }
+                        }
+                    }
+
+                    if ($aspectFit !== 'none') {
+                        $scaleX = ($tileW / $vbw);
+                        $scaleY = ($tileH / $vbh);
+                        $scale = ($aspectFit === 'slice') ? \max($scaleX, $scaleY) : \min($scaleX, $scaleY);
+                        $viewScaleX = $scale;
+                        $viewScaleY = $scale;
+                        $scaledW = $vbw * $scale;
+                        $scaledH = $vbh * $scale;
+                        $viewOffsetX = match ($aspectX) {
+                            'xMax' => ($tileW - $scaledW),
+                            'xMid' => (($tileW - $scaledW) / 2.0),
+                            default => 0.0,
+                        };
+                        $viewOffsetY = match ($aspectY) {
+                            'YMax' => ($tileH - $scaledH),
+                            'YMid' => (($tileH - $scaledH) / 2.0),
+                            default => 0.0,
+                        };
+                    }
+
+                    $viewBoxTm = [
+                        $viewScaleX,
+                        0.0,
+                        0.0,
+                        $viewScaleY,
+                        ($viewOffsetX - ($viewScaleX * $vbx)),
+                        ($viewOffsetY - ($viewScaleY * $vby)),
+                    ];
+                }
+            }
+        }
+        $patParser = \xml_parser_create('UTF-8');
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['patternmode'] = ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) + 1;
+        try {
+            for ($iy = $iyStart; $iy <= $iyEnd; ++$iy) {
+                for ($ix = $ixStart; $ix <= $ixEnd; ++$ix) {
+                    $tilePosX = $tileX + ($ix * $tileW);
+                    $tilePosY = $tileY + ($iy * $tileH);
+                    if (
+                        ($tilePosX > ($posx + $width))
+                        || (($tilePosX + $tileW) < $posx)
+                        || ($tilePosY > ($posy + $height))
+                        || (($tilePosY + $tileH) < $posy)
+                    ) {
+                        continue;
+                    }
+
+                    $out .= $this->graph->getStartTransform();
+                    $tileTm = [1.0, 0.0, 0.0, 1.0, $tilePosX, $tilePosY];
+                    // SVG2: patternContentUnits has no effect when a viewBox is specified.
+                    if (($contentUnits === 'objectBoundingBox') && !$hasViewBox) {
+                        $tileTm = $this->graph->getCtmProduct($tileTm, [$width, 0.0, 0.0, $height, 0.0, 0.0]);
+                    }
+                    $tileTm = $this->graph->getCtmProduct($tileTm, $patternTransform);
+                    $tileTm = $this->graph->getCtmProduct($tileTm, $viewBoxTm);
+                    $out .= $this->getOutSVGTransformation($tileTm, $soid);
+
+                    if (!empty($patterndef['child']) && \is_array($patterndef['child'])) {
+                        foreach ($patterndef['child'] as $child) {
+                            if (!\is_array($child) || !isset($child['name']) || !\is_string($child['name'])) {
+                                continue;
+                            }
+                            /** @var string $childName */
+                            $childName = $child['name'];
+                            /** @var TSVGAttributes $childAttr */
+                            $childAttr = (isset($child['attr']) && \is_array($child['attr'])) ? $child['attr'] : [];
+                            $prevOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                            $prevLen = \strlen($prevOut);
+                            if (!empty($childAttr['closing_tag'])) {
+                                $childContent = $childAttr['content'] ?? null;
+                                if (\is_string($childContent) && ($childContent !== '')) {
+                                    // Replay text captured in defs before closing the element.
+                                    // @phpstan-ignore assign.propertyType
+                                    $this->svgobjs[$soid]['text'] .= $childContent;
+                                }
+                                $this->handleSVGTagEnd($patParser, $childName);
+                            } else {
+                                $this->handleSVGTagStart($patParser, $childName, $childAttr, $soid);
+                            }
+
+                            $currOut = (string) ($this->svgobjs[$soid]['out'] ?? '');
+                            $currLen = \strlen($currOut);
+                            if ($currLen > $prevLen) {
+                                $out .= \substr($currOut, $prevLen);
+                                // keep replay output scoped to this pattern fill stream
+                                // @phpstan-ignore assign.propertyType
+                                $this->svgobjs[$soid]['out'] = $prevOut;
+                            }
+                        }
+                    }
+
+                    $out .= $this->graph->getStopTransform();
+                }
+            }
+        } finally {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['patternmode'] = \max(0, ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0)) - 1);
+            unset($patParser);
+        }
+
+        $out .= $this->graph->getStopTransform();
+        return $out;
+    }
+
+    /**
      * Parse the SVG fill style.
      *
      * @param int $soid SVG object ID.
@@ -2214,6 +3076,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
+        if (!empty($this->svgobjs[$soid]['patternmode'])) {
+            return '';
+        }
+
         $out = '';
         $blendMode = $this->normalizeSVGBlendMode($svgstyle['mix-blend-mode']);
         $baseOpacity = $this->normalizeSVGAlphaValue($svgstyle['opacity']);
@@ -2224,6 +3090,31 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (\preg_match('/url\([\s]*\#([^\)]*)\)/si', $svgstyle['fill'], $regs)) {
             if (\abs($fillAlpha - $baseOpacity) > self::SVGMINFLOATDIFF) {
                 $out .= $this->getSVGExtGState(null, $fillAlpha, $blendMode);
+            }
+
+            if (!empty($this->svgobjs[$soid]['defs'][$regs[1]])) {
+                /** @var TSVGAttribs $filldef */
+                $filldef = $this->svgobjs[$soid]['defs'][$regs[1]];
+                if (($filldef['name'] ?? '') === 'pattern') {
+                    $patternOut = $this->parseSVGStylePattern(
+                        $soid,
+                        $regs[1],
+                        $posx,
+                        $posy,
+                        $width,
+                        $height,
+                        $clip_fnc,
+                        $clip_par,
+                    );
+                    if (\str_contains($patternOut, '/Pattern cs /')) {
+                        $objstyle = ($svgstyle['fill-rule'] == 'evenodd') ? 'F*' : 'F';
+                        if (\strpos($svgstyle['objstyle'], $objstyle) === false) {
+                            $svgstyle['objstyle'] .= $objstyle; // @phpstan-ignore-line
+                        }
+                    }
+
+                    return $out . $patternOut;
+                }
             }
 
             return $out . $this->parseSVGStyleGradient(
@@ -2325,6 +3216,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $out = '';
         $out .= $this->parseSVGStyleColor($svgstyle);
+        $out .= $this->parseSVGStyleMask($soid, $svgstyle);
         $out .= $this->parseSVGStyleClip(
             $svgstyle,
             $posx,
@@ -2348,6 +3240,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $svgstyle,
             $prev_svgstyle,
         );
+        $out .= $this->parseSVGStyleRenderingHints($svgstyle);
 
         $objstyle = $svgstyle['objstyle'];
 
@@ -2370,6 +3263,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ) {
         $soid = (int)\array_key_last($this->svgobjs);
         if (($soid < 0) || !isset($this->svgobjs[$soid]['text'])) {
+            return;
+        }
+        if (((int)($this->svgobjs[$soid]['charskip'] ?? 0)) > 0) {
             return;
         }
         // @phpstan-ignore assign.propertyType
@@ -2397,23 +3293,66 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        if (
-            $this->svgobjs[$soid]['defsmode']
-            && !\in_array($name, self::SVGDEFSMODEEND)
-        ) {
-            if (\end($this->svgobjs[$soid]['defs']) !== false) {
-                $last_svgdefs_id = (string)\array_key_last($this->svgobjs[$soid]['defs']);
-                if (!empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
-                    foreach (
-                        $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'] as $child
-                    ) {
-                        if (
-                            isset($child['attr']['id']) &&
-                            \is_scalar($child['attr']['id']) &&
-                            ($child['name'] == $name)
+        $xmldepth = (int) ($this->svgobjs[$soid]['xmldepth'] ?? 0);
+        if ($xmldepth <= 0) {
+            $xmldepth = 1;
+        }
+
+        try {
+            if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['charskip'] = \max(0, ((int)($this->svgobjs[$soid]['charskip'] ?? 0)) - 1);
+                return;
+            }
+
+            // E-8: skip subtree ends for non-selected <switch> siblings.
+            if (!empty($this->svgobjs[$soid]['switchstack'])) {
+                $switchkey = (int) \array_key_last($this->svgobjs[$soid]['switchstack']);
+                $switchctx = $this->svgobjs[$soid]['switchstack'][$switchkey];
+                $skipDepth = (int) ($switchctx['skipdepth'] ?? 0);
+
+                if (($skipDepth > 0) && ($xmldepth > $skipDepth)) {
+                    return;
+                }
+
+                if (($skipDepth > 0) && ($xmldepth === $skipDepth)) {
+                    $switchctx['skipdepth'] = 0;
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['switchstack'][$switchkey] = $switchctx;
+                    return;
+                }
+            }
+
+            if (
+                $this->svgobjs[$soid]['defsmode']
+                && !\in_array($name, self::SVGDEFSMODEEND)
+            ) {
+                if (\end($this->svgobjs[$soid]['defs']) !== false) {
+                    $last_svgdefs_id = (string)\array_key_last($this->svgobjs[$soid]['defs']);
+                    if (!empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
+                        foreach (
+                            $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'] as $child
                         ) {
-                            // @phpstan-ignore assign.propertyType
-                            $closeKey = (string)$child['attr']['id'] . '_CLOSE';
+                            if (
+                                isset($child['attr']['id']) &&
+                                \is_scalar($child['attr']['id']) &&
+                                ($child['name'] == $name)
+                            ) {
+                                // @phpstan-ignore assign.propertyType
+                                $closeKey = (string)$child['attr']['id'] . '_CLOSE';
+                                // @phpstan-ignore assign.propertyType
+                                $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$closeKey] = [
+                                    'name' => $name,
+                                    'attr' => [
+                                        'closing_tag' => true,
+                                        'content' => $this->svgobjs[$soid]['text'],
+                                    ],
+                                ];
+                                return;
+                            }
+                        }
+                        if ($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['name'] == $name) {
+                            $closeKey = (string)$last_svgdefs_id . '_CLOSE';
                             // @phpstan-ignore assign.propertyType
                             $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$closeKey] = [
                                 'name' => $name,
@@ -2425,33 +3364,42 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                             return;
                         }
                     }
-                    if ($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['name'] == $name) {
-                        $closeKey = (string)$last_svgdefs_id . '_CLOSE';
-                        // @phpstan-ignore assign.propertyType
-                        $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$closeKey] = [
-                            'name' => $name,
-                            'attr' => [
-                                'closing_tag' => true,
-                                'content' => $this->svgobjs[$soid]['text'],
-                            ],
-                        ];
-                        return;
-                    }
+                }
+                return;
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['out'] .= match ($name) {
+                'defs' => $this->parseSVGTagENDdefs($soid),
+                'clipPath' => $this->parseSVGTagENDclipPath($soid),
+                'svg' => $this->parseSVGTagENDsvg($soid),
+                'g' => $this->parseSVGTagENDg($soid),
+                'text' => $this->parseSVGTagENDtext($soid),
+                'tspan' => $this->parseSVGTagENDtspan($soid),
+                'textPath' => $this->parseSVGTagENDtextPath($soid),
+                'symbol' => $this->parseSVGTagENDsymbol($soid),
+                'marker' => $this->parseSVGTagENDmarker($soid),
+                'pattern' => $this->parseSVGTagENDpattern($soid),
+                'mask' => $this->parseSVGTagENDmask($soid),
+                'filter' => $this->parseSVGTagENDfilter($soid),
+                'a' => $this->parseSVGTagENDa($soid),
+                'switch' => $this->parseSVGTagENDswitch($soid),
+                default => null,
+            };
+
+            // Pop completed switch context.
+            if (!empty($this->svgobjs[$soid]['switchstack']) && ($name === 'switch')) {
+                $switchkey = (int) \array_key_last($this->svgobjs[$soid]['switchstack']);
+                $switchctx = $this->svgobjs[$soid]['switchstack'][$switchkey];
+                if ($xmldepth === (int) ($switchctx['depth'] ?? -1)) {
+                    // @phpstan-ignore assign.propertyType
+                    unset($this->svgobjs[$soid]['switchstack'][$switchkey]);
                 }
             }
-            return;
+        } finally {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['xmldepth'] = \max(0, ((int)($this->svgobjs[$soid]['xmldepth'] ?? 0)) - 1);
         }
-
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['out'] .= match ($name) {
-            'defs' => $this->parseSVGTagENDdefs($soid),
-            'clipPath' => $this->parseSVGTagENDclipPath($soid),
-            'svg' => $this->parseSVGTagENDsvg($soid),
-            'g' => $this->parseSVGTagENDg($soid),
-            'text' => $this->parseSVGTagENDtext($soid),
-            'tspan' => $this->parseSVGTagENDtspan($soid),
-            default => null,
-        };
     }
 
     /**
@@ -2463,9 +3411,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDdefs(int $soid): string
     {
-        // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = false;
-        return '';
+        return $this->setSVGDefsMode($soid, false);
     }
 
     /**
@@ -2525,6 +3471,80 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Parse the SVG End tag 'textPath'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDtextPath(int $soid): string
+    {
+        return $this->parseSVGTagENDtext($soid);
+    }
+
+    /**
+     * Render an SVG text run, optionally wrapped in a rotation transform.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $text Text to render.
+     * @param float $posx X coordinate.
+     * @param float $posy Y coordinate.
+     * @param float $width Forced text width.
+     * @param float $strokeWidth Text stroke width.
+     * @param string $txtanchor Text anchor mode.
+     * @param float $rotate Rotation in degrees.
+     *
+     * @return string
+     */
+    protected function getSVGTextRunOutput(
+        int $soid,
+        string $text,
+        float $posx,
+        float $posy,
+        float $width,
+        float $strokeWidth,
+        string $txtanchor,
+        float $rotate = 0.0,
+    ): string {
+        $out = '';
+        if ($rotate !== 0.0) {
+            $rad = \deg2rad(-$rotate);
+            $cos = \cos($rad);
+            $sin = \sin($rad);
+            $out .= $this->graph->getStartTransform();
+            $out .= $this->getOutSVGTransformation([$cos, $sin, -$sin, $cos, $posx, $posy], $soid);
+            $posx = 0.0;
+            $posy = 0.0;
+        }
+
+        $out .= $this->getTextLine(
+            $text,
+            $posx,
+            $posy,
+            $width,
+            $strokeWidth,
+            0,
+            0,
+            0,
+            true,
+            ($strokeWidth > 0),
+            false,
+            false,
+            false,
+            false,
+            ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
+            $txtanchor,
+            null,
+        );
+
+        if ($rotate !== 0.0) {
+            $out .= $this->graph->getStopTransform();
+        }
+
+        return $out;
+    }
+
+    /**
      * Parse the SVG End tag 'text'.
      *
      * @param int $soid ID of the current SVG object.
@@ -2534,9 +3554,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function parseSVGTagENDtext(int $soid): string
     {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
-            // @TODO : This implementation must be fixed to following the rule:
-            // If the 'visibility' property is set to hidden on a 'tspan', 'tref' or 'altGlyph' element,
-            // then the text is invisible but still takes up space in text layout calculations.
+            // Per SVG spec, visibility:hidden text is invisible but still consumes layout space.
+            // Advance the cursor by the text width without emitting any drawing operators.
+            $txt = (string)($this->svgobjs[$soid]['text'] ?? '');
+            if ($txt !== '') {
+                if (!empty($this->svgobjs[$soid]['textmode']['vertical'])) {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['y'] += $this->getStringWidth($txt);
+                } else {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['x'] += $this->getStringWidth($txt);
+                }
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['text'] = '';
+            if (!$this->svgobjs[$soid]['defsmode']) {
+                // @phpstan-ignore assign.propertyType
+                \array_pop($this->svgobjs[$soid]['styles']);
+            }
+
             return '';
         }
 
@@ -2550,27 +3587,133 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             default => 'S',
         };
 
+        // S-1: compute Y offset for dominant-baseline / alignment-baseline.
+        $baselineOffset = 0.0;
+        $baselineKw = $this->svgobjs[$soid]['textmode']['baseline'] ?? 'auto';
+        if ($baselineKw !== 'auto' && $baselineKw !== 'alphabetic') {
+            $curfont = $this->font->getCurrentFont();
+            $ascent   = $this->toUnit($curfont['ascent']);
+            $descent  = $this->toUnit($curfont['descent'] ?? 0);
+            $baselineOffset = match ($baselineKw) {
+                'hanging'           => -$ascent,
+                'text-before-edge'  => -$ascent,
+                'middle', 'central' => -($ascent / 2.0),
+                'mathematical'      => -($ascent * 0.5),
+                'ideographic',
+                'text-after-edge'   => $descent,
+                default             => 0.0,
+            };
+        }
+
+        // S-4: first-angle rotation for the text run.
+        $rotate = (float) ($this->svgobjs[$soid]['textmode']['rotate'] ?? 0.0);
+
+        // E-6: when a textPath is active, derive per-glyph x/y/angle lists
+        // from the sampled path and glyph advances before rendering.
+        $this->applyTextPathGlyphLayout($soid);
+
+        // S-3: textLength adjustment.
+        $textLengthTarget = (float) ($this->svgobjs[$soid]['textmode']['textlength'] ?? 0.0);
+        $lengthAdjust     = (string) ($this->svgobjs[$soid]['textmode']['lengthadjust'] ?? 'spacing');
+        $forcedWidth      = 0.0; // passed to getTextLine for spacing-only adjust
+        $scaleX           = 1.0; // used for spacingAndGlyphs
+
+        if ($textLengthTarget > 0.0) {
+            $actualWidth = $this->getStringWidth($this->svgobjs[$soid]['text']);
+            if ($actualWidth > 0.0) {
+                if ($lengthAdjust === 'spacingAndGlyphs') {
+                    $scaleX = $textLengthTarget / $actualWidth;
+                } else {
+                    // 'spacing': pass target width to getTextLine for word/letter spacing.
+                    $forcedWidth = $textLengthTarget;
+                }
+            }
+        }
+
+        // R-1: multi-value x / y lists — emit one call per character if lists present.
+        $xlist = $this->svgobjs[$soid]['textmode']['xlist'] ?? [];
+        $ylist = $this->svgobjs[$soid]['textmode']['ylist'] ?? [];
+        $rotlist = $this->svgobjs[$soid]['textmode']['rotlist'] ?? [];
+        $isVertical = !empty($this->svgobjs[$soid]['textmode']['vertical']);
+
         $out = '';
 
-        $out .= $this->getTextLine(
-            $this->svgobjs[$soid]['text'],
-            $curx,
-            $cury,
-            0,
-            $this->svgobjs[$soid]['textmode']['stroke'],
-            0,
-            0,
-            0,
-            true,
-            ($this->svgobjs[$soid]['textmode']['stroke'] > 0),
-            false,
-            false,
-            false,
-            false,
-            ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
-            $txtanchor,
-            null, //?array $shadow = null,
-        );
+        if (!empty($xlist) || !empty($ylist) || !empty($rotlist)) {
+            // Emit individual character positions for multi-value coordinate lists.
+            $chars = \mb_str_split($this->svgobjs[$soid]['text'], 1, 'UTF-8');
+            foreach ($chars as $idx => $ch) {
+                $charX = $xlist[$idx] ?? $curx;
+                $charY = ($ylist[$idx] ?? $cury) + $baselineOffset;
+                $charRotate = $rotlist[$idx] ?? $rotate;
+                $originX = $charX;
+                $originY = $charY;
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
+                    $ch,
+                    $charX,
+                    $charY,
+                    0,
+                    $this->svgobjs[$soid]['textmode']['stroke'],
+                    $txtanchor,
+                    $charRotate,
+                );
+                if ($isVertical) {
+                    $cury = $originY + $this->getStringWidth($ch);
+                } else {
+                    $curx = $originX + $this->getStringWidth($ch);
+                }
+            }
+        } elseif ($isVertical) {
+            // S-2: basic vertical writing mode; stack glyphs along Y axis.
+            $chars = \mb_str_split($this->svgobjs[$soid]['text'], 1, 'UTF-8');
+            $strokeWidth = (float) ($this->svgobjs[$soid]['textmode']['stroke'] ?: 0.0);
+            foreach ($chars as $ch) {
+                $charX = $curx;
+                $charY = $cury + $baselineOffset;
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
+                    $ch,
+                    $charX,
+                    $charY,
+                    0,
+                    $strokeWidth,
+                    $txtanchor,
+                    $rotate,
+                );
+                $cury += $this->getStringWidth($ch);
+            }
+        } else {
+            $renderY = $cury + $baselineOffset;
+            if ($scaleX !== 1.0) {
+                $out .= $this->graph->getStartTransform();
+                $out .= $this->getOutSVGTransformation([$scaleX, 0.0, 0.0, 1.0, 0.0, 0.0], $soid);
+            }
+            if ($rotate !== 0.0) {
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
+                    $this->svgobjs[$soid]['text'],
+                    $curx,
+                    $renderY,
+                    $forcedWidth,
+                    $this->svgobjs[$soid]['textmode']['stroke'],
+                    $txtanchor,
+                    $rotate,
+                );
+            } else {
+                $out .= $this->getSVGTextRunOutput(
+                    $soid,
+                    $this->svgobjs[$soid]['text'],
+                    $curx,
+                    $renderY,
+                    $forcedWidth,
+                    $this->svgobjs[$soid]['textmode']['stroke'],
+                    $txtanchor,
+                );
+            }
+            if ($scaleX !== 1.0) {
+                $out .= $this->graph->getStopTransform();
+            }
+        }
 
         // @phpstan-ignore assign.propertyType
         $this->svgobjs[$soid]['text'] = ''; // reset text buffer
@@ -2615,6 +3758,50 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $name = $this->removeTagNamespace($name);
 
+        // Track absolute XML nesting depth for switch child selection.
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['xmldepth'] = ((int)($this->svgobjs[$soid]['xmldepth'] ?? 0)) + 1;
+        $xmldepth = (int) $this->svgobjs[$soid]['xmldepth'];
+
+        if (\in_array($name, self::SVGCHARDATASKIPTAGS, true)) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['charskip'] = ((int)($this->svgobjs[$soid]['charskip'] ?? 0)) + 1;
+            return;
+        }
+
+        // E-8: render only the first direct child of each <switch>.
+        if (!empty($this->svgobjs[$soid]['switchstack'])) {
+            $switchkey = (int) \array_key_last($this->svgobjs[$soid]['switchstack']);
+            $switchctx = $this->svgobjs[$soid]['switchstack'][$switchkey];
+            $skipDepth = (int) ($switchctx['skipdepth'] ?? 0);
+
+            if (($skipDepth > 0) && ($xmldepth > $skipDepth)) {
+                return;
+            }
+
+            if ($xmldepth === ((int) ($switchctx['depth'] ?? 0) + 1)) {
+                if (!empty($switchctx['selected'])) {
+                    $switchctx['skipdepth'] = $xmldepth;
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['switchstack'][$switchkey] = $switchctx;
+                    return;
+                }
+
+                $switchctx['selected'] = true;
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['switchstack'][$switchkey] = $switchctx;
+            }
+        }
+
+        if ($name === 'switch') {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['switchstack'][] = [
+                'depth' => $xmldepth,
+                'selected' => false,
+                'skipdepth' => 0,
+            ];
+        }
+
         if ($this->svgobjs[$soid]['clipmode']) {
             // @phpstan-ignore assign.propertyType
             $this->svgobjs[$soid]['clippaths'][] = [
@@ -2644,15 +3831,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             if (\end($this->svgobjs[$soid]['defs']) !== false) {
                 $last_svgdefs_id = \key($this->svgobjs[$soid]['defs']);
-                if (
-                    !empty($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])
-                    && \is_array($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])
-                ) {
+                if (!isset($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'] = [];
+                }
+
+                if (\is_array($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'])) {
                     $attr['id'] = 'DF_' .
-                    (\count($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child']) + 1);
+                        (\count($this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child']) + 1);
                     $this->svgobjs[$soid]['defs'][$last_svgdefs_id]['child'][$attr['id']] = [
                         'name' => $name,
-                        'attr' => $attr
+                        'attr' => $attr,
                     ];
                     return;
                 }
@@ -2669,6 +3858,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // last style
         $sid = (int)\array_key_last($this->svgobjs[$soid]['styles']);
         $psid = \max(0, $sid - 1);
+        /** @var TSVGStyle $prev_svgstyle */
         $prev_svgstyle = (array) $this->svgobjs[$soid]['styles'][$psid];
 
         if (
@@ -2754,12 +3944,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'circle' => $this->parseSVGTagSTARTcircle($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'ellipse' => $this->parseSVGTagSTARTellipse($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'line' => $this->parseSVGTagSTARTline($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
-            'polyline' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
+            'polyline' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle, true),
             'polygon' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'image' => $this->parseSVGTagSTARTimage($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'text' => $this->parseSVGTagSTARTtext($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'tspan' => $this->parseSVGTagSTARTtspan($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
+            'textPath' => $this->parseSVGTagSTARTtextPath($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'use' => $this->parseSVGTagSTARTuse($parser, $soid, $attr),
+            'symbol' => $this->parseSVGTagSTARTsymbol($soid, $attr),
+            'marker' => $this->parseSVGTagSTARTmarker($soid, $attr),
+            'pattern' => $this->parseSVGTagSTARTpattern($soid, $attr),
+            'mask' => $this->parseSVGTagSTARTmask($soid, $attr),
+            'filter' => $this->parseSVGTagSTARTfilter($soid, $attr),
+            'a' => $this->parseSVGTagSTARTa($soid, $attr),
+            'switch' => $this->parseSVGTagSTARTswitch($soid),
             default => null,
         };
     }
@@ -2773,9 +3971,45 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTdefs(int $soid): string
     {
+        return $this->setSVGDefsMode($soid, true);
+    }
+
+    /**
+     * Toggle defs capture mode.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param bool $enabled Whether defs capture is enabled.
+     *
+     * @return string
+     */
+    protected function setSVGDefsMode(int $soid, bool $enabled): string
+    {
         // @phpstan-ignore assign.propertyType
-        $this->svgobjs[$soid]['defsmode'] = true;
+        $this->svgobjs[$soid]['defsmode'] = $enabled;
         return '';
+    }
+
+    /**
+     * Register a defs-backed container and enable defs capture mode.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $name SVG tag name.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function registerSVGDefsContainer(int $soid, string $name, array $attr): string
+    {
+        if (isset($attr['id'])) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['defs'][$attr['id']] = [
+                'name' => $name,
+                'attr' => $attr,
+                'child' => [],
+            ];
+        }
+
+        return $this->setSVGDefsMode($soid, true);
     }
 
     /**
@@ -2854,19 +4088,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $height,
             'CNZ',
         );
-        $out .= $this->parseSVGStyle(
-            $parser,
-            $soid,
-            $svgstyle,
-            $prev_svgstyle,
-            $posx,
-            $posy,
-            $width,
-            $height,
-        );
         // parse viewbox, calculate extra transformation matrix
         if (empty($attr['viewBox'])) {
-            $out .= $this->parseSVGStyle(
+            return $out . $this->parseSVGStyle(
                 $parser,
                 $soid,
                 $svgstyle,
@@ -2876,13 +4100,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $width,
                 $height,
             );
-            return $out;
         }
         $tmp = [];
         \preg_match_all("/[0-9]+/", $attr['viewBox'], $tmp);
         $tmp = $tmp[0];
         if (\sizeof($tmp) != 4) {
-            $out .= $this->parseSVGStyle(
+            return $out . $this->parseSVGStyle(
                 $parser,
                 $soid,
                 $svgstyle,
@@ -2892,7 +4115,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $width,
                 $height,
             );
-            return $out;
         }
         $vbx = \floatval($tmp[0]);
         $vby = \floatval($tmp[1]);
@@ -3055,9 +4277,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
         }
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$px1, $py1, $px2, $py2];
-        if (!empty($attr['xlink:href'])) {
+        $gradHref = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (!empty($gradHref)) {
             // gradient is defined on another place
-            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($attr['xlink:href'], 1);
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($gradHref, 1);
         }
         return '';
     }
@@ -3112,9 +4335,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $this->getSVGTransformMatrix($attr['gradientTransform']);
         }
         $this->svgobjs[$soid]['gradients'][$gid]['coords'] = [$pcx, $pcy, $pfx, $pfy, $grr];
-        if (!empty($attr['xlink:href'])) {
+        $gradHref = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (!empty($gradHref)) {
             // gradient is defined on another place
-            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($attr['xlink:href'], 1);
+            $this->svgobjs[$soid]['gradients'][$gid]['xref'] = \substr($gradHref, 1);
         }
         return '';
     }
@@ -3224,6 +4448,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (!empty($obstyle)) {
             $out .= $this->getSVGPath($soid, $ptd, $obstyle);
         }
+
+        $segments = $this->getSVGPathMarkerSegments($soid, $ptd);
+        $out .= $this->renderSVGMarkersForSegments($parser, $soid, $svgstyle, $segments);
 
         $out .= $this->graph->getStopTransform();
 
@@ -3541,8 +4768,800 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $posx2,
             $posy2,
         );
+        $out .= $this->parseSVGLineMarkers(
+            $parser,
+            $soid,
+            $svgstyle,
+            $posx1,
+            $posy1,
+            $posx2,
+            $posy2,
+        );
         $out .= $this->graph->getStopTransform();
         return $out;
+    }
+
+    /**
+     * Parse marker URLs and render start/end markers for a straight line segment.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     * @param float $startX Segment start X.
+     * @param float $startY Segment start Y.
+     * @param float $endX Segment end X.
+     * @param float $endY Segment end Y.
+     *
+     * @return string
+     */
+    protected function parseSVGLineMarkers(
+        \XMLParser $parser,
+        int $soid,
+        array $svgstyle,
+        float $startX,
+        float $startY,
+        float $endX,
+        float $endY,
+    ): string {
+        if (!empty($this->svgobjs[$soid]['markermode'])) {
+            return '';
+        }
+
+        return $this->renderSVGMarkersForSegments(
+            $parser,
+            $soid,
+            $svgstyle,
+            [[
+                'x1' => $startX,
+                'y1' => $startY,
+                'x2' => $endX,
+                'y2' => $endY,
+                'angle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+            ]],
+        );
+    }
+
+    /**
+     * Render marker-start/marker-mid/marker-end for an array of path segments.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     * @param array<int, array{x1: float, y1: float, x2: float, y2: float, angle: float}> $segments
+     *
+     * @return string
+     */
+    protected function renderSVGMarkersForSegments(
+        \XMLParser $parser,
+        int $soid,
+        array $svgstyle,
+        array $segments,
+    ): string {
+        if (empty($segments) || !empty($this->svgobjs[$soid]['markermode'])) {
+            return '';
+        }
+
+        $strokeWidth = (float) ($svgstyle['stroke-width'] ?? 1.0);
+        if ($strokeWidth <= 0.0) {
+            $strokeWidth = 1.0;
+        }
+
+        $first = $segments[0];
+        $last = $segments[\count($segments) - 1];
+
+        $markerAll = (string) ($svgstyle['marker'] ?? '');
+        $markerStartRaw = (string) ($svgstyle['marker-start'] ?? '');
+        $markerMidRaw = (string) ($svgstyle['marker-mid'] ?? '');
+        $markerEndRaw = (string) ($svgstyle['marker-end'] ?? '');
+
+        // If any specific marker anchor is explicitly set to a non-default
+        // value, respect explicit 'none' on other anchors instead of falling
+        // back from shorthand.
+        $hasExplicitSpecific = (
+            (($markerStartRaw !== '') && ($markerStartRaw !== 'none'))
+            || (($markerMidRaw !== '') && ($markerMidRaw !== 'none'))
+            || (($markerEndRaw !== '') && ($markerEndRaw !== 'none'))
+        );
+
+        $markerStart = $this->getSVGResolvedMarker($markerStartRaw, $markerAll, !$hasExplicitSpecific);
+        $markerMid = $this->getSVGResolvedMarker($markerMidRaw, $markerAll, !$hasExplicitSpecific);
+        $markerEnd = $this->getSVGResolvedMarker($markerEndRaw, $markerAll, !$hasExplicitSpecific);
+
+        $out = '';
+        $out .= $this->renderSVGMarker(
+            $parser,
+            $soid,
+            $markerStart,
+            $first['x1'],
+            $first['y1'],
+            (float) ($first['startAngle'] ?? $first['angle']),
+            $strokeWidth,
+            true,
+        );
+
+        $midMarker = $markerMid;
+        if (($midMarker !== '') && ($midMarker !== 'none') && (\count($segments) > 1)) {
+            for ($idx = 1, $max = \count($segments); $idx < $max; ++$idx) {
+                $prev = $segments[$idx - 1];
+                $next = $segments[$idx];
+                $prevAngleRad = \deg2rad((float) ($prev['endAngle'] ?? $prev['angle']));
+                $nextAngleRad = \deg2rad((float) ($next['startAngle'] ?? $next['angle']));
+                $vectorX = \cos($prevAngleRad) + \cos($nextAngleRad);
+                $vectorY = \sin($prevAngleRad) + \sin($nextAngleRad);
+                $midAngle = ((\abs($vectorX) < self::SVGMINFLOATDIFF) && (\abs($vectorY) < self::SVGMINFLOATDIFF))
+                    ? (float) ($next['startAngle'] ?? $next['angle'])
+                    : \rad2deg(\atan2($vectorY, $vectorX));
+                $out .= $this->renderSVGMarker(
+                    $parser,
+                    $soid,
+                    $midMarker,
+                    $next['x1'],
+                    $next['y1'],
+                    $midAngle,
+                    $strokeWidth,
+                    false,
+                );
+            }
+
+            $closedPath = (
+                (\abs($first['x1'] - $last['x2']) < self::SVGMINFLOATDIFF)
+                && (\abs($first['y1'] - $last['y2']) < self::SVGMINFLOATDIFF)
+            );
+            if ($closedPath) {
+                $prevAngleRad = \deg2rad((float) ($last['endAngle'] ?? $last['angle']));
+                $nextAngleRad = \deg2rad((float) ($first['startAngle'] ?? $first['angle']));
+                $vectorX = \cos($prevAngleRad) + \cos($nextAngleRad);
+                $vectorY = \sin($prevAngleRad) + \sin($nextAngleRad);
+                $midAngle = ((\abs($vectorX) < self::SVGMINFLOATDIFF) && (\abs($vectorY) < self::SVGMINFLOATDIFF))
+                    ? (float) ($first['startAngle'] ?? $first['angle'])
+                    : \rad2deg(\atan2($vectorY, $vectorX));
+                $out .= $this->renderSVGMarker(
+                    $parser,
+                    $soid,
+                    $midMarker,
+                    $first['x1'],
+                    $first['y1'],
+                    $midAngle,
+                    $strokeWidth,
+                    false,
+                );
+            }
+        }
+
+        $out .= $this->renderSVGMarker(
+            $parser,
+            $soid,
+            $markerEnd,
+            $last['x2'],
+            $last['y2'],
+            (float) ($last['endAngle'] ?? $last['angle']),
+            $strokeWidth,
+            false,
+        );
+
+        return $out;
+    }
+
+    /**
+     * Resolve marker shorthand fallback for marker-start/mid/end.
+     *
+     * @param string $specific Marker-specific value.
+     * @param string $markerAll Shorthand marker value.
+     * @param bool $fallbackFromNone If true, 'none' can fallback to shorthand.
+     *
+     * @return string
+     */
+    protected function getSVGResolvedMarker(
+        string $specific,
+        string $markerAll,
+        bool $fallbackFromNone = true,
+    ): string {
+        if ($specific !== '') {
+            if (($specific === 'none') && !$fallbackFromNone) {
+                return 'none';
+            }
+            if ($specific !== 'none') {
+                return $specific;
+            }
+        }
+
+        if ($specific === 'none' && $fallbackFromNone && (($markerAll === '') || ($markerAll === 'none'))) {
+            return $specific;
+        }
+
+        if (($markerAll !== '') && ($markerAll !== 'none')) {
+            return $markerAll;
+        }
+
+        return $specific;
+    }
+
+    /**
+     * Build drawable segment anchors from an SVG path string for marker placement.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $attrd Path data.
+     *
+        * @return array<
+        *   int,
+        *   array{x1: float, y1: float, x2: float, y2: float, angle: float, startAngle: float, endAngle: float}
+        * >
+     */
+    protected function getSVGPathMarkerSegments(int $soid, string $attrd): array
+    {
+        $attrd = \preg_replace('/([0-9ACHLMQSTVZ])([\-\+])/si', '\\1 \\2', $attrd);
+        if (!\is_string($attrd) || ($attrd === '')) {
+            return [];
+        }
+
+        $attrd = \preg_replace('/(\.[0-9]+)(\.)/s', '\\1 \\2', $attrd);
+        if (!\is_string($attrd) || ($attrd === '')) {
+            return [];
+        }
+
+        $paths = [];
+        \preg_match_all('/([ACHLMQSTVZ])[\s]*+([^ACHLMQSTVZ\"]*+)/si', $attrd, $paths, PREG_SET_ORDER);
+        if (empty($paths)) {
+            return [];
+        }
+
+        $segments = [];
+        $currentX = 0.0;
+        $currentY = 0.0;
+        $subpathStartX = 0.0;
+        $subpathStartY = 0.0;
+        $prevCmd = '';
+        $cp2x = 0.0;
+        $cp2y = 0.0;
+        $qp1x = 0.0;
+        $qp1y = 0.0;
+
+        foreach ($paths as $path) {
+            $cmd = \trim($path[1]);
+            if ($cmd === '') {
+                continue;
+            }
+
+            $upper = \strtoupper($cmd);
+            $rel = (\strtolower($cmd) === $cmd);
+            $raw = [];
+            \preg_match_all('/-?\d+(?:\.\d+)?/', \trim($path[2]), $raw);
+            $rawparams = $raw[0];
+            $params = [];
+            foreach ($rawparams as $prv) {
+                $val = $this->svgUnitToUnit($prv, $soid);
+                $params[] = (\abs($val) < $this->svgminunitlen) ? 0.0 : $val;
+            }
+
+            $addSegment = function (float $startX, float $startY, float $endX, float $endY) use (&$segments): void {
+                if (
+                    (\abs($endX - $startX) < self::SVGMINFLOATDIFF)
+                    && (\abs($endY - $startY) < self::SVGMINFLOATDIFF)
+                ) {
+                    return;
+                }
+                $segments[] = [
+                    'x1' => $startX,
+                    'y1' => $startY,
+                    'x2' => $endX,
+                    'y2' => $endY,
+                    'angle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                    'startAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                    'endAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                ];
+            };
+
+            $setLastSegmentAngles = function (float $startAngle, float $endAngle) use (&$segments): void {
+                $last = \array_key_last($segments);
+                if (!\is_int($last)) {
+                    return;
+                }
+
+                $lastSegment = $segments[$last];
+                $lastSegment['startAngle'] = $startAngle;
+                $lastSegment['endAngle'] = $endAngle;
+                $segments[$last] = $lastSegment;
+            };
+
+            if ($upper === 'M') {
+                for ($i = 0; ($i + 1) < \count($params); $i += 2) {
+                    $nextX = $params[$i] + ($rel ? $currentX : 0.0);
+                    $nextY = $params[$i + 1] + ($rel ? $currentY : 0.0);
+                    if ($i === 0) {
+                        $currentX = $nextX;
+                        $currentY = $nextY;
+                        $subpathStartX = $nextX;
+                        $subpathStartY = $nextY;
+                    } else {
+                        $addSegment($currentX, $currentY, $nextX, $nextY);
+                        $currentX = $nextX;
+                        $currentY = $nextY;
+                    }
+                }
+                $prevCmd = 'M';
+                continue;
+            }
+
+            if ($upper === 'L') {
+                for ($i = 0; ($i + 1) < \count($params); $i += 2) {
+                    $nextX = $params[$i] + ($rel ? $currentX : 0.0);
+                    $nextY = $params[$i + 1] + ($rel ? $currentY : 0.0);
+                    $addSegment($currentX, $currentY, $nextX, $nextY);
+                    $currentX = $nextX;
+                    $currentY = $nextY;
+                }
+                $prevCmd = 'L';
+                continue;
+            }
+
+            if ($upper === 'H') {
+                foreach ($params as $val) {
+                    $nextX = $val + ($rel ? $currentX : 0.0);
+                    $addSegment($currentX, $currentY, $nextX, $currentY);
+                    $currentX = $nextX;
+                }
+                $prevCmd = 'H';
+                continue;
+            }
+
+            if ($upper === 'V') {
+                foreach ($params as $val) {
+                    $nextY = $val + ($rel ? $currentY : 0.0);
+                    $addSegment($currentX, $currentY, $currentX, $nextY);
+                    $currentY = $nextY;
+                }
+                $prevCmd = 'V';
+                continue;
+            }
+
+            if ($upper === 'C') {
+                for ($i = 0; ($i + 5) < \count($params); $i += 6) {
+                    $cp1x = $params[$i] + ($rel ? $currentX : 0.0);
+                    $cp1y = $params[$i + 1] + ($rel ? $currentY : 0.0);
+                    $cp2x = $params[$i + 2] + ($rel ? $currentX : 0.0);
+                    $cp2y = $params[$i + 3] + ($rel ? $currentY : 0.0);
+                    $nextX = $params[$i + 4] + ($rel ? $currentX : 0.0);
+                    $nextY = $params[$i + 5] + ($rel ? $currentY : 0.0);
+                    $addSegment($currentX, $currentY, $nextX, $nextY);
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($cp1y - $currentY), ($cp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $cp2y), ($nextX - $cp2x))),
+                    );
+                    $currentX = $nextX;
+                    $currentY = $nextY;
+                }
+                $prevCmd = 'C';
+                continue;
+            }
+
+            if ($upper === 'S') {
+                for ($i = 0; ($i + 3) < \count($params); $i += 4) {
+                    $cp1x = $currentX;
+                    $cp1y = $currentY;
+                    if (($prevCmd === 'C') || ($prevCmd === 'S')) {
+                        $cp1x = (2 * $currentX) - $cp2x;
+                        $cp1y = (2 * $currentY) - $cp2y;
+                    }
+                    $cp2x = $params[$i] + ($rel ? $currentX : 0.0);
+                    $cp2y = $params[$i + 1] + ($rel ? $currentY : 0.0);
+                    $nextX = $params[$i + 2] + ($rel ? $currentX : 0.0);
+                    $nextY = $params[$i + 3] + ($rel ? $currentY : 0.0);
+                    $addSegment($currentX, $currentY, $nextX, $nextY);
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($cp1y - $currentY), ($cp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $cp2y), ($nextX - $cp2x))),
+                    );
+                    $currentX = $nextX;
+                    $currentY = $nextY;
+                }
+                $prevCmd = 'S';
+                continue;
+            }
+
+            if ($upper === 'Q') {
+                for ($i = 0; ($i + 3) < \count($params); $i += 4) {
+                    $qp1x = $params[$i] + ($rel ? $currentX : 0.0);
+                    $qp1y = $params[$i + 1] + ($rel ? $currentY : 0.0);
+                    $nextX = $params[$i + 2] + ($rel ? $currentX : 0.0);
+                    $nextY = $params[$i + 3] + ($rel ? $currentY : 0.0);
+                    $addSegment($currentX, $currentY, $nextX, $nextY);
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($qp1y - $currentY), ($qp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $qp1y), ($nextX - $qp1x))),
+                    );
+                    $currentX = $nextX;
+                    $currentY = $nextY;
+                }
+                $prevCmd = 'Q';
+                continue;
+            }
+
+            if ($upper === 'T') {
+                for ($i = 0; ($i + 1) < \count($params); $i += 2) {
+                    if (($prevCmd === 'Q') || ($prevCmd === 'T')) {
+                        $qp1x = (2 * $currentX) - $qp1x;
+                        $qp1y = (2 * $currentY) - $qp1y;
+                    } else {
+                        $qp1x = $currentX;
+                        $qp1y = $currentY;
+                    }
+                    $nextX = $params[$i] + ($rel ? $currentX : 0.0);
+                    $nextY = $params[$i + 1] + ($rel ? $currentY : 0.0);
+                    $addSegment($currentX, $currentY, $nextX, $nextY);
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2(($qp1y - $currentY), ($qp1x - $currentX))),
+                        \rad2deg(\atan2(($nextY - $qp1y), ($nextX - $qp1x))),
+                    );
+                    $currentX = $nextX;
+                    $currentY = $nextY;
+                }
+                $prevCmd = 'T';
+                continue;
+            }
+
+            if ($upper === 'A') {
+                for ($i = 0; ($i + 6) < \count($params); $i += 7) {
+                    $startX0 = $currentX;
+                    $startY0 = $currentY;
+                    $radiusX = (float) \max(\abs($params[$i]), .000000001);
+                    $radiusY = (float) \max(\abs($params[$i + 1]), .000000001);
+                    $xAxisRot = (float) ($rawparams[$i + 2] ?? 0.0);
+                    $largeArcFlag = ((float) ($rawparams[$i + 3] ?? 0.0) >= 0.5);
+                    $sweepFlag = ((float) ($rawparams[$i + 4] ?? 0.0) >= 0.5);
+                    $nextX = $params[$i + 5] + ($rel ? $currentX : 0.0);
+                    $nextY = $params[$i + 6] + ($rel ? $currentY : 0.0);
+                    $addSegment($currentX, $currentY, $nextX, $nextY);
+                    $samples = $this->sampleTextPathArc(
+                        $startX0,
+                        $startY0,
+                        $radiusX,
+                        $radiusY,
+                        $xAxisRot,
+                        $largeArcFlag,
+                        $sweepFlag,
+                        $nextX,
+                        $nextY,
+                    );
+
+                    $startPx = $nextX;
+                    $startPy = $nextY;
+                    if (!empty($samples)) {
+                        $startPx = $samples[0][0];
+                        $startPy = $samples[0][1];
+                    }
+                    $startDx = ($startPx - $startX0);
+                    $startDy = ($startPy - $startY0);
+                    if ((\abs($startDx) < self::SVGMINFLOATDIFF) && (\abs($startDy) < self::SVGMINFLOATDIFF)) {
+                        $startDx = ($nextX - $startX0);
+                        $startDy = ($nextY - $startY0);
+                    }
+
+                    $endAx = $startX0;
+                    $endAy = $startY0;
+                    if (!empty($samples)) {
+                        $sampleCount = \count($samples);
+                        if ($sampleCount >= 2) {
+                            $endAx = $samples[$sampleCount - 2][0];
+                            $endAy = $samples[$sampleCount - 2][1];
+                        }
+                    }
+
+                    $setLastSegmentAngles(
+                        \rad2deg(\atan2($startDy, $startDx)),
+                        \rad2deg(\atan2(($nextY - $endAy), ($nextX - $endAx))),
+                    );
+                    $currentX = $nextX;
+                    $currentY = $nextY;
+                }
+                $prevCmd = 'A';
+                continue;
+            }
+
+            if ($upper === 'Z') {
+                $addSegment($currentX, $currentY, $subpathStartX, $subpathStartY);
+                $currentX = $subpathStartX;
+                $currentY = $subpathStartY;
+                $prevCmd = 'Z';
+            }
+        }
+
+        return $segments;
+    }
+
+    /**
+     * Build line segments from a polygon/polyline numeric point list.
+     *
+     * @param array<int, float> $pset Point list (x1,y1,x2,y2,...).
+     * @param bool $closed Whether to close back to the first point.
+     *
+     * @return array<int, array{x1: float, y1: float, x2: float, y2: float, angle: float}>
+     */
+    protected function getSVGPolylineSegments(array $pset, bool $closed = false): array
+    {
+        $segments = [];
+        $pointCount = (int) \floor(\count($pset) / 2);
+        if ($pointCount < 2) {
+            return $segments;
+        }
+
+        for ($i = 0; $i < ($pointCount - 1); ++$i) {
+            $startX = (float) $pset[(2 * $i)];
+            $startY = (float) $pset[(2 * $i) + 1];
+            $endX = (float) $pset[(2 * ($i + 1))];
+            $endY = (float) $pset[(2 * ($i + 1)) + 1];
+            if ((\abs($endX - $startX) < self::SVGMINFLOATDIFF) && (\abs($endY - $startY) < self::SVGMINFLOATDIFF)) {
+                continue;
+            }
+            $segments[] = [
+                'x1' => $startX,
+                'y1' => $startY,
+                'x2' => $endX,
+                'y2' => $endY,
+                'angle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                'startAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                'endAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+            ];
+        }
+
+        if ($closed) {
+            $startX = (float) $pset[(2 * ($pointCount - 1))];
+            $startY = (float) $pset[(2 * ($pointCount - 1)) + 1];
+            $endX = (float) $pset[0];
+            $endY = (float) $pset[1];
+            if ((\abs($endX - $startX) >= self::SVGMINFLOATDIFF) || (\abs($endY - $startY) >= self::SVGMINFLOATDIFF)) {
+                $segments[] = [
+                    'x1' => $startX,
+                    'y1' => $startY,
+                    'x2' => $endX,
+                    'y2' => $endY,
+                    'angle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                    'startAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                    'endAngle' => \rad2deg(\atan2(($endY - $startY), ($endX - $startX))),
+                ];
+            }
+        }
+
+        return $segments;
+    }
+
+    /**
+     * Extract marker definition ID from a marker style value.
+     *
+     * @param string $marker Marker style value.
+     *
+     * @return string
+     */
+    protected function getSVGMarkerId(string $marker): string
+    {
+        if (($marker === '') || ($marker === 'none')) {
+            return '';
+        }
+
+        $matches = [];
+        if (!\preg_match('/^url\([\s]*#([^)\s]+)[\s]*\)$/', \trim($marker), $matches)) {
+            return '';
+        }
+
+        return $matches[1];
+    }
+
+    /**
+     * Render a marker definition at a given anchor point.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param string $marker Marker style value.
+        * @param float $anchorX Anchor X.
+        * @param float $anchorY Anchor Y.
+     * @param float $segmentAngle Segment angle in degrees.
+     * @param float $strokeWidth Segment stroke width.
+     * @param bool $isStart Whether this is a start marker.
+     *
+     * @return string
+     */
+    protected function renderSVGMarker(
+        \XMLParser $parser,
+        int $soid,
+        string $marker,
+        float $anchorX,
+        float $anchorY,
+        float $segmentAngle,
+        float $strokeWidth,
+        bool $isStart,
+    ): string {
+        $markerId = $this->getSVGMarkerId($marker);
+        if (($markerId === '') || empty($this->svgobjs[$soid]['defs'][$markerId])) {
+            return '';
+        }
+
+        /** @var TSVGAttribs $markerdef */
+        $markerdef = $this->svgobjs[$soid]['defs'][$markerId];
+        if (($markerdef['name'] ?? '') !== 'marker') {
+            return '';
+        }
+
+        $markerAttr = (isset($markerdef['attr']) && \is_array($markerdef['attr'])) ? $markerdef['attr'] : [];
+
+        $mkw = isset($markerAttr['markerWidth'])
+            ? $this->svgUnitToUnit((string) $markerAttr['markerWidth'], $soid)
+            : 3.0;
+        $mkh = isset($markerAttr['markerHeight'])
+            ? $this->svgUnitToUnit((string) $markerAttr['markerHeight'], $soid)
+            : 3.0;
+
+        $vbx = 0.0;
+        $vby = 0.0;
+        $vbw = $mkw;
+        $vbh = $mkh;
+        if (!empty($markerAttr['viewBox']) && \is_string($markerAttr['viewBox'])) {
+            $vals = \preg_split('/[\s,]+/', \trim($markerAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (\is_array($vals) && (\count($vals) >= 4)) {
+                $vbx = (float) $this->svgUnitToUnit((string) $vals[0], $soid);
+                $vby = (float) $this->svgUnitToUnit((string) $vals[1], $soid);
+                $vbw = \abs((float) $this->svgUnitToUnit((string) $vals[2], $soid));
+                $vbh = \abs((float) $this->svgUnitToUnit((string) $vals[3], $soid));
+            }
+        }
+
+        $refX = $this->resolveSVGMarkerRefCoordinate((string) ($markerAttr['refX'] ?? ''), $vbx, $vbw, $soid);
+        $refY = $this->resolveSVGMarkerRefCoordinate((string) ($markerAttr['refY'] ?? ''), $vby, $vbh, $soid);
+        $markerUnits = (string) ($markerAttr['markerUnits'] ?? 'strokeWidth');
+        $markerScale = (($markerUnits === 'userSpaceOnUse') ? 1.0 : $strokeWidth);
+
+        $viewScaleX = 1.0;
+        $viewScaleY = 1.0;
+        $viewOffsetX = 0.0;
+        $viewOffsetY = 0.0;
+        $aspectRaw = (string) ($markerAttr['preserveAspectRatio'] ?? 'xMidYMid meet');
+        $aspectFit = 'meet';
+        $aspectX = 'xMid';
+        $aspectY = 'YMid';
+        if (\trim($aspectRaw) === 'none') {
+            $aspectFit = 'none';
+        } else {
+            $aspectMatches = [];
+            \preg_match_all('/[a-zA-Z]+/', $aspectRaw, $aspectMatches);
+            $tokens = $aspectMatches[0];
+            if (!empty($tokens)) {
+                if (\strtolower((string) $tokens[0]) === 'defer') {
+                    \array_shift($tokens);
+                }
+
+                if (!empty($tokens) && (\strlen((string) $tokens[0]) === 8)) {
+                    $alignToken = (string) $tokens[0];
+                    $aspectX = \substr($alignToken, 0, 4);
+                    $aspectY = \substr($alignToken, 4, 4);
+                    if (isset($tokens[1]) && \in_array((string) $tokens[1], ['meet', 'slice', 'none'], true)) {
+                        $aspectFit = (string) $tokens[1];
+                    }
+                } elseif (!empty($tokens) && \in_array((string) $tokens[0], ['meet', 'slice', 'none'], true)) {
+                    $aspectFit = (string) $tokens[0];
+                }
+            }
+        }
+
+        if (($vbw > 0.0) && ($vbh > 0.0) && ($mkw > 0.0) && ($mkh > 0.0)) {
+            if ($aspectFit === 'none') {
+                $viewScaleX = ($mkw / $vbw);
+                $viewScaleY = ($mkh / $vbh);
+            } else {
+                $scaleX = ($mkw / $vbw);
+                $scaleY = ($mkh / $vbh);
+                $scale = ($aspectFit === 'slice') ? \max($scaleX, $scaleY) : \min($scaleX, $scaleY);
+                $viewScaleX = $scale;
+                $viewScaleY = $scale;
+                $scaledW = $vbw * $scale;
+                $scaledH = $vbh * $scale;
+                $viewOffsetX = match ($aspectX) {
+                    'xMax' => ($mkw - $scaledW),
+                    'xMid' => (($mkw - $scaledW) / 2.0),
+                    default => 0.0,
+                };
+                $viewOffsetY = match ($aspectY) {
+                    'YMax' => ($mkh - $scaledH),
+                    'YMid' => (($mkh - $scaledH) / 2.0),
+                    default => 0.0,
+                };
+            }
+        }
+
+        $orient = \trim((string) ($markerAttr['orient'] ?? '0'));
+        $angle = 0.0;
+        if (($orient === 'auto') || ($orient === 'auto-start-reverse')) {
+            $angle = $segmentAngle;
+            if ($isStart && ($orient === 'auto-start-reverse')) {
+                $angle += 180.0;
+            }
+        } else {
+            $omatch = [];
+            if (\preg_match('/^([+-]?\d+(?:\.\d+)?)(deg)?$/i', $orient, $omatch) === 1) {
+                $angle = (float) $omatch[1];
+            }
+        }
+
+        $rad = \deg2rad(-$angle);
+        $cos = \cos($rad);
+        $sin = \sin($rad);
+
+        $transformMatrix = $this->graph->getCtmProduct(
+            [1.0, 0.0, 0.0, 1.0, $anchorX, $anchorY],
+            [$cos, $sin, -$sin, $cos, 0.0, 0.0],
+        );
+        $transformMatrix = $this->graph->getCtmProduct(
+            $transformMatrix,
+            [1.0, 0.0, 0.0, 1.0, $viewOffsetX, $viewOffsetY],
+        );
+        $transformMatrix = $this->graph->getCtmProduct(
+            $transformMatrix,
+            [($markerScale * $viewScaleX), 0.0, 0.0, ($markerScale * $viewScaleY), 0.0, 0.0],
+        );
+        $transformMatrix = $this->graph->getCtmProduct(
+            $transformMatrix,
+            [1.0, 0.0, 0.0, 1.0, -$vbx, -$vby],
+        );
+        $transformMatrix = $this->graph->getCtmProduct(
+            $transformMatrix,
+            [1.0, 0.0, 0.0, 1.0, -$refX, -$refY],
+        );
+
+        $out = $this->graph->getStartTransform();
+        $out .= $this->getOutSVGTransformation($transformMatrix, $soid);
+
+        // Prevent marker content from recursively emitting nested markers.
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['markermode'] = ((int) ($this->svgobjs[$soid]['markermode'] ?? 0)) + 1;
+
+        try {
+            if (!empty($markerdef['child']) && \is_array($markerdef['child'])) {
+                foreach ($markerdef['child'] as $child) {
+                    if (!\is_array($child) || !isset($child['name'])) {
+                        continue;
+                    }
+                    if (!empty($child['attr']['closing_tag'])) {
+                        $this->handleSVGTagEnd($parser, (string) $child['name']);
+                    } else {
+                        /** @var TSVGAttributes $childAttr */
+                        $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
+                        $this->handleSVGTagStart($parser, (string) $child['name'], $childAttr, $soid);
+                    }
+                }
+            }
+        } finally {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['markermode'] = \max(0, ((int) ($this->svgobjs[$soid]['markermode'] ?? 0)) - 1);
+        }
+
+        $out .= $this->graph->getStopTransform();
+        return $out;
+    }
+
+    /**
+     * Resolve marker refX/refY values, including percentage coordinates.
+     *
+     * @param string $raw Ref attribute value.
+     * @param float $viewBoxMin ViewBox minimum coordinate (x or y).
+     * @param float $viewBoxSize ViewBox size (width or height).
+     * @param int $soid SVG object ID.
+     *
+     * @return float
+     */
+    protected function resolveSVGMarkerRefCoordinate(
+        string $raw,
+        float $viewBoxMin,
+        float $viewBoxSize,
+        int $soid,
+    ): float {
+        $raw = \trim($raw);
+        if ($raw === '') {
+            return 0.0;
+        }
+
+        if (\str_ends_with($raw, '%')) {
+            $pct = (float) \substr($raw, 0, -1);
+            return $viewBoxMin + (($pct / 100.0) * $viewBoxSize);
+        }
+
+        return $this->svgUnitToUnit($raw, $soid);
     }
 
     /**
@@ -3562,6 +5581,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $attr,
         array $svgstyle,
         array $prev_svgstyle,
+        bool $isPolyline = false,
     ): string {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return '';
@@ -3624,6 +5644,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $obstyle,
             );
         }
+
+        $segments = $this->getSVGPolylineSegments($pset, !$isPolyline);
+        $out .= $this->renderSVGMarkersForSegments($parser, $soid, $svgstyle, $segments);
+
         $out .= $this->graph->getStopTransform();
         return $out;
     }
@@ -3652,10 +5676,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if ($this->svgobjs[$soid]['clipmode']) {
             return '';
         }
-        if (empty($attr['xlink:href'])) {
+        // SVG 2 uses plain 'href'; fall back from xlink:href for compatibility.
+        $img = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (empty($img)) {
             return '';
         }
-        $img = $attr['xlink:href'];
         $posx = (isset($attr['x']) ? $this->svgUnitToUnit($attr['x'], $soid) : 0.0);
         $posy = (isset($attr['y']) ? $this->svgUnitToUnit($attr['y'], $soid) : 0.0);
         $width = (isset($attr['width']) ? $this->svgUnitToUnit($attr['width'], $soid) : 0.0);
@@ -3703,12 +5728,52 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         $imgid = $this->image->add($img);
+        // R-2: honour preserveAspectRatio for raster images.
+        $renderX = $posx;
+        $renderY = $posy;
+        $renderW = $width;
+        $renderH = $height;
+        $par = $attr['preserveAspectRatio'] ?? 'xMidYMid meet';
+        if (($par !== 'none') && ($width > 0.0) && ($height > 0.0)) {
+            try {
+                $imgdata = $this->image->getImageDataByKey($this->image->getKey($img));
+                $intrW = (float) ($imgdata['width'] ?? 0.0);
+                $intrH = (float) ($imgdata['height'] ?? 0.0);
+                if ($intrW > 0.0 && $intrH > 0.0) {
+                    \preg_match_all('/[a-zA-Z]+/', $par, $parTokens);
+                    $parTokens = $parTokens[0];
+                    $fit = (\count($parTokens) >= 2) ? $parTokens[\count($parTokens) - 1] : 'meet';
+                    $scaleW = $width / $intrW;
+                    $scaleH = $height / $intrH;
+                    $scale = ($fit === 'slice') ? \max($scaleW, $scaleH) : \min($scaleW, $scaleH);
+                    $scaledW = $intrW * $scale;
+                    $scaledH = $intrH * $scale;
+                    $alignStr = (\count($parTokens) >= 2) ? $parTokens[0] : 'xMidYMid';
+                    $offX = match (\substr($alignStr, 0, 4)) {
+                        'xMax' => $width - $scaledW,
+                        'xMid' => ($width - $scaledW) / 2.0,
+                        default => 0.0,
+                    };
+                    $offY = match (\substr($alignStr, 4, 4)) {
+                        'YMax' => $height - $scaledH,
+                        'YMid' => ($height - $scaledH) / 2.0,
+                        default => 0.0,
+                    };
+                    $renderX = $posx + $offX;
+                    $renderY = $posy + $offY;
+                    $renderW = $scaledW;
+                    $renderH = $scaledH;
+                }
+            } catch (\Throwable $e) {
+                // Image metadata unavailable; use original dimensions unchanged.
+            }
+        }
         $out .= $this->image->getSetImage(
             $imgid,
-            $posx,
-            $posy,
-            $width,
-            $height,
+            $renderX,
+            $renderY,
+            $renderW,
+            $renderH,
             $this->page->getPage()['height'],
         );
         $out .= $this->graph->getStopTransform();
@@ -3736,11 +5801,57 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $prev_svgstyle,
         bool $is_tspan = false,
     ): string {
-        if (isset($this->svgobjs[$soid]['textmode']['text-anchor']) && !empty($this->svgobjs[$soid]['text'])) {
-            // @TODO: unsupported feature
+        $out = '';
+        if (!empty($this->svgobjs[$soid]['text'])) {
+            // Flush the text accumulated between an outer <text> start and this
+            // nested <text>/<tspan> start.  We only emit the text-line operator and
+            // clear the buffer.  We deliberately do NOT close the outer transform or
+            // pop the styles stack — those bookkeeping operations are the
+            // responsibility of the matching </text> end handler; duplicating them
+            // here would corrupt the PDF graphics-state stack.
+            $anchor = $this->svgobjs[$soid]['textmode']['text-anchor'] ?? 'start';
+            $txtanchor = match ($anchor) {
+                'end' => 'E',
+                'middle' => 'M',
+                default => 'S',
+            };
+            if (empty($this->svgobjs[$soid]['textmode']['invisible'])) {
+                $out .= $this->getTextLine(
+                    $this->svgobjs[$soid]['text'],
+                    $this->svgobjs[$soid]['x'],
+                    $this->svgobjs[$soid]['y'],
+                    0,
+                    $this->svgobjs[$soid]['textmode']['stroke'],
+                    0,
+                    0,
+                    0,
+                    true,
+                    ($this->svgobjs[$soid]['textmode']['stroke'] > 0),
+                    false,
+                    false,
+                    false,
+                    false,
+                    ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
+                    $txtanchor,
+                    null,
+                );
+            } else {
+                // Invisible text still advances the cursor by the text width.
+                if (!empty($this->svgobjs[$soid]['textmode']['vertical'])) {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['y'] += $this->getStringWidth($this->svgobjs[$soid]['text']);
+                } else {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['x'] += $this->getStringWidth($this->svgobjs[$soid]['text']);
+                }
+            }
+
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['text'] = '';
         }
+
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
-            return '';
+            return $out;
         }
         // @phpstan-ignore assign.propertyType
         \array_push($this->svgobjs[$soid]['styles'], $svgstyle);
@@ -3774,6 +5885,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $this->svgobjs[$soid]['textmode']['rtl'] = false;
         }
+        $wmode = (string) ($svgstyle['writing-mode'] ?? 'lr-tb');
+        $this->svgobjs[$soid]['textmode']['vertical'] = (
+            \str_starts_with($wmode, 'tb')
+            || \str_starts_with($wmode, 'vertical')
+        );
+        $this->svgobjs[$soid]['textmode']['rotate'] = $this->getSVGGlyphOrientationRotation(
+            $svgstyle,
+            (bool) $this->svgobjs[$soid]['textmode']['vertical'],
+        );
         if (
             isset($svgstyle['stroke'])
             && ($svgstyle['stroke'] != 'none')
@@ -3784,7 +5904,47 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $this->svgobjs[$soid]['textmode']['stroke'] = false;
         }
-        $out = '';
+
+        // S-1: dominant-baseline / alignment-baseline Y offset.
+        $this->svgobjs[$soid]['textmode']['baseline'] = $svgstyle['dominant-baseline']
+            ?? $svgstyle['alignment-baseline']
+            ?? 'auto';
+
+        // S-3: textLength and lengthAdjust.
+        $this->svgobjs[$soid]['textmode']['textlength'] = isset($attr['textLength'])
+            ? $this->svgUnitToUnit($attr['textLength'], $soid)
+            : 0.0;
+        $this->svgobjs[$soid]['textmode']['lengthadjust'] = $attr['lengthAdjust'] ?? 'spacing';
+
+        // S-4: parse rotate list; first angle remains run fallback.
+        $this->svgobjs[$soid]['textmode']['rotlist'] = [];
+        if (isset($attr['rotate']) && ($attr['rotate'] !== '')) {
+            $rotvals = \preg_split('/[\s,]+/', \trim($attr['rotate']), -1, \PREG_SPLIT_NO_EMPTY);
+            if (!empty($rotvals)) {
+                $this->svgobjs[$soid]['textmode']['rotate'] = (float) $rotvals[0];
+                foreach ($rotvals as $rotval) {
+                    $this->svgobjs[$soid]['textmode']['rotlist'][] = (float) $rotval;
+                }
+            }
+        }
+
+        // R-1: multi-value x / y coordinate lists.
+        $this->svgobjs[$soid]['textmode']['xlist'] = [];
+        $this->svgobjs[$soid]['textmode']['ylist'] = [];
+        $this->svgobjs[$soid]['textmode']['textpathpoints'] = [];
+        $this->svgobjs[$soid]['textmode']['textpathoffset'] = 0.0;
+        $this->svgobjs[$soid]['textmode']['textpathmethod'] = 'align';
+        $this->svgobjs[$soid]['textmode']['textpathspacing'] = 'exact';
+        if (isset($attr['x']) && (\strpos($attr['x'], ' ') !== false)) {
+            foreach (\preg_split('/[\s,]+/', \trim($attr['x']), -1, \PREG_SPLIT_NO_EMPTY) ?: [] as $xv) {
+                $this->svgobjs[$soid]['textmode']['xlist'][] = $this->svgUnitToUnit($xv, $soid);
+            }
+        }
+        if (isset($attr['y']) && (\strpos($attr['y'], ' ') !== false)) {
+            foreach (\preg_split('/[\s,]+/', \trim($attr['y']), -1, \PREG_SPLIT_NO_EMPTY) ?: [] as $yv) {
+                $this->svgobjs[$soid]['textmode']['ylist'][] = $this->svgUnitToUnit($yv, $soid);
+            }
+        }
         $out .= $this->graph->getStartTransform();
         $out .= $this->getOutSVGTransformation($svgstyle['transfmatrix'], $soid);
         $out .= $this->parseSVGStyle(
@@ -3831,6 +5991,1083 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Resolve textPath reference to a sequence of points.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $href Reference URI (typically '#id').
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    protected function getTextPathPoints(int $soid, string $href): ?array
+    {
+        $pathDef = $this->resolveTextPathDef($soid, $href);
+        if (empty($pathDef)) {
+            return null;
+        }
+
+        /** @var array{name: string, attr: TSVGAttributes} $pathDef */
+        return $this->getTextPathPointsFromDef($soid, $pathDef['name'], $pathDef['attr']);
+    }
+
+    /**
+     * Resolve textPath href to a defs entry.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $href Reference URI (typically '#id').
+     *
+     * @return array{name: string, attr: TSVGAttributes}|null
+     */
+    protected function resolveTextPathDef(int $soid, string $href): ?array
+    {
+        if (($href === '') || ($href[0] !== '#')) {
+            return null;
+        }
+
+        $pathId = \substr($href, 1);
+        if ($pathId === '' || empty($this->svgobjs[$soid]['defs'][$pathId])) {
+            return null;
+        }
+
+        /** @var TSVGAttribs $def */
+        $def = $this->svgobjs[$soid]['defs'][$pathId];
+        if (empty($def['name']) || empty($def['attr']) || !\is_array($def['attr'])) {
+            return null;
+        }
+
+        /** @var TSVGAttributes $defAttr */
+        $defAttr = $def['attr'];
+
+        return [
+            'name' => (string) $def['name'],
+            'attr' => $defAttr,
+        ];
+    }
+
+    /**
+     * Resolve shape-specific points for textPath layout.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $defName Defs element name.
+     * @param TSVGAttributes $defAttr Defs element attributes.
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    protected function getTextPathPointsFromDef(int $soid, string $defName, array $defAttr): ?array
+    {
+        if ($defName === 'line') {
+            $startX = $this->svgUnitToUnit((string) ($defAttr['x1'] ?? '0'), $soid);
+            $startY = $this->svgUnitToUnit((string) ($defAttr['y1'] ?? '0'), $soid);
+            $endX = $this->svgUnitToUnit((string) ($defAttr['x2'] ?? '0'), $soid);
+            $endY = $this->svgUnitToUnit((string) ($defAttr['y2'] ?? '0'), $soid);
+            return [[$startX, $startY], [$endX, $endY]];
+        }
+
+        if (($defName === 'polyline') || ($defName === 'polygon')) {
+            $attrPoints = (string) ($defAttr['points'] ?? '');
+            $points = \preg_split('/[\,\s]+/si', \trim($attrPoints), -1, \PREG_SPLIT_NO_EMPTY);
+            if (!\is_array($points) || (\count($points) < 4)) {
+                return null;
+            }
+            $ptlist = [];
+            for ($idx = 0; $idx + 1 < \count($points); $idx += 2) {
+                $ptlist[] = [
+                    $this->svgUnitToUnit((string) $points[$idx], $soid),
+                    $this->svgUnitToUnit((string) $points[$idx + 1], $soid),
+                ];
+            }
+            if ($defName === 'polygon') {
+                $ptlist[] = [$ptlist[0][0], $ptlist[0][1]];
+            }
+            return (\count($ptlist) >= 2) ? $ptlist : null;
+        }
+
+        if ($defName === 'path') {
+            return $this->getTextPathPointsFromPathData($soid, (string) ($defAttr['d'] ?? ''));
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse path data into sampled points for textPath layout.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param string $pathData Path d attribute.
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    protected function getTextPathPointsFromPathData(int $soid, string $pathData): ?array
+    {
+        \preg_match_all('/[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/', $pathData, $tokenMatch);
+        $tokens = $tokenMatch[0];
+        if (empty($tokens)) {
+            return null;
+        }
+
+        $ptlist = [];
+        $curX = 0.0;
+        $curY = 0.0;
+        $subX = 0.0;
+        $subY = 0.0;
+        $command = '';
+        $lastCurveCtrlX = 0.0;
+        $lastCurveCtrlY = 0.0;
+        $lastQuadCtrlX = 0.0;
+        $lastQuadCtrlY = 0.0;
+        $hasCurveCtrl = false;
+        $hasQuadCtrl = false;
+        $tokCount = \count($tokens);
+        $idx = 0;
+
+        while ($idx < $tokCount) {
+            $token = (string) $tokens[$idx];
+            if (\preg_match('/^[A-Za-z]$/', $token) === 1) {
+                $command = $token;
+                ++$idx;
+                if (($command === 'Z') || ($command === 'z')) {
+                    if (!empty($ptlist)) {
+                        $ptlist[] = [$subX, $subY];
+                        $curX = $subX;
+                        $curY = $subY;
+                        $hasCurveCtrl = false;
+                        $hasQuadCtrl = false;
+                    }
+                }
+                continue;
+            }
+
+            if ($command === '') {
+                ++$idx;
+                continue;
+            }
+
+            $isRel = \ctype_lower($command);
+            $cmd = \strtolower($command);
+
+            if (($cmd === 'm') || ($cmd === 'l') || ($cmd === 't')) {
+                if (($idx + 1) >= $tokCount) {
+                    break;
+                }
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                if ($isRel) {
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                if ($cmd === 't') {
+                    $ctrlX = $curX;
+                    $ctrlY = $curY;
+                    if ($hasQuadCtrl) {
+                        $ctrlX = (2.0 * $curX) - $lastQuadCtrlX;
+                        $ctrlY = (2.0 * $curY) - $lastQuadCtrlY;
+                    }
+                    $samples = $this->sampleTextPathQuadratic(
+                        $curX,
+                        $curY,
+                        $ctrlX,
+                        $ctrlY,
+                        $endX,
+                        $endY,
+                        12,
+                    );
+                    foreach ($samples as $point) {
+                        $ptlist[] = $point;
+                    }
+                    $lastQuadCtrlX = $ctrlX;
+                    $lastQuadCtrlY = $ctrlY;
+                    $hasQuadCtrl = true;
+                    $hasCurveCtrl = false;
+                } else {
+                    $ptlist[] = [$endX, $endY];
+                    $hasCurveCtrl = false;
+                    $hasQuadCtrl = false;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                if ($cmd === 'm') {
+                    $subX = $curX;
+                    $subY = $curY;
+                    $command = $isRel ? 'l' : 'L';
+                }
+                $idx += 2;
+                continue;
+            }
+
+            if ($cmd === 'h') {
+                $valX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $curX = $isRel ? ($curX + $valX) : $valX;
+                $ptlist[] = [$curX, $curY];
+                $hasCurveCtrl = false;
+                $hasQuadCtrl = false;
+                ++$idx;
+                continue;
+            }
+
+            if ($cmd === 'v') {
+                $valY = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $curY = $isRel ? ($curY + $valY) : $valY;
+                $ptlist[] = [$curX, $curY];
+                $hasCurveCtrl = false;
+                $hasQuadCtrl = false;
+                ++$idx;
+                continue;
+            }
+
+            if ($cmd === 'c') {
+                if (($idx + 5) >= $tokCount) {
+                    break;
+                }
+                $ctrl1X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $ctrl1Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 4], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
+                if ($isRel) {
+                    $ctrl1X += $curX;
+                    $ctrl1Y += $curY;
+                    $ctrl2X += $curX;
+                    $ctrl2Y += $curY;
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $samples = $this->sampleTextPathCubic(
+                    $curX,
+                    $curY,
+                    $ctrl1X,
+                    $ctrl1Y,
+                    $ctrl2X,
+                    $ctrl2Y,
+                    $endX,
+                    $endY,
+                    12,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                $lastCurveCtrlX = $ctrl2X;
+                $lastCurveCtrlY = $ctrl2Y;
+                $hasCurveCtrl = true;
+                $hasQuadCtrl = false;
+                $idx += 6;
+                continue;
+            }
+
+            if ($cmd === 's') {
+                if (($idx + 3) >= $tokCount) {
+                    break;
+                }
+                $ctrl1X = $curX;
+                $ctrl1Y = $curY;
+                if ($hasCurveCtrl) {
+                    $ctrl1X = (2.0 * $curX) - $lastCurveCtrlX;
+                    $ctrl1Y = (2.0 * $curY) - $lastCurveCtrlY;
+                }
+                $ctrl2X = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $ctrl2Y = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                if ($isRel) {
+                    $ctrl2X += $curX;
+                    $ctrl2Y += $curY;
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $samples = $this->sampleTextPathCubic(
+                    $curX,
+                    $curY,
+                    $ctrl1X,
+                    $ctrl1Y,
+                    $ctrl2X,
+                    $ctrl2Y,
+                    $endX,
+                    $endY,
+                    12,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                $lastCurveCtrlX = $ctrl2X;
+                $lastCurveCtrlY = $ctrl2Y;
+                $hasCurveCtrl = true;
+                $hasQuadCtrl = false;
+                $idx += 4;
+                continue;
+            }
+
+            if ($cmd === 'q') {
+                if (($idx + 3) >= $tokCount) {
+                    break;
+                }
+                $ctrlX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $ctrlY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 2], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 3], $soid);
+                if ($isRel) {
+                    $ctrlX += $curX;
+                    $ctrlY += $curY;
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $samples = $this->sampleTextPathQuadratic(
+                    $curX,
+                    $curY,
+                    $ctrlX,
+                    $ctrlY,
+                    $endX,
+                    $endY,
+                    12,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                $lastQuadCtrlX = $ctrlX;
+                $lastQuadCtrlY = $ctrlY;
+                $hasQuadCtrl = true;
+                $hasCurveCtrl = false;
+                $idx += 4;
+                continue;
+            }
+
+            if ($cmd === 'a') {
+                if (($idx + 6) >= $tokCount) {
+                    break;
+                }
+                $radiusX = $this->svgUnitToUnit((string) $tokens[$idx], $soid);
+                $radiusY = $this->svgUnitToUnit((string) $tokens[$idx + 1], $soid);
+                $xAxisRot = (float) $tokens[$idx + 2];
+                $largeArcFlag = ((float) $tokens[$idx + 3] >= 0.5);
+                $sweepFlag = ((float) $tokens[$idx + 4] >= 0.5);
+                $endX = $this->svgUnitToUnit((string) $tokens[$idx + 5], $soid);
+                $endY = $this->svgUnitToUnit((string) $tokens[$idx + 6], $soid);
+                if ($isRel) {
+                    $endX += $curX;
+                    $endY += $curY;
+                }
+                $samples = $this->sampleTextPathArc(
+                    $curX,
+                    $curY,
+                    $radiusX,
+                    $radiusY,
+                    $xAxisRot,
+                    $largeArcFlag,
+                    $sweepFlag,
+                    $endX,
+                    $endY,
+                );
+                foreach ($samples as $point) {
+                    $ptlist[] = $point;
+                }
+                $curX = $endX;
+                $curY = $endY;
+                if (empty($samples)) {
+                    $ptlist[] = [$curX, $curY];
+                }
+                $hasCurveCtrl = false;
+                $hasQuadCtrl = false;
+                $idx += 7;
+                continue;
+            }
+
+            $hasCurveCtrl = false;
+            $hasQuadCtrl = false;
+            ++$idx;
+        }
+
+        return (\count($ptlist) >= 2) ? $ptlist : null;
+    }
+
+    /**
+     * Sample a quadratic bezier into a sequence of points.
+     *
+     * @return array<int, array{0: float, 1: float}>
+     */
+    protected function sampleTextPathQuadratic(
+        float $startX,
+        float $startY,
+        float $ctrlX,
+        float $ctrlY,
+        float $endX,
+        float $endY,
+        int $steps,
+    ): array {
+        $points = [];
+        $stepCount = \max(2, $steps);
+        for ($step = 1; $step <= $stepCount; ++$step) {
+            $param = ((float) $step) / ((float) $stepCount);
+            $inv = 1.0 - $param;
+            $pointX = ($inv * $inv * $startX)
+                + (2.0 * $inv * $param * $ctrlX)
+                + ($param * $param * $endX);
+            $pointY = ($inv * $inv * $startY)
+                + (2.0 * $inv * $param * $ctrlY)
+                + ($param * $param * $endY);
+            $points[] = [$pointX, $pointY];
+        }
+        return $points;
+    }
+
+    /**
+     * Sample a cubic bezier into a sequence of points.
+     *
+     * @return array<int, array{0: float, 1: float}>
+     */
+    protected function sampleTextPathCubic(
+        float $startX,
+        float $startY,
+        float $ctrl1X,
+        float $ctrl1Y,
+        float $ctrl2X,
+        float $ctrl2Y,
+        float $endX,
+        float $endY,
+        int $steps,
+    ): array {
+        $points = [];
+        $stepCount = \max(2, $steps);
+        for ($step = 1; $step <= $stepCount; ++$step) {
+            $param = ((float) $step) / ((float) $stepCount);
+            $inv = 1.0 - $param;
+            $inv2 = $inv * $inv;
+            $inv3 = $inv2 * $inv;
+            $par2 = $param * $param;
+            $par3 = $par2 * $param;
+            $pointX = ($inv3 * $startX)
+                + (3.0 * $inv2 * $param * $ctrl1X)
+                + (3.0 * $inv * $par2 * $ctrl2X)
+                + ($par3 * $endX);
+            $pointY = ($inv3 * $startY)
+                + (3.0 * $inv2 * $param * $ctrl1Y)
+                + (3.0 * $inv * $par2 * $ctrl2Y)
+                + ($par3 * $endY);
+            $points[] = [$pointX, $pointY];
+        }
+        return $points;
+    }
+
+    /**
+     * Sample an elliptical arc segment into a sequence of points.
+     *
+     * @return array<int, array{0: float, 1: float}>
+     */
+    protected function sampleTextPathArc(
+        float $startX,
+        float $startY,
+        float $radiusX,
+        float $radiusY,
+        float $xAxisRotation,
+        bool $largeArcFlag,
+        bool $sweepFlag,
+        float $endX,
+        float $endY,
+    ): array {
+        if (
+            (\abs($startX - $endX) < self::SVGMINFLOATDIFF)
+            && (\abs($startY - $endY) < self::SVGMINFLOATDIFF)
+        ) {
+            return [];
+        }
+
+        $radiusX = \abs($radiusX);
+        $radiusY = \abs($radiusY);
+        if (($radiusX <= self::SVGMINFLOATDIFF) || ($radiusY <= self::SVGMINFLOATDIFF)) {
+            return [[$endX, $endY]];
+        }
+
+        $phi = \deg2rad(\fmod($xAxisRotation, 360.0));
+        $cosPhi = \cos($phi);
+        $sinPhi = \sin($phi);
+
+        $deltaX = ($startX - $endX) / 2.0;
+        $deltaY = ($startY - $endY) / 2.0;
+        $xPrime = ($cosPhi * $deltaX) + ($sinPhi * $deltaY);
+        $yPrime = (-$sinPhi * $deltaX) + ($cosPhi * $deltaY);
+
+        $rx2 = $radiusX * $radiusX;
+        $ry2 = $radiusY * $radiusY;
+        $xp2 = $xPrime * $xPrime;
+        $yp2 = $yPrime * $yPrime;
+
+        $lambda = ($xp2 / $rx2) + ($yp2 / $ry2);
+        if ($lambda > 1.0) {
+            $scale = \sqrt($lambda);
+            $radiusX *= $scale;
+            $radiusY *= $scale;
+            $rx2 = $radiusX * $radiusX;
+            $ry2 = $radiusY * $radiusY;
+        }
+
+        $sign = ($largeArcFlag === $sweepFlag) ? -1.0 : 1.0;
+        $numerator = ($rx2 * $ry2) - ($rx2 * $yp2) - ($ry2 * $xp2);
+        $denominator = ($rx2 * $yp2) + ($ry2 * $xp2);
+        $coef = 0.0;
+        if ($denominator > self::SVGMINFLOATDIFF) {
+            $coef = $sign * \sqrt(\max(0.0, $numerator / $denominator));
+        }
+
+        $centerPrimeX = $coef * (($radiusX * $yPrime) / $radiusY);
+        $centerPrimeY = $coef * (-(($radiusY * $xPrime) / $radiusX));
+
+        $centerX = ($cosPhi * $centerPrimeX) - ($sinPhi * $centerPrimeY) + (($startX + $endX) / 2.0);
+        $centerY = ($sinPhi * $centerPrimeX) + ($cosPhi * $centerPrimeY) + (($startY + $endY) / 2.0);
+
+        $unitStartX = ($xPrime - $centerPrimeX) / $radiusX;
+        $unitStartY = ($yPrime - $centerPrimeY) / $radiusY;
+        $unitEndX = (-$xPrime - $centerPrimeX) / $radiusX;
+        $unitEndY = (-$yPrime - $centerPrimeY) / $radiusY;
+
+        $thetaStart = $this->getArcVectorAngle(1.0, 0.0, $unitStartX, $unitStartY);
+        $thetaDelta = $this->getArcVectorAngle($unitStartX, $unitStartY, $unitEndX, $unitEndY);
+
+        if (!$sweepFlag && ($thetaDelta > 0.0)) {
+            $thetaDelta -= (2.0 * \M_PI);
+        } elseif ($sweepFlag && ($thetaDelta < 0.0)) {
+            $thetaDelta += (2.0 * \M_PI);
+        }
+
+        $segmentCount = \max(4, (int) \ceil(\abs($thetaDelta) / (\M_PI / 12.0)));
+        $points = [];
+        for ($seg = 1; $seg <= $segmentCount; ++$seg) {
+            $ratio = ((float) $seg) / ((float) $segmentCount);
+            $theta = $thetaStart + ($thetaDelta * $ratio);
+            $cosTheta = \cos($theta);
+            $sinTheta = \sin($theta);
+            $pointX = $centerX + ($cosPhi * $radiusX * $cosTheta) - ($sinPhi * $radiusY * $sinTheta);
+            $pointY = $centerY + ($sinPhi * $radiusX * $cosTheta) + ($cosPhi * $radiusY * $sinTheta);
+            $points[] = [$pointX, $pointY];
+        }
+
+        return $points;
+    }
+
+    /**
+     * Return signed angle between two vectors.
+     */
+    protected function getArcVectorAngle(
+        float $vectorStartX,
+        float $vectorStartY,
+        float $vectorEndX,
+        float $vectorEndY,
+    ): float {
+        $dot = ($vectorStartX * $vectorEndX) + ($vectorStartY * $vectorEndY);
+        $det = ($vectorStartX * $vectorEndY) - ($vectorStartY * $vectorEndX);
+        return \atan2($det, $dot);
+    }
+
+    /**
+     * Get total polyline length from point list.
+     *
+     * @param array<int, array{0: float, 1: float}> $points
+     */
+    protected function getTextPathLength(array $points): float
+    {
+        $length = 0.0;
+        for ($idx = 1; $idx < \count($points); ++$idx) {
+            $deltaX = $points[$idx][0] - $points[$idx - 1][0];
+            $deltaY = $points[$idx][1] - $points[$idx - 1][1];
+            $length += \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
+        }
+        return $length;
+    }
+
+    /**
+     * Interpolate the point and angle at a given offset along the polyline.
+     *
+     * @param array<int, array{0: float, 1: float}> $points
+     * @return array{0: float, 1: float, 2: float}|null (x, y, angleDeg)
+     */
+    protected function getTextPathPointAtOffset(array $points, float $offset): ?array
+    {
+        if (\count($points) < 2) {
+            return null;
+        }
+
+        $total = $this->getTextPathLength($points);
+        if ($total <= 0.0) {
+            return null;
+        }
+
+        $remaining = \max(0.0, \min($offset, $total));
+        for ($idx = 1; $idx < \count($points); ++$idx) {
+            $startX = $points[$idx - 1][0];
+            $startY = $points[$idx - 1][1];
+            $endX = $points[$idx][0];
+            $endY = $points[$idx][1];
+            $deltaX = $endX - $startX;
+            $deltaY = $endY - $startY;
+            $segLength = \sqrt(($deltaX * $deltaX) + ($deltaY * $deltaY));
+            if ($segLength <= 0.0) {
+                continue;
+            }
+            if ($remaining <= $segLength) {
+                $ratio = $remaining / $segLength;
+                $pointX = $startX + ($deltaX * $ratio);
+                $pointY = $startY + ($deltaY * $ratio);
+                $angle = \rad2deg(\atan2($deltaY, $deltaX));
+                return [$pointX, $pointY, $angle];
+            }
+            $remaining -= $segLength;
+        }
+
+        $last = $points[\count($points) - 1];
+        $prev = $points[\count($points) - 2];
+        $angle = \rad2deg(\atan2(($last[1] - $prev[1]), ($last[0] - $prev[0])));
+        return [$last[0], $last[1], $angle];
+    }
+
+    /**
+     * Parse the SVG Start tag 'textPath'.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     * @param TSVGStyle $prev_svgstyle Previous SVG style.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTtextPath(
+        \XMLParser $parser,
+        int $soid,
+        array $attr,
+        array $svgstyle,
+        array $prev_svgstyle,
+    ): string {
+        $textPathAttr = $attr;
+        $href = (string) ($attr['xlink:href'] ?? $attr['href'] ?? '');
+        $startOffsetRaw = (string) ($attr['startOffset'] ?? '0');
+
+        $points = $this->getTextPathPoints($soid, $href);
+        if (!empty($points)) {
+            $pathLength = $this->getTextPathLength($points);
+            $startOffset = 0.0;
+
+            if (\strpos($startOffsetRaw, '%') !== false) {
+                $startOffset = ($pathLength * \floatval(\str_replace('%', '', $startOffsetRaw))) / 100.0;
+            } elseif ($startOffsetRaw !== '') {
+                $startOffset = $this->svgUnitToUnit($startOffsetRaw, $soid);
+            }
+
+            if ($pathLength > 0.0) {
+                $pathPoint = $this->getTextPathPointAtOffset($points, $startOffset);
+                if (!empty($pathPoint)) {
+                    $textPathAttr['x'] = (string) $pathPoint[0];
+                    $textPathAttr['y'] = (string) $pathPoint[1];
+                    if (empty($textPathAttr['rotate'])) {
+                        $textPathAttr['rotate'] = (string) $pathPoint[2];
+                    }
+                }
+            }
+        }
+
+        if (isset($textPathAttr['xlink:href'])) {
+            unset($textPathAttr['xlink:href']);
+        }
+        if (isset($textPathAttr['href'])) {
+            unset($textPathAttr['href']);
+        }
+
+        /** @var TSVGAttributes $textPathAttr */
+
+        $out = $this->parseSVGTagSTARTtext(
+            $parser,
+            $soid,
+            $textPathAttr,
+            $svgstyle,
+            $prev_svgstyle,
+            true,
+        );
+
+        if (!empty($points)) {
+            $pathLength = $this->getTextPathLength($points);
+            $startOffset = 0.0;
+            if ($pathLength > 0.0) {
+                if (\strpos($startOffsetRaw, '%') !== false) {
+                    $startOffset = ($pathLength * \floatval(\str_replace('%', '', $startOffsetRaw))) / 100.0;
+                } elseif ($startOffsetRaw !== '') {
+                    $startOffset = $this->svgUnitToUnit($startOffsetRaw, $soid);
+                }
+            }
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathpoints'] = $points;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathoffset'] = $startOffset;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathmethod'] = (string) ($attr['method'] ?? 'align');
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['textpathspacing'] = (string) ($attr['spacing'] ?? 'exact');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Build per-glyph layout arrays for an active textPath run.
+     *
+        * `method="stretch"` scales glyph advances to fill available path length.
+        * `spacing="auto"` adjusts inter-glyph gaps to consume the available path.
+     *
+     * @param int $soid ID of the current SVG object.
+     */
+    protected function applyTextPathGlyphLayout(int $soid): void
+    {
+        $text = (string) ($this->svgobjs[$soid]['text'] ?? '');
+        if ($text === '') {
+            return;
+        }
+
+        $textPathPoints = $this->svgobjs[$soid]['textmode']['textpathpoints'] ?? [];
+        if (\count($textPathPoints) < 2) {
+            return;
+        }
+
+        $textPathLength = $this->getTextPathLength($textPathPoints);
+        $startOffset = (float) ($this->svgobjs[$soid]['textmode']['textpathoffset'] ?? 0.0);
+        $availableLength = \max(0.0, $textPathLength - $startOffset);
+        $pathMethod = (string) ($this->svgobjs[$soid]['textmode']['textpathmethod'] ?? 'align');
+        $pathSpacing = (string) ($this->svgobjs[$soid]['textmode']['textpathspacing'] ?? 'exact');
+        $chars = \mb_str_split($text, 1, 'UTF-8');
+        $charCount = \count($chars);
+        if ($charCount === 0) {
+            return;
+        }
+
+        $advances = [];
+        $baseAdvance = 0.0;
+        foreach ($chars as $charGlyph) {
+            $charAdvance = $this->getStringWidth($charGlyph);
+            $advances[] = $charAdvance;
+            $baseAdvance += $charAdvance;
+        }
+
+        if (($pathMethod === 'stretch') && ($baseAdvance > 0.0) && ($availableLength > 0.0)) {
+            $stretchScale = $availableLength / $baseAdvance;
+            foreach ($advances as $key => $charAdvance) {
+                $advances[$key] = $charAdvance * $stretchScale;
+            }
+            $baseAdvance = $availableLength;
+        }
+
+        $gapAdjust = 0.0;
+        if (($pathSpacing === 'auto') && ($charCount > 1) && ($availableLength > 0.0)) {
+            $remainingGap = $availableLength - $baseAdvance;
+            if ($remainingGap > 0.0) {
+                $gapAdjust = $remainingGap / (float) ($charCount - 1);
+            }
+        }
+
+        $xcoords = [];
+        $ycoords = [];
+        $angles = [];
+        $pathOffset = $startOffset;
+
+        foreach ($chars as $charIndex => $charGlyph) {
+            $pathPoint = $this->getTextPathPointAtOffset($textPathPoints, $pathOffset);
+            if (empty($pathPoint)) {
+                break;
+            }
+            $xcoords[] = (float) $pathPoint[0];
+            $ycoords[] = (float) $pathPoint[1];
+            $angles[] = (float) $pathPoint[2];
+            $pathOffset += ($advances[$charIndex] ?? $this->getStringWidth($charGlyph));
+            if ($charIndex < ($charCount - 1)) {
+                $pathOffset += $gapAdjust;
+            }
+        }
+
+        if (!empty($xcoords) && !empty($ycoords)) {
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['xlist'] = $xcoords;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['ylist'] = $ycoords;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['textmode']['rotlist'] = $angles;
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['x'] = $xcoords[0];
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['y'] = $ycoords[0];
+            if (empty($this->svgobjs[$soid]['textmode']['rotate']) && !empty($angles)) {
+                // @phpstan-ignore assign.propertyType
+                $this->svgobjs[$soid]['textmode']['rotate'] = (float) $angles[0];
+            }
+        }
+    }
+
+    /**
+     * Parse the SVG Start tag 'symbol'.
+     *
+     * A <symbol> is a reusable graphic container that is captured into defs.
+     * It is never rendered directly; it is expanded only when referenced by <use>.
+     * The defsmode flag is set here so that subsequent child elements are stored
+     * in the defs array rather than rendered immediately.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTsymbol(int $soid, array $attr): string
+    {
+        return $this->registerSVGDefsContainer($soid, 'symbol', $attr);
+    }
+
+    /**
+     * Parse the SVG End tag 'symbol'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDsymbol(int $soid): string
+    {
+        return $this->setSVGDefsMode($soid, false);
+    }
+
+    /**
+     * Parse the SVG Start tag 'marker'.
+     *
+     * Markers are reusable defs objects referenced by marker-start/mid/end.
+     * This handler captures marker metadata and enables defs-child buffering.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTmarker(int $soid, array $attr): string
+    {
+        return $this->registerSVGDefsContainer($soid, 'marker', $attr);
+    }
+
+    /**
+     * Parse the SVG End tag 'marker'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDmarker(int $soid): string
+    {
+        return $this->setSVGDefsMode($soid, false);
+    }
+
+    /**
+     * Parse the SVG Start tag 'pattern'.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTpattern(int $soid, array $attr): string
+    {
+        return $this->registerSVGDefsContainer($soid, 'pattern', $attr);
+    }
+
+    /**
+     * Parse the SVG End tag 'pattern'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDpattern(int $soid): string
+    {
+        return $this->setSVGDefsMode($soid, false);
+    }
+
+    /**
+     * Parse the SVG Start tag 'mask'.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     */
+    protected function parseSVGTagSTARTmask(int $soid, array $attr): string
+    {
+        return $this->registerSVGDefsContainer($soid, 'mask', $attr);
+    }
+
+    /**
+     * Parse the SVG End tag 'mask'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     */
+    protected function parseSVGTagENDmask(int $soid): string
+    {
+        return $this->setSVGDefsMode($soid, false);
+    }
+
+    /**
+     * Parse the SVG Start tag 'filter'.
+     *
+     * SVG filters (<filter> with fe* primitives) define a pixel-level processing
+     * pipeline that has no direct equivalent in static PDF.  This handler is a
+     * deliberate no-op: the <filter> element and all its fe* children are already
+     * excluded from the character-data parser (see SVGCHARDATASKIPTAGS), so this
+     * method exists only to silence the dispatch-table default branch and to make
+     * the intentional non-support self-documenting.
+     *
+     * A filter reference on a shape element (filter="url(#f)") is also silently
+     * ignored — the shape is rendered without the filter effect applied.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string Empty string — filters are not supported in PDF output.
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function parseSVGTagSTARTfilter(int $soid, array $attr): string
+    {
+        // Filters cannot be represented in static PDF.  Mark defs-mode so the
+        // fe* child elements captured by SVGCHARDATASKIPTAGS are discarded, and
+        // register a placeholder in defs so a filter="url(#id)" reference does
+        // not trigger spurious fallback paths elsewhere.
+        return $this->registerSVGDefsContainer($soid, 'filter', $attr);
+    }
+
+    /**
+     * Parse the SVG End tag 'filter'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string Empty string — filters are not supported in PDF output.
+     */
+    protected function parseSVGTagENDfilter(int $soid): string
+    {
+        return $this->setSVGDefsMode($soid, false);
+    }
+
+    /**
+     * Parse the SVG Start tag 'a' (hyperlink).
+     *
+     * Records the link URL and bounding origin.  Child elements are rendered
+     * normally; the annotation is emitted on the matching </a> end tag.
+     * Unsupported SVG feature: full bounding-box tracking of arbitrary child
+     * shapes is not implemented.  A best-effort URI annotation is emitted at the
+     * current cursor position with a placeholder size on </a>.
+     *
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGAttributes $attr SVG attributes.
+     *
+     * @return string
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function parseSVGTagSTARTa(int $soid, array $attr): string
+    {
+        $href = (string) ($attr['xlink:href'] ?? $attr['href'] ?? '');
+        if ($href === '') {
+            return '';
+        }
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkhref'] = $href;
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkx'] = (float) $this->svgobjs[$soid]['x'];
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linky'] = (float) $this->svgobjs[$soid]['y'];
+        return '';
+    }
+
+    /**
+     * Parse the SVG End tag 'a'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function parseSVGTagENDa(int $soid): string
+    {
+        $href = (string) ($this->svgobjs[$soid]['textmode']['linkhref'] ?? '');
+        if ($href === '') {
+            return '';
+        }
+
+        $startX = (float) ($this->svgobjs[$soid]['textmode']['linkx'] ?? $this->svgobjs[$soid]['x']);
+        $startY = (float) ($this->svgobjs[$soid]['textmode']['linky'] ?? $this->svgobjs[$soid]['y']);
+        $endX = (float) $this->svgobjs[$soid]['x'];
+        $endY = (float) $this->svgobjs[$soid]['y'];
+
+        $deltaX = \abs($endX - $startX);
+        $deltaY = \abs($endY - $startY);
+        $font = $this->font->getCurrentFont();
+        $fontHeight = $this->toUnit((float) ($font['size'] ?? 1.0));
+        if ($fontHeight <= 0.0) {
+            $fontHeight = 1.0;
+        }
+
+        if (!empty($this->svgobjs[$soid]['textmode']['vertical'])) {
+            $width = \max($deltaX, $this->getStringWidth('M'));
+            $height = \max($deltaY, $fontHeight);
+        } else {
+            $width = \max($deltaX, $this->getStringWidth(' '));
+            $height = \max($deltaY, $fontHeight);
+        }
+
+        $posx = \min($startX, $endX);
+        $posy = \min($startY, $endY);
+        if (\method_exists($this, 'setLink')) {
+            $lnkid = \call_user_func([$this, 'setLink'], $posx, $posy, $width, $height, $href);
+            if (\is_int($lnkid)) {
+                $this->page->addAnnotRef($lnkid, $this->page->getPageID());
+            }
+        }
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkhref'] = '';
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkx'] = (float) $this->svgobjs[$soid]['x'];
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linky'] = (float) $this->svgobjs[$soid]['y'];
+        return '';
+    }
+
+    /**
+     * Parse the SVG Start tag 'switch'.
+     *
+     * In a static PDF context we treat all feature requirements as satisfied
+     * and simply render the first child (by letting the parser continue normally).
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+    * @phpstan-param TSVGAttributes $attr
+    */
+    protected function parseSVGTagSTARTswitch(int $soid, array $attr = []): string
+    {
+        return '';
+    }
+
+    /**
+     * Parse the SVG End tag 'switch'.
+     *
+     * @param int $soid ID of the current SVG object.
+     *
+     * @return string
+     *
+     * @SuppressWarnings("PHPMD.UnusedFormalParameter")
+     */
+    protected function parseSVGTagENDswitch(int $soid): string
+    {
+        return '';
+    }
+
+    /**
      * Parse the SVG Start tag 'use'.
      *
      * @param \XMLParser $parser The XML parser calling the handler.
@@ -3841,10 +7078,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTuse(\XMLParser $parser, int $soid, array $attr): string
     {
-        if (empty($attr['xlink:href'])) {
+        // SVG 2 uses plain 'href'; fall back from xlink:href for compatibility.
+        $href = $attr['xlink:href'] ?? $attr['href'] ?? '';
+        if (empty($href)) {
             return '';
         }
-        $svgdefid = \substr($attr['xlink:href'], 1);
+
+        $svgdefid = \substr($href, 1);
         if (empty($this->svgobjs[$soid]['defs'][$svgdefid])) {
             return '';
         }
@@ -3854,9 +7094,147 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (isset($attr['xlink:href'])) {
             unset($attr['xlink:href']);
         }
+        if (isset($attr['href'])) {
+            unset($attr['href']);
+        }
         if (isset($attr['id'])) {
             unset($attr['id']);
         }
+
+        // When the target is a <symbol>, expand it like an inner <svg>:
+        // apply the <use> x/y offset, optional width/height, and the symbol's viewBox.
+        if (isset($use['name']) && ($use['name'] === 'symbol')) {
+            $symAttr = \is_array($use['attr']) ? $use['attr'] : [];
+            $useX = isset($attr['x']) ? $this->svgUnitToUnit((string) $attr['x'], $soid) : 0.0;
+            $useY = isset($attr['y']) ? $this->svgUnitToUnit((string) $attr['y'], $soid) : 0.0;
+            $useW = isset($attr['width'])
+                ? $this->svgUnitToUnit((string) $attr['width'], $soid)
+                : (isset($symAttr['width']) ? $this->svgUnitToUnit((string) $symAttr['width'], $soid) : 0.0);
+            $useH = isset($attr['height'])
+                ? $this->svgUnitToUnit((string) $attr['height'], $soid)
+                : (isset($symAttr['height']) ? $this->svgUnitToUnit((string) $symAttr['height'], $soid) : 0.0);
+
+            // E-1/R-3 hardening: if use width/height are omitted, use viewBox size.
+            if ((($useW <= 0.0) || ($useH <= 0.0)) && !empty($symAttr['viewBox']) && \is_string($symAttr['viewBox'])) {
+                $viewBoxVals = \preg_split('/[\s,]+/', \trim($symAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+                if (\is_array($viewBoxVals) && (\count($viewBoxVals) >= 4)) {
+                    $vbw = \abs($this->svgUnitToUnit((string) $viewBoxVals[2], $soid));
+                    $vbh = \abs($this->svgUnitToUnit((string) $viewBoxVals[3], $soid));
+                    if (($useW <= 0.0) && ($vbw > 0.0)) {
+                        $useW = $vbw;
+                    }
+                    if (($useH <= 0.0) && ($vbh > 0.0)) {
+                        $useH = $vbh;
+                    }
+                }
+            }
+
+            // Build an attr array that looks like an inner <svg> while preserving
+            // use-level style/transform/inherited attributes for compatibility.
+            /** @var TSVGAttributes $svglikeAttr */
+            $svglikeAttr = $attr;
+            $svglikeAttr['x'] = (string) $useX;
+            $svglikeAttr['y'] = (string) $useY;
+            $svglikeAttr['width'] = (string) $useW;
+            $svglikeAttr['height'] = (string) $useH;
+            if (!isset($svglikeAttr['viewBox']) && !empty($symAttr['viewBox']) && \is_string($symAttr['viewBox'])) {
+                $svglikeAttr['viewBox'] = $symAttr['viewBox'];
+            }
+            if (
+                !isset($svglikeAttr['preserveAspectRatio'])
+                && !empty($symAttr['preserveAspectRatio'])
+                && \is_string($symAttr['preserveAspectRatio'])
+            ) {
+                $svglikeAttr['preserveAspectRatio'] = $symAttr['preserveAspectRatio'];
+            }
+
+            // Temporarily bump tagdepth so parseSVGTagSTARTsvg treats this as an inner SVG.
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['tagdepth']++;
+            /** @var TSVGStyle $defStyle */
+            $defStyle = \end($this->svgobjs[$soid]['styles']);
+            if (!\is_array($defStyle)) {
+                $defStyle = self::DEFSVGSTYLE;
+            }
+
+            $out = '';
+            /** @var TSVGStyle $useStyle */
+            $useStyle = $defStyle;
+
+            // Preserve symbol-level presentation/style attributes first so the
+            // symbol container behaves like an inner <svg> wrapper. Use-level
+            // presentation/style attrs are then applied on top as the final override.
+            $symbolStyleTag = '';
+            if (!empty($symAttr['style']) && \is_string($symAttr['style'])) {
+                $symbolStyleTag = ($symAttr['style'][0] === ';') ? $symAttr['style'] : (';' . $symAttr['style']);
+            }
+            foreach (self::SVGINHPROP as $styleKey) {
+                if (!empty($symAttr[$styleKey]) && \is_string($symAttr[$styleKey])) {
+                    $useStyle[$styleKey] = $symAttr[$styleKey];
+                } elseif ($symbolStyleTag !== '') {
+                    $useStyle[$styleKey] = $this->parseCSSAttrib(
+                        $symbolStyleTag,
+                        $styleKey,
+                        (string) $useStyle[$styleKey],
+                    );
+                }
+            }
+
+            if (!empty($symAttr['transform']) && \is_string($symAttr['transform'])) {
+                $useStyle['transfmatrix'] = $this->graph->getCtmProduct(
+                    $useStyle['transfmatrix'],
+                    $this->getSVGTransformMatrix($symAttr['transform']),
+                );
+            }
+
+            // Preserve use-level presentation/style attributes for symbol expansion.
+            $styleTag = '';
+            if (!empty($svglikeAttr['style']) && \is_string($svglikeAttr['style'])) {
+                $styleTag = ($svglikeAttr['style'][0] === ';') ? $svglikeAttr['style'] : (';' . $svglikeAttr['style']);
+            }
+            foreach (self::SVGINHPROP as $styleKey) {
+                if (!empty($svglikeAttr[$styleKey]) && \is_string($svglikeAttr[$styleKey])) {
+                    $useStyle[$styleKey] = $svglikeAttr[$styleKey];
+                } elseif ($styleTag !== '') {
+                    $useStyle[$styleKey] = $this->parseCSSAttrib($styleTag, $styleKey, (string) $useStyle[$styleKey]);
+                }
+            }
+
+            if (!empty($svglikeAttr['transform']) && \is_string($svglikeAttr['transform'])) {
+                $useStyle['transfmatrix'] = $this->graph->getCtmProduct(
+                    $useStyle['transfmatrix'],
+                    $this->getSVGTransformMatrix($svglikeAttr['transform']),
+                );
+            }
+
+            // @phpstan-ignore argument.type
+            $out .= $this->parseSVGTagSTARTsvg($parser, $soid, $svglikeAttr, $useStyle, $defStyle);
+
+            // Replay each child element stored under the symbol def.
+            if (!empty($use['child']) && \is_array($use['child'])) {
+                foreach ($use['child'] as $child) {
+                    if (!\is_array($child) || !isset($child['name'])) {
+                        continue;
+                    }
+                    if (!empty($child['attr']['closing_tag'])) {
+                        // closing-tag sentinel — emit the matching end handler
+                        $this->handleSVGTagEnd($parser, (string) $child['name']);
+                    } else {
+                        /** @var TSVGAttributes $childAttr */
+                        $childAttr = \is_array($child['attr']) ? $child['attr'] : [];
+                        $this->handleSVGTagStart($parser, (string) $child['name'], $childAttr, $soid);
+                    }
+                }
+            }
+
+            $out .= $this->parseSVGTagENDsvg($soid);
+            // parseSVGTagENDsvg calls parseSVGTagENDg which decrements tagdepth via its
+            // own stack pop; we also decremented it above, so restore the balance.
+            // @phpstan-ignore assign.propertyType
+            $this->svgobjs[$soid]['tagdepth']--;
+            return $out;
+        }
+
         if (isset($use['attr']['x']) && isset($attr['x'])) {
             $attr['x'] = \strval(\floatval($attr['x']) + \floatval($use['attr']['x']));
         }

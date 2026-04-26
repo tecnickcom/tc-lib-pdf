@@ -143,6 +143,11 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutResourcesDict();
     }
 
+    public function exposeGetPatternStreamResourceDict(string $stream): string
+    {
+        return $this->getPatternStreamResourceDict($stream);
+    }
+
     /** @phpstan-param array<string, mixed> $annot */
     public function exposeGetOutAnnotationOptSubtypeLine(array $annot): string
     {
@@ -611,5 +616,28 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     public function getJavascriptTree(): string
     {
         return $this->jstree;
+    }
+
+    public function exposeGetOutSVGMasks(): string
+    {
+        return $this->getOutSVGMasks();
+    }
+
+    public function exposeGetSVGMaskExtGStateEntries(): string
+    {
+        return $this->getSVGMaskExtGStateEntries();
+    }
+
+    /** @phpstan-param array<string, mixed> $masks */
+    public function setSvgMasks(array $masks): void
+    {
+        // @phpstan-ignore assign.propertyType
+        $this->svgmasks = $masks;
+    }
+
+    /** @return array<string, mixed> */
+    public function getSvgMasks(): array
+    {
+        return $this->svgmasks;
     }
 }

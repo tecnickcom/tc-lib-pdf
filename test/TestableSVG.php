@@ -478,12 +478,21 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             'cliptm' => self::TMXID,
             'styles' => [self::DEFSVGSTYLE],
             'child' => [],
+            'xmldepth' => 0,
+            'switchstack' => [],
+            'markermode' => 0,
+            'patternmode' => 0,
             'textmode' => [
                 'rtl' => false,
                 'invisible' => false,
                 'stroke' => 0,
                 'text-anchor' => 'start',
+                'vertical' => false,
+                'linkhref' => '',
+                'linkx' => 0.0,
+                'linky' => 0.0,
             ],
+            'charskip' => 0,
             'text' => '',
             'dir' => '',
             'out' => '',
@@ -504,6 +513,12 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     public function getSvgObj(int $soid): array
     {
         return $this->svgobjs[$soid];
+    }
+
+    /** @return array<string, mixed> */
+    public function exposeGetCurrentPageData(): array
+    {
+        return $this->page->getPage();
     }
 
     public function exposeHandlerSVGCharacter(\XMLParser $parser, string $data): void
@@ -748,8 +763,9 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         array $attr,
         array $svgstyle,
         array $prev_svgstyle,
+        bool $isPolyline = false,
     ): string {
-        return $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
+        return $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle, $isPolyline);
     }
 
     /**
@@ -798,9 +814,130 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTtspan($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @phpstan-param TSVGStyle $svgstyle
+     * @phpstan-param TSVGStyle $prev_svgstyle
+     */
+    public function exposeParseSVGTagSTARTtextPath(
+        \XMLParser $parser,
+        int $soid,
+        array $attr,
+        array $svgstyle,
+        array $prev_svgstyle,
+    ): string {
+        return $this->parseSVGTagSTARTtextPath($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
+    }
+
+    public function exposeParseSVGTagENDtextPath(int $soid): string
+    {
+        return $this->parseSVGTagENDtextPath($soid);
+    }
+
     /** @phpstan-param TSVGAttributes $attr */
     public function exposeParseSVGTagSTARTuse(\XMLParser $parser, int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTuse($parser, $soid, $attr);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTsymbol(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTsymbol($soid, $attr);
+    }
+
+    public function exposeParseSVGTagENDsymbol(int $soid): string
+    {
+        return $this->parseSVGTagENDsymbol($soid);
+    }
+
+    public function exposeParseSVGTagENDmarker(int $soid): string
+    {
+        return $this->parseSVGTagENDmarker($soid);
+    }
+
+    public function exposeParseSVGTagENDpattern(int $soid): string
+    {
+        return $this->parseSVGTagENDpattern($soid);
+    }
+
+    public function exposeParseSVGTagENDmask(int $soid): string
+    {
+        return $this->parseSVGTagENDmask($soid);
+    }
+
+    /** @phpstan-return ?TSVGAttribs */
+    public function exposeResolveSVGPatternDef(int $soid, string $patternId): ?array
+    {
+        return $this->resolveSVGPatternDef($soid, $patternId);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTa(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTa($soid, $attr);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTmarker(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTmarker($soid, $attr);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTpattern(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTpattern($soid, $attr);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTmask(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTmask($soid, $attr);
+    }
+
+    public function exposeParseSVGTagENDa(int $soid): string
+    {
+        return $this->parseSVGTagENDa($soid);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTswitch(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTswitch($soid, $attr);
+    }
+
+    public function exposeParseSVGTagENDswitch(int $soid): string
+    {
+        return $this->parseSVGTagENDswitch($soid);
+    }
+
+    /** @phpstan-param TSVGStyle $svgstyle */
+    public function exposeParseSVGStyleMask(int $soid, array $svgstyle): string
+    {
+        return $this->parseSVGStyleMask($soid, $svgstyle);
+    }
+
+    /** @return array<string, mixed> */
+    public function getSvgMasks(): array
+    {
+        return $this->svgmasks;
+    }
+
+    /** @phpstan-param TSVGStyle $svgstyle */
+    public function exposeParseSVGStyleRenderingHints(array $svgstyle): string
+    {
+        return $this->parseSVGStyleRenderingHints($svgstyle);
+    }
+
+    /** @phpstan-param TSVGAttributes $attr */
+    public function exposeParseSVGTagSTARTfilter(int $soid, array $attr): string
+    {
+        return $this->parseSVGTagSTARTfilter($soid, $attr);
+    }
+
+    public function exposeParseSVGTagENDfilter(int $soid): string
+    {
+        return $this->parseSVGTagENDfilter($soid);
     }
 }

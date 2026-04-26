@@ -480,6 +480,99 @@ PHP;
         $this->assertStringEndsWith(" >>\nendobj\n", $out);
     }
 
+    public function testPatternStreamResourcesKeepOnlyReferencedFontAndSpotAliases(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+
+        $timesfile = (string) \realpath(
+            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json'
+        );
+        $font->insert($pon, 'times', '', 10, null, null, $timesfile);
+
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        /** @var \Com\Tecnick\Color\Pdf $color */
+        $color = $this->getObjectProperty($obj, 'color');
+        $this->setObjectProperty($color, 'spot_colors', [
+            'spotA' => ['i' => 1, 'n' => 111],
+            'spotB' => ['i' => 2, 'n' => 222],
+        ]);
+
+        $stream = '/F1 12 Tf /CS1 cs';
+        $out = $obj->exposeGetPatternStreamResourceDict($stream);
+
+        $this->assertStringContainsString(' /Font <<', $out);
+        $this->assertStringContainsString(' /F1 ', $out);
+        $this->assertStringNotContainsString(' /F2 ', $out);
+        $this->assertStringContainsString(' /ColorSpace <<', $out);
+        $this->assertStringContainsString(' /CS1 ', $out);
+        $this->assertStringNotContainsString(' /CS2 ', $out);
+    }
+
+    public function testPatternStreamResourcesFilterMixedCategoriesByStreamUsage(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var \Com\Tecnick\Color\Pdf $color */
+        $color = $this->getObjectProperty($obj, 'color');
+        /** @var \Com\Tecnick\Pdf\Graph\Draw $graph */
+        $graph = $this->getObjectProperty($obj, 'graph');
+
+        $timesfile = (string) \realpath(
+            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json'
+        );
+        $font->insert($pon, 'times', '', 10, null, null, $timesfile);
+
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $this->setObjectProperty($color, 'spot_colors', [
+            'spotA' => ['i' => 1, 'n' => 111],
+            'spotB' => ['i' => 2, 'n' => 222],
+        ]);
+
+        // Register at least two ExtGState entries so we can verify selective inclusion.
+        $graph->getAlpha(0.9);
+        $graph->getAlpha(0.5);
+
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XO1' => ['n' => 201],
+            'XO2' => ['n' => 202],
+        ]);
+
+        $stream = '/F1 10 Tf /CS1 cs /GS2 gs /XO2 Do';
+        $out = $obj->exposeGetPatternStreamResourceDict($stream);
+
+        $this->assertStringContainsString(' /Font <<', $out);
+        $this->assertStringContainsString(' /F1 ', $out);
+        $this->assertStringNotContainsString(' /F2 ', $out);
+        $this->assertStringContainsString(' /ColorSpace <<', $out);
+        $this->assertStringContainsString(' /CS1 ', $out);
+        $this->assertStringNotContainsString(' /CS2 ', $out);
+        $this->assertStringContainsString(' /ExtGState <<', $out);
+        $this->assertStringContainsString(' /GS2 ', $out);
+        $this->assertStringNotContainsString(' /GS1 ', $out);
+        $this->assertStringContainsString(' /XObject <<', $out);
+        $this->assertStringContainsString(' /XO2 202 0 R', $out);
+        $this->assertStringNotContainsString(' /XO1 201 0 R', $out);
+    }
+
     public function testTodoAnnotationSubtypeHelpersCurrentlyReturnEmptyString(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3429,5 +3522,98 @@ PHP;
     private function setPdfaModeOnObject(TestableOutput $obj, int $pdfa): void
     {
         $obj->setPdfaMode($pdfa);
+    }
+
+    // -------------------------------------------------------------------------
+    // E-4 SVG mask PDF output tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * getOutSVGMasks emits Form XObject + SMask + ExtGState for a registered mask
+     * and records the ExtGState object number in gs_n.
+     */
+    public function testGetOutSVGMasksEmitsThreePdfObjectsAndSetsGsN(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->setSvgMasks([
+            'MSK_AABBCCDD' => [
+                'id'     => 'MSK_AABBCCDD',
+                'stream' => 'q Q',
+                'bbox'   => [0.0, 0.0, 595.0, 841.0],
+                'gs_n'   => 0,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSVGMasks();
+
+        // Three PDF objects emitted.
+        $this->assertSame(3, \substr_count($out, 'endobj'));
+
+        // Form XObject.
+        $this->assertStringContainsString('/Type /XObject', $out);
+        $this->assertStringContainsString('/Subtype /Form', $out);
+        $this->assertStringContainsString('/Group <<', $out);
+        $this->assertStringContainsString('/CS /DeviceGray', $out);
+
+        // SMask dict.
+        $this->assertStringContainsString('/Type /Mask', $out);
+        $this->assertStringContainsString('/S /Luminosity', $out);
+
+        // ExtGState.
+        $this->assertStringContainsString('/Type /ExtGState', $out);
+        $this->assertStringContainsString('/SMask', $out);
+        $this->assertStringContainsString('/AIS false', $out);
+
+        // gs_n must be set to the ExtGState object number.
+        $masks = $obj->getSvgMasks();
+        $this->assertArrayHasKey('MSK_AABBCCDD', $masks);
+        $this->assertIsArray($masks['MSK_AABBCCDD']);
+        $mask = $masks['MSK_AABBCCDD'];
+        $this->assertArrayHasKey('gs_n', $mask);
+        $this->assertGreaterThan(0, $mask['gs_n']);
+    }
+
+    /**
+     * getSVGMaskExtGStateEntries returns an entry for each mask with gs_n > 0.
+     */
+    public function testGetSVGMaskExtGStateEntriesReturnsResourceEntries(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->setSvgMasks([
+            'MSK_AA' => ['id' => 'MSK_AA', 'stream' => 'q Q', 'bbox' => [0.0, 0.0, 1.0, 1.0], 'gs_n' => 42],
+            'MSK_BB' => ['id' => 'MSK_BB', 'stream' => 'q Q', 'bbox' => [0.0, 0.0, 1.0, 1.0], 'gs_n' => 0],
+        ]);
+
+        $entries = $obj->exposeGetSVGMaskExtGStateEntries();
+
+        $this->assertStringContainsString('/MSK_AA 42 0 R', $entries);
+        $this->assertStringNotContainsString('/MSK_BB', $entries);
+    }
+
+    /**
+     * getOutSVGMasks skips masks with empty streams.
+     */
+    public function testGetOutSVGMasksSkipsEmptyStreamMasks(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->setSvgMasks([
+            'MSK_EMPTY' => ['id' => 'MSK_EMPTY', 'stream' => '', 'bbox' => [0.0, 0.0, 1.0, 1.0], 'gs_n' => 0],
+        ]);
+
+        $out = $obj->exposeGetOutSVGMasks();
+
+        $this->assertSame('', $out);
+        $masks = $obj->getSvgMasks();
+        $this->assertArrayHasKey('MSK_EMPTY', $masks);
+        $this->assertIsArray($masks['MSK_EMPTY']);
+        $mask = $masks['MSK_EMPTY'];
+        $this->assertArrayHasKey('gs_n', $mask);
+        $this->assertSame(0, $mask['gs_n']);
     }
 }
