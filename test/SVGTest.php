@@ -1449,6 +1449,104 @@ class SVGTest extends TestUtil
         $this->assertSame(0, $obj->getSvgObj(542)['patternmode']);
     }
 
+    public function testSvgPatternViewBoxIgnoresPatternContentUnits(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(543);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $defsPatternChild = [
+            'DF_1' => [
+                'name' => 'rect',
+                'attr' => [
+                    'x' => '0',
+                    'y' => '0',
+                    'width' => '10',
+                    'height' => '20',
+                    'fill' => 'none',
+                    'stroke' => '#000000',
+                    'stroke-width' => '1',
+                ],
+            ],
+            'DF_1_CLOSE' => [
+                'name' => 'rect',
+                'attr' => [
+                    'closing_tag' => true,
+                    'content' => '',
+                ],
+            ],
+        ];
+
+        $obj->patchSvgObj(543, [
+            'defs' => [
+                'patUser' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patUser',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                    ],
+                    'child' => $defsPatternChild,
+                ],
+                'patObj' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patObj',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'patternContentUnits' => 'objectBoundingBox',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '6',
+                        'height' => '6',
+                        'viewBox' => '0 0 10 20',
+                        'preserveAspectRatio' => 'xMidYMid meet',
+                    ],
+                    'child' => $defsPatternChild,
+                ],
+            ],
+        ]);
+
+        $style['fill'] = 'url(#patUser)';
+        [$outUser] = $obj->exposeParseSVGStyleFill(
+            543,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $style['fill'] = 'url(#patObj)';
+        [$outObj] = $obj->exposeParseSVGStyleFill(
+            543,
+            $style,
+            [],
+            0,
+            0,
+            6,
+            6,
+            'getClippingRect',
+            [0.0, 0.0, 6.0, 6.0, 0.0],
+        );
+
+        $this->assertNotSame('', $outUser);
+        $this->assertNotSame('', $outObj);
+        $this->assertSame($outUser, $outObj);
+    }
+
     public function testSvgLineRendersStartEndMarkersWhenDefined(): void
     {
         $obj = $this->getInternalTestObject();

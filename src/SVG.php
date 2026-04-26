@@ -2407,6 +2407,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             ? $this->getSVGTransformMatrix($attr['patternTransform'])
             : self::TMXID;
         $viewBoxTm = self::TMXID;
+        $hasViewBox = false;
         if (!empty($attr['viewBox']) && \is_string($attr['viewBox'])) {
             $vals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
             if (\is_array($vals) && (\count($vals) >= 4)) {
@@ -2416,6 +2417,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $vbh = \abs((float) $this->svgUnitToUnit((string) $vals[3], $soid));
 
                 if (($vbw > 0.0) && ($vbh > 0.0)) {
+                    $hasViewBox = true;
                     $viewScaleX = ($tileW / $vbw);
                     $viewScaleY = ($tileH / $vbh);
                     $viewOffsetX = 0.0;
@@ -2495,7 +2497,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
                     $out .= $this->graph->getStartTransform();
                     $tileTm = [1.0, 0.0, 0.0, 1.0, $tx, $ty];
-                    if ($contentUnits === 'objectBoundingBox') {
+                    // SVG2: patternContentUnits has no effect when a viewBox is specified.
+                    if (($contentUnits === 'objectBoundingBox') && !$hasViewBox) {
                         $tileTm = $this->graph->getCtmProduct($tileTm, [$width, 0.0, 0.0, $height, 0.0, 0.0]);
                     }
                     $tileTm = $this->graph->getCtmProduct($tileTm, $patternTransform);
