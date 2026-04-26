@@ -1374,6 +1374,81 @@ class SVGTest extends TestUtil
         $this->assertNotSame($outNone, $outMeet);
     }
 
+    public function testSvgPatternHrefCycleIsHandledSafely(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(542);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['fill'] = 'url(#patCycleA)';
+        $style['opacity'] = 1.0;
+        $style['fill-opacity'] = 1.0;
+
+        $obj->patchSvgObj(542, [
+            'defs' => [
+                'patCycleA' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patCycleA',
+                        'xlink:href' => '#patCycleB',
+                        'patternUnits' => 'userSpaceOnUse',
+                        'x' => '0',
+                        'y' => '0',
+                        'width' => '4',
+                        'height' => '4',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'x' => '0',
+                                'y' => '0',
+                                'width' => '4',
+                                'height' => '4',
+                                'fill' => 'none',
+                                'stroke' => '#000000',
+                                'stroke-width' => '1',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'rect',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+                'patCycleB' => [
+                    'name' => 'pattern',
+                    'attr' => [
+                        'id' => 'patCycleB',
+                        'xlink:href' => '#patCycleA',
+                    ],
+                    'child' => [],
+                ],
+            ],
+            'out' => 'BASE',
+        ]);
+
+        [$out] = $obj->exposeParseSVGStyleFill(
+            542,
+            $style,
+            [],
+            0,
+            0,
+            10,
+            10,
+            'getClippingRect',
+            [0.0, 0.0, 10.0, 10.0, 0.0],
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertSame('BASE', $obj->getSvgObj(542)['out']);
+        $this->assertSame(0, $obj->getSvgObj(542)['patternmode']);
+    }
+
     public function testSvgLineRendersStartEndMarkersWhenDefined(): void
     {
         $obj = $this->getInternalTestObject();
