@@ -2494,4 +2494,62 @@ class SVGTest extends TestUtil
         $this->assertNotSame('', $endOut);
         $this->assertSame('', $obj->getSvgObj(105)['text']);
     }
+
+    /**
+     * S-2: writing-mode vertical is stored in textmode by STARTtext.
+     */
+    public function testSvgWritingModeVerticalSetsTextModeFlag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $parser = \xml_parser_create('UTF-8');
+        $obj->initSvgObjForHandlers(107);
+        $base = $obj->exposeDefaultSVGStyle();
+        $vertical = $base;
+        $vertical['writing-mode'] = 'vertical-rl';
+
+        $out = $obj->exposeParseSVGTagSTARTtext(
+            $parser,
+            107,
+            ['x' => '10', 'y' => '20'],
+            $vertical,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertTrue((bool) ($obj->getSvgObj(107)['textmode']['vertical'] ?? false));
+    }
+
+    /**
+     * S-2: invisible vertical text advances Y instead of X.
+     */
+    public function testSvgInvisibleVerticalTextAdvancesYCursor(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(108);
+        $base = $obj->exposeDefaultSVGStyle();
+        $obj->patchSvgObj(108, [
+            'styles' => [$base],
+            'defsmode' => false,
+            'textmode' => [
+                'invisible' => true,
+                'vertical' => true,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+            'text' => 'VV',
+            'x' => 7.0,
+            'y' => 9.0,
+        ]);
+
+        $xBefore = (float) $obj->getSvgObj(108)['x'];
+        $yBefore = (float) $obj->getSvgObj(108)['y'];
+        $out = $obj->exposeParseSVGTagENDtext(108);
+
+        $this->assertSame('', $out);
+        $this->assertSame($xBefore, (float) $obj->getSvgObj(108)['x']);
+        $this->assertGreaterThan($yBefore, (float) $obj->getSvgObj(108)['y']);
+    }
 }

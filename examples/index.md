@@ -30,4 +30,4 @@
 - [027_example_annotations.php](027_example_annotations.php) : Ports TCPDF examples 036 and 041, demonstrating text and file-attachment annotations.
 - [028_example_text_hyphenation.php](028_example_text_hyphenation.php) : Ports TCPDF example 046, demonstrating soft-hyphen-based text hyphenation in a narrow justified HTML column.
 - [029_example_xobject_template.php](029_example_xobject_template.php) : Ports TCPDF example 062, demonstrating reusable Form XObject templates with clipping and transparency.
-- [030_example_svg.php](030_example_svg.php) : Dedicated SVG rendering example exercising all bundled SVG images (paths, gradients, clip-paths, blend modes, complex multi-path illustrations) across five pages — baseline for SVG feature development.
+- [030_example_svg.php](030_example_svg.php) : Dedicated SVG rendering example exercising all bundled SVG images.

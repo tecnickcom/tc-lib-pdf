@@ -155,6 +155,7 @@ use TSVGStyle;
  *    'invisible': bool,
  *    'stroke': int,
  *    'text-anchor': string,
+ *    'vertical'?: bool,
  *    'baseline'?: string,
  *    'rotate'?: float,
  *    'textlength'?: float,
@@ -650,6 +651,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'invisible' => false,
             'stroke' => 0,
             'text-anchor' => 'start',
+            'vertical' => false,
         ],
         'text' => '',
         'dir' => '',
@@ -2569,8 +2571,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             // Advance the cursor by the text width without emitting any drawing operators.
             $txt = (string)($this->svgobjs[$soid]['text'] ?? '');
             if ($txt !== '') {
-                // @phpstan-ignore assign.propertyType
-                $this->svgobjs[$soid]['x'] += $this->getStringWidth($txt);
+                if (!empty($this->svgobjs[$soid]['textmode']['vertical'])) {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['y'] += $this->getStringWidth($txt);
+                } else {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['x'] += $this->getStringWidth($txt);
+                }
             }
 
             // @phpstan-ignore assign.propertyType
@@ -2635,6 +2642,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         // R-1: multi-value x / y lists — emit one call per character if lists present.
         $xlist = $this->svgobjs[$soid]['textmode']['xlist'] ?? [];
         $ylist = $this->svgobjs[$soid]['textmode']['ylist'] ?? [];
+        $isVertical = !empty($this->svgobjs[$soid]['textmode']['vertical']);
 
         $out = '';
 
@@ -2675,7 +2683,51 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 if ($rotate !== 0.0) {
                     $out .= $this->graph->getStopTransform();
                 }
-                $curx = $charX + $this->getStringWidth($ch);
+                if ($isVertical) {
+                    $cury = $charY + $this->getStringWidth($ch);
+                } else {
+                    $curx = $charX + $this->getStringWidth($ch);
+                }
+            }
+        } elseif ($isVertical) {
+            // S-2: basic vertical writing mode; stack glyphs along Y axis.
+            $chars = \mb_str_split($this->svgobjs[$soid]['text'], 1, 'UTF-8');
+            $strokeWidth = (float) ($this->svgobjs[$soid]['textmode']['stroke'] ?: 0.0);
+            foreach ($chars as $ch) {
+                $charX = $curx;
+                $charY = $cury + $baselineOffset;
+                if ($rotate !== 0.0) {
+                    $rad = \deg2rad(-$rotate);
+                    $cos = \cos($rad);
+                    $sin = \sin($rad);
+                    $out .= $this->graph->getStartTransform();
+                    $out .= $this->getOutSVGTransformation([$cos, $sin, -$sin, $cos, $charX, $charY], $soid);
+                    $charX = 0.0;
+                    $charY = 0.0;
+                }
+                $out .= $this->getTextLine(
+                    $ch,
+                    $charX,
+                    $charY,
+                    0,
+                    $strokeWidth,
+                    0,
+                    0,
+                    0,
+                    true,
+                    ($strokeWidth > 0),
+                    false,
+                    false,
+                    false,
+                    false,
+                    ($this->svgobjs[$soid]['textmode']['rtl'] ? 'R' : ''),
+                    $txtanchor,
+                    null,
+                );
+                if ($rotate !== 0.0) {
+                    $out .= $this->graph->getStopTransform();
+                }
+                $cury += $this->getStringWidth($ch);
             }
         } else {
             $renderY = $cury + $baselineOffset;
@@ -3966,8 +4018,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 );
             } else {
                 // Invisible text still advances the cursor by the text width.
-                // @phpstan-ignore assign.propertyType
-                $this->svgobjs[$soid]['x'] += $this->getStringWidth($this->svgobjs[$soid]['text']);
+                if (!empty($this->svgobjs[$soid]['textmode']['vertical'])) {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['y'] += $this->getStringWidth($this->svgobjs[$soid]['text']);
+                } else {
+                    // @phpstan-ignore assign.propertyType
+                    $this->svgobjs[$soid]['x'] += $this->getStringWidth($this->svgobjs[$soid]['text']);
+                }
             }
 
             // @phpstan-ignore assign.propertyType
@@ -4009,6 +4066,11 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } else {
             $this->svgobjs[$soid]['textmode']['rtl'] = false;
         }
+        $wmode = (string) ($svgstyle['writing-mode'] ?? 'lr-tb');
+        $this->svgobjs[$soid]['textmode']['vertical'] = (
+            \str_starts_with($wmode, 'tb')
+            || \str_starts_with($wmode, 'vertical')
+        );
         if (
             isset($svgstyle['stroke'])
             && ($svgstyle['stroke'] != 'none')
