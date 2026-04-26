@@ -21,3 +21,4 @@
 - [018_example_html_page_span.php](018_example_html_page_span.php) : HTML page-break functionality.
 - [019_example_page_regions.php](019_example_page_regions.php) : Two-column page regions with text that automatically flows across page boundaries.
 - [020_example_barcodes.php](020_example_barcodes.php) : Catalog of all available barcode types with standards, usage notes, and rendered samples.
+- [021_example_font_stretch_spacing.php](021_example_font_stretch_spacing.php) : Demonstrates font stretching, scaling-to-fit, and character spacing behaviors.
