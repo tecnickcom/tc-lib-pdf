@@ -1155,6 +1155,131 @@ class SVGTest extends TestUtil
         $this->assertSame(1, \substr_count($out, "q\n"));
     }
 
+    public function testSvgPathRendersStartMidEndMarkersWhenDefined(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(525);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.6;
+        $base['marker-start'] = 'url(#mkpath)';
+        $base['marker-mid'] = 'url(#mkpath)';
+        $base['marker-end'] = 'url(#mkpath)';
+
+        $obj->patchSvgObj(525, [
+            'styles' => [$base],
+            'defs' => [
+                'mkpath' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkpath',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpath(
+            $parser,
+            525,
+            ['d' => 'M 1 1 L 9 1 L 9 7'],
+            $base,
+            $base,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
+    public function testSvgPolylineRendersMidMarkerWhenDefined(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(526);
+
+        $base = $obj->exposeDefaultSVGStyle();
+        $base['stroke'] = '#000000';
+        $base['stroke-width'] = 0.5;
+        $base['marker-start'] = 'url(#mkpoly)';
+        $base['marker-mid'] = 'url(#mkpoly)';
+        $base['marker-end'] = 'url(#mkpoly)';
+
+        $obj->patchSvgObj(526, [
+            'styles' => [$base],
+            'defs' => [
+                'mkpoly' => [
+                    'name' => 'marker',
+                    'attr' => [
+                        'id' => 'mkpoly',
+                        'viewBox' => '0 0 10 10',
+                        'refX' => '0',
+                        'refY' => '5',
+                        'markerWidth' => '4',
+                        'markerHeight' => '4',
+                        'orient' => 'auto',
+                    ],
+                    'child' => [
+                        'DF_1' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'id' => 'DF_1',
+                                'd' => 'M 0 0 L 10 5 L 0 10 Z',
+                                'fill' => '#000000',
+                                'stroke' => 'none',
+                            ],
+                        ],
+                        'DF_1_CLOSE' => [
+                            'name' => 'path',
+                            'attr' => [
+                                'closing_tag' => true,
+                                'content' => '',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $out = $obj->exposeParseSVGTagSTARTpolygon(
+            $parser,
+            526,
+            ['points' => '1,1 8,1 8,6'],
+            $base,
+            $base,
+            true,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThanOrEqual(4, \substr_count($out, "q\n"));
+    }
+
     public function testSvgHandleStartInheritAndUnknownTagBranches(): void
     {
         $obj = $this->getInternalTestObject();

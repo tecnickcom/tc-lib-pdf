@@ -762,8 +762,9 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         array $attr,
         array $svgstyle,
         array $prev_svgstyle,
+        bool $isPolyline = false,
     ): string {
-        return $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
+        return $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle, $isPolyline);
     }
 
     /**

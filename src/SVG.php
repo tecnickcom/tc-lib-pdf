@@ -3096,7 +3096,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'circle' => $this->parseSVGTagSTARTcircle($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'ellipse' => $this->parseSVGTagSTARTellipse($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'line' => $this->parseSVGTagSTARTline($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
-            'polyline' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
+            'polyline' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle, true),
             'polygon' => $this->parseSVGTagSTARTpolygon($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'image' => $this->parseSVGTagSTARTimage($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
             'text' => $this->parseSVGTagSTARTtext($parser, $soid, $attr, $svgstyle, $prev_svgstyle),
@@ -3574,6 +3574,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $out .= $this->getSVGPath($soid, $ptd, $obstyle);
         }
 
+        $segments = $this->getSVGPathMarkerSegments($soid, $ptd);
+        $out .= $this->renderSVGMarkersForSegments($parser, $soid, $svgstyle, $segments);
+
         $out .= $this->graph->getStopTransform();
 
         return $out;
@@ -3929,35 +3932,357 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        $angle = \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1)));
+        return $this->renderSVGMarkersForSegments(
+            $parser,
+            $soid,
+            $svgstyle,
+            [[
+                'x1' => $x1,
+                'y1' => $y1,
+                'x2' => $x2,
+                'y2' => $y2,
+                'angle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+            ]],
+        );
+    }
+
+    /**
+     * Render marker-start/marker-mid/marker-end for an array of path segments.
+     *
+     * @param \XMLParser $parser The XML parser.
+     * @param int $soid ID of the current SVG object.
+     * @param TSVGStyle $svgstyle Current SVG style.
+     * @param array<int, array{x1: float, y1: float, x2: float, y2: float, angle: float}> $segments
+     *
+     * @return string
+     */
+    protected function renderSVGMarkersForSegments(
+        \XMLParser $parser,
+        int $soid,
+        array $svgstyle,
+        array $segments,
+    ): string {
+        if (empty($segments) || !empty($this->svgobjs[$soid]['markermode'])) {
+            return '';
+        }
+
         $strokeWidth = (float) ($svgstyle['stroke-width'] ?? 1.0);
         if ($strokeWidth <= 0.0) {
             $strokeWidth = 1.0;
         }
+
+        $first = $segments[0];
+        $last = $segments[\count($segments) - 1];
 
         $out = '';
         $out .= $this->renderSVGMarker(
             $parser,
             $soid,
             (string) ($svgstyle['marker-start'] ?? ''),
-            $x1,
-            $y1,
-            $angle,
+            $first['x1'],
+            $first['y1'],
+            $first['angle'],
             $strokeWidth,
             true,
         );
+
+        $midMarker = (string) ($svgstyle['marker-mid'] ?? '');
+        if (($midMarker !== '') && ($midMarker !== 'none') && (\count($segments) > 1)) {
+            for ($idx = 1, $max = \count($segments); $idx < $max; ++$idx) {
+                $prev = $segments[$idx - 1];
+                $next = $segments[$idx];
+                $a1 = \deg2rad($prev['angle']);
+                $a2 = \deg2rad($next['angle']);
+                $vx = \cos($a1) + \cos($a2);
+                $vy = \sin($a1) + \sin($a2);
+                $midAngle = ((\abs($vx) < self::SVGMINFLOATDIFF) && (\abs($vy) < self::SVGMINFLOATDIFF))
+                    ? $next['angle']
+                    : \rad2deg(\atan2($vy, $vx));
+                $out .= $this->renderSVGMarker(
+                    $parser,
+                    $soid,
+                    $midMarker,
+                    $next['x1'],
+                    $next['y1'],
+                    $midAngle,
+                    $strokeWidth,
+                    false,
+                );
+            }
+        }
+
         $out .= $this->renderSVGMarker(
             $parser,
             $soid,
             (string) ($svgstyle['marker-end'] ?? ''),
-            $x2,
-            $y2,
-            $angle,
+            $last['x2'],
+            $last['y2'],
+            $last['angle'],
             $strokeWidth,
             false,
         );
 
         return $out;
+    }
+
+    /**
+     * Build drawable segment anchors from an SVG path string for marker placement.
+     *
+     * @param int $soid SVG object ID.
+     * @param string $attrd Path data.
+     *
+     * @return array<int, array{x1: float, y1: float, x2: float, y2: float, angle: float}>
+     */
+    protected function getSVGPathMarkerSegments(int $soid, string $attrd): array
+    {
+        $attrd = \preg_replace('/([0-9ACHLMQSTVZ])([\-\+])/si', '\\1 \\2', $attrd);
+        if (!\is_string($attrd) || ($attrd === '')) {
+            return [];
+        }
+
+        $attrd = \preg_replace('/(\.[0-9]+)(\.)/s', '\\1 \\2', $attrd);
+        if (!\is_string($attrd) || ($attrd === '')) {
+            return [];
+        }
+
+        $paths = [];
+        \preg_match_all('/([ACHLMQSTVZ])[\s]*+([^ACHLMQSTVZ\"]*+)/si', $attrd, $paths, PREG_SET_ORDER);
+        if (empty($paths)) {
+            return [];
+        }
+
+        $segments = [];
+        $cx = 0.0;
+        $cy = 0.0;
+        $sx = 0.0;
+        $sy = 0.0;
+        $prevCmd = '';
+        $cp2x = 0.0;
+        $cp2y = 0.0;
+        $qp1x = 0.0;
+        $qp1y = 0.0;
+
+        foreach ($paths as $path) {
+            $cmd = \trim((string) ($path[1] ?? ''));
+            if ($cmd === '') {
+                continue;
+            }
+
+            $upper = \strtoupper($cmd);
+            $rel = (\strtolower($cmd) === $cmd);
+            $raw = [];
+            \preg_match_all('/-?\d+(?:\.\d+)?/', \trim((string) ($path[2] ?? '')), $raw);
+            $params = [];
+            foreach (($raw[0] ?? []) as $prv) {
+                $val = $this->svgUnitToUnit($prv, $soid);
+                $params[] = (\abs($val) < $this->svgminunitlen) ? 0.0 : $val;
+            }
+
+            $addSegment = function (float $x1, float $y1, float $x2, float $y2) use (&$segments): void {
+                if ((\abs($x2 - $x1) < self::SVGMINFLOATDIFF) && (\abs($y2 - $y1) < self::SVGMINFLOATDIFF)) {
+                    return;
+                }
+                $segments[] = [
+                    'x1' => $x1,
+                    'y1' => $y1,
+                    'x2' => $x2,
+                    'y2' => $y2,
+                    'angle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                ];
+            };
+
+            if ($upper === 'M') {
+                for ($i = 0; ($i + 1) < \count($params); $i += 2) {
+                    $nx = $params[$i] + ($rel ? $cx : 0.0);
+                    $ny = $params[$i + 1] + ($rel ? $cy : 0.0);
+                    if ($i === 0) {
+                        $cx = $nx;
+                        $cy = $ny;
+                        $sx = $nx;
+                        $sy = $ny;
+                    } else {
+                        $addSegment($cx, $cy, $nx, $ny);
+                        $cx = $nx;
+                        $cy = $ny;
+                    }
+                }
+                $prevCmd = 'M';
+                continue;
+            }
+
+            if ($upper === 'L') {
+                for ($i = 0; ($i + 1) < \count($params); $i += 2) {
+                    $nx = $params[$i] + ($rel ? $cx : 0.0);
+                    $ny = $params[$i + 1] + ($rel ? $cy : 0.0);
+                    $addSegment($cx, $cy, $nx, $ny);
+                    $cx = $nx;
+                    $cy = $ny;
+                }
+                $prevCmd = 'L';
+                continue;
+            }
+
+            if ($upper === 'H') {
+                foreach ($params as $val) {
+                    $nx = $val + ($rel ? $cx : 0.0);
+                    $addSegment($cx, $cy, $nx, $cy);
+                    $cx = $nx;
+                }
+                $prevCmd = 'H';
+                continue;
+            }
+
+            if ($upper === 'V') {
+                foreach ($params as $val) {
+                    $ny = $val + ($rel ? $cy : 0.0);
+                    $addSegment($cx, $cy, $cx, $ny);
+                    $cy = $ny;
+                }
+                $prevCmd = 'V';
+                continue;
+            }
+
+            if ($upper === 'C') {
+                for ($i = 0; ($i + 5) < \count($params); $i += 6) {
+                    $cp2x = $params[$i + 2] + ($rel ? $cx : 0.0);
+                    $cp2y = $params[$i + 3] + ($rel ? $cy : 0.0);
+                    $nx = $params[$i + 4] + ($rel ? $cx : 0.0);
+                    $ny = $params[$i + 5] + ($rel ? $cy : 0.0);
+                    $addSegment($cx, $cy, $nx, $ny);
+                    $cx = $nx;
+                    $cy = $ny;
+                }
+                $prevCmd = 'C';
+                continue;
+            }
+
+            if ($upper === 'S') {
+                for ($i = 0; ($i + 3) < \count($params); $i += 4) {
+                    if (($prevCmd === 'C') || ($prevCmd === 'S')) {
+                        $cp2x = (2 * $cx) - $cp2x;
+                        $cp2y = (2 * $cy) - $cp2y;
+                    } else {
+                        $cp2x = $cx;
+                        $cp2y = $cy;
+                    }
+                    $cp2x = $params[$i] + ($rel ? $cx : 0.0);
+                    $cp2y = $params[$i + 1] + ($rel ? $cy : 0.0);
+                    $nx = $params[$i + 2] + ($rel ? $cx : 0.0);
+                    $ny = $params[$i + 3] + ($rel ? $cy : 0.0);
+                    $addSegment($cx, $cy, $nx, $ny);
+                    $cx = $nx;
+                    $cy = $ny;
+                }
+                $prevCmd = 'S';
+                continue;
+            }
+
+            if ($upper === 'Q') {
+                for ($i = 0; ($i + 3) < \count($params); $i += 4) {
+                    $qp1x = $params[$i] + ($rel ? $cx : 0.0);
+                    $qp1y = $params[$i + 1] + ($rel ? $cy : 0.0);
+                    $nx = $params[$i + 2] + ($rel ? $cx : 0.0);
+                    $ny = $params[$i + 3] + ($rel ? $cy : 0.0);
+                    $addSegment($cx, $cy, $nx, $ny);
+                    $cx = $nx;
+                    $cy = $ny;
+                }
+                $prevCmd = 'Q';
+                continue;
+            }
+
+            if ($upper === 'T') {
+                for ($i = 0; ($i + 1) < \count($params); $i += 2) {
+                    if (($prevCmd === 'Q') || ($prevCmd === 'T')) {
+                        $qp1x = (2 * $cx) - $qp1x;
+                        $qp1y = (2 * $cy) - $qp1y;
+                    } else {
+                        $qp1x = $cx;
+                        $qp1y = $cy;
+                    }
+                    $nx = $params[$i] + ($rel ? $cx : 0.0);
+                    $ny = $params[$i + 1] + ($rel ? $cy : 0.0);
+                    $addSegment($cx, $cy, $nx, $ny);
+                    $cx = $nx;
+                    $cy = $ny;
+                }
+                $prevCmd = 'T';
+                continue;
+            }
+
+            if ($upper === 'A') {
+                for ($i = 0; ($i + 6) < \count($params); $i += 7) {
+                    $nx = $params[$i + 5] + ($rel ? $cx : 0.0);
+                    $ny = $params[$i + 6] + ($rel ? $cy : 0.0);
+                    $addSegment($cx, $cy, $nx, $ny);
+                    $cx = $nx;
+                    $cy = $ny;
+                }
+                $prevCmd = 'A';
+                continue;
+            }
+
+            if ($upper === 'Z') {
+                $addSegment($cx, $cy, $sx, $sy);
+                $cx = $sx;
+                $cy = $sy;
+                $prevCmd = 'Z';
+            }
+        }
+
+        return $segments;
+    }
+
+    /**
+     * Build line segments from a polygon/polyline numeric point list.
+     *
+     * @param array<int, float> $pset Point list (x1,y1,x2,y2,...).
+     * @param bool $closed Whether to close back to the first point.
+     *
+     * @return array<int, array{x1: float, y1: float, x2: float, y2: float, angle: float}>
+     */
+    protected function getSVGPolylineSegments(array $pset, bool $closed = false): array
+    {
+        $segments = [];
+        $pointCount = (int) \floor(\count($pset) / 2);
+        if ($pointCount < 2) {
+            return $segments;
+        }
+
+        for ($i = 0; $i < ($pointCount - 1); ++$i) {
+            $x1 = (float) $pset[(2 * $i)];
+            $y1 = (float) $pset[(2 * $i) + 1];
+            $x2 = (float) $pset[(2 * ($i + 1))];
+            $y2 = (float) $pset[(2 * ($i + 1)) + 1];
+            if ((\abs($x2 - $x1) < self::SVGMINFLOATDIFF) && (\abs($y2 - $y1) < self::SVGMINFLOATDIFF)) {
+                continue;
+            }
+            $segments[] = [
+                'x1' => $x1,
+                'y1' => $y1,
+                'x2' => $x2,
+                'y2' => $y2,
+                'angle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+            ];
+        }
+
+        if ($closed) {
+            $x1 = (float) $pset[(2 * ($pointCount - 1))];
+            $y1 = (float) $pset[(2 * ($pointCount - 1)) + 1];
+            $x2 = (float) $pset[0];
+            $y2 = (float) $pset[1];
+            if ((\abs($x2 - $x1) >= self::SVGMINFLOATDIFF) || (\abs($y2 - $y1) >= self::SVGMINFLOATDIFF)) {
+                $segments[] = [
+                    'x1' => $x1,
+                    'y1' => $y1,
+                    'x2' => $x2,
+                    'y2' => $y2,
+                    'angle' => \rad2deg(\atan2(($y2 - $y1), ($x2 - $x1))),
+                ];
+            }
+        }
+
+        return $segments;
     }
 
     /**
@@ -4120,6 +4445,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         array $attr,
         array $svgstyle,
         array $prev_svgstyle,
+        bool $isPolyline = false,
     ): string {
         if (!empty($this->svgobjs[$soid]['textmode']['invisible'])) {
             return '';
@@ -4182,6 +4508,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $obstyle,
             );
         }
+
+        $segments = $this->getSVGPolylineSegments($pset, !$isPolyline);
+        $out .= $this->renderSVGMarkersForSegments($parser, $soid, $svgstyle, $segments);
+
         $out .= $this->graph->getStopTransform();
         return $out;
     }
