@@ -129,6 +129,11 @@ use Com\Tecnick\Pdf\Exception as PdfException;
 abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 {
     /**
+     * Preserve SHY during HTML text rendering only.
+     */
+    protected bool $htmlRenderSoftHyphen = false;
+
+    /**
      * Valid bullet types for list-items
      *
      * @var array<string>
@@ -2808,7 +2813,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->getHTMLFontMetric($hrc, $key);
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
-        $this->prepareText($text, $ordarr, $dim, $forcedir);
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
 
         $lineadvance = $this->getHTMLLineAdvance($hrc, $key);
         if (($width <= 0.0) || ($ordarr === [])) {
@@ -3477,6 +3482,70 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Prepare HTML text preserving explicit soft hyphen characters.
+     *
+     * @param string $txt Input text to normalize and convert.
+     * @param array<int, int> $ordarr Output array of UTF-8 code points.
+     * @param TTextDims $dim Output measured text dimensions.
+     * @param string $forcedir If 'R' forces RTL, if 'L' forces LTR.
+     */
+    protected function prepareHTMLText(
+        string &$txt,
+        array &$ordarr,
+        array &$dim,
+        string $forcedir = '',
+    ): void {
+        $prevHtmlRenderSoftHyphen = $this->htmlRenderSoftHyphen;
+        $this->htmlRenderSoftHyphen = true;
+        try {
+            $this->prepareText($txt, $ordarr, $dim, $forcedir);
+        } finally {
+            $this->htmlRenderSoftHyphen = $prevHtmlRenderSoftHyphen;
+        }
+    }
+
+    /**
+     * HTML rendering can opt in to preserve SOFT HYPHEN for discretionary wraps.
+     */
+    protected function cleanupText(string $txt): string
+    {
+        if (!$this->htmlRenderSoftHyphen) {
+            return parent::cleanupText($txt);
+        }
+
+        $txt = \str_replace("\r", ' ', $txt);
+        $txt = \str_replace($this->uniconv->chr(self::ORD_NO_BREAK_SPACE), ' ', $txt);
+        return $txt;
+    }
+
+    /**
+     * Convert trailing SHY to visible hyphen only when HTML line wrapping breaks on SHY.
+     *
+     * @param array<int, int> $ordarr The array of Unicode code points.
+     *
+     * @return array<int, int> The filtered array.
+     */
+    protected function removeOrdArrSoftHyphens(array $ordarr): array
+    {
+        if (!$this->htmlRenderSoftHyphen) {
+            return parent::removeOrdArrSoftHyphens($ordarr);
+        }
+
+        $keeplast = ((\count($ordarr) > 0) && ($ordarr[(\count($ordarr) - 1)] == self::ORD_SOFT_HYPHEN));
+        $retarr = \array_filter(
+            $ordarr,
+            fn($ord) => (
+                ($ord != self::ORD_SOFT_HYPHEN)
+                && ($ord != self::ORD_ZERO_WIDTH_SPACE)
+            )
+        );
+        if ($keeplast) {
+            $retarr[] = self::ORD_HYPHEN;
+        }
+        return $retarr;
+    }
+
+    /**
      * Reset the cursor to the current HTML block origin.
         *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -3663,7 +3732,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $ordarr = [];
             $dim = self::DIM_DEFAULT;
             $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
-            $this->prepareText($text, $ordarr, $dim, $forcedir);
+            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
             $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining));
             if ($lines === []) {
                 continue;
@@ -3752,7 +3821,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
-        $this->prepareText($text, $ordarr, $dim, $forcedir);
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
         if ($ordarr === [] || ((int) $dim['spaces'] <= 0)) {
             return 0;
         }
@@ -3914,7 +3983,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
-        $this->prepareText($text, $ordarr, $dim, $forcedir);
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
         // Give splitLines the same tolerance used by wrap guards so boundary fits
         // (for example: one more word after an italic fragment) are not rejected.
         $lines = $this->splitLines(
@@ -5834,7 +5903,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $probeText = $text;
                 $probeOrd = [];
                 $probeDim = self::DIM_DEFAULT;
-                $this->prepareText($probeText, $probeOrd, $probeDim, $forcedir);
+                $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir);
                 $probeLines = $this->splitLines(
                     $probeOrd,
                     $probeDim,
@@ -6177,32 +6246,38 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Re-sync the active font metric for accurate glyph placement.
         $this->getHTMLFontMetric($hrc, $currentkey);
 
-        $out .= $this->getTextCell(
-            $text,
-            $renderPosX,
-            $renderStartY,
-            $renderWidth,
-            0,
-            $renderOffset,
-            0,
-            'T',
-            $renderAlign,
-            static::ZEROCELL, // @phpstan-ignore argument.type
-            [],
-            (float) $elm['stroke'],
-            $customJustify ? $lineWordSpacing : 0,
-            0,
-            0,
-            true,
-            (bool) $elm['fill'],
-            ((float) $elm['stroke'] > 0),
-            \str_contains($style, 'U'),
-            \str_contains($style, 'D'),
-            \str_contains($style, 'O'),
-            (bool) $elm['clip'],
-            false,
-            $forcedir,
-        );
+        $prevHtmlRenderSoftHyphen = $this->htmlRenderSoftHyphen;
+        $this->htmlRenderSoftHyphen = true;
+        try {
+            $out .= $this->getTextCell(
+                $text,
+                $renderPosX,
+                $renderStartY,
+                $renderWidth,
+                0,
+                $renderOffset,
+                0,
+                'T',
+                $renderAlign,
+                static::ZEROCELL, // @phpstan-ignore argument.type
+                [],
+                (float) $elm['stroke'],
+                $customJustify ? $lineWordSpacing : 0,
+                0,
+                0,
+                true,
+                (bool) $elm['fill'],
+                ((float) $elm['stroke'] > 0),
+                \str_contains($style, 'U'),
+                \str_contains($style, 'D'),
+                \str_contains($style, 'O'),
+                (bool) $elm['clip'],
+                false,
+                $forcedir,
+            );
+        } finally {
+            $this->htmlRenderSoftHyphen = $prevHtmlRenderSoftHyphen;
+        }
 
         $bbox = $this->getLastBBox();
         $wrapThreshold = \max(self::WIDTH_TOLERANCE, $lineAdvance - self::WIDTH_TOLERANCE);

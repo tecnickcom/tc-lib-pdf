@@ -25,3 +25,7 @@
 - [022_example_cell_borders.php](022_example_cell_borders.php) : Demonstrates basic and advanced Cell border rendering options.
 - [023_example_cell_alignment.php](023_example_cell_alignment.php) : Demonstrates Cell vertical alignment options and row anchor positions.
 - [024_example_colors.php](024_example_colors.php) : Ports TCPDF examples 022 and 037, demonstrating CMYK/RGB/grayscale and spot color rendering.
+- [025_example_transparency.php](025_example_transparency.php) : Ports TCPDF example 025, demonstrating object transparency with overlapping shapes and an image.
+- [026_example_text_rendering_modes.php](026_example_text_rendering_modes.php) : Ports TCPDF example 026, demonstrating fill/stroke text rendering modes and text clipping with an image.
+- [027_example_annotations.php](027_example_annotations.php) : Ports TCPDF examples 036 and 041, demonstrating text and file-attachment annotations.
+- [028_example_text_hyphenation.php](028_example_text_hyphenation.php) : Ports TCPDF example 046, demonstrating soft-hyphen-based text hyphenation in a narrow justified HTML column.
