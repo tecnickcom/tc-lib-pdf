@@ -156,6 +156,9 @@ use TSVGStyle;
  *    'stroke': int,
  *    'text-anchor': string,
  *    'vertical'?: bool,
+ *    'linkhref'?: string,
+ *    'linkx'?: float,
+ *    'linky'?: float,
  *    'baseline'?: string,
  *    'rotate'?: float,
  *    'textlength'?: float,
@@ -652,6 +655,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             'stroke' => 0,
             'text-anchor' => 'start',
             'vertical' => false,
+            'linkhref' => '',
+            'linkx' => 0.0,
+            'linky' => 0.0,
         ],
         'text' => '',
         'dir' => '',
@@ -4361,8 +4367,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagSTARTa(int $soid, array $attr): string
     {
-        // Unsupported SVG feature: <a> hyperlink element — URL recorded but
-        // a PDF URI annotation with accurate child bounding box is not emitted.
+        $href = (string) ($attr['xlink:href'] ?? $attr['href'] ?? '');
+        if ($href === '') {
+            return '';
+        }
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkhref'] = $href;
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkx'] = (float) $this->svgobjs[$soid]['x'];
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linky'] = (float) $this->svgobjs[$soid]['y'];
         return '';
     }
 
@@ -4377,6 +4392,47 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      */
     protected function parseSVGTagENDa(int $soid): string
     {
+        $href = (string) ($this->svgobjs[$soid]['textmode']['linkhref'] ?? '');
+        if ($href === '') {
+            return '';
+        }
+
+        $startX = (float) ($this->svgobjs[$soid]['textmode']['linkx'] ?? $this->svgobjs[$soid]['x']);
+        $startY = (float) ($this->svgobjs[$soid]['textmode']['linky'] ?? $this->svgobjs[$soid]['y']);
+        $endX = (float) $this->svgobjs[$soid]['x'];
+        $endY = (float) $this->svgobjs[$soid]['y'];
+
+        $deltaX = \abs($endX - $startX);
+        $deltaY = \abs($endY - $startY);
+        $font = $this->font->getCurrentFont();
+        $fontHeight = $this->toUnit((float) ($font['size'] ?? 1.0));
+        if ($fontHeight <= 0.0) {
+            $fontHeight = 1.0;
+        }
+
+        if (!empty($this->svgobjs[$soid]['textmode']['vertical'])) {
+            $width = \max($deltaX, $this->getStringWidth('M'));
+            $height = \max($deltaY, $fontHeight);
+        } else {
+            $width = \max($deltaX, $this->getStringWidth(' '));
+            $height = \max($deltaY, $fontHeight);
+        }
+
+        $posx = \min($startX, $endX);
+        $posy = \min($startY, $endY);
+        if (\method_exists($this, 'setLink')) {
+            $lnkid = \call_user_func([$this, 'setLink'], $posx, $posy, $width, $height, $href);
+            if (\is_int($lnkid)) {
+                $this->page->addAnnotRef($lnkid, $this->page->getPageID());
+            }
+        }
+
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkhref'] = '';
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linkx'] = (float) $this->svgobjs[$soid]['x'];
+        // @phpstan-ignore assign.propertyType
+        $this->svgobjs[$soid]['textmode']['linky'] = (float) $this->svgobjs[$soid]['y'];
         return '';
     }
 

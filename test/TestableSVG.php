@@ -484,6 +484,9 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
                 'stroke' => 0,
                 'text-anchor' => 'start',
                 'vertical' => false,
+                'linkhref' => '',
+                'linkx' => 0.0,
+                'linky' => 0.0,
             ],
             'text' => '',
             'dir' => '',
@@ -505,6 +508,12 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     public function getSvgObj(int $soid): array
     {
         return $this->svgobjs[$soid];
+    }
+
+    /** @return array<string, mixed> */
+    public function exposeGetCurrentPageData(): array
+    {
+        return $this->page->getPage();
     }
 
     public function exposeHandlerSVGCharacter(\XMLParser $parser, string $data): void

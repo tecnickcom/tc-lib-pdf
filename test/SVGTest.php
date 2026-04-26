@@ -2065,29 +2065,60 @@ class SVGTest extends TestUtil
     }
 
     /**
-     * E-7 stub: <a> start returns empty string.
+     * E-7: <a> start stores link metadata and </a> emits an annotation ref.
      */
-    public function testSvgATagStartReturnsEmpty(): void
+    public function testSvgATagCreatesAnnotationReference(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $obj->initSvgObjForHandlers(93);
 
-        $out = $obj->exposeParseSVGTagSTARTa(93, ['href' => 'https://example.com']);
-        $this->assertSame('', $out);
+        $pageBefore = $obj->exposeGetCurrentPageData();
+        $annotRefsBefore = $pageBefore['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsBefore);
+        $countBefore = \count($annotRefsBefore);
+
+        $start = $obj->exposeParseSVGTagSTARTa(93, ['href' => 'https://example.com']);
+        $this->assertSame('', $start);
+
+        // Simulate that wrapped content advanced text position.
+        $obj->patchSvgObj(93, ['x' => 40.0, 'y' => 20.0]);
+
+        $end = $obj->exposeParseSVGTagENDa(93);
+        $this->assertSame('', $end);
+
+        $pageAfter = $obj->exposeGetCurrentPageData();
+        $annotRefsAfter = $pageAfter['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsAfter);
+        $countAfter = \count($annotRefsAfter);
+        $this->assertSame($countBefore + 1, $countAfter);
+        $this->assertSame('', (string) ($obj->getSvgObj(93)['textmode']['linkhref'] ?? ''));
     }
 
     /**
-     * E-7 stub: </a> end returns empty string.
+     * E-7: missing href on <a> should degrade gracefully with no annotation.
      */
-    public function testSvgATagEndReturnsEmpty(): void
+    public function testSvgATagWithoutHrefProducesNoAnnotation(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
-        $obj->initSvgObjForHandlers(93);
+        $obj->initSvgObjForHandlers(94);
 
-        $out = $obj->exposeParseSVGTagENDa(93);
-        $this->assertSame('', $out);
+        $pageBefore = $obj->exposeGetCurrentPageData();
+        $annotRefsBefore = $pageBefore['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsBefore);
+        $countBefore = \count($annotRefsBefore);
+
+        $start = $obj->exposeParseSVGTagSTARTa(94, []);
+        $this->assertSame('', $start);
+        $end = $obj->exposeParseSVGTagENDa(94);
+        $this->assertSame('', $end);
+
+        $pageAfter = $obj->exposeGetCurrentPageData();
+        $annotRefsAfter = $pageAfter['annotrefs'] ?? [];
+        $this->assertIsArray($annotRefsAfter);
+        $countAfter = \count($annotRefsAfter);
+        $this->assertSame($countBefore, $countAfter);
     }
 
     /**
@@ -2097,9 +2128,9 @@ class SVGTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
-        $obj->initSvgObjForHandlers(94);
+        $obj->initSvgObjForHandlers(95);
 
-        $out = $obj->exposeParseSVGTagSTARTswitch(94, []);
+        $out = $obj->exposeParseSVGTagSTARTswitch(95, []);
         $this->assertSame('', $out);
     }
 
@@ -2110,9 +2141,9 @@ class SVGTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
-        $obj->initSvgObjForHandlers(94);
+        $obj->initSvgObjForHandlers(95);
 
-        $out = $obj->exposeParseSVGTagENDswitch(94);
+        $out = $obj->exposeParseSVGTagENDswitch(95);
         $this->assertSame('', $out);
     }
 
