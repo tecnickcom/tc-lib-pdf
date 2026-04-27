@@ -154,7 +154,7 @@ $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);
 ```
 
-For more complete examples — including invoices, images, barcodes, HTML tables, PDF/X, and PDF/UA — see the [examples](examples) directory.
+For more complete examples — including invoices, images, barcodes, HTML tables, dedicated HTML selector/form/table showcases, PDF/X, and PDF/UA — see the [examples](examples) directory.
 Annotation-focused runnable example: [examples/027_example_annotations.php](examples/027_example_annotations.php).
 
 To run the bundled examples locally:

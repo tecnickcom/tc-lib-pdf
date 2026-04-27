@@ -1236,7 +1236,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *                      Use a string to specify a javascript action.
      *                      Use an array to specify a form action options
      *                      as in section 12.7.5 of PDF32000_2008.
-     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
      * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return int PDF Object ID.

@@ -19,6 +19,8 @@ namespace Test;
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type THTMLRenderContext from \Com\Tecnick\Pdf\HTML
+ * @phpstan-import-type THTMLTableState from \Com\Tecnick\Pdf\HTML
+ * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
  */
 class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 {
@@ -116,6 +118,20 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLDOM(string $html): array
     {
         return $this->getHTMLDOM($html);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     *
+     * @return array<int, float>
+     */
+    public function exposeComputeHTMLTableColWidths(
+        array $dom,
+        int $tablekey,
+        int $cols,
+        float $availableWidth,
+    ): array {
+        return $this->computeHTMLTableColWidths($dom, $tablekey, $cols, $availableWidth);
     }
 
     public function exposeGetHTMLliBullet(
@@ -368,6 +384,26 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->executeHTMLTcpdfPageBreak($this->testhrc, $mode, $tpx, $tpw);
     }
 
+    /** @param array<int, array<string, mixed>> $tablestack */
+    public function exposeSetHTMLTableStack(array $tablestack): void
+    {
+        $this->initExposeRenderContextIfNeeded();
+        // @phpstan-ignore assign.propertyType
+        $this->testhrc['tablestack'] = $tablestack;
+    }
+
+    /** @phpstan-param BorderStyle $style */
+    public function exposeGetHTMLCollapsedBorderStyleName(array $style): string
+    {
+        return $this->getHTMLCollapsedBorderStyleName($style);
+    }
+
+    public function exposeResetHTMLTableStackOnPageBreak(float $tpy): void
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->resetHTMLTableStackOnPageBreak($this->testhrc, $tpy);
+    }
+
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeGetHTMLListMarkerTypeWithDom(array $dom, int $key, bool $ordered): string
     {
@@ -526,6 +562,21 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getHTMLTextFirstLineSpaces($text, $forcedir, $maxwidth);
     }
 
+    public function exposeGetHTMLTextFirstLineSpacesWithMode(
+        string $text,
+        string $mode,
+        string $forcedir,
+        float $maxwidth,
+    ): int {
+        $this->initExposeRenderContextIfNeeded();
+
+        $root = $this->getHTMLRootProperties();
+        $root['white-space'] = $mode;
+        $this->testhrc['dom'] = [$root];
+
+        return $this->getHTMLTextFirstLineSpaces($text, $forcedir, $maxwidth);
+    }
+
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeMeasureHTMLInlineRunMaxAscentWithDom(array $dom, int $startkey): float
     {
@@ -537,6 +588,29 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
     public function exposeHasHTMLTextBreakOpportunity(string $text): bool
     {
-        return $this->hasHTMLTextBreakOpportunity($text);
+        $this->initExposeRenderContextIfNeeded();
+        return $this->hasHTMLTextBreakOpportunity($this->testhrc, 0, $text);
+    }
+
+    public function exposeHasHTMLTextBreakOpportunityWithMode(string $text, string $mode): bool
+    {
+        $this->initExposeRenderContextIfNeeded();
+
+        $root = $this->getHTMLRootProperties();
+        $root['white-space'] = $mode;
+        $this->testhrc['dom'] = [$root];
+
+        return $this->hasHTMLTextBreakOpportunity($this->testhrc, 0, $text);
+    }
+
+    public function exposeNormalizeHTMLTextWithMode(string $text, string $mode): string
+    {
+        $this->initExposeRenderContextIfNeeded();
+
+        $root = $this->getHTMLRootProperties();
+        $root['white-space'] = $mode;
+        $this->testhrc['dom'] = [$root];
+
+        return $this->normalizeHTMLText($this->testhrc, $text, 0);
     }
 }

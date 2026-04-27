@@ -34,6 +34,7 @@ use Com\Tecnick\Color\Model as ColorModel;
  *
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base as BorderStyle
+ * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base as BorderStyleOpt
  *
  * @phpstan-type TCSSBorderSpacing array{
  *     'H': float,
@@ -229,6 +230,37 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     }
 
     /**
+     * Apply a CSS border-style keyword to a border style array.
+     *
+      * @param BorderStyle|BorderStyleOpt $border Border style array.
+     * @param string $style CSS border-style keyword.
+     *
+     * @return BorderStyle
+     */
+    protected function applyCSSBorderStyleKeyword(array $border, string $style): array
+    {
+          /** @var BorderStyle $border */
+          $border = \array_replace($this->getCSSDefaultBorderStyle(), $border);
+        $style = \strtolower(\trim($style));
+        $border['lineCap'] = 'square';
+        $border['lineJoin'] = 'miter';
+        $border['cssBorderStyle'] = $style;
+
+        $dash = $this->getCSSBorderDashStyle($style);
+        if ($dash < 0) {
+            $border['dashArray'] = [];
+            $border['dashPhase'] = 0;
+            $border['lineWidth'] = 0;
+            return $border;
+        }
+
+        $border['dashArray'] = ($dash > 0) ? [$dash, $dash] : [];
+        $border['dashPhase'] = $dash;
+
+        return $border;
+    }
+
+    /**
      * Returns the default CSS borer style.
      *
      * @return BorderStyle
@@ -288,15 +320,10 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 $color = $bprop[2];
                 break;
         }
-        if ($style == 'none') {
+        $border = $this->applyCSSBorderStyleKeyword($border, $style);
+        if (($border['cssBorderStyle'] ?? '') === 'none' || ($border['cssBorderStyle'] ?? '') === 'hidden') {
             return $border;
         }
-        $dash = $this->getCSSBorderDashStyle($style);
-        if ($dash < 0) {
-            return $border;
-        }
-        $border['dashArray'] = ($dash > 0) ? [$dash, $dash] : [];
-        $border['dashPhase'] = $dash;
         $border['lineWidth'] = $this->getCSSBorderWidth($width);
         $colobj = $this->color->getColorObj($color);
         $border['lineColor'] = empty($colobj) ? 'black' : $colobj->getCssColor();

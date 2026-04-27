@@ -31,3 +31,4 @@
 - [028_example_text_hyphenation.php](028_example_text_hyphenation.php) : Ports TCPDF example 046, demonstrating soft-hyphen-based text hyphenation in a narrow justified HTML column.
 - [029_example_xobject_template.php](029_example_xobject_template.php) : Ports TCPDF example 062, demonstrating reusable Form XObject templates with clipping and transparency.
 - [030_example_svg.php](030_example_svg.php) : Dedicated SVG rendering example exercising all bundled SVG images.
+- [031_example_html_features.php](031_example_html_features.php) : Dedicated HTML showcase covering implemented selectors/combinators plus table-structure and form-behavior slices from the HTML backlog.
