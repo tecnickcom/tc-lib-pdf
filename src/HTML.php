@@ -39,27 +39,70 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
  * @phpstan-import-type TAnnotOpts from \Com\Tecnick\Pdf\Output
  * @phpstan-type THTMLTableCell array{
- *     cellx: float, cellw: float, colindex: int, colspan: int, contenth: float, valign: string,
- *     bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string
+ *     cellx: float,
+ *     cellw: float,
+ *     colindex: int,
+ *     colspan: int,
+ *     contenth: float,
+ *     valign: string,
+ *     bstyles: array<int|string, BorderStyle>,
+ *     fillstyle: ?BorderStyle,
+ *     buffer: string
  * }
  * @phpstan-type THTMLTableRowspanCell array{
- *     cellx: float, cellw: float, colindex: int, colspan: int, rowtop: float, rowsremaining: int, usedheight: float,
- *     contenth: float, valign: string, bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, buffer: string
+ *     cellx: float,
+ *     cellw: float,
+ *     colindex: int,
+ *     colspan: int,
+ *     rowtop: float,
+ *     rowsremaining: int,
+ *     usedheight: float,
+ *     contenth: float,
+ *     valign: string,
+ *     bstyles: array<int|string, BorderStyle>,
+ *     fillstyle: ?BorderStyle,
+ *     buffer: string
  * }
  * @phpstan-type THTMLTableState array{
- *     originx: float, originy: float, width: float, cols: int, colwidth: float,
- *     colwidths: array<int, float>, cellspacingh: float, cellspacingv: float, cellpadding: float,
- *     collapse: bool, hascellborders: bool,
+ *     originx: float,
+ *     originy: float,
+ *     width: float,
+ *     cols: int,
+ *     colwidth: float,
+ *     colwidths: array<int, float>,
+ *     cellspacingh: float,
+ *     cellspacingv: float,
+ *     cellpadding: float,
+ *     collapse: bool,
+ *     hascellborders: bool,
  *     prevrowbottom: array<int, BorderStyle>,
- *     rowtop: float, rowheight: float, colindex: int,
- *     cells: array<int, THTMLTableCell>, occupied: array<int, int>,
+ *     rowtop: float,
+ *     rowheight: float,
+ *     colindex: int,
+ *     cells: array<int, THTMLTableCell>,
+ *     occupied: array<int, int>,
  *     rowspans: array<int, THTMLTableRowspanCell>
  * }
  * @phpstan-type THTMLTableCellContext array{
- *     originx: float, originy: float, maxwidth: float, maxheight: float,
- *     lineadvance: float, linebottom: float, lineascent: float, linewordspacing: float, linewrapped: bool,
- *     rowtop: float, cellx: float, cellw: float, colindex: int, colspan: int,
- *     bstyles: array<int|string, BorderStyle>, fillstyle: ?BorderStyle, rowspan: int, valign: string, buffer: string
+ *     originx: float,
+ *     originy: float,
+ *     maxwidth: float,
+ *     maxheight: float,
+ *     lineadvance: float,
+ *     linebottom: float,
+ *     lineascent: float,
+ *     linewordspacing: float,
+ *     linewrapped: bool,
+ *     rowtop: float,
+ *     cellx: float,
+ *     cellw: float,
+ *     colindex: int,
+ *     colspan: int,
+ *     bstyles: array<int|string, BorderStyle>,
+ *     fillstyle: ?BorderStyle,
+ *     rowspan: int,
+ *     valign: string,
+ *     buffer: string
  * }
  *
  * @phpstan-type THTMLAttrib array{
@@ -116,22 +159,44 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'y': float,
  * }
  *
- * @phpstan-type THTMLBlockBuf array{openkey: int, bx: float, by: float, bw: float, buffer: string}
+ * @phpstan-type THTMLBlockBuf array{
+ *     openkey: int,
+ *     bx: float,
+ *     by: float,
+ *     bw: float,
+ *     buffer: string
+ * }
  *
  * @phpstan-type THTMLRenderContext array{
  *     'cellctx': array{
- *         originx: float, originy: float, maxwidth: float, maxheight: float,
- *         lineadvance: float, linebottom: float, lineascent: float, linewordspacing: float,
- *         linewrapped: bool, basefont: string
+ *         originx: float,
+ *         originy: float,
+ *         maxwidth: float,
+ *         maxheight: float,
+ *         lineadvance: float,
+ *         linebottom: float,
+ *         lineascent: float,
+ *         linewordspacing: float,
+ *         linewrapped: bool,
+ *         textindentapplied: bool,
+ *         basefont: string
  *     },
  *     'currentkey'?: int,
  *     'fontcache': array<string, array<string, mixed>>,
- *     'liststack': array<int, array{ordered: bool, type: string, count: int}>,
+ *     'liststack': array<int, array{
+ *         ordered: bool,
+ *         type: string,
+ *         count: int,
+ *         indent: float
+ *     }>,
  *     'tablestack': array<int, THTMLTableState>,
  *     'bcellctx': array<int, THTMLTableCellContext>,
  *     'blockbuf': array<int, THTMLBlockBuf>,
  *     'linkstack': array<int, string>,
- *     'listack': array<int, array{originx: float, maxwidth: float}>,
+ *     'listack': array<int, array{
+ *         originx: float,
+ *         maxwidth: float
+ *     }>,
  *     'prelevel': int,
  *     'dom': array<int, THTMLAttrib>,
  * }
@@ -311,7 +376,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'hide',
         'letter-spacing',
         'line-height',
-        //'list-style-image',//
+        'list-style-image',
         'list-style-position',
         //'list-style-type',//
         //'list-style',//
@@ -821,7 +886,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'letter-spacing' => $font['spacing'],
             'line-height' => 1.0,
             //'list-style' => '',//
-            //'list-style-image' => '',//
+            'list-style-image' => '',
             'list-style-position' => 'outside',
             //'list-style-type' => '',//
             'listtype' => '',
@@ -1240,13 +1305,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $pseudobefore = [];
         /** @var array<TCSSData> $pseudoafter */
         $pseudoafter = [];
-        // get parent CSS selectors
+        /** @var array<TCSSData> $pseudomarker */
+        $pseudomarker = [];
         /** @var array<string> $selectors */
         $selectors = [];
-        $parent = $dom[$key]['parent'];
-        if (!empty($dom[$parent]['csssel'])) {
-            $selectors = $dom[$parent]['csssel'];
+        /** @var array<string> $inheritedSelectors */
+        $inheritedSelectors = [];
+
+        $parentkey = -1;
+        if (isset($dom[$key]['parent']) && \is_numeric($dom[$key]['parent'])) {
+            $parentkey = (int) $dom[$key]['parent'];
         }
+
+        if (
+            ($parentkey >= 0)
+            && isset($dom[$parentkey]['csssel'])
+            && \is_array($dom[$parentkey]['csssel'])
+        ) {
+            foreach ($dom[$parentkey]['csssel'] as $parentsel) {
+                if (\is_string($parentsel) && ($parentsel !== '')) {
+                    $inheritedSelectors[] = $parentsel;
+                }
+            }
+        }
+
         // get all styles that apply
         foreach ($css as $selector => $style) {
             $pos = \strpos($selector, ' ');
@@ -1258,7 +1340,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // remove specificity
             $selector = \substr($selector, $pos);
             $pseudomatch = [];
-            if (\preg_match('/^(.*)::(before|after)\s*$/i', $selector, $pseudomatch) > 0) {
+            if (\preg_match('/^(.*)::(before|after|marker)\s*$/i', $selector, $pseudomatch) > 0) {
                 $baseselector = \trim($pseudomatch[1]);
                 if (($baseselector !== '') && $this->isValidCSSSelectorForTag($dom, $key, $baseselector)) {
                     $entry = [
@@ -1266,10 +1348,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         's' => $specificity,
                         'c' => $style,
                     ];
-                    if (\strtolower($pseudomatch[2]) === 'before') {
+                    $pseudotype = \strtolower($pseudomatch[2]);
+                    if ($pseudotype === 'before') {
                         $pseudobefore[] = $entry;
-                    } else {
+                    } elseif ($pseudotype === 'after') {
                         $pseudoafter[] = $entry;
+                    } else { // marker
+                        // Only apply marker styles to li elements
+                        if (($dom[$key]['value'] ?? '') === 'li') {
+                            $pseudomarker[] = $entry;
+                        }
                     }
                 }
 
@@ -1277,17 +1365,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             // check if this selector apply to current tag
             if ($this->isValidCSSSelectorForTag($dom, $key, $selector)) {
-                if (!\in_array($selector, $selectors)) {
-                    // add style if not already added on parent selector
-                    $ret[] = [
-                        'k' => $selector,
-                        's' => $specificity,
-                        'c' => $style,
-                    ];
-                    $selectors[] = $selector;
+                if (!empty($inheritedSelectors) && \in_array($selector, $inheritedSelectors, true)) {
+                    continue;
                 }
+
+                $ret[] = [
+                    'k' => $selector,
+                    's' => $specificity,
+                    'c' => $style,
+                ];
+                $selectors[] = $selector;
             }
         }
+
         if (
             !empty($dom[$key]['attribute'])
             && !empty($dom[$key]['attribute']['style'])
@@ -1340,6 +1430,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             \ksort($afterordered, SORT_STRING);
             // @phpstan-ignore parameterByRef.type
             $dom[$key]['attribute']['pseudo-after-style'] = $this->implodeCSSData($afterordered);
+        }
+
+        if (!empty($pseudomarker)) {
+            $markerordered = [];
+            foreach ($pseudomarker as $idx => $val) {
+                $markerordered[\sprintf('%s_%04d', $val['s'], $idx)] = $val;
+            }
+            \ksort($markerordered, SORT_STRING);
+            // Filter marker styles to only supported properties
+            $mergedMarkerstyles = $this->implodeCSSData($markerordered);
+            $parsedMarkerstyles = $this->parseHTMLStyleDeclarationMap($mergedMarkerstyles);
+            $filtered = $this->filterHTMLMarkerStyles($parsedMarkerstyles);
+            if (!empty($filtered)) {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['attribute']['pseudo-marker-style'] = $filtered;
+            }
         }
     }
 
@@ -1887,25 +1993,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function parseHTMLStyleAttributes(array &$dom, int $key, int $parentkey): void
     {
-        if (
-            empty($dom[$key]['attribute']['style'])
-            || empty(\preg_match_all(
-                '/([^;:\s]*):([^;]*)/',
-                $dom[$key]['attribute']['style'],
-                $style_array,
-                PREG_PATTERN_ORDER,
-            ))
-        ) {
+        if (empty($dom[$key]['attribute']['style']) || !\is_string($dom[$key]['attribute']['style'])) {
             return;
         }
 
-        $dom[$key]['style'] = []; // reset style attribute array
-        foreach ($style_array[1] as $id => $name) {
-            /** @var array<int, THTMLAttrib> $dom */
-            // in case of duplicate attribute the last replace the previous
-            // @phpstan-ignore parameterByRef.type
-            $dom[$key]['style'][\strtolower($name)] = \trim($style_array[2][$id]);
+        $styles = $this->parseHTMLStyleDeclarationMap($dom[$key]['attribute']['style']);
+        if ($styles === []) {
+            return;
         }
+
+        /** @var array<int, THTMLAttrib> $dom */
+        // @phpstan-ignore parameterByRef.type
+        $dom[$key]['style'] = $styles;
         /** @var array<int, THTMLAttrib> $dom */
         // --- get some style attributes ---
         // text direction
@@ -2346,6 +2445,127 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Parse a CSS declaration list into a property map.
+     *
+     * This parser keeps semicolons and colons inside quoted strings and
+     * parenthesized expressions (for example `url(data:image/...;base64,...)`).
+     *
+     * @return array<string, string>
+     */
+    protected function parseHTMLStyleDeclarationMap(string $style): array
+    {
+        $out = [];
+        $decl = '';
+        $quote = '';
+        $parenDepth = 0;
+        $slen = \strlen($style);
+
+        for ($idx = 0; $idx < $slen; ++$idx) {
+            $chr = $style[$idx];
+
+            if ($quote !== '') {
+                $decl .= $chr;
+                if ($chr === $quote && (($idx === 0) || ($style[$idx - 1] !== '\\'))) {
+                    $quote = '';
+                }
+
+                continue;
+            }
+
+            if ($chr === '"' || $chr === "'") {
+                $quote = $chr;
+                $decl .= $chr;
+                continue;
+            }
+
+            if ($chr === '(') {
+                ++$parenDepth;
+                $decl .= $chr;
+                continue;
+            }
+
+            if ($chr === ')') {
+                $parenDepth = \max(0, $parenDepth - 1);
+                $decl .= $chr;
+                continue;
+            }
+
+            if ($chr === ';' && ($parenDepth === 0)) {
+                $this->addHTMLStyleDeclaration($out, $decl);
+                $decl = '';
+                continue;
+            }
+
+            $decl .= $chr;
+        }
+
+        $this->addHTMLStyleDeclaration($out, $decl);
+
+        return $out;
+    }
+
+    /**
+     * Add one CSS declaration to the parsed map if valid.
+     *
+     * @param array<string, string> $out
+     */
+    protected function addHTMLStyleDeclaration(array &$out, string $decl): void
+    {
+        $decl = \trim($decl);
+        if ($decl === '') {
+            return;
+        }
+
+        $quote = '';
+        $parenDepth = 0;
+        $dlen = \strlen($decl);
+        $split = -1;
+
+        for ($idx = 0; $idx < $dlen; ++$idx) {
+            $chr = $decl[$idx];
+            if ($quote !== '') {
+                if ($chr === $quote && (($idx === 0) || ($decl[$idx - 1] !== '\\'))) {
+                    $quote = '';
+                }
+
+                continue;
+            }
+
+            if ($chr === '"' || $chr === "'") {
+                $quote = $chr;
+                continue;
+            }
+
+            if ($chr === '(') {
+                ++$parenDepth;
+                continue;
+            }
+
+            if ($chr === ')') {
+                $parenDepth = \max(0, $parenDepth - 1);
+                continue;
+            }
+
+            if ($chr === ':' && ($parenDepth === 0)) {
+                $split = $idx;
+                break;
+            }
+        }
+
+        if ($split < 1) {
+            return;
+        }
+
+        $name = \strtolower(\trim(\substr($decl, 0, $split)));
+        if ($name === '') {
+            return;
+        }
+
+        $value = \trim(\substr($decl, $split + 1));
+        $out[$name] = $value;
+    }
+
+    /**
      * Parst HTML DOM attributes.
      *
      * @param array<int, THTMLAttrib> $dom
@@ -2692,6 +2912,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float  $posx   Abscissa of upper-left corner.
      * @param float  $posy   Ordinate of upper-left corner.
      * @param string $type   Type of list.
+    * @param array<string, mixed> $markerStyles Marker style declarations from li::marker.
      *
      * @return string
      */
@@ -2701,9 +2922,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float $posx = 0,
         float $posy = 0,
         string $type = '',
+        array $markerStyles = [],
     ): string {
+        $markerState = [];
+        $markerPrefix = '';
+        $img = ['', '', '0', '0', ''];
+        $markerColor = '';
+        if (isset($markerStyles['color']) && \is_string($markerStyles['color'])) {
+            $markerColor = \trim($markerStyles['color']);
+        }
+        if (!empty($markerStyles)) {
+            $markerPrefix = $this->getStartMarkerStyle($markerStyles, $markerState);
+        }
+
         switch ($type) {
             case '^': // special symbol used for avoid justification of rect bullet
+                if (!empty($markerStyles)) {
+                    $this->getStopMarkerStyle($markerState);
+                }
                 return '';
             case '!': // default list type for unordered list
                 $type = self::LIST_DEF_ULTYPE[($depth - 1) % 3];
@@ -2723,7 +2959,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $size = $font['usize'];
         $lspace = $this->getStringWidth(' '); // width of one space in document units
         $txti = '';
-        $img = ['', '', '0', '0', ''];
 
         switch ($type) {
             // unordered types
@@ -2744,10 +2979,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
-                    'lineColor' => (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
-                    'fillColor' => (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
+                    'lineColor' => ($markerColor !== '')
+                        ? $markerColor
+                        : (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
+                    'fillColor' => ($markerColor !== '')
+                        ? $markerColor
+                        : (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
                 ];
-                return $this->graph->getStartTransform()
+                $result = $this->graph->getStartTransform()
                 . $this->graph->getCircle(
                     $posx,
                     $posy + $this->toUnit($font['midpoint']),
@@ -2758,6 +2997,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $style,
                     8,
                 ) . $this->graph->getStopTransform();
+                if (!empty($markerStyles)) {
+                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
+                }
+                return $result;
             case 'circle':
                 if ($this->isunicode) {
                     $txti = "\u{25E6}";
@@ -2773,10 +3016,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
-                    'lineColor' => (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
-                    'fillColor' => (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
+                    'lineColor' => ($markerColor !== '')
+                        ? $markerColor
+                        : (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
+                    'fillColor' => ($markerColor !== '')
+                        ? $markerColor
+                        : (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
                 ];
-                return $this->graph->getStartTransform()
+                $result = $this->graph->getStartTransform()
                 . $this->graph->getCircle(
                     $posx,
                     $posy + $this->toUnit($font['midpoint']),
@@ -2787,6 +3034,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $style,
                     8,
                 ) . $this->graph->getStopTransform();
+                if (!empty($markerStyles)) {
+                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
+                }
+                return $result;
             case 'square':
                 if ($this->isunicode) {
                     $txti = "\u{25AA}";
@@ -2802,10 +3053,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
-                    'lineColor' => (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
-                    'fillColor' => (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
+                    'lineColor' => ($markerColor !== '')
+                        ? $markerColor
+                        : (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
+                    'fillColor' => ($markerColor !== '')
+                        ? $markerColor
+                        : (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
                 ];
-                return $this->graph->getStartTransform()
+                $result = $this->graph->getStartTransform()
                 . $this->graph->getBasicRect(
                     $posx,
                     $posy + (($this->toUnit($font['height']) - $len) / 2),
@@ -2814,52 +3069,75 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'F',
                     $style,
                 ) . $this->graph->getStopTransform();
+                if (!empty($markerStyles)) {
+                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
+                }
+                return $result;
             case 'img':
                 // 1=>type, 2=>width, 3=>height, 4=>image.ext
                 $lspace += \floatval($img[2]);
                 $posx += $this->rtl ? $lspace : -$lspace;
                 $imgtype = strtolower($img[1]);
+                $imgsrc = isset($img[4]) ? (string) $img[4] : '';
+                if (
+                    ($imgtype === 'svg+xml')
+                    || \str_starts_with($imgsrc, '@<svg')
+                    || \str_contains($imgsrc, '<svg')
+                    || \str_starts_with($imgsrc, 'data:image/svg+xml')
+                ) {
+                    $imgtype = 'svg';
+                    if (\str_starts_with($imgsrc, 'data:image/svg+xml')) {
+                        if (\preg_match('/^data:image\/svg\+xml(?:;base64)?,(.*)$/i', $imgsrc, $svgdata)) {
+                            $payload = (string) $svgdata[1];
+                            $rawsvg = \rawurldecode($payload);
+                            if (\str_contains($imgsrc, ';base64,')) {
+                                $decoded = \base64_decode($payload, true);
+                                if ($decoded !== false && $decoded !== '') {
+                                    $rawsvg = $decoded;
+                                }
+                            }
+
+                            if ($rawsvg !== '') {
+                                $imgsrc = '@' . $rawsvg;
+                            }
+                        }
+                    }
+                }
                 $imgwidth = \floatval($img[2]);
                 $imgheight = \floatval($img[3]);
+                $fontheight = $this->toUnit((float) ($font['height'] ?? 0.0));
+                $fontascent = $this->toUnit((float) ($font['ascent'] ?? 0.0));
+                $imgposy = ($posy - $fontascent) + (($fontheight - $imgheight) / 2);
                 $pageheight = $this->page->getPage()['height'];
+                $result = '';
                 switch ($imgtype) {
                     case 'svg':
                         $svgid = $this->addSVG(
-                            $img[4],
+                            $imgsrc,
                             $posx,
-                            $posy + (($this->toUnit($font['height']) - $imgheight) / 2),
+                            $imgposy,
                             $imgwidth,
                             $imgheight,
                             $pageheight,
                         );
-                        return $this->getSetSVG($svgid);
+                        $result = $this->getSetSVG($svgid);
+                        break;
                     default:
-                        $imgid = $this->image->add($img[4]);
-                        return $this->image->getSetImage(
+                        $imgid = $this->image->add($imgsrc);
+                        $result = $this->image->getSetImage(
                             $imgid,
                             $posx,
-                            $posy + (($this->toUnit($font['height']) - $imgheight) / 2),
+                            $imgposy,
                             $imgwidth,
                             $imgheight,
                             $pageheight,
                         );
+                        break;
                 }
-            // ordered types
-            case '1':
-            case 'decimal':
-                $txti = \strval($count);
-                break;
-            case 'decimal-leading-zero':
-                $txti = \sprintf('%02d', $count);
-                break;
-            case 'i':
-            case 'lower-roman':
-                $txti = \strtolower($this->intToRoman($count));
-                break;
-            case 'I':
-            case 'upper-roman':
-                $txti = $this->intToRoman($count);
-                break;
+                if (!empty($markerStyles)) {
+                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
+                }
+                return $result;
             case 'a':
             case 'lower-alpha':
             case 'lower-latin':
@@ -2869,6 +3147,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'upper-alpha':
             case 'upper-latin':
                 $txti = \chr((65 + $count - 1) & 0xFF);
+                break;
+            case 'i':
+            case 'lower-roman':
+                $txti = \strtolower($this->intToRoman($count));
+                break;
+            case 'I':
+            case 'upper-roman':
+                $txti = $this->intToRoman($count);
+                break;
+            case 'decimal-leading-zero':
+                $txti = \number_format($count, 0, '.', '');
+                if ($count >= 0 && $count < 10) {
+                    $txti = '0' . $txti;
+                }
                 break;
             case 'lower-greek':
                 $txti = $this->uniconv->chr(945 + $count - 1);
@@ -2903,6 +3195,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if (empty($txti)) {
+            if (!empty($markerStyles)) {
+                $this->getStopMarkerStyle($markerState);
+            }
             return '';
         }
 
@@ -2914,7 +3209,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lspace += $this->getStringWidth($txti);
         $posx += $this->rtl ? $lspace : -$lspace;
-        return $this->getTextLine($txti, $posx, $posy);
+
+        $out = $this->getTextLine($txti, $posx, $posy);
+
+        if (!empty($markerPrefix)) {
+            $out = $markerPrefix . $out;
+        }
+
+        if (!empty($markerStyles)) {
+            $out .= $this->getStopMarkerStyle($markerState);
+        }
+
+        return $out;
     }
 
     /**
@@ -2955,6 +3261,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineascent' => 0.0,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
+            'textindentapplied' => false,
             'basefont' => $basefont,
         ];
         $hrc['cellctx'] = $cellctx;
@@ -2985,6 +3292,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineascent' => 0.0,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
+            'textindentapplied' => false,
             'basefont' => 'helvetica',
         ];
         $hrc['cellctx'] = $cellctx;
@@ -3692,6 +4000,160 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Returns true when the element explicitly defines list indentation via CSS.
+     *
+     * @param THTMLAttrib $elm
+     */
+    protected function hasHTMLListIndentOverride(array $elm): bool
+    {
+        if (empty($elm['style']) || !\is_array($elm['style'])) {
+            return false;
+        }
+
+        foreach (['padding-left', 'margin-left', 'padding', 'margin'] as $prop) {
+            if (!empty($elm['style'][$prop])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns the CSS-driven list indentation value for one element.
+     *
+     * @param THTMLAttrib $elm
+     */
+    protected function getHTMLListIndentFromElement(array $elm): float
+    {
+        $padding = (isset($elm['padding']['L']) && \is_numeric($elm['padding']['L']))
+            ? (float) $elm['padding']['L']
+            : 0.0;
+        $margin = (isset($elm['margin']['L']) && \is_numeric($elm['margin']['L']))
+            ? (float) $elm['margin']['L']
+            : 0.0;
+
+        return \max(0.0, $padding + $margin);
+    }
+
+    /**
+     * Returns the explicit CSS list indent override for a DOM node.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function getHTMLListIndentOverrideByKey(array &$hrc, int $key): float
+    {
+        if (($key < 0) || !isset($hrc['dom'][$key])) {
+            return 0.0;
+        }
+
+        $elm = &$hrc['dom'][$key];
+        if (!$this->hasHTMLListIndentOverride($elm)) {
+            return 0.0;
+        }
+
+        return $this->getHTMLListIndentFromElement($elm);
+    }
+
+    /**
+     * Returns the current list indentation width.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function getCurrentHTMLListIndentWidth(array &$hrc): float
+    {
+        $depth = $this->getHTMLListDepth($hrc);
+        if ($depth < 1) {
+            return $this->getHTMLListIndentWidth();
+        }
+
+        $idx = $depth - 1;
+        if (isset($hrc['liststack'][$idx]['indent']) && \is_numeric($hrc['liststack'][$idx]['indent'])) {
+            $indent = (float) $hrc['liststack'][$idx]['indent'];
+            if ($indent > 0) {
+                return $indent;
+            }
+        }
+
+        return $this->getHTMLListIndentWidth();
+    }
+
+    /**
+     * Resolve a CSS url(...) list-style-image value to a list marker type.
+     *
+     * @param string $listImage CSS list-style-image value.
+     */
+    protected function getHTMLListImageMarkerType(string $listImage): string
+    {
+        if ($listImage === '') {
+            return '';
+        }
+
+        if (!\preg_match('/^url\((.*)\)$/i', \trim($listImage), $match)) {
+            return '';
+        }
+
+        $source = \trim($match[1]);
+        $source = \trim($source, " \t\n\r\0\x0B\"'");
+        if ($source === '') {
+            return '';
+        }
+
+        $imgtype = '';
+        if (\preg_match('/^data:image\/([^;,]+)(;base64)?,(.*)$/i', $source, $dataMatch)) {
+            $imgtype = \strtolower((string) $dataMatch[1]);
+            $isBase64 = !empty($dataMatch[2]);
+            $payload = (string) $dataMatch[3];
+            if ($isBase64) {
+                $decoded = \base64_decode($payload, true);
+                if ($decoded === false || $decoded === '') {
+                    return '';
+                }
+                $source = $decoded;
+            } else {
+                $source = \rawurldecode($payload);
+            }
+            if ($imgtype === 'svg+xml') {
+                $imgtype = 'svg';
+            }
+        }
+
+        if ($imgtype === '') {
+            if (\preg_match('/\.svg([?#].*)?$/i', $source)) {
+                $imgtype = 'svg';
+            } elseif (\preg_match('/\.([a-z0-9]+)([?#].*)?$/i', $source, $extMatch)) {
+                $imgtype = \strtolower((string) $extMatch[1]);
+            }
+        }
+
+        if ($imgtype === '') {
+            $imgtype = 'png';
+        }
+
+        if ($imgtype === 'svg' && !\str_starts_with($source, '@')) {
+            if (\str_contains($source, '<svg')) {
+                $source = '@' . $source;
+            }
+        }
+
+        $curfont = $this->font->getCurrentFont();
+        $fontsize = (float) ($curfont['usize'] ?? 0.0);
+        if ($fontsize <= 0.0) {
+            $fontsize = $this->toUnit(8.0);
+        }
+        $imgsize = \max(1.0, \round($fontsize * 0.5, 3));
+
+        return 'img|'
+            . $imgtype
+            . '|'
+            . (string) $imgsize
+            . '|'
+            . (string) $imgsize
+            . '|'
+            . $source;
+    }
+
+    /**
      * Resolve the list marker style for UL/OL elements.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -3705,6 +4167,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $elm = &$hrc['dom'][$key];
         $default = $ordered ? '#' : $this->ullidot;
+
+        if (!empty($elm['style']['list-style-image']) && \is_string($elm['style']['list-style-image'])) {
+            $imagetype = \trim((string) $elm['style']['list-style-image']);
+            if ($imagetype !== '' && \strtolower($imagetype) !== 'none') {
+                $imgmarker = $this->getHTMLListImageMarkerType($imagetype);
+                if ($imgmarker !== '') {
+                    return $imgmarker;
+                }
+            }
+        }
 
         if (!empty($elm['attribute']['type']) && \is_string($elm['attribute']['type'])) {
             $type = \trim(\strtolower($elm['attribute']['type']));
@@ -3731,6 +4203,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 'ordered' => $ordered,
                 'type' => $ordered ? '#' : $this->ullidot,
                 'count' => 0,
+                'indent' => 0.0,
             ];
             return;
         }
@@ -3745,10 +4218,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $start = ((int) $elm['attribute']['start']) - 1;
         }
 
+        $indent = $this->getHTMLListIndentOverrideByKey($hrc, $key);
+
         $hrc['liststack'][] = [
             'ordered' => $ordered,
             'type' => $this->getHTMLListMarkerType($hrc, $key, $ordered),
             'count' => $start,
+            'indent' => $indent,
         ];
     }
 
@@ -3821,6 +4297,148 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $hrc['liststack'][$depth - 1]['type'];
+    }
+
+    /**
+     * Filter CSS data to only include supported li::marker properties.
+     * Supported properties: color, font-weight, font-style, font-size.
+     *
+     * @param array<string, mixed> $cssdata CSS data array with property keys.
+     *
+     * @return array<string, mixed> Filtered CSS data containing only supported marker properties.
+     */
+    protected function filterHTMLMarkerStyles(array $cssdata): array
+    {
+        /** @var array<string, mixed> $filtered */
+        $filtered = [];
+        /** @var array<string> $supportedProperties */
+        $supportedProperties = ['color', 'font-weight', 'font-style', 'font-size'];
+
+        foreach ($supportedProperties as $prop) {
+            if (isset($cssdata[$prop])) {
+                $filtered[$prop] = $cssdata[$prop];
+            }
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * Apply marker styles by pushing them to the style stack.
+     *
+     * @param array<string, mixed> $markerStyles Marker-specific CSS styles.
+     * @param array<string, mixed> $markerState Previous style state captured before applying marker styles.
+     *
+     * @return string PDF prefix commands for marker style activation.
+     */
+    protected function getStartMarkerStyle(array $markerStyles, array &$markerState): string
+    {
+        $markerState['lineColor'] = (string) $this->graph->getLastStyleProperty('lineColor', 'black');
+        $markerState['fillColor'] = (string) $this->graph->getLastStyleProperty('fillColor', 'black');
+        $markerState['font'] = $this->captureHTMLCallerFontState();
+
+        $out = '';
+
+        if (isset($markerStyles['color']) && \is_string($markerStyles['color'])) {
+            $color = \trim($markerStyles['color']);
+            if ($color !== '') {
+                $out .= $this->color->getPdfColor($color);
+            }
+        }
+
+        $fontstate = $markerState['font'];
+        if (
+            isset($fontstate['family'], $fontstate['style'], $fontstate['size'])
+            && \is_string($fontstate['family'])
+            && \is_string($fontstate['style'])
+            && \is_numeric($fontstate['size'])
+        ) {
+            $fontstyle = (string) $fontstate['style'];
+            if (isset($markerStyles['font-weight']) && \is_string($markerStyles['font-weight'])) {
+                $weight = \strtolower(\trim($markerStyles['font-weight']));
+                if (\in_array($weight, ['bold', 'bolder', '600', '700', '800', '900'], true)) {
+                    if (!\str_contains($fontstyle, 'B')) {
+                        $fontstyle .= 'B';
+                    }
+                } elseif (\in_array($weight, ['normal', '100', '200', '300', '400', '500'], true)) {
+                    $fontstyle = \str_replace('B', '', $fontstyle);
+                }
+            }
+
+            if (isset($markerStyles['font-style']) && \is_string($markerStyles['font-style'])) {
+                $style = \strtolower(\trim($markerStyles['font-style']));
+                if (\in_array($style, ['italic', 'oblique'], true)) {
+                    if (!\str_contains($fontstyle, 'I')) {
+                        $fontstyle .= 'I';
+                    }
+                } elseif ($style === 'normal') {
+                    $fontstyle = \str_replace('I', '', $fontstyle);
+                }
+            }
+
+            $fontsize = (float) $fontstate['size'];
+            if (isset($markerStyles['font-size']) && \is_string($markerStyles['font-size'])) {
+                $fsize = \trim($markerStyles['font-size']);
+                if ($fsize !== '') {
+                    $ref = self::REFUNITVAL;
+                    $ref['font-size'] = $fontsize;
+                    $ref['parent'] = $fontsize;
+                    $csssize = $this->getUnitValuePoints($fsize, $ref);
+                    if ($csssize > 0.0) {
+                        $fontsize = $csssize;
+                    }
+                }
+            }
+
+            $metric = $this->font->insert(
+                $this->pon,
+                (string) $fontstate['family'],
+                $fontstyle,
+                (int) \round($fontsize),
+            );
+            if (!empty($metric['out']) && \is_string($metric['out'])) {
+                $out .= $metric['out'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Restore marker styles by popping them from the style stack.
+     *
+     * @param array<string, mixed> $markerState Previous style state captured before marker styles.
+     *
+     * @return string PDF suffix commands for marker style restore.
+     */
+    protected function getStopMarkerStyle(array $markerState): string
+    {
+        $fillColor = 'black';
+        if (!empty($markerState['fillColor']) && \is_string($markerState['fillColor'])) {
+            $fillColor = $markerState['fillColor'];
+        }
+
+        $out = $this->color->getPdfColor($fillColor);
+        $fontstate = $markerState['font'] ?? null;
+        if (
+            \is_array($fontstate)
+            && isset($fontstate['family'], $fontstate['style'], $fontstate['size'])
+            && \is_string($fontstate['family'])
+            && \is_string($fontstate['style'])
+            && \is_numeric($fontstate['size'])
+        ) {
+            $metric = $this->font->insert(
+                $this->pon,
+                (string) $fontstate['family'],
+                (string) $fontstate['style'],
+                (int) \round((float) $fontstate['size']),
+            );
+            if (!empty($metric['out']) && \is_string($metric['out'])) {
+                $out = $metric['out'] . $out;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -4732,7 +5350,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function openHTMLBlock(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
         $elm = &$hrc['dom'][$key];
-        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
+        $lineadvancectx = isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance'])
+            ? (float) $hrc['cellctx']['lineadvance']
+            : 0.0;
+        $hasinlinecontent = (
+            ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
+            && ($lineadvancectx > self::WIDTH_TOLERANCE)
+        );
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
 
         if ($hasinlinecontent || ($tpy > $hrc['cellctx']['originy'])) {
@@ -4782,6 +5406,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $tpx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
         $tpw = $hrc['cellctx']['maxwidth'];
+        $hrc['cellctx']['textindentapplied'] = false;
         if ($tpw > 0) {
             $tpw = \max(
                 0.0,
@@ -5223,6 +5848,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
             ? \max(0.0, $tpw)
             : (($tpw > 0) ? $tpw : $availableWidth);
+
         $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
         $imagex = $tpx;
         if (
@@ -6181,17 +6807,65 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $styles['all'],
             );
         } else {
-            $out .= $this->graph->getRect(
+            $out .= $this->drawHTMLRectBorderSides(
                 $cellx,
                 $rowtop,
                 $cellw,
                 $cellh,
-                's',
                 $styles,
             );
         }
 
         return $out . $this->graph->getStopTransform();
+    }
+
+    /**
+     * Draw only the explicitly defined rectangle border sides (T,R,B,L).
+     *
+     * @param array<int|string, BorderStyle> $styles
+     */
+    protected function drawHTMLRectBorderSides(
+        float $cellx,
+        float $rowtop,
+        float $cellw,
+        float $cellh,
+        array $styles,
+    ): string {
+        if ($styles === []) {
+            return '';
+        }
+
+        $out = '';
+
+        if (isset($styles[0]) && \is_array($styles[0])) {
+            $out .= $this->graph->getLine($cellx, $rowtop, ($cellx + $cellw), $rowtop, $styles[0]);
+        }
+
+        if (isset($styles[1]) && \is_array($styles[1])) {
+            $out .= $this->graph->getLine(
+                ($cellx + $cellw),
+                $rowtop,
+                ($cellx + $cellw),
+                ($rowtop + $cellh),
+                $styles[1]
+            );
+        }
+
+        if (isset($styles[2]) && \is_array($styles[2])) {
+            $out .= $this->graph->getLine(
+                ($cellx + $cellw),
+                ($rowtop + $cellh),
+                $cellx,
+                ($rowtop + $cellh),
+                $styles[2]
+            );
+        }
+
+        if (isset($styles[3]) && \is_array($styles[3])) {
+            $out .= $this->graph->getLine($cellx, ($rowtop + $cellh), $cellx, $rowtop, $styles[3]);
+        }
+
+        return $out;
     }
 
     /**
@@ -6479,6 +7153,54 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
 
                         $appendFragment($breakout);
+                    }
+
+                    if (
+                        ($elm['value'] === 'li')
+                        && empty($hrc['tablestack'])
+                        && empty($hrc['bcellctx'])
+                        && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+                    ) {
+                        $liLineAdvance = $this->getHTMLLineAdvance($hrc, $key);
+                        if ($liLineAdvance > 0.0) {
+                            $region = $this->page->getRegion();
+                            $regiontop = (float) $region['RY'];
+                            $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
+                            $willBreak = ($liLineAdvance > ($remaining + self::WIDTH_TOLERANCE))
+                                && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+
+                            if ($willBreak && !empty($hrc['blockbuf'])) {
+                                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                                if ($flush !== '') {
+                                    $appendFragment($flush);
+                                }
+                            }
+
+                            $breakout = $this->breakHTMLIfNeeded(
+                                $hrc,
+                                $liLineAdvance,
+                                $tpx,
+                                $tpy,
+                                $tpw,
+                                $tph,
+                            );
+
+                            if ($willBreak && !empty($hrc['blockbuf'])) {
+                                foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+                                    /** @var THTMLBlockBuf $blkEntry */
+                                    $blkEntry['by'] = $tpy;
+                                    $hrc['blockbuf'][$bidx] = $blkEntry;
+                                }
+                            }
+
+                            if ($willBreak && !empty($hrc['tablestack'])) {
+                                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                            }
+
+                            if ($breakout !== '') {
+                                $appendFragment($breakout);
+                            }
+                        }
                     }
 
                     if (!empty($elm['attribute']['id']) && \is_string($elm['attribute']['id'])) {
@@ -7176,6 +7898,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
             ? \max(0.0, $tpw)
             : (($tpw > 0) ? $tpw : $availableWidth);
+
+        // Apply CSS text-indent once per block on the first visual text line.
+        // Positive values create a first-line indent; negative values create a hanging indent.
+        if (
+            ($lineOffset <= self::WIDTH_TOLERANCE)
+            && !empty($elm['text-indent'])
+            && \is_numeric($elm['text-indent'])
+            && empty($hrc['cellctx']['textindentapplied'])
+            && ($availableWidth > 0.0)
+        ) {
+            $indent = (float) $elm['text-indent'];
+            if ($forcedir === 'R') {
+                $indent *= -1;
+            }
+
+            $rightBoundary = $hrc['cellctx']['originx'] + $availableWidth;
+            $lineOriginX += $indent;
+            $availableWidth = \max(0.0, $rightBoundary - $lineOriginX);
+            $tpx = $lineOriginX;
+            $tpw = $availableWidth;
+            $lineOffset = 0.0;
+            $remainingWidth = $availableWidth;
+            $hrc['cellctx']['textindentapplied'] = true;
+        }
 
         // In normal HTML flow, collapsible spaces at line start are ignored.
         // Keeping them would shift the first visible fragment and defeat
@@ -8672,52 +9418,72 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
+        unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
             return $out;
         }
 
-        // Break to the next page region if a single line of this list item
-        // does not fit in the remaining height. Otherwise the bullet marker
-        // would be drawn at the bottom of the current page while the inline
-        // content (rendered later) page-breaks, leaving an orphaned marker.
-        if (
-            empty($hrc['tablestack'])
-            && empty($hrc['bcellctx'])
-            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
-        ) {
-            $liLineAdvance = $this->getHTMLLineAdvance($hrc, $key);
-            if ($liLineAdvance > 0.0) {
-                $out .= $this->breakHTMLIfNeeded($hrc, $liLineAdvance, $tpx, $tpy, $tpw, $tph);
-            }
+        $font = $this->getHTMLFontMetric($hrc, $key);
+        $indent = $this->getCurrentHTMLListIndentWidth($hrc);
+        $liIndent = $this->getHTMLListIndentOverrideByKey($hrc, $key);
+        if ($liIndent > 0) {
+            $indent += $liIndent;
         }
 
-        $font = $this->getHTMLFontMetric($hrc, $key);
-        $indent = $this->getHTMLListIndentWidth();
         $counter = $this->getHTMLListItemCounter($hrc, $key);
         $markerType = $this->getCurrentHTMLListMarkerType($hrc);
         $markerPosition = 'outside';
+        $insideTextOffset = 0.0;
         if (
             isset($hrc['dom'][$key]['list-style-position'])
             && \is_string($hrc['dom'][$key]['list-style-position'])
             && ($hrc['dom'][$key]['list-style-position'] === 'inside')
         ) {
             $markerPosition = 'inside';
+            // Browser-like inside markers reserve inline marker space before item text.
+            $insideTextOffset = $this->getStringWidth('0 ');
         }
+
+        // CSS list-indent overrides already shift block content through margin/padding.
+        // Trim one-space marker offset only for outside markers to avoid visible extra gap
+        // near guide borders on shift-variant examples while preserving inside indentation.
+        if ($markerPosition === 'outside') {
+            $depthidx = $this->getHTMLListDepth($hrc) - 1;
+            $trimthreshold = $this->getStringWidth('00');
+            if (
+                ($depthidx >= 0)
+                && isset($hrc['liststack'][$depthidx]['indent'])
+                && \is_numeric($hrc['liststack'][$depthidx]['indent'])
+                && ((float) $hrc['liststack'][$depthidx]['indent'] > $trimthreshold)
+            ) {
+                $indent = \max(0.0, $indent - $this->getStringWidth(' '));
+            }
+        }
+
         $fontAscent = (isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0;
         $baseline = $tpy + $this->toUnit($fontAscent);
-        $bulletx = ($markerPosition === 'inside') ? $tpx : ($tpx + $indent);
+        $bulletx = $tpx + $indent + $insideTextOffset;
+
+        // Get marker styles from li::marker selector
+        $markerStyles = [];
+        if (
+            isset($hrc['dom'][$key]['attribute']['pseudo-marker-style'])
+            && \is_array($hrc['dom'][$key]['attribute']['pseudo-marker-style'])
+        ) {
+            $markerStyles = $hrc['dom'][$key]['attribute']['pseudo-marker-style'];
+        }
 
         $out .= $this->getHTMLTextPrefix($hrc, $key);
-        $out .= $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType);
+        $out .= $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType, $markerStyles);
 
         $hrc['listack'][] = [
             'originx' => $hrc['cellctx']['originx'],
             'maxwidth' => $hrc['cellctx']['maxwidth'],
         ];
 
-        $tpx += $indent;
+        $tpx += $indent + $insideTextOffset;
         if ($markerPosition === 'outside') {
             if ($tpw > 0) {
                 $tpw = \max(0.0, $tpw - $indent);

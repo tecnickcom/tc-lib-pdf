@@ -41,7 +41,12 @@ use TSVGStyle;
  *    'y': float,
  *    'width': float,
  *    'height': float,
- *    'viewBox': array{float, float, float, float},
+ *    'viewBox': array{
+ *       float,
+ *       float,
+ *       float,
+ *       float
+ *    },
  *    'ar_align': string,
  *    'ar_ms': string,
  * }
@@ -166,7 +171,10 @@ use TSVGStyle;
  *    'xlist'?: array<int, float>,
  *    'ylist'?: array<int, float>,
  *    'rotlist'?: array<int, float>,
- *    'textpathpoints'?: array<int, array{0: float, 1: float}>,
+ *    'textpathpoints'?: array<int, array{
+ *       0: float,
+ *       1: float
+ *    }>,
  *    'textpathoffset'?: float,
  *    'textpathmethod'?: string,
  *    'textpathspacing'?: string,

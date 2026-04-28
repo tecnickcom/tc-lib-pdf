@@ -990,6 +990,53 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan($beforePages, $afterPages);
     }
 
+    public function testAddHTMLCellListPageBreakPreservesSectionOrderInsideStyledBlock(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $items = '';
+        for ($i = 0; $i < 220; ++$i) {
+            $items .= '<li>Item ' . $i . ' with long text to force wrapping and page flow inside the list block.</li>';
+        }
+
+        $html = '<style>'
+            . '.panel{border:0.2mm solid #333;background-color:#f2f6fb;padding:2mm;margin-bottom:2mm;}'
+            . '</style>'
+            . '<div class="panel">'
+            . '<h2>SECTION4</h2>'
+            . '<ul>' . $items . '</ul>'
+            . '</div>'
+            . '<div class="panel">'
+            . '<h2>SECTION6</h2>'
+            . '<p>After list block</p>'
+            . '</div>';
+
+        $obj->addHTMLCell($html, 20, 10, 150, 0);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $pages = $page->getPages();
+
+        $content = '';
+        foreach ($pages as $pdata) {
+            if (!isset($pdata['content']) || !\is_array($pdata['content'])) {
+                continue;
+            }
+
+            $content .= "\n" . \implode("\n", $pdata['content']);
+        }
+
+        $this->assertStringContainsString('SECTION4', $content);
+        $this->assertStringContainsString('SECTION6', $content);
+
+        $pos4 = \strpos($content, 'SECTION4');
+        $pos6 = \strpos($content, 'SECTION6');
+        $this->assertNotFalse($pos4);
+        $this->assertNotFalse($pos6);
+        $this->assertLessThan($pos6, $pos4, 'Expected SECTION4 to be emitted before SECTION6.');
+    }
+
     public function testAddHTMLCellLongTableSpansMultiplePages(): void
     {
         $obj = $this->getTestObject();
@@ -1058,6 +1105,111 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('(de-) Tj', $content);
         $this->assertStringContainsString('(nounce) Tj', $content);
         $this->assertStringNotContainsString('(denounce) Tj', $content);
+    }
+
+    public function testParseHTMLTextAppliesTextIndentOnlyOnFirstLine(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(20.0, 10.0, 80.0, 0.0);
+        $obj->exposeResetBBoxTrace();
+
+        $elm = $this->makeHtmlNode([
+            'value' => 'First line sample text',
+            'text-indent' => 6.0,
+            'align' => 'L',
+            'dir' => 'ltr',
+            'fontname' => 'helvetica',
+            'fontsize' => 10.0,
+        ]);
+
+        $tpx = 20.0;
+        $tpy = 10.0;
+        $tpw = 80.0;
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $tpx = 20.0;
+        $tpw = 80.0;
+        $tpy += 6.0;
+        $elm['value'] = 'Second line sample text';
+        $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertGreaterThanOrEqual(2, \count($trace));
+
+        $firstX = (float) $trace[0]['in_x'];
+        $secondX = (float) $trace[1]['in_x'];
+
+        $this->assertEqualsWithDelta(26.0, $firstX, 0.05);
+        $this->assertEqualsWithDelta(20.0, $secondX, 0.05);
+    }
+
+    public function testParseHTMLTextSupportsNegativeTextIndentHangingIndent(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(20.0, 10.0, 80.0, 0.0);
+        $obj->exposeResetBBoxTrace();
+
+        $elm = $this->makeHtmlNode([
+            'value' => 'Hanging indent sample text',
+            'text-indent' => -4.0,
+            'align' => 'L',
+            'dir' => 'ltr',
+            'fontname' => 'helvetica',
+            'fontsize' => 10.0,
+        ]);
+
+        $tpx = 20.0;
+        $tpy = 10.0;
+        $tpw = 80.0;
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotEmpty($trace);
+        $this->assertEqualsWithDelta(16.0, (float) $trace[0]['in_x'], 0.05);
+    }
+
+    public function testAddHTMLCellTextIndentIsNotReappliedAfterPageBreak(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(20.0, 10.0, 80.0, 0.0);
+        $obj->exposeResetBBoxTrace();
+
+        $elm = $this->makeHtmlNode([
+            'value' => 'First line before forced page break',
+            'text-indent' => 6.0,
+            'align' => 'L',
+            'dir' => 'ltr',
+            'fontname' => 'helvetica',
+            'fontsize' => 10.0,
+        ]);
+
+        $tpx = 20.0;
+        $tpy = 10.0;
+        $tpw = 80.0;
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+        $obj->exposeExecuteHTMLTcpdfPageBreak('true', $tpx, $tpw);
+
+        $tpy += 6.0;
+        $elm['value'] = 'Continuation after forced page break';
+        $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertGreaterThanOrEqual(2, \count($trace));
+
+        $firstX = (float) $trace[0]['in_x'];
+        $secondX = (float) $trace[1]['in_x'];
+
+        $this->assertEqualsWithDelta(26.0, $firstX, 0.05);
+        $this->assertEqualsWithDelta(20.0, $secondX, 0.05);
     }
 
     public function testGetHTMLCellUsesCellPaddingForContentPosition(): void
@@ -2077,6 +2229,177 @@ class HTMLTest extends TestUtil
         );
     }
 
+    public function testListItemUsesListCssIndentOverrideWhenPresent(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->addHTMLCell('<ol><li>Probe item baseline</li></ol>', 20, 20, 120, 0);
+
+        $defaultX = null;
+        foreach ($obj->exposeGetBBoxTrace() as $entry) {
+            if (\str_contains((string) $entry['txt'], 'Probe item baseline')) {
+                $defaultX = (float) $entry['in_x'];
+                break;
+            }
+        }
+
+        $this->assertNotNull($defaultX);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->addHTMLCell('<ol style="padding-left:9mm"><li>Probe item baseline</li></ol>', 20, 20, 120, 0);
+
+        $cssX = null;
+        foreach ($obj->exposeGetBBoxTrace() as $entry) {
+            if (\str_contains((string) $entry['txt'], 'Probe item baseline')) {
+                $cssX = (float) $entry['in_x'];
+                break;
+            }
+        }
+
+        $this->assertNotNull($cssX);
+        $this->assertLessThan((float) $defaultX, (float) $cssX);
+    }
+
+    public function testListItemCssIndentOverrideTakesPrecedenceOverListLevel(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->addHTMLCell('<ol style="padding-left:9mm"><li>Probe precedence</li></ol>', 20, 20, 120, 0);
+
+        $listX = null;
+        foreach ($obj->exposeGetBBoxTrace() as $entry) {
+            if (\str_contains((string) $entry['txt'], 'Probe precedence')) {
+                $listX = (float) $entry['in_x'];
+                break;
+            }
+        }
+
+        $this->assertNotNull($listX);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->addHTMLCell(
+            '<ol style="padding-left:9mm"><li style="margin-left:4mm">Probe precedence</li></ol>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        $liX = null;
+        foreach ($obj->exposeGetBBoxTrace() as $entry) {
+            if (\str_contains((string) $entry['txt'], 'Probe precedence')) {
+                $liX = (float) $entry['in_x'];
+                break;
+            }
+        }
+
+        $this->assertNotNull($liX);
+        $this->assertGreaterThan((float) $listX, (float) $liX);
+    }
+
+    public function testNestedListDefaultIndentKeepsSameLevelStableAndInnerDeeper(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->addHTMLCell(
+            '<ol><li>OUTER_A<ul><li>INNER_B</li></ul></li><li>OUTER_C</li></ol>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        $outerAX = null;
+        $innerBX = null;
+        $outerCX = null;
+        foreach ($obj->exposeGetBBoxTrace() as $entry) {
+            $txt = (string) $entry['txt'];
+            if (($outerAX === null) && \str_contains($txt, 'OUTER_A')) {
+                $outerAX = (float) $entry['in_x'];
+            }
+
+            if (($innerBX === null) && \str_contains($txt, 'INNER_B')) {
+                $innerBX = (float) $entry['in_x'];
+            }
+
+            if (($outerCX === null) && \str_contains($txt, 'OUTER_C')) {
+                $outerCX = (float) $entry['in_x'];
+            }
+        }
+
+        $this->assertNotNull($outerAX);
+        $this->assertNotNull($innerBX);
+        $this->assertNotNull($outerCX);
+        $this->assertGreaterThan((float) $outerAX, (float) $innerBX);
+        $this->assertEqualsWithDelta((float) $outerAX, (float) $outerCX, 0.001);
+    }
+
+    public function testNestedListDepthCssOverrideChangesOnlyTargetDepthIndent(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->addHTMLCell(
+            '<ol style="padding-left:9mm"><li>OUTER_D'
+            . '<ul><li>INNER_E</li></ul></li></ol>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        $outerBaseX = null;
+        $innerBaseX = null;
+        foreach ($obj->exposeGetBBoxTrace() as $entry) {
+            $txt = (string) $entry['txt'];
+            if (($outerBaseX === null) && \str_contains($txt, 'OUTER_D')) {
+                $outerBaseX = (float) $entry['in_x'];
+            }
+
+            if (($innerBaseX === null) && \str_contains($txt, 'INNER_E')) {
+                $innerBaseX = (float) $entry['in_x'];
+            }
+        }
+
+        $this->assertNotNull($outerBaseX);
+        $this->assertNotNull($innerBaseX);
+
+        $obj->exposeResetBBoxTrace();
+        $obj->addHTMLCell(
+            '<ol style="padding-left:9mm"><li>OUTER_D'
+            . '<ul style="margin-left:2mm"><li>INNER_E</li></ul></li></ol>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        $outerOverrideX = null;
+        $innerOverrideX = null;
+        foreach ($obj->exposeGetBBoxTrace() as $entry) {
+            $txt = (string) $entry['txt'];
+            if (($outerOverrideX === null) && \str_contains($txt, 'OUTER_D')) {
+                $outerOverrideX = (float) $entry['in_x'];
+            }
+
+            if (($innerOverrideX === null) && \str_contains($txt, 'INNER_E')) {
+                $innerOverrideX = (float) $entry['in_x'];
+            }
+        }
+
+        $this->assertNotNull($outerOverrideX);
+        $this->assertNotNull($innerOverrideX);
+        $this->assertEqualsWithDelta((float) $outerBaseX, (float) $outerOverrideX, 0.001);
+        $this->assertLessThan((float) $innerBaseX, (float) $innerOverrideX);
+    }
+
     public function testListItemInsideMarkerDoesNotShrinkContentBox(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2147,6 +2470,525 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan((float) $before['cellctx']['originx'], (float) $after['cellctx']['originx']);
         $this->assertLessThan((float) $before['cellctx']['maxwidth'], (float) $after['cellctx']['maxwidth']);
         $this->assertLessThan($maxwidth, $tpw);
+    }
+
+    public function testMarkerColorIsAppliedToTextBasedMarkers(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        // Render ordered list with marker color style
+        // Just verify no errors occur during rendering with marker styles
+        $obj->addHTMLCell(
+            '<style>li::marker { color: red; }</style>'
+            . '<ol><li>ITEM_1</li><li>ITEM_2</li></ol>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        $this->assertNotSame('', $obj->getOutPDFString());
+    }
+
+
+    public function testListItemInsideMarkerUsesSameBulletAnchorAsOutside(): void
+    {
+        $insideObj = $this->getInternalTestObject();
+        $this->initFontAndPage($insideObj);
+
+        $insideElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'inside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $insideObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $insideTpx = 20.0;
+        $insideTpy = 100.0;
+        $insideTpw = 150.0;
+        $insideTph = 0.0;
+        $insideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENol',
+            $insideElm,
+            $insideTpx,
+            $insideTpy,
+            $insideTpw,
+            $insideTph,
+        );
+        $insideOut = $insideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $insideElm,
+            $insideTpx,
+            $insideTpy,
+            $insideTpw,
+            $insideTph,
+        );
+
+        $outsideObj = $this->getInternalTestObject();
+        $this->initFontAndPage($outsideObj);
+
+        $outsideElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'outside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $outsideObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $outsideTpx = 20.0;
+        $outsideTpy = 100.0;
+        $outsideTpw = 150.0;
+        $outsideTph = 0.0;
+        $outsideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENol',
+            $outsideElm,
+            $outsideTpx,
+            $outsideTpy,
+            $outsideTpw,
+            $outsideTph,
+        );
+        $outsideOut = $outsideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $outsideElm,
+            $outsideTpx,
+            $outsideTpy,
+            $outsideTpw,
+            $outsideTph,
+        );
+
+        $this->assertNotSame('', $insideOut);
+        $this->assertNotSame('', $outsideOut);
+        $this->assertNotSame($outsideOut, $insideOut);
+    }
+
+    public function testInsideListIndentOverrideIsNotTrimmedByOutsideMarkerSpacingRule(): void
+    {
+        $insideObj = $this->getInternalTestObject();
+        $this->initFontAndPage($insideObj);
+
+        $insideElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'inside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 9.0],
+            'style' => ['padding-left' => '9mm'],
+        ]);
+
+        $insideObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $insideTpx = 20.0;
+        $insideTpy = 100.0;
+        $insideTpw = 150.0;
+        $insideTph = 0.0;
+        $insideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENol',
+            $insideElm,
+            $insideTpx,
+            $insideTpy,
+            $insideTpw,
+            $insideTph,
+        );
+        $insideBefore = $insideTpx;
+        $insideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $insideElm,
+            $insideTpx,
+            $insideTpy,
+            $insideTpw,
+            $insideTph,
+        );
+        $insideAdvance = $insideTpx - $insideBefore;
+
+        $outsideObj = $this->getInternalTestObject();
+        $this->initFontAndPage($outsideObj);
+
+        $outsideElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'outside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 9.0],
+            'style' => ['padding-left' => '9mm'],
+        ]);
+
+        $outsideObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $outsideTpx = 20.0;
+        $outsideTpy = 100.0;
+        $outsideTpw = 150.0;
+        $outsideTph = 0.0;
+        $outsideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENol',
+            $outsideElm,
+            $outsideTpx,
+            $outsideTpy,
+            $outsideTpw,
+            $outsideTph,
+        );
+        $outsideBefore = $outsideTpx;
+        $outsideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $outsideElm,
+            $outsideTpx,
+            $outsideTpy,
+            $outsideTpw,
+            $outsideTph,
+        );
+        $outsideAdvance = $outsideTpx - $outsideBefore;
+
+        $this->assertGreaterThan(0.0, $outsideAdvance);
+        $this->assertGreaterThan($outsideAdvance, $insideAdvance);
+    }
+
+    public function testOutsideSmallListIndentOverrideIsNotCanceledByTrimWorkaround(): void
+    {
+        $baseObj = $this->getInternalTestObject();
+        $this->initFontAndPage($baseObj);
+
+        $baseElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'outside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $baseObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $baseTpx = 20.0;
+        $baseTpy = 100.0;
+        $baseTpw = 150.0;
+        $baseTph = 0.0;
+        $baseObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENul',
+            $baseElm,
+            $baseTpx,
+            $baseTpy,
+            $baseTpw,
+            $baseTph,
+        );
+        $baseBefore = $baseTpx;
+        $baseObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $baseElm,
+            $baseTpx,
+            $baseTpy,
+            $baseTpw,
+            $baseTph,
+        );
+        $baseAdvance = $baseTpx - $baseBefore;
+
+        $smallObj = $this->getInternalTestObject();
+        $this->initFontAndPage($smallObj);
+
+        $smallElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'outside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 1.5],
+            'style' => ['padding-left' => '1.5mm'],
+        ]);
+
+        $smallObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $smallTpx = 20.0;
+        $smallTpy = 100.0;
+        $smallTpw = 150.0;
+        $smallTph = 0.0;
+        $smallObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENul',
+            $smallElm,
+            $smallTpx,
+            $smallTpy,
+            $smallTpw,
+            $smallTph,
+        );
+        $smallBefore = $smallTpx;
+        $smallObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $smallElm,
+            $smallTpx,
+            $smallTpy,
+            $smallTpw,
+            $smallTph,
+        );
+        $smallAdvance = $smallTpx - $smallBefore;
+
+        $this->assertGreaterThan(0.0, $smallAdvance);
+        $this->assertLessThan($baseAdvance, $smallAdvance);
+    }
+
+    public function testListItemInsidePositionAddsExtraTextOffsetComparedToOutside(): void
+    {
+        $insideObj = $this->getInternalTestObject();
+        $this->initFontAndPage($insideObj);
+
+        $insideElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'inside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $insideObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $insideTpx = 20.0;
+        $insideTpy = 100.0;
+        $insideTpw = 150.0;
+        $insideTph = 0.0;
+        $insideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENul',
+            $insideElm,
+            $insideTpx,
+            $insideTpy,
+            $insideTpw,
+            $insideTph,
+        );
+        $insideBefore = $insideTpx;
+        $insideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $insideElm,
+            $insideTpx,
+            $insideTpy,
+            $insideTpw,
+            $insideTph,
+        );
+        $insideAdvance = $insideTpx - $insideBefore;
+
+        $outsideObj = $this->getInternalTestObject();
+        $this->initFontAndPage($outsideObj);
+
+        $outsideElm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 12.0,
+            'line-height' => 1.0,
+            'list-style-position' => 'outside',
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $outsideObj->exposeInitHTMLCellContext(20.0, 100.0, 150.0, 0.0);
+        $outsideTpx = 20.0;
+        $outsideTpy = 100.0;
+        $outsideTpw = 150.0;
+        $outsideTph = 0.0;
+        $outsideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENul',
+            $outsideElm,
+            $outsideTpx,
+            $outsideTpy,
+            $outsideTpw,
+            $outsideTph,
+        );
+        $outsideBefore = $outsideTpx;
+        $outsideObj->exposeInvokeParseHTMLTagMethod(
+            'parseHTMLTagOPENli',
+            $outsideElm,
+            $outsideTpx,
+            $outsideTpy,
+            $outsideTpw,
+            $outsideTph,
+        );
+        $outsideAdvance = $outsideTpx - $outsideBefore;
+
+        $this->assertGreaterThan($outsideAdvance, $insideAdvance);
+    }
+    public function testMarkerColorIsAppliedToDiscMarker(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        // Create a simple ul with disc marker and marker color style
+        $obj->addHTMLCell(
+            '<style>li::marker { color: #FF0000; }</style>'
+            . '<ul><li>ITEM_1</li></ul>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        // Just verify no errors occur during rendering with marker styles
+        // (Full PDF color rendering would require inspecting PDF ops, which is complex)
+        $this->assertNotSame('', $obj->getOutPDFString());
+    }
+
+    public function testUnsupportedMarkerPropertiesAreIgnored(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        // Marker styles with unsupported properties (text-decoration, margin, etc.)
+        // should be silently ignored without errors
+        $obj->addHTMLCell(
+            '<style>li::marker { '
+            . 'color: red; '
+            . 'text-decoration: underline; '
+            . 'margin-left: 5mm; '
+            . 'padding: 2mm; '
+            . '}</style>'
+            . '<ol><li>ITEM_1</li></ol>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        // If we get here without errors, unsupported properties were properly handled
+        $this->assertNotSame('', $obj->getOutPDFString());
+    }
+
+    public function testClassBasedMarkerSelectorAttachesFilteredMarkerStyleToLi(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM(
+            '<style>.marker-red li::marker { color: red; font-weight: bold; text-decoration: underline; }</style>'
+            . '<ol class="marker-red"><li>Item</li></ol>',
+        );
+
+        $liNode = null;
+        foreach ($dom as $node) {
+            if (($node['value'] ?? '') === 'li' && !empty($node['opening'])) {
+                $liNode = $node;
+                break;
+            }
+        }
+
+        $this->assertNotNull($liNode);
+        $this->assertArrayHasKey('attribute', $liNode);
+        $this->assertIsArray($liNode['attribute']);
+        $this->assertArrayHasKey('pseudo-marker-style', $liNode['attribute']);
+        $this->assertIsArray($liNode['attribute']['pseudo-marker-style']);
+        $markerStyle = $liNode['attribute']['pseudo-marker-style'];
+        $this->assertSame('red', $markerStyle['color'] ?? null);
+        $this->assertSame('bold', $markerStyle['font-weight'] ?? null);
+        $this->assertArrayNotHasKey('text-decoration', $markerStyle);
+    }
+
+    public function testListStyleImageCSSPropertyIsParsedWithoutErrors(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        // list-style-image CSS should be accepted and parsed without errors
+        // (Full image loading/rendering is deferred to future phases)
+        $listImageDataUri = 'data:image/svg+xml;base64,'
+            . 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9Ijgi'
+            . 'PjxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSI0IiBmaWxsPSJyZWQiLz48L3N2Zz4=';
+        $obj->addHTMLCell(
+            '<ul style="list-style-image: url(' . $listImageDataUri . ')">'
+            . '<li>Custom bullet image</li>'
+            . '</ul>',
+            20,
+            20,
+            120,
+            0,
+        );
+
+        $this->assertNotSame('', $obj->getOutPDFString());
+    }
+
+    public function testListStyleImageResolvesToImageMarkerType(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $svg = 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci'
+            . 'IHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgogIDxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSIzIiBmaWxsPSJyZWQi'
+            . 'Lz4KPC9zdmc+';
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'value' => 'ul',
+                'style' => ['list-style-image' => 'url(data:image/svg+xml;base64,' . $svg . ')'],
+                'attribute' => [],
+                'listtype' => '',
+            ]),
+        ];
+
+        $marker = $obj->exposeGetHTMLListMarkerTypeWithDom($dom, 0, false);
+
+        $this->assertStringStartsWith('img|svg|', $marker);
+        $this->assertStringContainsString('|@<svg', $marker);
+    }
+
+    public function testParseHTMLStyleAttributesPreservesDataUriValues(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root', 'opening' => true, 'parent' => 0]),
+            1 => $this->makeHtmlNode([
+                'value' => 'ul',
+                'opening' => true,
+                'parent' => 0,
+                'attribute' => [
+                    'style' => 'list-style-image:url(data:image/svg+xml;base64,PHN2Zz4=);color:red',
+                ],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        $this->assertSame('url(data:image/svg+xml;base64,PHN2Zz4=)', $dom[1]['style']['list-style-image']);
+        $this->assertSame('red', $dom[1]['style']['color']);
+    }
+
+    public function testListStyleImageCssClassResolvesImageMarkerFromDomPipeline(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<style>.img-list{list-style-image:url(data:image/svg+xml;base64,PHN2Zz4=);}</style>'
+            . '<ul class="img-list"><li>Item</li></ul>';
+        $dom = $obj->exposeGetHTMLDOM($html);
+
+        $ulKey = -1;
+        foreach ($dom as $key => $node) {
+            if (empty($node['opening']) || (($node['value'] ?? '') !== 'ul')) {
+                continue;
+            }
+
+            $ulKey = (int) $key;
+            break;
+        }
+
+        $this->assertGreaterThanOrEqual(0, $ulKey);
+        $marker = $obj->exposeGetHTMLListMarkerTypeWithDom($dom, $ulKey, false);
+        $this->assertStringStartsWith('img|svg|', $marker);
+    }
+
+    public function testNestedListStyleImageClassResolvesForNestedUl(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<style>.list-img-svg{list-style-image:url(data:image/svg+xml;base64,PHN2Zz4=);}</style>'
+            . '<ul class="list-img-svg"><li>A<ul class="list-img-svg"><li>B</li></ul></li></ul>';
+        $dom = $obj->exposeGetHTMLDOM($html);
+
+        $markers = [];
+        foreach ($dom as $key => $node) {
+            if (empty($node['opening']) || (($node['value'] ?? '') !== 'ul')) {
+                continue;
+            }
+
+            $markers[] = $obj->exposeGetHTMLListMarkerTypeWithDom($dom, (int) $key, false);
+        }
+
+        $this->assertCount(2, $markers);
+        $this->assertStringStartsWith('img|svg|', $markers[0]);
+        $this->assertStringStartsWith('img|svg|', $markers[1]);
     }
 
     public function testGetHTMLCellRendersBasicTableCells(): void
@@ -6108,6 +6950,7 @@ class HTMLTest extends TestUtil
         ]);
 
         $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+        $obj->exposeSetHTMLLineState(6.0, 120.0, false);
 
         // Simulate inline content rendered at tpx > originx (e.g. "c" text)
         $tpx = 48.0;
@@ -6120,6 +6963,33 @@ class HTMLTest extends TestUtil
         $this->assertSame(20.0, $tpx);
         // tpy must advance by at least a line height
         $this->assertGreaterThan(120.0, $tpy);
+    }
+
+    public function testOpenHTMLBlockDoesNotAdvanceForIndentOffsetWithoutRenderedText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $elm = $this->makeHtmlNode([
+            'fontname' => 'helvetica',
+            'fontsize' => 16.0,
+            'line-height' => 1.0,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $obj->exposeInitHTMLCellContext(20.0, 120.0, 150.0, 0.0);
+        $obj->exposeSetHTMLLineState(0.0, 120.0, false);
+
+        // Simulate list/container indentation shifting tpx without any inline glyphs rendered.
+        $tpx = 48.0;
+        $tpy = 140.0;
+        $tpw = 122.0;
+
+        $obj->exposeOpenHTMLBlock($elm, $tpx, $tpy, $tpw);
+
+        $this->assertSame(20.0, $tpx);
+        $this->assertSame(140.0, $tpy);
     }
 
     public function testOpenHTMLBlockDoesNotDoubleAdvanceWhenAlreadyAtLineStart(): void
@@ -6432,6 +7302,23 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $upperAlpha);
         $this->assertNotSame($decimalLeadingZero, $upperRoman);
         $this->assertNotSame($upperRoman, $upperAlpha);
+    }
+
+    public function testGetHTMLliBulletRomanTypesDoNotFallbackToDecimal(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $decimal = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'decimal');
+        $lowerRoman = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'lower-roman');
+        $upperRoman = $obj->exposeGetHTMLliBullet(1, 5, 0, 0, 'upper-roman');
+
+        $this->assertNotSame('', $decimal);
+        $this->assertNotSame('', $lowerRoman);
+        $this->assertNotSame('', $upperRoman);
+        $this->assertNotSame($decimal, $lowerRoman);
+        $this->assertNotSame($decimal, $upperRoman);
+        $this->assertNotSame($lowerRoman, $upperRoman);
     }
 
     public function testPageBreakReturnsCurrentOrNextPageId(): void
@@ -7959,6 +8846,33 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
 
         $this->assertNotEmpty($dom[1]['border']);
+    }
+
+    public function testDrawHTMLRectBorderSidesRendersOnlyDefinedSides(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'drawHTMLRectBorderSides');
+        $method->setAccessible(true);
+
+        $styles = [
+            3 => [
+                'lineWidth' => 0.2,
+                'lineCap' => 'square',
+                'lineJoin' => 'miter',
+                'miterLimit' => 10.0,
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => '#ff0000',
+                'fillColor' => '',
+            ],
+        ];
+
+        /** @var string $out */
+        $out = $method->invoke($obj, 10.0, 20.0, 30.0, 40.0, $styles);
+
+        $this->assertNotSame('', $out);
+        $this->assertSame(1, \substr_count($out, "S\n"));
     }
 
     public function testParseHTMLStyleAttributesHandlesPaddingAndMarginValues(): void

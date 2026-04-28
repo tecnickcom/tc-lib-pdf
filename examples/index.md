@@ -32,3 +32,4 @@
 - [029_example_xobject_template.php](029_example_xobject_template.php) : Ports TCPDF example 062, demonstrating reusable Form XObject templates with clipping and transparency.
 - [030_example_svg.php](030_example_svg.php) : Dedicated SVG rendering example exercising all bundled SVG images.
 - [031_example_html_features.php](031_example_html_features.php) : Dedicated HTML showcase covering implemented selectors/combinators plus table-structure and form-behavior slices from the HTML backlog.
+- [032_example_html_lists.php](032_example_html_lists.php) : Visual tracker for currently supported HTML list-item CSS variations across ordered and unordered lists.

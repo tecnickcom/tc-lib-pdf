@@ -128,6 +128,61 @@ Or add to your `composer.json`:
 
 ---
 
+## Font Setup
+
+When you install `tc-lib-pdf` as a dependency in your project (via `composer require` or `composer install`), the fonts from the companion package [`tc-lib-pdf-font`](https://github.com/tecnickcom/tc-lib-pdf-font) must be generated before they can be used.
+
+Since Composer does not execute dependency scripts during installation, you need to add the font generation step to your **consuming project's** `composer.json` file:
+
+```json
+{
+  "scripts": {
+    "tc-lib-pdf-fonts": [
+      "[ -d vendor/tecnickcom/tc-lib-pdf-font ] && make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts || true"
+    ],
+    "post-install-cmd": [
+      "@tc-lib-pdf-fonts"
+    ],
+    "post-update-cmd": [
+      "@tc-lib-pdf-fonts"
+    ]
+  }
+}
+```
+
+This ensures fonts are generated automatically when you run:
+
+```bash
+composer install
+composer update
+composer require ...
+```
+
+If you prefer to generate fonts manually, run the build in the `tc-lib-pdf-font` package:
+
+```bash
+cd vendor/tecnickcom/tc-lib-pdf-font
+make deps fonts
+```
+
+Equivalent one-liner from your project root:
+
+```bash
+make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts
+```
+
+Once fonts are generated, they are cached in `vendor/tecnickcom/tc-lib-pdf-font/target/fonts/` and will not be regenerated unless explicitly rebuilt.
+
+You can also add your own fonts and generate their PHP font data with `tc-lib-pdf-font`. For shared or immutable environments, generate them once into a persistent directory you control (outside `vendor/`) and point `K_PATH_FONTS` to that location.
+
+```php
+\define('K_PATH_FONTS', '/opt/app/fonts/tc-lib-pdf');
+```
+
+This avoids regenerating fonts on every dependency reinstall and lets multiple deployments reuse the same prepared font set.
+
+---
+
 ## Quick Start
 
 ```php

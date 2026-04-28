@@ -132,7 +132,10 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'subtype': string,
  *        'l': TFourFloat,
  *        'bs'?: TAnnotBorderStyle,
- *        'le'?: array{string, string},
+ *        'le'?: array{
+ *            string,
+ *            string
+ *        },
  *        'ic'?: TFourFloat,
  *        'll'?: float,
  *        'lle'?: float,
@@ -141,7 +144,10 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *        'llo'?: float,
  *        'cp'?: string,
  *        'measure'?: TAnnotMeasure,
- *        'co'?: array{float, float},
+ *        'co'?: array{
+ *            float,
+ *            float
+ *        },
  *    }
  *
  * @phpstan-type TAnnotSquare array{
@@ -157,7 +163,10 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @phpstan-type TAnnotPolygon array{
  *        'subtype': string,
  *        'vertices'?: array<float>,
- *        'le'?: array{string, string},
+ *        'le'?: array{
+ *            string,
+ *            string
+ *        },
  *        'bs'?: TAnnotBorderStyle,
  *        'ic'?: TFourFloat,
  *        'be'?: TAnnotBorderEffect,
@@ -209,21 +218,36 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *
  * @phpstan-type TAnnotMovieDict array{
  *        'f': string,
- *        'aspect'?: array{float, float},
+ *        'aspect'?: array{
+ *            float,
+ *            float
+ *        },
  *        'rotate'?: int,
  *        'poster'?: bool|string,
  *    }
  *
  * @phpstan-type TAnnotMovieActDict array{
- *        'start'?: int|string|array{int|string, int},
- *        'duration'?: int|string|array{int|string, int},
+ *        'start'?: int|string|array{
+ *            int|string,
+ *            int
+ *        },
+ *        'duration'?: int|string|array{
+ *            int|string,
+ *            int
+ *        },
  *        'rate'?: float,
  *        'volume'?: float,
  *        'showcontrols'?: bool,
  *        'mode'?: string,
  *        'synchronous'?: bool,
- *        'fwscale'?: array{int, int},
- *        'fwposition'?: array{float, float},
+ *        'fwscale'?: array{
+ *            int,
+ *            int
+ *        },
+ *        'fwposition'?: array{
+ *            float,
+ *            float
+ *        },
  *    }
  *
  * @phpstan-type TAnnotMovie array{
@@ -236,7 +260,10 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  * @phpstan-type TAnnotIconFitDict array{
  *        'sw'?: string,
  *        's'?: string,
- *        'a'?: array{float, float},
+ *        'a'?: array{
+ *            float,
+ *            float
+ *        },
  *        'fb'?: bool,
  *    }
  *
@@ -293,7 +320,14 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *
  * @phpstan-type TAnnotFixedPrintDict array{
  *        'type': string,
- *        'matrix'?: array{float, float, float, float, float, float},
+ *        'matrix'?: array{
+ *            float,
+ *            float,
+ *            float,
+ *            float,
+ *            float,
+ *            float
+ *        },
  *        'h'?: float,
  *        'v'?: float,
  *    }
@@ -362,16 +396,33 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *         'id': string,
  *         'n': int,
  *         'outdata': string,
- *         'bbox': array{float, float, float, float},
+ *         'bbox': array{
+ *             float,
+ *             float,
+ *             float,
+ *             float
+ *         },
  *         'xstep': float,
  *         'ystep': float,
- *         'matrix': array{float, float, float, float, float, float},
+ *         'matrix': array{
+ *             float,
+ *             float,
+ *             float,
+ *             float,
+ *             float,
+ *             float
+ *         },
  *     }
  *
  * @phpstan-type TSVGMaskObject array{
  *         'id': string,
  *         'stream': string,
- *         'bbox': array{float, float, float, float},
+ *         'bbox': array{
+ *             float,
+ *             float,
+ *             float,
+ *             float
+ *         },
  *         'gs_n': int,
  *     }
  *
@@ -477,7 +528,12 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *    }
  *
  * @phpstan-type TSignDocPrepared array{
- *        'byte_range': array{int, int, int, int},
+ *        'byte_range': array{
+ *            int,
+ *            int,
+ *            int,
+ *            int
+ *        },
  *        'pdfdoc': string,
  *        'pdfdoc_length': int,
  *    }

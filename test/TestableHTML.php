@@ -36,6 +36,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'lineascent' => 0.0,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
+            'textindentapplied' => false,
             'basefont' => '',
         ],
         'fontcache' => [],
@@ -134,14 +135,16 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->computeHTMLTableColWidths($dom, $tablekey, $cols, $availableWidth);
     }
 
+    /** @phpstan-param array<string, mixed> $markerStyles */
     public function exposeGetHTMLliBullet(
         int $depth,
         int $count,
         float $posx = 0,
         float $posy = 0,
         string $type = '',
+        array $markerStyles = [],
     ): string {
-        return $this->getHTMLliBullet($depth, $count, $posx, $posy, $type);
+        return $this->getHTMLliBullet($depth, $count, $posx, $posy, $type, $markerStyles);
     }
 
     public function exposePageBreak(): int
