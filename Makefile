@@ -71,6 +71,9 @@ TARGETDIR=$(CURRENTDIR)target
 # RPM Packaging path (where RPMs will be stored)
 PATHRPMPKG=$(TARGETDIR)/RPM
 
+# RPM local database path (avoid host rpmdb permission issues)
+RPMDBPATH=$(PATHRPMPKG)/.rpmdb
+
 # DEB Packaging path (where DEBs will be stored)
 PATHDEBPKG=$(TARGETDIR)/DEB
 
@@ -148,10 +151,12 @@ codefix:
 .PHONY: deb
 deb:
 	rm -rf $(PATHDEBPKG)
-	make install DESTDIR=$(PATHDEBPKG)/$(PKGNAME)-$(VERSION)
+	$(MAKE) install DESTDIR=$(PATHDEBPKG)/$(PKGNAME)-$(VERSION)
 	rm -f $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/$(DOCPATH)LICENSE
 	tar -zcvf $(PATHDEBPKG)/$(PKGNAME)_$(VERSION).orig.tar.gz -C $(PATHDEBPKG)/ $(PKGNAME)-$(VERSION)
 	cp -rf ./resources/debian $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian
+	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -name '*.bak' -delete
+	chmod 755 $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/rules
 	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#DATE#~/`date -R`/" {} \;
 	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#VENDOR#~/$(VENDOR)/" {} \;
 	find $(PATHDEBPKG)/$(PKGNAME)-$(VERSION)/debian/ -type f -exec sed $(SEDINPLACE) "s/~#PROJECT#~/$(PROJECT)/" {} \;
@@ -244,8 +249,11 @@ preflight: ensuretarget
 .PHONY: rpm
 rpm:
 	rm -rf $(PATHRPMPKG)
+	mkdir -p $(RPMDBPATH) $(PATHRPMPKG)/tmp
 	rpmbuild \
 	--define "_topdir $(PATHRPMPKG)" \
+	--define "_dbpath $(RPMDBPATH)" \
+	--define "_tmppath $(PATHRPMPKG)/tmp" \
 	--define "_vendor $(VENDOR)" \
 	--define "_owner $(OWNER)" \
 	--define "_project $(PROJECT)" \

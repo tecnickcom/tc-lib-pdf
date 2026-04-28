@@ -4,6 +4,7 @@ Section: php
 Priority: optional
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.7.2
+Rules-Requires-Root: no
 Homepage: https://github.com/~#VENDOR#~/~#PROJECT#~
 Vcs-Git: https://github.com/~#VENDOR#~/~#PROJECT#~.git
 Vcs-Browser: https://github.com/~#VENDOR#~/~#PROJECT#~
@@ -13,25 +14,25 @@ Provides: php-~#PROJECT#~
 Architecture: all
 Depends: php (>= 8.1.0), php-date,
  php-tecnickcom-tc-lib-barcode (<< 3.0.0),
- php-tecnickcom-tc-lib-barcode (>= 2.4.34),
+ php-tecnickcom-tc-lib-barcode (>= 2.4.36),
  php-tecnickcom-tc-lib-color (<< 3.0.0),
- php-tecnickcom-tc-lib-color (>= 2.3.14),
+ php-tecnickcom-tc-lib-color (>= 2.4.1),
  php-tecnickcom-tc-lib-file (<< 3.0.0),
- php-tecnickcom-tc-lib-file (>= 2.3.7),
+ php-tecnickcom-tc-lib-file (>= 2.3.9),
  php-tecnickcom-tc-lib-pdf-encrypt (<< 3.0.0),
- php-tecnickcom-tc-lib-pdf-encrypt (>= 2.1.41),
+ php-tecnickcom-tc-lib-pdf-encrypt (>= 2.1.43),
  php-tecnickcom-tc-lib-pdf-font (<< 3.0.0),
- php-tecnickcom-tc-lib-pdf-font (>= 2.6.39),
+ php-tecnickcom-tc-lib-pdf-font (>= 2.6.41),
  php-tecnickcom-tc-lib-pdf-graph (<< 3.0.0),
- php-tecnickcom-tc-lib-pdf-graph (>= 2.4.18),
+ php-tecnickcom-tc-lib-pdf-graph (>= 2.4.20),
  php-tecnickcom-tc-lib-pdf-image (<< 3.0.0),
- php-tecnickcom-tc-lib-pdf-image (>= 2.1.39),
+ php-tecnickcom-tc-lib-pdf-image (>= 2.1.41),
  php-tecnickcom-tc-lib-pdf-page (<< 5.0.0),
- php-tecnickcom-tc-lib-pdf-page (>= 4.3.18),
+ php-tecnickcom-tc-lib-pdf-page (>= 4.3.20),
  php-tecnickcom-tc-lib-unicode (<< 3.0.0),
- php-tecnickcom-tc-lib-unicode (>= 2.0.50),
+ php-tecnickcom-tc-lib-unicode (>= 2.0.52),
  php-tecnickcom-tc-lib-unicode-data (<< 3.0.0),
- php-tecnickcom-tc-lib-unicode-data (>= 2.0.49),
+ php-tecnickcom-tc-lib-unicode-data (>= 2.0.51),
  ${misc:Depends}
 Description: PHP library for PDF document generation
  This package provides tc-lib-pdf, a modular PHP library to compose PDF
