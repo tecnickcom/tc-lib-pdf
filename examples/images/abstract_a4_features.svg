@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="210mm"
+     height="297mm"
+     viewBox="0 0 210 297"
+     version="1.1">
+  <title>Abstract A4 SVG Feature Showcase</title>
+  <desc>Conservative full-page SVG sample for tc-lib-pdf visual inspection.</desc>
+
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="297" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9ecff"/>
+      <stop offset="1" stop-color="#fff0d9"/>
+    </linearGradient>
+    <linearGradient id="band" x1="20" y1="0" x2="190" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9b54"/>
+      <stop offset="1" stop-color="#d6457b"/>
+    </linearGradient>
+    <radialGradient id="disc" cx="148" cy="54" r="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#61b5ff"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="210" height="297" fill="url(#sky)"/>
+  <rect x="8" y="8" width="194" height="281" fill="none" stroke="#18486b" stroke-width="1"/>
+
+  <polygon points="0,108 90,36 210,72 210,130 94,156" fill="#133b63" fill-opacity="0.9"/>
+  <polygon points="0,150 84,124 210,162 210,220 60,208" fill="#2c6aa0" fill-opacity="0.7"/>
+  <polygon points="0,208 58,202 210,236 210,297 0,297" fill="#0f2e4f" fill-opacity="0.88"/>
+
+  <rect x="22" y="30" width="112" height="22" rx="3" ry="3" fill="url(#band)" stroke="#173d60" stroke-width="0.8"/>
+  <line x1="22" y1="64" x2="188" y2="64" stroke="#18486b" stroke-width="1.2" stroke-dasharray="3 2"/>
+  <line x1="22" y1="71" x2="188" y2="71" stroke="#ff7f50" stroke-width="2"/>
+
+  <circle cx="148" cy="54" r="30" fill="url(#disc)" stroke="#ffffff" stroke-width="2"/>
+  <circle cx="148" cy="54" r="12" fill="none" stroke="#18486b" stroke-width="2" stroke-dasharray="2 2"/>
+  <ellipse cx="52" cy="88" rx="24" ry="12" fill="#ffffff" fill-opacity="0.6" stroke="#18486b" stroke-width="1"/>
+
+  <path d="M24,116 C52,92 88,90 122,108 C146,120 170,122 188,114 L188,138 C162,148 136,146 108,134 C78,122 50,122 24,144 Z"
+        fill="#ffffff"
+        fill-opacity="0.75"
+        stroke="#18486b"
+        stroke-width="1.2"/>
+
+  <path d="M26,160 C58,144 96,146 130,166 C152,178 172,180 188,174"
+        fill="none"
+        stroke="#ffd166"
+        stroke-width="4"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+  <polyline points="24,174 48,166 70,182 94,160 122,178 148,156 184,174"
+            fill="none"
+            stroke="#ff8c69"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"/>
+
+  <rect x="28" y="194" width="54" height="54" fill="#f7fbff" stroke="#18486b" stroke-width="1.1" transform="rotate(-8 55 221)"/>
+  <rect x="36" y="204" width="38" height="6" fill="#ff9b54" transform="rotate(-8 55 221)"/>
+  <rect x="36" y="216" width="38" height="6" fill="#d6457b" transform="rotate(-8 55 221)"/>
+  <rect x="36" y="228" width="38" height="6" fill="#6c63ff" transform="rotate(-8 55 221)"/>
+
+  <polygon points="118,196 132,208 120,222 106,210" fill="#ffd166" stroke="#18486b" stroke-width="1"/>
+  <polygon points="138,206 154,220 140,236 124,222" fill="#ff8c69" stroke="#18486b" stroke-width="1"/>
+  <polygon points="160,196 176,210 162,226 146,212" fill="#61b5ff" stroke="#18486b" stroke-width="1"/>
+
+  <text x="24" y="266" font-family="Helvetica" font-size="8" fill="#ffffff">tc-lib-pdf SVG feature study</text>
+  <text x="24" y="278" font-family="Helvetica" font-size="4.8" fill="#d9ecff">rect circle ellipse line polyline polygon path text</text>
+  <text x="24" y="286" font-family="Helvetica" font-size="4.8" fill="#d9ecff">gradients opacity dasharray transforms stroke caps and joins</text>
+</svg>

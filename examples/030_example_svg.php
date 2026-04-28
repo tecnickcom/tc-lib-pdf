@@ -189,6 +189,26 @@ $s4 = $pdf->addSVG($svgdir . '/tux.svg', 105, 88, 90, 109, $page05['height']);
 $pdf->page->addContent($pdf->getSetSVG($s4));
 
 // ---------------------------------------------------------------------------
+// Page 6 — abstract_a4_features.svg (full-page portrait)
+//
+// Dedicated A4 portrait abstract composition that concentrates most SVG
+// features currently supported by this library in one single visual sample.
+// ---------------------------------------------------------------------------
+
+$page06 = $pdf->addPage();
+$pdf->setBookmark('abstract_a4_features.svg', '', 0, -1, 0, 0, 'B', 'orange');
+
+$svg06a = $pdf->addSVG(
+    $svgdir . '/abstract_a4_features.svg',
+    0,
+    0,
+    $page06['width'],
+    $page06['height'],
+    $page06['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG($svg06a));
+
+// ---------------------------------------------------------------------------
 // Output
 // ---------------------------------------------------------------------------
 
