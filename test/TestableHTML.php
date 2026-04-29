@@ -29,6 +29,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         'cellctx' => [
             'originx' => 0.0,
             'originy' => 0.0,
+            'lineoriginx' => 0.0,
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
             'lineadvance' => 0.0,

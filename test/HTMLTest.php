@@ -1064,6 +1064,40 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan($beforePages, $afterPages);
     }
 
+    public function testAddHTMLCellTwelvePointMixedInlineTableDoesNotBreakAfterFirstRow(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $fontfile = (string) \realpath(
+            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json'
+        );
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($page->getPages());
+
+        $html = '<table border="1" cellspacing="3" cellpadding="4">'
+            . '<tr><td align="left"><span>1L</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td></tr>'
+            . '<tr><td align="center"><span>1C</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td></tr>'
+            . '<tr><td align="right"><span>1R</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> <span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> <span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> <span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> <span>Yankee</span> <span>Zulu</span></td></tr>'
+            . '<tr><td align="left"><span>2L</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu.</td></tr>'
+            . '<tr><td align="center"><span>2C</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu.</td></tr>'
+            . '<tr><td align="right"><span>2R</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu.</td></tr>'
+            . '<tr><td align="left"><small>3L small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td></tr>'
+            . '<tr><td align="center"><small>3C small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td></tr>'
+            . '<tr><td align="right"><small>3R small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu</td></tr>'
+            . '</table>';
+
+        $obj->addHTMLCell($html, 20, 10, 180, 0);
+
+        $afterPages = \count($page->getPages());
+
+        $this->assertSame($beforePages, $afterPages);
+    }
+
     public function testAddHTMLCellStyledBlockSpansMultiplePages(): void
     {
         $obj = $this->getTestObject();
@@ -7791,6 +7825,47 @@ class HTMLTest extends TestUtil
         }
     }
 
+    public function testGetHTMLliBulletFallbackShapesAlignToFontBoxWithBaselineInput(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->initFontAndPage($obj);
+
+        $this->setObjectProperty($obj, 'isunicode', false);
+        $this->setObjectProperty($obj, 'rtl', false);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $fontstack */
+        $fontstack = $this->getObjectProperty($obj, 'font');
+        /** @var array<string, mixed> $font */
+        $font = $fontstack->getCurrentFont();
+        $ascent = \is_numeric($font['ascent'] ?? null) ? (float) $font['ascent'] : 0.0;
+        $pageHeightRaw = \is_numeric($page['height'] ?? null) ? (float) $page['height'] : 0.0;
+        $fontHeight = \is_numeric($font['height'] ?? null) ? (float) $font['height'] : 0.0;
+        $fontSizeRaw = \is_numeric($font['usize'] ?? null) ? (float) $font['usize'] : 0.0;
+
+        $baseline = $obj->toUnit($ascent);
+        $pageHeight = $obj->toPoints($pageHeightRaw);
+        $sizePt = $obj->toPoints($fontSizeRaw);
+
+        $discOut = $obj->exposeGetHTMLliBullet(1, 2, 0, $baseline, 'disc');
+        $this->assertMatchesRegularExpression('/\\n-?\\d+\\.\\d+\\s+(-?\\d+\\.\\d+)\\s+m\\n/', $discOut);
+        $this->assertSame(1, \preg_match('/\\n-?\\d+\\.\\d+\\s+(-?\\d+\\.\\d+)\\s+m\\n/', $discOut, $discMatch));
+        $this->assertEqualsWithDelta($pageHeight - ($fontHeight / 2), (float) $discMatch[1], 0.001);
+
+        $circleOut = $obj->exposeGetHTMLliBullet(1, 2, 0, $baseline, 'circle');
+        $this->assertSame(1, \preg_match('/\\n-?\\d+\\.\\d+\\s+(-?\\d+\\.\\d+)\\s+m\\n/', $circleOut, $circleMatch));
+        $this->assertEqualsWithDelta($pageHeight - ($fontHeight / 2), (float) $circleMatch[1], 0.001);
+
+        $squareOut = $obj->exposeGetHTMLliBullet(1, 2, 0, $baseline, 'square');
+        $squarePattern = '/\\n-?\\d+\\.\\d+\\s+(-?\\d+\\.\\d+)\\s+'
+            . '-?\\d+\\.\\d+\\s+-?\\d+\\.\\d+\\s+re\\n/';
+        $this->assertSame(
+            1,
+            \preg_match($squarePattern, $squareOut, $squareMatch),
+        );
+        $squareTop = ($fontHeight - ($sizePt / 2)) / 2;
+        $this->assertEqualsWithDelta($pageHeight - $squareTop, (float) $squareMatch[1], 0.001);
+    }
+
     public function testGetHTMLliBulletRendersSvgImageBullet(): void
     {
         $obj = $this->getInternalTestObject();
@@ -9081,6 +9156,24 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(0, \strlen($result));
     }
 
+    public function testGetHTMLliBulletUsesGraphicFallbackForUnicodeByteFonts(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj); // Loads core Helvetica (byte font)
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        $disc = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'disc');
+        $circle = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'circle');
+        $square = $obj->exposeGetHTMLliBullet(1, 1, 0, 0, 'square');
+
+        $this->assertNotSame('', $disc);
+        $this->assertNotSame('', $circle);
+        $this->assertNotSame('', $square);
+        $this->assertStringNotContainsString('Tj', $disc);
+        $this->assertStringNotContainsString('Tj', $circle);
+        $this->assertStringNotContainsString('Tj', $square);
+    }
+
     #[DataProvider('htmlLiBulletNumericFormatProvider')]
     public function testGetHTMLliBulletNumericFormats(string $type, int $count, string $expectedFragment): void
     {
@@ -9574,6 +9667,36 @@ class HTMLTest extends TestUtil
             . '<img src="' . $src . '" width="4" height="4" />'
             . '<img src="' . $src . '" width="4" height="4" />'
             . '</div>';
+
+        $outCenter = $obj->getHTMLCell($htmlCenter, 0, 0, 40, 20);
+
+        $obj2 = $this->getTestObject();
+        $this->initFontAndPage($obj2);
+        $outLeft = $obj2->getHTMLCell($htmlLeft, 0, 0, 40, 20);
+
+        $this->assertNotSame('', $outCenter);
+        $this->assertNotSame('', $outLeft);
+        $this->assertNotSame($outLeft, $outCenter);
+    }
+
+    public function testGetHTMLCellCentersSingleInlineImageInsideTableCell(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 0, 0, 0);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $htmlCenter = '<table border="1" cellspacing="0" cellpadding="4">'
+            . '<tr><td align="center"><img src="' . $src . '" width="8" height="8" /></td></tr>'
+            . '</table>';
+        $htmlLeft = '<table border="1" cellspacing="0" cellpadding="4">'
+            . '<tr><td align="left"><img src="' . $src . '" width="8" height="8" /></td></tr>'
+            . '</table>';
 
         $outCenter = $obj->getHTMLCell($htmlCenter, 0, 0, 40, 20);
 

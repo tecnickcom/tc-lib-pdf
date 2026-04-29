@@ -171,6 +171,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'cellctx': array{
  *         originx: float,
  *         originy: float,
+ *         lineoriginx: float,
  *         maxwidth: float,
  *         maxheight: float,
  *         lineadvance: float,
@@ -2905,6 +2906,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Whether list bullets should be emitted as Unicode text glyphs.
+     */
+    protected function canUseUnicodeListBulletGlyphs(): bool
+    {
+        return $this->isunicode && !$this->font->isCurrentByteFont();
+    }
+
+    /**
      * Returns the PDF code for an HTML list bullet or ordered list item symbol.
      *
      * @param int    $depth  List nesting level.
@@ -2958,6 +2967,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $font = $this->font->getCurrentFont();
         $size = $font['usize'];
         $lspace = $this->getStringWidth(' '); // width of one space in document units
+        $fontheight = $this->toUnit((float) ($font['height'] ?? 0.0));
+        $fontascent = $this->toUnit((float) ($font['ascent'] ?? 0.0));
+        $fontTop = $posy - $fontascent;
         $txti = '';
 
         switch ($type) {
@@ -2965,7 +2977,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'none':
                 break;
             case 'disc':
-                if ($this->isunicode) {
+                if ($this->canUseUnicodeListBulletGlyphs()) {
                     $txti = "\u{2022}";
                     break;
                 }
@@ -2989,7 +3001,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $result = $this->graph->getStartTransform()
                 . $this->graph->getCircle(
                     $posx,
-                    $posy + $this->toUnit($font['midpoint']),
+                    $fontTop + ($fontheight / 2),
                     $rad,
                     0,
                     360,
@@ -3002,7 +3014,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
                 return $result;
             case 'circle':
-                if ($this->isunicode) {
+                if ($this->canUseUnicodeListBulletGlyphs()) {
                     $txti = "\u{25E6}";
                     break;
                 }
@@ -3026,7 +3038,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $result = $this->graph->getStartTransform()
                 . $this->graph->getCircle(
                     $posx,
-                    $posy + $this->toUnit($font['midpoint']),
+                    $fontTop + ($fontheight / 2),
                     $rad,
                     0,
                     360,
@@ -3039,7 +3051,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
                 return $result;
             case 'square':
-                if ($this->isunicode) {
+                if ($this->canUseUnicodeListBulletGlyphs()) {
                     $txti = "\u{25AA}";
                     break;
                 }
@@ -3063,7 +3075,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $result = $this->graph->getStartTransform()
                 . $this->graph->getBasicRect(
                     $posx,
-                    $posy + (($this->toUnit($font['height']) - $len) / 2),
+                    $fontTop + (($fontheight - $len) / 2),
                     $len,
                     $len,
                     'F',
@@ -3105,8 +3117,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
                 $imgwidth = \floatval($img[2]);
                 $imgheight = \floatval($img[3]);
-                $fontheight = $this->toUnit((float) ($font['height'] ?? 0.0));
-                $fontascent = $this->toUnit((float) ($font['ascent'] ?? 0.0));
                 $imgposy = ($posy - $fontascent) + (($fontheight - $imgheight) / 2);
                 $pageheight = $this->page->getPage()['height'];
                 $result = '';
@@ -3254,6 +3264,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cellctx = [
             'originx' => $posx,
             'originy' => $posy,
+            'lineoriginx' => $posx,
             'maxwidth' => $width,
             'maxheight' => $height,
             'lineadvance' => 0.0,
@@ -3285,6 +3296,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cellctx = [
             'originx' => 0.0,
             'originy' => 0.0,
+            'lineoriginx' => 0.0,
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
             'lineadvance' => 0.0,
@@ -3451,6 +3463,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function estimateHTMLTableRowHeight(array &$hrc, int $trkey): float
     {
+        $callerfont = $this->captureHTMLCallerFontState();
+
+        try {
         /** @var array<int, THTMLAttrib> $dom */
         $dom = &$hrc['dom'];
 
@@ -3556,6 +3571,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $rowheight;
+        } finally {
+            $this->restoreHTMLCallerFontState($callerfont);
+        }
     }
 
     /**
@@ -3567,6 +3585,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function estimateHTMLCellContentHeight(array &$hrc, int $cellkey, float $width): float
     {
+        $callerfont = $this->captureHTMLCallerFontState();
+
+        try {
         /** @var array<int, THTMLAttrib> $dom */
         $dom = &$hrc['dom'];
 
@@ -3581,6 +3602,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lineadvance = $this->getHTMLLineAdvance($hrc, $cellkey);
         $height = 0.0;
+        $inlinewidth = 0.0;
+        $inlineadvance = 0.0;
+        $hasinlinecontent = false;
+
+        $flushInlineLine = static function (
+            float &$height,
+            float &$inlinewidth,
+            float &$inlineadvance,
+            bool &$hasinlinecontent,
+            float $fallbackadvance,
+            bool $forceempty = false,
+        ): void {
+            if ($hasinlinecontent) {
+                $height += ($inlineadvance > 0.0) ? $inlineadvance : $fallbackadvance;
+            } elseif ($forceempty) {
+                $height += $fallbackadvance;
+            }
+
+            $inlinewidth = 0.0;
+            $inlineadvance = 0.0;
+            $hasinlinecontent = false;
+        };
 
         for ($key = ($cellkey + 1); $key < $endkey; ++$key) {
             $elm = $dom[$key];
@@ -3591,17 +3634,70 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                $height += $this->estimateHTMLTextHeight($hrc, $key, $text, $width);
+                $text = $this->normalizeHTMLText($hrc, $text, $key);
+                if ($text === '') {
+                    continue;
+                }
+
+                $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
+                $this->getHTMLFontMetric($hrc, $key);
+                $ordarr = [];
+                $dim = $this->getHTMLDefaultTextDims();
+                $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+
+                $fragmentadvance = $this->getHTMLLineAdvance($hrc, $key);
+                if (($width <= 0.0) || ($ordarr === [])) {
+                    $inlineadvance = \max($inlineadvance, $fragmentadvance);
+                    $hasinlinecontent = true;
+                    continue;
+                }
+
+                $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints($inlinewidth));
+                if ($lines === []) {
+                    continue;
+                }
+
+                $inlineadvance = \max($inlineadvance, $fragmentadvance);
+                $hasinlinecontent = true;
+                if (\count($lines) === 1) {
+                    $inlinewidth += $this->toUnit((float) $lines[0]['totwidth']);
+                    continue;
+                }
+
+                $height += $inlineadvance;
+
+                $lastline = \count($lines) - 1;
+                if ($lastline > 1) {
+                    $height += ($lastline - 1) * $fragmentadvance;
+                }
+
+                $inlinewidth = $this->toUnit((float) $lines[$lastline]['totwidth']);
+                $inlineadvance = $fragmentadvance;
+                $hasinlinecontent = true;
                 continue;
             }
 
             if (!empty($elm['opening'])) {
                 if ($elm['value'] === 'br') {
-                    $height += $lineadvance;
+                    $flushInlineLine(
+                        $height,
+                        $inlinewidth,
+                        $inlineadvance,
+                        $hasinlinecontent,
+                        $lineadvance,
+                        true,
+                    );
                     continue;
                 }
 
                 if ($elm['value'] === 'img') {
+                    $flushInlineLine(
+                        $height,
+                        $inlinewidth,
+                        $inlineadvance,
+                        $hasinlinecontent,
+                        $lineadvance,
+                    );
                     $height += (!empty($elm['height']) && \is_numeric($elm['height']))
                         ? (float) $elm['height']
                         : $lineadvance;
@@ -3609,6 +3705,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
+                    $flushInlineLine(
+                        $height,
+                        $inlinewidth,
+                        $inlineadvance,
+                        $hasinlinecontent,
+                        $lineadvance,
+                    );
                     $height += (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
                 }
 
@@ -3617,15 +3720,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             // Closing tag.
             if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
+                $flushInlineLine(
+                    $height,
+                    $inlinewidth,
+                    $inlineadvance,
+                    $hasinlinecontent,
+                    $lineadvance,
+                );
                 $height += (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
             }
         }
+
+        $flushInlineLine(
+            $height,
+            $inlinewidth,
+            $inlineadvance,
+            $hasinlinecontent,
+            $lineadvance,
+        );
 
         if ($height <= 0.0) {
             $height = $lineadvance;
         }
 
         return $height;
+        } finally {
+            $this->restoreHTMLCallerFontState($callerfont);
+        }
     }
 
     /**
@@ -3671,6 +3792,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function estimateHTMLTextHeight(array &$hrc, int $key, string $text, float $width): float
     {
+        $callerfont = $this->captureHTMLCallerFontState();
+
+        try {
         if (!isset($hrc['dom'][$key])) {
             return 0.0;
         }
@@ -3694,6 +3818,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width));
         return \max($lineadvance, \count($lines) * $lineadvance);
+        } finally {
+            $this->restoreHTMLCallerFontState($callerfont);
+        }
     }
 
     /**
@@ -3703,6 +3830,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function estimateHTMLNobrHeight(array &$hrc, int $startkey, float $width): float
     {
+        $callerfont = $this->captureHTMLCallerFontState();
+
+        try {
         /** @var array<int, THTMLAttrib> $dom */
         $dom = &$hrc['dom'];
 
@@ -3794,6 +3924,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $height;
+        } finally {
+            $this->restoreHTMLCallerFontState($callerfont);
+        }
     }
 
     /**
@@ -4884,6 +5017,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         $tpx = $hrc['cellctx']['originx'];
         $tpw = $hrc['cellctx']['maxwidth'];
+        $hrc['cellctx']['lineoriginx'] = $hrc['cellctx']['originx'];
         $hrc['cellctx']['lineadvance'] = 0.0;
         $hrc['cellctx']['linebottom'] = 0.0;
         $hrc['cellctx']['lineascent'] = 0.0;
@@ -5229,6 +5363,60 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $maxascent;
+    }
+
+    /**
+     * Check whether the given inline node starts a new renderable run on the current line.
+     *
+     * This lets inline alignment logic work even when the line cursor is offset by
+     * container padding/margins (for example, table cell paddings).
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function isHTMLInlineRunFirstRenderableNode(array &$hrc, int $key): bool
+    {
+        if ($key <= 0) {
+            return true;
+        }
+
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = &$hrc['dom'];
+
+        for ($idx = $key - 1; $idx >= 0; --$idx) {
+            $node = $dom[$idx] ?? null;
+            if (!\is_array($node)) {
+                continue;
+            }
+
+            if (!empty($node['tag'])) {
+                $isOpening = !empty($node['opening']);
+                $tagname = (isset($node['value']) && \is_string($node['value']))
+                    ? $node['value']
+                    : '';
+                if ($isOpening && (($tagname === 'br') || !empty($node['block']))) {
+                    return true;
+                }
+
+                if ($isOpening && ($tagname === 'img')) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $text = $this->normalizeHTMLText($hrc, (string) ($node['value'] ?? ''), $idx);
+            if ($text === '') {
+                continue;
+            }
+
+            if ($this->strTrim($text) === '') {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -5842,7 +6030,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         };
 
         // Horizontal alignment: inherit text-align for inline image runs.
-        $lineOriginX = $hrc['cellctx']['originx'];
+        $lineOriginX = $hrc['cellctx']['lineoriginx'];
         $lineOffset = (float) ($tpx - $lineOriginX);
         $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
         $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
@@ -5854,7 +6042,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (
             (($halign === 'C') || ($halign === 'R'))
             && ($availableWidth > 0.0)
-            && ($lineOffset <= self::WIDTH_TOLERANCE)
+            && (
+                ($lineOffset <= self::WIDTH_TOLERANCE)
+                || $this->isHTMLInlineRunFirstRenderableNode($hrc, $key)
+            )
             && ($width <= ($remainingWidth + self::WIDTH_TOLERANCE))
         ) {
             $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $key, $availableWidth);
@@ -7892,7 +8083,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $style = empty($elm['fontstyle']) || !\is_string($elm['fontstyle']) ? '' : $elm['fontstyle'];
         $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
         $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
-        $lineOriginX = $hrc['cellctx']['originx'];
+        $blockOriginX = (float) $hrc['cellctx']['originx'];
+        $lineOriginX = $hrc['cellctx']['lineoriginx'];
+        if ($tpx <= ($blockOriginX + self::WIDTH_TOLERANCE)) {
+            $lineOriginX = $blockOriginX;
+            $hrc['cellctx']['lineoriginx'] = $lineOriginX;
+        }
         $lineOffset = (float) ($tpx - $lineOriginX);
         $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
         $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
@@ -7920,6 +8116,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpw = $availableWidth;
             $lineOffset = 0.0;
             $remainingWidth = $availableWidth;
+            $hrc['cellctx']['lineoriginx'] = $lineOriginX;
             $hrc['cellctx']['textindentapplied'] = true;
         }
 
@@ -8199,11 +8396,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $forcedir,
             $remainingWidth,
         );
+        $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
+            ? (float) $hrc['cellctx']['linebottom']
+            : 0.0;
+        $needDeepLinePrewrap = ($linebottom > ($tpy + $this->getCurrentHTMLLineAdvance($hrc, $currentkey) + self::WIDTH_TOLERANCE));
         if (
             ($lineOffset > self::WIDTH_TOLERANCE)
             && (\trim($text) !== '')
             && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
             && (
+                $needDeepLinePrewrap
+                ||
                 !$this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
                 || (
                     ($fragmentWidth <= ($availableWidth + self::WIDTH_TOLERANCE))
@@ -8211,9 +8414,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 )
             )
         ) {
-            $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
-                ? (float) $hrc['cellctx']['linebottom']
-                : 0.0;
             $tpy = \max(
                 $tpy + $this->getCurrentHTMLLineAdvance($hrc, $currentkey),
                 $linebottom,
@@ -8221,7 +8421,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
             $remainingWidth = $tpw;
-            $lineOriginX = $hrc['cellctx']['originx'];
+            $lineOriginX = $hrc['cellctx']['lineoriginx'];
             $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
 
             // Collapsible spaces must still be removed when we pre-wrap a fragment.
@@ -9491,6 +9691,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $hrc['cellctx']['originx'] = $tpx;
             $hrc['cellctx']['maxwidth'] = $tpw;
+            $hrc['cellctx']['lineoriginx'] = $tpx;
         }
 
         return $out;
