@@ -14,6 +14,28 @@ If this library saves you time, please consider [supporting its development via 
 
 ---
 
+## Contents
+
+- [Overview](#overview)
+- [Description](#description)
+- [For TCPDF Users](#for-tcpdf-users)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Font Setup](#font-setup)
+- [Quick Start](#quick-start)
+- [Digital Signatures](#digital-signatures)
+- [PDF/X Conformance](#pdfx-conformance)
+- [PDF/UA Accessibility](#pdfua-accessibility)
+- [Development](#development)
+- [Packaging](#packaging)
+- [Contributing](#contributing)
+- [Third-Party Fonts](#third-party-fonts)
+- [ICC Profile](#icc-profile)
+- [Contact](#contact)
+
+---
+
 ## Overview
 
 `tc-lib-pdf` is a pure-PHP library for dynamically generating PDF documents.  
@@ -47,6 +69,16 @@ For teams already familiar with TCPDF, this project offers a more modular founda
 The library is particularly well suited to backend-driven document workflows such as invoices, shipping labels, statements, certificates, reports, and archived business records. Instead of treating PDF generation as an opaque export step, `tc-lib-pdf` exposes the document model in a way that lets developers compose pages programmatically, integrate with existing application data, and keep output logic versioned alongside the rest of the codebase.
 
 Because it is part of the broader `tc-lib-*` ecosystem, `tc-lib-pdf` can coordinate fonts, images, page geometry, graphics primitives, and optional features such as barcodes and encryption through dedicated companion packages. That modular design makes the project easier to evolve over time while still delivering the all-in-one capabilities PHP developers expect from a serious PDF engine.
+
+## For TCPDF Users
+
+If you already know TCPDF, `tc-lib-pdf` will feel familiar in purpose but it is not positioned as a drop-in replacement.
+
+- The codebase is split across focused Composer packages instead of a single monolithic distribution.
+- The API surface is more strongly typed and organized around companion services such as fonts, pages, graphics, and images.
+- Setup is Composer-first, which means asset preparation such as font generation is part of project bootstrap rather than an implicit bundled step.
+
+The fastest way to evaluate the library is to follow the installation and font setup steps below, then compare the runnable examples in [examples/index.md](examples/index.md) with the equivalent workflows you already maintain in TCPDF.
 
 ## Features
 
@@ -104,13 +136,25 @@ Because it is part of the broader `tc-lib-*` ecosystem, `tc-lib-pdf` can coordin
 ## Requirements
 
 - **PHP 8.1** or later
+- Required PHP extensions: `date`, `pcre` (enforced by Composer)
 - Composer
 
 Optional PHP extensions for extended functionality: `gd`, `zlib`.
 
+Feature-specific prerequisites:
+
+- Digital signatures, timestamps, and LTV workflows require signing certificates/keys and any external TSA or revocation endpoints your configuration references.
+- `make preflight` depends on external validation tools when you want standards validation beyond the built-in sample generation.
+
 ---
 
 ## Installation
+
+For a clean first run:
+
+1. Install the package with Composer.
+2. Generate the companion font files.
+3. Run the minimal script using the generated `K_PATH_FONTS` path.
 
 ```bash
 composer require tecnickcom/tc-lib-pdf
@@ -132,7 +176,7 @@ Or add to your `composer.json`:
 
 When you install `tc-lib-pdf` as a dependency in your project (via `composer require` or `composer install`), the fonts from the companion package [`tc-lib-pdf-font`](https://github.com/tecnickcom/tc-lib-pdf-font) must be generated before they can be used.
 
-Since Composer does not execute dependency scripts during installation, you need to add the font generation step to your **consuming project's** `composer.json` file:
+Composer does not execute scripts declared by dependencies, so you need to add the font generation step to your **consuming project's** `composer.json` file:
 
 ```json
 {
@@ -185,12 +229,14 @@ This avoids regenerating fonts on every dependency reinstall and lets multiple d
 
 ## Quick Start
 
+The following example assumes the script lives in your project root. If you place it elsewhere, adjust the `autoload.php` and `K_PATH_FONTS` paths accordingly.
+
 ```php
 <?php
 
-require(__DIR__ . '/../vendor/autoload.php');
+require(__DIR__ . '/vendor/autoload.php');
 
-\define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
+\define('K_PATH_FONTS', \realpath(__DIR__ . '/vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf();
 
@@ -209,8 +255,10 @@ $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);
 ```
 
+`getOutPDFString()` returns the raw PDF bytes. `renderPDF()` streams those bytes to the browser; if you need file storage or an email attachment, keep the returned string and write or hand it off yourself.
+
 For more complete examples — including invoices, images, barcodes, HTML tables, dedicated HTML selector/form/table showcases, PDF/X, and PDF/UA — see the [examples](examples) directory.
-Annotation-focused runnable example: [examples/027_example_annotations.php](examples/027_example_annotations.php).
+Annotation-focused runnable example: [examples/E027_annotations.php](examples/E027_annotations.php).
 
 To run the bundled examples locally:
 
@@ -221,6 +269,11 @@ make server  # start a local PHP server
 
 Then open <http://localhost:8971/index.php>.
 
+If the minimal example fails on first run, verify these two points first:
+
+- `K_PATH_FONTS` resolves to an existing generated font directory.
+- The companion fonts were generated after `composer install` or `composer update`.
+
 ---
 
 ## Digital Signatures
@@ -229,9 +282,9 @@ Then open <http://localhost:8971/index.php>.
 
 Signature-focused runnable examples:
 
-- [examples/007_example_signature_basic.php](examples/007_example_signature_basic.php) : basic detached CMS signature with visible signature fields.
-- [examples/008_example_signature_timestamp.php](examples/008_example_signature_timestamp.php) : detached CMS signature with RFC 3161 TSA timestamp configuration.
-- [examples/009_example_signature_ltv.php](examples/009_example_signature_ltv.php) : detached CMS signature with LTV validation material embedding.
+- [examples/E007_signature_basic.php](examples/E007_signature_basic.php) : basic detached CMS signature with visible signature fields.
+- [examples/E008_signature_timestamp.php](examples/E008_signature_timestamp.php) : detached CMS signature with RFC 3161 TSA timestamp configuration.
+- [examples/E009_signature_ltv.php](examples/E009_signature_ltv.php) : detached CMS signature with LTV validation material embedding.
 
 ### Basic signature
 
@@ -328,7 +381,7 @@ Each variant automatically applies the appropriate conformance constraints:
 
 All PDF/X modes suppress encryption and JavaScript (not permitted by the ISO 15930 standard).
 
-Runnable examples: [examples/010_example_pdfx.php](examples/010_example_pdfx.php) through [examples/014_example_pdfx5.php](examples/014_example_pdfx5.php).
+Runnable examples: [examples/E010_pdfx.php](examples/E010_pdfx.php) through [examples/E014_pdfx5.php](examples/E014_pdfx5.php).
 
 ---
 
@@ -362,7 +415,7 @@ To provide the document language explicitly:
 $pdf->setDocInfo(['a_meta_language' => 'de-DE']);
 ```
 
-Runnable examples: [examples/015_example_pdfua.php](examples/015_example_pdfua.php) through [examples/017_example_pdfua2.php](examples/017_example_pdfua2.php).
+Runnable examples: [examples/E015_pdfua.php](examples/E015_pdfua.php) through [examples/E017_pdfua2.php](examples/E017_pdfua2.php).
 
 ---
 

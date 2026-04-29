@@ -1,35 +1,49 @@
 # tc-lib-pdf Examples
 
-- [000_example_overview.php](000_example_overview.php) : Generic overview demonstrating a wide range of tc-lib-pdf features.
-- [001_example_invoice.php](001_example_invoice.php) : Invoice example with custom XMP metadata (Factur-X / ZUGFeRD).
-- [002_example_font_dump.php](002_example_font_dump.php) : Font dump example.
-- [003_example_persian_arabic.php](003_example_persian_arabic.php) : Persian and Arabic text example.
-- [004_example_page_formats.php](004_example_page_formats.php) : Page formats example.
-- [005_example_header_footer.php](005_example_header_footer.php) : Custom page header and footer that automatically repeats on every new page.
-- [006_example_minimal.php](006_example_minimal.php) : Minimal example.
-- [007_example_signature_basic.php](007_example_signature_basic.php) : Basic detached CMS (PKCS#7) signature with visible signature fields.
-- [008_example_signature_timestamp.php](008_example_signature_timestamp.php) : Detached CMS signature with RFC 3161 TSA timestamp configuration.
-- [009_example_signature_ltv.php](009_example_signature_ltv.php) : Detached CMS signature with LTV validation material embedding (/DSS and /VRI).
-- [010_example_pdfx.php](010_example_pdfx.php) : Generic PDF/X example showing the baseline print-oriented PDF/X workflow (`pdfx`).
-- [011_example_pdfx1a.php](011_example_pdfx1a.php) : PDF/X-1a example highlighting CMYK-and-spot print restrictions and legacy press-safe output (`pdfx1a`).
-- [012_example_pdfx3.php](012_example_pdfx3.php) : PDF/X-3 example highlighting color-managed print exchange with early PDF/X restrictions (`pdfx3`).
-- [013_example_pdfx4.php](013_example_pdfx4.php) : PDF/X-4 example highlighting modern color-managed print output with live transparency (`pdfx4`).
-- [014_example_pdfx5.php](014_example_pdfx5.php) : PDF/X-5 example highlighting advanced print workflows built on the PDF/X-4 family (`pdfx5`).
-- [015_example_pdfua.php](015_example_pdfua.php) : Generic PDF/UA example showing the baseline accessible tagged-PDF workflow (`pdfua`).
-- [016_example_pdfua1.php](016_example_pdfua1.php) : PDF/UA-1 example highlighting PDF 1.7 accessibility semantics and tagged structure output (`pdfua1`).
-- [017_example_pdfua2.php](017_example_pdfua2.php) : PDF/UA-2 example highlighting PDF 2.0 accessibility semantics and updated identification metadata (`pdfua2`).
-- [018_example_html_page_span.php](018_example_html_page_span.php) : HTML page-break functionality.
-- [019_example_page_regions.php](019_example_page_regions.php) : Two-column page regions with text that automatically flows across page boundaries.
-- [020_example_barcodes.php](020_example_barcodes.php) : Catalog of all available barcode types with standards, usage notes, and rendered samples.
-- [021_example_font_stretch_spacing.php](021_example_font_stretch_spacing.php) : Demonstrates font stretching, scaling-to-fit, and character spacing behaviors.
-- [022_example_cell_borders.php](022_example_cell_borders.php) : Demonstrates basic and advanced Cell border rendering options.
-- [023_example_cell_alignment.php](023_example_cell_alignment.php) : Demonstrates Cell vertical alignment options and row anchor positions.
-- [024_example_colors.php](024_example_colors.php) : Ports TCPDF examples 022 and 037, demonstrating CMYK/RGB/grayscale and spot color rendering.
-- [025_example_transparency.php](025_example_transparency.php) : Ports TCPDF example 025, demonstrating object transparency with overlapping shapes and an image.
-- [026_example_text_rendering_modes.php](026_example_text_rendering_modes.php) : Ports TCPDF example 026, demonstrating fill/stroke text rendering modes and text clipping with an image.
-- [027_example_annotations.php](027_example_annotations.php) : Comprehensive annotation matrix demonstrating all currently supported annotation subtypes.
-- [028_example_text_hyphenation.php](028_example_text_hyphenation.php) : Ports TCPDF example 046, demonstrating soft-hyphen-based text hyphenation in a narrow justified HTML column.
-- [029_example_xobject_template.php](029_example_xobject_template.php) : Ports TCPDF example 062, demonstrating reusable Form XObject templates with clipping and transparency.
-- [030_example_svg.php](030_example_svg.php) : Dedicated SVG rendering example exercising all bundled SVG images.
-- [031_example_html_features.php](031_example_html_features.php) : Dedicated HTML showcase covering implemented selectors/combinators plus table-structure and form-behavior slices from the HTML backlog.
-- [032_example_html_lists.php](032_example_html_lists.php) : Visual tracker for currently supported HTML list-item CSS variations across ordered and unordered lists.
+This index lists all runnable examples bundled with tc-lib-pdf, from foundational PDF generation to advanced features such as digital signatures, conformance modes (PDF/X and PDF/UA), HTML rendering, graphics, forms, and table-of-contents generation. Use it as a quick map to pick the closest starting point for your use case.
+
+- [E000_overview.php](E000_overview.php): General feature overview with text, graphics, HTML, SVG, images, barcodes, transparency, gradients, annotations, and bookmarks.
+- [E001_invoice.php](E001_invoice.php): Invoice layout example with embedded Factur-X / ZUGFeRD metadata.
+- [E002_font_dump.php](E002_font_dump.php): Font inspection and glyph dump example.
+- [E003_persian_arabic.php](E003_persian_arabic.php): RTL text rendering example for Persian and Arabic scripts.
+- [E004_page_formats.php](E004_page_formats.php): Page format and orientation samples.
+- [E005_header_footer.php](E005_header_footer.php): Repeating custom page header and footer example.
+- [E006_minimal.php](E006_minimal.php): Minimal "Hello, PDF" setup.
+- [E007_signature_basic.php](E007_signature_basic.php): Basic detached CMS (PKCS#7) digital signature with visible signature fields.
+- [E008_signature_timestamp.php](E008_signature_timestamp.php): Detached CMS digital signature with RFC 3161 timestamp support.
+- [E009_signature_ltv.php](E009_signature_ltv.php): Detached CMS digital signature with LTV validation material (/DSS and /VRI).
+- [E010_pdfx.php](E010_pdfx.php): Generic PDF/X mode example for baseline print-oriented output.
+- [E011_pdfx1a.php](E011_pdfx1a.php): PDF/X-1a conformance example focused on classic CMYK/spot print restrictions.
+- [E012_pdfx3.php](E012_pdfx3.php): PDF/X-3 conformance example for color-managed print workflows.
+- [E013_pdfx4.php](E013_pdfx4.php): PDF/X-4 conformance example with modern transparency-capable print output.
+- [E014_pdfx5.php](E014_pdfx5.php): PDF/X-5 conformance example for advanced PDF/X-4 family workflows.
+- [E015_pdfua.php](E015_pdfua.php): Generic PDF/UA mode example for accessible tagged PDF output.
+- [E016_pdfua1.php](E016_pdfua1.php): PDF/UA-1 conformance example.
+- [E017_pdfua2.php](E017_pdfua2.php): PDF/UA-2 conformance example.
+- [E018_html_page_span.php](E018_html_page_span.php): HTML page-break behavior example.
+- [E019_page_regions.php](E019_page_regions.php): Multi-column page regions with content flowing across pages.
+- [E020_barcodes.php](E020_barcodes.php): Barcode catalog covering supported 1D and 2D barcode types.
+- [E021_font_stretch_spacing.php](E021_font_stretch_spacing.php): Text spacing controls with font stretching and character spacing.
+- [E022_cell_borders.php](E022_cell_borders.php): Cell border rendering styles and combinations.
+- [E023_cell_alignment.php](E023_cell_alignment.php): Cell vertical and horizontal alignment behavior.
+- [E024_colors.php](E024_colors.php): Color model showcase (grayscale, RGB, CMYK, spot, and Lab) applied to text and graphics.
+- [E025_transparency.php](E025_transparency.php): Transparency and alpha blending example with overlapping objects.
+- [E026_text_rendering_modes.php](E026_text_rendering_modes.php): PDF text rendering modes (fill, stroke, clip, and combinations).
+- [E027_annotations.php](E027_annotations.php): Annotation matrix showing currently supported annotation subtypes.
+- [E028_text_hyphenation.php](E028_text_hyphenation.php): Hyphenation behavior in justified HTML text.
+- [E029_xobject_template.php](E029_xobject_template.php): Reusable Form XObject template example with clipping and transparency.
+- [E030_svg.php](E030_svg.php): SVG rendering showcase using bundled SVG samples.
+- [E031_html_features.php](E031_html_features.php): HTML and CSS feature showcase for currently implemented parsing and layout support.
+- [E032_html_lists.php](E032_html_lists.php): Supported HTML list-style and list-item CSS variations.
+- [E033_geometric_transformations.php](E033_geometric_transformations.php): Geometric transforms including scaling, translation, rotation, skewing, mirroring, and reflection.
+- [E034_color_gradient_mesh.php](E034_color_gradient_mesh.php): Linear/radial gradients and Coons patch mesh gradients.
+- [E035_registration_marks.php](E035_registration_marks.php): Crop marks, registration marks, and print color registration bars (including spot colors).
+- [E036_graphic_methods.php](E036_graphic_methods.php): Drawing primitives showcase (lines, curves, polygons, ellipses, sectors, arrows, and rounded shapes).
+- [E037_image_methods.php](E037_image_methods.php): Image placement methods for JPEG/PNG variants, color spaces, ICC profiles, and alpha.
+- [E038_image_clipping.php](E038_image_clipping.php): Image clipping with a custom path mask.
+- [E039_text_methods.php](E039_text_methods.php): Text APIs for lines, cells, links, spacing, and border positioning.
+- [E040_annotation_form.php](E040_annotation_form.php): Interactive AcroForm fields (text, radio, checkbox, list/combo, buttons) and JavaScript actions.
+- [E041_layers_visibility.php](E041_layers_visibility.php): Optional Content Group (layer) visibility for screen-only and print-only content.
+- [E042_html_form.php](E042_html_form.php): XHTML form-to-PDF mapping example for inputs, selects, textarea, and actions.
+- [E043_html_tables.php](E043_html_tables.php): HTML table layout showcase including colspan/rowspan, nested tables, and CSS styling.
+- [E044_toc_index.php](E044_toc_index.php): Bookmark outline example with generated table of contents via addTOC.
