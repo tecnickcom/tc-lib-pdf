@@ -41,6 +41,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type TSignature from Output
  * @phpstan-import-type TSignTimeStamp from Output
  * @phpstan-import-type TUserRights from Output
+ * @phpstan-import-type TFileOptions from \Com\Tecnick\Pdf\ClassObjects
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
@@ -49,13 +50,34 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     /**
      * Initialize a new PDF object.
      *
-     * @param string      $unit       Unit of measure ('pt', 'mm', 'cm', 'in').
-     * @param bool        $isunicode  True if the document is in Unicode mode.
-     * @param bool        $subsetfont If true subset the embedded fonts to remove the unused characters.
-     * @param bool        $compress   Set to false to disable stream compression.
-     * @param string      $mode       PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx", "pdfx1a", "pdfx3",
-     *                                "pdfx4", "pdfx5", "pdfua", "pdfua1", "pdfua2" or empty.
-     * @param ?ObjEncrypt $objEncrypt Encryption object.
+     * @param string      $unit        Unit of measure ('pt', 'mm', 'cm', 'in').
+     * @param bool        $isunicode   True if the document is in Unicode mode.
+     * @param bool        $subsetfont  If true subset the embedded fonts to remove the unused characters.
+     * @param bool        $compress    Set to false to disable stream compression.
+     * @param string      $mode        PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx", "pdfx1a", "pdfx3",
+     *                                 "pdfx4", "pdfx5", "pdfua", "pdfua1", "pdfua2" or empty.
+     * @param ?ObjEncrypt $objEncrypt  Encryption object.
+     * @param TFileOptions|null $fileOptions Optional configuration for the shared file helper used
+     *                                       to load external resources (images, fonts, SVG, etc.).
+     *                                       Supported keys:
+     *                                       - allowedHosts (string[]): Whitelist of host names that
+     *                                         the library is allowed to fetch over HTTP/HTTPS. For
+     *                                         security reasons remote URL loading is DISABLED by
+     *                                         default; you MUST populate this list (for example
+     *                                         ['example.com', 'cdn.example.com']) to enable any
+     *                                         remote download. Local file paths are not affected.
+     *                                       - maxRemoteSize (int): Maximum size in bytes accepted
+     *                                         for a remote download (default 52428800 = 50 MiB).
+     *                                       - curlopts (array<int,bool|int|string>): Per-request
+     *                                         cURL options merged on top of the defaults (keys are
+     *                                         CURLOPT_* constants).
+     *                                       - defaultCurlOpts (array<int,bool|int|string>):
+     *                                         Replaces the built-in default cURL options. Use with
+     *                                         care; omit to keep the safe defaults.
+     *                                       - fixedCurlOpts (array<int,bool|int|string>): cURL
+     *                                         options that are always enforced and cannot be
+     *                                         overridden by curlopts (for example to pin TLS
+     *                                         settings).
      */
     public function __construct(
         string $unit = 'mm',
@@ -63,13 +85,21 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         bool $subsetfont = false,
         bool $compress = true,
         string $mode = '',
-        ?ObjEncrypt $objEncrypt = null
+        ?ObjEncrypt $objEncrypt = null,
+        ?array $fileOptions = null
     ) {
         $this->setDecimalSeparator();
         $this->doctime = \time();
         $this->docmodtime = $this->doctime;
         $seed = new \Com\Tecnick\Pdf\Encrypt\Type\Seed();
         $this->fileid = \md5($seed->encrypt('TCPDF'));
+        if ($objEncrypt instanceof ObjEncrypt) {
+            $enc = $objEncrypt->getEncryptionData();
+            if (! empty($enc['encrypted']) && ! empty($enc['fileid'])) {
+                // Keep trailer ID aligned with encryption key derivation input.
+                $this->fileid = $objEncrypt->convertStringToHexString($enc['fileid']);
+            }
+        }
         $this->setPDFFilename($this->fileid . '.pdf');
         $this->unit = $unit;
         $this->setUnicodeMode($isunicode);
@@ -77,7 +107,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->setPDFMode($mode);
         $this->setCompressMode($compress);
         $this->setPDFVersion();
-        $this->initClassObjects($objEncrypt);
+        $this->initClassObjects($objEncrypt, $fileOptions);
     }
 
     /**

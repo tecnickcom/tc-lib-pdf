@@ -350,6 +350,19 @@ $pdf->addHTMLCell(
 
 // ----------
 
+// HTML E-L
+
+$html_05L = '<p>Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo. Lima Mike November Oscar Papa Quebec Romeo (<em>Sierra-Tango</em>) Uniform Victor Whiskey (<em>Xray-Yankee</em>). Zulu. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo. Lima Mike November Oscar Papa Quebec Romeo (<em>Sierra-Tango</em>) Uniform Victor Whiskey (<em>Xray-Yankee</em>). Zulu. Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo. Lima Mike November Oscar Papa Quebec Romeo (<em>Sierra-Tango</em>) Uniform Victor Whiskey (<em>Xray-Yankee</em>). Zulu.</p>';
+
+$pdf->addHTMLCell(
+    $html_05L,
+    20,
+    100,
+    180,
+);
+
+// ----------
+
 // HTML E-B
 
 $pageV05B = $pdf->addPage();

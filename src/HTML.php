@@ -5545,6 +5545,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if (!(bool) \preg_match('/^\s/u', $text)) {
+            // The text begins with non-whitespace content (typically punctuation
+            // such as ")" or "." that is glued to the previous inline fragment
+            // on the same line). Allow it to remain on the current line if its
+            // leading non-space chunk fits within the remaining width, so that
+            // a closing parenthesis after an inline element does not get force-
+            // wrapped to a fresh line.
+            $leadMatches = [];
+            if (\preg_match('/^\S+/u', $text, $leadMatches) === 1) {
+                $lead = $leadMatches[0];
+                if ($this->getStringWidth($lead) <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
+                    return true;
+                }
+            }
+
             return false;
         }
 
@@ -8449,7 +8463,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && (\trim($text) !== '')
             && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
             && (
-                $needDeepLinePrewrap
+                ($needDeepLinePrewrap && !$keepChunkOnLine)
                 ||
                 !$this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
                 || (
@@ -8798,8 +8812,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($wrapped) {
+            // Re-anchor the line cursor to the last visual line produced by the
+            // multi-line getTextCell render, so that immediately following inline
+            // content (for example "(" + <em>...</em>) keeps flowing on the same
+            // last line instead of being pushed to a fresh empty line.
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-            $tpy = $bbox['y'] + $bbox['h'];
+            $tpy = (float) $bbox['y'];
+            $tpx = (float) $bbox['x'] + (float) $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
+            if ($effectiveWordSpacing > 0.0) {
+                $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
+                    $text,
+                    $forcedir,
+                    \max(0.0, $renderWidth - $renderOffset),
+                );
+                if ($fragmentSpaces > 0) {
+                    $tpx += $effectiveWordSpacing * $fragmentSpaces;
+                }
+            }
+            $this->updateHTMLLineAdvance($hrc, $lineAdvance);
+            $hrc['cellctx']['linebottom'] = (float) $bbox['y'] + (float) $bbox['h'];
+            if ($hrc['cellctx']['maxwidth'] > 0) {
+                $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
+            }
             $hrc['cellctx']['linewrapped'] = true;
             return $background . $out;
         }

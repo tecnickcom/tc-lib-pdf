@@ -86,6 +86,64 @@ class TcpdfTest extends TestUtil
         $this->assertSame('i', $regexp['m']);
     }
 
+    public function testConstructorAlignsFileIdWithInjectedEncryptionObject(): void
+    {
+        $fileid = \md5('tcpdf-encryption-fileid');
+        $enc = new \Com\Tecnick\Pdf\Encrypt\Encrypt(
+            true,
+            $fileid,
+            2,
+            ['modify', 'copy'],
+            'demo-user',
+            'demo-owner'
+        );
+
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', $enc);
+
+        $this->assertSame($fileid, $this->getObjectProperty($obj, 'fileid'));
+    }
+
+    public function testConstructorPassesFileOptionsToSharedFileHelper(): void
+    {
+        $defaultCurlOpts = [
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_USERAGENT => 'tc-lib-pdf-test',
+        ];
+        $fixedCurlOpts = [
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ];
+        $allowedHosts = ['localhost', 'example.test'];
+
+        $obj = new \Com\Tecnick\Pdf\Tcpdf(
+            'mm',
+            true,
+            false,
+            true,
+            '',
+            null,
+            [
+                'defaultCurlOpts' => $defaultCurlOpts,
+                'fixedCurlOpts' => $fixedCurlOpts,
+                'allowedHosts' => $allowedHosts,
+            ]
+        );
+
+        /** @var \Com\Tecnick\File\File $file */
+        $file = $this->getObjectProperty($obj, 'file');
+        /** @var \Com\Tecnick\Pdf\Image\Import $image */
+        $image = $this->getObjectProperty($obj, 'image');
+        /** @var \Com\Tecnick\File\File $imageFile */
+        $imageFile = $this->getObjectProperty($image, 'file');
+
+        $this->assertSame($allowedHosts, $this->getObjectProperty($file, 'allowedHosts'));
+        $this->assertSame($defaultCurlOpts, $this->getObjectProperty($file, 'defaultCurlOpts'));
+        $this->assertSame($fixedCurlOpts, $this->getObjectProperty($file, 'fixedCurlOpts'));
+        $this->assertSame($allowedHosts, $this->getObjectProperty($imageFile, 'allowedHosts'));
+        $this->assertSame($defaultCurlOpts, $this->getObjectProperty($imageFile, 'defaultCurlOpts'));
+        $this->assertSame($fixedCurlOpts, $this->getObjectProperty($imageFile, 'fixedCurlOpts'));
+    }
+
     #[DataProvider('displayModeFixtureProvider')]
     public function testSetDisplayModeStoresExpectedZoom(string|int $inputZoom, string|int $expectedZoom): void
     {

@@ -19,6 +19,7 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Unicode\Bidi;
 use Com\Tecnick\Unicode\Data\Type as UnicodeType;
+use Com\Tecnick\Unicode\Substitution;
 
 /**
  * Com\Tecnick\Pdf\Text
@@ -1609,8 +1610,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function replaceUnicodeChars(array $ordarr): array
     {
-        // @TODO
-        return $ordarr;
+        return (new Substitution())->replaceChars($ordarr);
     }
 
     // ===| HYPENATION |====================================================

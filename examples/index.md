@@ -47,3 +47,4 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E042_html_form.php](E042_html_form.php): XHTML form-to-PDF mapping example for inputs, selects, textarea, and actions.
 - [E043_html_tables.php](E043_html_tables.php): HTML table layout showcase including colspan/rowspan, nested tables, and CSS styling.
 - [E044_toc_index.php](E044_toc_index.php): Bookmark outline example with generated table of contents via addTOC.
+- [E045_encryption_and_permissions.php](E045_encryption_and_permissions.php): PDF encryption and permission controls with user and owner passwords.

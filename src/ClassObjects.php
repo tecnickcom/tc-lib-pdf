@@ -41,6 +41,14 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
+ * @phpstan-type TFileOptions array{
+ *   allowedHosts?: array<string>,
+ *   maxRemoteSize?: int,
+ *   curlopts?: array<int, bool|int|string>,
+ *   defaultCurlOpts?: array<int, bool|int|string>,
+ *   fixedCurlOpts?: array<int, bool|int|string>
+ * }
+ *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
 abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
@@ -48,10 +56,32 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
    /**
     * Initialize dependencies class objects.
     *
-    * @param ?ObjEncrypt $objEncrypt Encryption object.
+    * @param ?ObjEncrypt $objEncrypt  Encryption object.
+    * @param TFileOptions|null $fileOptions Optional configuration for the shared file helper used
+    *                                       to load external resources (images, fonts, SVG, etc.).
+    *                                       Supported keys:
+    *                                       - allowedHosts (string[]): Whitelist of host names that
+    *                                         the library is allowed to fetch over HTTP/HTTPS. For
+    *                                         security reasons remote URL loading is DISABLED by
+    *                                         default; you MUST populate this list (for example
+    *                                         ['example.com', 'cdn.example.com']) to enable any
+    *                                         remote download. Local file paths are not affected.
+    *                                       - maxRemoteSize (int): Maximum size in bytes accepted
+    *                                         for a remote download (default 52428800 = 50 MiB).
+    *                                       - curlopts (array<int,bool|int|string>): Per-request
+    *                                         cURL options merged on top of the defaults (keys are
+    *                                         CURLOPT_* constants).
+    *                                       - defaultCurlOpts (array<int,bool|int|string>):
+    *                                         Replaces the built-in default cURL options. Use with
+    *                                         care; omit to keep the safe defaults.
+    *                                       - fixedCurlOpts (array<int,bool|int|string>): cURL
+    *                                         options that are always enforced and cannot be
+    *                                         overridden by curlopts (for example to pin TLS
+    *                                         settings).
     */
     public function initClassObjects(
-        ?ObjEncrypt $objEncrypt = null
+        ?ObjEncrypt $objEncrypt = null,
+        ?array $fileOptions = null
     ): void {
         if ($objEncrypt instanceof ObjEncrypt) {
             $this->encrypt = $objEncrypt;
@@ -62,7 +92,13 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
         $this->color = new ObjPdfColor();
         $this->color->setForceDeviceCmyk($this->requiresPdfxDeviceCmyk());
         $this->barcode = new ObjBarcode();
-        $this->file = new ObjFile();
+        $this->file = new ObjFile(
+            $fileOptions['allowedHosts'] ?? [],
+            $fileOptions['maxRemoteSize'] ?? 52428800,
+            $fileOptions['curlopts'] ?? [],
+            $fileOptions['defaultCurlOpts'] ?? null,
+            $fileOptions['fixedCurlOpts'] ?? null,
+        );
         $this->cache = new ObjCache();
         $this->uniconv = new ObjUniConvert();
 
@@ -95,6 +131,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
             $this->subsetfont,
             $this->isunicode,
             $pdfamode,
+            $fileOptions,
         );
 
         $this->image = new ObjImage(
@@ -102,6 +139,7 @@ abstract class ClassObjects extends \Com\Tecnick\Pdf\Output
             $this->encrypt,
             $pdfamode,
             $this->compress,
+            $fileOptions,
         );
     }
 }

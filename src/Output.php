@@ -4027,9 +4027,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function writePreparedDocumentForSignature(string $pdfdoc): string
     {
         $tempdoc = $this->cache->getNewFileName('doc', $this->fileid);
-        if ($tempdoc === false) {
-            throw new PdfException('Unable to create temporary document file for signature');
-        }
 
         $handle = $this->file->fopenLocal($tempdoc, 'wb');
         \fwrite($handle, $pdfdoc);
@@ -4046,9 +4043,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function createPkcs7SignatureFile(string $tempdoc): string
     {
         $tempsign = $this->cache->getNewFileName('sig', $this->fileid);
-        if ($tempsign === false) {
-            throw new PdfException('Unable to create temporary signature file');
-        }
 
         $signed = \openssl_pkcs7_sign(
             $tempdoc,

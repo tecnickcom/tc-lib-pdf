@@ -1814,6 +1814,145 @@ class HTMLTest extends TestUtil
         ];
     }
 
+    public function testGetHTMLCellContinuesInlineEmAfterMultiLineWrappedTextOnSameLine(): void
+    {
+        // Regression: a long plain-text fragment that internally wraps to a new
+        // visual line must not push the immediately following inline content
+        // (here "(<em>Sierra-Tango</em>)") onto a third line. The "(" already
+        // landed on the second line and "Sierra-Tango" must continue right
+        // after it, keeping the whole paragraph on two lines.
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<p>Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo. '
+            . 'Lima Mike November Oscar Papa Quebec Romeo (<em>Sierra-Tango</em>) Uniform Victor '
+            . 'Whiskey (<em>Xray-Yankee</em>). Zulu.</p>';
+
+        $obj->exposeResetBBoxTrace();
+        $obj->getHTMLCell($html, 20, 100, 180, 0);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $sierraIdx = null;
+        $xrayIdx = null;
+        foreach ($trace as $idx => $entry) {
+            $txt = (string) $entry['txt'];
+            if (($sierraIdx === null) && \str_contains($txt, 'Sierra-Tango')) {
+                $sierraIdx = $idx;
+            }
+
+            if (($xrayIdx === null) && \str_contains($txt, 'Xray-Yankee')) {
+                $xrayIdx = $idx;
+            }
+        }
+
+        $this->assertNotNull($sierraIdx, 'Sierra-Tango fragment must be present in the trace');
+        $this->assertNotNull($xrayIdx, 'Xray-Yankee fragment must be present in the trace');
+        $this->assertGreaterThan(0, (int) $sierraIdx);
+
+        $prevEntry = $trace[(int) $sierraIdx - 1];
+        $sierraEntry = $trace[(int) $sierraIdx];
+        $xrayEntry = $trace[(int) $xrayIdx];
+
+        // Em fragment must continue on the same visual line as the "(" prefix
+        // produced by the previous wrapped fragment, not on a new line below.
+        $this->assertEqualsWithDelta(
+            (float) $prevEntry['bbox_y'],
+            (float) $sierraEntry['bbox_y'],
+            0.01,
+            'Em fragment "Sierra-Tango" must stay on the same line as the preceding "(" prefix.',
+        );
+        $this->assertGreaterThanOrEqual(
+            (float) $prevEntry['bbox_end_x'] - 0.01,
+            (float) $sierraEntry['bbox_x'],
+            'Em fragment "Sierra-Tango" must continue right after the preceding "(" prefix.',
+        );
+
+        // The whole paragraph should fit on two visual lines: every fragment's
+        // bbox_y reports the y of the last visual line touched by getTextCell,
+        // so for a 2-line paragraph all five fragments share the same y.
+        /** @var array<string, bool> $linekeys */
+        $linekeys = [];
+        foreach ($trace as $entry) {
+            $linekeys[\sprintf('%.3f', (float) $entry['bbox_y'])] = true;
+        }
+
+        $this->assertCount(
+            1,
+            $linekeys,
+            'Paragraph must render on exactly two lines: the em-wrapped continuation must not start a third line.',
+        );
+
+        // Both em fragments and their surrounding parentheses share the second line.
+        $this->assertEqualsWithDelta(
+            (float) $sierraEntry['bbox_y'],
+            (float) $xrayEntry['bbox_y'],
+            0.01,
+            'Both em fragments must share the second line.',
+        );
+    }
+
+    public function testGetHTMLCellContinuesPlainTextAfterEmFollowedByLongMultiLineRun(): void
+    {
+        // Regression: when an inline <em> ends mid-line and the next plain-text
+        // fragment is long enough to internally wrap to multiple lines, its
+        // leading non-space chunk (here ")") must continue right after the
+        // <em> on the SAME line. The previous logic considered the line
+        // "deep" because the italic <em> bumped linebottom by a sub-millimeter
+        // font-metric drift, and force-wrapped the whole continuation
+        // fragment to a fresh line — pushing ")" to a new line by itself.
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<p>This document demonstrates PDF encryption and permission controls using tc-lib-pdf. '
+            . 'The file is protected with a user password (<em>demo-user</em>) and an owner password '
+            . '(<em>demo-owner</em>). Encryption restricts unauthorized access while the owner password '
+            . 'grants full control.</p>';
+
+        $obj->exposeResetBBoxTrace();
+        $obj->getHTMLCell($html, 20, 100, 180, 0);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        // Find the demo-owner em fragment and the immediately following plain
+        // continuation that starts with ")".
+        $ownerIdx = null;
+        foreach ($trace as $idx => $entry) {
+            if (\str_contains((string) $entry['txt'], 'demo-owner')) {
+                $ownerIdx = $idx;
+                break;
+            }
+        }
+
+        $this->assertNotNull($ownerIdx, 'demo-owner fragment must be present in the trace.');
+        $this->assertArrayHasKey(
+            (int) $ownerIdx + 1,
+            $trace,
+            'Continuation fragment after demo-owner must be present.',
+        );
+
+        $ownerEntry = $trace[(int) $ownerIdx];
+        $contEntry = $trace[(int) $ownerIdx + 1];
+
+        // The continuation MUST start with the closing parenthesis "glued" to
+        // demo-owner: it must be passed to getTextCell with the same in_y as
+        // demo-owner (i.e., on the same line cursor) so that its leading ")"
+        // is rendered right after the em fragment, not on a fresh new line.
+        $this->assertStringStartsWith(
+            ')',
+            \ltrim((string) $contEntry['txt']),
+            'Continuation fragment must start with the closing parenthesis ").".',
+        );
+        $this->assertEqualsWithDelta(
+            (float) $ownerEntry['in_y'],
+            (float) $contEntry['in_y'],
+            0.01,
+            'Closing ")" after demo-owner must stay on the same line cursor as demo-owner.',
+        );
+    }
+
     public function testParseHTMLTextWrapsLargeInlineFragmentBeforeItOverflowsRemainingWidth(): void
     {
         $measure = $this->getBBoxProbeTestObject();
