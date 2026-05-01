@@ -167,6 +167,46 @@ $pdf->addTextCell(
     false, // bool $drawcell = true,
 );
 
+// --- Same example using HTML ---
+
+$pageH = $pdf->addPage([
+    'margin' => [
+        'PL' => $leftMargin,
+        'PR' => $rightMargin,
+        'CT' => $topMargin,
+        'CB' => $bottomMargin,
+    ],
+    'region' => [
+        [
+            'RX' => $leftMargin,
+            'RY' => $topMargin,
+            'RW' => $columnWidth,
+            'RH' => $contentHeight,
+        ],
+        [
+            'RX' => $leftMargin + $columnWidth + $columnGap,
+            'RY' => $topMargin,
+            'RW' => $columnWidth,
+            'RH' => $contentHeight,
+        ],
+    ],
+]);
+
+$contentHtml = '<p>'
+    . \str_replace(
+        "\n\n",
+        '</p><p>',
+        \htmlspecialchars($content, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8')
+    )
+    . '</p>';
+
+$pdf->addHTMLCell(
+    $contentHtml,
+    12,
+    0,
+    $regionWidth,
+);
+
 // =============================================================
 
 $rawpdf = $pdf->getOutPDFString();

@@ -48,3 +48,22 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E043_html_tables.php](E043_html_tables.php): HTML table layout showcase including colspan/rowspan, nested tables, and CSS styling.
 - [E044_toc_index.php](E044_toc_index.php): Bookmark outline example with generated table of contents via addTOC.
 - [E045_encryption_and_permissions.php](E045_encryption_and_permissions.php): PDF encryption and permission controls with user and owner passwords.
+- [E046_pangrams.php](E046_pangrams.php): Multilingual pangram showcase covering 14 scripts: Latin, Arabic, Hebrew, Thai, Devanagari, Hangul, Greek, Japanese, Russian, Armenian, Georgian, Tamil, Bengali, Amharic, Khmer, Tibetan, and Chinese.
+- [E047_remote_resources_security.php](E047_remote_resources_security.php): Remote resource security configuration using fileOptions host allowlists, size limits, and cURL controls.
+- [E048_page_boxes_prepress.php](E048_page_boxes_prepress.php): Prepress page-box guide showing Media/Crop/Bleed/Trim/Art boundaries with visual overlays.
+- [E049_output_targets_integration.php](E049_output_targets_integration.php): Multi-target output example covering render, download, save-to-file, and MIME attachment workflows.
+- [E050_shipping_label_barcodes.php](E050_shipping_label_barcodes.php): Production-style shipping label layout using 1D and 2D barcodes with quiet-zone spacing.
+- [E051_viewer_preferences_navigation.php](E051_viewer_preferences_navigation.php): Viewer preferences, display mode, named destinations, internal link annotations, and bookmarks.
+- [E052_custom_fonts_fallback.php](E052_custom_fonts_fallback.php): Custom font selection strategy with Unicode fallback across Latin, DejaVu Sans, and Unifont.
+- [E053_spot_overprint_proof.php](E053_spot_overprint_proof.php): Spot color tint ramps and overprint simulation using tc-lib-color and tc-lib-pdf-graph.
+- [E054_page_groups_numbering.php](E054_page_groups_numbering.php): Mixed Roman/Arabic page numbering with multi-level bookmarks and auto-generated TOC.
+- [E055_page_reorder_booklet.php](E055_page_reorder_booklet.php): Page reordering via Page::move() with a booklet imposition summary and saddle-stitch spread grid.
+- [E056_encryption_cert_recipients.php](E056_encryption_cert_recipients.php): Certificate-based (public-key) PDF encryption with per-recipient permission matrices using tc-lib-pdf-encrypt.
+- [E057_multisignature_incremental.php](E057_multisignature_incremental.php): Multi-signature approval workflow with a primary certifier signature and reserved empty approval fields.
+- [E058_embedded_files_portfolio.php](E058_embedded_files_portfolio.php): PDF as a document container embedding CSV, XML, and JSON attachments with annotation links.
+- [E059_document_javascript.php](E059_document_javascript.php): Document-level JavaScript using appendRawJavaScript and addRawJavaScriptObj for open-action, print, and close event triggers.
+- [E060_custom_xmp_metadata.php](E060_custom_xmp_metadata.php): Custom XMP namespace injection (IPTC rights, XMP-MM version history, application metadata) via setCustomXMP.
+- [E061_user_rights_reader_extensions.php](E061_user_rights_reader_extensions.php): Adobe Reader extension rights (UR3 signature) via setUserRights to enable form-filling, commenting, and saving in free Reader.
+- [E062_bidi_mixed_rtl_ltr.php](E062_bidi_mixed_rtl_ltr.php): Mixed bidirectional typography with mid-document setRTL switching and inline Hebrew/Latin runs on the same page.
+- [E063_manual_tag_tree.php](E063_manual_tag_tree.php): Manual PDF/UA structure-element tagging with beginStructElem/endStructElem for H1–H3, P, Caption, Note, and Blockquote roles.
+- [E064_custom_hyphenation_dictionary.php](E064_custom_hyphenation_dictionary.php): External TeX hyphenation pattern loading via loadTexHyphenPatterns and setTexHyphenPatterns with a side-by-side Dutch column comparison.
