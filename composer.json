@@ -18,6 +18,12 @@
       "role": "lead"
     }
   ],
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/tecnickcom"
+    }
+  ],
   "require": {
     "php": ">=8.1",
     "ext-date": "*",
