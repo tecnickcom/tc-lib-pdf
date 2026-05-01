@@ -788,6 +788,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             $num_posx = $posx;
         }
 
+        $tocCellStyle = ['all' => ['fillColor' => '#e8f4ff']];
+
         $pid = ($page < 0) ? $this->page->getPageID() : $page;
 
         foreach ($this->outlines as $bmrk) {
@@ -827,6 +829,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
 
             $offset = ($indent * $bmrk['l']);
             // add bookmark text
+            $prevpid = $this->page->getPageID();
             $this->addTextCell(
                 $bmrk['t'],
                 $pid,
@@ -838,13 +841,15 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
                 0,
                 'T',
                 $aligntext,
+                null,
+                $tocCellStyle,
             );
 
             $bbox = $this->getLastBBox();
             $wtxt = $bbox['w'];
 
             $pageid = $this->page->getPageID();
-            if ($pageid > $pid) {
+            if ($pageid > $prevpid) {
                 $this->page->addContent($this->graph->getStopTransform(), $pid);
                 $lnkid = $this->setLink(
                     $posx,
@@ -873,6 +878,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
                 0,
                 'T',
                 $alignnum,
+                null,
+                $tocCellStyle,
             );
 
             $bbox = $this->getLastBBox();

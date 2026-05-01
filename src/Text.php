@@ -43,6 +43,14 @@ use Com\Tecnick\Unicode\Substitution;
  * @phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TStackBBox from \Com\Tecnick\Pdf\Base
  *
+ * @phpstan-type TextCellStyles array{
+ *          all?: StyleDataOpt,
+ *          L?: StyleDataOpt,
+ *          T?: StyleDataOpt,
+ *          R?: StyleDataOpt,
+ *          B?: StyleDataOpt,
+ *      }
+ *
  * @phpstan-type TextShadow array{
  *          'xoffset': float,
  *          'yoffset': float,
@@ -153,7 +161,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-     * @param array<int, StyleDataOpt> $styles Cell border styles (see: getCurrentStyleArray).
+    * @param TextCellStyles $styles Cell border styles (see: getCurrentStyleArray).
      * @param float       $strokewidth Stroke width.
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
@@ -317,7 +325,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-     * @param array<int, StyleDataOpt> $styles Cell border styles (see: getCurrentStyleArray).
+    * @param TextCellStyles $styles Cell border styles (see: getCurrentStyleArray).
      * @param float       $strokewidth Stroke width.
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.

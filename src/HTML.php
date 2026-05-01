@@ -4016,9 +4016,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
+        $oldRX = (float) $region['RX'];
         $this->pageBreak();
         $region = $this->page->getRegion();
         $hrc['cellctx']['originy'] = (float) $region['RY'];
+        $hrc['cellctx']['originx'] += ((float) $region['RX'] - $oldRX);
         $tpy = $hrc['cellctx']['originy'];
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
 
@@ -4646,9 +4648,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curfont = $this->font->getCurrentFont();
         $fontkey = (string) ($curfont['key'] ?? '');
         $family = $this->font->getFontFamilyName($fontkey);
-        if ($family === '') {
-            $family = \preg_replace('/[biudo]+$/i', '', $fontkey) ?? $fontkey;
-        }
+        // getFontFamilyName may return the full font key (e.g. "helveticab")
+        // rather than the plain base family name ("helvetica"), because the bold
+        // variant is itself a valid key in the buffer.  Always strip trailing
+        // bold/italic/underline/strikeout/overline suffixes so that
+        // restoreHTMLCallerFontState re-inserts (family, style) correctly and
+        // does not accumulate extra "B"/"I" characters in the key.
+        $family = \preg_replace('/[biudo]+$/i', '', $family) ?? $family;
         if ($family === '') {
             $family = 'helvetica';
         }
