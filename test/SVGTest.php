@@ -6022,4 +6022,847 @@ class SVGTest extends TestUtil
         // No stray rendered output.
         $this->assertSame('', $svgobj['out'], 'no output from filter subtree');
     }
+
+    /**
+     * S-3: getSVGPath returns empty when paint operator is empty (line 1111).
+     */
+    public function testGetSVGPathReturnEmptyOnEmptyPaintOp(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(574);
+        // mode 'X' produces empty paint operator
+        $out = $obj->exposeGetSVGPath(574, 'M 10 10 L 20 20', 'X');
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * S-3: getSVGPath covers default branch in match (unknown cmd → line 1184).
+     */
+    public function testGetSVGPathUnknownCommandProducesEmptyOutput(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(575);
+        // 'D' is not a valid SVG path command, hitting the default '' branch
+        $out = $obj->exposeGetSVGPath(575, 'D 10 10', 'DF');
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * S-3: parseSVGGlyphOrientationAngle with rad unit (lines 2156-2160).
+     */
+    public function testParseSVGGlyphOrientationAngleRadians(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeParseSVGGlyphOrientationAngle('1.5708rad', 0.0);
+        $this->assertEqualsWithDelta(90.0, $result, 0.01);
+    }
+
+    /**
+     * S-3: parseSVGGlyphOrientationAngle with grad unit (line 2167-2168).
+     */
+    public function testParseSVGGlyphOrientationAngleGradians(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeParseSVGGlyphOrientationAngle('100grad', 0.0);
+        $this->assertEqualsWithDelta(90.0, $result, 0.001);
+    }
+
+    /**
+     * S-3: parseSVGGlyphOrientationAngle with empty string returns default (line 2156).
+     */
+    public function testParseSVGGlyphOrientationAngleEmptyStringReturnsDefault(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeParseSVGGlyphOrientationAngle('', 45.0);
+        $this->assertEqualsWithDelta(45.0, $result, 0.001);
+    }
+
+    /**
+     * S-3: parseSVGGlyphOrientationAngle non-matching string returns default (line 2160).
+     */
+    public function testParseSVGGlyphOrientationAngleInvalidReturnsDefault(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeParseSVGGlyphOrientationAngle('auto', 30.0);
+        $this->assertEqualsWithDelta(30.0, $result, 0.001);
+    }
+
+    /**
+     * S-3: getSVGGlyphOrientationRotation horizontal 'auto' returns 0.0 (line 2197).
+     */
+    public function testGetSVGGlyphOrientationRotationHorizontalAutoReturnsZero(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $base = $obj->exposeDefaultSVGStyle();
+        $style = $base;
+        $style['glyph-orientation-horizontal'] = 'auto';
+        $result = $obj->exposeGetSVGGlyphOrientationRotation($style, false);
+        $this->assertEqualsWithDelta(0.0, $result, 0.001);
+    }
+
+    /**
+     * S-3: resolveSVGPatternLength with percentage value (lines 2525, 2529-2530).
+     */
+    public function testResolveSVGPatternLengthPercentage(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(576);
+        $result = $obj->exposeResolveSVGPatternLength('50%', 200.0, 576);
+        $this->assertEqualsWithDelta(100.0, $result, 0.001);
+    }
+
+    /**
+     * S-3: resolveSVGPatternLength empty string returns 0 (line 2525).
+     */
+    public function testResolveSVGPatternLengthEmptyReturnsZero(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(577);
+        $result = $obj->exposeResolveSVGPatternLength('', 100.0, 577);
+        $this->assertEqualsWithDelta(0.0, $result, 0.001);
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with horizontal H command (lines 6136-6187 range).
+     */
+    public function testGetTextPathPointsFromPathDataWithHCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(578);
+        $points = $obj->exposeGetTextPathPointsFromPathData(578, 'M 0 0 H 100');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with V command (lines 6235-6240).
+     */
+    public function testGetTextPathPointsFromPathDataWithVCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(579);
+        $points = $obj->exposeGetTextPathPointsFromPathData(579, 'M 0 0 V 50');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with cubic bezier C command (lines 6267-6298).
+     */
+    public function testGetTextPathPointsFromPathDataWithCCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(580);
+        $points = $obj->exposeGetTextPathPointsFromPathData(580, 'M 0 0 C 10 20 30 40 50 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with smooth S command (lines 6300-6334).
+     */
+    public function testGetTextPathPointsFromPathDataWithSCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(581);
+        $points = $obj->exposeGetTextPathPointsFromPathData(581, 'M 0 0 C 10 20 30 40 50 0 S 70 -20 100 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with quadratic Q command (lines 6311-6322).
+     */
+    public function testGetTextPathPointsFromPathDataWithQCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(582);
+        $points = $obj->exposeGetTextPathPointsFromPathData(582, 'M 0 0 Q 50 50 100 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with T (smooth quadratic) command (lines 6324-6343).
+     */
+    public function testGetTextPathPointsFromPathDataWithTCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(583);
+        $points = $obj->exposeGetTextPathPointsFromPathData(583, 'M 0 0 Q 25 50 50 0 T 100 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with arc A command (lines 6348-6388).
+     */
+    public function testGetTextPathPointsFromPathDataWithACommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(584);
+        $points = $obj->exposeGetTextPathPointsFromPathData(584, 'M 0 0 A 50 50 0 0 1 100 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData returns null for empty path (line 6112).
+     */
+    public function testGetTextPathPointsFromPathDataEmptyReturnsNull(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(585);
+        $points = $obj->exposeGetTextPathPointsFromPathData(585, '');
+        $this->assertNull($points);
+    }
+
+    /**
+     * S-3: getTextPathPointsFromDef with 'line' defName (lines 6077-6087).
+     */
+    public function testGetTextPathPointsFromDefLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(586);
+        $points = $obj->exposeGetTextPathPointsFromDef(
+            586,
+            'line',
+            ['x1' => '0', 'y1' => '0', 'x2' => '100', 'y2' => '0'],
+        );
+        $this->assertIsArray($points);
+        $this->assertCount(2, $points);
+    }
+
+    /**
+     * S-3: getTextPathPointsFromDef with 'polyline' defName (lines 6077-6087).
+     */
+    public function testGetTextPathPointsFromDefPolyline(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(587);
+        $points = $obj->exposeGetTextPathPointsFromDef(
+            587,
+            'polyline',
+            ['points' => '0,0 50,50 100,0'],
+        );
+        $this->assertIsArray($points);
+        $this->assertCount(3, $points);
+    }
+
+    /**
+     * S-3: getTextPathPointsFromDef with 'polygon' closes the path (line 6096).
+     */
+    public function testGetTextPathPointsFromDefPolygonClosesPath(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(588);
+        $points = $obj->exposeGetTextPathPointsFromDef(
+            588,
+            'polygon',
+            ['points' => '0,0 50,50 100,0'],
+        );
+        $this->assertIsArray($points);
+        // polygon adds closing point so 4 points total
+        $this->assertCount(4, $points);
+    }
+
+    /**
+     * S-3: getTextPathPointsFromDef with unknown defName returns null (line 6112).
+     */
+    public function testGetTextPathPointsFromDefUnknownReturnsNull(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(589);
+        $points = $obj->exposeGetTextPathPointsFromDef(589, 'rect', ['width' => '100', 'height' => '50']);
+        $this->assertNull($points);
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with Z close command (covers Z → ptlist append).
+     */
+    public function testGetTextPathPointsFromPathDataWithZCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(590);
+        $points = $obj->exposeGetTextPathPointsFromPathData(590, 'M 0 0 L 50 0 L 50 50 Z');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-3: getTextPathPointsFromPathData with relative commands (lowercase m l h v).
+     */
+    public function testGetTextPathPointsFromPathDataRelativeCommands(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(591);
+        $points = $obj->exposeGetTextPathPointsFromPathData(591, 'M 10 10 l 40 0 h 20 v 30');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    // ── sampleTextPathArc ────────────────────────────────────────────────────
+
+    /**
+     * S-4: sampleTextPathArc returns [] when start == end (same point).
+     */
+    public function testSampleTextPathArcSameStartEndReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeSampleTextPathArc(10.0, 20.0, 50.0, 50.0, 0.0, false, true, 10.0, 20.0);
+        $this->assertSame([], $result);
+    }
+
+    /**
+     * S-4: sampleTextPathArc scales radii (lambda > 1) and returns sampled points.
+     */
+    public function testSampleTextPathArcScaledRadiusReturnsPoints(): void
+    {
+        $obj = $this->getInternalTestObject();
+        // radiusX=1.0 is far too small for a 100-unit span → lambda > 1 → scaling branch fires
+        $result = $obj->exposeSampleTextPathArc(0.0, 0.0, 1.0, 1.0, 0.0, false, true, 100.0, 0.0);
+        $this->assertGreaterThanOrEqual(2, \count($result));
+    }
+
+    /**
+     * S-4: sampleTextPathArc with a normal semicircle returns multiple points.
+     */
+    public function testSampleTextPathArcNormalArcReturnsPoints(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeSampleTextPathArc(0.0, 0.0, 50.0, 50.0, 0.0, false, true, 100.0, 0.0);
+        $this->assertGreaterThanOrEqual(2, \count($result));
+        // last point should approach the end coordinates
+        $last = \end($result);
+        $this->assertNotFalse($last);
+        $this->assertEqualsWithDelta(100.0, $last[0], 1.0);
+        $this->assertEqualsWithDelta(0.0, $last[1], 1.0);
+    }
+
+    /**
+     * S-4: sampleTextPathArc with large-arc flag covers alternate path.
+     */
+    public function testSampleTextPathArcLargeArcFlagReturnsPoints(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeSampleTextPathArc(0.0, 0.0, 50.0, 50.0, 0.0, true, false, 100.0, 0.0);
+        $this->assertGreaterThanOrEqual(2, \count($result));
+    }
+
+    // ── getArcVectorAngle ────────────────────────────────────────────────────
+
+    /**
+     * S-4: getArcVectorAngle returns 90° between (1,0) and (0,1).
+     */
+    public function testGetArcVectorAngleReturnsExpectedAngle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $angle = $obj->exposeGetArcVectorAngle(1.0, 0.0, 0.0, 1.0);
+        $this->assertEqualsWithDelta(\M_PI / 2.0, $angle, 0.001);
+    }
+
+    /**
+     * S-4: getArcVectorAngle returns 0 for parallel same-direction vectors.
+     */
+    public function testGetArcVectorAngleParallelVectorsReturnsZero(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $angle = $obj->exposeGetArcVectorAngle(1.0, 0.0, 1.0, 0.0);
+        $this->assertEqualsWithDelta(0.0, $angle, 0.001);
+    }
+
+    // ── getTextPathLength ────────────────────────────────────────────────────
+
+    /**
+     * S-4: getTextPathLength of a horizontal segment returns correct length.
+     */
+    public function testGetTextPathLengthHorizontalSegment(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $length = $obj->exposeGetTextPathLength([[0.0, 0.0], [100.0, 0.0]]);
+        $this->assertEqualsWithDelta(100.0, $length, 0.001);
+    }
+
+    /**
+     * S-4: getTextPathLength of empty / single-point list returns 0.
+     */
+    public function testGetTextPathLengthEmptyReturnsZero(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->assertEqualsWithDelta(0.0, $obj->exposeGetTextPathLength([]), 0.001);
+        $this->assertEqualsWithDelta(0.0, $obj->exposeGetTextPathLength([[5.0, 5.0]]), 0.001);
+    }
+
+    // ── getTextPathPointAtOffset ─────────────────────────────────────────────
+
+    /**
+     * S-4: getTextPathPointAtOffset returns null for fewer than 2 points.
+     */
+    public function testGetTextPathPointAtOffsetTooFewPointsReturnsNull(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->assertNull($obj->exposeGetTextPathPointAtOffset([], 0.0));
+        $this->assertNull($obj->exposeGetTextPathPointAtOffset([[0.0, 0.0]], 0.0));
+    }
+
+    /**
+     * S-4: getTextPathPointAtOffset returns null for zero-length path.
+     */
+    public function testGetTextPathPointAtOffsetZeroLengthReturnsNull(): void
+    {
+        $obj = $this->getInternalTestObject();
+        // duplicate point → zero-length path
+        $result = $obj->exposeGetTextPathPointAtOffset([[5.0, 5.0], [5.0, 5.0]], 0.0);
+        $this->assertNull($result);
+    }
+
+    /**
+     * S-4: getTextPathPointAtOffset skips zero-length (duplicate) segment via continue.
+     */
+    public function testGetTextPathPointAtOffsetZeroLengthSegmentIsContinued(): void
+    {
+        $obj = $this->getInternalTestObject();
+        // First segment has zero length (duplicate point); offset is in the second segment.
+        $points = [[0.0, 0.0], [0.0, 0.0], [100.0, 0.0]];
+        $result = $obj->exposeGetTextPathPointAtOffset($points, 50.0);
+        $this->assertIsArray($result);
+        $this->assertEqualsWithDelta(50.0, $result[0], 0.001);
+        $this->assertEqualsWithDelta(0.0, $result[1], 0.001);
+    }
+
+    /**
+     * S-4: getTextPathPointAtOffset skips past a segment (covers remaining -= segLength branch).
+     */
+    public function testGetTextPathPointAtOffsetMultiSegmentSkipsFirst(): void
+    {
+        $obj = $this->getInternalTestObject();
+        // Three-point path; offset=75 is past the first segment (length 50).
+        $points = [[0.0, 0.0], [50.0, 0.0], [100.0, 0.0]];
+        $result = $obj->exposeGetTextPathPointAtOffset($points, 75.0);
+        $this->assertIsArray($result);
+        $this->assertEqualsWithDelta(75.0, $result[0], 0.001);
+        $this->assertEqualsWithDelta(0.0, $result[1], 0.001);
+    }
+
+    /**
+     * S-4: getTextPathPointAtOffset at offset 0 returns near the start point.
+     */
+    public function testGetTextPathPointAtOffsetZeroReturnsStartPoint(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $points = [[0.0, 0.0], [100.0, 0.0]];
+        $result = $obj->exposeGetTextPathPointAtOffset($points, 0.0);
+        $this->assertIsArray($result);
+        $this->assertEqualsWithDelta(0.0, $result[0], 0.001);
+        $this->assertEqualsWithDelta(0.0, $result[1], 0.001);
+        $this->assertEqualsWithDelta(0.0, $result[2], 0.001); // angle
+    }
+
+    /**
+     * S-4: getTextPathPointAtOffset past the end returns the last point.
+     */
+    public function testGetTextPathPointAtOffsetPastEndReturnsLastPoint(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $points = [[0.0, 0.0], [100.0, 0.0]];
+        $result = $obj->exposeGetTextPathPointAtOffset($points, 999.0);
+        $this->assertIsArray($result);
+        $this->assertEqualsWithDelta(100.0, $result[0], 0.001);
+        $this->assertEqualsWithDelta(0.0, $result[1], 0.001);
+    }
+
+    /**
+     * S-4: getTextPathPointAtOffset at midpoint returns interpolated point.
+     */
+    public function testGetTextPathPointAtOffsetMidpointInterpolates(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $points = [[0.0, 0.0], [100.0, 0.0]];
+        $result = $obj->exposeGetTextPathPointAtOffset($points, 50.0);
+        $this->assertIsArray($result);
+        $this->assertEqualsWithDelta(50.0, $result[0], 0.001);
+        $this->assertEqualsWithDelta(0.0, $result[1], 0.001);
+    }
+
+    // ── getSVGResolvedMarker ─────────────────────────────────────────────────
+
+    /**
+     * S-4: getSVGResolvedMarker returns specific when it is set and not 'none'.
+     */
+    public function testGetSVGResolvedMarkerSpecificReturned(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeGetSVGResolvedMarker('url(#arrow)', 'url(#other)');
+        $this->assertSame('url(#arrow)', $result);
+    }
+
+    /**
+     * S-4: getSVGResolvedMarker returns 'none' when specific='none' and fallback=false.
+     */
+    public function testGetSVGResolvedMarkerSpecificNoneNoFallbackReturnsNone(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeGetSVGResolvedMarker('none', 'url(#arrow)', false);
+        $this->assertSame('none', $result);
+    }
+
+    /**
+     * S-4: getSVGResolvedMarker falls back to markerAll when specific='none' and markerAll valid.
+     */
+    public function testGetSVGResolvedMarkerFallsBackToMarkerAll(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeGetSVGResolvedMarker('none', 'url(#arrow)', true);
+        $this->assertSame('url(#arrow)', $result);
+    }
+
+    /**
+     * S-4: getSVGResolvedMarker returns specific when specific='none', fallback=true but markerAll empty.
+     */
+    public function testGetSVGResolvedMarkerNoneWithEmptyMarkerAllReturnsSpecific(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeGetSVGResolvedMarker('none', '', true);
+        $this->assertSame('none', $result);
+    }
+
+    /**
+     * S-4: getSVGResolvedMarker returns empty when both specific and markerAll are empty.
+     */
+    public function testGetSVGResolvedMarkerBothEmptyReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $result = $obj->exposeGetSVGResolvedMarker('', '');
+        $this->assertSame('', $result);
+    }
+
+    // ── parseSVGTagENDa ──────────────────────────────────────────────────────
+
+    /**
+     * S-4: parseSVGTagENDa returns '' and resets linkhref when href is set (horizontal).
+     */
+    public function testParseSVGTagENDaWithLinkHrefReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(592);
+        $obj->patchSvgObj(592, [
+            'x' => 20.0,
+            'y' => 10.0,
+            'textmode' => [
+                'linkhref' => 'https://example.com',
+                'linkx' => 5.0,
+                'linky' => 5.0,
+                'vertical' => false,
+                'invisible' => false,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+        ]);
+        $out = $obj->exposeParseSVGTagENDa(592);
+        // linkhref is cleared, returns ''
+        $this->assertSame('', $out);
+        $svgobj = $obj->getSvgObj(592);
+        $this->assertSame('', (string) ($svgobj['textmode']['linkhref'] ?? ''));
+    }
+
+    /**
+     * S-4: parseSVGTagENDa with vertical text mode covers the vertical width/height branch.
+     */
+    public function testParseSVGTagENDaVerticalModeCoversVerticalBranch(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(593);
+        $obj->patchSvgObj(593, [
+            'x' => 20.0,
+            'y' => 50.0,
+            'textmode' => [
+                'linkhref' => 'https://example.com/vertical',
+                'linkx' => 5.0,
+                'linky' => 5.0,
+                'vertical' => true,
+                'invisible' => false,
+                'stroke' => 0,
+                'rtl' => false,
+                'text-anchor' => 'start',
+            ],
+        ]);
+        $out = $obj->exposeParseSVGTagENDa(593);
+        $this->assertSame('', $out);
+        $svgobj = $obj->getSvgObj(593);
+        $this->assertSame('', (string) ($svgobj['textmode']['linkhref'] ?? ''));
+    }
+
+    // ── getSetSVG ────────────────────────────────────────────────────────────
+
+    /**
+     * S-4: getSetSVG throws PdfException for an unknown soid.
+     */
+    public function testGetSetSVGInvalidSoidThrows(): void
+    {
+        $obj = $this->getTestObject();
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->getSetSVG(99999);
+    }
+
+    // ── getTextPathPointsFromPathData – branch coverage ──────────────────────
+
+    /**
+     * S-5: path with no leading letter hits the empty-command handler (lines 6148-6149).
+     */
+    public function testGetTextPathPointsFromPathDataNoLeadingLetterReturnsNull(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(599);
+        $result = $obj->exposeGetTextPathPointsFromPathData(599, '100 200');
+        $this->assertNull($result);
+    }
+
+    /**
+     * S-5: 'M 0' has too few coords → break in m/l/t block (line 6157).
+     */
+    public function testGetTextPathPointsFromPathDataTooFewMLTCoordsBreaks(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(600);
+        $result = $obj->exposeGetTextPathPointsFromPathData(600, 'M 0');
+        $this->assertNull($result);
+    }
+
+    /**
+     * S-5: lowercase 'c' covers the relative C adjustment block (lines 6235-6240).
+     */
+    public function testGetTextPathPointsFromPathDataRelativeCCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(601);
+        $points = $obj->exposeGetTextPathPointsFromPathData(601, 'M 0 0 c 10 20 30 40 50 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-5: incomplete 'C' with too few params hits break (line 6226).
+     */
+    public function testGetTextPathPointsFromPathDataIncompleteCBreaks(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(602);
+        $result = $obj->exposeGetTextPathPointsFromPathData(602, 'M 0 0 C 10 20 30');
+        $this->assertNull($result);
+    }
+
+    /**
+     * S-5: lowercase 's' covers the relative S adjustment block (lines 6281-6284).
+     */
+    public function testGetTextPathPointsFromPathDataRelativeSCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(603);
+        $points = $obj->exposeGetTextPathPointsFromPathData(603, 'M 0 0 s 10 20 50 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-5: incomplete 'S' hits break (line 6268).
+     */
+    public function testGetTextPathPointsFromPathDataIncompleteSBreaks(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(604);
+        $result = $obj->exposeGetTextPathPointsFromPathData(604, 'M 0 0 S 10 20');
+        $this->assertNull($result);
+    }
+
+    /**
+     * S-5: lowercase 'q' covers the relative Q adjustment block (lines 6319-6322).
+     */
+    public function testGetTextPathPointsFromPathDataRelativeQCommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(605);
+        $points = $obj->exposeGetTextPathPointsFromPathData(605, 'M 0 0 q 25 50 50 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-5: incomplete 'Q' hits break (line 6312).
+     */
+    public function testGetTextPathPointsFromPathDataIncompleteQBreaks(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(606);
+        $result = $obj->exposeGetTextPathPointsFromPathData(606, 'M 0 0 Q 10 20');
+        $this->assertNull($result);
+    }
+
+    /**
+     * S-5: lowercase 'a' covers the relative A end-point adjustment (lines 6358-6359).
+     */
+    public function testGetTextPathPointsFromPathDataRelativeACommand(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(607);
+        $points = $obj->exposeGetTextPathPointsFromPathData(607, 'M 0 0 a 50 50 0 0 1 100 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    /**
+     * S-5: incomplete 'A' hits break (line 6348).
+     */
+    public function testGetTextPathPointsFromPathDataIncompleteABreaks(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(608);
+        $result = $obj->exposeGetTextPathPointsFromPathData(608, 'M 0 0 A 50 50 0 0');
+        $this->assertNull($result);
+    }
+
+    /**
+     * S-5: arc with same start/end → sampleTextPathArc returns [] → fallback ptlist
+     * entry is appended (line 6378).
+     */
+    public function testGetTextPathPointsFromPathDataSameStartEndArcAddsPoint(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->initSvgObjForHandlers(609);
+        // Start at (50,0), arc back to same point → sampleTextPathArc returns [].
+        $points = $obj->exposeGetTextPathPointsFromPathData(609, 'M 50 0 A 50 50 0 0 1 50 0');
+        $this->assertIsArray($points);
+        $this->assertGreaterThanOrEqual(2, \count($points));
+    }
+
+    // ── parseSVGStyleMask branch coverage ────────────────────────────────────
+
+    /**
+     * S-4: parseSVGStyleMask returns '' when transparency is not allowed (PDF/X-1a mode).
+     */
+    public function testSvgMaskStyleNoTransparencyReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(594);
+        // Disable transparency by setting PDF/X mode to pdfx1a.
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
+
+        $obj->patchSvgObj(594, [
+            'defs' => [
+                'myMask' => ['name' => 'mask', 'attr' => ['id' => 'myMask'], 'child' => []],
+            ],
+        ]);
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#myMask)';
+
+        $out = $obj->exposeParseSVGStyleMask(594, $style);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * S-4: parseSVGStyleMask with non-url mask value returns '' (regex mismatch branch).
+     */
+    public function testSvgMaskStyleNonUrlValueReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(595);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        // Not 'none', not '', but also not a url(...) value.
+        $style['mask'] = 'invalidValue';
+
+        $out = $obj->exposeParseSVGStyleMask(595, $style);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * S-4: parseSVGStyleMask where def exists but has wrong type returns ''.
+     */
+    public function testSvgMaskStyleWrongDefTypeReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(596);
+
+        $obj->patchSvgObj(596, [
+            'defs' => [
+                'badDef' => ['name' => 'linearGradient', 'attr' => ['id' => 'badDef']],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#badDef)';
+
+        $out = $obj->exposeParseSVGStyleMask(596, $style);
+        $this->assertSame('', $out);
+    }
+
+    /**
+     * S-4: parseSVGStyleMask skips non-array child elements (continue branch).
+     */
+    public function testSvgMaskStyleNonArrayChildIsContinued(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(597);
+
+        $obj->patchSvgObj(597, [
+            'defs' => [
+                'm1' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'm1'],
+                    // One scalar (non-array) child → triggers the continue branch.
+                    'child' => ['not_an_array'],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#m1)';
+
+        $out = $obj->exposeParseSVGStyleMask(597, $style);
+        $this->assertStringContainsString(' gs', $out);
+    }
+
+    /**
+     * S-4: parseSVGStyleMask closing_tag child with content appends to text.
+     */
+    public function testSvgMaskStyleClosingTagWithContentAppendsText(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(598);
+
+        $obj->patchSvgObj(598, [
+            'defs' => [
+                'm2' => [
+                    'name' => 'mask',
+                    'attr' => ['id' => 'm2'],
+                    'child' => [
+                        'open' => [
+                            'name' => 'rect',
+                            'attr' => ['x' => '0', 'y' => '0', 'width' => '10', 'height' => '10'],
+                        ],
+                        'close' => [
+                            'name' => 'rect',
+                            'attr' => ['closing_tag' => true, 'content' => 'hello'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $style = $obj->exposeDefaultSVGStyle();
+        $style['mask'] = 'url(#m2)';
+
+        $out = $obj->exposeParseSVGStyleMask(598, $style);
+        $this->assertStringContainsString(' gs', $out);
+    }
 }

@@ -386,6 +386,11 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutXObjects();
     }
 
+    public function exposeGetOutPatterns(): string
+    {
+        return $this->getOutPatterns();
+    }
+
     public function exposeGetOutEmbeddedFiles(): string
     {
         return $this->getOutEmbeddedFiles();
@@ -639,5 +644,72 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     public function getSvgMasks(): array
     {
         return $this->svgmasks;
+    }
+
+    /**
+     * @param array<string> $names
+     */
+    public function exposeExtractNamedResourceRefs(string $dict, array $names): string
+    {
+        return $this->extractNamedResourceRefs($dict, $names);
+    }
+
+    public function exposeGetOutStructTreeRoot(): string
+    {
+        return $this->getOutStructTreeRoot();
+    }
+
+    /** @phpstan-param array<string, mixed> $annot */
+    public function exposeGetOutAnnotationRD(array $annot): string
+    {
+        return $this->getOutAnnotationRectDifferences($annot);
+    }
+
+    public function exposeSetPageStructParents(string $pdfpages): string
+    {
+        return $this->setPageStructParents($pdfpages);
+    }
+
+    public function exposePostTimestampRequest(string $request): string
+    {
+        return $this->postTimestampRequest($request);
+    }
+
+    public function exposeParentPostTimestampRequest(string $request): string
+    {
+        return parent::postTimestampRequest($request);
+    }
+
+    public function exposeGetCertificateSourceContent(string $source): string
+    {
+        return $this->getCertificateSourceContent($source);
+    }
+
+    /** @return array<int, string> */
+    public function exposeExtractPemCertificates(string $content): array
+    {
+        return $this->extractPemCertificates($content);
+    }
+
+    public function exposeGetPatternDict(): string
+    {
+        return $this->getPatternDict();
+    }
+
+    /** @phpstan-param int<0, max> $value */
+    public function exposeAsn1EncodeInteger(int $value): string
+    {
+        return $this->asn1EncodeInteger($value);
+    }
+
+    /** @phpstan-param int<0, max> $length */
+    public function exposeAsn1EncodeLength(int $length): string
+    {
+        return $this->asn1EncodeLength($length);
+    }
+
+    public function exposeWriteRawPdfOutput(string $rawpdf): void
+    {
+        $this->writeRawPdfOutput($rawpdf);
     }
 }

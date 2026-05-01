@@ -585,4 +585,191 @@ class TcpdfTest extends TestUtil
         $this->assertCount(1, $outlines);
         $this->assertStringStartsWith('Long TOC line', $outlines[0]['t']);
     }
+
+    public function testLanguageSettersUpdateLanguageMetadata(): void
+    {
+        $obj = $this->getTestObject();
+
+        $obj->setLanguageArray(['a_meta_language' => 'it-IT', 'custom' => 'x']);
+        /** @var array<string, string> $lang */
+        $lang = $this->getObjectProperty($obj, 'lang');
+        $this->assertSame('it-IT', $lang['a_meta_language']);
+        $this->assertSame('x', $lang['custom']);
+
+        $obj->setLanguage('en-US');
+        /** @var array<string, string> $updated */
+        $updated = $this->getObjectProperty($obj, 'lang');
+        $this->assertSame('en-US', $updated['a_meta_language']);
+    }
+
+    public function testSetSignatureAddsDefaultLtvOptionsWhenMissing(): void
+    {
+        $obj = $this->getTestObject();
+
+        /** @var array<string, mixed> $signatureState */
+        $signatureState = $this->getObjectProperty($obj, 'signature');
+        unset($signatureState['ltv']);
+        $this->setObjectProperty($obj, 'signature', $signatureState);
+
+        $obj->setSignature([
+            'appearance' => ['empty' => [], 'name' => '', 'page' => 0, 'rect' => ''],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => 'dummy-signcert',
+        ]);
+
+        /** @var array{ltv: array{enabled: bool, embed_ocsp: bool, embed_crl: bool, embed_certs: bool, include_dss: bool, include_vri: bool}} $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertFalse($signature['ltv']['enabled']);
+        $this->assertTrue($signature['ltv']['embed_ocsp']);
+        $this->assertTrue($signature['ltv']['embed_crl']);
+        $this->assertTrue($signature['ltv']['embed_certs']);
+        $this->assertTrue($signature['ltv']['include_dss']);
+        $this->assertTrue($signature['ltv']['include_vri']);
+    }
+
+    public function testSetSignatureThrowsWhenLtvIsNotArray(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $data = [
+            'appearance' => ['empty' => [], 'name' => '', 'page' => 0, 'rect' => ''],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => 'dummy-signcert',
+            'ltv' => 'invalid',
+        ];
+
+        (new \ReflectionMethod($obj, 'setSignature'))->invoke($obj, $data);
+    }
+
+    public function testSetSignatureThrowsWhenLtvKeyIsInvalidType(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $data = [
+            'appearance' => ['empty' => [], 'name' => '', 'page' => 0, 'rect' => ''],
+            'approval' => '',
+            'cert_type' => 0,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => 'dummy-signcert',
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => 'yes',
+            ],
+        ];
+
+        (new \ReflectionMethod($obj, 'setSignature'))->invoke($obj, $data);
+    }
+
+    public function testSetSignTimeStampThrowsOnInvalidPolicyOid(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => 'invalid-oid',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ]);
+    }
+
+    public function testSetSignTimeStampThrowsOnInvalidNonceType(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $data = [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => 1,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ];
+
+        (new \ReflectionMethod($obj, 'setSignTimeStamp'))->invoke($obj, $data);
+    }
+
+    public function testSetSignTimeStampThrowsOnInvalidTimeout(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 0,
+            'verify_peer' => true,
+        ]);
+    }
+
+    public function testSetSignTimeStampThrowsOnInvalidVerifyPeerType(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $data = [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => 1,
+        ];
+
+        (new \ReflectionMethod($obj, 'setSignTimeStamp'))->invoke($obj, $data);
+    }
+
+    public function testPdfColorGetterAndInvalidColorFallback(): void
+    {
+        $default = $this->getTestObject();
+        /** @var \Com\Tecnick\Pdf\PdfColor $defaultColor */
+        $defaultColor = $this->getObjectProperty($default, 'color');
+        $this->assertFalse($defaultColor->isForceDeviceCmyk());
+
+        $pdfx = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx');
+        /** @var \Com\Tecnick\Pdf\PdfColor $pdfxColor */
+        $pdfxColor = $this->getObjectProperty($pdfx, 'color');
+        $this->assertTrue($pdfxColor->isForceDeviceCmyk());
+        $this->assertSame('', $pdfxColor->getPdfColor('not-a-color-value'));
+    }
 }

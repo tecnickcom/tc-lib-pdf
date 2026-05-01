@@ -617,4 +617,18 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
         return $this->normalizeHTMLText($this->testhrc, $text, 0);
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function exposeParseHTMLStyleDeclarationMap(string $style): array
+    {
+        return $this->parseHTMLStyleDeclarationMap($style);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleAttributesWithDom(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleAttributes($dom, $key, $parentkey);
+    }
 }

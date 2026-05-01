@@ -480,6 +480,70 @@ PHP;
         $this->assertStringEndsWith(" >>\nendobj\n", $out);
     }
 
+    public function testGetOutResourcesDictAddsSvgMaskExtGStateWhenGraphHasNoExtGState(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $obj->setSvgMasks([
+            'MSK_ONLY' => [
+                'id' => 'MSK_ONLY',
+                'stream' => 'q Q',
+                'bbox' => [0.0, 0.0, 10.0, 10.0],
+                'gs_n' => 42,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutResourcesDict();
+
+        $this->assertStringContainsString('/ExtGState <<', $out);
+        $this->assertStringContainsString('/MSK_ONLY 42 0 R', $out);
+    }
+
+    public function testGetOutResourcesDictMergesSvgMaskEntriesWithExistingExtGState(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var \Com\Tecnick\Pdf\Graph\Draw $graph */
+        $graph = $this->getObjectProperty($obj, 'graph');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        // Ensure graph resources already contain at least one GS entry.
+        $graph->getAlpha(0.6);
+
+        $obj->setSvgMasks([
+            'MSK_MERGE' => [
+                'id' => 'MSK_MERGE',
+                'stream' => 'q Q',
+                'bbox' => [0.0, 0.0, 10.0, 10.0],
+                'gs_n' => 43,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutResourcesDict();
+
+        $this->assertStringContainsString('/ExtGState <<', $out);
+        $this->assertStringContainsString('/GS1', $out);
+        $this->assertStringContainsString('/MSK_MERGE 43 0 R', $out);
+    }
+
     public function testPatternStreamResourcesKeepOnlyReferencedFontAndSpotAliases(): void
     {
         $obj = $this->getInternalTestObject();
@@ -516,6 +580,39 @@ PHP;
         $this->assertStringContainsString(' /ColorSpace <<', $out);
         $this->assertStringContainsString(' /CS1 ', $out);
         $this->assertStringNotContainsString(' /CS2 ', $out);
+    }
+
+    public function testPatternStreamResourcesHandleEmptyFontDictionary(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output([], 0, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $out = $obj->exposeGetPatternStreamResourceDict('/F99 10 Tf');
+
+        $this->assertSame('', $out);
+    }
+
+    public function testGetOutPatternsSkipsEntriesWithEmptyStreamData(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'patterns', [
+            1 => [
+                'n' => 0,
+                'outdata' => '',
+                'bbox' => [0.0, 0.0, 10.0, 10.0],
+                'xstep' => 10.0,
+                'ystep' => 10.0,
+                'matrix' => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutPatterns();
+
+        $this->assertSame('', $out);
     }
 
     public function testPatternStreamResourcesFilterMixedCategoriesByStreamUsage(): void
@@ -571,6 +668,32 @@ PHP;
         $this->assertStringContainsString(' /XObject <<', $out);
         $this->assertStringContainsString(' /XO2 202 0 R', $out);
         $this->assertStringNotContainsString(' /XO1 201 0 R', $out);
+    }
+
+    public function testPatternStreamResourcesParseGradientAndImageDoTokens(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var \Com\Tecnick\Pdf\Graph\Draw $graph */
+        $graph = $this->getObjectProperty($obj, 'graph');
+
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        // Register a gradient shader to ensure gradient resources are available.
+        $graph->getAlpha(0.8);
+        $graph->getStopTransform();
+
+        $out = $obj->exposeGetPatternStreamResourceDict('/Sh9 sh /I2 Do');
+
+        $this->assertStringContainsString(' /XObject <<', $out);
     }
 
     public function testImplementedAnnotationSubtypeHelpersReturnExpectedFragments(): void
@@ -770,6 +893,167 @@ PHP;
         );
         $this->assertStringContainsString(' /H 0.250000', $watermarkOut);
         $this->assertStringContainsString(' /V 0.750000', $watermarkOut);
+    }
+
+    public function testLineAndQuadpointAnnotationHelpersIgnoreInvalidValues(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $lineOut = $obj->exposeGetOutAnnotationOptSubtypeLine([
+            'opt' => [
+                'l' => ['x', 'y', 'z', 'w'],
+                'le' => [1, 2],
+                'co' => ['left', 'right'],
+            ],
+        ]);
+        $this->assertStringNotContainsString(' /L [', $lineOut);
+        $this->assertStringNotContainsString(' /LE [', $lineOut);
+        $this->assertStringNotContainsString(' /CO [', $lineOut);
+
+        $lineBadStylesOut = $obj->exposeGetOutAnnotationOptSubtypeLine([
+            'opt' => [
+                'le' => ['BadStyle', 'AlsoBad'],
+            ],
+        ]);
+        $this->assertStringNotContainsString(' /LE [', $lineBadStylesOut);
+
+        $highlightOut = $obj->exposeGetOutAnnotationOptSubtypeHighlight([
+            'opt' => [
+                'quadpoints' => [
+                    'not-an-array',
+                    [1.0, 2.0, 3.0],
+                ],
+            ],
+        ]);
+        $this->assertSame('', $highlightOut);
+    }
+
+    public function testMovieSubtypeSupportsAdditionalPosterAndActionVariants(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $movieBoolActionOut = $obj->exposeGetOutAnnotationOptSubtypeMovie([
+            'n' => 21,
+            'opt' => [
+                'movie' => [
+                    'f' => 'clip.mov',
+                    'poster' => '(poster-name)',
+                ],
+                'a' => true,
+            ],
+        ]);
+        $this->assertStringContainsString(' /Poster ', $movieBoolActionOut);
+        $this->assertStringContainsString(' /A true', $movieBoolActionOut);
+
+        $movieActionOut = $obj->exposeGetOutAnnotationOptSubtypeMovie([
+            'n' => 22,
+            'opt' => [
+                'movie' => ['f' => 'clip2.mov'],
+                'a' => [
+                    'start' => ['chapter-1', 5],
+                    'duration' => ['segment-a', 2],
+                    'fwscale' => [2, 3],
+                ],
+            ],
+        ]);
+        $this->assertStringContainsString(' /Start [', $movieActionOut);
+        $this->assertStringContainsString(' /Duration [', $movieActionOut);
+        $this->assertStringContainsString(' /FWScale [2 3]', $movieActionOut);
+    }
+
+    public function testLineSubtypeIncludesExtendedLineAndMeasureOptions(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $lineOut = $obj->exposeGetOutAnnotationOptSubtypeLine([
+            'opt' => [
+                'll' => 1.25,
+                'lle' => 2.5,
+                'llo' => 3.75,
+                'measure' => [
+                    'type' => 'Measure',
+                    'subtype' => 'RL',
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString(' /LL 1.250000', $lineOut);
+        $this->assertStringContainsString(' /LLE 2.500000', $lineOut);
+        $this->assertStringContainsString(' /LLO 3.750000', $lineOut);
+        $this->assertStringContainsString(' /Measure << /Type /Measure /Subtype /RL >>', $lineOut);
+    }
+
+    public function testPolygonAndInkSubtypeAdditionalBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $polygonOut = $obj->exposeGetOutAnnotationOptSubtypePolygon([
+            'opt' => [
+                'vertices' => [1.0, 2.0, 3.0, 4.0],
+                'measure' => [
+                    'type' => 'Measure',
+                    'subtype' => 'RL',
+                ],
+            ],
+        ]);
+        $this->assertStringContainsString(' /Vertices [', $polygonOut);
+        $this->assertStringContainsString(' /Measure << /Type /Measure /Subtype /RL >>', $polygonOut);
+
+        $inkOut = $obj->exposeGetOutAnnotationOptSubtypeInk([
+            'opt' => [
+                'inklist' => [
+                    'bad-line',
+                    [1.0, 2.0, 3.0],
+                ],
+            ],
+        ]);
+        $this->assertSame('', $inkOut);
+    }
+
+    public function testMovieSubtypeCoversStartDurationAndFwPositionVariants(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $numericOut = $obj->exposeGetOutAnnotationOptSubtypeMovie([
+            'n' => 23,
+            'opt' => [
+                'movie' => ['f' => 'clip3.mov'],
+                'a' => [
+                    'start' => 9,
+                    'duration' => 7,
+                ],
+            ],
+        ]);
+        $this->assertStringContainsString(' /Start 9', $numericOut);
+        $this->assertStringContainsString(' /Duration 7', $numericOut);
+
+        $stringOut = $obj->exposeGetOutAnnotationOptSubtypeMovie([
+            'n' => 24,
+            'opt' => [
+                'movie' => ['f' => 'clip4.mov'],
+                'a' => [
+                    'start' => 'chapter-a',
+                    'duration' => 'segment-b',
+                ],
+            ],
+        ]);
+        $this->assertStringContainsString(' /Start ', $stringOut);
+        $this->assertStringContainsString(' /Duration ', $stringOut);
+
+        $arrayNumericOut = $obj->exposeGetOutAnnotationOptSubtypeMovie([
+            'n' => 25,
+            'opt' => [
+                'movie' => ['f' => 'clip5.mov'],
+                'a' => [
+                    'start' => [3, 1],
+                    'duration' => [4, 2],
+                    'fwposition' => [0.25, 0.75],
+                ],
+            ],
+        ]);
+        $this->assertStringContainsString(' /Start [3 1]', $arrayNumericOut);
+        $this->assertStringContainsString(' /Duration [4 2]', $arrayNumericOut);
+        $this->assertStringContainsString(' /FWPosition [0.250000 0.750000]', $arrayNumericOut);
     }
 
     public function testIntentionallyUnsupportedAdvancedSubtypeHelpersReturnEmptyString(): void
@@ -1489,6 +1773,18 @@ PHP;
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
         $this->assertStringContainsString(
             "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x001\x00a",
+            $obj->exposeGetOutputIntentsPdfX()
+        );
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx3');
+        $this->assertStringContainsString(
+            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x003",
+            $obj->exposeGetOutputIntentsPdfX()
+        );
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx5');
+        $this->assertStringContainsString(
+            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x005",
             $obj->exposeGetOutputIntentsPdfX()
         );
 
@@ -3568,6 +3864,36 @@ PHP;
         }
     }
 
+    public function testGetOutEmbeddedFilesSkipsUnreadableSourceFiles(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $throwingFile = new class () extends \Com\Tecnick\File\File {
+            public function fileGetContents(string $path): string
+            {
+                throw new \Com\Tecnick\Pdf\Exception('mock unreadable file');
+            }
+        };
+        $this->setObjectProperty($obj, 'file', $throwingFile);
+
+        $this->setObjectProperty($obj, 'embeddedfiles', [
+            'missing.bin' => [
+                'a' => 0,
+                'f' => 75,
+                'n' => 76,
+                'file' => '/tmp/mock.bin',
+                'content' => '',
+                'mimeType' => 'application/octet-stream',
+                'afRelationship' => 'Source',
+                'description' => '',
+                'creationDate' => 0,
+                'modDate' => 0,
+            ],
+        ]);
+
+        $this->assertSame('', $obj->exposeGetOutEmbeddedFiles());
+    }
+
     public function testGetOutXObjectsIncludesNestedXObjectReferences(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3788,5 +4114,379 @@ PHP;
         $mask = $masks['MSK_EMPTY'];
         $this->assertArrayHasKey('gs_n', $mask);
         $this->assertSame(0, $mask['gs_n']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Widget MK appearance image object references
+    // -------------------------------------------------------------------------
+
+    public function testGetOutAnnotationOptSubtypeWidgetMkImageRefsWithRegisteredImages(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        /** @var \Com\Tecnick\Pdf\Image\Import $imageObj */
+        $imageObj = $this->getObjectProperty($obj, 'image');
+
+        // Build a minimal image cache entry with obj > 0.
+        $minEntry = [
+            'bits' => 8,
+            'channels' => 3,
+            'colspace' => 'DeviceRGB',
+            'data' => '',
+            'exturl' => false,
+            'file' => '',
+            'filter' => 'FlateDecode',
+            'height' => 4,
+            'icc' => '',
+            'ismask' => false,
+            'key' => '',
+            'mapto' => \IMAGETYPE_PNG,
+            'native' => true,
+            'obj' => 0,
+            'obj_alt' => 0,
+            'obj_icc' => 0,
+            'obj_pal' => 0,
+            'pal' => '',
+            'parms' => '',
+            'raw' => '',
+            'recode' => false,
+            'recoded' => false,
+            'splitalpha' => false,
+            'trns' => [],
+            'type' => \IMAGETYPE_PNG,
+            'width' => 4,
+        ];
+
+        $keyI  = $imageObj->getKey('icon-i.png');
+        $keyRi = $imageObj->getKey('icon-ri.png');
+        $keyIx = $imageObj->getKey('icon-ix.png');
+
+        $entryI  = \array_merge($minEntry, ['key' => $keyI,  'obj' => 51]);
+        $entryRi = \array_merge($minEntry, ['key' => $keyRi, 'obj' => 52]);
+        $entryIx = \array_merge($minEntry, ['key' => $keyIx, 'obj' => 53]);
+
+        $this->setObjectProperty($imageObj, 'cache', [
+            $keyI  => $entryI,
+            $keyRi => $entryRi,
+            $keyIx => $entryIx,
+        ]);
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeWidget([
+            'txt' => 'mk-image-field',
+            'opt' => [
+                'mk' => [
+                    'i'  => 'icon-i.png',
+                    'ri' => 'icon-ri.png',
+                    'ix' => 'icon-ix.png',
+                ],
+            ],
+        ], 20);
+
+        $this->assertStringContainsString(' /I 51 0 R', $out);
+        $this->assertStringContainsString(' /RI 52 0 R', $out);
+        $this->assertStringContainsString(' /IX 53 0 R', $out);
+    }
+
+    // -------------------------------------------------------------------------
+    // extractNamedResourceRefs empty-name skip
+    // -------------------------------------------------------------------------
+
+    public function testExtractNamedResourceRefsSkipsEmptyAndNonStringNames(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dict = '/Font << /F1 1 0 R /F2 2 0 R >>';
+
+        // Empty string name is skipped; non-string names are skipped via is_string check.
+        $out = $obj->exposeExtractNamedResourceRefs($dict, ['F1', '', 'F2']);
+        $this->assertStringContainsString('/F1 1 0 R', $out);
+        $this->assertStringContainsString('/F2 2 0 R', $out);
+        // Only two entries should appear (the empty string was skipped).
+        $this->assertSame(2, \substr_count($out, '0 R'));
+    }
+
+    // -------------------------------------------------------------------------
+    // getOutStructTreeRoot with pdfuaMode set but empty structLog
+    // -------------------------------------------------------------------------
+
+    public function testGetOutStructTreeRootReturnsEmptyWhenStructLogIsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // pdfuaMode is set but pdfuaStructLog is empty.
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $this->setObjectProperty($obj, 'pdfuaStructLog', []);
+
+        $out = $obj->exposeGetOutStructTreeRoot();
+
+        $this->assertSame('', $out);
+
+        // OID tracking must be reset.
+        $this->assertSame(0, $this->getObjectProperty($obj, 'parenttreeoid'));
+        $this->assertSame(0, $this->getObjectProperty($obj, 'structtreerootoid'));
+    }
+
+    // -------------------------------------------------------------------------
+    // getOutAnnotationOptSubtypeRedact: /RO branch
+    // -------------------------------------------------------------------------
+
+    public function testGetOutAnnotationOptSubtypeRedactIncludesRoField(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $out = $obj->exposeGetOutAnnotationOptSubtypeRedact([
+            'n' => 50,
+            'opt' => [
+                'ro' => '(Redacted-XMP)',
+            ],
+        ]);
+
+        $this->assertStringContainsString(' /RO ', $out);
+    }
+
+    // -------------------------------------------------------------------------
+    // getOutAnnotationOptSubtypeWatermark: empty fixedprint returns ''
+    // -------------------------------------------------------------------------
+
+    public function testGetOutAnnotationOptSubtypeWatermarkReturnsEmptyWhenFixedprintProducesNoOutput(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // fixedprint array present but none of its keys have valid values.
+        $out = $obj->exposeGetOutAnnotationOptSubtypeWatermark([
+            'opt' => [
+                'fixedprint' => [
+                    'type' => 123,
+                    'h' => 'not-numeric',
+                    'v' => [],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('', $out);
+    }
+
+    // -------------------------------------------------------------------------
+    // getOutAnnotationRectDifferences via exposeGetOutAnnotationRD
+    // -------------------------------------------------------------------------
+
+    public function testGetOutAnnotationRectDifferencesWithValidRdArray(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $out = $obj->exposeGetOutAnnotationRD([
+            'opt' => ['rd' => [1.0, 2.0, 3.0, 4.0]],
+        ]);
+
+        $this->assertStringContainsString(' /RD [', $out);
+    }
+
+    public function testGetOutAnnotationRectDifferencesReturnsEmptyForInvalidRd(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // Wrong count.
+        $this->assertSame('', $obj->exposeGetOutAnnotationRD([
+            'opt' => ['rd' => [1.0, 2.0]],
+        ]));
+
+        // Non-numeric value.
+        $this->assertSame('', $obj->exposeGetOutAnnotationRD([
+            'opt' => ['rd' => [1.0, 2.0, 'x', 4.0]],
+        ]));
+
+        // Missing rd key.
+        $this->assertSame('', $obj->exposeGetOutAnnotationRD(['opt' => []]));
+    }
+
+    // -------------------------------------------------------------------------
+    // collectValidationMaterial: empty pemInputs path (lines 4162, 4406)
+    // -------------------------------------------------------------------------
+
+    public function testCollectValidationMaterialReturnsEmptyWhenSigncertIsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // ltv.enabled is truthy but signcert is '' → getCertificateSourceContent('') returns ''
+        // → collectValidationCertificateInputs returns [] → line 4162 triggered.
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => '',
+            'extracerts' => '',
+            'privkey' => null,
+            'password' => '',
+            'ltv' => ['enabled' => true],
+        ]);
+
+        $material = $obj->exposeCollectValidationMaterial();
+
+        $this->assertSame([], $material['cert_chain']);
+        $this->assertSame([], $material['certs']);
+        $this->assertSame([], $material['ocsp']);
+        $this->assertSame([], $material['crls']);
+        $this->assertSame([], $material['vri']);
+    }
+
+    // -------------------------------------------------------------------------
+    // setPageStructParents: skip page without 'n' key (line 1796)
+    // -------------------------------------------------------------------------
+
+    public function testSetPageStructParentsSkipsPagesWithoutObjectNumber(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+
+        // Add a real page and then inject a fake one missing 'n'.
+        $pageData = $pageObj->add([]);
+        /** @var array<int, array<string, mixed>> $pages */
+        $pages = $this->getObjectProperty($pageObj, 'page');
+        $pages[$pageData['pid']]['n'] = 99;
+        // Add a fake entry without 'n' key.
+        $pages[9999] = ['pid' => 9999, 'content' => []];
+        $this->setObjectProperty($pageObj, 'page', $pages);
+
+        $obj->exposeSetPageStructParents('');
+
+        // Only the real page (with 'n' = 99) should appear in pagestructparents.
+        /** @var array<int, int> $structParents */
+        $structParents = $this->getObjectProperty($obj, 'pagestructparents');
+        $this->assertArrayHasKey(99, $structParents);
+        $this->assertArrayNotHasKey(9999, $structParents);
+    }
+
+    public function testBuildTimestampRequestWithPolicyOidAndNonceEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '1.2.3.4.5',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ]);
+
+        $request = $obj->exposeBuildTimestampRequest('sigbin');
+
+        // Result must be a valid DER SEQUENCE.
+        $this->assertStringStartsWith("\x30", $request);
+        // SHA-256 OID must be present.
+        $this->assertStringContainsString('608648016503040201', \bin2hex($request));
+    }
+
+    public function testAsn1EncodeLengthShortForm(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // Length < 128 → single byte.
+        $encoded = $obj->exposeAsn1EncodeLength(127);
+        $this->assertSame("\x7f", $encoded);
+    }
+
+    public function testAsn1EncodeLengthLongForm(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // Length >= 128 → long form encoding.
+        $encoded = $obj->exposeAsn1EncodeLength(256);
+        // Expect 0x82 (2 length bytes) + 0x01 + 0x00.
+        $this->assertSame("\x82\x01\x00", $encoded);
+    }
+
+    public function testAsn1EncodeIntegerZeroProducesZeroByte(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $encoded = $obj->exposeAsn1EncodeInteger(0);
+        // Tag 0x02, length 0x01, value 0x00.
+        $this->assertSame("\x02\x01\x00", $encoded);
+    }
+
+    public function testAsn1EncodeIntegerHighBitSetPrependsPaddingByte(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // 0x80 = 128: high bit is set, so a 0x00 padding byte must be prepended.
+        $encoded = $obj->exposeAsn1EncodeInteger(0x80);
+        // Tag 0x02, length 0x02, padding 0x00, value 0x80.
+        $this->assertSame("\x02\x02\x00\x80", $encoded);
+    }
+
+    public function testPostTimestampRequestThrowsOnEmptyHost(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => '',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => true,
+        ]);
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $obj->exposeParentPostTimestampRequest('req');
+    }
+
+    public function testGetCertificateSourceContentWithEmptySourceReturnsEmpty(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetCertificateSourceContent('');
+
+        $this->assertSame('', $result);
+    }
+
+    public function testGetCertificateSourceContentWithInlinePemReturnsAsIs(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $pemContent = "-----BEGIN CERTIFICATE-----\nMIIBxxx\n-----END CERTIFICATE-----\n";
+
+        $result = $obj->exposeGetCertificateSourceContent($pemContent);
+
+        $this->assertSame($pemContent, $result);
+    }
+
+    public function testExtractPemCertificatesWithNoPemBlocksReturnsEmptyArray(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeExtractPemCertificates('no pem certificates here at all');
+
+        $this->assertSame([], $result);
+    }
+
+    public function testGetPatternDictSkipsPatternWithoutNKey(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // Add two patterns: one with 'n' and one without.
+        $this->setObjectProperty($obj, 'patterns', [
+            'P1' => ['n' => 7],
+            'P2' => [],
+        ]);
+
+        $result = $obj->exposeGetPatternDict();
+
+        $this->assertStringContainsString('/P1 7 0 R', $result);
+        $this->assertStringNotContainsString('/P2', $result);
+    }
+
+    public function testSavePdfThrowsOnInvalidDirectory(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdffilename', 'test.pdf');
+        $this->expectException(\Com\Tecnick\File\Exception::class);
+
+        $obj->savePDF('/this/path/does/not/exist/at/all', '%PDF-1.4');
     }
 }

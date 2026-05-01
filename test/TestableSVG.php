@@ -940,4 +940,94 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     {
         return $this->parseSVGTagENDfilter($soid);
     }
+
+    public function exposeResolveSVGPatternLength(string $raw, float $base, int $soid): float
+    {
+        return $this->resolveSVGPatternLength($raw, $base, $soid);
+    }
+
+    public function exposeParseSVGGlyphOrientationAngle(string $value, float $default): float
+    {
+        return $this->parseSVGGlyphOrientationAngle($value, $default);
+    }
+
+    /** @phpstan-param TSVGStyle $svgstyle */
+    public function exposeGetSVGGlyphOrientationRotation(array $svgstyle, bool $isVertical): float
+    {
+        return $this->getSVGGlyphOrientationRotation($svgstyle, $isVertical);
+    }
+
+    /** @phpstan-return array<int, array{0: float, 1: float}>|null */
+    public function exposeGetTextPathPointsFromPathData(int $soid, string $pathData): ?array
+    {
+        return $this->getTextPathPointsFromPathData($soid, $pathData);
+    }
+
+    /**
+     * @phpstan-param TSVGAttributes $defAttr
+     * @phpstan-return array<int, array{0: float, 1: float}>|null
+     */
+    public function exposeGetTextPathPointsFromDef(int $soid, string $defName, array $defAttr): ?array
+    {
+        return $this->getTextPathPointsFromDef($soid, $defName, $defAttr);
+    }
+
+    /** @return array<int, array{0: float, 1: float}> */
+    public function exposeSampleTextPathArc(
+        float $startX,
+        float $startY,
+        float $radiusX,
+        float $radiusY,
+        float $xAxisRotation,
+        bool $largeArcFlag,
+        bool $sweepFlag,
+        float $endX,
+        float $endY,
+    ): array {
+        return $this->sampleTextPathArc(
+            $startX,
+            $startY,
+            $radiusX,
+            $radiusY,
+            $xAxisRotation,
+            $largeArcFlag,
+            $sweepFlag,
+            $endX,
+            $endY,
+        );
+    }
+
+    public function exposeGetArcVectorAngle(
+        float $vectorStartX,
+        float $vectorStartY,
+        float $vectorEndX,
+        float $vectorEndY,
+    ): float {
+        return $this->getArcVectorAngle($vectorStartX, $vectorStartY, $vectorEndX, $vectorEndY);
+    }
+
+    /**
+     * @param array<int, array{0: float, 1: float}> $points
+     */
+    public function exposeGetTextPathLength(array $points): float
+    {
+        return $this->getTextPathLength($points);
+    }
+
+    /**
+     * @param array<int, array{0: float, 1: float}> $points
+     * @return array{0: float, 1: float, 2: float}|null
+     */
+    public function exposeGetTextPathPointAtOffset(array $points, float $offset): ?array
+    {
+        return $this->getTextPathPointAtOffset($points, $offset);
+    }
+
+    public function exposeGetSVGResolvedMarker(
+        string $specific,
+        string $markerAll,
+        bool $fallbackFromNone = true,
+    ): string {
+        return $this->getSVGResolvedMarker($specific, $markerAll, $fallbackFromNone);
+    }
 }
