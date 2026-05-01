@@ -1187,6 +1187,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $coord['firstcmd'] = false;
         }
 
+        if (empty($out)) {
+            return '';
+        }
+
         $this->bbox[] = [
             'x' => $coord['xmin'],
             'y' => $coord['ymin'],

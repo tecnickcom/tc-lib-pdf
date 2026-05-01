@@ -687,12 +687,15 @@ PHP;
         $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
         $this->setObjectProperty($obj, 'outfont', $outfont);
 
-        // Register a gradient shader to ensure gradient resources are available.
-        $graph->getAlpha(0.8);
-        $graph->getStopTransform();
+        $graph->getLinearGradient(0.0, 0.0, 10.0, 10.0, 'red', 'blue');
+        $graph->getOutGradientShaders($pon);
+        $gradientId = $graph->getLastGradientID();
 
-        $out = $obj->exposeGetPatternStreamResourceDict('/Sh9 sh /I2 Do');
+        $this->assertNotNull($gradientId);
 
+        $out = $obj->exposeGetPatternStreamResourceDict('/Sh' . $gradientId . ' sh /I2 Do');
+
+        $this->assertStringContainsString(' /Pattern <<', $out);
         $this->assertStringContainsString(' /XObject <<', $out);
     }
 
@@ -3871,7 +3874,7 @@ PHP;
         $throwingFile = new class () extends \Com\Tecnick\File\File {
             public function fileGetContents(string $path): string
             {
-                throw new \Com\Tecnick\Pdf\Exception('mock unreadable file');
+                throw new \Com\Tecnick\Pdf\Exception('mock unreadable file: ' . $path);
             }
         };
         $this->setObjectProperty($obj, 'file', $throwingFile);

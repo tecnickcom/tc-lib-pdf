@@ -166,7 +166,7 @@ Or add to your `composer.json`:
 ```json
 {
     "require": {
-        "tecnickcom/tc-lib-pdf": "^8.6"
+        "tecnickcom/tc-lib-pdf": "^8"
     }
 }
 ```
