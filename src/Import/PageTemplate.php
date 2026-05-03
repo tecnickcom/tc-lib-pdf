@@ -3,7 +3,7 @@
 /**
  * PageTemplate.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -21,7 +21,7 @@ namespace Com\Tecnick\Pdf\Import;
  *
  * Immutable value object representing a page that has been imported as a Form XObject.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

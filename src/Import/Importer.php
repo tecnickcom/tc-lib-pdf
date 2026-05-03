@@ -3,7 +3,7 @@
 /**
  * Importer.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -22,7 +22,7 @@ namespace Com\Tecnick\Pdf\Import;
  * Orchestrates PDF import: loads source documents, resolves pages, clones resources,
  * builds Form XObjects, and registers them for deferred output via getOutImportedObjects().
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

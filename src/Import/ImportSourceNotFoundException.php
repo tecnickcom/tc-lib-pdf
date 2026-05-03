@@ -3,7 +3,7 @@
 /**
  * ImportSourceNotFoundException.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -21,7 +21,7 @@ namespace Com\Tecnick\Pdf\Import;
  *
  * Thrown when an import source cannot be found or loaded.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

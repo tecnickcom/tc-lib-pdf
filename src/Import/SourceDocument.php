@@ -3,7 +3,7 @@
 /**
  * SourceDocument.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -23,7 +23,7 @@ use Com\Tecnick\Pdf\Parser\Parser;
  *
  * Wraps a parsed source PDF document and provides access to its objects and trailer.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

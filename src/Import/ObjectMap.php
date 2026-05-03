@@ -3,7 +3,7 @@
 /**
  * ObjectMap.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -22,7 +22,7 @@ namespace Com\Tecnick\Pdf\Import;
  * Tracks the mapping from source object references to destination PDF object numbers
  * and maintains a queue of objects that still need to be serialized into the output PDF.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

@@ -3,7 +3,7 @@
 /**
  * ImportPageOutOfRangeException.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -21,7 +21,7 @@ namespace Com\Tecnick\Pdf\Import;
  *
  * Thrown when the requested page number does not exist in the source document.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

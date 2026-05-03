@@ -3,7 +3,7 @@
 /**
  * ImporterInterface.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -24,7 +24,7 @@ namespace Com\Tecnick\Pdf\Import;
  * import implementation, so the Import\ classes can be extracted into a separate
  * tc-lib-pdf-import package without breaking the public API.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

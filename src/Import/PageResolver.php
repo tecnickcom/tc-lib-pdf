@@ -3,7 +3,7 @@
 /**
  * PageResolver.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -23,7 +23,7 @@ namespace Com\Tecnick\Pdf\Import;
  * with all inherited attributes (MediaBox, CropBox, Rotate, Resources …)
  * resolved for a 1-based page number.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>

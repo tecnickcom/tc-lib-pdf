@@ -3,7 +3,7 @@
 /**
  * ResourceCloner.php
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -22,7 +22,7 @@ namespace Com\Tecnick\Pdf\Import;
  * Deep-copies objects from the source document into the destination PDF
  * using an ObjectMap for reference remapping. Returns serialized PDF object bytes.
  *
- * @since     2002-08-03
+ * @since     2026-05-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
