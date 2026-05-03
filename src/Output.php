@@ -680,6 +680,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->graph->getOutGradientShaders($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutXObjects();
+        $out .= $this->getOutImportedObjects();
         $out .= $this->getOutPatterns();
         $out .= $this->getOutSVGMasks();
         $out .= $this->getOutResourcesDict();
@@ -701,7 +702,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->getOutMetaInfo();
         $out .= $this->getOutXMP();
         $out .= $this->getOutICC();
-        return $out . $this->getOutCatalog();
+        $result = $out . $this->getOutCatalog();
+        $this->importer?->cleanUp();
+        return $result;
     }
 
     /**
@@ -1165,6 +1168,19 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . $stream . "\n"
             . 'endstream' . "\n"
             . 'endobj' . "\n";
+    }
+
+    /**
+     * Flush raw PDF objects queued by the importer (imported Form XObjects and their dependencies).
+     * Called from getOutPDFBody() immediately after getOutXObjects().
+     */
+    protected function getOutImportedObjects(): string
+    {
+        if ($this->importer === null) {
+            return '';
+        }
+
+        return $this->importer->getOutImportedObjects();
     }
 
     /**

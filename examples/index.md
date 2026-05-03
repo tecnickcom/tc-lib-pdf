@@ -67,3 +67,6 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E062_bidi_mixed_rtl_ltr.php](E062_bidi_mixed_rtl_ltr.php): Mixed bidirectional typography with mid-document setRTL switching and inline Hebrew/Latin runs on the same page.
 - [E063_manual_tag_tree.php](E063_manual_tag_tree.php): Manual PDF/UA structure-element tagging with beginStructElem/endStructElem for H1–H3, P, Caption, Note, and Blockquote roles.
 - [E064_custom_hyphenation_dictionary.php](E064_custom_hyphenation_dictionary.php): External TeX hyphenation pattern loading via loadTexHyphenPatterns and setTexHyphenPatterns with a side-by-side Dutch column comparison.
+- [E065_import_single_page.php](E065_import_single_page.php): Import one source page as a Form XObject and place it scaled on a destination page.
+- [E066_import_document_append.php](E066_import_document_append.php): Append all pages from an imported source document and preserve destination flow.
+- [E067_import_page_region_nup.php](E067_import_page_region_nup.php): Advanced 2x2 N-up composition from imported pages with clipping and centered placement per region.

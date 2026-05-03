@@ -24,6 +24,7 @@ If this project is useful to you, please consider [supporting development via Gi
 - [Installation](#installation)
 - [Font Setup](#font-setup)
 - [Quick Start](#quick-start)
+- [PDF Import](#pdf-import)
 - [Remote Resources and fileOptions](#remote-resources-and-fileoptions)
 - [Digital Signatures](#digital-signatures)
 - [PDF/X Conformance](#pdfx-conformance)
@@ -123,6 +124,12 @@ The fastest way to evaluate the library is to follow the installation and font s
 - **PDF/A** (1/2/3, including a/b/u conformance levels) — see [Factur-X / ZUGFeRD](#other) below
 - **PDF/X** (generic alias, PDF/X-1a, PDF/X-3, PDF/X-4, PDF/X-5) — print-exchange conformance: per-variant OutputIntent identifiers, GTS_PDFXVersion in Info dict and XMP, PDF version enforcement, CMYK color forcing for restrictive profiles (X-1a, X-3), transparency restrictions, and suppression of encryption and JavaScript
 - **PDF/UA** (generic alias, PDF/UA-1, PDF/UA-2) — accessibility conformance: tagged structure tree (`StructTreeRoot` / `ParentTree`), `MarkInfo /Marked true`, document language (`/Lang`), `DisplayDocTitle true`, `ActualText` for ligatures and special glyphs, figure alt-text tagging, and heading-level clamping to prevent skipped levels; PDF/UA-2 targets PDF 2.0
+
+### PDF Import
+- Import pages from existing PDFs as **Form XObjects** and place them on any destination page
+- Import a single page at a user-defined position and scale (`importPage` / `useImportedPage`)
+- Append full documents page-by-page, auto-sized to the source page dimensions (`addPageFromImport`)
+- Load source PDFs from a file path or raw byte string (`setImportSourceFile` / `setImportSourceData`)
 
 ### Other
 - **1D and 2D barcodes** via [`tc-lib-barcode`](https://github.com/tecnickcom/tc-lib-barcode)
@@ -274,6 +281,78 @@ If the minimal example fails on first run, verify these two points first:
 
 - `K_PATH_FONTS` resolves to an existing generated font directory.
 - The companion fonts were generated after `composer install` or `composer update`.
+
+---
+
+## PDF Import
+
+`tc-lib-pdf` can import pages from existing PDFs as Form XObjects and place them on destination pages.
+
+### Source registration and page count
+
+```php
+$sourceId = $pdf->setImportSourceFile('/path/to/source.pdf');
+// or: $sourceId = $pdf->setImportSourceData($rawPdfBytes);
+
+$count = $pdf->getSourcePageCount($sourceId);
+```
+
+### Import one page and place it
+
+```php
+$tpl = $pdf->importPage($sourceId, 1, [
+    'box' => 'CropBox',          // MediaBox|CropBox|BleedBox|TrimBox|ArtBox
+    'groupXObject' => true,
+    'cache' => true,
+    'respectRotation' => true,
+]);
+
+$pdf->addPage();
+$placed = $pdf->useImportedPage($tpl, 20, 20, 120, 80, [
+    'keepAspectRatio' => true,
+    'align' => 'CC',             // TL|TC|TR|CL|CC|CR|BL|BC|BR
+    'clip' => true,
+]);
+```
+
+### Append pages from a source document
+
+```php
+// Append all pages.
+$templates = $pdf->appendDocument($sourceId);
+
+// Append only selected pages.
+$templates = $pdf->appendDocument($sourceId, [1, 3, 5]);
+
+// Add one imported page sized to the source page.
+$tpl = $pdf->addPageFromImport($sourceId, 2);
+```
+
+### Import examples
+
+- Single page import: [examples/E065_import_single_page.php](examples/E065_import_single_page.php)
+- Full document append: [examples/E066_import_document_append.php](examples/E066_import_document_append.php)
+- Advanced N-up composition from imported pages: [examples/E067_import_page_region_nup.php](examples/E067_import_page_region_nup.php)
+
+### Migrating from FPDI-style workflows
+
+If you are migrating legacy FPDI-like code paths, map concepts to the native API as follows:
+
+- `setSourceFile()` -> `setImportSourceFile()` + `getSourcePageCount()`
+- `importPage()` -> `importPage()` (returns a typed `PageTemplate` value object)
+- `useTemplate()` -> `useImportedPage()`
+- manual page-loop append flows -> `appendDocument()`
+
+Unlike FPDI numeric template IDs, `tc-lib-pdf` returns typed `PageTemplate` objects and keeps import behavior inside the same library stack (`tc-lib-*`) without external importer dependencies.
+
+### Import limitations and fidelity notes
+
+- Form and annotation semantics are not merged into editable destination structures; pages are imported as Form XObjects.
+- Digital signatures in source files are not preserved as valid signatures in the destination output.
+- Encrypted source PDFs are currently not importable with the bundled parser backend. Password-like options are accepted by the import API, but encrypted inputs fail with an explicit actionable exception.
+- For multi-stream page contents, import normalizes by decoding and concatenating stream bytes; this can change low-level byte representation while preserving rendered appearance in typical cases.
+- Transparency-group behavior is conformance-aware: when transparency is disallowed by the active PDF mode (for example PDF/X-1a or PDF/X-3), import suppresses transparency groups to remain compliant.
+- Setting `groupXObject` to `false` can reduce output size, but may change compositing on source pages that rely on transparency blending.
 
 ---
 

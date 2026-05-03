@@ -18,6 +18,7 @@ namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Barcode\Barcode as ObjBarcode;
+use Com\Tecnick\Pdf\Import\ImporterInterface as ObjImporter;
 use Com\Tecnick\Color\Pdf as ObjColor;
 use Com\Tecnick\File\Cache as ObjCache;
 use Com\Tecnick\File\File as ObjFile;
@@ -189,7 +190,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.11.3';
+    protected string $version = '8.12.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -657,6 +658,13 @@ abstract class Base
      * @var array<string, TXOBject>
      */
     protected array $xobjects = [];
+
+    /**
+     * PDF importer instance (null until first import call).
+     *
+     * @var ObjImporter|null
+     */
+    protected ?ObjImporter $importer = null;
 
     /**
      * Pattern objects data.

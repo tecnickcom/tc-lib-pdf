@@ -166,7 +166,7 @@ $pdf->addHTMLCell(
 );
 
 $pdf->page->addContent($bodyFont['out']);
-$features = '<ul style="font-size:10pt; line-height:1.35; color:rgb(22,37,61); margin:0; padding-left:12pt;">'
+$features = '<ul style="font-size:10pt; color:rgb(22,37,61); margin:0; padding-left:12pt;">'
     . '<li>Native SVG rendering</li>'
     . '<li>JPEG/PNG with transparency</li>'
     . '<li>1D/2D barcodes (QR, DataMatrix)</li>'

@@ -225,9 +225,9 @@ endif
 .PHONY: lint
 lint:
 	#./vendor/bin/phpcbf --config-set ignore_non_auto_fixable_on_exit 1
-	./vendor/bin/phpcs --standard=phpcs.xml
-	./vendor/bin/phpmd src text unusedcode,naming,design --exclude vendor
-	./vendor/bin/phpmd test text unusedcode,naming,design --exclude */vendor/*
+	./vendor/bin/phpcs --standard=phpcs.xml --cache=$(TARGETDIR)/phpcs.cache
+	./vendor/bin/phpmd src text unusedcode,naming,design --exclude vendor --cache --cache-file $(TARGETDIR)/phpmd-src.cache
+	./vendor/bin/phpmd test text unusedcode,naming,design --exclude */vendor/* --cache --cache-file $(TARGETDIR)/phpmd-test.cache
 	php -r 'exit((int)version_compare(PHP_MAJOR_VERSION, "7", ">"));' || ./vendor/phpstan.phar analyse
 
 ## Run all tests and reports

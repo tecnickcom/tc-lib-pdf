@@ -19,6 +19,9 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Barcode\Exception as BarcodeException;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\Import\Importer as ObjImporter;
+use Com\Tecnick\Pdf\Import\ImporterInterface;
+use Com\Tecnick\Pdf\Import\PageTemplateInterface;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -911,5 +914,273 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             // Move to the next line.
             $posy = $bbox['y'] + $bbox['h'] + $cellSpaceB;
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // PDF Import API
+    // -------------------------------------------------------------------------
+
+    /**
+     * Return the lazy-initialized importer instance.
+     *
+     * @return ImporterInterface
+     */
+    private function getImporter(): ImporterInterface
+    {
+        if ($this->importer === null) {
+            // Pass xobjects by reference so Importer writes directly into this document's registry.
+            // @phpstan-ignore argument.type, assign.propertyType
+            $this->importer = new ObjImporter($this->xobjects, $this->pon);
+        }
+
+        return $this->importer;
+    }
+
+    /**
+     * Register a source PDF file for import.
+     *
+     * @param string              $path File path to a readable PDF.
+     * @param array<string, mixed> $cfg  Optional parser configuration.
+     *
+     * @return string Source document identifier.
+     */
+    public function setImportSourceFile(string $path, array $cfg = []): string
+    {
+        return $this->getImporter()->setImportSourceFile($path, $cfg);
+    }
+
+    /**
+     * Register a source PDF from raw binary data.
+     *
+     * @param string              $data Raw PDF binary data.
+     * @param array<string, mixed> $cfg  Optional parser configuration.
+     *
+     * @return string Source document identifier.
+     */
+    public function setImportSourceData(string $data, array $cfg = []): string
+    {
+        return $this->getImporter()->setImportSourceData($data, $cfg);
+    }
+
+    /**
+     * Return the total number of pages in a registered source document.
+     *
+     * @param string $sourceId Source document identifier.
+     *
+     * @return int Total page count.
+     */
+    public function getSourcePageCount(string $sourceId): int
+    {
+        return $this->getImporter()->getSourcePageCount($sourceId);
+    }
+
+    /**
+     * Import one page from a registered source document and return a PageTemplateInterface.
+     *
+     * @param string                 $sourceId Source document identifier.
+     * @param int                    $pageNum  1-based page number.
+     * @param array<string, mixed>   $options  Import options.
+     *
+     * @return PageTemplateInterface Imported page template ready for placement.
+     */
+    public function importPage(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
+    {
+        $options = $this->normalizeImportOptions($options);
+        return $this->getImporter()->importPage($sourceId, $pageNum, $options);
+    }
+
+    /**
+     * Place an imported page template onto the current page.
+     *
+     * @param PageTemplateInterface $tpl     Template to place.
+     * @param float                $xpos    X position in user units.
+     * @param float                $ypos    Y position in user units.
+     * @param float|null           $width   Target width (null = use template width).
+     * @param float|null           $height  Target height (null = use template height).
+     * @param array<string, mixed> $options Placement options.
+     *
+     * @return array{x: float, y: float, width: float, height: float} Actual placed rect in user units.
+     */
+    public function useImportedPage(
+        PageTemplateInterface $tpl,
+        float $xpos,
+        float $ypos,
+        ?float $width = null,
+        ?float $height = null,
+        array $options = []
+    ): array {
+        $tplW = $this->toUnit($tpl->getWidth());
+        $tplH = $this->toUnit($tpl->getHeight());
+
+        $boxW = $width ?? $tplW;
+        $boxH = $height ?? $tplH;
+
+        $dstW = $boxW;
+        $dstH = $boxH;
+
+        $keepAspect = (bool) ($options['keepAspectRatio'] ?? true);
+        if ($keepAspect && ($tplW > 0) && ($tplH > 0)) {
+            $scaleX = $dstW / $tplW;
+            $scaleY = $dstH / $tplH;
+            $scale = \min($scaleX, $scaleY);
+            $dstW = $tplW * $scale;
+            $dstH = $tplH * $scale;
+        }
+
+        $alignOpt = $options['align'] ?? 'TL';
+        $align = \is_string($alignOpt) ? \strtoupper($alignOpt) : 'TL';
+        if (\strlen($align) !== 2) {
+            $align = 'TL';
+        }
+
+        $vAlign = $align[0] ?? 'T';
+        $hAlign = $align[1] ?? 'L';
+
+        $offX = 0.0;
+        $offY = 0.0;
+        $freeW = $boxW - $dstW;
+        $freeH = $boxH - $dstH;
+
+        if ($hAlign === 'C') {
+            $offX = $freeW / 2;
+        } elseif ($hAlign === 'R') {
+            $offX = $freeW;
+        }
+
+        if ($vAlign === 'C') {
+            $offY = $freeH / 2;
+        } elseif ($vAlign === 'B') {
+            $offY = $freeH;
+        }
+
+        $finalX = $xpos + $offX;
+        $finalY = $ypos + $offY;
+
+        $scalePt = $this->toPoints(1.0);
+        $scaleX2 = ($tplW > 0) ? ($dstW / $tplW) : 1.0;
+        $scaleY2 = ($tplH > 0) ? ($dstH / $tplH) : 1.0;
+
+        // PDF coordinate system has Y increasing upward; page origin is bottom-left.
+        $xPt = $this->toPoints($finalX);
+        $pageHeightPt = (float) ($this->page->getPage()['pheight']);
+        $yPt = $pageHeightPt - $this->toPoints($finalY) - ($dstH * $scalePt);
+
+        $matrix = \sprintf('%F 0 0 %F %F %F', $scaleX2, $scaleY2, $xPt, $yPt);
+        $content = 'q ';
+
+        $clip = (bool) ($options['clip'] ?? false);
+        if ($clip) {
+            $clipX = $this->toPoints($xpos);
+            $clipY = $pageHeightPt - $this->toPoints($ypos) - $this->toPoints($boxH);
+            $clipW = $this->toPoints($boxW);
+            $clipH = $this->toPoints($boxH);
+            $content .= \sprintf('%F %F %F %F re W n ', $clipX, $clipY, $clipW, $clipH);
+        }
+
+        $content .= $matrix . ' cm /' . $tpl->getXobjId() . ' Do Q';
+        $this->page->addContent($content);
+        return ['x' => $finalX, 'y' => $finalY, 'width' => $dstW, 'height' => $dstH];
+    }
+
+    /**
+     * Import all pages (or a range) from a registered source document.
+     *
+     * @param string          $sourceId Source document identifier.
+     * @param array<int>|null $range    1-based page numbers to import, or null for all pages.
+     * @param array<string, mixed> $options  Import options (same as importPage).
+     *
+     * @return array<int, PageTemplateInterface> One PageTemplateInterface per requested page.
+     */
+    public function importPages(string $sourceId, ?array $range = null, array $options = []): array
+    {
+        $options = $this->normalizeImportOptions($options);
+        return $this->getImporter()->importPages($sourceId, $range, $options);
+    }
+
+    /**
+     * Add a new page sized to match an imported template and place the template filling the page.
+     *
+     * @param string               $sourceId Source document identifier.
+     * @param int                  $pageNum  1-based page number.
+     * @param array<string, mixed> $options  Import options (same as importPage).
+     *
+     * @return PageTemplateInterface The imported page template.
+     */
+    public function addPageFromImport(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
+    {
+        $tpl = $this->importPage($sourceId, $pageNum, $options);
+        $tplW = $this->toUnit($tpl->getWidth());
+        $tplH = $this->toUnit($tpl->getHeight());
+        $this->addPage([
+            'format' => '',
+            'width' => $tplW,
+            'height' => $tplH,
+            'orientation' => ($tplW > $tplH) ? 'L' : 'P',
+        ]);
+        $this->useImportedPage($tpl, 0.0, 0.0, $tplW, $tplH, ['keepAspectRatio' => false]);
+        return $tpl;
+    }
+
+    /**
+     * Append all pages (or a range) from a source document, each on its own new page.
+     *
+     * The caller's current page context (active page, graph dimensions) is preserved
+     * so document flow can continue on the same page after the call returns.
+     *
+     * @param string               $sourceId Source document identifier.
+     * @param array<int>|null      $range    1-based page numbers to import, or null for all pages.
+     * @param array<string, mixed> $options  Import options (same as importPage).
+     *
+     * @return array<int, PageTemplateInterface> One PageTemplateInterface per appended page.
+     */
+    public function appendDocument(string $sourceId, ?array $range = null, array $options = []): array
+    {
+        $prevPid = $this->page->getPageID();
+
+        $templates = $this->importPages($sourceId, $range, $options);
+        foreach ($templates as $tpl) {
+            $tplW = $this->toUnit($tpl->getWidth());
+            $tplH = $this->toUnit($tpl->getHeight());
+            $this->addPage([
+                'format' => '',
+                'width' => $tplW,
+                'height' => $tplH,
+                'orientation' => ($tplW > $tplH) ? 'L' : 'P',
+            ]);
+            $this->useImportedPage($tpl, 0.0, 0.0, $tplW, $tplH, ['keepAspectRatio' => false]);
+        }
+
+        if ($prevPid >= 0) {
+            $prevPage = $this->page->setCurrentPage($prevPid);
+            $this->graph->setPageWidth((float) $prevPage['width']);
+            $this->graph->setPageHeight((float) $prevPage['height']);
+        }
+
+        return $templates;
+    }
+
+    /**
+     * Normalize import options according to current conformance constraints.
+     *
+     * - `groupXObject` is automatically disabled when transparency is not allowed.
+     * - when `groupXObject` is enabled, enforce a minimum PDF version of 1.4.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function normalizeImportOptions(array $options): array
+    {
+        $useGroup = (bool) ($options['groupXObject'] ?? true);
+        if ($useGroup && !$this->isTransparencyAllowed()) {
+            $useGroup = false;
+        }
+
+        if ($useGroup && \version_compare($this->pdfver, '1.4', '<')) {
+            $this->setPDFVersion('1.4');
+        }
+
+        $options['groupXObject'] = $useGroup;
+        return $options;
     }
 }
