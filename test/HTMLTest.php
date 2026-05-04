@@ -636,6 +636,79 @@ class HTMLTest extends TestUtil
         );
     }
 
+    public function testParseHTMLStyleAttributesLineHeightDefaultCases(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $fontsize = 12.0; // pts
+
+        // Case 1: percentage  → dimensionless ratio = value / 100
+        $dom = [
+            0 => $this->makeHtmlNode(['line-height' => 1.0]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => $fontsize,
+                'font-stretch' => 100.0,
+                'letter-spacing' => 0.0,
+                'attribute' => ['style' => 'line-height:150%;'],
+            ]),
+        ];
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $this->assertEqualsWithDelta(1.5, $dom[1]['line-height'], 0.001, 'line-height:150% must store ratio 1.5');
+
+        // Case 2: unitless number → ratio stored directly
+        $dom[1] = $this->makeHtmlNode([
+            'parent' => 0,
+            'fontsize' => $fontsize,
+            'font-stretch' => 100.0,
+            'letter-spacing' => 0.0,
+            'line-height' => 1.0,
+            'attribute' => ['style' => 'line-height:2;'],
+        ]);
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $this->assertEqualsWithDelta(2.0, $dom[1]['line-height'], 0.001, 'line-height:2 must store ratio 2.0');
+
+        // Case 3: absolute unit (24pt on a 12pt font) → ratio 2.0
+        $dom[1] = $this->makeHtmlNode([
+            'parent' => 0,
+            'fontsize' => $fontsize,
+            'font-stretch' => 100.0,
+            'letter-spacing' => 0.0,
+            'line-height' => 1.0,
+            'attribute' => ['style' => 'line-height:24pt;'],
+        ]);
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $this->assertEqualsWithDelta(
+            2.0,
+            $dom[1]['line-height'],
+            0.01,
+            'line-height:24pt on 12pt font must store ratio 2.0'
+        );
+
+        // Case 4: 100% → ratio 1.0
+        $dom[1] = $this->makeHtmlNode([
+            'parent' => 0,
+            'fontsize' => $fontsize,
+            'font-stretch' => 100.0,
+            'letter-spacing' => 0.0,
+            'line-height' => 0.0,
+            'attribute' => ['style' => 'line-height:100%;'],
+        ]);
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $this->assertEqualsWithDelta(1.0, $dom[1]['line-height'], 0.001, 'line-height:100% must store ratio 1.0');
+
+        // Case 5: 200% → ratio 2.0
+        $dom[1] = $this->makeHtmlNode([
+            'parent' => 0,
+            'fontsize' => $fontsize,
+            'font-stretch' => 100.0,
+            'letter-spacing' => 0.0,
+            'line-height' => 0.0,
+            'attribute' => ['style' => 'line-height:200%;'],
+        ]);
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $this->assertEqualsWithDelta(2.0, $dom[1]['line-height'], 0.001, 'line-height:200% must store ratio 2.0');
+    }
+
     public function testParseHTMLStyleAttributesWhiteSpaceModesAndInherit(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1981,6 +2054,47 @@ class HTMLTest extends TestUtil
             (float) $xrayEntry['bbox_y'],
             0.01,
             'Both em fragments must share the second line.',
+        );
+    }
+
+    public function testGetHTMLCellAppliesLineHeightToWrappedContinuationLines(): void
+    {
+        $text = 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa '
+            . 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa';
+
+        $measureHeight = function (string $lineHeight) use ($text): float {
+            $obj = $this->getBBoxProbeTestObject();
+            $this->initFontAndPage($obj);
+            $obj->exposeResetBBoxTrace();
+
+            $html = '<p style="line-height:' . $lineHeight . ';">' . $text . '</p>';
+            $obj->getHTMLCell($html, 20, 30, 20, 0);
+
+            $trace = $obj->exposeGetBBoxTrace();
+            $this->assertNotSame([], $trace);
+
+            $first = $trace[0];
+            $this->assertGreaterThan(0.0, (float) $first['bbox_h']);
+
+            // getTextCell reports the bbox of the last visual line when wrapping;
+            // use vertical delta from input y to that last line to measure run height.
+            $deltaY = (float) $first['bbox_y'] - (float) $first['in_y'];
+            $this->assertGreaterThan(
+                (float) $first['font_size'] + 0.1,
+                $deltaY,
+                'Expected wrapped text sample to span multiple lines.'
+            );
+
+            return $deltaY;
+        };
+
+        $height100 = $measureHeight('100%');
+        $height200 = $measureHeight('200%');
+
+        $this->assertGreaterThan(
+            $height100 + 1.0,
+            $height200,
+            'line-height must affect continuation lines created by automatic wraps.'
         );
     }
 

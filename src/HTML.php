@@ -2138,19 +2138,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 default:
                     if (\is_numeric($lineheight)) {
-                        // convert to percentage of font height
-                        $lineheight = ($lineheight * 100) . '%';
-                    }
-                    $dom[$key]['line-height'] = $this->toUnit(
-                        $this->getUnitValuePoints($lineheight, defunit: '%')
-                    );
-                    /** @var array<int, THTMLAttrib> $dom */
-                    if (\substr($lineheight, -1) !== '%') {
-                        if ($dom[$key]['fontsize'] <= 0) {
-                            $dom[$key]['line-height'] = 1.0;
-                        } elseif (\is_numeric($dom[$key]['fontsize'])) {
-                            $dom[$key]['line-height'] = $dom[$key]['line-height'] / floatval($dom[$key]['fontsize']);
-                        }
+                        // Unitless number: ratio used directly (e.g. 1.5 means 1.5× font height).
+                        $dom[$key]['line-height'] = (float) $lineheight;
+                        /** @var array<int, THTMLAttrib> $dom */
+                    } elseif (\substr($lineheight, -1) === '%') {
+                        // Percentage: store as a dimensionless ratio (150% → 1.5).
+                        $dom[$key]['line-height'] = (float) $lineheight / 100.0;
+                        /** @var array<int, THTMLAttrib> $dom */
+                    } else {
+                        // Absolute unit (pt, mm, …): convert to pts and divide by font size in pts.
+                        $lhpts = $this->getUnitValuePoints($lineheight);
+                        $fontsize = (!empty($dom[$key]['fontsize']) && \is_numeric($dom[$key]['fontsize']))
+                            ? (float) $dom[$key]['fontsize']
+                            : 0.0;
+                        $dom[$key]['line-height'] = ($fontsize > 0) ? ($lhpts / $fontsize) : 1.0;
+                        /** @var array<int, THTMLAttrib> $dom */
                     }
             }
         }
@@ -8206,6 +8208,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curAscent = (isset($curfont['ascent']) && \is_numeric($curfont['ascent']))
             ? $this->toUnit((float) $curfont['ascent'])
             : 0.0;
+        $curHeight = (isset($curfont['height']) && \is_numeric($curfont['height']))
+            ? $this->toUnit((float) $curfont['height'])
+            : 0.0;
         $skipAscent = ($lineOffset <= self::WIDTH_TOLERANCE)
             || empty($hrc['cellctx']['lineascent'])
             || !\is_numeric($hrc['cellctx']['lineascent']);
@@ -8644,6 +8649,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
+        $lineSpace = ($lineAdvance > 0.0) ? ($lineAdvance - $curHeight) : 0.0;
 
         // When trailing collapsible space was stripped, widen the render box by the
         // stripped amount so that splitLines inside getTextCell does not squeeze the
@@ -8674,7 +8680,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $renderWidth,
                 0,
                 $renderOffset,
-                0,
+                $lineSpace,
                 'T',
                 $renderAlign,
                 static::ZEROCELL, // @phpstan-ignore argument.type
