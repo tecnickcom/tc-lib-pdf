@@ -574,9 +574,6 @@ $pdf->addHTMLCell(
 
 // ----------
 
-
-// ----------
-
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 

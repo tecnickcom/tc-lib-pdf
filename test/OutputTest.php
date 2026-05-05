@@ -1630,6 +1630,72 @@ PHP;
         $this->assertStringNotContainsString('/P <</MCID 0>> BDC', $out);
     }
 
+    public function testGetOutPDFBodyTagsHtmlTextInPdfuaMode(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->addHTMLCell('<h1>PDF/UA</h1><p>Mode: pdfua</p>', 10, 10, 80, 20);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Type /StructTreeRoot', $out);
+        $this->assertStringContainsString('/H1 <</MCID 0>> BDC', $out);
+        $this->assertStringContainsString('/P <</MCID 1>> BDC', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /H1', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /P', $out);
+    }
+
+    public function testGetOutPDFBodyPreservesNestedStructElemHierarchy(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->beginStructElem('Sect', $page['pid']);
+        $obj->beginStructElem('H1', $page['pid']);
+        $obj->addTextCell('Nested heading', $page['pid'], 10, 10, 60, 10);
+        $obj->endStructElem();
+        $obj->beginStructElem('P', $page['pid']);
+        $obj->addTextCell('Nested paragraph', $page['pid'], 10, 20, 60, 10);
+        $obj->endStructElem();
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $docMatch = [];
+        $this->assertSame(
+            1,
+            \preg_match(
+                '/(\d+) 0 obj\s*<< \/Type \/StructElem \/S \/Document .*?\/K \[\s*(\d+) 0 R\s*\] >>/s',
+                $out,
+                $docMatch,
+            )
+        );
+
+        $sectOid = $docMatch[2];
+        $sectMatch = [];
+        $this->assertSame(
+            1,
+            \preg_match(
+                '/' . $sectOid . ' 0 obj\\s*<< \/Type \/StructElem \/S \/Sect \/P ' . $docMatch[1]
+                . ' 0 R .*?\/K \[\s*(\d+) 0 R\s+(\d+) 0 R\s*\] >>/s',
+                $out,
+                $sectMatch,
+            )
+        );
+
+        $this->assertMatchesRegularExpression(
+            '/' . $sectMatch[1] . ' 0 obj\\s*<< \/Type \/StructElem \/S \/H1 \/P ' . $sectOid . ' 0 R/s',
+            $out
+        );
+        $this->assertMatchesRegularExpression(
+            '/' . $sectMatch[2] . ' 0 obj\\s*<< \/Type \/StructElem \/S \/P \/P ' . $sectOid . ' 0 R/s',
+            $out
+        );
+    }
+
     public function testGetOutPDFBodyTagsHtmlImageAsFigureWithAltInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
@@ -1655,6 +1721,79 @@ PHP;
         $this->assertStringContainsString('/Figure <</MCID 0>> BDC', $out);
         $this->assertStringContainsString('/Type /StructElem /S /Figure', $out);
         $this->assertStringContainsString('/Alt ', $out);
+    }
+
+    public function testGetOutPDFBodyTagsHtmlTableStructRolesInPdfuaMode(): void
+    {
+        $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $html = '<table><thead><tr><th>Name</th><th>Value</th></tr></thead>'
+            . '<tbody><tr><td>A</td><td>1</td></tr></tbody></table>';
+        $htmlOut = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addContent($htmlOut, $page->getPageId());
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Type /StructElem /S /Table', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /TR', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /TH', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /TD', $out);
+    }
+
+    public function testGetOutPDFBodyTagsHtmlListStructRolesInPdfuaMode(): void
+    {
+        $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $html = '<ul><li>Alpha</li><li>Beta</li></ul>';
+        $htmlOut = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addContent($htmlOut, $page->getPageId());
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Type /StructElem /S /L', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /LI', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /LBody', $out);
+    }
+
+    public function testGetOutPDFBodyTagsHtmlFigureWithFigcaptionInPdfuaMode(): void
+    {
+        $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 4);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $this->assertIsString($raw);
+        $src = 'data:image/png;base64,' . \base64_encode($raw);
+
+        $html = '<figure><img src="' . $src . '" alt="Test dot" width="4" height="4" />'
+            . '<figcaption>Caption text</figcaption></figure>';
+        $htmlOut = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addContent($htmlOut, $page->getPageId());
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        // Single Figure struct elem (no nested Figure > Figure)
+        $this->assertSame(
+            1,
+            \substr_count($out, '/Type /StructElem /S /Figure'),
+            'Expected exactly one Figure StructElem'
+        );
+        $this->assertStringContainsString('/Alt ', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /Caption', $out);
     }
 
     public function testGetOutCatalogIncludesRequiredEntries(): void

@@ -112,10 +112,16 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag': string,
  * }
  *
+ * @phpstan-type TPdfUaStructKid array{
+ *    type: 'elem'|'mcid',
+ *    id: int,
+ * }
+ *
  * @phpstan-type TPdfUaStructElem array{
  *    role: string,
  *    pid: int,
  *    mcids: int[],
+ *    kids: TPdfUaStructKid[],
  *    alt?: string,
  * }
  *
@@ -190,7 +196,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.12.2';
+    protected string $version = '8.13.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -419,16 +425,16 @@ abstract class Base
     protected array $pdfuapagemcid = [];
 
     /**
-     * Stack of currently open PDF/UA structure elements.
-     * Each entry: ['role' => string, 'pid' => int, 'mcids' => int[]]
+    * Stack of currently open PDF/UA structure elements.
+     * Each entry preserves its ordered kids (MCRs and nested StructElems).
      *
      * @var array<int, TPdfUaStructElem>
      */
     protected array $pdfuaStructStack = [];
 
     /**
-     * Log of completed PDF/UA structure elements in document order.
-     * Each entry: ['role' => string, 'pid' => int (page index), 'mcids' => int[]]
+     * Log of completed PDF/UA structure elements.
+     * Parent/child relationships are preserved through the ordered kids list.
      *
      * @var array<int, TPdfUaStructElem>
      */

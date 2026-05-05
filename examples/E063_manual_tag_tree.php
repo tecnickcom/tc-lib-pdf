@@ -32,7 +32,7 @@ require(__DIR__ . '/../vendor/autoload.php');
  * in a pdfua or pdfua1/pdfua2 mode it auto-tags content produced by
  * addHTMLCell() using the HTML semantic elements (h1→H1, p→P, etc.).
  *
- * For content produced with the lower-level getTextCell() API — or for cases
+ * For content produced with the lower-level text APIs — or for cases
  * where you need precise control over structure roles — you can bracket each
  * logical block with:
  *
@@ -57,14 +57,20 @@ require(__DIR__ . '/../vendor/autoload.php');
  * When pdfuaMode is '' (plain PDF mode) both methods are no-ops, so the
  * same code runs safely in plain and PDF/UA modes without changes.
  *
- * NOTE: getTextCell() is the return-string variant used with
- *   $pdf->page->addContent(...)
- * addTextCell() is the void variant that writes directly to the page;
- * it has a different signature (second arg is int $pid).
+ * NOTE: beginStructElem()/endStructElem() only associate MCIDs with content
+ * emitted through the tagged text path. For manual tagging, use addTextCell()
+ * (second argument is the page ID) rather than writing raw getTextCell()
+ * output directly with page->addContent().
  *
- * This example uses 'pdfua1' mode and manually tags H1, H2, H3, P, Caption,
- * Note, and Blockquote roles using getTextCell() inside each bracket.
+ * This example uses 'pdfua1' mode and demonstrates the full manual-tagging
+ * surface across four pages:
  *
+ *   Page 1 — Heading roles (H1, H2, H3), P, Figure, Caption
+ *   Page 2 — Note, Blockquote, multi-paragraph body
+ *   Page 3 — Sect/Art grouping containers; list structure (L > LI > Lbl + LBody)
+ *   Page 4 — Table nesting (Table > TR > TH / TD); Figure with /Alt alternate text
+ *
+ * All content is tagged with addTextCell() inside explicit struct-elem brackets.
  * Compare with E015–E017 which enable pdfua mode via addHTMLCell (auto-tagged).
  */
 
@@ -118,12 +124,16 @@ $pid1  = $page1['pid'];
 $setFont($pdf, 'helvetica', 'B', 20);
 
 $pdf->beginStructElem('H1', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Manual Tag Tree — PDF/UA Structure Elements',
-        $leftMargin, 20.0, 0.0, 0.0,
-        drawcell: false, valign: 'T', halign: 'L',
-    )
+$pdf->addTextCell(
+    'Manual Tag Tree — PDF/UA Structure Elements',
+    $pid1,
+    $leftMargin,
+    20.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
 );
 $pdf->endStructElem();
 
@@ -138,18 +148,14 @@ $intro = 'This document uses beginStructElem() and endStructElem() to build '
     . 'logical order.';
 
 $pdf->beginStructElem('P', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell($intro, $leftMargin, 32.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J')
-);
+$pdf->addTextCell($intro, $pid1, $leftMargin, 32.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J');
 $pdf->endStructElem();
 
 // --- Section 1: H2 + P ---
 $setFont($pdf, 'helvetica', 'B', 14);
 
 $pdf->beginStructElem('H2', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell('Section 1 — Heading Roles', $leftMargin, 55.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L')
-);
+$pdf->addTextCell('Section 1 — Heading Roles', $pid1, $leftMargin, 55.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L');
 $pdf->endStructElem();
 
 $setFont($pdf, 'helvetica', '', 10);
@@ -161,30 +167,31 @@ $sec1body = 'Structure roles H1 through H6 define the heading hierarchy. '
     . 'structure elements logged by endStructElem().';
 
 $pdf->beginStructElem('P', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell($sec1body, $leftMargin, 64.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J')
-);
+$pdf->addTextCell($sec1body, $pid1, $leftMargin, 64.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J');
 $pdf->endStructElem();
 
 // --- Sub-section: H3 ---
 $setFont($pdf, 'helvetica', 'BI', 11);
 
 $pdf->beginStructElem('H3', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell('1.1 — Sub-section with H3 role', $leftMargin, 85.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L')
-);
+$pdf->addTextCell('1.1 — Sub-section with H3 role', $pid1, $leftMargin, 85.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L');
 $pdf->endStructElem();
 
 $setFont($pdf, 'helvetica', '', 10);
 
 $pdf->beginStructElem('P', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'An H3 element is used here to show a third level in the outline. '
-        . 'The structure tree will contain: H1 > H2 > H3 > P, reflecting the '
-        . 'logical reading order of this page.',
-        $leftMargin, 93.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J',
-    )
+$pdf->addTextCell(
+    'An H3 element is used here to show a third level in the outline. '
+    . 'The structure tree will contain: H1 > H2 > H3 > P, reflecting the '
+    . 'logical reading order of this page.',
+    $pid1,
+    $leftMargin,
+    93.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'J',
 );
 $pdf->endStructElem();
 
@@ -192,21 +199,24 @@ $pdf->endStructElem();
 $setFont($pdf, 'helvetica', 'B', 14);
 
 $pdf->beginStructElem('H2', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell('Section 2 — Figure and Caption Roles', $leftMargin, 113.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L')
-);
+$pdf->addTextCell('Section 2 — Figure and Caption Roles', $pid1, $leftMargin, 113.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L');
 $pdf->endStructElem();
 
 $setFont($pdf, 'helvetica', '', 10);
 
 $pdf->beginStructElem('P', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'The Figure role wraps graphical content. '
-        . 'A Caption role immediately following a Figure provides an '
-        . 'accessible description of the visual element for screen-reader users.',
-        $leftMargin, 122.0, 150, 0.0, drawcell: false, valign: 'T', halign: 'J',
-    )
+$pdf->addTextCell(
+    'The Figure role wraps graphical content. '
+    . 'A Caption role immediately following a Figure provides an '
+    . 'accessible description of the visual element for screen-reader users.',
+    $pid1,
+    $leftMargin,
+    122.0,
+    150,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'J',
 );
 $pdf->endStructElem();
 
@@ -231,13 +241,17 @@ $pdf->page->addContent(
 
 // Alt-text placeholder for the figure — tagged as Figure role.
 $pdf->beginStructElem('Figure', $pid1);
-$pdf->page->addContent(
-    $pdf->color->getPdfColor('black')
-    .
-    $pdf->getTextCell(
-        '[Figure: placeholder rectangle — in production, place image here]',
-        $leftMargin+10, 151.0, 0.0, 0.0, drawcell: false, valign: 'M', halign: 'C',
-    )
+$pdf->page->addContent($pdf->color->getPdfColor('black'));
+$pdf->addTextCell(
+    '[Figure: placeholder rectangle — in production, place image here]',
+    $pid1,
+    $leftMargin + 10,
+    151.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'M',
+    halign: 'C',
 );
 $pdf->endStructElem();
 
@@ -245,11 +259,16 @@ $pdf->endStructElem();
 $setFont($pdf, 'helvetica', 'I', 8);
 
 $pdf->beginStructElem('Caption', $pid1);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Figure 1 — Placeholder rectangle representing graphical content (Caption role)',
-        $leftMargin, 170.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'C',
-    )
+$pdf->addTextCell(
+    'Figure 1 — Placeholder rectangle representing graphical content (Caption role)',
+    $pid1,
+    $leftMargin,
+    170.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'C',
 );
 $pdf->endStructElem();
 
@@ -262,8 +281,16 @@ $pid2  = $page2['pid'];
 $setFont($pdf, 'helvetica', 'B', 14);
 
 $pdf->beginStructElem('H2', $pid2);
-$pdf->page->addContent(
-    $pdf->getTextCell('Page 2 — Note, Blockquote, and Multi-element Brackets', $leftMargin, 20.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L')
+$pdf->addTextCell(
+    'Page 2 — Note, Blockquote, and Multi-element Brackets',
+    $pid2,
+    $leftMargin,
+    20.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
 );
 $pdf->endStructElem();
 
@@ -271,13 +298,18 @@ $setFont($pdf, 'helvetica', '', 10);
 
 // Note element
 $pdf->beginStructElem('Note', $pid2);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'NOTE: beginStructElem() / endStructElem() are no-ops in plain PDF mode '
-        . '(pdfuaMode = "").  The same code runs safely in both plain and PDF/UA '
-        . 'modes without conditional branching.',
-        $leftMargin, 32.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J',
-    )
+$pdf->addTextCell(
+    'NOTE: beginStructElem() / endStructElem() are no-ops in plain PDF mode '
+    . '(pdfuaMode = "").  The same code runs safely in both plain and PDF/UA '
+    . 'modes without conditional branching.',
+    $pid2,
+    $leftMargin,
+    32.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'J',
 );
 $pdf->endStructElem();
 
@@ -285,21 +317,34 @@ $pdf->endStructElem();
 $setFont($pdf, 'helvetica', 'BI', 11);
 
 $pdf->beginStructElem('Blockquote', $pid2);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        '"Tagged PDF is the foundation of accessible PDF. '
-        . 'Without a well-formed structure tree, automated tools and assistive '
-        . 'technologies cannot reliably interpret document content."',
-        $leftMargin, 52.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J',
-    )
+$pdf->addTextCell(
+    '"Tagged PDF is the foundation of accessible PDF. '
+    . 'Without a well-formed structure tree, automated tools and assistive '
+    . 'technologies cannot reliably interpret document content."',
+    $pid2,
+    $leftMargin,
+    52.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'J',
 );
 $pdf->endStructElem();
 
 $setFont($pdf, 'helvetica', 'I', 8);
 
 $pdf->beginStructElem('Caption', $pid2);
-$pdf->page->addContent(
-    $pdf->getTextCell('— ISO 14289-1:2012 (PDF/UA-1) rationale', $leftMargin, 72.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'R')
+$pdf->addTextCell(
+    '— ISO 14289-1:2012 (PDF/UA-1) rationale',
+    $pid2,
+    $leftMargin,
+    72.0,
+    0.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'R',
 );
 $pdf->endStructElem();
 
@@ -308,29 +353,291 @@ $setFont($pdf, 'helvetica', '', 10);
 
 $paras = [
     'Each call to endStructElem() closes the innermost open bracket.  '
-    . 'The current implementation logs a flat sequence of completed elements; '
-    . 'the PDF viewer builds the visual hierarchy from the role sequence and '
-    . 'the order in which elements were closed.',
+    . 'Completed elements keep their nested parent-child relationships, so '
+    . 'the emitted structure tree follows the bracket hierarchy and preserves '
+    . 'the reading order of nested content blocks.',
 
-    'A structure bracket that receives no tagged content (i.e. no getTextCell '
+    'A structure bracket that receives no tagged content (i.e. no addTextCell '
     . 'call between beginStructElem and endStructElem) is silently discarded.  '
     . 'This prevents empty structure nodes from appearing in the tree.',
 
-    'For table structures (Table, TR, TH, TD) use the same pattern: open a '
-    . 'Table bracket, then TR for each row, then TH/TD for each cell, then '
-    . 'close in reverse order.  The library accumulates MCIDs and emits the '
-    . 'complete structure tree when getOutPDFString() is called.',
+    'Pages 3 and 4 of this document demonstrate the remaining role categories: '
+    . 'grouping containers (Sect, Art), list structure (L, LI, Lbl, LBody), '
+    . 'and table structure (Table, TR, TH, TD) — each requiring multi-level '
+    . 'nested brackets that the library resolves at getOutPDFString() time.',
 ];
 
 $yPos = 85.0;
 foreach ($paras as $para) {
     $pdf->beginStructElem('P', $pid2);
-    $pdf->page->addContent(
-        $pdf->getTextCell($para, $leftMargin, $yPos, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J')
-    );
+    $pdf->addTextCell($para, $pid2, $leftMargin, $yPos, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J');
     $pdf->endStructElem();
     $yPos += 25.0;
 }
+
+// -----------------------------------------------------------------------
+// Page 3 — Sect/Art grouping containers + List structure
+// -----------------------------------------------------------------------
+$page3 = $pdf->addPage();
+$pid3  = $page3['pid'];
+
+$setFont($pdf, 'helvetica', 'B', 16);
+
+$pdf->beginStructElem('H2', $pid3);
+$pdf->addTextCell(
+    'Page 3 — Grouping Containers and List Structure',
+    $pid3, $leftMargin, 20.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L'
+);
+$pdf->endStructElem();
+
+// ── Sect wrapping a sub-section (H3 + P inside a Sect container) ──────
+$setFont($pdf, 'helvetica', '', 10);
+
+$pdf->beginStructElem('Sect', $pid3);
+
+    $setFont($pdf, 'helvetica', 'B', 13);
+    $pdf->beginStructElem('H3', $pid3);
+    $pdf->addTextCell(
+        '3.1 — Sect Container',
+        $pid3, $leftMargin, 34.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L'
+    );
+    $pdf->endStructElem();
+
+    $setFont($pdf, 'helvetica', '', 10);
+    $pdf->beginStructElem('P', $pid3);
+    $pdf->addTextCell(
+        'The Sect (Section) role is a grouping container: it contributes no '
+        . 'content of its own but wraps related blocks — here an H3 and this P '
+        . 'paragraph — into a single logical section node in the structure tree. '
+        . 'Screen readers and PDF validators see the H3 + P as children of the Sect.',
+        $pid3, $leftMargin, 43.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J'
+    );
+    $pdf->endStructElem();
+
+$pdf->endStructElem(); // Sect
+
+// ── Art container ─────────────────────────────────────────────────────
+$pdf->beginStructElem('Art', $pid3);
+
+    $setFont($pdf, 'helvetica', 'B', 13);
+    $pdf->beginStructElem('H3', $pid3);
+    $pdf->addTextCell(
+        '3.2 — Art Container',
+        $pid3, $leftMargin, 65.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L'
+    );
+    $pdf->endStructElem();
+
+    $setFont($pdf, 'helvetica', '', 10);
+    $pdf->beginStructElem('P', $pid3);
+    $pdf->addTextCell(
+        'The Art (Article) role marks a self-contained composition: its content '
+        . 'could stand alone as a discrete piece.  It is distinguished from Sect '
+        . 'in that Sect groups thematically related material within a larger work, '
+        . 'while Art denotes an independently distributable unit.',
+        $pid3, $leftMargin, 74.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J'
+    );
+    $pdf->endStructElem();
+
+$pdf->endStructElem(); // Art
+
+// ── List: L > LI > {Lbl + LBody} ─────────────────────────────────────
+$setFont($pdf, 'helvetica', 'B', 13);
+$pdf->beginStructElem('H3', $pid3);
+$pdf->addTextCell(
+    '3.3 — List Structure (L > LI > Lbl + LBody)',
+    $pid3, $leftMargin, 97.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L'
+);
+$pdf->endStructElem();
+
+$setFont($pdf, 'helvetica', '', 10);
+$pdf->beginStructElem('P', $pid3);
+$pdf->addTextCell(
+    'Each list item (LI) contains a label (Lbl) and a body (LBody). '
+    . 'The outer L bracket wraps all items into one logical list node.',
+    $pid3, $leftMargin, 107.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J'
+);
+$pdf->endStructElem();
+
+$listItems = [
+    ['Headings (H1–H6)', 'Define the document outline navigated by screen readers.'],
+    ['Body roles (P, Note, Blockquote)', 'Carry prose content at the block level.'],
+    ['Grouping roles (Sect, Art, Part)', 'Wrap related blocks without adding visible content.'],
+    ['List roles (L, LI, Lbl, LBody)', 'Express enumerated or bulleted list structure.'],
+    ['Table roles (Table, TR, TH, TD)', 'Capture row/column relationships in data tables.'],
+];
+
+$pdf->beginStructElem('L', $pid3);
+
+$itemY = 122.0;
+foreach ($listItems as [$label, $body]) {
+    $pdf->beginStructElem('LI', $pid3);
+
+        $setFont($pdf, 'helvetica', 'B', 10);
+        $pdf->beginStructElem('Lbl', $pid3);
+        $pdf->addTextCell(
+            '• ' . $label,
+            $pid3, $leftMargin, $itemY, 65.0, 0.0, drawcell: false, valign: 'T', halign: 'L'
+        );
+        $pdf->endStructElem(); // Lbl
+
+        $setFont($pdf, 'helvetica', '', 10);
+        $pdf->beginStructElem('LBody', $pid3);
+        $pdf->addTextCell(
+            $body,
+            $pid3, $leftMargin + 65.0, $itemY, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J'
+        );
+        $pdf->endStructElem(); // LBody
+
+    $pdf->endStructElem(); // LI
+    $itemY += 8.0;
+}
+
+$pdf->endStructElem(); // L
+
+// -----------------------------------------------------------------------
+// Page 4 — Table nesting + Figure with /Alt alternate description
+// -----------------------------------------------------------------------
+$page4 = $pdf->addPage();
+$pid4  = $page4['pid'];
+
+$setFont($pdf, 'helvetica', 'B', 16);
+$pdf->beginStructElem('H2', $pid4);
+$pdf->addTextCell(
+    'Page 4 — Table Structure and Figure with Alt-Text',
+    $pid4, $leftMargin, 20.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L'
+);
+$pdf->endStructElem();
+
+// ── Table ─────────────────────────────────────────────────────────────
+$setFont($pdf, 'helvetica', '', 10);
+$pdf->beginStructElem('P', $pid4);
+$pdf->addTextCell(
+    'The Table role wraps a complete data table.  Each row is a TR; header '
+    . 'cells are TH; data cells are TD.  All brackets must be closed '
+    . 'inside-out before moving to the next row.',
+    $pid4, $leftMargin, 32.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J'
+);
+$pdf->endStructElem();
+
+// Column geometry (three columns)
+$colX = [$leftMargin, $leftMargin + 55.0, $leftMargin + 120.0];
+$colW = [55.0, 65.0, 60.0];
+$rowH = 8.0;
+$tableY = 52.0;
+
+$tableHeaders = ['Structure Role', 'Category', 'Nesting context'];
+$tableRows = [
+    ['H1–H6',           'Heading',   'Document / Sect / Art'],
+    ['P',               'Body',      'Document / Sect / Art'],
+    ['Note, Blockquote','Body',      'Document / Sect / Art'],
+    ['L',               'List',      'Document / Sect'],
+    ['LI',              'List item', 'Inside L'],
+    ['Lbl / LBody',     'List parts','Inside LI'],
+    ['Table',           'Table',     'Document / Sect'],
+    ['TR',              'Table row', 'Inside Table'],
+    ['TH / TD',         'Table cell','Inside TR'],
+    ['Sect / Art / Part','Container', 'Document-level'],
+    ['Figure',          'Graphic',   'Document / Sect'],
+    ['Caption',         'Caption',   'After Figure'],
+];
+
+$pdf->beginStructElem('Table', $pid4);
+
+    // Header row
+    $pdf->beginStructElem('TR', $pid4);
+    foreach ($tableHeaders as $idx => $hdr) {
+        $setFont($pdf, 'helvetica', 'B', 9);
+        $pdf->beginStructElem('TH', $pid4);
+        $pdf->addTextCell(
+            $hdr, $pid4, $colX[$idx], $tableY, $colW[$idx], 0.0,
+            drawcell: false, valign: 'T', halign: 'L'
+        );
+        $pdf->endStructElem(); // TH
+    }
+    $pdf->endStructElem(); // TR (header)
+
+    // Data rows
+    foreach ($tableRows as $row) {
+        $tableY += $rowH;
+        $pdf->beginStructElem('TR', $pid4);
+        foreach ($row as $idx => $cell) {
+            $setFont($pdf, 'helvetica', '', 9);
+            $pdf->beginStructElem('TD', $pid4);
+            $pdf->addTextCell(
+                $cell, $pid4, $colX[$idx], $tableY, $colW[$idx], 0.0,
+                drawcell: false, valign: 'T', halign: 'L'
+            );
+            $pdf->endStructElem(); // TD
+        }
+        $pdf->endStructElem(); // TR
+    }
+
+$pdf->endStructElem(); // Table
+
+// ── Figure with /Alt alternate description ────────────────────────────
+$figY = $tableY + 18.0;
+
+$setFont($pdf, 'helvetica', 'B', 13);
+$pdf->beginStructElem('H3', $pid4);
+$pdf->addTextCell(
+    '4.1 — Figure with /Alt Entry',
+    $pid4, $leftMargin, $figY, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'L'
+);
+$pdf->endStructElem();
+
+$figY += 10.0;
+
+$setFont($pdf, 'helvetica', '', 10);
+$pdf->beginStructElem('P', $pid4);
+$pdf->addTextCell(
+    'Pass a third argument to beginStructElem() to attach an /Alt alternate '
+    . 'description to any structure element — most usefully to Figure.  '
+    . 'The string is written into the struct-element dictionary verbatim and '
+    . 'read aloud by screen readers when the graphical content cannot be '
+    . 'represented as plain text.',
+    $pid4, $leftMargin, $figY, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J'
+);
+$pdf->endStructElem();
+
+$figY += 22.0;
+
+// Draw a simple placeholder rectangle for the figure.
+$figStyle = [
+    'all' => [
+        'lineWidth'  => 0.5,
+        'lineCap'    => 'butt',
+        'lineJoin'   => 'miter',
+        'dashArray'  => [],
+        'dashPhase'  => 0,
+        'lineColor'  => '#4a7c59',
+        'fillColor'  => '#d6ead9',
+    ],
+];
+$pdf->page->addContent(
+    $pdf->graph->getRect($leftMargin, $figY, 180.0, 22.0, 'DF', $figStyle)
+);
+
+// Figure bracket with /Alt describing the graphic for accessibility.
+$pdf->beginStructElem(
+    'Figure',
+    $pid4,
+    'Horizontal bar chart illustrating the relative nesting depth of each PDF structure role category'
+);
+$setFont($pdf, 'helvetica', 'I', 9);
+$pdf->page->addContent($pdf->color->getPdfColor('black'));
+$pdf->addTextCell(
+    '[Figure: bar chart — structure role nesting depth comparison]',
+    $pid4, $leftMargin + 10, $figY + 8.0, 0.0, 0.0, drawcell: false, valign: 'M', halign: 'C'
+);
+$pdf->endStructElem(); // Figure
+
+$setFont($pdf, 'helvetica', 'I', 8);
+$pdf->beginStructElem('Caption', $pid4);
+$pdf->addTextCell(
+    'Figure 2 — Placeholder for a bar chart; /Alt text is written to the Figure struct-element dictionary',
+    $pid4, $leftMargin, $figY + 24.0, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'C'
+);
+$pdf->endStructElem();
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

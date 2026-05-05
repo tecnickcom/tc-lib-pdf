@@ -554,20 +554,28 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Call this before rendering the content of a logical block (e.g. <p>, <h1>).
      * All addTextCell calls until endStructElem() share the same structure element.
      *
-     * @param string $role PDF structure role, e.g. 'P', 'H1', 'H2', 'L', 'LI'.
-     * @param int    $pid  Page index (from addPage / getPageId).
+     * @param string      $role PDF structure role, e.g. 'P', 'H1', 'H2', 'L', 'LI', 'Figure'.
+     * @param int         $pid  Page index (from addPage / getPageId).
+     * @param string|null $alt  Optional alternate description written as /Alt in the structure element
+     *                          dictionary — primarily used for Figure elements to carry accessible alt-text.
      */
-    public function beginStructElem(string $role, int $pid): void
+    public function beginStructElem(string $role, int $pid, ?string $alt = null): void
     {
         if ($this->pdfuaMode === '') {
             return;
         }
 
-        $this->pdfuaStructStack[] = [
+        $entry = [
             'role'  => $role,
             'pid'   => $pid,
             'mcids' => [],
+            'kids'  => [],
         ];
+        if ($alt !== null && $alt !== '') {
+            $entry['alt'] = $alt;
+        }
+
+        $this->pdfuaStructStack[] = $entry;
     }
 
     /**
@@ -582,13 +590,20 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $top = \array_pop($this->pdfuaStructStack);
 
-        // Only log elements that actually received tagged content.
-        if ($top['mcids'] !== []) {
-            $this->pdfuaStructLog[] = [
-                'role'  => $top['role'],
-                'pid'   => $top['pid'],
-                'mcids' => $top['mcids'],
-            ];
+        // Only log elements that received marked-content or nested structure children.
+        if ($top['kids'] !== []) {
+            $entryIndex = \count($this->pdfuaStructLog);
+            $this->pdfuaStructLog[] = $top;
+
+            $parentTop = \count($this->pdfuaStructStack) - 1;
+            if ($parentTop >= 0) {
+                $parentEntry = $this->pdfuaStructStack[$parentTop];
+                $parentEntry['kids'][] = [
+                    'type' => 'elem',
+                    'id' => $entryIndex,
+                ];
+                $this->pdfuaStructStack[$parentTop] = $parentEntry;
+            }
         }
     }
 
@@ -625,13 +640,23 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // Register this MCID.
         if ($stackTop >= 0) {
             // Assign to the top open struct elem.
-            $this->pdfuaStructStack[$stackTop]['mcids'][] = $mcid;
+            $stackEntry = $this->pdfuaStructStack[$stackTop];
+            $stackEntry['mcids'][] = $mcid;
+            $stackEntry['kids'][] = [
+                'type' => 'mcid',
+                'id' => $mcid,
+            ];
+            $this->pdfuaStructStack[$stackTop] = $stackEntry;
         } else {
             // No open bracket: auto-log an implicit /P element.
             $this->pdfuaStructLog[] = [
                 'role'  => 'P',
                 'pid'   => $pid,
                 'mcids' => [$mcid],
+                'kids'  => [[
+                    'type' => 'mcid',
+                    'id' => $mcid,
+                ]],
             ];
         }
 
@@ -686,15 +711,42 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $mcid = $this->pdfuapagemcid[$pid] ?? 0;
         $this->pdfuapagemcid[$pid] = $mcid + 1;
 
-        $entry = [
-            'role'  => 'Figure',
-            'pid'   => $pid,
-            'mcids' => [$mcid],
-        ];
-        if ($alt !== '') {
-            $entry['alt'] = $alt;
+        $stackTop = \count($this->pdfuaStructStack) - 1;
+        if ($stackTop >= 0 && $this->pdfuaStructStack[$stackTop]['role'] === 'Figure') {
+            // Already inside an open Figure bracket (e.g. from a <figure> HTML tag).
+            // Assign the MCID directly to that bracket so we don't produce Figure > Figure.
+            $stackEntry = $this->pdfuaStructStack[$stackTop];
+            $stackEntry['mcids'][] = $mcid;
+            $stackEntry['kids'][] = ['type' => 'mcid', 'id' => $mcid];
+            if ($alt !== '' && !isset($stackEntry['alt'])) {
+                $stackEntry['alt'] = $alt;
+            }
+
+            $this->pdfuaStructStack[$stackTop] = $stackEntry;
+        } else {
+            // No open Figure bracket — create a new Figure struct elem entry.
+            $entry = [
+                'role'  => 'Figure',
+                'pid'   => $pid,
+                'mcids' => [$mcid],
+                'kids'  => [[
+                    'type' => 'mcid',
+                    'id' => $mcid,
+                ]],
+            ];
+            if ($alt !== '') {
+                $entry['alt'] = $alt;
+            }
+
+            $entryIndex = \count($this->pdfuaStructLog);
+            $this->pdfuaStructLog[] = $entry;
+
+            if ($stackTop >= 0) {
+                $stackEntry = $this->pdfuaStructStack[$stackTop];
+                $stackEntry['kids'][] = ['type' => 'elem', 'id' => $entryIndex];
+                $this->pdfuaStructStack[$stackTop] = $stackEntry;
+            }
         }
-        $this->pdfuaStructLog[] = $entry;
 
         $open = '/Figure <</MCID ' . $mcid . '>> BDC' . "\n";
         $close = 'EMC' . "\n";

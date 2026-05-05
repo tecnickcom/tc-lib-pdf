@@ -1720,17 +1720,90 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $this->parenttreeoid = $parentTreeOid;
         $this->structtreerootoid = $structTreeRootOid;
 
-        // Build ParentTree /Nums array:
-        // For each page, collect which struct elem OIDs correspond to each MCID in order.
-        // pageoid -> mcid -> structElemOid
-        $parentTreeMap = [];
-        foreach ($structLog as $idx => $entry) {
-            $pageOid = $pidToOid[$entry['pid']] ?? 0;
-            if ($pageOid > 0) {
-                foreach ($entry['mcids'] as $mcid) {
-                    $parentTreeMap[$pageOid][$mcid] = $elemOids[$idx];
+        $childEntryIdx = [];
+        foreach ($structLog as $entry) {
+            foreach ($entry['kids'] as $kid) {
+                if ($kid['type'] === 'elem') {
+                    $childEntryIdx[$kid['id']] = true;
                 }
             }
+        }
+
+        $rootEntryIdx = [];
+        foreach ($structLog as $idx => $_entry) {
+            if (!isset($childEntryIdx[$idx])) {
+                $rootEntryIdx[] = $idx;
+            }
+        }
+
+        // Document StructElem.
+        $firstPageOid = empty($this->pagestructparents) ? 0 : (int) array_key_first($this->pagestructparents);
+        if ($rootEntryIdx !== []) {
+            $firstTaggedPageOid = $pidToOid[$structLog[$rootEntryIdx[0]]['pid']] ?? 0;
+            if ($firstTaggedPageOid > 0) {
+                $firstPageOid = $firstTaggedPageOid;
+            }
+        }
+
+        $rootElemRefsStr = \implode(
+            ' ',
+            \array_map(static fn(int $idx): string => $elemOids[$idx] . ' 0 R', $rootEntryIdx)
+        );
+        $documentStructElem = '<< /Type /StructElem /S /Document /P ' . $structTreeRootOid . ' 0 R';
+        if ($firstPageOid > 0) {
+            $documentStructElem .= ' /Pg ' . $firstPageOid . ' 0 R';
+        }
+
+        $documentStructElem .= ' /K [ ' . $rootElemRefsStr . ' ] >>';
+
+        // Nested StructElems and ParentTree map.
+        $parentTreeMap = [];
+        $structElemsOut = '';
+        $buildStructElem = function (
+            int $entryIdx,
+            int $parentOid
+        ) use (
+            &$buildStructElem,
+            &$elemOids,
+            &$parentTreeMap,
+            &$pidToOid,
+            &$structElemsOut,
+            $structLog,
+        ): void {
+            $entry = $structLog[$entryIdx];
+            $entryPageOid = $pidToOid[$entry['pid']] ?? 0;
+            $kidsOut = '';
+            foreach ($entry['kids'] as $kid) {
+                if ($kid['type'] === 'elem') {
+                    $childIdx = $kid['id'];
+                    $kidsOut .= ' ' . $elemOids[$childIdx] . ' 0 R';
+                    $buildStructElem($childIdx, $elemOids[$entryIdx]);
+                    continue;
+                }
+
+                $mcid = $kid['id'];
+                if ($entryPageOid > 0) {
+                    $parentTreeMap[$entryPageOid][$mcid] = $elemOids[$entryIdx];
+                }
+
+                $kidsOut .= ' << /Type /MCR /Pg ' . $entryPageOid . ' 0 R /MCID ' . $mcid . ' >>';
+            }
+
+            $altOut = '';
+            if (isset($entry['alt']) && \is_string($entry['alt']) && $entry['alt'] !== '') {
+                $altOut = ' /Alt ' . $this->getOutTextString($entry['alt'], $elemOids[$entryIdx], true);
+            }
+
+            $structElemsOut .= $elemOids[$entryIdx] . ' 0 obj' . "\n"
+                . '<< /Type /StructElem /S /' . $entry['role'] . ' /P ' . $parentOid . ' 0 R'
+                . ' /Pg ' . $entryPageOid . ' 0 R'
+                . $altOut
+                . ' /K [' . $kidsOut . ' ] >>' . "\n"
+                . 'endobj' . "\n";
+        };
+
+        foreach ($rootEntryIdx as $entryIdx) {
+            $buildStructElem($entryIdx, $documentStructElemOid);
         }
 
         $parentNums = '';
@@ -1749,43 +1822,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out = $parentTreeOid . ' 0 obj' . "\n"
             . '<< /Nums [' . $parentNums . ' ] >>' . "\n"
             . 'endobj' . "\n";
-
-        // Document StructElem.
-        $firstPageOid = empty($this->pagestructparents) ? 0 : (int) array_key_first($this->pagestructparents);
-        $firstTaggedPageOid = $pidToOid[$structLog[0]['pid']] ?? 0;
-        if ($firstTaggedPageOid > 0) {
-            $firstPageOid = $firstTaggedPageOid;
-        }
-
-        $allElemRefsStr = \implode(' ', \array_map(static fn(int $oid) => $oid . ' 0 R', $elemOids));
-        $documentStructElem = '<< /Type /StructElem /S /Document /P ' . $structTreeRootOid . ' 0 R';
-        if ($firstPageOid > 0) {
-            $documentStructElem .= ' /Pg ' . $firstPageOid . ' 0 R';
-        }
-
-        $documentStructElem .= ' /K [ ' . $allElemRefsStr . ' ] >>';
-
-        // Paragraph/heading StructElems.
-        $structElemsOut = '';
-        foreach ($structLog as $idx => $entry) {
-            $entryPageOid = $pidToOid[$entry['pid']] ?? 0;
-            $mcrList = '';
-            foreach ($entry['mcids'] as $mcid) {
-                $mcrList .= ' << /Type /MCR /Pg ' . $entryPageOid . ' 0 R /MCID ' . $mcid . ' >>';
-            }
-
-            $altOut = '';
-            if (isset($entry['alt']) && \is_string($entry['alt']) && $entry['alt'] !== '') {
-                $altOut = ' /Alt ' . $this->getOutTextString($entry['alt'], $elemOids[$idx], true);
-            }
-
-            $structElemsOut .= $elemOids[$idx] . ' 0 obj' . "\n"
-                . '<< /Type /StructElem /S /' . $entry['role'] . ' /P ' . $documentStructElemOid . ' 0 R'
-                . ' /Pg ' . $entryPageOid . ' 0 R'
-                . $altOut
-                . ' /K [' . $mcrList . ' ] >>' . "\n"
-                . 'endobj' . "\n";
-        }
 
         return $out
             . $structTreeRootOid . ' 0 obj' . "\n"

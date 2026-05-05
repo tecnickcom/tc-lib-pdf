@@ -11883,4 +11883,78 @@ class HTMLTest extends TestUtil
         $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 2, ' li:nth-child(0n+2)'));
         $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' li:nth-child(0n+2)'));
     }
+
+    public function testGetHTMLCellEmdashInOrderedListDoesNotOverlapFollowingStrongFragment(): void
+    {
+        // Regression: em-dash (U+2014) and other WinAnsi high-range glyphs (curly
+        // quotes, bullet, en-dash, ellipsis, etc.) were measured using the font's
+        // default width (dw = 278 units) because Import\Core keyed widths by
+        // StandardEncoding code point instead of WinAnsi byte. The result was that
+        // inline text following a fragment containing an em-dash appeared too far
+        // to the left — visually overlapping the preceding word.
+        //
+        // Expected layout (10 pt Helvetica, ~180 mm wide list item):
+        //   plain text:  "Ordered item \x97 the number is auto-generated as the "
+        //   strong text: "Lbl"
+        // After the plain fragment, the strong fragment must start at least as far
+        // right as the plain fragment's measured end-x, with a small tolerance.
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        // pdfua mode is used to match the E015 example that surfaced the bug.
+        $rfn = new \ReflectionProperty($obj, 'pdfuaMode');
+        $rfn->setAccessible(true);
+        $rfn->setValue($obj, 'pdfua');
+
+        $html = '<ol><li>Ordered item &mdash; the number is auto-generated as the'
+            . ' <strong>Lbl</strong></li></ol>';
+
+        $obj->exposeResetBBoxTrace();
+        $obj->getHTMLCell($html, 15, 20, 180);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        // Find the plain-text fragment ending in "...as the " and the "Lbl" strong fragment.
+        $plainIdx = null;
+        $lblIdx   = null;
+        foreach ($trace as $idx => $entry) {
+            $txt = (string) $entry['txt'];
+            if (($plainIdx === null) && \str_contains($txt, 'auto-generated')) {
+                $plainIdx = $idx;
+            }
+
+            if (($lblIdx === null) && $txt === 'Lbl') {
+                $lblIdx = $idx;
+            }
+        }
+
+        $this->assertNotNull($plainIdx, 'Plain-text fragment containing "auto-generated" must be present');
+        $this->assertNotNull($lblIdx, '"Lbl" strong fragment must be present');
+
+        $plainEntry = $trace[(int) $plainIdx];
+        $lblEntry   = $trace[(int) $lblIdx];
+
+        // Both fragments must sit on the same visual line.
+        // A delta of 1 mm is used because the bold "Lbl" and the regular-weight
+        // prefix are baseline-aligned: the bold font's larger ascent shifts its
+        // bbox_y slightly upward relative to the regular fragment while they still
+        // occupy the same visual line.
+        $this->assertEqualsWithDelta(
+            (float) $plainEntry['bbox_y'],
+            (float) $lblEntry['bbox_y'],
+            1.0,
+            '"Lbl" must be on the same line as the preceding plain-text fragment',
+        );
+
+        // "Lbl" must start no earlier than where the plain-text fragment ends.
+        // Before the metrics fix this assertion failed: Lbl started ~7 mm to
+        // the left of the plain fragment's end_x (em-dash measured as dw=278
+        // instead of its actual 1000 units).
+        $this->assertGreaterThanOrEqual(
+            (float) $plainEntry['bbox_end_x'] - 0.1,
+            (float) $lblEntry['bbox_x'],
+            '"Lbl" must not overlap the preceding plain-text fragment — em-dash width regression',
+        );
+    }
 }

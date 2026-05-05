@@ -261,6 +261,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'dd',
         'div',
         'dl',
+        'figure',
+        'figcaption',
         'dt',
         'h1',
         'h2',
@@ -328,7 +330,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @var string
      */
     protected const HTML_VALID_TAGS = '<marker/><a><b><blockquote><body><br><br/><dd><del><div><dl><dt><em>'
-        . '<caption><col><colgroup><font><form><h1><h2><h3><h4><h5><h6><hr><hr/><i><img><input><label>'
+        . '<caption><col><colgroup><figure><figcaption><font><form>'
+        . '<h1><h2><h3><h4><h5><h6><hr><hr/><i><img><input><label>'
         . '<li><ol><optgroup><option>'
         . '<p><pre><s><select><small><span><strike><strong><sub><sup><table><tablehead>'
         . '<tcpdf><td><textarea><tfoot><th><thead><tr><tt><u><ul>';
@@ -5719,9 +5722,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'h6'         => 'H6',
             'ul', 'ol'   => 'L',
             'li'         => 'LI',
+            'table'      => 'Table',
+            'caption',
+            'figcaption' => 'Caption',
+            'figure'     => 'Figure',
             'blockquote' => 'BlockQuote',
             'pre'        => 'Code',
-            default      => '',
+            default      => ''
         };
     }
 
@@ -7545,6 +7552,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'del'        => $this->parseHTMLTagOPENdel($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'div'        => $this->parseHTMLTagOPENdiv($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'dl'         => $this->parseHTMLTagOPENdl($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'figure'     => $this->parseHTMLTagOPENfigure($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'figcaption' => $this->parseHTMLTagOPENfigcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'dt'         => $this->parseHTMLTagOPENdt($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'em'         => $this->parseHTMLTagOPENem($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'font'       => $this->parseHTMLTagOPENfont($hrc, $key, $tpx, $tpy, $tpw, $tph),
@@ -7687,6 +7696,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'del'        => $this->parseHTMLTagCLOSEdel($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'div'        => $this->parseHTMLTagCLOSEdiv($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'dl'         => $this->parseHTMLTagCLOSEdl($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'figure'     => $this->parseHTMLTagCLOSEfigure($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'figcaption' => $this->parseHTMLTagCLOSEfigcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'dt'         => $this->parseHTMLTagCLOSEdt($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'em'         => $this->parseHTMLTagCLOSEem($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'font'       => $this->parseHTMLTagCLOSEfont($hrc, $key, $tpx, $tpy, $tpw, $tph),
@@ -8671,9 +8682,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->getHTMLFontMetric($hrc, $currentkey);
 
         $prevSoftHyphen = $this->htmlRenderSoftHyphen;
+        $textout = '';
+        $actualText = '';
+        if ($this->pdfuaMode !== '') {
+            $ordarr = [];
+            $dim = self::DIM_DEFAULT;
+            $this->prepareText($text, $ordarr, $dim, $forcedir);
+            $actualText = $this->getActualTextForOrdarr($ordarr);
+        }
         $this->htmlRenderSoftHyphen = true;
         try {
-            $out .= $this->getTextCell(
+            $textout = $this->getTextCell(
                 $text,
                 $renderPosX,
                 $renderStartY,
@@ -8702,6 +8721,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         } finally {
             $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
+
+        if (($textout !== '') && ($this->pdfuaMode !== '')) {
+            $textout = $this->tagPdfUaTextContent($textout, $this->page->getPageId(), $actualText);
+        }
+
+        $out .= $textout;
 
         $bbox = $this->getLastBBox();
         $wrapThreshold = \max(self::WIDTH_TOLERANCE, $lineAdvance - self::WIDTH_TOLERANCE);
@@ -9143,6 +9168,54 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
+    }
+
+    /**
+     * Process HTML opening tag <figure>.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int    $key DOM array key.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENfigure(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        unset($tph);
+        return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
+    }
+
+    /**
+     * Process HTML opening tag <figcaption>.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int    $key DOM array key.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagOPENfigcaption(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        unset($tph);
+        return $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -9712,6 +9785,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
+            if ($this->pdfuaMode !== '') {
+                $this->beginStructElem('LBody', $this->page->getPageId());
+            }
+
             return $out;
         }
 
@@ -9766,7 +9843,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $out .= $this->getHTMLTextPrefix($hrc, $key);
-        $out .= $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType, $markerStyles);
+        if ($this->pdfuaMode !== '') {
+            $this->beginStructElem('Lbl', $this->page->getPageId());
+        }
+
+        $bulletOut = $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType, $markerStyles);
+        if ($this->pdfuaMode !== '') {
+            $bulletOut = $this->tagPdfUaTextContent($bulletOut, $this->page->getPageId(), '');
+            $this->endStructElem();
+            $this->beginStructElem('LBody', $this->page->getPageId());
+        }
+
+        $out .= $bulletOut;
 
         $hrc['listack'][] = [
             'originx' => $hrc['cellctx']['originx'],
@@ -10583,6 +10671,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
+        if ($this->pdfuaMode !== '') {
+            $role = (isset($elm['value']) && $elm['value'] === 'th') ? 'TH' : 'TD';
+            $this->beginStructElem($role, $this->page->getPageId());
+        }
+
         /** @var THTMLTableState $table */
         $table = $hrc['tablestack'][$tableidx];
 
@@ -10953,6 +11046,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
+        if ($this->pdfuaMode !== '') {
+            $this->beginStructElem('TR', $this->page->getPageId());
+        }
+
         $table = $hrc['tablestack'][$tableidx];
         $table['rowtop'] = $tpy;
         $table['rowheight'] = 0.0;
@@ -11295,6 +11392,54 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         unset($hrc, $key, $tpx, $tpy, $tpw, $tph);
         return '';
+    }
+
+    /**
+     * Process HTML closing tag </figure>.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int    $key DOM array key.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEfigure(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        unset($tph);
+        return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
+    }
+
+    /**
+     * Process HTML closing tag </figcaption>.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int    $key DOM array key.
+     * @param float  $tpx Abscissa of upper-left corner.
+     * @param float  $tpy Ordinate of upper-left corner.
+     * @param float  $tpw Width.
+     * @param float  $tph Height.
+     *
+     * @return string PDF code.
+     */
+    protected function parseHTMLTagCLOSEfigcaption(
+        array &$hrc,
+        int $key,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): string {
+        unset($tph);
+        return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
     }
 
     /**
@@ -11721,7 +11866,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tph,
     ): string {
         unset($tph);
+        // closeHTMLBlock calls endStructElem() once (pops LBody when pdfuaMode is active).
         $out = $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
+        if ($this->pdfuaMode !== '') {
+            // Pop the LI that was opened by openHTMLBlock.
+            $this->endStructElem();
+        }
+
         $saved = \array_pop($hrc['listack']);
         if ($saved !== null) {
             $hrc['cellctx']['originx'] = $saved['originx'];
@@ -12333,6 +12484,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpx = $this->getHTMLTableColX($table, $table['colindex']);
         $tpw = \max(0.0, $table['width'] - ($tpx - $table['originx']));
 
+        if ($this->pdfuaMode !== '') {
+            $this->endStructElem();
+        }
+
         return '';
     }
 
@@ -12571,6 +12726,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['tablestack'][$tableidx] = $table;
         $tpx = $table['originx'];
         $tpw = $table['width'];
+
+        if ($this->pdfuaMode !== '') {
+            $this->endStructElem();
+        }
 
         return $out;
     }
