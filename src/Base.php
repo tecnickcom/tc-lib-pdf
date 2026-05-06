@@ -67,11 +67,17 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * }
  *
  * @phpstan-type TBBox array{
- *     'x': float,
- *     'y': float,
- *     'w': float,
- *     'h': float,
+ *     'x': float, // left position
+ *     'y': float, // top position
+ *     'w': float, // width
+ *     'h': float, // height
  * }
+ *
+ * @phpstan-type TStackUnitBBox array<int, TBBox>
+ *
+ * @phpstan-type TStackTextBBox array<int, TBBox>
+ *
+ * @phpstan-type TStackCellBBox array<int, TBBox>
  *
  * @phpstan-type TCellBound array{
  *     'T': float,
@@ -124,8 +130,6 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    kids: TPdfUaStructKid[],
  *    alt?: string,
  * }
- *
- * @phpstan-type TStackBBox array<int, TBBox>
  *
  * @phpstan-import-type TAnnot from Output
  * @phpstan-import-type TEmbeddedFile from Output
@@ -196,7 +200,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.14.0';
+    protected string $version = '8.15.0';
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -687,11 +691,35 @@ abstract class Base
     protected array $svgmasks = [];
 
     /**
-     * Stack of bounding boxes [x, y, width, height] in user units.
+     * Stack of Unit bounding boxes [x, y, w, h] in user units.
      *
-     * @var TStackBBox
+     * @var TStackUnitBBox
      */
     protected array $bbox = [[
+        'x' => 0.0,
+        'y' => 0.0,
+        'w' => 0.0,
+        'h' => 0.0,
+    ]];
+
+    /**
+     * Stack of Text bounding boxes [x, y, w, h] in user units.
+     *
+     * @var TStackTextBBox
+     */
+    protected array $textbbox = [[
+        'x' => 0.0,
+        'y' => 0.0,
+        'w' => 0.0,
+        'h' => 0.0,
+    ]];
+
+    /**
+     * Stack of Cell bounding boxes [x, y, w, h] in user units.
+     *
+     * @var TStackCellBBox
+     */
+    protected array $cellbbox = [[
         'x' => 0.0,
         'y' => 0.0,
         'w' => 0.0,

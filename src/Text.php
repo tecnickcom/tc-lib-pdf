@@ -41,7 +41,7 @@ use Com\Tecnick\Unicode\Substitution;
  * @phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
  * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
  * @phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
- * @phpstan-import-type TStackBBox from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TStackUnitBBox from \Com\Tecnick\Pdf\Base
  *
  * @phpstan-type TextCellStyles array{
  *          all?: StyleDataOpt,
@@ -294,6 +294,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $shadow,
         );
 
+        $this->cellbbox[] = [
+            'x' => $this->toUnit($cell_pntx),
+            'y' => $this->toYUnit($cell_pnty),
+            'w' => $this->toUnit($cell_pwidth),
+            'h' => $this->toUnit($cell_pheight),
+        ];
+
         if (!$drawcell) {
             return $txt_out;
         }
@@ -478,6 +485,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $cell
             );
             $line_posy = $this->toYUnit($txt_pnty);
+
+            $this->cellbbox[] = [
+                'x' => $this->toUnit($cell_pntx),
+                'y' => $this->toYUnit($cell_pnty),
+                'w' => $this->toUnit($cell_pwidth),
+                'h' => $this->toUnit($cell_pheight),
+            ];
 
             $out = $this->outTextLines(
                 $ordarr,
@@ -856,6 +870,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $num_lines = \count($lines);
         $lastline = ($num_lines - 1);
+        $hasTextBBox = false;
+        $minx = 0.0;
+        $miny = 0.0;
+        $maxx = 0.0;
+        $maxy = 0.0;
 
         $line_posx = $posx + $offset;
         $line_posy = $posy + $fontascent;
@@ -925,8 +944,27 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $offset = 0;
             $line_posx = $posx;
             $bbox = $this->getLastBBox();
+            if (!$hasTextBBox) {
+                $hasTextBBox = true;
+                $minx = $bbox['x'];
+                $miny = $bbox['y'];
+                $maxx = ($bbox['x'] + $bbox['w']);
+                $maxy = ($bbox['y'] + $bbox['h']);
+            } else {
+                $minx = \min($minx, $bbox['x']);
+                $miny = \min($miny, $bbox['y']);
+                $maxx = \max($maxx, ($bbox['x'] + $bbox['w']));
+                $maxy = \max($maxy, ($bbox['y'] + $bbox['h']));
+            }
             $line_posy = ($bbox['y'] + $bbox['h'] + $fontascent + $linespace);
         }
+
+        $this->textbbox[] = [
+            'x' => $minx,
+            'y' => $miny,
+            'w' => ($maxx - $minx),
+            'h' => ($maxy - $miny),
+        ];
 
         return $out;
     }
@@ -1394,7 +1432,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Returns the last text bounding box [llx, lly, urx, ury].
+     * Returns the last text fragment bounding box [llx, lly, urx, ury].
      *
      * @return TBBox  Array of bounding box values.
      */
@@ -1410,6 +1448,44 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             ];
         }
         return $this->bbox[$idx];
+    }
+
+    /**
+     * Returns the last Text bounding box [llx, lly, urx, ury].
+     *
+     * @return TBBox  Array of bounding box values.
+     */
+    public function getLastTextBBox(): array
+    {
+        $idx = \array_key_last($this->textbbox);
+        if ($idx === null || empty($this->textbbox[$idx])) {
+            return [
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 0.0,
+                'h' => 0.0,
+            ];
+        }
+        return $this->textbbox[$idx];
+    }
+
+    /**
+     * Returns the last Cell bounding box [llx, lly, urx, ury].
+     *
+     * @return TBBox  Array of bounding box values.
+     */
+    public function getLastCellBBox(): array
+    {
+        $idx = \array_key_last($this->cellbbox);
+        if ($idx === null || empty($this->cellbbox[$idx])) {
+            return [
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 0.0,
+                'h' => 0.0,
+            ];
+        }
+        return $this->cellbbox[$idx];
     }
 
     /**

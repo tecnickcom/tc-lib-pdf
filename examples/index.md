@@ -73,3 +73,4 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E068_font_subset.php](E068_font_subset.php): Font subsetting example showing reduced embedding to only used glyphs.
 - [E069_html_line_height.php](E069_html_line_height.php): HTML line-height behavior showcase across percentages, absolute units, relative units, and unitless values.
 - [E070_default_page_content_import.php](E070_default_page_content_import.php): Use defaultPageContent() to place an imported source page as common content on every new page.
+- [E071_gettextcell_bbox_metrics.php](E071_gettextcell_bbox_metrics.php): Multiline getTextCell block with visible border and printed bbox/textbbox/cellbbox metrics for visual verification.

@@ -61,6 +61,30 @@ class TextTest extends TestUtil
         ], $obj->getLastBBox());
     }
 
+    public function testGetLastTextBBoxDefaultsToZeroBox(): void
+    {
+        $obj = $this->getTestObject();
+
+        $this->assertSame([
+            'x' => 0.0,
+            'y' => 0.0,
+            'w' => 0.0,
+            'h' => 0.0,
+        ], $obj->getLastTextBBox());
+    }
+
+    public function testGetLastCellBBoxDefaultsToZeroBox(): void
+    {
+        $obj = $this->getTestObject();
+
+        $this->assertSame([
+            'x' => 0.0,
+            'y' => 0.0,
+            'w' => 0.0,
+            'h' => 0.0,
+        ], $obj->getLastCellBBox());
+    }
+
     public function testLoadTexHyphenPatternsParsesFixture(): void
     {
         $obj = $this->getTestObject();
@@ -171,6 +195,39 @@ class TextTest extends TestUtil
         $this->assertNotNull($lastKey);
         $this->assertIsString($after[$lastKey]);
         $this->assertNotSame('', $after[$lastKey]);
+    }
+
+    public function testGetLastTextBBoxAndCellBBoxUpdatedByGetTextCell(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $obj->getTextCell('Hello world', 10, 20, 40, 12, 0, 0, 'T', 'L');
+
+        $textbbox = $obj->getLastTextBBox();
+        $cellbbox = $obj->getLastCellBBox();
+
+        $this->assertGreaterThan(0.0, $textbbox['w']);
+        $this->assertGreaterThan(0.0, $textbbox['h']);
+        $this->assertGreaterThan(0.0, $cellbbox['w']);
+        $this->assertGreaterThan(0.0, $cellbbox['h']);
+    }
+
+    public function testGetLastCellBBoxUpdatedByAddTextCell(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+
+        $obj->addTextCell('Hello world', $page['pid'], 10, 20, 40, 12, 0, 0, 'T', 'L');
+
+        $cellbbox = $obj->getLastCellBBox();
+        $textbbox = $obj->getLastTextBBox();
+        $this->assertGreaterThan(0.0, $cellbbox['w']);
+        $this->assertGreaterThan(0.0, $cellbbox['h']);
+        $this->assertGreaterThan(0.0, $textbbox['w']);
+        $this->assertGreaterThan(0.0, $textbbox['h']);
     }
 
     public function testTextOperatorHelpersCoverModesAndFormatting(): void
