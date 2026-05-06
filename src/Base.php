@@ -233,7 +233,7 @@ abstract class Base
     /**
      * Title of the document.
      */
-    protected string $title = 'PDF Document';
+    protected string $title = '';
 
     /**
      * Space-separated list of keywords associated with the document.
