@@ -68,7 +68,7 @@ $buildCellStyles = static function (array $sideStyles, string $fillColor): array
         'lineJoin' => 'miter',
         'dashArray' => [],
         'dashPhase' => 0,
-        'lineColor' => $fillColor,
+        'lineColor' => '#000000',//$fillColor,
         'fillColor' => $fillColor,
     ];
 

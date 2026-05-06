@@ -519,6 +519,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     }
 
     /**
+     * Returns true when the style defines a visible border stroke.
+     *
+     * @param StyleDataOpt $style Style data.
+     */
+    protected function styleHasVisibleLineWidth(array $style): bool
+    {
+        return isset($style['lineWidth'])
+            && \is_numeric($style['lineWidth'])
+            && ((float) $style['lineWidth'] > 0.0);
+    }
+
+    /**
      * Returns the PDF code to draw the text cell border and background.
      *
      * @param float     $pntx     Cell left X coordinate in internal points.
@@ -611,15 +623,46 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             ? $this->toPoints((float) $styles['2']['lineWidth'] * $cell['borderpos'])
             : $adj);
 
-        // different border styles for each side
-        $out .= $this->graph->getRect(
-            $this->toUnit($pntx + $adjx),
-            $this->toYUnit($pnty - $adjy),
-            $this->toUnit($pwidth - $adjw),
-            $this->toUnit($pheight - $adjh),
-            's', // close and stroke the path
-            $styles,
-        );
+        // draw only sides with a positive stroke width;
+        // PDF "0 w" is a hairline stroke, not "no border".
+        $rectx = $this->toUnit($pntx + $adjx);
+        $recty = $this->toYUnit($pnty - $adjy);
+        $rectw = $this->toUnit($pwidth - $adjw);
+        $recth = $this->toUnit($pheight - $adjh);
+        $sidestyles = [
+            0 => ($styles[0] ?? $styleall),
+            1 => ($styles[1] ?? $styleall),
+            2 => ($styles[2] ?? $styleall),
+            3 => ($styles[3] ?? $styleall),
+        ];
+
+        if ($this->styleHasVisibleLineWidth($sidestyles[0])) {
+            $out .= $this->graph->getLine($rectx, $recty, ($rectx + $rectw), $recty, $sidestyles[0]);
+        }
+
+        if ($this->styleHasVisibleLineWidth($sidestyles[1])) {
+            $out .= $this->graph->getLine(
+                ($rectx + $rectw),
+                $recty,
+                ($rectx + $rectw),
+                ($recty + $recth),
+                $sidestyles[1]
+            );
+        }
+
+        if ($this->styleHasVisibleLineWidth($sidestyles[2])) {
+            $out .= $this->graph->getLine(
+                ($rectx + $rectw),
+                ($recty + $recth),
+                $rectx,
+                ($recty + $recth),
+                $sidestyles[2]
+            );
+        }
+
+        if ($this->styleHasVisibleLineWidth($sidestyles[3])) {
+            $out .= $this->graph->getLine($rectx, ($recty + $recth), $rectx, $recty, $sidestyles[3]);
+        }
 
         return $out . $stoptr;
     }

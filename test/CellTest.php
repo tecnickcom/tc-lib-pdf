@@ -301,6 +301,40 @@ class CellTest extends TestUtil
         $this->assertNotSame('', $fallbackAdjustBorder);
     }
 
+    public function testDrawCellIgnoresZeroWidthSideBorders(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $rightSideOnly = $obj->exposeDrawCell(
+            10.0,
+            10.0,
+            20.0,
+            8.0,
+            [
+                1 => ['lineWidth' => 0.3],
+                'all' => ['fillColor' => ''],
+            ],
+        );
+
+        $rightWithZeroSides = $obj->exposeDrawCell(
+            10.0,
+            10.0,
+            20.0,
+            8.0,
+            [
+                0 => ['lineWidth' => 0.0],
+                1 => ['lineWidth' => 0.3],
+                2 => ['lineWidth' => 0.0],
+                3 => ['lineWidth' => 0.0],
+                'all' => ['fillColor' => ''],
+            ],
+        );
+
+        $this->assertNotSame('', $rightSideOnly);
+        $this->assertSame($rightSideOnly, $rightWithZeroSides);
+    }
+
     public function testGetOutTextStringReturnsEscapedStringAndBomChangesOutput(): void
     {
         $obj = $this->getInternalTestObject();
