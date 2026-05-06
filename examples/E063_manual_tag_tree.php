@@ -220,10 +220,7 @@ $pdf->addTextCell(
 );
 $pdf->endStructElem();
 
-// Draw a simple coloured rectangle as a stand-in "figure".
-// Note: graph drawing calls are NOT tagged — only text is taggable via
-// beginStructElem/endStructElem.  For a real Figure, wrap any associated
-// alt-text in a Figure bracket.
+// Draw and tag a simple coloured rectangle as Figure content.
 $figStyle = [
     'all' => [
         'lineWidth' => 0.5,
@@ -235,27 +232,16 @@ $figStyle = [
         'fillColor' => '#cce0ff',
     ],
 ];
-$pdf->page->addContent(
-    $pdf->graph->getRect($leftMargin, 143.0, 180.0, 25.0, 'DF', $figStyle)
-);
-
-// Alt-text placeholder for the figure — tagged as Figure role.
-$pdf->beginStructElem('Figure', $pid1);
-$pdf->page->addContent($pdf->color->getPdfColor('black'));
-$pdf->addTextCell(
-    '[Figure: placeholder rectangle — in production, place image here]',
+$pdf->addTaggedFigureContent(
+    $pdf->graph->getStartTransform()
+    . $pdf->graph->getRect($leftMargin, 143.0, 180.0, 25.0, 'DF', $figStyle)
+    . $pdf->graph->getStopTransform(),
     $pid1,
-    $leftMargin + 10,
-    151.0,
-    0.0,
-    0.0,
-    drawcell: false,
-    valign: 'M',
-    halign: 'C',
+    'Blue placeholder rectangle representing a figure area'
 );
-$pdf->endStructElem();
 
 // Caption for the figure.
+$pdf->page->addContent($pdf->color->getPdfColor('black'), $pid1);
 $setFont($pdf, 'helvetica', 'I', 8);
 
 $pdf->beginStructElem('Caption', $pid1);
@@ -590,11 +576,10 @@ $figY += 10.0;
 $setFont($pdf, 'helvetica', '', 10);
 $pdf->beginStructElem('P', $pid4);
 $pdf->addTextCell(
-    'Pass a third argument to beginStructElem() to attach an /Alt alternate '
-    . 'description to any structure element — most usefully to Figure.  '
-    . 'The string is written into the struct-element dictionary verbatim and '
-    . 'read aloud by screen readers when the graphical content cannot be '
-    . 'represented as plain text.',
+    'For non-text graphics, use addTaggedFigureContent() and pass an /Alt '
+    . 'description for accessibility.  The string is written into the Figure '
+    . 'structure-element dictionary and read aloud by screen readers when '
+    . 'the graphical content cannot be represented as plain text.',
     $pid4, $leftMargin, $figY, 0.0, 0.0, drawcell: false, valign: 'T', halign: 'J'
 );
 $pdf->endStructElem();
@@ -613,24 +598,15 @@ $figStyle = [
         'fillColor'  => '#d6ead9',
     ],
 ];
-$pdf->page->addContent(
-    $pdf->graph->getRect($leftMargin, $figY, 180.0, 22.0, 'DF', $figStyle)
-);
-
-// Figure bracket with /Alt describing the graphic for accessibility.
-$pdf->beginStructElem(
-    'Figure',
+$pdf->addTaggedFigureContent(
+    $pdf->graph->getStartTransform()
+    . $pdf->graph->getRect($leftMargin, $figY, 180.0, 22.0, 'DF', $figStyle)
+    . $pdf->graph->getStopTransform(),
     $pid4,
     'Horizontal bar chart illustrating the relative nesting depth of each PDF structure role category'
 );
-$setFont($pdf, 'helvetica', 'I', 9);
-$pdf->page->addContent($pdf->color->getPdfColor('black'));
-$pdf->addTextCell(
-    '[Figure: bar chart — structure role nesting depth comparison]',
-    $pid4, $leftMargin + 10, $figY + 8.0, 0.0, 0.0, drawcell: false, valign: 'M', halign: 'C'
-);
-$pdf->endStructElem(); // Figure
 
+$pdf->page->addContent($pdf->color->getPdfColor('black'), $pid4);
 $setFont($pdf, 'helvetica', 'I', 8);
 $pdf->beginStructElem('Caption', $pid4);
 $pdf->addTextCell(

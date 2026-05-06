@@ -531,6 +531,13 @@ class TextTest extends TestUtil
         $this->assertStringContainsString('EMC', $withActual);
         $this->assertStringContainsString('/P <</MCID 1>> BDC', $withoutActual);
         $this->assertStringNotContainsString('/ActualText', $withoutActual);
+
+        $multiLine = "BT (line1) Tj ET\nBT (line2) Tj ET\n";
+        $wrappedMultiLine = $pdfua->exposeTagPdfUaTextContent($multiLine, 0);
+
+        $this->assertSame(1, \substr_count($wrappedMultiLine, '/P <</MCID 2>> BDC'));
+        $this->assertSame(1, \substr_count($wrappedMultiLine, 'EMC'));
+        $this->assertStringContainsString("BT (line1) Tj ET\nBT (line2) Tj ET\n", $wrappedMultiLine);
     }
 
     public function testGetTextLineOmitsShadowAlphaInPdfx3(): void

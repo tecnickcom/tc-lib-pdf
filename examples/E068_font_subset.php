@@ -50,7 +50,7 @@ that are actually used in the document, rather than embedding the entire font.</
 <h2>Character Sets</h2>
 <p><b>English:</b> THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG - the quick brown fox jumps over the lazy dog.</p>
 <p><b>Numbers:</b> 0123456789 · π ≈ 3.14159</p>
-<p><b>Punctuation:</b> !@#$%^&*()[]{}–—«»‹›„""''</p>
+<p><b>Punctuation:</b> !@#$%^&*()[]{}–—«»‹›„“”‚‘’"'</p>
 <p><b>Symbols:</b> © ® ™ € £ ¥ ¢ § ¶ • ‰</p>
 
 <h2>Benefits of Font Subsetting</h2>

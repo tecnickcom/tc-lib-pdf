@@ -64,6 +64,100 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+        * @param list<string> $cmd
+     * @return array{code:int,stdout:string,stderr:string}
+     */
+    private function runExternalCommand(array $cmd, string $cwd): array
+    {
+        $desc = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $proc = \proc_open($cmd, $desc, $pipes, $cwd);
+        if (!\is_resource($proc)) {
+            return ['code' => 127, 'stdout' => '', 'stderr' => 'Unable to start process'];
+        }
+
+        \fclose($pipes[0]);
+        $stdout = (string) \stream_get_contents($pipes[1]);
+        \fclose($pipes[1]);
+        $stderr = (string) \stream_get_contents($pipes[2]);
+        \fclose($pipes[2]);
+        $code = \proc_close($proc);
+
+        return ['code' => $code, 'stdout' => $stdout, 'stderr' => $stderr];
+    }
+
+    private function isCommandAvailable(string $name): bool
+    {
+        $res = $this->runExternalCommand(['sh', '-lc', 'command -v ' . \escapeshellarg($name)], __DIR__ . '/..');
+        return (($res['code'] === 0) && (\trim($res['stdout']) !== ''));
+    }
+
+    public function testSubsetFontPdfHasReaderCompatibleFontObjects(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, true, true);
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12);
+        $obj->addPage();
+        $obj->page->addContent($font['out']);
+        $obj->addHTMLCell(
+            '<h1>Subset Font Regression</h1><p><b>Bold</b> THE QUICK BROWN FOX · π ≈ 3.14159 © ® ™</p>',
+            15,
+            20,
+            180
+        );
+
+        $raw = $obj->getOutPDFString();
+
+        // Ensure CID metadata is explicit and no empty CID registry/ordering is emitted.
+        $this->assertStringContainsString('/Subtype /CIDFontType2', $raw);
+        $this->assertStringNotContainsString('/Registry () /Ordering ()', $raw);
+        $this->assertMatchesRegularExpression('/\\/Registry \(Adobe\) \\/Ordering \(Identity\) \\/Supplement 0/', $raw);
+
+        // Embedded subset streams should be non-trivial font payloads, not tiny/broken stubs.
+        $matches = [];
+        \preg_match_all('/\\/Length1\\s+(\\d+)/', $raw, $matches);
+        $lengths = \array_map('intval', $matches[1]);
+        if ($lengths === []) {
+            $this->fail('Expected at least one Length1 entry in generated PDF.');
+        }
+        $this->assertGreaterThan(1000, \max($lengths));
+
+        $tmpBase = \sys_get_temp_dir() . '/tc-lib-pdf-subset-' . \bin2hex(\random_bytes(6));
+        $pdfPath = $tmpBase . '.pdf';
+        \file_put_contents($pdfPath, $raw);
+
+        try {
+            if ($this->isCommandAvailable('pdftoppm')) {
+                $popplerOut = $this->runExternalCommand(
+                    ['pdftoppm', '-f', '1', '-singlefile', '-png', $pdfPath, $tmpBase . '-poppler'],
+                    __DIR__ . '/..'
+                );
+                $this->assertSame(0, $popplerOut['code'], $popplerOut['stderr']);
+                $this->assertStringNotContainsString("Couldn't create a font", $popplerOut['stderr']);
+                @\unlink($tmpBase . '-poppler.png');
+            }
+
+            if ($this->isCommandAvailable('mutool')) {
+                $mupdfPng = $tmpBase . '-mupdf.png';
+                $mupdfOut = $this->runExternalCommand(
+                    ['mutool', 'draw', '-o', $mupdfPng, $pdfPath, '1'],
+                    __DIR__ . '/..'
+                );
+                $this->assertSame(0, $mupdfOut['code'], $mupdfOut['stderr']);
+                $this->assertStringNotContainsString('FT_New_Memory_Face', $mupdfOut['stderr']);
+                $this->assertStringNotContainsString('locations (loca) table missing', $mupdfOut['stderr']);
+                $this->assertStringNotContainsString('broken table', $mupdfOut['stderr']);
+                @\unlink($mupdfPng);
+            }
+        } finally {
+            @\unlink($pdfPath);
+        }
+    }
+
     public function testGetOutPDFStringReturnsRawPdfDocument(): void
     {
         $obj = $this->getTestObject();
@@ -1761,6 +1855,40 @@ PHP;
         $this->assertStringContainsString('/Type /StructElem /S /L', $out);
         $this->assertStringContainsString('/Type /StructElem /S /LI', $out);
         $this->assertStringContainsString('/Type /StructElem /S /LBody', $out);
+    }
+
+    public function testGetOutPDFBodyTagsManualFigureContentWithAltInPdfuaMode(): void
+    {
+        $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $pid = $page->getPageId();
+
+        $style = [
+            'all' => [
+                'lineWidth' => 0.3,
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => '#336699',
+                'fillColor' => '#cce0ff',
+            ],
+        ];
+
+        $obj->addTaggedFigureContent(
+            $obj->graph->getRect(10.0, 10.0, 12.0, 8.0, 'DF', $style),
+            $pid,
+            'Blue rectangle sample figure'
+        );
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Figure <</MCID 0>> BDC', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /Figure', $out);
+        $this->assertStringContainsString('/Alt ', $out);
     }
 
     public function testGetOutPDFBodyTagsHtmlFigureWithFigcaptionInPdfuaMode(): void

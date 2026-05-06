@@ -608,6 +608,21 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Add non-text graphical content as a tagged Figure block in PDF/UA mode.
+     *
+     * Pass raw drawing/image operators (for example from graph or image helpers)
+     * to associate them with a Figure structure element and optional /Alt text.
+     */
+    public function addTaggedFigureContent(string $content, int $pid, string $alt = ''): void
+    {
+        if ($content === '') {
+            return;
+        }
+
+        $this->page->addContent($this->tagPdfUaFigureContent($content, $pid, $alt), $pid);
+    }
+
+    /**
      * Wrap a semantic text block with a PDF/UA marked-content sequence.
      *
      * If a structure element bracket is open (via beginStructElem) the MCID is registered
@@ -630,10 +645,25 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
         $open = '/' . $role . ' <</MCID ' . $mcid . $atEntry . '>> BDC' . "\n";
         $close = 'EMC' . "\n";
-        $wrapped = \preg_replace('/BT .*? ET\n/s', $open . '$0' . $close, $content, 1, $count);
-        if (($wrapped === null) || ($count !== 1)) {
+
+        // addTextCell output may contain multiple BT...ET text sections for wrapped lines.
+        // Tag the whole text span by inserting BDC before the first BT and EMC after the last ET.
+        $firstBt = \strpos($content, 'BT ');
+        $lastEt = \strrpos($content, ' ET');
+        if ($firstBt === false || $lastEt === false || $lastEt < $firstBt) {
             return $content;
         }
+
+        $etEnd = $lastEt + 3;
+        if (isset($content[$etEnd]) && $content[$etEnd] === "\n") {
+            ++$etEnd;
+        }
+
+        $wrapped = \substr($content, 0, $firstBt)
+            . $open
+            . \substr($content, $firstBt, $etEnd - $firstBt)
+            . $close
+            . \substr($content, $etEnd);
 
         $this->pdfuapagemcid[$pid] = $mcid + 1;
 
