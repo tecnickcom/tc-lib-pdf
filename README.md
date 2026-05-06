@@ -236,6 +236,26 @@ Once fonts are generated, they are cached in `vendor/tecnickcom/tc-lib-pdf-font/
 
 You can also add your own fonts and generate their PHP font data with `tc-lib-pdf-font`. For shared or immutable environments, generate them once into a persistent directory you control (outside `vendor/`) and point `K_PATH_FONTS` to that location.
 
+For a runnable end-to-end custom font workflow, see [examples/E072_import_new_font.php](examples/E072_import_new_font.php).
+
+Example import commands (from the project root):
+
+```bash
+mkdir -p target/fonts/source target/fonts/custom
+
+curl -fL --retry 3 -o target/fonts/source/NotoSans-Regular.ttf \
+    https://github.com/notofonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf
+
+php vendor/tecnickcom/tc-lib-pdf-font/util/convert.php \
+    --outpath=target/fonts/custom \
+    --type=TrueTypeUnicode \
+    --flags=32 \
+    --encoding_id=1 \
+    --fonts=target/fonts/source/NotoSans-Regular.ttf
+```
+
+Then point `K_PATH_FONTS` to `target/fonts/custom` (or an absolute path to that directory) before creating the `Tcpdf` instance.
+
 ```php
 \define('K_PATH_FONTS', '/opt/app/fonts/tc-lib-pdf');
 ```
