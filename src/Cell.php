@@ -37,6 +37,48 @@ namespace Com\Tecnick\Pdf;
 abstract class Cell extends \Com\Tecnick\Pdf\Base
 {
     /**
+     * Normalize optional side aliases to numeric indexes used internally.
+     *
+     * Side mapping: T=0, R=1, B=2, L=3.
+     * Numeric indexes take precedence when both forms are provided.
+     *
+     * @param array<int|string, array<array<int>|float|int|string>|float|string> $styles
+     *
+     * @return array<int|string, StyleDataOpt>
+     */
+    protected function normalizeCellSideStyles(array $styles): array
+    {
+        if ($styles === []) {
+            return $styles;
+        }
+
+        $normalized = [];
+        foreach ($styles as $key => $style) {
+            if (!\is_array($style)) {
+                continue;
+            }
+
+            /** @var StyleDataOpt $style */
+            $normalized[$key] = $style;
+        }
+
+        $sideMap = [
+            'T' => 0,
+            'R' => 1,
+            'B' => 2,
+            'L' => 3,
+        ];
+
+        foreach ($sideMap as $sideKey => $sideIdx) {
+            if (!isset($normalized[$sideIdx]) && !empty($normalized[$sideKey])) {
+                $normalized[$sideIdx] = $normalized[$sideKey];
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Set the default cell margin in user units.
      *
      * @param float $top    Top.
@@ -118,6 +160,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $styles = $this->graph->getCurrentStyleArray();
         }
 
+        $styles = $this->normalizeCellSideStyles($styles);
+
         $border_ratio = \round(self::BORDERPOS_INTERNAL + $cell['borderpos'], 1);
 
         $minT = 0;
@@ -130,8 +174,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $minB = $minT;
             $minL = $minT;
         } elseif (
-            (\count($styles) == 4)
-            && isset($styles[0]['lineWidth'])
+            isset($styles[0]['lineWidth'])
             && isset($styles[1]['lineWidth'])
             && isset($styles[2]['lineWidth'])
             && isset($styles[3]['lineWidth'])
@@ -550,6 +593,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         array $styles = [],
         ?array $cell = null
     ) {
+        $styles = $this->normalizeCellSideStyles($styles);
 
         $drawfill = (!empty($styles['all']['fillColor']));
         $drawborder = (

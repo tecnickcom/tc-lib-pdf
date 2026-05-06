@@ -175,6 +175,38 @@ class TextTest extends TestUtil
         $this->assertNotSame('', $cell);
     }
 
+    public function testGetTextCellAcceptsNamedAndNumericBorderStyleSides(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $top = ['lineWidth' => 0.4, 'lineColor' => '#ff0000'];
+        $right = ['lineWidth' => 0.5, 'lineColor' => '#00aa00'];
+        $bottom = ['lineWidth' => 0.6, 'lineColor' => '#0000ff'];
+        $left = ['lineWidth' => 0.7, 'lineColor' => '#222222'];
+
+        $namedStyles = [
+            'T' => $top,
+            'R' => $right,
+            'B' => $bottom,
+            'L' => $left,
+        ];
+
+        $numericStyles = [
+            0 => $top,
+            1 => $right,
+            2 => $bottom,
+            3 => $left,
+        ];
+
+        $namedOut = $obj->getTextCell('Hello', 10, 20, 40, 12, 0, 0, 'T', 'L', null, $namedStyles);
+        $numericOut = $obj->getTextCell('Hello', 10, 20, 40, 12, 0, 0, 'T', 'L', null, $numericStyles);
+
+        $this->assertNotSame('', $namedOut);
+        $this->assertSame($numericOut, $namedOut);
+    }
+
     public function testAddTextCellAppendsContentToPage(): void
     {
         $obj = $this->getTestObject();

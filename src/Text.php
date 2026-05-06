@@ -44,12 +44,20 @@ use Com\Tecnick\Unicode\Substitution;
  * @phpstan-import-type TStackUnitBBox from \Com\Tecnick\Pdf\Base
  *
  * @phpstan-type TextCellStyles array{
- *          all?: StyleDataOpt,
- *          L?: StyleDataOpt,
- *          T?: StyleDataOpt,
- *          R?: StyleDataOpt,
- *          B?: StyleDataOpt,
+ *          all?: StyleDataOpt, // One style applied to all four borders.
+ *          L?: StyleDataOpt, // Left border style.
+ *          T?: StyleDataOpt, // Top border style.
+ *          R?: StyleDataOpt, // Right border style.
+ *          B?: StyleDataOpt, // Bottom border style.
  *      }
+ * @phpstan-type TextCellStylesLegacy array{
+ *          all?: StyleDataOpt, // One style applied to all four borders.
+ *          0?: StyleDataOpt, // Top border style (legacy numeric side index).
+ *          1?: StyleDataOpt, // Right border style (legacy numeric side index).
+ *          2?: StyleDataOpt, // Bottom border style (legacy numeric side index).
+ *          3?: StyleDataOpt, // Left border style (legacy numeric side index).
+ *      }
+ * @phpstan-type TextCellStylesInput TextCellStyles|TextCellStylesLegacy
  *
  * @phpstan-type TextShadow array{
  *          'xoffset': float,
@@ -161,7 +169,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-     * @param TextCellStyles $styles Cell border styles (see: getCurrentStyleArray).
+     * @param TextCellStylesInput $styles Cell border styles (see: getCurrentStyleArray).
      * @param float       $strokewidth Stroke width.
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
@@ -332,7 +340,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
      * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
-     * @param TextCellStyles $styles Cell border styles (see: getCurrentStyleArray).
+     * @param TextCellStylesInput $styles Cell border styles (see: getCurrentStyleArray).
      * @param float       $strokewidth Stroke width.
      * @param float       $wordspacing Word spacing (use it only when justify == false).
      * @param float       $leading     Leading.
