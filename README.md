@@ -602,12 +602,28 @@ When a PDF/UA mode is active the library automatically:
 - Tags text content with MCIDs and wraps each run in the appropriate structure element (`P`, `H1`–`H6`, `Link`, etc.)
 - Tags `<img>` elements as `Figure` with their `alt` attribute written as `/Alt` in the structure element
 - Emits `ActualText` entries for ligatures and special glyphs so text extraction and screen readers work correctly
+- Provides Artifact marked-content helpers for non-semantic content (`beginArtifact()`, `endArtifact()`, `addArtifactContent()`)
 
 To provide the document language explicitly:
 
 ```php
 $pdf->setDocInfo(['a_meta_language' => 'de-DE']);
 ```
+
+To tag decorative or repeated content as Artifact (for example headers, footers, and page numbers):
+
+```php
+$pid = $pdf->addPage()['pid'];
+
+$headerOperators = $pdf->graph->getLine(10, 10, 200, 10);
+$pdf->addArtifactContent($headerOperators, $pid, 'Pagination', 'Header');
+
+$footerText = $pdf->getTextCell('Page 1', 180, 280, 20, 5);
+$pdf->addArtifactContent($footerText, $pid, 'Pagination', 'Footer');
+```
+
+In PDF/UA mode, the built-in `defaultPageContent()` page-number footer is emitted as `Artifact` with
+`/Type /Pagination /Subtype /Footer`.
 
 Runnable examples: [examples/E015_pdfua.php](examples/E015_pdfua.php) through [examples/E017_pdfua2.php](examples/E017_pdfua2.php).
 

@@ -70,6 +70,10 @@ require(__DIR__ . '/../vendor/autoload.php');
  *   Page 3 — Sect/Art grouping containers; list structure (L > LI > Lbl + LBody)
  *   Page 4 — Table nesting (Table > TR > TH / TD); Figure with /Alt alternate text
  *
+ * Non-semantic decorative content can be emitted as Artifact marked-content
+ * with addArtifactContent() / beginArtifact() / endArtifact().  This example
+ * adds decorative separator rules as /Artifact with /Type /Layout.
+ *
  * All content is tagged with addTextCell() inside explicit struct-elem brackets.
  * Compare with E015–E017 which enable pdfua mode via addHTMLCell (auto-tagged).
  */
@@ -92,8 +96,6 @@ $pdf->setPDFFilename('E063_manual_tag_tree.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
-$pdf->enableDefaultPageContent();
-
 $leftMargin = 15.0;
 $rightMargin = 15.0;
 $pdf->setDefaultCellMargin(0.0, $rightMargin, 0.0, 0.0);
@@ -104,21 +106,50 @@ $setFont = static function (
     string $style,
     int $size,
 ): array {
+    if ($family === 'helvetica') {
+        $family = 'dejavusans';
+    }
+
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size);
     $pdf->page->addContent($font['out']);
     return $font;
 };
 
+$addDecorativeSeparator = static function (
+    \Com\Tecnick\Pdf\Tcpdf $pdf,
+    int $pid,
+    float $posY,
+) use ($leftMargin): void {
+    $lineStyle = [
+        'all' => [
+            'lineWidth' => 0.25,
+            'lineCap' => 'butt',
+            'lineJoin' => 'miter',
+            'dashArray' => [],
+            'dashPhase' => 0,
+            'lineColor' => '#bdbdbd',
+            'fillColor' => '',
+        ],
+    ];
+
+    $pdf->addArtifactContent(
+        $pdf->graph->getLine($leftMargin, $posY, 195.0, $posY, $lineStyle),
+        $pid,
+        'Layout'
+    );
+};
+
 // -----------------------------------------------------------------------
 // Font setup — insert before addPage()
 // -----------------------------------------------------------------------
-$pdf->font->insert($pdf->pon, 'helvetica', '', 10);
+$pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 
 // -----------------------------------------------------------------------
 // Page 1 — H1, H2, H3, P, Caption, Figure structure elements
 // -----------------------------------------------------------------------
 $page1 = $pdf->addPage();
 $pid1  = $page1['pid'];
+$addDecorativeSeparator($pdf, $pid1, 16.0);
 
 // --- H1 heading ---
 $setFont($pdf, 'helvetica', 'B', 20);
@@ -263,6 +294,7 @@ $pdf->endStructElem();
 // -----------------------------------------------------------------------
 $page2 = $pdf->addPage();
 $pid2  = $page2['pid'];
+$addDecorativeSeparator($pdf, $pid2, 16.0);
 
 $setFont($pdf, 'helvetica', 'B', 14);
 
@@ -282,8 +314,8 @@ $pdf->endStructElem();
 
 $setFont($pdf, 'helvetica', '', 10);
 
-// Note element
-$pdf->beginStructElem('Note', $pid2);
+// Note element (with explicit ID for validator compatibility)
+$pdf->beginStructElem('Note', $pid2, null, ['ID' => 'note-p2-01']);
 $pdf->addTextCell(
     'NOTE: beginStructElem() / endStructElem() are no-ops in plain PDF mode '
     . '(pdfuaMode = "").  The same code runs safely in both plain and PDF/UA '
@@ -302,7 +334,7 @@ $pdf->endStructElem();
 // Blockquote element
 $setFont($pdf, 'helvetica', 'BI', 11);
 
-$pdf->beginStructElem('Blockquote', $pid2);
+$pdf->beginStructElem('BlockQuote', $pid2);
 $pdf->addTextCell(
     '"Tagged PDF is the foundation of accessible PDF. '
     . 'Without a well-formed structure tree, automated tools and assistive '
@@ -366,6 +398,7 @@ foreach ($paras as $para) {
 // -----------------------------------------------------------------------
 $page3 = $pdf->addPage();
 $pid3  = $page3['pid'];
+$addDecorativeSeparator($pdf, $pid3, 16.0);
 
 $setFont($pdf, 'helvetica', 'B', 16);
 
@@ -485,6 +518,7 @@ $pdf->endStructElem(); // L
 // -----------------------------------------------------------------------
 $page4 = $pdf->addPage();
 $pid4  = $page4['pid'];
+$addDecorativeSeparator($pdf, $pid4, 16.0);
 
 $setFont($pdf, 'helvetica', 'B', 16);
 $pdf->beginStructElem('H2', $pid4);
@@ -512,6 +546,7 @@ $rowH = 8.0;
 $tableY = 52.0;
 
 $tableHeaders = ['Structure Role', 'Category', 'Nesting context'];
+$tableHeaderIds = ['th-role', 'th-category', 'th-context'];
 $tableRows = [
     ['H1–H6',           'Heading',   'Document / Sect / Art'],
     ['P',               'Body',      'Document / Sect / Art'],
@@ -533,7 +568,11 @@ $pdf->beginStructElem('Table', $pid4);
     $pdf->beginStructElem('TR', $pid4);
     foreach ($tableHeaders as $idx => $hdr) {
         $setFont($pdf, 'helvetica', 'B', 9);
-        $pdf->beginStructElem('TH', $pid4);
+        $pdf->beginStructElem('TH', $pid4, null, [
+            'O' => 'Table',
+            'ID' => $tableHeaderIds[$idx],
+            'Scope' => 'Column',
+        ]);
         $pdf->addTextCell(
             $hdr, $pid4, $colX[$idx], $tableY, $colW[$idx], 0.0,
             drawcell: false, valign: 'T', halign: 'L'
@@ -548,7 +587,10 @@ $pdf->beginStructElem('Table', $pid4);
         $pdf->beginStructElem('TR', $pid4);
         foreach ($row as $idx => $cell) {
             $setFont($pdf, 'helvetica', '', 9);
-            $pdf->beginStructElem('TD', $pid4);
+            $pdf->beginStructElem('TD', $pid4, null, [
+                'O' => 'Table',
+                'Headers' => $tableHeaderIds[$idx],
+            ]);
             $pdf->addTextCell(
                 $cell, $pid4, $colX[$idx], $tableY, $colW[$idx], 0.0,
                 drawcell: false, valign: 'T', halign: 'L'

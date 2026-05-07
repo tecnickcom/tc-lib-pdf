@@ -415,8 +415,12 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             }
 
             $xmp .= "\t\t" . '<rdf:Description rdf:about="" xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">' . "\n"
-                . "\t\t\t" . '<pdfuaid:part>' . $part . '</pdfuaid:part>' . "\n"
-                . "\t\t" . '</rdf:Description>' . "\n";
+                . "\t\t\t" . '<pdfuaid:part>' . $part . '</pdfuaid:part>' . "\n";
+            if ($part === 2) {
+                $xmp .= "\t\t\t" . '<pdfuaid:rev>2024</pdfuaid:rev>' . "\n";
+            }
+
+            $xmp .= "\t\t" . '</rdf:Description>' . "\n";
         }
 
         if ($this->pdfx) {

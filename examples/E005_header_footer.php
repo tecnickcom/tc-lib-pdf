@@ -100,19 +100,20 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
             'lineColor' => '#555555',
         ];
 
-        $out = $this->graph->getStartTransform();
-        $out .= $this->defaultfont['out'];
+        $out = '';
 
         // ---- HEADER ------------------------------------------------
 
         $headerY = self::HF_MARGIN;
+        $headerOut = $this->graph->getStartTransform();
+        $headerOut .= $this->defaultfont['out'];
 
         // Title – left-aligned, bold
         if ($this->headerTitle !== '') {
             $bfontBold = $this->font->insert($this->pon, 'helvetica', 'B', 10);
-            $out .= $bfontBold['out'];
-            $out .= $this->color->getPdfColor('#1a3a6b');
-            $out .= $this->getTextCell(
+            $headerOut .= $bfontBold['out'];
+            $headerOut .= $this->color->getPdfColor('#1a3a6b');
+            $headerOut .= $this->getTextCell(
                 $this->headerTitle,
                 $lm,
                 $headerY,
@@ -123,13 +124,13 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
                 'C',           // valign: centre inside the band
                 'L',           // halign: left
             );
-            $out .= $this->defaultfont['out'];
+            $headerOut .= $this->defaultfont['out'];
         }
 
         // Subtitle – right-aligned
         if ($this->headerSubtitle !== '') {
-            $out .= $this->color->getPdfColor('#555555');
-            $out .= $this->getTextCell(
+            $headerOut .= $this->color->getPdfColor('#555555');
+            $headerOut .= $this->getTextCell(
                 $this->headerSubtitle,
                 $lm + $tw * 0.65,
                 $headerY,
@@ -144,18 +145,25 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
 
         // Separator line below the header
         $headerLineY = $headerY + self::HEADER_H;
-        $out .= $this->graph->getLine($lm, $headerLineY, $rm, $headerLineY, $lineStyle);
+        $headerOut .= $this->graph->getLine($lm, $headerLineY, $rm, $headerLineY, $lineStyle);
+        $headerOut .= $this->graph->getStopTransform();
+
+        $out .= $this->beginArtifact('Pagination', 'Header');
+        $out .= $headerOut;
+        $out .= $this->endArtifact();
 
         // ---- FOOTER ------------------------------------------------
 
         $footerLineY = $ph - self::HF_MARGIN - self::FOOTER_H;
+        $footerOut = $this->graph->getStartTransform();
+        $footerOut .= $this->defaultfont['out'];
 
         // Separator line above the footer
-        $out .= $this->graph->getLine($lm, $footerLineY, $rm, $footerLineY, $lineStyle);
+        $footerOut .= $this->graph->getLine($lm, $footerLineY, $rm, $footerLineY, $lineStyle);
 
         // Page number – centred
-        $out .= $this->color->getPdfColor('#555555');
-        $out .= $this->getTextCell(
+        $footerOut .= $this->color->getPdfColor('#555555');
+        $footerOut .= $this->getTextCell(
             'Page ' . ($pid + 1),
             $lm,
             $footerLineY,
@@ -166,8 +174,11 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
             'C',               // valign: centre inside the band
             'C',               // halign: centre
         );
+        $footerOut .= $this->graph->getStopTransform();
 
-        $out .= $this->graph->getStopTransform();
+        $out .= $this->beginArtifact('Pagination', 'Footer');
+        $out .= $footerOut;
+        $out .= $this->endArtifact();
 
         return $out;
     }
@@ -181,7 +192,7 @@ $pdf = new PdfWithHeaderFooter(
     true,  // bool $isunicode = true,
     false, // bool $subsetfont = false,
     true,  // bool $compress = true,
-    '',    // string $mode = '',
+    'pdfua1', // string $mode = 'pdfua1',
     null,  // ?ObjEncrypt $objEncrypt = null,
 );
 
@@ -195,6 +206,7 @@ $pdf->setKeywords('TCPDF tc-lib-pdf example header footer');
 $pdf->setPDFFilename('005_header_footer.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
+$pdf->setLanguageArray(['a_meta_language' => 'en-US']);
 
 // Set the text that will appear in the header on every page.
 $pdf->setHeaderText('My Document Title', \date('Y-m-d'));

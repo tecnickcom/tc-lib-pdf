@@ -1924,6 +1924,55 @@ PHP;
         $this->assertStringContainsString('/Type /StructElem /S /Caption', $out);
     }
 
+    public function testGetOutPDFBodySerializesStructElemAttributes(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->beginStructElem('TH', $page['pid'], null, ['Scope' => 'Column']);
+        $obj->addTextCell('Header', $page['pid'], 10, 10, 40, 10);
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Type /StructElem /S /TH', $out);
+        $this->assertStringContainsString('/A << /Scope /Column >>', $out);
+    }
+
+    public function testGetOutPDFBodyPromotesStructElemIdAttributeToIdEntry(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->beginStructElem('Note', $page['pid'], null, ['ID' => 'note-1']);
+        $obj->addTextCell('Note content', $page['pid'], 10, 10, 40, 10);
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/Note.*\/ID /s', $out);
+        $this->assertStringNotContainsString('/A << /ID /note-1 >>', $out);
+    }
+
+    public function testGetOutPDFBodyTagsHtmlLinkWithObjrAndStructParent(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->addHTMLCell('<p><a href="https://example.com">Link</a></p>', 10, 10, 80, 20);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Subtype /Link', $out);
+        $this->assertStringContainsString('/StructParent ', $out);
+        $this->assertStringContainsString('/Type /OBJR', $out);
+        $this->assertStringContainsString('/Type /StructElem /S /Link', $out);
+        $this->assertStringContainsString('/Tabs /S', $out);
+    }
+
     public function testGetOutCatalogIncludesRequiredEntries(): void
     {
         $obj = $this->getInternalTestObject();

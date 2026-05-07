@@ -141,6 +141,47 @@ class TextTest extends TestUtil
         $this->assertStringContainsString('BT', $out);
     }
 
+    public function testDefaultPageContentUsesFooterArtifactInPdfUa(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfua');
+        $this->initFont($obj);
+        $page = $obj->addPage();
+
+        $out = $obj->defaultPageContent($page['pid']);
+
+        $this->assertStringContainsString('/Artifact << /Type /Pagination /Subtype /Footer >> BDC', $out);
+        $this->assertStringContainsString('EMC', $out);
+        $this->assertStringNotContainsString('/MCID', $out);
+    }
+
+    public function testArtifactHelpersAndAddArtifactContent(): void
+    {
+        $obj = $this->getTestObject();
+        $this->assertSame('', $obj->beginArtifact('Pagination', 'Header'));
+        $this->assertSame('', $obj->endArtifact());
+
+        $pdfua = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfua');
+        $this->initFont($pdfua);
+        $page = $pdfua->addPage();
+
+        $open = $pdfua->beginArtifact('Pagi nation', 'Head/er');
+        $this->assertSame('/Artifact << /Type /Pagination /Subtype /Header >> BDC' . "\n", $open);
+        $this->assertSame('EMC' . "\n", $pdfua->endArtifact());
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($pdfua, 'page');
+        $pdfua->addArtifactContent("q\nQ\n", $page['pid'], 'Pagination', 'Header');
+        /** @var array<int, string> $content */
+        $content = $pageObj->getPage($page['pid'])['content'];
+
+        $lastKey = \array_key_last($content);
+        $this->assertNotNull($lastKey);
+        $this->assertStringContainsString('/Artifact << /Type /Pagination /Subtype /Header >> BDC', $content[$lastKey]);
+        $this->assertStringContainsString("q\nQ\n", $content[$lastKey]);
+        $this->assertStringContainsString('EMC', $content[$lastKey]);
+        $this->assertStringNotContainsString('/MCID', $content[$lastKey]);
+    }
+
     public function testDefaultPageContentPreservesCurrentUnicodeFont(): void
     {
         $obj = $this->getTestObject();

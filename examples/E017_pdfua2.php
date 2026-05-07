@@ -38,7 +38,7 @@ $pdf->setKeywords('TCPDF tc-lib-pdf pdfua2 PDF/UA-2 ISO14289-2 PDF2.0 tagged PDF
 $pdf->setPDFFilename('E017_pdfua2.pdf');
 $pdf->setLanguage('en-US');
 
-$font = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
+$font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
@@ -65,9 +65,7 @@ $html = '<h1>PDF/UA-2 — Auto-Tagged HTML Showcase</h1>'
     . '<blockquote>&ldquo;Tagged PDF is the foundation of accessible PDF. Without a'
     . ' well-formed structure tree, automated tools and assistive technologies cannot'
     . ' reliably interpret document content.&rdquo; &mdash; ISO&#160;14289 rationale</blockquote>'
-    . '<p>The <code>blockquote</code> tag maps to <strong>BlockQuote</strong>.'
-    . ' The <code>pre</code> tag maps to <strong>Code</strong>:</p>'
-    . '<pre>// PDF/UA-2 targets PDF 2.0 — the catalog carries pdfver 2.0&#10;// and the XMP metadata block uses the PDF/UA-2 identification schema.&#10;// The structure-tree and MarkInfo rules are inherited from PDF/UA-1.</pre>'
+    . '<p>The <code>blockquote</code> tag maps to <strong>BlockQuote</strong>.</p>'
 
     . '<h2>3 — List Structure (L &gt; LI &gt; Lbl + LBody)</h2>'
     . '<p>Both <code>ul</code> and <code>ol</code> map to the <strong>L</strong> role.'
@@ -108,14 +106,14 @@ $html = '<h1>PDF/UA-2 — Auto-Tagged HTML Showcase</h1>'
     . '<tr><td>figcaption, caption</td><td>Caption</td><td>Illustration</td></tr>'
     . '<tr><td>table</td><td>Table</td><td>Table</td></tr>'
     . '<tr><td>tr</td><td>TR</td><td>Table</td></tr>'
-    . '<tr><td>th</td><td>TH</td><td>Table</td></tr>'
     . '<tr><td>td</td><td>TD</td><td>Table</td></tr>'
+    . '<tr><td>th</td><td>TH</td><td>Table</td></tr>'
     . '<tr><td>a</td><td>Link</td><td>Inline</td></tr>'
     . '</table>'
 
     . '<h2>6 — Hyperlink (Link Role)</h2>'
     . '<p>This sentence contains a'
-    . ' <a href="https://github.com/tecnickcom/tc-lib-pdf">hyperlink to the tc-lib-pdf repository</a>;'
+    . ' <a href="https://github.com/tecnickcom/tc-lib-pdf" style="text-decoration:none;">hyperlink to the tc-lib-pdf repository</a>;'
     . ' the <code>a</code> element is tagged with the <strong>Link</strong> structure role'
     . ' automatically. In PDF/UA-2 (as in PDF/UA-1), link annotations must be accessible;'
     . ' the library derives the accessible name from the link text in the structure tree.</p>';

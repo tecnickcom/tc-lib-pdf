@@ -33,7 +33,7 @@ $pdf->setKeywords('TCPDF tc-lib-pdf pdfua tagged PDF accessibility HTML auto-tag
 $pdf->setPDFFilename('E015_pdfua.pdf');
 $pdf->setLanguage('en-US');
 
-$font = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
+$font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
@@ -58,9 +58,7 @@ $html = '<h1>PDF/UA — Auto-Tagged HTML Showcase</h1>'
     . '<blockquote>&ldquo;Tagged PDF is the foundation of accessible PDF. Without a'
     . ' well-formed structure tree, automated tools and assistive technologies cannot'
     . ' reliably interpret document content.&rdquo; &mdash; ISO&#160;14289-1 rationale</blockquote>'
-    . '<p>The <code>blockquote</code> tag maps to <strong>BlockQuote</strong>.'
-    . ' The <code>pre</code> tag maps to <strong>Code</strong>:</p>'
-    . '<pre>// pre / code block example&#10;function greet(string $name): string {&#10;    return "Hello, " . $name . "!";&#10;}</pre>'
+    . '<p>The <code>blockquote</code> tag maps to <strong>BlockQuote</strong>.</p>'
 
     . '<h2>3 — List Structure (L &gt; LI &gt; Lbl + LBody)</h2>'
     . '<p>Both <code>ul</code> and <code>ol</code> map to the <strong>L</strong> role.'
@@ -100,14 +98,14 @@ $html = '<h1>PDF/UA — Auto-Tagged HTML Showcase</h1>'
     . '<tr><td>figcaption, caption</td><td>Caption</td><td>Illustration</td></tr>'
     . '<tr><td>table</td><td>Table</td><td>Table</td></tr>'
     . '<tr><td>tr</td><td>TR</td><td>Table</td></tr>'
-    . '<tr><td>th</td><td>TH</td><td>Table</td></tr>'
     . '<tr><td>td</td><td>TD</td><td>Table</td></tr>'
+    . '<tr><td>th</td><td>TH</td><td>Table</td></tr>'
     . '<tr><td>a</td><td>Link</td><td>Inline</td></tr>'
     . '</table>'
 
     . '<h2>6 — Hyperlink (Link Role)</h2>'
     . '<p>This sentence contains a'
-    . ' <a href="https://github.com/tecnickcom/tc-lib-pdf">hyperlink to the tc-lib-pdf repository</a>;'
+    . ' <a href="https://github.com/tecnickcom/tc-lib-pdf" style="text-decoration:none;">hyperlink to the tc-lib-pdf repository</a>;'
     . ' the <code>a</code> element is tagged with the <strong>Link</strong> structure role'
     . ' automatically. The link text is accessible to screen readers via the structure tree.</p>';
 

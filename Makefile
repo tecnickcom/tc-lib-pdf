@@ -101,6 +101,9 @@ PHPDOC=$(shell which phpDocumentor)
 # phpstan version
 PHPSTANVER=2.1.40
 
+# veraPDF binary path (can be overridden, e.g. make verapdf-ua VERAPDF_BIN=/opt/verapdf/bin/verapdf)
+VERAPDF_BIN?=$(shell command -v verapdf 2>/dev/null)
+
 # --- MAKE TARGETS ---
 
 # Display general help about this command
@@ -244,6 +247,32 @@ report: ensuretarget
 .PHONY: preflight
 preflight: ensuretarget
 	bash ./resources/preflight/run_preflight_matrix.sh
+
+## Generate PDF/UA examples and validate with veraPDF
+.PHONY: verapdf-ua
+verapdf-ua: ensuretarget
+	@if [[ -z "$(VERAPDF_BIN)" ]]; then \
+		echo "veraPDF CLI not found. Set VERAPDF_BIN=/path/to/verapdf or add verapdf to PATH."; \
+		exit 2; \
+	fi
+	$(PHP) examples/E015_pdfua.php > $(TARGETDIR)/report/E015_pdfua.pdf
+	$(PHP) examples/E016_pdfua1.php > $(TARGETDIR)/report/E016_pdfua1.pdf
+	$(PHP) examples/E017_pdfua2.php > $(TARGETDIR)/report/E017_pdfua2.pdf
+	@fail=0; \
+	for spec in "E015_pdfua.pdf:ua1" "E016_pdfua1.pdf:ua1" "E017_pdfua2.pdf:ua2"; do \
+		file="$${spec%%:*}"; \
+		flavour="$${spec##*:}"; \
+		input="$(TARGETDIR)/report/$${file}"; \
+		report="$(TARGETDIR)/report/$${file%.pdf}.verapdf.txt"; \
+		if "$(VERAPDF_BIN)" --format text --verbose --flavour "$${flavour}" "$${input}" > "$${report}" 2>&1; then \
+			echo "[ok] $${file} ($${flavour})"; \
+		else \
+			echo "[fail] $${file} ($${flavour}) - see $${report}"; \
+			fail=1; \
+		fi; \
+	done; \
+	echo "veraPDF reports written to $(TARGETDIR)/report/*.verapdf.txt"; \
+	exit $$fail
 
 ## Build the RPM package for RedHat-like Linux distributions
 .PHONY: rpm

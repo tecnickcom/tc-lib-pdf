@@ -580,8 +580,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param int         $pid  Page index (from addPage / getPageId).
      * @param string|null $alt  Optional alternate description written as /Alt in the structure element
      *                          dictionary — primarily used for Figure elements to carry accessible alt-text.
+    * @param array<string, string> $attr Optional structure element attributes, serialized as
+    *                                    a PDF dictionary in the /A entry.
      */
-    public function beginStructElem(string $role, int $pid, ?string $alt = null): void
+    public function beginStructElem(string $role, int $pid, ?string $alt = null, array $attr = []): void
     {
         if ($this->pdfuaMode === '') {
             return;
@@ -597,13 +599,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $entry['alt'] = $alt;
         }
 
+        if ($attr !== []) {
+            $entry['attr'] = $attr;
+        }
+
         $this->pdfuaStructStack[] = $entry;
     }
 
     /**
      * Close the current PDF/UA structure element bracket.
-    * The completed element (with all its MCIDs) is appended to the struct log.
-    */
+     * The completed element (with all its MCIDs) is appended to the struct log.
+     */
     public function endStructElem(): void
     {
         if ($this->pdfuaMode === '' || $this->pdfuaStructStack === []) {
@@ -613,7 +619,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $top = \array_pop($this->pdfuaStructStack);
 
         // Only log elements that received marked-content or nested structure children.
-        if ($top['kids'] !== []) {
+        if ($top['kids'] !== [] || (!empty($top['annots']) && \is_array($top['annots']))) {
             $entryIndex = \count($this->pdfuaStructLog);
             $this->pdfuaStructLog[] = $top;
 
@@ -642,6 +648,68 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         $this->page->addContent($this->tagPdfUaFigureContent($content, $pid, $alt), $pid);
+    }
+
+    /**
+     * Open an Artifact marked-content block for non-semantic page content.
+     *
+     * Typical usage is for repeated page furniture (header/footer/page numbers),
+     * decorative graphics, separators, and similar visual-only content.
+     *
+     * @param string $type    Optional Artifact /Type name (for example 'Pagination').
+     * @param string $subtype Optional Artifact /Subtype name (for example 'Header' or 'Footer').
+     */
+    public function beginArtifact(string $type = '', string $subtype = ''): string
+    {
+        if ($this->pdfuaMode === '') {
+            return '';
+        }
+
+        $type = $this->normalizePdfName($type);
+        $subtype = $this->normalizePdfName($subtype);
+
+        if ($type === '' && $subtype === '') {
+            return '/Artifact BMC' . "\n";
+        }
+
+        $props = [];
+        if ($type !== '') {
+            $props[] = '/Type /' . $type;
+        }
+        if ($subtype !== '') {
+            $props[] = '/Subtype /' . $subtype;
+        }
+
+        return '/Artifact << ' . \implode(' ', $props) . ' >> BDC' . "\n";
+    }
+
+    /**
+     * Close an Artifact marked-content block opened by beginArtifact().
+     */
+    public function endArtifact(): string
+    {
+        if ($this->pdfuaMode === '') {
+            return '';
+        }
+
+        return 'EMC' . "\n";
+    }
+
+    /**
+     * Add non-semantic content wrapped as Artifact marked-content.
+     *
+     * @param string $content Raw PDF operators to wrap.
+     * @param int    $pid     Page index.
+     * @param string $type    Optional Artifact /Type (for example 'Pagination').
+     * @param string $subtype Optional Artifact /Subtype (for example 'Header' or 'Footer').
+     */
+    public function addArtifactContent(string $content, int $pid, string $type = '', string $subtype = ''): void
+    {
+        if ($content === '') {
+            return;
+        }
+
+        $this->page->addContent($this->tagPdfUaArtifactContent($content, $type, $subtype), $pid);
     }
 
     /**
@@ -713,6 +781,39 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return $wrapped;
+    }
+
+    /**
+     * Register an annotation object under the current open structure element.
+     *
+     * @param int $oid Annotation object ID.
+     * @param int $pid Page index (from addPage / getPageId).
+     */
+    protected function registerPdfUaAnnotation(int $oid, int $pid): void
+    {
+        if ($this->pdfuaMode === '' || $oid <= 0) {
+            return;
+        }
+
+        $stackTop = \count($this->pdfuaStructStack) - 1;
+        if ($stackTop >= 0) {
+            $stackEntry = $this->pdfuaStructStack[$stackTop];
+            if (empty($stackEntry['annots']) || !\is_array($stackEntry['annots'])) {
+                $stackEntry['annots'] = [];
+            }
+
+            $stackEntry['annots'][] = $oid;
+            $this->pdfuaStructStack[$stackTop] = $stackEntry;
+            return;
+        }
+
+        $this->pdfuaStructLog[] = [
+            'role' => 'Link',
+            'pid' => $pid,
+            'mcids' => [],
+            'kids' => [],
+            'annots' => [$oid],
+        ];
     }
 
     /**
@@ -807,6 +908,30 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return $open . $content . $close;
+    }
+
+    /**
+     * Wrap non-semantic content in an Artifact marked-content sequence.
+     */
+    protected function tagPdfUaArtifactContent(string $content, string $type = '', string $subtype = ''): string
+    {
+        if ($this->pdfuaMode === '' || $content === '') {
+            return $content;
+        }
+
+        if (!\str_ends_with($content, "\n")) {
+            $content .= "\n";
+        }
+
+        return $this->beginArtifact($type, $subtype) . $content . $this->endArtifact();
+    }
+
+    /**
+     * Normalize a token for use as PDF Name object value.
+     */
+    protected function normalizePdfName(string $name): string
+    {
+        return \preg_replace('/[^A-Za-z0-9_\-]/', '', $name) ?? '';
     }
 
     /**
@@ -2114,6 +2239,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out .= $this->graph->getStopTransform();
         $this->defcell = $prevcell;
         $this->font->popLastFont();
+
+        // Repeated page-number footer is presentation-only content in tagged output.
+        $out = $this->tagPdfUaArtifactContent($out, 'Pagination', 'Footer');
+
         return $out;
     }
 

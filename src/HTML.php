@@ -5678,7 +5678,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($this->pdfuaMode !== '') {
                 $role = $this->pdfuaClampHeadingRole($role);
             }
-            $this->beginStructElem($role, $this->page->getPageId());
+            $attr = [];
+            if (($this->pdfuaMode === 'pdfua2') && ($role === 'L')) {
+                $listNumbering = $this->getPdfUaListNumbering($elm);
+                if ($listNumbering !== '') {
+                    $attr = ['O' => 'List', 'ListNumbering' => $listNumbering];
+                }
+            }
+
+            $this->beginStructElem($role, $this->page->getPageId(), null, $attr);
         }
 
         return '';
@@ -5730,6 +5738,50 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'pre'        => 'Code',
             default      => ''
         };
+    }
+
+    /**
+     * Return the PDF/UA ListNumbering value for a UL/OL element.
+     *
+     * @param array<string, mixed> $elm DOM element.
+     */
+    protected function getPdfUaListNumbering(array $elm): string
+    {
+        $tag = isset($elm['value']) && \is_string($elm['value']) ? \strtolower($elm['value']) : '';
+        $listtype = isset($elm['listtype']) && \is_string($elm['listtype'])
+            ? \strtolower(\trim($elm['listtype']))
+            : '';
+
+        $map = [
+            'disc' => 'Disc',
+            'circle' => 'Circle',
+            'square' => 'Square',
+            'decimal' => 'Decimal',
+            'decimal-leading-zero' => 'Decimal',
+            '1' => 'Decimal',
+            'upper-roman' => 'UpperRoman',
+            'i' => 'LowerRoman',
+            'lower-roman' => 'LowerRoman',
+            'upper-alpha' => 'UpperAlpha',
+            'upper-latin' => 'UpperAlpha',
+            'a' => 'LowerAlpha',
+            'lower-alpha' => 'LowerAlpha',
+            'lower-latin' => 'LowerAlpha',
+        ];
+
+        if (($listtype !== '') && isset($map[$listtype])) {
+            return $map[$listtype];
+        }
+
+        if ($tag === 'ul') {
+            return 'Disc';
+        }
+
+        if ($tag === 'ol') {
+            return 'Decimal';
+        }
+
+        return '';
     }
 
     /**
@@ -7024,9 +7076,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $buffer,
     ): string {
         $out = '';
+        $decor = '';
 
         if ($fillstyle !== null) {
-            $out .= $this->graph->getStartTransform()
+            $decor .= $this->graph->getStartTransform()
                 . $this->graph->getBasicRect(
                     $cellx,
                     $rowtop,
@@ -7052,15 +7105,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 . $this->graph->getStopTransform();
         }
 
+        if (($decor !== '') && ($this->pdfuaMode !== '')) {
+            $out .= $this->tagPdfUaArtifactContent($decor);
+        } else {
+            $out .= $decor;
+        }
+
         $out .= $buffer;
 
         if ($styles === []) {
             return $out;
         }
 
-        $out .= $this->graph->getStartTransform();
+        $decor = $this->graph->getStartTransform();
         if (!empty($styles['all'])) {
-            $out .= $this->graph->getBasicRect(
+            $decor .= $this->graph->getBasicRect(
                 $cellx,
                 $rowtop,
                 $cellw,
@@ -7069,7 +7128,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $styles['all'],
             );
         } else {
-            $out .= $this->drawHTMLRectBorderSides(
+            $decor .= $this->drawHTMLRectBorderSides(
                 $cellx,
                 $rowtop,
                 $cellw,
@@ -7078,7 +7137,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
 
-        return $out . $this->graph->getStopTransform();
+        $decor .= $this->graph->getStopTransform();
+        if ($this->pdfuaMode !== '') {
+            $out .= $this->tagPdfUaArtifactContent($decor);
+            return $out;
+        }
+
+        return $out . $decor;
     }
 
     /**
@@ -8846,6 +8911,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (($link !== '') && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
             $lnkid = $this->setLink($bbox['x'], $bbox['y'], $bbox['w'], $bbox['h'], $link);
             $this->page->addAnnotRef($lnkid, $this->page->getPageID());
+            if (($this->pdfuaMode !== '') && ($lnkid > 0)) {
+                $this->registerPdfUaAnnotation($lnkid, $this->page->getPageID());
+            }
         }
 
         if ($wrapped) {
@@ -8936,6 +9004,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $href = (!empty($elm['attribute']['href']) && \is_string($elm['attribute']['href']))
             ? $elm['attribute']['href']
             : '';
+
+        if ($this->pdfuaMode !== '' && ($href !== '')) {
+            $this->beginStructElem('Link', $this->page->getPageId());
+        }
+
         $this->pushHTMLLink($hrc, $href);
 
         return '';
@@ -10673,7 +10746,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if ($this->pdfuaMode !== '') {
             $role = (isset($elm['value']) && $elm['value'] === 'th') ? 'TH' : 'TD';
-            $this->beginStructElem($role, $this->page->getPageId());
+            $attr = [];
+            if ($role === 'TH') {
+                $attr = ['O' => 'Table', 'Scope' => 'Column'];
+            }
+
+            $this->beginStructElem($role, $this->page->getPageId(), null, $attr);
         }
 
         /** @var THTMLTableState $table */
@@ -11172,7 +11250,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($value === 'a') {
+            $hadlink = ($this->getCurrentHTMLLink($hrc) !== '');
             $this->popHTMLLink($hrc);
+            if ($this->pdfuaMode !== '' && $hadlink) {
+                $this->endStructElem();
+            }
         }
 
         return '';
