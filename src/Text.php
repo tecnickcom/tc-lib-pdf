@@ -2055,7 +2055,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function setPageContext(int $pid = -1): void
     {
-        $this->page->addContent($this->font->getOutCurrentFont(), $pid);
+        if ($this->font->hasCurrentFont()) {
+            $this->page->addContent($this->font->getOutCurrentFont(), $pid);
+        }
         if ($this->defPageContentEnabled) {
             $this->page->addContent($this->defaultPageContent($pid), $pid);
         }
