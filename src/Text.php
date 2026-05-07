@@ -2084,7 +2084,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $this->pon,
             $this->defaultfont['key'],
             $this->defaultfont['style'],
-            (int) $this->defaultfont['size'],
+            (float) $this->defaultfont['size'],
             $this->defaultfont['spacing'],
             $this->defaultfont['stretching'],
         );

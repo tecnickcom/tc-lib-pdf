@@ -1533,9 +1533,9 @@ class HTMLTest extends TestUtil
         $this->assertSame('small text', $trace[3]['txt']);
 
         $this->assertEqualsWithDelta(10.0, (float) $trace[0]['font_size'], 1e-9);
-        $this->assertEqualsWithDelta(7.0, (float) $trace[1]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(6.666666666666666, (float) $trace[1]['font_size'], 1e-9);
         $this->assertEqualsWithDelta(10.0, (float) $trace[2]['font_size'], 1e-9);
-        $this->assertEqualsWithDelta(7.0, (float) $trace[3]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(6.666666666666666, (float) $trace[3]['font_size'], 1e-9);
 
         $this->assertGreaterThan((float) $trace[0]['bbox_end_x'], (float) $trace[1]['bbox_end_x']);
         $this->assertGreaterThan((float) $trace[1]['bbox_end_x'], (float) $trace[2]['bbox_end_x']);

@@ -4576,7 +4576,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $this->pon,
                 (string) $fontstate['family'],
                 $fontstyle,
-                (int) \round($fontsize),
+                $fontsize,
             );
             if (!empty($metric['out']) && \is_string($metric['out'])) {
                 $out .= $metric['out'];
@@ -4613,7 +4613,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $this->pon,
                 (string) $fontstate['family'],
                 (string) $fontstate['style'],
-                (int) \round((float) $fontstate['size']),
+                (float) $fontstate['size'],
             );
             if (!empty($metric['out']) && \is_string($metric['out'])) {
                 $out = $metric['out'] . $out;
@@ -4692,7 +4692,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->pon,
             $fontstate['family'],
             $fontstate['style'],
-            (int) \round($fontstate['size']),
+            $fontstate['size'],
         );
 
         return (isset($font['out']) && \is_string($font['out'])) ? $font['out'] : '';
@@ -4723,8 +4723,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $fontname = $stripped;
         }
         $fontsize = (!empty($elm['fontsize']) && \is_numeric($elm['fontsize']))
-            ? (int) \round((float) $elm['fontsize'])
-            : (int) \round((float) $curfont['size']);
+            ? (float) $elm['fontsize']
+            : (float) ($curfont['size'] ?? 0.0);
         $fontstyle = '';
         if (!empty($elm['fontstyle']) && \is_string($elm['fontstyle'])) {
             foreach (['B', 'I'] as $style) {
@@ -4739,13 +4739,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // Re-insert when cached font differs from the active one.
             // Font key alone is not enough because different font sizes may share the same key.
             $curfont = $this->font->getCurrentFont();
-            $cursize = (int) \round((float) ($curfont['size'] ?? 0));
+            $cursize = (float) ($curfont['size'] ?? 0.0);
             $curkey = (string) $this->font->getCurrentFontKey();
             $cachefontkey = '';
             if (isset($hrc['fontcache'][$cachekey]['key']) && \is_string($hrc['fontcache'][$cachekey]['key'])) {
                 $cachefontkey = $hrc['fontcache'][$cachekey]['key'];
             }
-            if (($curkey !== $cachefontkey) || ($cursize !== $fontsize)) {
+            if (($curkey !== $cachefontkey) || (\abs($cursize - $fontsize) > 0.0001)) {
                 $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
             }
 

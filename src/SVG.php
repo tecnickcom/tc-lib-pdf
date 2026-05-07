@@ -1931,7 +1931,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $this->pon,
             $svgstyle['font-family'],
             $svgstyle['font-mode'],
-            \intval($svgstyle['font-size-val']),
+            (float) $svgstyle['font-size-val'],
         );
 
         return $fontmetric['out'];
