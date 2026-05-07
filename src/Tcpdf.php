@@ -411,6 +411,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *
      * @param TSignature $data Signature data:
      *        - appearance (array) Signature appearance.
+    *            - ap (string|array) Optional annotation appearance stream definition (/AP).
+    *              Same format as generic annotation appearances: keyed by mode (n/r/d),
+    *              each mode accepting either a stream string or a state=>stream map.
+    *            - as (string) Optional annotation appearance state (/AS).
      *            - empty (bool) Array of empty signatures:
      *                - objid (int) Object id.
      *                - name (string) Name of the signature field.
@@ -419,6 +423,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
      *            - name (string) Name of the signature field.
      *            - page (int) Page number.
      *            - rect (array) Rectangle of the signature field.
+    *            - xobj (string) Optional Form XObject ID to auto-fit as normal appearance.
      *        - approval (bool) Enable approval signature eg. for PDF incremental update.
      *        - cert_type (int) The access permissions granted for this document. Valid values shall be:
      *            1 = No changes to the document shall be permitted;
@@ -487,6 +492,16 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
         $this->setSignAnnotRefs();
 
         $this->sign = true;
+    }
+
+    /**
+     * Get the signature widget object ID.
+     *
+     * @return int Signature widget annotation object ID (0 if not initialized).
+     */
+    public function getSignatureObjectID(): int
+    {
+        return $this->objid['signature'];
     }
 
 
@@ -620,6 +635,64 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
     }
 
     /**
+     * Set a custom appearance stream for the signature widget annotation.
+     *
+     * @param string $stream Appearance stream content.
+     * @param string $mode Appearance mode: N (normal), R (rollover), D (down).
+     * @param string $state Optional appearance state name.
+     */
+    public function setSignatureAppearanceStream(
+        string $stream,
+        string $mode = 'N',
+        string $state = ''
+    ): void {
+        if ($stream === '') {
+            throw new PdfException('The signature appearance stream cannot be empty');
+        }
+
+        $mode = \strtolower($mode);
+        if (!\in_array($mode, ['n', 'r', 'd'], true)) {
+            throw new PdfException('Invalid signature appearance mode (expected N, R, or D)');
+        }
+
+        if (!isset($this->signature['appearance']['ap']) || !\is_array($this->signature['appearance']['ap'])) {
+            $this->signature['appearance']['ap'] = [];
+        }
+
+        if ($state === '') {
+            $this->signature['appearance']['ap'][$mode] = $stream;
+            return;
+        }
+
+        if (
+            !isset($this->signature['appearance']['ap'][$mode])
+            || !\is_array($this->signature['appearance']['ap'][$mode])
+        ) {
+            $this->signature['appearance']['ap'][$mode] = [];
+        }
+
+        $this->signature['appearance']['ap'][$mode][$state] = $stream;
+        $this->signature['appearance']['as'] = $state;
+    }
+
+    /**
+     * Set a Form XObject ID as signature widget appearance source.
+     *
+     * The XObject will be auto-fitted to the signature rectangle.
+     *
+     * @param string $xobjid XObject resource name (for example "IMP1").
+     */
+    public function setSignatureAppearanceXObject(string $xobjid): void
+    {
+        $xobjid = \trim($xobjid);
+        if ((\preg_match('/^[A-Za-z0-9_]+$/', $xobjid) !== 1)) {
+            throw new PdfException('Invalid signature appearance XObject ID');
+        }
+
+        $this->signature['appearance']['xobj'] = $xobjid;
+    }
+
+    /**
      * Add an empty digital signature appearance (a cliccable rectangle area to get signature properties).
      *
      * @param float $posx Abscissa of the upper-left corner.
@@ -657,7 +730,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\ClassObjects
             return;
         }
 
-        if (!empty($this->signature['appearance']['page'])) {
+        if (
+            isset($this->signature['appearance']['page'], $this->signature['appearance']['rect'])
+            && \is_int($this->signature['appearance']['page'])
+            && ($this->signature['appearance']['page'] >= 0)
+            && (\is_string($this->signature['appearance']['rect']))
+            && ($this->signature['appearance']['rect'] !== '')
+        ) {
             $this->page->addAnnotRef($this->objid['signature'], $this->signature['appearance']['page']);
         }
 

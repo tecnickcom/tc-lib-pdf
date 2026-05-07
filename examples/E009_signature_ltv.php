@@ -41,6 +41,10 @@ $text = 'This document enables LTV collection to emit DSS/VRI validation structu
 $textCell = $pdf->getTextCell($text, 15, 20, 180, 0, 0, 1, 'T', 'L');
 $pdf->page->addContent($textCell);
 
+$text2 = 'When OCSP/CRL/cert retrieval succeeds, validators can verify long after certificate expiry.';
+$textCell2 = $pdf->getTextCell($text2, 15, 27, 180, 0, 0, 1, 'T', 'L');
+$pdf->page->addContent($textCell2);
+
 $certPath = \realpath(__DIR__ . '/data/cert/tcpdf.crt');
 if ($certPath === false) {
     throw new \RuntimeException('Missing signing certificate: examples/data/cert/tcpdf.crt');
@@ -70,6 +74,60 @@ $pdf->setSignature([
 ]);
 
 $pdf->setSignatureAppearance(15, 35, 90, 20, -1, 'LTVSignature');
+
+// Attach a reusable Form XObject as signature appearance using the official API.
+// Any imported page can be used as a visual signature stamp.
+$stampSource = __DIR__ . '/data/pdf/E006_example_minimal.pdf';
+if (\is_readable($stampSource)) {
+    $sourceId = $pdf->setImportSourceFile($stampSource);
+    $tpl = $pdf->importPage($sourceId, 1);
+    $pdf->setSignatureAppearanceXObject($tpl->getXobjId());
+} else {
+    // Fallback appearance stream when the optional stamp source is unavailable.
+    $sigW = 90.0;
+    $sigH = 20.0;
+    $sigTopY = $page['height'] - $sigH;
+
+    $sigAppearance = $bfont['out'];
+    $sigAppearance .= $pdf->color->getPdfColor('rgb(15%,15%,15%)');
+    $sigAppearance .= $pdf->getTextCell(
+        'LTV-enabled signature (DSS/VRI)',
+        0,
+        $sigTopY,
+        $sigW,
+        $sigH,
+        3.0,
+        0,
+        'C',
+        'L',
+        null,
+        [
+            'all' => [
+                'fillColor' => 'rgb(94%,97%,92%)',
+                'lineColor' => 'rgb(20%,40%,20%)',
+                'lineWidth' => 1.0,
+            ],
+        ],
+        0,
+        0,
+        0,
+        0,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true
+    );
+    $pdf->setSignatureAppearanceStream($sigAppearance);
+}
+
+$widgetObjId = $pdf->getSignatureObjectID();
+$text3 = 'LTV signature widget object ID: ' . $widgetObjId;
+$textCell3 = $pdf->getTextCell($text3, 15, 60, 180, 0, 0, 1, 'T', 'L');
+$pdf->page->addContent($textCell3);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

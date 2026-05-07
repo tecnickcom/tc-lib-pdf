@@ -444,6 +444,8 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *
  * @phpstan-type TSignature array{
  *        'appearance': array{
+ *            'ap'?: string|array<string, string|array<string, string>>,
+ *            'as'?: string,
  *            'empty': array<int, array{
  *                'objid': int,
  *                'name': string,
@@ -453,6 +455,7 @@ use Com\Tecnick\Pdf\Font\Output as OutFont;
  *            'name': string,
  *            'page': int,
  *            'rect': string,
+ *            'xobj'?: string,
  *        },
  *        'approval': string,
  *        'cert_type': int,
@@ -5238,6 +5241,19 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $soid = $this->objid['signature'];
         $oid = $soid + 1;
         $page = $this->page->getPage($this->signature['appearance']['page']);
+        $sigRect = \preg_split('/\s+/', \trim((string) $this->signature['appearance']['rect']));
+        $sigWidth = 0.0;
+        $sigHeight = 0.0;
+        if (($sigRect !== false) && (\count($sigRect) >= 4)) {
+            $sigWidth = \abs(((float) $sigRect[2]) - ((float) $sigRect[0]));
+            $sigHeight = \abs(((float) $sigRect[3]) - ((float) $sigRect[1]));
+        }
+
+        list($sigAppearance, $sigAppearanceXObj) = $this->getSignatureAppearanceStream(
+            $sigWidth,
+            $sigHeight,
+        );
+
         $out = $soid . ' 0 obj' . "\n"
             . '<<'
             . ' /Type /Annot'
@@ -5248,9 +5264,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' /FT /Sig'
             . ' /T ' . $this->getOutTextString($this->signature['appearance']['name'], $soid, true)
             . ' /Ff 0'
+            . $sigAppearance
             . ' /V ' . $oid . ' 0 R'
             . ' >>' . "\n"
             . 'endobj' . "\n";
+        $out .= $sigAppearanceXObj;
         $out .= $oid . ' 0 obj' . "\n";
         $out .= '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '
             . $this::BYTERANGE
@@ -5276,6 +5294,80 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . $this->getOutDateTimeString($this->docmodtime, $oid)
             . ' >>' . "\n"
             . 'endobj' . "\n";
+    }
+
+    /**
+     * Returns the signature widget Appearance Stream.
+     *
+     * @return array{string, string}
+     */
+    protected function getSignatureAppearanceStream(float $width = 0, float $height = 0): array
+    {
+        $appearance = [];
+        if (isset($this->signature['appearance']) && \is_array($this->signature['appearance'])) {
+            $appearance = $this->signature['appearance'];
+        }
+
+        $out = '';
+        if (!empty($appearance['as']) && \is_string($appearance['as'])) {
+            $out .= ' /AS /' . $appearance['as'];
+        }
+
+        if (empty($appearance['ap']) && !empty($appearance['xobj']) && \is_string($appearance['xobj'])) {
+            $xobjid = $appearance['xobj'];
+            if (!empty($this->xobjects[$xobjid])) {
+                $xobjw = (float) ($this->xobjects[$xobjid]['w'] ?? 0.0);
+                $xobjh = (float) ($this->xobjects[$xobjid]['h'] ?? 0.0);
+                if (($xobjw > 0.0) && ($xobjh > 0.0)) {
+                    $sx = ($width > 0.0) ? ($width / $xobjw) : 1.0;
+                    $sy = ($height > 0.0) ? ($height / $xobjh) : 1.0;
+                    $appearance['ap'] = [
+                        'n' => \sprintf('q %F 0 0 %F 0 0 cm /%s Do Q', $sx, $sy, $xobjid),
+                    ];
+                }
+            }
+        }
+
+        if (empty($appearance['ap'])) {
+            return [$out, ''];
+        }
+
+        $apxout = '';
+        $out .= ' /AP <<';
+        if (!\is_array($appearance['ap'])) {
+            $out .= $appearance['ap'];
+            return [$out . ' >>', $apxout];
+        }
+
+        foreach ($appearance['ap'] as $mode => $def) {
+            $out .= ' /' . \strtoupper((string) $mode);
+            if (\is_array($def)) {
+                $out .= ' <<';
+                foreach ($def as $apstate => $stream) {
+                    if (!\is_string($stream)) {
+                        continue;
+                    }
+
+                    $apxout .= $this->getOutAPXObjects($width, $height, $stream);
+                    $out .= ' /' . $apstate . ' ' . $this->pon . ' 0 R';
+                }
+
+                $out .= ' >>';
+                continue;
+            }
+
+            if (!\is_string($def)) {
+                continue;
+            }
+
+            $apxout .= $this->getOutAPXObjects($width, $height, $def);
+            $out .= ' ' . $this->pon . ' 0 R';
+        }
+
+        return [
+            $out . ' >>',
+            $apxout,
+        ];
     }
 
     /**

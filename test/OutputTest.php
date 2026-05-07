@@ -2269,6 +2269,123 @@ PHP;
         $this->assertStringNotContainsString('/Reference [ << /Type /SigRef', $out);
     }
 
+    public function testGetOutSignatureIncludesCustomAppearanceStream(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $obj->setSignature([
+            'appearance' => [
+                'ap' => [
+                    'n' => 'q 1 0 0 rg 0 0 50 10 re f Q',
+                ],
+                'empty' => [],
+                'name' => 'Signature',
+                'page' => $page['pid'],
+                'rect' => '10 10 60 20',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => '',
+            'info' => [
+                'ContactInfo' => '',
+                'Location' => '',
+                'Name' => '',
+                'Reason' => '',
+            ],
+            'password' => '',
+            'privkey' => $certPem,
+            'signcert' => $certPem,
+            'ltv' => [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignature();
+
+        $this->assertContainsAllFragments($out, [
+            '/Subtype /Widget',
+            '/AP << /N ',
+            '/Subtype /Form',
+            '0 0 50 10 re f',
+        ]);
+    }
+
+    public function testGetOutSignatureIncludesFittedXObjectAppearance(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        /** @var array<string, array<string, mixed>> $xobjects */
+        $xobjects = $this->getObjectProperty($obj, 'xobjects');
+        $xobjects['IMP1'] = [
+            'spot_colors' => [],
+            'extgstate' => [],
+            'gradient' => [],
+            'font' => [],
+            'image' => [],
+            'xobject' => [],
+            'annotations' => [],
+            'id' => 'IMP1',
+            'n' => 88,
+            'x' => 0,
+            'w' => 50,
+            'y' => 0,
+            'h' => 20,
+            'outdata' => '',
+            'pheight' => 0,
+            'gheight' => 0,
+        ];
+        $this->setObjectProperty($obj, 'xobjects', $xobjects);
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'Signature',
+                'page' => $page['pid'],
+                'rect' => '10 10 110 50',
+                'xobj' => 'IMP1',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => '',
+            'info' => [
+                'ContactInfo' => '',
+                'Location' => '',
+                'Name' => '',
+                'Reason' => '',
+            ],
+            'password' => '',
+            'privkey' => $certPem,
+            'signcert' => $certPem,
+            'ltv' => [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutSignature();
+
+        $this->assertContainsAllFragments($out, [
+            '/AP << /N ',
+            '/IMP1 Do',
+            'q 2.000000 0 0 2.000000 0 0 cm',
+        ]);
+    }
+
     public function testConvertBinarySignatureToHexPadsToSigMaxLen(): void
     {
         $obj = $this->getInternalTestObject();

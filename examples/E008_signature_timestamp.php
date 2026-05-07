@@ -41,6 +41,10 @@ $text = 'This document requests an RFC 3161 TSA timestamp for the CMS signature.
 $textCell = $pdf->getTextCell($text, 15, 20, 180, 0, 0, 1, 'T', 'L');
 $pdf->page->addContent($textCell);
 
+$text2 = 'Timestamping requires outbound HTTPS connectivity to the configured TSA endpoint.';
+$textCell2 = $pdf->getTextCell($text2, 15, 27, 180, 0, 0, 1, 'T', 'L');
+$pdf->page->addContent($textCell2);
+
 $certPath = \realpath(__DIR__ . '/data/cert/tcpdf.crt');
 if ($certPath === false) {
     throw new \RuntimeException('Missing signing certificate: examples/data/cert/tcpdf.crt');
@@ -63,6 +67,7 @@ $pdf->setSignature([
 
 $pdf->setSignTimeStamp([
     'enabled' => true,
+    // Public demo endpoint. For production use your trusted TSA service.
     'host' => 'https://freetsa.org/tsr',
     'username' => '',
     'password' => '',
@@ -75,6 +80,47 @@ $pdf->setSignTimeStamp([
 ]);
 
 $pdf->setSignatureAppearance(15, 35, 90, 20, -1, 'TimestampedSignature');
+
+// Optional appearance stream to clearly indicate timestamped signature intent.
+$sigW = 90.0;
+$sigH = 20.0;
+$sigTopY = $page['height'] - $sigH;
+
+$sigAppearance = $bfont['out'];
+$sigAppearance .= $pdf->color->getPdfColor('rgb(20%,20%,20%)');
+$sigAppearance .= $pdf->getTextCell(
+    'RFC 3161 Timestamped Signature',
+    0,
+    $sigTopY,
+    $sigW,
+    $sigH,
+    3.0,
+    0,
+    'C',
+    'L',
+    null,
+    [
+        'all' => [
+            'fillColor' => 'rgb(96%,96%,90%)',
+            'lineColor' => 'rgb(35%,35%,10%)',
+            'lineWidth' => 1.0,
+        ],
+    ],
+    0,
+    0,
+    0,
+    0,
+    true,
+    true,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true
+);
+
+$pdf->setSignatureAppearanceStream($sigAppearance);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF($rawpdf);

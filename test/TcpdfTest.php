@@ -529,6 +529,10 @@ class TcpdfTest extends TestUtil
         $signature = $this->getObjectProperty($obj, 'signature');
         $this->assertSame([], $signature['appearance']['empty']);
         $this->assertSame($page['pid'], $signature['appearance']['page']);
+
+        /** @var array{annotrefs: array<int>} $pageData */
+        $pageData = $obj->page->getPage($page['pid']);
+        $this->assertContains(123, $pageData['annotrefs']);
     }
 
     public function testSetSignatureAppearanceAddsMainSignatureAnnotationReference(): void
@@ -544,6 +548,53 @@ class TcpdfTest extends TestUtil
         $signature = $this->getObjectProperty($obj, 'signature');
         $this->assertSame($page['pid'], $signature['appearance']['page']);
         $this->assertSame('MainSig', $signature['appearance']['name']);
+    }
+
+    public function testGetSignatureObjectIDReturnsReservedObjectId(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+        $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $obj->setSignature([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'MainSig',
+                'page' => $page['pid'],
+                'rect' => '0 0 10 5',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => $certPem,
+            'signcert' => $certPem,
+        ]);
+
+        $this->assertGreaterThan(0, $obj->getSignatureObjectID());
+    }
+
+    public function testSetSignatureAppearanceStreamStoresModeAndState(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setSignatureAppearanceStream('q 0 g Q', 'N', 'On');
+
+        /** @var array{appearance: array{ap: array<string, array<string, string>>, as: string}} $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertSame('q 0 g Q', $signature['appearance']['ap']['n']['On']);
+        $this->assertSame('On', $signature['appearance']['as']);
+    }
+
+    public function testSetSignatureAppearanceXObjectStoresXObjectId(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setSignatureAppearanceXObject('IMP1');
+
+        /** @var array{appearance: array{xobj: string}} $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertSame('IMP1', $signature['appearance']['xobj']);
     }
 
     public function testEnableSignatureApprovalTogglesFlag(): void
