@@ -28,6 +28,7 @@ use PHPUnit\Framework\TestCase;
  * @copyright 2015-2026 Nicola Asuni - Tecnick.com LTD
  * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
+ * @SuppressWarnings("PHPMD.NumberOfChildren")
  */
 class TestUtil extends TestCase
 {
