@@ -196,6 +196,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *         linewrapped: bool,
  *         textindentapplied: bool,
  *         pendingblockmarginb: float,
+ *         regionoffset?: float,
  *         basefont: string
  *     },
  *     'currentkey'?: int,
@@ -5847,6 +5848,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linewrapped' => false,
             'textindentapplied' => false,
             'pendingblockmarginb' => 0.0,
+            'regionoffset' => 0.0,
             'basefont' => $basefont,
         ];
         $hrc['cellctx'] = $cellctx;
@@ -5884,6 +5886,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linewrapped' => false,
             'textindentapplied' => false,
             'pendingblockmarginb' => 0.0,
+            'regionoffset' => 0.0,
             'basefont' => 'helvetica',
         ];
         $hrc['cellctx'] = $cellctx;
@@ -6721,7 +6724,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->pageBreak();
         $region = $this->page->getRegion();
         $hrc['cellctx']['originy'] = (float) $region['RY'];
-        $hrc['cellctx']['originx'] += ((float) $region['RX'] - $oldRX);
+        $rxDelta = (float) $region['RX'] - $oldRX;
+        $hrc['cellctx']['originx'] += $rxDelta;
+        $hrc['cellctx']['regionoffset'] = ((float) ($hrc['cellctx']['regionoffset'] ?? 0.0)) + $rxDelta;
         $tpy = $hrc['cellctx']['originy'];
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
 
@@ -8553,6 +8558,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (($float === 'none') && ($explicitInnerWidth > 0.0)) {
             $elm['ctxoriginx'] = (float) $hrc['cellctx']['originx'];
             $elm['ctxmaxwidth'] = (float) $hrc['cellctx']['maxwidth'];
+            $elm['ctxregionoffset'] = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
             $hrc['cellctx']['originx'] = $tpx;
             $hrc['cellctx']['maxwidth'] = $tpw;
         } elseif (($float === 'none') && !empty($elm['padding'])) {
@@ -8560,6 +8566,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // so children render inside the padding box.
             $elm['ctxoriginx'] = (float) $hrc['cellctx']['originx'];
             $elm['ctxmaxwidth'] = (float) $hrc['cellctx']['maxwidth'];
+            $elm['ctxregionoffset'] = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
             $hrc['cellctx']['originx'] = $blockX + (float) $elm['padding']['L'];
             $hrc['cellctx']['maxwidth'] = $baseBlockWidth - (float) $elm['padding']['L'] - (float) $elm['padding']['R'];
         }
@@ -8699,7 +8706,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $restoreOriginX = (float) ($hrc['cellctx']['originx'] ?? 0.0);
         $restoreMaxWidth = (float) ($hrc['cellctx']['maxwidth'] ?? 0.0);
         if (isset($openelm['ctxoriginx']) && \is_numeric($openelm['ctxoriginx'])) {
-            $restoreOriginX = (float) $openelm['ctxoriginx'];
+            // Adjust the saved originx by any region-break RX shift that occurred
+            // while this block was open, so closing the block does not revert to
+            // the previous column's x position after a region/page break.
+            $currentOffset = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
+            $savedOffset = (isset($openelm['ctxregionoffset']) && \is_numeric($openelm['ctxregionoffset']))
+                ? (float) $openelm['ctxregionoffset']
+                : $currentOffset;
+            $restoreOriginX = (float) $openelm['ctxoriginx'] + ($currentOffset - $savedOffset);
         }
         if (isset($openelm['ctxmaxwidth']) && \is_numeric($openelm['ctxmaxwidth'])) {
             $restoreMaxWidth = (float) $openelm['ctxmaxwidth'];
