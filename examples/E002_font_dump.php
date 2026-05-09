@@ -39,8 +39,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 002');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Font Dump and Glyph Coverage');
+$pdf->setKeywords('TCPDF tc-lib-pdf fonts glyphs unicode dump metrics');
 $pdf->setPDFFilename('002_font_dump.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

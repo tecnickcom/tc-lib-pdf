@@ -24,6 +24,13 @@ require(__DIR__ . '/../vendor/autoload.php');
 // ---- Step 1: build a 4-page source document ----
 
 $src = new \Com\Tecnick\Pdf\Tcpdf();
+$src->setCreator('tc-lib-pdf');
+$src->setAuthor('Nicola Asuni');
+$src->setSubject('tc-lib-pdf example: 067 source');
+$src->setTitle('Import Page Region N-up - Source');
+$src->setKeywords('TCPDF tc-lib-pdf import page region nup source template');
+$src->setPDFFilename('067_import_page_region_nup_src.pdf');
+
 $srcFont = $src->font->insert($src->pon, 'helvetica', '', 14);
 
 $cards = [
@@ -67,6 +74,13 @@ $sourcePdfData = $src->getOutPDFString();
 // ---- Step 2: import and compose a 2x2 N-up destination page ----
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf();
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 067');
+$pdf->setTitle('Import Page Region N-up - Destination');
+$pdf->setKeywords('TCPDF tc-lib-pdf import page region nup destination imposition');
+$pdf->setPDFFilename('067_import_page_region_nup.pdf');
+
 $labelFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
 $sourceId = $pdf->setImportSourceData($sourcePdfData);

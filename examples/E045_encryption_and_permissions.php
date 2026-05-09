@@ -50,8 +50,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 045');
-$pdf->setTitle('HTML Features Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example Encryption and Permissions');
+$pdf->setTitle('Encryption and Permissions');
+$pdf->setKeywords('TCPDF tc-lib-pdf encryption permissions user password owner password rights');
 $pdf->setPDFFilename('E045_encryption_and_permissions.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

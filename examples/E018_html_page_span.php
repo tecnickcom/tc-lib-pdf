@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 018');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('HTML Page Span Handling');
+$pdf->setKeywords('TCPDF tc-lib-pdf html page span pagination flow layout');
 $pdf->setPDFFilename('018_html_page_span.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

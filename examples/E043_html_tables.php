@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 043');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('HTML Tables');
+$pdf->setKeywords('TCPDF tc-lib-pdf html tables thead tbody cell borders layout');
 $pdf->setPDFFilename('043_html_tables.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

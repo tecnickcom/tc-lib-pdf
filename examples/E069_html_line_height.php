@@ -38,10 +38,10 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
-$pdf->setSubject('tc-lib-pdf example: 031');
-$pdf->setTitle('HTML Features Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example HTML selectors forms table tags');
-$pdf->setPDFFilename('031_html_features.pdf');
+$pdf->setSubject('tc-lib-pdf example: 069');
+$pdf->setTitle('HTML Line Height');
+$pdf->setKeywords('TCPDF tc-lib-pdf html css line-height typography spacing');
+$pdf->setPDFFilename('069_html_line_height.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 

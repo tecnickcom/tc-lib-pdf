@@ -20,11 +20,11 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require('../vendor/autoload.php');
 
-$defaultFontsDir = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts');
-$sourceFontsDir = __DIR__ . '/../target/fonts/source';
-$customFontsDir = __DIR__ . '/../target/fonts/custom';
+$defaultFontsDir = (string) \realpath(\dirname(__DIR__) . '/vendor/tecnickcom/tc-lib-pdf-font/target/fonts');
+$sourceFontsDir = \dirname(__DIR__) . '/target/fonts/source';
+$customFontsDir = \dirname(__DIR__) . '/target/fonts/custom';
 $notoFileName = 'NotoSans-Regular.ttf';
 $notoUrl = 'https://github.com/notofonts/noto-fonts/raw/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf';
 $notoSourcePath = $sourceFontsDir . '/' . $notoFileName;

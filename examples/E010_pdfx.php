@@ -18,6 +18,14 @@ require(__DIR__ . '/../vendor/autoload.php');
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx');
+
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 010');
+$pdf->setTitle('PDF/X Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf example pdfx');
+$pdf->setPDFFilename('010_pdfx.pdf');
+
 $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $page = $pdf->addPage();
 $pdf->page->addContent($font['out']);

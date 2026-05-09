@@ -24,6 +24,13 @@ require(__DIR__ . '/../vendor/autoload.php');
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf();
 
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 006');
+$pdf->setTitle('Minimal Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf minimal hello world basic');
+$pdf->setPDFFilename('006_minimal.pdf');
+
 // Insert font
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 

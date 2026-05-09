@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 034');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Color Gradient Mesh');
+$pdf->setKeywords('TCPDF tc-lib-pdf color gradient mesh shading patch');
 $pdf->setPDFFilename('034_color_gradient_mesh.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

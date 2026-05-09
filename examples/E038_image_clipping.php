@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 038');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Image Clipping');
+$pdf->setKeywords('TCPDF tc-lib-pdf image clipping masks clipping paths');
 $pdf->setPDFFilename('038_image_clipping.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

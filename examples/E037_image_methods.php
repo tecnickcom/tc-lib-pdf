@@ -42,8 +42,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 037');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Image Methods');
+$pdf->setKeywords('TCPDF tc-lib-pdf image methods jpeg png svg placement scaling');
 $pdf->setPDFFilename('037_image_methods.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

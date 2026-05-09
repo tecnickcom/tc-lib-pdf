@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 036');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Graphic Methods');
+$pdf->setKeywords('TCPDF tc-lib-pdf graphic methods lines curves polygons shapes');
 $pdf->setPDFFilename('036_graphic_methods.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

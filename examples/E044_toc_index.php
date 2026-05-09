@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 044');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Table of Contents and Index');
+$pdf->setKeywords('TCPDF tc-lib-pdf toc index bookmarks pagination');
 $pdf->setPDFFilename('044_toc_index.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

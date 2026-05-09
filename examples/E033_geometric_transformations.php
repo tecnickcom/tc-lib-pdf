@@ -42,9 +42,9 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
-$pdf->setSubject('tc-lib-pdf example: 032');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setSubject('tc-lib-pdf example: 033');
+$pdf->setTitle('Geometric Transformations');
+$pdf->setKeywords('TCPDF tc-lib-pdf transformations rotate scale translate skew matrix');
 $pdf->setPDFFilename('033_geometric_transformations.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

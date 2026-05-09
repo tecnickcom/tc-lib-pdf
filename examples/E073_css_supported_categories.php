@@ -22,6 +22,14 @@ require(__DIR__ . '/../vendor/autoload.php');
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf();
+
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 073');
+$pdf->setTitle('CSS Supported Categories');
+$pdf->setKeywords('TCPDF tc-lib-pdf example CSS');
+$pdf->setPDFFilename('073_css_supported_categories.pdf');
+
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
 $pdf->addPage();
 $pdf->page->addContent($bfont['out']);

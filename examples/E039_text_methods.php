@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 039');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Text Methods');
+$pdf->setKeywords('TCPDF tc-lib-pdf text methods alignment spacing writing');
 $pdf->setPDFFilename('039_text_methods.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

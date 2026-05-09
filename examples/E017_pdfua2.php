@@ -32,6 +32,8 @@ require(__DIR__ . '/../vendor/autoload.php');
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfua2');
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
 $pdf->setTitle('PDF/UA-2 Auto-Tagged HTML');
 $pdf->setSubject('tc-lib-pdf example: 017 — pdfua2 mode HTML tagging showcase');
 $pdf->setKeywords('TCPDF tc-lib-pdf pdfua2 PDF/UA-2 ISO14289-2 PDF2.0 tagged PDF accessibility HTML auto-tag');

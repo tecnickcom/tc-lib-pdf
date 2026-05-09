@@ -39,8 +39,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 003');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Persian and Arabic Text Rendering');
+$pdf->setKeywords('TCPDF tc-lib-pdf persian arabic rtl bidi unicode shaping');
 $pdf->setPDFFilename('003_persian_arabic.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

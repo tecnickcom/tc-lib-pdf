@@ -31,6 +31,13 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     null, // ?ObjEncrypt $objEncrypt = null,
 );
 
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 068');
+$pdf->setTitle('Font Subsetting Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf example font subsetting');
+$pdf->setPDFFilename('068_font_subset.pdf');
+
 // Insert DejaVu Sans font for subsetting test
 $bfont = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
 

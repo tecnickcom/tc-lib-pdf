@@ -8,6 +8,14 @@ require(__DIR__ . '/../vendor/autoload.php');
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx1a');
+
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 011');
+$pdf->setTitle('PDF/X-1a Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf example pdfx1a');
+$pdf->setPDFFilename('011_pdfx1a.pdf');
+
 $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);

@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 035');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Registration Marks');
+$pdf->setKeywords('TCPDF tc-lib-pdf registration marks prepress crop bleed print');
 $pdf->setPDFFilename('035_registration_marks.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

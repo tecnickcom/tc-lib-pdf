@@ -41,7 +41,7 @@ $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 001');
 $pdf->setTitle('Example Invoice Factur-X 1.07 / ZUGFeRD 2.3');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setKeywords('TCPDF tc-lib-pdf invoice Factur-X ZUGFeRD e-invoice XML');
 $pdf->setPDFFilename('001_invoice.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

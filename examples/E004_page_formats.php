@@ -39,8 +39,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 004');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Page Formats and Orientation');
+$pdf->setKeywords('TCPDF tc-lib-pdf page formats orientation A4 Letter custom size');
 $pdf->setPDFFilename('004_page_formats.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

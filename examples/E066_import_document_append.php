@@ -24,6 +24,13 @@ require(__DIR__ . '/../vendor/autoload.php');
 // ---- Step 1: build a multi-page source PDF ----
 
 $src = new \Com\Tecnick\Pdf\Tcpdf();
+$src->setCreator('tc-lib-pdf');
+$src->setAuthor('Nicola Asuni');
+$src->setSubject('tc-lib-pdf example: 066 source');
+$src->setTitle('Import Document Append - Source');
+$src->setKeywords('TCPDF tc-lib-pdf import document append source template');
+$src->setPDFFilename('066_import_document_append_src.pdf');
+
 $bfont = $src->font->insert($src->pon, 'helvetica', '', 14);
 
 $pages = ['First page', 'Second page', 'Third page'];
@@ -44,6 +51,13 @@ $sourcePdfData = $src->getOutPDFString();
 // ---- Step 2: create destination document with an intro page ----
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf();
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 066');
+$pdf->setTitle('Import Document Append - Destination');
+$pdf->setKeywords('TCPDF tc-lib-pdf import append merge destination template');
+$pdf->setPDFFilename('066_import_document_append.pdf');
+
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
 $pdf->addPage();

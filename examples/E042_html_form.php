@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 042');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('HTML Form Elements');
+$pdf->setKeywords('TCPDF tc-lib-pdf html forms input select textarea rendering');
 $pdf->setPDFFilename('042_html_form.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

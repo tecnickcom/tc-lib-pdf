@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 041');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Layer Visibility (OCG)');
+$pdf->setKeywords('TCPDF tc-lib-pdf layers visibility OCG optional content groups');
 $pdf->setPDFFilename('041_layers_visibility.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

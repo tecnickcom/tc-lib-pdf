@@ -152,7 +152,7 @@ $pid1  = $page1['pid'];
 $addDecorativeSeparator($pdf, $pid1, 16.0);
 
 // --- H1 heading ---
-$setFont($pdf, 'helvetica', 'B', 20);
+$setFont($pdf, 'helvetica', 'B', 16);
 
 $pdf->beginStructElem('H1', $pid1);
 $pdf->addTextCell(

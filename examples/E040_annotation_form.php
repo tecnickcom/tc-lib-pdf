@@ -43,8 +43,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 040');
-$pdf->setTitle('Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example');
+$pdf->setTitle('Annotation Form Widgets');
+$pdf->setKeywords('TCPDF tc-lib-pdf annotations form widgets acroform fields');
 $pdf->setPDFFilename('040_annotation_form.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);

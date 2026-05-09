@@ -24,6 +24,12 @@ require(__DIR__ . '/../vendor/autoload.php');
 // ---- Step 1: create a source PDF to import from ----
 
 $src = new \Com\Tecnick\Pdf\Tcpdf();
+$src->setCreator('tc-lib-pdf');
+$src->setAuthor('Nicola Asuni');
+$src->setSubject('tc-lib-pdf example: 065 source');
+$src->setTitle('Import Single Page - Source');
+$src->setKeywords('TCPDF tc-lib-pdf import single page source template');
+$src->setPDFFilename('065_import_single_page_src.pdf');
 $bfont = $src->font->insert($src->pon, 'helvetica', '', 14);
 
 $srcPage = $src->addPage();
@@ -35,6 +41,13 @@ $sourcePdfData = $src->getOutPDFString();
 // ---- Step 2: create a new document and import the source page ----
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf();
+$pdf->setCreator('tc-lib-pdf');
+$pdf->setAuthor('Nicola Asuni');
+$pdf->setSubject('tc-lib-pdf example: 065');
+$pdf->setTitle('Import Single Page - Destination');
+$pdf->setKeywords('TCPDF tc-lib-pdf import single page destination cropbox template');
+$pdf->setPDFFilename('065_import_single_page.pdf');
+
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
 // Register the source document from its raw bytes.
