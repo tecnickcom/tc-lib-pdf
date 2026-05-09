@@ -57,22 +57,22 @@ jobs:
         run: make preflight
       - name: Run all tests
         run: make qa
-      - name: Generate CSS renderability reports
-        if: matrix.php-version == '8.4'
-        run: |
-          php resources/css/renderability_score.php \
-            --corpus=test/fixtures/html/real_pages/corpus.json \
-            --json=target/report/renderability-score.json \
-            --markdown=target/report/renderability-score.md
-          php resources/css/renderability_trend.php \
-            --score=target/report/renderability-score.json \
-            --history=target/report/renderability-trend.json \
-            --markdown=target/report/renderability-trend.md \
-            --sha=${{ github.sha }} \
-            --ref=${{ github.ref_name }} \
-            --run-id=${{ github.run_id }}
-          cat target/report/renderability-score.md >> "$GITHUB_STEP_SUMMARY"
-          cat target/report/renderability-trend.md >> "$GITHUB_STEP_SUMMARY"
+      #- name: Generate CSS renderability reports
+      #  if: matrix.php-version == '8.4'
+      #  run: |
+      #    php resources/css/renderability_score.php \
+      #      --corpus=test/fixtures/html/real_pages/corpus.json \
+      #      --json=target/report/renderability-score.json \
+      #      --markdown=target/report/renderability-score.md
+      #    php resources/css/renderability_trend.php \
+      #      --score=target/report/renderability-score.json \
+      #      --history=target/report/renderability-trend.json \
+      #      --markdown=target/report/renderability-trend.md \
+      #      --sha=${{ github.sha }} \
+      #      --ref=${{ github.ref_name }} \
+      #      --run-id=${{ github.run_id }}
+      #    cat target/report/renderability-score.md >> "$GITHUB_STEP_SUMMARY"
+      #    cat target/report/renderability-trend.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload CSS renderability reports
         if: matrix.php-version == '8.4'
         uses: actions/upload-artifact@v4
