@@ -1,0 +1,12 @@
+a[href^="mailto:"]::after {
+  content: "mailto:user@example.com;subject=test";
+}
+
+div[data-url*="example.com?a=1&b=2"] {
+  background-image: url("https://example.com/a;b.png?x=1&y=2");
+  font-family: "Open Sans", "Noto Sans", sans-serif;
+}
+
+p.note {
+  background: linear-gradient(90deg, rgba(0,0,0,.1), rgba(255,255,255,.8));
+}

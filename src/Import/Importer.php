@@ -105,7 +105,7 @@ class Importer implements ImporterInterface
      * Register a source PDF file.
      *
      * @param string             $path File path to a readable PDF.
-        * @param array<string, mixed> $cfg  Optional parser configuration.
+     * @param array<string, mixed> $cfg  Optional parser configuration.
      *
      * @return string Source document identifier.
      *
@@ -132,7 +132,7 @@ class Importer implements ImporterInterface
      * Register a source PDF from raw binary data.
      *
      * @param string              $data Raw PDF binary data.
-        * @param array<string, mixed> $cfg  Optional parser configuration.
+     * @param array<string, mixed> $cfg  Optional parser configuration.
      *
      * @return string Source document identifier (SHA-256 of the data).
      *
@@ -412,7 +412,7 @@ class Importer implements ImporterInterface
     /**
      * Compute the CTM matrix for a given rotation angle (0/90/180/270).
      *
-     * Rotation matrix values (from PLAN_IMPORTER.md §5.3):
+     * Rotation matrix
      * 0:   [1  0  0  1  0  0]
      * 90:  [0  1 -1  0  H  0]
      * 180: [-1 0  0 -1  W  H]

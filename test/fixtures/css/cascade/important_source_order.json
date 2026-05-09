@@ -1,0 +1,34 @@
+[
+  {
+    "name": "non-important does not override important",
+    "styles": [
+      "color:red!important",
+      "color:blue"
+    ],
+    "expected": "color:red!important;"
+  },
+  {
+    "name": "later important overrides non-important",
+    "styles": [
+      "color:red",
+      "color:blue!important"
+    ],
+    "expected": "color:blue!important;"
+  },
+  {
+    "name": "later same-priority declaration wins",
+    "styles": [
+      "margin:1px",
+      "margin:2px"
+    ],
+    "expected": "margin:2px;"
+  },
+  {
+    "name": "important applies per property",
+    "styles": [
+      "color:red!important;margin:1px",
+      "color:blue;margin:2px"
+    ],
+    "expected": "color:red!important;margin:2px;"
+  }
+]

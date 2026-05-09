@@ -275,9 +275,9 @@ HTML;
 
 $pdf->addHTMLCell(
     $html, // string $html,
-    15, // float $posx = 0,
+    10, // float $posx = 0,
     20, // float $posy = 0,
-    185, // float $width = 0,
+    190, // float $width = 0,
 );
 
 // get PDF document as raw string

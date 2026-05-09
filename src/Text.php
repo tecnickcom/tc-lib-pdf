@@ -82,6 +82,12 @@ use Com\Tecnick\Unicode\Substitution;
 abstract class Text extends \Com\Tecnick\Pdf\Cell
 {
     /**
+     * Tiny tolerance in internal points for line-fit comparisons.
+     * Prevents floating-point boundary artifacts from forcing spurious wraps.
+     */
+    protected const LINE_FIT_EPSILON = 1.0E-7;
+
+    /**
      * The Unicode character used for hyphenation.
      * (45) '-'
      *  Type: 'ES' (European Number Separator)
@@ -249,6 +255,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $txt_pwidth,
             $this->toPoints($offset)
         );
+
         $numlines = \count($lines);
         $txt_pheight = (($numlines * $curfont['height']) + (($numlines - 1) * $this->toPoints($linespace)));
 
@@ -1355,7 +1362,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $line_width = ($pwidth - $poffset);
 
-        if ($dim['totwidth'] <= $line_width) {
+        if ($dim['totwidth'] <= ($line_width + self::LINE_FIT_EPSILON)) {
             // the input text fits in a single line
             return [[
                 'pos' => 0,
@@ -1381,7 +1388,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         for ($word = 0; $word < $num_words; $word++) {
             $data = $dim['split'][$word]; // current word data
             $curwidth = ($data['totwidth'] - $prev_totwidth);
-            $overline = ($curwidth > $line_width);
+            $overline = ($curwidth > ($line_width + self::LINE_FIT_EPSILON));
 
             if (($data['septype'] == 'B') || $overline) {
                 // the current word is a line break or does not fit in the current line

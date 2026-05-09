@@ -1,0 +1,74 @@
+[
+  {
+    "name": "dash-match prefix match",
+    "selector": " a[id|=promo]",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "dash-match exact match",
+    "selector": " a[id|=promo-link]",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "substring match in href",
+    "selector": " a[href*=\"b=2\"]",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "suffix match in href",
+    "selector": " a[href$=\"b=2\"]",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "prefix match in href",
+    "selector": " a[href^=\"https://ex.com\"]",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "includes operator with dashed attribute name",
+    "selector": " a[data-role~=cta]",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "quoted attribute value with space",
+    "selector": " a[title=\"Hello World\"]",
+    "node": 2,
+    "expected": false
+  },
+  {
+    "name": "lang pseudo-class with explicit tag",
+    "selector": " a:lang(en-US)",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "first-child pseudo true",
+    "selector": " a:first-child",
+    "node": 2,
+    "expected": true
+  },
+  {
+    "name": "last-child pseudo false",
+    "selector": " a:last-child",
+    "node": 2,
+    "expected": false
+  },
+  {
+    "name": "empty pseudo true on sibling span",
+    "selector": " span:empty",
+    "node": 3,
+    "expected": true
+  },
+  {
+    "name": "only-child pseudo false on sibling span",
+    "selector": " span:only-child",
+    "node": 3,
+    "expected": false
+  }
+]

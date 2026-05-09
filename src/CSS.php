@@ -17,6 +17,9 @@
 namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Pdf\CSS\Specificity;
+use Com\Tecnick\Pdf\CSS\CascadeContext;
+use Com\Tecnick\Pdf\CSS\ImportanceNormalizer;
 use Com\Tecnick\Color\Model as ColorModel;
 
 /**
@@ -33,8 +36,28 @@ use Com\Tecnick\Color\Model as ColorModel;
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
- * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base as BorderStyle
- * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base as BorderStyleOpt
+ * @phpstan-type BorderStyle array{
+ *     lineWidth: float,
+ *     lineCap: string,
+ *     lineJoin: string,
+ *     miterLimit: float,
+ *     dashArray: array<int>,
+ *     dashPhase: float,
+ *     lineColor: string,
+ *     fillColor: string,
+ *     cssBorderStyle?: string,
+ * }
+ * @phpstan-type BorderStyleOpt array{
+ *     lineWidth?: float,
+ *     lineCap?: string,
+ *     lineJoin?: string,
+ *     miterLimit?: float,
+ *     dashArray?: array<int>,
+ *     dashPhase?: float,
+ *     lineColor?: string,
+ *     fillColor?: string,
+ *     cssBorderStyle?: string,
+ * }
  *
  * @phpstan-type TCSSBorderSpacing array{
  *     'H': float,
@@ -119,6 +142,23 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         'IX' => 9,
         'V' => 5,
         'IV' => 4,
+    ];
+
+    /**
+     * Non-print CSS media types.
+     *
+     * @var list<string>
+     */
+    protected const NON_PRINT_MEDIA_TYPES = [
+        'screen',
+        'aural',
+        'braille',
+        'embossed',
+        'handheld',
+        'projection',
+        'speech',
+        'tty',
+        'tv',
     ];
 
     /**
@@ -490,30 +530,151 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function implodeCSSData(array $css): string
     {
-        $out = '';
+        /** @var array<string, array{name: string, value: string, important: bool}> $decls */
+        $decls = [];
+        /** @var array<string, bool> $importantLonghands */
+        $importantLonghands = [];
+        /** @var list<string> $order */
+        $order = [];
+
         foreach ($css as $style) {
             if (empty($style['c'])) {
                 continue;
             }
-            $csscmds = \explode(';', $style['c']);
+            $csscmds = $this->splitCSSDeclarations((string) $style['c']);
             foreach ($csscmds as $cmd) {
-                if (empty($cmd)) {
+                $cmd = \trim($cmd);
+                if ($cmd === '') {
                     continue;
                 }
                 $pos = \strpos($cmd, ':');
                 if ($pos === false) {
                     continue;
                 }
-                $cmd = \substr($cmd, 0, ($pos + 1));
-                if (\strpos($out, $cmd) !== false) {
-                    // remove duplicate commands (last commands have high priority)
-                    $out = \preg_replace('/' . $cmd . '[^;]+/i', '', $out) ?? '';
+
+                $name = \trim((string) \substr($cmd, 0, $pos));
+                if ($name === '') {
+                    continue;
+                }
+
+                $value = \trim((string) \substr($cmd, ($pos + 1)));
+                $important = (\preg_match('/!\s*important\s*$/i', $value) === 1);
+                if ($important) {
+                    $value = \trim((string) (\preg_replace('/!\s*important\s*$/i', '', $value) ?? $value));
+                }
+
+                $key = \strtolower($name);
+                if (!$important && isset($importantLonghands[$key])) {
+                    continue;
+                }
+
+                if (!isset($decls[$key])) {
+                    $order[] = $key;
+                    $decls[$key] = [
+                        'name' => $name,
+                        'value' => $value,
+                        'important' => $important,
+                    ];
+                    if ($important) {
+                        foreach (ImportanceNormalizer::getAffectedLonghands($key) as $affectedKey) {
+                            $importantLonghands[$affectedKey] = true;
+                        }
+                    }
+                    continue;
+                }
+
+                if ($decls[$key]['important'] && !$important) {
+                    // Existing !important declaration wins over later non-important declaration.
+                    continue;
+                }
+
+                $decls[$key] = [
+                    'name' => $name,
+                    'value' => $value,
+                    'important' => $important,
+                ];
+
+                if ($important) {
+                    foreach (ImportanceNormalizer::getAffectedLonghands($key) as $affectedKey) {
+                        $importantLonghands[$affectedKey] = true;
+                    }
                 }
             }
-            $out .= ';' . $style['c'];
         }
-        // remove multiple semicolons
-        $out = \preg_replace('/[;]+/', ';', $out) ?? '';
+
+        $out = '';
+        foreach ($order as $key) {
+            if (!isset($decls[$key])) {
+                continue;
+            }
+
+            $out .= $decls[$key]['name'] . ':' . $decls[$key]['value'];
+            if ($decls[$key]['important']) {
+                $out .= '!important';
+            }
+            $out .= ';';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Split a CSS declaration list on semicolons while preserving quoted strings
+     * and parenthesized expressions (for example data URIs inside url(...)).
+     *
+     * @return list<string>
+     */
+    protected function splitCSSDeclarations(string $style): array
+    {
+        $out = [];
+        $decl = '';
+        $quote = '';
+        $parenDepth = 0;
+        $slen = \strlen($style);
+
+        for ($idx = 0; $idx < $slen; ++$idx) {
+            $chr = $style[$idx];
+
+            if ($quote !== '') {
+                $decl .= $chr;
+                if ($chr === $quote && (($idx === 0) || ($style[$idx - 1] !== '\\'))) {
+                    $quote = '';
+                }
+
+                continue;
+            }
+
+            if ($chr === '"' || $chr === "'") {
+                $quote = $chr;
+                $decl .= $chr;
+                continue;
+            }
+
+            if ($chr === '(') {
+                ++$parenDepth;
+                $decl .= $chr;
+                continue;
+            }
+
+            if ($chr === ')') {
+                $parenDepth = \max(0, $parenDepth - 1);
+                $decl .= $chr;
+                continue;
+            }
+
+            if ($chr === ';' && ($parenDepth === 0)) {
+                $out[] = $decl;
+                $decl = '';
+                continue;
+            }
+
+            $decl .= $chr;
+        }
+
+        if ($decl !== '') {
+            $out[] = $decl;
+        }
+
         return $out;
     }
 
@@ -524,22 +685,167 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return string
      */
-    protected function tidyCSS($css): string
+    /**
+     * Maximum recursion depth for @import resolution.
+     */
+    private const CSS_IMPORT_MAX_DEPTH = 8;
+
+    /**
+     * Strip @charset declaration from a CSS string and transcode to UTF-8 if needed.
+     *
+     * The CSS spec requires @charset (if present) to be the very first rule.
+     * The declaration is always stripped since this library processes CSS as UTF-8 strings.
+     * When the declared charset is not UTF-8 or ASCII, the content is transcoded
+     * using mb_convert_encoding so that subsequent regex operations work correctly.
+     *
+     * @param string $css Raw CSS string, possibly starting with @charset.
+     * @return string CSS string with @charset removed and content in UTF-8.
+     */
+    protected function normalizeCharset(string $css): string
+    {
+        if (!\str_contains($css, '@charset')) {
+            return $css;
+        }
+        // @charset must be the first rule; allow leading whitespace/BOM
+        if (\preg_match('/^(?:\xEF\xBB\xBF)?[\s]*@charset\s+"([^"]+)"\s*;/i', $css, $charsetMatch)) {
+            $declared = \strtolower(\trim($charsetMatch[1]));
+            // Strip the @charset declaration (and any leading BOM)
+            $css = (string) \preg_replace('/^(?:\xEF\xBB\xBF)?[\s]*@charset\s+"[^"]+"\s*;/i', '', $css);
+            // Transcode to UTF-8 if charset is not already UTF-8 or ASCII
+            if (
+                $declared !== 'utf-8'
+                && $declared !== 'utf8'
+                && $declared !== 'us-ascii'
+                && $declared !== 'ascii'
+            ) {
+                $converted = \mb_convert_encoding($css, 'UTF-8', $declared);
+                if ($converted !== false) {
+                    $css = $converted;
+                }
+            }
+        }
+        return $css;
+    }
+
+    /**
+     * Extract and resolve @import rules from a CSS string.
+     *
+     * Fetches each imported file (local or remote, subject to the same security
+     * policy as external stylesheets), recursively resolves its own @imports up
+     * to CSS_IMPORT_MAX_DEPTH levels, and returns the imported content
+     * prepended before the remaining CSS so that cascade source order is correct.
+     *
+     * @param string            $css   Raw CSS string that may contain @import rules.
+     * @param int               $depth Current recursion depth (starts at 0).
+     * @param array<string,bool> &$seen URLs already resolved in this import chain
+     *                                 (prevents infinite loops and duplicate imports).
+     *
+     * @return string CSS string with @import rules replaced by fetched content.
+     */
+    protected function resolveImportRules(string $css, int $depth = 0, array &$seen = []): string
+    {
+        if ($depth >= self::CSS_IMPORT_MAX_DEPTH) {
+            return $css;
+        }
+
+        // Match @import "url" [media]; or @import url('url') [media];
+        // Capture: (1) url  (2) optional media list
+        $pattern = '/@import\s+(?:url\([\'"]?([^\'")\s]+)[\'"]?\)|[\'"]([^\'"]+)[\'"])\s*([^;]*);/i';
+        $imports = [];
+        if (\preg_match_all($pattern, $css, $matches, \PREG_SET_ORDER) > 0) {
+            foreach ($matches as $match) {
+                $url = !empty($match[1]) ? \trim($match[1]) : \trim($match[2]);
+                $media = \strtolower(\trim($match[3]));
+                // Skip non-print media
+                if ($media !== '' && $media !== 'all' && $media !== 'print') {
+                    continue;
+                }
+                if ($url === '' || isset($seen[$url])) {
+                    continue;
+                }
+                $seen[$url] = true;
+                $imported = $this->file->getFileData($url);
+                if ($imported === false || $imported === '') {
+                    continue;
+                }
+                $imported = $this->normalizeCharset($imported);
+                // Recursively resolve imports in the fetched file
+                $imports[] = $this->resolveImportRules($imported, $depth + 1, $seen);
+            }
+        }
+        // Strip all @import rules from the current CSS regardless of media
+        $css = (string) \preg_replace('/@import\s+[^;]+;/i', '', $css);
+        if ($imports === []) {
+            return $css;
+        }
+        // Imported content comes first (CSS source order: imports precede the importing sheet)
+        return \implode("\n", $imports) . "\n" . $css;
+    }
+
+    /**
+     * Determines whether a CSS @media query condition applies to print output.
+     *
+     * Handles comma-separated media lists, complex conditions with 'and',
+     * negated conditions with 'not', and feature-only queries (no explicit media type).
+     *
+     * @param string $query The @media query string (content between @media and {).
+     * @return bool True if the query applies to print; false otherwise.
+     */
+    protected function isMediaPrintRelevant(string $query): bool
+    {
+        foreach (\explode(',', $query) as $condition) {
+            $condition = \strtolower(\trim($condition));
+            if ($condition === '') {
+                continue;
+            }
+            // Check for 'not' negation prefix
+            $negated = false;
+            if (\str_starts_with($condition, 'not ') || $condition === 'not') {
+                $negated = true;
+                $condition = \ltrim(\substr($condition, 3));
+            }
+            // Extract media type: everything before the first 'and' keyword or feature '('
+            $parts = \preg_split('/\band\b/', $condition, 2);
+            $mediaType = \trim($parts[0] ?? '');
+            // Feature-only query (starts with '(') — no media type means 'all'
+            if ($mediaType === '' || $mediaType[0] === '(') {
+                if (!$negated) {
+                    return true;
+                }
+                continue;
+            }
+            $isPrintOrAll = ($mediaType === 'print' || $mediaType === 'all');
+            if ($negated) {
+                // 'not print' / 'not all' → does not apply to print
+                // 'not screen' / 'not tv' → applies to all non-screen, including print
+                if (!$isPrintOrAll && \in_array($mediaType, self::NON_PRINT_MEDIA_TYPES, true)) {
+                    return true;
+                }
+            } else {
+                if ($isPrintOrAll) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    protected function tidyCSS(string $css): string
     {
         if (empty($css)) {
             return '';
         }
         // remove comments
-        $css = \preg_replace('/\/\*[^\*]*\*\//', '', $css) ?? '';
+        $css = (string) (\preg_replace('/\/\*[^\*]*\*\//', '', $css) ?? '');
         // remove newlines and multiple spaces
-        $css = \preg_replace('/[\s]+/', ' ', $css) ?? '';
+        $css = (string) (\preg_replace('/[\s]+/', ' ', $css) ?? '');
         // remove some spaces
-        $css = \preg_replace('/[\s]*([;:\{\}]{1})[\s]*/', '\\1', $css) ?? '';
+        $css = (string) (\preg_replace('/[\s]*([;:\{\}]{1})[\s]*/', '\\1', $css) ?? '');
         // remove empty blocks
-        $css = \preg_replace('/([^\}\{]+)\{\}/', '', $css) ?? '';
+        $css = (string) (\preg_replace('/([^\}\{]+)\{\}/', '', $css) ?? '');
         // replace media type parenthesis
-        $css = \preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1§', $css) ?? '';
-        $css = \preg_replace('/\}\}/si', '}§', $css) ?? '';
+        $css = (string) (\preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1§', $css) ?? '');
+        $css = (string) (\preg_replace('/\}\}/si', '}§', $css) ?? '');
         // find media blocks (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
         $blk = [];
         $matches = [];
@@ -548,14 +854,13 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 $blk[$type] = $matches[2][$key];
             }
             // remove media blocks
-            $css = \preg_replace('/@media[\s]+([^\§]*)§([^§]*)§/i', '', $css) ?? '';
+            $css = (string) (\preg_replace('/@media[\s]+([^\§]*)§([^§]*)§/i', '', $css) ?? '');
         }
-        // keep 'all' and 'print' media, other media types are discarded
-        if (!empty($blk['all'])) {
-            $css .= $blk['all'];
-        }
-        if (!empty($blk['print'])) {
-            $css .= $blk['print'];
+        // keep print-relevant media blocks; discard screen-only and other non-print types
+        foreach ($blk as $type => $content) {
+            if (!empty($content) && $this->isMediaPrintRelevant($type)) {
+                $css .= $content;
+            }
         }
         return \trim($css);
     }
@@ -567,8 +872,21 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return array<string, string> CSS properties.
      */
-    protected function extractCSSproperties($css): array
+    /**
+     * Extract CSS properties from a CSS data string and return as a sorted array.
+     *
+     * When CascadeContext is provided, maintains global source order across all CSS sources
+     * for deterministic cascade behavior. When null, falls back to per-stylesheet source order.
+     *
+     * @param string $css CSS data string
+     * @param CascadeContext|null $context Optional cascade context for global source order tracking
+    * @return array<string, string> Array of parsed CSS selectors with properties
+     */
+    protected function extractCSSproperties(string $css, ?CascadeContext $context = null): array
     {
+        $css = $this->normalizeCharset($css);
+        $seen = [];
+        $css = $this->resolveImportRules($css, 0, $seen);
         $css = $this->tidyCSS($css);
         if (empty($css)) {
             return [];
@@ -601,31 +919,23 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
         // covert array to selector => properties
         $out = [];
+        $sourceOrder = 0;
         foreach ($blk as $block) {
             $selector = $block[0];
-            // calculate selector's specificity
-            $matches = [];
-            $sta = 0; // the declaration is not from is a 'style' attribute
-            // number of ID attributes
-            $stb = \intval(\preg_match_all('/[\#]/', $selector, $matches));
-            // number of other attributes
-            $stc = \intval(\preg_match_all('/[\[\.]/', $selector, $matches));
-            // number of pseudo-classes
-            $stc += \intval(\preg_match_all(
-                '/[\:]link|visited|hover|active|focus|target|lang|enabled|disabled'
-                . '|checked|indeterminate|root|nth|first|last|only|empty|contains|not/i',
-                $selector,
-                $matches,
-            ));
-            // number of element names
-            $std = \intval(\preg_match_all('/[\>\+\~\s]{1}[a-zA-Z0-9]+/', " $selector", $matches));
-            // number of pseudo-elements
-            $std += \intval(\preg_match_all('/[\:][\:]/', $selector, $matches));
-            $specificity = $sta . $stb . $stc . $std;
-            // add specificity to the beginning of the selector
-            $out["$specificity $selector"] = $block[1];
+            // calculate selector's specificity using CSS 2.1 tuple scoring
+            $specificity = Specificity::fromSelector($selector);
+            // Get global or per-stylesheet source order
+            if ($context !== null) {
+                $sourceOrder = $context->getNextNormalSourceOrder();
+            } else {
+                ++$sourceOrder;
+            }
+            // create sortable key: "{a:04d}{b:04d}{c:04d}_{index:06d} {selector}"
+            $sortKey = $specificity->toSortKey($sourceOrder);
+            // store with specificity key for proper ordering
+            $out["$sortKey $selector"] = $block[1];
         }
-        // sort selectors alphabetically to account for specificity
+        // sort selectors alphabetically to account for specificity and source order
         \ksort($out, SORT_STRING);
         return $out;
     }
@@ -686,6 +996,9 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         /** @var array<string, mixed> $css */
         $css = [];
 
+        // Create cascade context to track global source order across all CSS sources
+        $cascadeCtx = new CascadeContext();
+
         $matches = [];
         if (\preg_match_all('/<cssarray>([^\<]*?)<\/cssarray>/is', $html, $matches) > 0) {
             if (isset($matches[1][0])) {
@@ -703,6 +1016,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         // extract external CSS files
         $matches = [];
         if (\preg_match_all('/<link([^\>]*?)>/is', $html, $matches) > 0) {
+            $cascadeCtx->setCurrentSourceType('external');
             foreach ($matches[1] as $key => $link) {
                 $type = [];
                 if (\preg_match('/type[\s]*=[\s]*"text\/css"/', $link, $type) > 0) {
@@ -716,7 +1030,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                                 // read CSS data file
                                 $cssdata = $this->file->getFileData(\trim($type[1]));
                                 if (($cssdata !== false) && (\strlen($cssdata) > 0)) {
-                                    $css = \array_merge($css, $this->extractCSSproperties($cssdata));
+                                    $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                                 }
                             }
                         }
@@ -726,7 +1040,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                         if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
                             $cssdata = $this->file->getFileData(\trim($type[1]));
                             if (($cssdata !== false) && (\strlen($cssdata) > 0)) {
-                                $css = \array_merge($css, $this->extractCSSproperties($cssdata));
+                                $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                             }
                         }
                     }
@@ -737,6 +1051,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         // extract style tags
         $matches = [];
         if (\preg_match_all('/<style([^\>]*?)>([^\<]*?)<\/style>/is', $html, $matches) > 0) {
+            $cascadeCtx->setCurrentSourceType('embedded');
             foreach ($matches[1] as $key => $media) {
                 $type = [];
                 if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $media, $type) > 0) {
@@ -744,12 +1059,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
                     if (!empty($type[1]) && (($type[1] == 'all') || ($type[1] == 'print'))) {
                         $cssdata = $matches[2][$key];
-                        $css = \array_merge($css, $this->extractCSSproperties($cssdata));
+                        $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                     }
                 } else {
                     // no media attribute defaults to "all"
                     $cssdata = $matches[2][$key];
-                    $css = \array_merge($css, $this->extractCSSproperties($cssdata));
+                    $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                 }
             }
         }

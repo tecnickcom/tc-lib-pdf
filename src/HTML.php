@@ -32,6 +32,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
+ * @phpstan-import-type BorderStyleOpt from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSBorderSpacing from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
@@ -108,6 +109,9 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-type THTMLAttrib array{
  *     'align': string,
  *     'attribute': array<string, string>,
+ *     'caption-top-html'?: string,
+ *     'caption-bottom-html'?: string,
+ *     'caption-side': string,
  *     'bgcolor': string,
  *     'block': bool,
  *     'border-collapse': string,
@@ -118,7 +122,10 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'content': string,
  *     'cssdata': array<string, TCSSData>,
  *     'csssel': array<string>,
+ *     'clear': string,
  *     'dir': string,
+ *     'display': string,
+ *     'empty-cells': string,
  *     'elkey': int,
  *     'fgcolor': string,
  *     'fill': bool,
@@ -132,19 +139,23 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'line-height': float,
  *     'list-style-position': string,
  *     'listtype': string,
- *     'margin': TCellBound,
+ *     'float': string,
+ *     'margin': array<string, float>,
  *     'opening': bool,
- *     'padding': TCellBound,
+ *     'padding': array<string, float>,
  *     'parent': int,
  *     'pendingcellpadding'?: float,
  *     'pendingcellspacingh'?: float,
  *     'pendingcellspacingv'?: float,
  *     'pendingcolwidths'?: array<int, float>,
+ *     'position': string,
  *     'rows': int,
  *     'self': bool,
  *     'stroke': float,
  *     'strokecolor': string,
+ *     'table-layout': string,
  *     'style': array<string, string>,
+ *     'list-style-image'?: string,
  *     'tag': bool,
  *     'text-indent': float,
  *     'text-transform': string,
@@ -174,12 +185,17 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *         lineoriginx: float,
  *         maxwidth: float,
  *         maxheight: float,
+ *         floatrowleftw: float,
+ *         floatrowrightw: float,
+ *         floatrowtop: float,
+ *         floatrowbottom: float,
  *         lineadvance: float,
  *         linebottom: float,
  *         lineascent: float,
  *         linewordspacing: float,
  *         linewrapped: bool,
  *         textindentapplied: bool,
+ *         pendingblockmarginb: float,
  *         basefont: string
  *     },
  *     'currentkey'?: int,
@@ -302,6 +318,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ];
 
     /**
+     * Supported CSS display values recognized by the HTML style parser.
+     *
+     * @var array<string>
+     */
+    protected const HTML_SUPPORTED_DISPLAY_VALUES = [
+        'none',
+        'inline',
+        'block',
+        'inline-block',
+        'list-item',
+        'table',
+        'inline-table',
+        'table-row-group',
+        'table-header-group',
+        'table-footer-group',
+        'table-row',
+        'table-column-group',
+        'table-column',
+        'table-cell',
+        'table-caption',
+    ];
+
+    /**
      * HTML character replacements.
      *
      * @var array<string, string>
@@ -325,6 +364,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ];
 
     /**
+     * DOM properties that are inherited from parent elements.
+     *
+     * @var array<string>
+     */
+    protected const HTML_INHERITED_PROPERTIES = [
+        'align',
+        'bgcolor',
+        'border',
+        'clip',
+        'dir',
+        'fgcolor',
+        'fill',
+        'font-stretch',
+        'fontname',
+        'fontsize',
+        'fontstyle',
+        'hide',
+        'letter-spacing',
+        'line-height',
+        'list-style-image',
+        'list-style-position',
+        'listtype',
+        'stroke',
+        'strokecolor',
+        'text-indent',
+        'text-transform',
+        'white-space',
+        'word-spacing',
+    ];
+
+    /**
      * HTML valid (supported) tags.
      *
      * @var string
@@ -342,68 +412,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @var string
      */
     protected const HTML_TAG_PATTERN = '/(<[^>]+>)/';
-
-    /**
-     * List of HTML inheritable properties.
-     *
-     * @var array<string>
-     */
-    protected const HTML_INHPROP = [
-        'align',
-        //'azimuth',//
-        'bgcolor',
-        'block',
-        //'border-collapse',//
-        //'border-spacing',//
-        'border',
-        //'caption-side',//
-        'clip',
-        //'color',//
-        //'cursor',//
-        'dir',
-        //'direction',//
-        //'empty-cells',//
-        'fgcolor',
-        'fill',
-        //'font-family',//
-        //'font-size-adjust',//
-        //'font-size',//
-        'font-stretch',
-        //'font-stretch',//
-        //'font-style',//
-        //'font-variant',//
-        //'font-weight',//
-        //'font',//
-        'fontname',
-        'fontsize',
-        'fontstyle',
-        'hide',
-        'letter-spacing',
-        'line-height',
-        'list-style-image',
-        'list-style-position',
-        //'list-style-type',//
-        //'list-style',//
-        'listtype',
-        //'orphans',//
-        //'page-break-inside',//
-        //'page',//
-        'parent',
-        //'quotes',//
-        //'speak-header',//
-        //'speak',//
-        'stroke',
-        'strokecolor',
-        'tag',
-        //'text-align',//
-        'text-indent',
-        'text-transform',
-        'value',
-        //'volume',//
-        'white-space',
-        //'widows',//
-        'word-spacing',
-    ];
 
     /**
      * Verical shift ratio for HTML sub tag.
@@ -426,6 +434,69 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @var float
      */
     protected const WIDTH_TOLERANCE = 0.01;
+
+    /**
+     * Engine default values used to resolve CSS `initial` in inline style parsing.
+     *
+     * Values are expressed as CSS declaration strings so existing property parsers
+     * can process them without special-case branching.
+     *
+     * @var array<string, string>
+     */
+    protected const HTML_STYLE_INITIAL_VALUE_MAP = [
+        'direction' => 'ltr',
+        'display' => 'inline',
+        'font-family' => 'helvetica',
+        'list-style' => 'none',
+        'list-style-type' => 'disc',
+        'list-style-position' => 'outside',
+        'list-style-image' => 'none',
+        'text-indent' => '0',
+        'text-transform' => 'none',
+        'white-space' => 'normal',
+        'font-size' => '10pt',
+        'font-stretch' => 'normal',
+        'letter-spacing' => 'normal',
+        'word-spacing' => 'normal',
+        'line-height' => 'normal',
+        'font-weight' => 'normal',
+        'font-style' => 'normal',
+        'color' => 'black',
+        'background-color' => 'transparent',
+        'background' => 'transparent',
+        'text-decoration' => 'none',
+        'width' => '0',
+        'height' => '0',
+        'text-align' => 'left',
+        'vertical-align' => 'baseline',
+        'padding' => '0',
+        'padding-top' => '0',
+        'padding-right' => '0',
+        'padding-bottom' => '0',
+        'padding-left' => '0',
+        'margin' => '0',
+        'margin-top' => '0',
+        'margin-right' => '0',
+        'margin-bottom' => '0',
+        'margin-left' => '0',
+        'border' => 'none',
+        'border-top' => 'none',
+        'border-right' => 'none',
+        'border-bottom' => 'none',
+        'border-left' => 'none',
+        'border-width' => '0',
+        'border-style' => 'none',
+        'border-color' => 'black',
+        'border-collapse' => 'separate',
+        'border-spacing' => '0',
+        'overflow' => 'visible',
+        'page-break-inside' => 'auto',
+        'page-break-before' => 'auto',
+        'page-break-after' => 'auto',
+        'break-inside' => 'auto',
+        'break-before' => 'auto',
+        'break-after' => 'auto',
+    ];
 
 
     /**
@@ -855,13 +926,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'azimuth' => '',//
             'bgcolor' => '',
             'block' => false,
+            'caption-side' => 'top',
             'border-collapse' => 'separate',
             'border-spacing' => ['H' => 0.0, 'V' => 0.0],
             'border' => [],
             //'border-collapse' => '',//
             //'border-spacing' => '',//
-            //'caption-side' => '',//
             'clip' => false,
+            'clear' => 'none',
             //'color' => '',//
             'cols' => 0,
             'content' => '',
@@ -870,8 +942,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'cursor' => '',//
             'dir' => $this->rtl ? 'rtl' : 'ltr',
             //'direction' => '',//
+            'display' => 'inline',
             'elkey' => 0,
-            //'empty-cells' => '',//
+            'empty-cells' => 'show',
             'fgcolor' => 'black',
             'fill' => true,
             //'font' => '',//
@@ -894,6 +967,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'list-style-position' => 'outside',
             //'list-style-type' => '',//
             'listtype' => '',
+            'float' => 'none',
             'margin' => self::ZEROCELLBOUND,
             'opening' => false,
             //'orphans' => '',//
@@ -901,6 +975,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'page' => '',//
             //'page-break-inside' => '',//
             'parent' => 0,
+            'position' => 'static',
             //'quotes' => '',//
             'rows' => 0,
             'self' => false,
@@ -908,6 +983,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'speak-header' => '',//
             'stroke' => 0.0,
             'strokecolor' => 'black',
+            'table-layout' => 'auto',
             'style' => [],
             'tag' => false,
             //'text-align' => '',//
@@ -988,9 +1064,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['tag'] = true;
                 $dom[$key]['value'] = $tagname;
                 $dom[$key]['block'] = \in_array($dom[$key]['value'], self::HTML_BLOCK_TAGS);
+                $dom[$key]['display'] = $dom[$key]['block'] ? 'block' : 'inline';
                 /** @var array<int, THTMLAttrib> $dom */
                 if ($element[0] == '/') { // closing tag
                     array_pop($level);
+                    // @phpstan-ignore-next-line parameterByRef.type
                     $this->processHTMLDOMClosingTag(
                         $dom,
                         $elm,
@@ -999,6 +1077,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $cssarray,
                     );
                 } else { // opening or self-closing html tag
+                    // @phpstan-ignore-next-line parameterByRef.type
                     $this->processHTMLDOMOpeningTag(
                         $dom,
                         $css,
@@ -1022,8 +1101,111 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ++$elkey;
             ++$key;
         }
+
+        if (!empty($css)) {
+            // @phpstan-ignore-next-line parameterByRef.type
+            $this->recomputeHTMLDOMCSSAgainstFinalTree($dom, $css);
+        }
+
         /** @var array<int, THTMLAttrib> $dom */
         return $dom;
+    }
+
+    /**
+     * Recompute selector matching against the fully built DOM tree.
+     *
+     * Structural pseudo-classes (for example :last-child) require complete
+     * sibling sets and can be mis-evaluated during streaming DOM construction.
+     *
+      * @param array<int, THTMLAttrib> $dom
+     * @param array<string, string> $css
+     */
+    protected function recomputeHTMLDOMCSSAgainstFinalTree(array &$dom, array $css): void
+    {
+        $defaults = $dom[0] ?? [];
+
+        foreach ($dom as $key => $node) {
+            if ($key === 0) {
+                continue;
+            }
+
+            $parentkey = (isset($node['parent']) && \is_int($node['parent'])) ? (int) $node['parent'] : 0;
+
+            foreach (self::HTML_INHERITED_PROPERTIES as $prop) {
+                if (\array_key_exists($prop, $defaults)) {
+                    $dom[$key][$prop] = $defaults[$prop];
+                }
+            }
+
+            $this->inheritHTMLProperties($dom, $key, $parentkey);
+
+            if (empty($node['tag']) || empty($node['opening'])) {
+                continue;
+            }
+
+            if (!empty($dom[$key]['cssdata'])) {
+                $dom[$key]['cssdata'] = [];
+            }
+            if (!empty($dom[$key]['csssel'])) {
+                $dom[$key]['csssel'] = [];
+            }
+
+            if (!empty($dom[$key]['attribute']) && \is_array($dom[$key]['attribute'])) {
+                unset($dom[$key]['attribute']['pseudo-before-style']);
+                unset($dom[$key]['attribute']['pseudo-after-style']);
+                unset($dom[$key]['attribute']['pseudo-marker-style']);
+
+                $rawInlineStyle = (isset($dom[$key]['attribute']['data-tcpdf-inline-style'])
+                    && \is_string($dom[$key]['attribute']['data-tcpdf-inline-style']))
+                    ? (string) $dom[$key]['attribute']['data-tcpdf-inline-style']
+                    : '';
+
+                if ($rawInlineStyle !== '') {
+                    // @phpstan-ignore-next-line parameterByRef.type
+                    $dom[$key]['attribute']['style'] = $rawInlineStyle;
+                } else {
+                    unset($dom[$key]['attribute']['style']);
+                }
+            }
+
+            $this->getHTMLDOMCSSData($dom, $css, $key);
+
+            if (!empty($dom[$key]['cssdata'])) {
+                $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
+            }
+
+            $this->parseHTMLStyleAttributes($dom, $key, $parentkey);
+            $this->parseHTMLAttributes($dom, $key, $this->isHTMLNodeInsideThead($dom, $key));
+        }
+    }
+
+    /**
+     * Returns true when the specified node is inside a THEAD section.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function isHTMLNodeInsideThead(array &$dom, int $key): bool
+    {
+        $parent = $dom[$key]['parent'] ?? null;
+        while (\is_int($parent) && ($parent > 0) && isset($dom[$parent])) {
+            if (
+                !empty($dom[$parent]['tag'])
+                && !empty($dom[$parent]['opening'])
+                && isset($dom[$parent]['value'])
+                && ($dom[$parent]['value'] === 'thead')
+            ) {
+                return true;
+            }
+
+            $next = $dom[$parent]['parent'] ?? null;
+            if (!\is_int($next) || ($next === $parent)) {
+                break;
+            }
+
+            $parent = $next;
+        }
+
+        return false;
     }
 
     /**
@@ -1074,32 +1256,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function inheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
         $defaults = $dom[0] ?? [];
-        foreach (
-            [
-            'align',
-            'bgcolor',
-            'border',
-            'clip',
-            'dir',
-            'fgcolor',
-            'fill',
-            'font-stretch',
-            'fontname',
-            'fontsize',
-            'fontstyle',
-            'hide',
-            'letter-spacing',
-            'line-height',
-            'list-style-position',
-            'listtype',
-            'stroke',
-            'strokecolor',
-            'text-indent',
-            'text-transform',
-            'white-space',
-            'word-spacing',
-            ] as $prop
-        ) {
+        foreach (self::HTML_INHERITED_PROPERTIES as $prop) {
             if (!isset($dom[$parent][$prop]) || !isset($defaults[$prop])) {
                 continue;
             }
@@ -1114,7 +1271,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process the HTML DOM closing tag.
      *
-     * @param array<int, THTMLAttrib> $dom DOM array.
+      * @param array<int, THTMLAttrib> $dom DOM array.
      * @param array<int, string> $elm Current element.
      * @param int $key Current element ID.
      * @param int $parent ID of the parent element.
@@ -1209,14 +1366,39 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $dom[$parent]['thead'] = \str_replace(' nobr="true"', '', $dom[$parent]['thead']);
             $dom[$parent]['thead'] .= '</tablehead>';
         }
+
+        if (($dom[$key]['value'] === 'caption') && ($tableparent > 0)) {
+            $captionSide = (!empty($dom[$parent]['caption-side']) && \is_string($dom[$parent]['caption-side']))
+                ? \strtolower(\trim((string) $dom[$parent]['caption-side'])) : 'top';
+            $captionhtml = $cssarray;
+            for ($idx = $parent; $idx <= $key; ++$idx) {
+                // Suppress in-flow rendering of the full caption subtree; it
+                // will be replayed deterministically at table open/close.
+                // @phpstan-ignore-next-line parameterByRef.type
+                $dom[$idx]['hide'] = true;
+                if (empty($dom[$idx]['elkey']) || !isset($elm[$dom[$idx]['elkey']])) {
+                    continue;
+                }
+
+                $captionhtml .= $elm[$dom[$idx]['elkey']];
+            }
+
+            if ($captionSide === 'bottom') {
+                // @phpstan-ignore-next-line parameterByRef.type
+                $dom[$tableparent]['caption-bottom-html'] = $captionhtml;
+            } else {
+                // @phpstan-ignore-next-line parameterByRef.type
+                $dom[$tableparent]['caption-top-html'] = $captionhtml;
+            }
+        }
     }
 
     /**
      * Process HTML DOM Opening Tag.
      *
-    * @param array<int, THTMLAttrib> $dom
+        * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
-    * @param array<int> $level
+        * @param array<int> $level
      * @param string $element
      * @param int $key
      * @param bool $thead
@@ -1281,6 +1463,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['attribute'][$name] = $value;
             }
         }
+
+        // Keep the author-provided inline style separate from merged CSS so
+        // selector recomputation against the final DOM can remain idempotent.
+        if (!isset($dom[$key]['attribute']['data-tcpdf-inline-style'])) {
+            // @phpstan-ignore-next-line parameterByRef.type
+            $dom[$key]['attribute']['data-tcpdf-inline-style'] =
+                (isset($dom[$key]['attribute']['style']) && \is_string($dom[$key]['attribute']['style']))
+                ? $dom[$key]['attribute']['style']
+                : '';
+        }
+
         if (!empty($css)) {
             /** @var array<int, THTMLAttrib> $dom */
             // merge CSS style to current style
@@ -1382,15 +1575,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
+        $inlineStyle = '';
         if (
             !empty($dom[$key]['attribute'])
-            && !empty($dom[$key]['attribute']['style'])
+            && isset($dom[$key]['attribute']['data-tcpdf-inline-style'])
+            && \is_string($dom[$key]['attribute']['data-tcpdf-inline-style'])
         ) {
+            $inlineStyle = (string) $dom[$key]['attribute']['data-tcpdf-inline-style'];
+        } elseif (
+            !empty($dom[$key]['attribute'])
+            && isset($dom[$key]['attribute']['style'])
+            && \is_string($dom[$key]['attribute']['style'])
+        ) {
+            $inlineStyle = (string) $dom[$key]['attribute']['style'];
+        }
+
+        if ($inlineStyle !== '') {
             // attach inline style (latest properties have high priority)
+            // Use maximum source order for inline styles to ensure they override stylesheet rules
             $ret[] = [
                 'k' => '',
-                's' => '1000',
-                'c' => $dom[$key]['attribute']['style'],
+                's' => (string) \Com\Tecnick\Pdf\CSS\CascadeContext::getInlineStyleSourceOrder(),
+                'c' => $inlineStyle,
             ];
         }
         // order the css array to account for specificity
@@ -1398,7 +1604,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cssordered = [];
         /** @var TCSSData $val */
         foreach ($ret as $idx => $val) {
-            $skey = \sprintf('%s_%04d', $val['s'], $idx);
+            // If specificity already contains source order (new format with underscore),
+            // use it directly; otherwise append the per-element index for backward compatibility
+            if (\strpos($val['s'], '_') !== false) {
+                // New format: specificity is already a sort key
+                $skey = $val['s'];
+            } else {
+                // Backward compatibility: append per-element index
+                $skey = \sprintf('%s_%04d', $val['s'], $idx);
+            }
             $cssordered[$skey] = $val;
         }
         if (!empty($selectors)) {
@@ -1470,10 +1684,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
+        $selector = \preg_replace('/\\\\(?:\r\n|\r|\n|\f)/', '', $selector) ?? $selector;
         $selector = $this->escapeHTMLSelectorFunctionalOperators($selector);
         $selector = \preg_replace('/\s*([>+~])\s*/', '\\1', $selector) ?? '';
         $selector = ' ' . \ltrim($selector);
-        $tag = $dom[$key]['value'];
+        $tag = \strtolower((string) ($dom[$key]['value'] ?? ''));
         $class = [];
         if (!empty($dom[$key]['attribute']['class'])) {
             $class = \explode(' ', \strtolower($dom[$key]['attribute']['class']));
@@ -1487,10 +1702,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             '\\1*.\\3',
             $selector,
         ) ?? '';
+        $selector = \preg_replace(
+            '/([\>\+\~\s]{1})([\#]{1})([^\>\+\~\s]*)/si',
+            '\\1*#\\3',
+            $selector,
+        ) ?? '';
+        $selector = \preg_replace(
+            '/([\>\+\~\s]{1})(\[)/si',
+            '\\1*\\2',
+            $selector,
+        ) ?? '';
         $matches = [];
         if (
             empty(\preg_match_all(
-                '/([\>\+\~\s]{1})([a-zA-Z0-9\*]+)([^\>\+\~\s]*)/si',
+                '/([\>\+\~\s]{1})(\*|(?:\\\\.|[\p{L}\p{N}_-])+)([^\>\+\~\s]*)/siu',
                 $selector,
                 $matches,
                 PREG_PATTERN_ORDER | PREG_OFFSET_CAPTURE,
@@ -1502,7 +1727,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $operator = $parentop[0] ?? '';
         $offset = $parentop[1] ?? 0;
         $lasttag = \array_pop($matches[2]);
-        $lasttag = \strtolower(\trim($lasttag[0] ?? ''));
+        $lasttag = \strtolower($this->decodeHTMLCSSIdentifier(\trim($lasttag[0] ?? '')));
         if (($lasttag !== '*') && ($lasttag !== $tag)) {
             return $ret;
         }
@@ -1587,9 +1812,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $idattr,
     ): bool {
         $tokens = [];
+        $selectorTokenPattern = '/(\.(?:\\\\.|[\p{L}\p{N}_-])+|#(?:\\\\.|[\p{L}\p{N}_-])+|'
+            . '\[[^\]]+\]|:{1,2}[a-zA-Z-]+(?:\([^\)]*\))?)/u';
         if (
             empty(\preg_match_all(
-                '/(\.[a-zA-Z0-9_-]+|#[a-zA-Z0-9_-]+|\[[^\]]+\]|:{1,2}[a-zA-Z-]+(?:\([^\)]*\))?)/',
+                $selectorTokenPattern,
                 $attrib,
                 $tokens,
             ))
@@ -1605,7 +1832,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         foreach ($tokens[0] as $token) {
             if ($token[0] === '.') {
-                if (!\in_array(\substr($token, 1), $class, true)) {
+                $classname = \strtolower($this->decodeHTMLCSSIdentifier(\substr($token, 1)));
+                if (!\in_array($classname, $class, true)) {
                     return false;
                 }
 
@@ -1613,7 +1841,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if ($token[0] === '#') {
-                if (\substr($token, 1) !== $idattr) {
+                $selectorid = \strtolower($this->decodeHTMLCSSIdentifier(\substr($token, 1)));
+                if ($selectorid !== $idattr) {
                     return false;
                 }
 
@@ -1648,7 +1877,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $attrmatch = [];
         if (
             empty(\preg_match(
-                '/\[([a-zA-Z0-9_-]*)[\s]*([\~\^\$\*\|\=]*)[\s]*[" ]?([^"\]]*)[" ]?\]/i',
+                '/\[([^\s\~\^\$\*\|\]=]+)[\s]*([\~\^\$\*\|\=]*)[\s]*(?:"([^"]*)"|\'([^\']*)\'|([^\]]*))?\]/i',
                 $token,
                 $attrmatch,
             ))
@@ -1656,13 +1885,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        $att = \strtolower($attrmatch[1]);
-        $val = $attrmatch[3];
+        $att = \strtolower($this->decodeHTMLCSSIdentifier($attrmatch[1]));
+        $val = '';
+        if (isset($attrmatch[3]) && ($attrmatch[3] !== '')) {
+            $val = $attrmatch[3];
+        } elseif (isset($attrmatch[4]) && ($attrmatch[4] !== '')) {
+            $val = $attrmatch[4];
+        } elseif (isset($attrmatch[5])) {
+            $val = \trim($attrmatch[5]);
+        }
+        $val = $this->decodeHTMLCSSIdentifier($val);
         if (empty($dom[$key]['attribute'][$att])) {
             return false;
         }
 
-        $current = $dom[$key]['attribute'][$att];
+        $current = (string) $dom[$key]['attribute'][$att];
+        $qval = \preg_quote($val, '/');
 
         return match ($attrmatch[2]) {
             '=' => ($current == $val),
@@ -1670,9 +1908,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             '^=' => ($val == \substr($current, 0, \strlen($val))),
             '$=' => ($val == \substr($current, -\strlen($val))),
             '*=' => (\strpos($current, $val) !== false),
-            '|=' => (($current == $val) || (\preg_match('/' . $val . '[\-]{1}/i', $current) > 0)),
+            '|=' => (($current == $val) || (\preg_match('/^' . $qval . '-/i', $current) > 0)),
             default => true,
         };
+    }
+
+    /**
+     * Decode CSS escaped sequences inside selector identifiers.
+     */
+    protected function decodeHTMLCSSIdentifier(string $value): string
+    {
+        if ($value === '' || !\str_contains($value, '\\')) {
+            return $value;
+        }
+
+        $value = \preg_replace('/\\\\(?:\r\n|\r|\n|\f)/', '', $value) ?? $value;
+
+        return (string) (\preg_replace_callback(
+            '/\\\\([0-9a-fA-F]{1,6}\s?|.)/u',
+            static function (array $match): string {
+                $esc = $match[1];
+                if (\preg_match('/^[0-9a-fA-F]{1,6}\s?$/', $esc) === 1) {
+                    $hex = \trim($esc);
+                    $codepoint = (int) \hexdec($hex);
+                    if ($codepoint <= 0 || $codepoint > 0x10FFFF) {
+                        return '';
+                    }
+
+                    $chr = \mb_chr($codepoint, 'UTF-8');
+                    return ($chr === false) ? '' : $chr;
+                }
+
+                return $esc;
+            },
+            $value,
+        ) ?? $value);
     }
 
     /**
@@ -1708,12 +1978,58 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'last-of-type' => $this->matchesHTMLPseudoLastOfType($dom, $siblings, $key),
             'nth-of-type' => $this->matchesHTMLPseudoNthOfType($dom, $siblings, $key, $arg),
             'empty' => $this->matchesHTMLPseudoEmpty($dom, $key),
+            'lang' => $this->matchesHTMLPseudoLang($dom, $key, $arg),
             'link' => (
                 ($dom[$key]['value'] === 'a')
                 && !empty($dom[$key]['attribute']['href'])
             ),
             default => false,
         };
+    }
+
+    /**
+     * Resolve the effective language for an element by traversing ancestors.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function getHTMLEffectiveLang(array &$dom, int $key): string
+    {
+        $current = $key;
+        while (isset($dom[$current])) {
+            $attr = $dom[$current]['attribute'] ?? null;
+            if (\is_array($attr)) {
+                $lang = (string) ($attr['lang'] ?? $attr['xml:lang'] ?? '');
+                $lang = \strtolower(\trim($lang));
+                if ($lang !== '') {
+                    return $lang;
+                }
+            }
+            $parent = $dom[$current]['parent'] ?? null;
+            if (!\is_int($parent) || ($parent === $current)) {
+                break;
+            }
+            $current = $parent;
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function matchesHTMLPseudoLang(array &$dom, int $key, string $arg): bool
+    {
+        $arg = \strtolower(\trim($arg, " \t\n\r\0\x0B\"'"));
+        if ($arg === '') {
+            return false;
+        }
+
+        $lang = $this->getHTMLEffectiveLang($dom, $key);
+        if ($lang === '') {
+            return false;
+        }
+
+        return ($lang === $arg) || \str_starts_with($lang, $arg . '-');
     }
 
     /**
@@ -1850,29 +2166,44 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Escape combinator characters inside pseudo-function argument lists.
+     * Escape combinator characters inside pseudo-function arguments and
+     * attribute selector values/operators.
      */
     protected function escapeHTMLSelectorFunctionalOperators(string $selector): string
     {
         $out = '';
-        $depth = 0;
+        $parenDepth = 0;
+        $attrDepth = 0;
         $len = \strlen($selector);
 
         for ($idx = 0; $idx < $len; ++$idx) {
             $char = $selector[$idx];
+
+            if ($char === '[') {
+                ++$attrDepth;
+                $out .= $char;
+                continue;
+            }
+
+            if (($char === ']') && ($attrDepth > 0)) {
+                --$attrDepth;
+                $out .= $char;
+                continue;
+            }
+
             if ($char === '(') {
-                ++$depth;
+                ++$parenDepth;
                 $out .= $char;
                 continue;
             }
 
-            if (($char === ')') && ($depth > 0)) {
-                --$depth;
+            if (($char === ')') && ($parenDepth > 0)) {
+                --$parenDepth;
                 $out .= $char;
                 continue;
             }
 
-            if ($depth > 0) {
+            if (($parenDepth > 0) || ($attrDepth > 0)) {
                 $out .= match ($char) {
                     '+' => "\x1D",
                     '>' => "\x1E",
@@ -2002,6 +2333,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $styles = $this->parseHTMLStyleDeclarationMap($dom[$key]['attribute']['style']);
+        $styles = $this->resolveHTMLStyleInitialValues($styles);
         if ($styles === []) {
             return;
         }
@@ -2009,283 +2341,1643 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         /** @var array<int, THTMLAttrib> $dom */
         // @phpstan-ignore parameterByRef.type
         $dom[$key]['style'] = $styles;
-        /** @var array<int, THTMLAttrib> $dom */
-        // --- get some style attributes ---
-        // text direction
-        if (!empty($dom[$key]['style']['direction'])) {
-            $dom[$key]['dir'] = $dom[$key]['style']['direction'];
+
+        // Layout and list properties.
+        $this->parseHTMLStyleDirectionProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleDisplayProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFloatProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleClearProperty($dom, $key, $parentkey);
+        $this->parseHTMLStylePositionProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontFamilyProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleListStyleShorthandProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleListStyleTypeProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleListStylePositionProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleListStyleImageProperty($dom, $key, $parentkey);
+
+        // Text flow and font metrics.
+        $this->parseHTMLStyleTextIndentProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleTextTransformProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleWhiteSpaceProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontSizeProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontStretchProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleLetterSpacingProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleWordSpacingProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleLineHeightProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontWeightProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontStyleProperty($dom, $key, $parentkey);
+
+        // Colors and text decoration.
+        $this->parseHTMLStyleColorProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleBackgroundProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleTextDecorationProperty($dom, $key, $parentkey);
+
+        // Dimensions and alignment.
+        $this->parseHTMLStyleWidthProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleMinMaxWidthProperties($dom, $key);
+        $this->parseHTMLStyleHeightProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleMinMaxHeightProperties($dom, $key);
+        $this->parseHTMLStyleOverflowProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleTextAlignProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleVerticalAlignProperty($dom, $key, $parentkey);
+
+        // Box model.
+        $this->parseHTMLStylePaddingProperty($dom, $key, $parentkey);
+        $this->parseHTMLStylePaddingTopProperty($dom, $key, $parentkey);
+        $this->parseHTMLStylePaddingRightProperty($dom, $key, $parentkey);
+        $this->parseHTMLStylePaddingBottomProperty($dom, $key, $parentkey);
+        $this->parseHTMLStylePaddingLeftProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleMarginProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleMarginTopProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleMarginRightProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleMarginBottomProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleMarginLeftProperty($dom, $key, $parentkey);
+        $this->parseHTMLStylePositionOffsetProperties($dom, $key, $parentkey);
+
+        // Borders and table border model.
+        $this->parseHTMLStyleBorderProperties($dom, $key, $parentkey);
+        $this->parseHTMLStyleCaptionSideProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleTableLayoutProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleEmptyCellsProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleBorderCollapseProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleBorderSpacingProperty($dom, $key, $parentkey);
+
+        // Page break properties and modern break aliases.
+        $this->parseHTMLStylePageBreakInsideProperty($dom, $key);
+        $this->parseHTMLStyleBreakInsideAliasProperty($dom, $key);
+        $this->parseHTMLStylePageBreakBeforeProperty($dom, $key);
+        $this->parseHTMLStyleBreakBeforeAliasProperty($dom, $key);
+        $this->parseHTMLStylePageBreakAfterProperty($dom, $key);
+        $this->parseHTMLStyleBreakAfterAliasProperty($dom, $key);
+    }
+
+    /**
+     * Resolve CSS `initial` keyword values using an explicit property metadata table.
+     *
+     * @param array<string, string> $styles
+     *
+     * @return array<string, string>
+     */
+    protected function resolveHTMLStyleInitialValues(array $styles): array
+    {
+        if ($styles === []) {
+            return [];
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // display
-        if (!empty($dom[$key]['style']['display'])) {
-            $dom[$key]['hide'] = (\trim(\strtolower($dom[$key]['style']['display'])) == 'none');
+
+        $resolved = $styles;
+        if (
+            isset($resolved['all'])
+            && (\trim(\strtolower((string) $resolved['all'])) === 'initial')
+        ) {
+            foreach (self::HTML_STYLE_INITIAL_VALUE_MAP as $property => $default) {
+                if (!isset($resolved[$property])) {
+                    $resolved[$property] = $default;
+                }
+            }
+            unset($resolved['all']);
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // font family
-        if (!empty($dom[$key]['style']['font-family'])) {
+
+        foreach ($resolved as $property => $value) {
+            if (\trim(\strtolower((string) $value)) !== 'initial') {
+                continue;
+            }
+
+            if (isset(self::HTML_STYLE_INITIAL_VALUE_MAP[$property])) {
+                $resolved[$property] = self::HTML_STYLE_INITIAL_VALUE_MAP[$property];
+            }
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * Parse direction style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleDirectionProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['direction'])) {
+            return;
+        }
+
+        $direction = \strtolower(\trim((string) $dom[$key]['style']['direction']));
+        if ($direction === 'inherit') {
+            $dom[$key]['dir'] = (string) $dom[$parentkey]['dir'];
+        } elseif (\in_array($direction, ['ltr', 'rtl'], true)) {
+            $dom[$key]['dir'] = $direction;
+        }
+    }
+
+    /**
+     * Parse display style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleDisplayProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['display'])) {
+            return;
+        }
+
+        $display = \strtolower(\trim((string) $dom[$key]['style']['display']));
+        if ($display === 'inherit') {
+            $dom[$key]['hide'] = (bool) $dom[$parentkey]['hide'];
+            if (!empty($dom[$parentkey]['display']) && \is_string($dom[$parentkey]['display'])) {
+                $parentDisplay = \strtolower(\trim((string) $dom[$parentkey]['display']));
+                if ($this->isSupportedHTMLDisplayValue($parentDisplay)) {
+                    $dom[$key]['display'] = $parentDisplay;
+                    $dom[$key]['block'] = $this->isHTMLDisplayBlockLike($parentDisplay);
+                }
+            }
+            return;
+        }
+
+        if (!$this->isSupportedHTMLDisplayValue($display)) {
+            return;
+        }
+
+        $dom[$key]['display'] = $display;
+        if ($display === 'none') {
+            $dom[$key]['hide'] = true;
+        } else {
+            $dom[$key]['hide'] = false;
+            $dom[$key]['block'] = $this->isHTMLDisplayBlockLike($display);
+        }
+    }
+
+    protected function isSupportedHTMLDisplayValue(string $display): bool
+    {
+        return \in_array($display, self::HTML_SUPPORTED_DISPLAY_VALUES, true);
+    }
+
+    protected function isHTMLDisplayBlockLike(string $display): bool
+    {
+        return !\in_array($display, ['inline', 'none'], true);
+    }
+
+    /**
+     * Parse float style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFloatProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['float'])) {
+            return;
+        }
+
+        $float =
+            \strtolower(\trim((string) $dom[$key]['style']['float']));
+        if ($float === 'inherit') {
+            if (!empty($dom[$parentkey]['float']) && \is_string($dom[$parentkey]['float'])) {
+                $dom[$key]['float'] = (string) $dom[$parentkey]['float'];
+            } elseif (!empty($dom[$parentkey]['style']['float']) && \is_string($dom[$parentkey]['style']['float'])) {
+                $parentFloat = \strtolower(\trim((string) $dom[$parentkey]['style']['float']));
+                if (\in_array($parentFloat, ['left', 'right', 'none'], true)) {
+                    $dom[$key]['float'] = $parentFloat;
+                }
+            }
+
+            return;
+        }
+
+        if (\in_array($float, ['left', 'right', 'none'], true)) {
+            $dom[$key]['float'] = $float;
+        }
+    }
+
+    /**
+     * Parse clear style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleClearProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['clear'])) {
+            return;
+        }
+
+        $clear = \strtolower(\trim((string) $dom[$key]['style']['clear']));
+        if ($clear === 'inherit') {
+            if (!empty($dom[$parentkey]['clear']) && \is_string($dom[$parentkey]['clear'])) {
+                $dom[$key]['clear'] = (string) $dom[$parentkey]['clear'];
+            } elseif (!empty($dom[$parentkey]['style']['clear']) && \is_string($dom[$parentkey]['style']['clear'])) {
+                $parentClear = \strtolower(\trim((string) $dom[$parentkey]['style']['clear']));
+                if (\in_array($parentClear, ['left', 'right', 'both', 'none'], true)) {
+                    $dom[$key]['clear'] = $parentClear;
+                }
+            }
+
+            return;
+        }
+
+        if (\in_array($clear, ['left', 'right', 'both', 'none'], true)) {
+            $dom[$key]['clear'] = $clear;
+        }
+    }
+
+    /**
+     * Parse position style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePositionProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['position'])) {
+            return;
+        }
+
+        $position = \strtolower(\trim((string) $dom[$key]['style']['position']));
+        if ($position === 'inherit') {
+            if (!empty($dom[$parentkey]['position']) && \is_string($dom[$parentkey]['position'])) {
+                $dom[$key]['position'] = (string) $dom[$parentkey]['position'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['position'])
+                && \is_string($dom[$parentkey]['style']['position'])
+            ) {
+                $parentPosition = \strtolower(\trim((string) $dom[$parentkey]['style']['position']));
+                if (\in_array($parentPosition, ['static', 'relative', 'absolute', 'fixed'], true)) {
+                    $dom[$key]['position'] = $parentPosition;
+                }
+            }
+            return;
+        }
+
+        if (\in_array($position, ['static', 'relative', 'absolute', 'fixed'], true)) {
+            $dom[$key]['position'] = $position;
+        }
+    }
+
+    /**
+     * Parse top/left offsets for positioned elements using conservative flow emulation.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    // @phpstan-ignore parameterByRef.type
+    protected function parseHTMLStylePositionOffsetProperties(array &$dom, int $key, int $parentkey): void
+    {
+        $position = (!empty($dom[$key]['position']) && \is_string($dom[$key]['position']))
+            ? \strtolower(\trim((string) $dom[$key]['position']))
+            : 'static';
+        if (!\in_array($position, ['relative', 'absolute', 'fixed'], true)) {
+            return;
+        }
+
+        $offsetL = $this->getHTMLStylePositionOffsetValue($dom, $key, $parentkey, 'left');
+        $offsetT = $this->getHTMLStylePositionOffsetValue($dom, $key, $parentkey, 'top');
+
+        if ($offsetL !== 0.0) {
+            // @phpstan-ignore parameterByRef.type
+            if (!isset($dom[$key]['margin']['L'])) {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['margin']['L'] = 0.0;
+            }
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['margin']['L'] += $offsetL;
+        }
+
+        if ($offsetT !== 0.0) {
+            // @phpstan-ignore parameterByRef.type
+            if (!isset($dom[$key]['margin']['T'])) {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['margin']['T'] = 0.0;
+            }
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['margin']['T'] += $offsetT;
+        }
+    }
+
+    /**
+     * Resolve a position offset style value in user units.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function getHTMLStylePositionOffsetValue(array &$dom, int $key, int $parentkey, string $prop): float
+    {
+        if (!empty($dom[$key]['style'][$prop]) && \is_string($dom[$key]['style'][$prop])) {
+            $raw = \strtolower(\trim((string) $dom[$key]['style'][$prop]));
+            if (($raw === '') || ($raw === 'auto')) {
+                return 0.0;
+            }
+
+            if ($raw === 'inherit') {
+                if (!empty($dom[$parentkey]['style'][$prop]) && \is_string($dom[$parentkey]['style'][$prop])) {
+                    $parentRaw = \strtolower(\trim((string) $dom[$parentkey]['style'][$prop]));
+                    if (($parentRaw === '') || ($parentRaw === 'auto') || ($parentRaw === 'inherit')) {
+                        return 0.0;
+                    }
+
+                    return $this->toUnit($this->getUnitValuePoints($parentRaw));
+                }
+
+                return 0.0;
+            }
+
+            return $this->toUnit($this->getUnitValuePoints($raw));
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Parse font-family style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontFamilyProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['font-family'])) {
+            return;
+        }
+
+        $fontFamily = \trim((string) $dom[$key]['style']['font-family']);
+        if (\strtolower($fontFamily) === 'inherit') {
+            $dom[$key]['fontname'] = (string) $dom[$parentkey]['fontname'];
+        } else {
             // Keep the raw CSS family list and defer font resolution to insert().
             // Resolving here against the current buffer can incorrectly collapse
             // unresolved families to the currently active font.
-            $dom[$key]['fontname'] = \trim((string) $dom[$key]['style']['font-family']);
+            $dom[$key]['fontname'] = $fontFamily;
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // list-style-type
-        if (!empty($dom[$key]['style']['list-style-type'])) {
-            $dom[$key]['listtype'] = \trim(\strtolower($dom[$key]['style']['list-style-type']));
-            if ($dom[$key]['listtype'] == 'inherit') {
-                $dom[$key]['listtype'] = $dom[$parentkey]['listtype'];
+    }
+
+    /**
+     * Parse list-style shorthand property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleListStyleShorthandProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['list-style'])) {
+            return;
+        }
+
+        $listStyle = \strtolower(\trim((string) $dom[$key]['style']['list-style']));
+        if ($listStyle === 'inherit') {
+            $parentListType = '';
+            if (!empty($dom[$parentkey]['listtype']) && \is_string($dom[$parentkey]['listtype'])) {
+                $parentListType = \trim(\strtolower((string) $dom[$parentkey]['listtype']));
+            } elseif (
+                !empty($dom[$parentkey]['style']['list-style-type'])
+                && \is_string($dom[$parentkey]['style']['list-style-type'])
+            ) {
+                $styleListType = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-type']));
+                if ($styleListType !== 'inherit') {
+                    $parentListType = $styleListType;
+                }
+            }
+            if ($parentListType !== '') {
+                $dom[$key]['listtype'] = $parentListType;
+            }
+
+            $parentListPosition = '';
+            if (
+                !empty($dom[$parentkey]['list-style-position'])
+                && \is_string($dom[$parentkey]['list-style-position'])
+            ) {
+                $parentListPosition = \trim(\strtolower((string) $dom[$parentkey]['list-style-position']));
+            } elseif (
+                !empty($dom[$parentkey]['style']['list-style-position'])
+                && \is_string($dom[$parentkey]['style']['list-style-position'])
+            ) {
+                $styleListPosition = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-position']));
+                if (\in_array($styleListPosition, ['inside', 'outside'], true)) {
+                    $parentListPosition = $styleListPosition;
+                }
+            }
+            if ($parentListPosition !== '') {
+                $dom[$key]['list-style-position'] = $parentListPosition;
+            }
+
+            $parentImage = '';
+            if (
+                !empty($dom[$parentkey]['style']['list-style-image'])
+                && \is_string($dom[$parentkey]['style']['list-style-image'])
+            ) {
+                $parentImage = \trim((string) $dom[$parentkey]['style']['list-style-image']);
+            } elseif (
+                !empty($dom[$parentkey]['list-style-image'])
+                && \is_string($dom[$parentkey]['list-style-image'])
+            ) {
+                $parentImage = \trim((string) $dom[$parentkey]['list-style-image']);
+            }
+
+            if ($parentImage !== '') {
+                $dom[$key]['list-style-image'] = $parentImage;
+                $dom[$key]['style']['list-style-image'] = $parentImage;
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // list-style-position
-        if (!empty($dom[$key]['style']['list-style-position'])) {
-            $position = \trim(\strtolower($dom[$key]['style']['list-style-position']));
-            if ($position === 'inherit') {
-                $dom[$key]['list-style-position'] = $dom[$parentkey]['list-style-position'];
-            } elseif (\in_array($position, ['inside', 'outside'], true)) {
-                $dom[$key]['list-style-position'] = $position;
+    }
+
+    /**
+     * Parse list-style-type property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleListStyleTypeProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['list-style-type'])) {
+            return;
+        }
+
+        $dom[$key]['listtype'] = \trim(\strtolower($dom[$key]['style']['list-style-type']));
+        if ($dom[$key]['listtype'] == 'inherit') {
+            if (!empty($dom[$parentkey]['listtype']) && \is_string($dom[$parentkey]['listtype'])) {
+                $dom[$key]['listtype'] = \trim(\strtolower((string) $dom[$parentkey]['listtype']));
+            } elseif (
+                !empty($dom[$parentkey]['style']['list-style-type'])
+                && \is_string($dom[$parentkey]['style']['list-style-type'])
+            ) {
+                $parentListType = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-type']));
+                if ($parentListType !== 'inherit') {
+                    $dom[$key]['listtype'] = $parentListType;
+                }
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // text-indent
-        if (!empty($dom[$key]['style']['text-indent'])) {
-            if ($dom[$key]['style']['text-indent'] == 'inherit') {
-                $dom[$key]['text-indent'] = $dom[$parentkey]['text-indent'];
+    }
+
+    /**
+     * Parse list-style-position property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleListStylePositionProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['list-style-position'])) {
+            return;
+        }
+
+        $position = \trim(\strtolower($dom[$key]['style']['list-style-position']));
+        if ($position === 'inherit') {
+            if (
+                !empty($dom[$parentkey]['list-style-position'])
+                && \is_string($dom[$parentkey]['list-style-position'])
+            ) {
+                $dom[$key]['list-style-position'] = \trim(\strtolower(
+                    (string) $dom[$parentkey]['list-style-position'],
+                ));
+            } elseif (
+                !empty($dom[$parentkey]['style']['list-style-position'])
+                && \is_string($dom[$parentkey]['style']['list-style-position'])
+            ) {
+                $parentPosition = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-position']));
+                if (\in_array($parentPosition, ['inside', 'outside'], true)) {
+                    $dom[$key]['list-style-position'] = $parentPosition;
+                }
+            }
+        } elseif (\in_array($position, ['inside', 'outside'], true)) {
+            $dom[$key]['list-style-position'] = $position;
+        }
+    }
+
+    /**
+     * Parse list-style-image property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleListStyleImageProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['list-style-image'])) {
+            return;
+        }
+
+        $listImage = \trim((string) $dom[$key]['style']['list-style-image']);
+        if (\strtolower($listImage) === 'inherit') {
+            $parentImage = '';
+            if (
+                !empty($dom[$parentkey]['style']['list-style-image'])
+                && \is_string($dom[$parentkey]['style']['list-style-image'])
+            ) {
+                $parentImage = \trim((string) $dom[$parentkey]['style']['list-style-image']);
+            } elseif (
+                !empty($dom[$parentkey]['list-style-image'])
+                && \is_string($dom[$parentkey]['list-style-image'])
+            ) {
+                $parentImage = \trim((string) $dom[$parentkey]['list-style-image']);
+            }
+
+            $dom[$key]['list-style-image'] = $parentImage;
+            if ($parentImage === '') {
+                unset($dom[$key]['style']['list-style-image']);
             } else {
-                $dom[$key]['text-indent'] = $this->toUnit(
-                    $this->getUnitValuePoints($dom[$key]['style']['text-indent']),
-                );
+                $dom[$key]['style']['list-style-image'] = $parentImage;
             }
+        } else {
+            $dom[$key]['list-style-image'] = $listImage;
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // text-transform
-        if (!empty($dom[$key]['style']['text-transform'])) {
-            $dom[$key]['text-transform'] = $dom[$key]['style']['text-transform'];
+    }
+
+    /**
+     * Parse text-indent style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleTextIndentProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['text-indent'])) {
+            return;
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // white-space
-        if (!empty($dom[$key]['style']['white-space'])) {
-            $whitespace = \strtolower(\trim($dom[$key]['style']['white-space']));
-            if ($whitespace === 'inherit') {
-                $dom[$key]['white-space'] = $dom[$parentkey]['white-space'];
-            } elseif (\in_array($whitespace, ['normal', 'nowrap', 'pre', 'pre-wrap'], true)) {
-                $dom[$key]['white-space'] = $whitespace;
+
+        $textIndent = \strtolower(\trim((string) $dom[$key]['style']['text-indent']));
+        if ($textIndent === 'inherit') {
+            if (isset($dom[$parentkey]['text-indent']) && \is_numeric($dom[$parentkey]['text-indent'])) {
+                $dom[$key]['text-indent'] = (float) $dom[$parentkey]['text-indent'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['text-indent'])
+                && \is_string($dom[$parentkey]['style']['text-indent'])
+            ) {
+                $parentTextIndent = \strtolower(\trim((string) $dom[$parentkey]['style']['text-indent']));
+                if ($parentTextIndent !== 'inherit') {
+                    $dom[$key]['text-indent'] = $this->toUnit(
+                        $this->getUnitValuePoints($parentTextIndent),
+                    );
+                }
             }
+        } else {
+            $dom[$key]['text-indent'] = $this->toUnit(
+                $this->getUnitValuePoints($textIndent),
+            );
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // font size
-        if (!empty($dom[$key]['style']['font-size'])) {
-            $fsize = \trim($dom[$key]['style']['font-size']);
+    }
+
+    /**
+     * Parse text-transform style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleTextTransformProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['text-transform'])) {
+            return;
+        }
+
+        $transform = \strtolower(\trim((string) $dom[$key]['style']['text-transform']));
+        if ($transform === 'inherit') {
+            if (
+                !empty($dom[$parentkey]['text-transform'])
+                && \is_string($dom[$parentkey]['text-transform'])
+            ) {
+                $dom[$key]['text-transform'] = \strtolower(\trim((string) $dom[$parentkey]['text-transform']));
+            } elseif (
+                !empty($dom[$parentkey]['style']['text-transform'])
+                && \is_string($dom[$parentkey]['style']['text-transform'])
+            ) {
+                $parentTransform = \strtolower(\trim((string) $dom[$parentkey]['style']['text-transform']));
+                if (\in_array($parentTransform, ['uppercase', 'lowercase', 'capitalize'], true)) {
+                    $dom[$key]['text-transform'] = $parentTransform;
+                } elseif ($parentTransform === 'none') {
+                    $dom[$key]['text-transform'] = '';
+                }
+            }
+        } elseif ($transform === 'none') {
+            $dom[$key]['text-transform'] = '';
+        } elseif (\in_array($transform, ['uppercase', 'lowercase', 'capitalize'], true)) {
+            $dom[$key]['text-transform'] = $transform;
+        }
+    }
+
+    /**
+     * Parse white-space style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleWhiteSpaceProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['white-space'])) {
+            return;
+        }
+
+        $whitespace = \strtolower(\trim($dom[$key]['style']['white-space']));
+        if ($whitespace === 'inherit') {
+            if (
+                !empty($dom[$parentkey]['white-space'])
+                && \is_string($dom[$parentkey]['white-space'])
+            ) {
+                $dom[$key]['white-space'] = \strtolower(\trim((string) $dom[$parentkey]['white-space']));
+            } elseif (
+                !empty($dom[$parentkey]['style']['white-space'])
+                && \is_string($dom[$parentkey]['style']['white-space'])
+            ) {
+                $parentWhitespace = \strtolower(\trim((string) $dom[$parentkey]['style']['white-space']));
+                if (\in_array($parentWhitespace, ['normal', 'nowrap', 'pre', 'pre-wrap', 'pre-line'], true)) {
+                    $dom[$key]['white-space'] = $parentWhitespace;
+                }
+            }
+        } elseif (\in_array($whitespace, ['normal', 'nowrap', 'pre', 'pre-wrap', 'pre-line'], true)) {
+            $dom[$key]['white-space'] = $whitespace;
+        }
+    }
+
+    /**
+     * Parse font-size style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontSizeProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['font-size'])) {
+            return;
+        }
+
+        $fsize = \strtolower(\trim((string) $dom[$key]['style']['font-size']));
+        if ($fsize === 'inherit') {
+            if (\is_numeric($dom[$parentkey]['fontsize'])) {
+                $dom[$key]['fontsize'] = (float) $dom[$parentkey]['fontsize'];
+            } elseif (
+                \is_array($dom[$parentkey]['style'])
+                &&
+                !empty($dom[$parentkey]['style']['font-size'])
+                && \is_string($dom[$parentkey]['style']['font-size'])
+            ) {
+                $parentFontSize = \strtolower(\trim($dom[$parentkey]['style']['font-size']));
+                if ($parentFontSize !== 'inherit') {
+                    $ref = self::REFUNITVAL;
+                    if (\is_numeric($dom[0]['fontsize'])) {
+                        $ref['parent'] = \floatval($dom[0]['fontsize']);
+                    }
+                    $dom[$key]['fontsize'] = $this->getFontValuePoints($parentFontSize, $ref, 'pt');
+                }
+            }
+        } else {
             $ref = self::REFUNITVAL;
             if (\is_numeric($dom[$parentkey]['fontsize'])) {
                 $ref['parent'] = \floatval($dom[$parentkey]['fontsize']);
             }
             $dom[$key]['fontsize'] = $this->getFontValuePoints($fsize, $ref, 'pt');
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // font-stretch
-        if (
-            !empty($dom[$key]['style']['font-stretch'])
-            && \is_numeric($dom[$parentkey]['font-stretch'])
-        ) {
-            $dom[$key]['font-stretch'] = $this->getTAFontStretching(
-                $dom[$key]['style']['font-stretch'],
-                \floatval($dom[$parentkey]['font-stretch']),
-            );
+    }
+
+    /**
+     * Parse font-stretch style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontStretchProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['font-stretch'])) {
+            return;
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // letter-spacing
-        if (
-            !empty($dom[$key]['style']['letter-spacing'])
-            && \is_numeric($dom[$parentkey]['letter-spacing'])
+
+        $fontStretch = \strtolower(\trim((string) $dom[$key]['style']['font-stretch']));
+        $parentStretch = 100.0;
+        if (\is_numeric($dom[$parentkey]['font-stretch'])) {
+            $parentStretch = \floatval($dom[$parentkey]['font-stretch']);
+        } elseif (
+            \is_array($dom[$parentkey]['style'])
+            &&
+            !empty($dom[$parentkey]['style']['font-stretch'])
+            && \is_string($dom[$parentkey]['style']['font-stretch'])
         ) {
-            $dom[$key]['letter-spacing'] = $this->getTALetterSpacing(
-                $dom[$key]['style']['letter-spacing'],
-                \floatval($dom[$parentkey]['letter-spacing']),
-            );
+            $parentStretchStyle = \strtolower(\trim($dom[$parentkey]['style']['font-stretch']));
+            if ($parentStretchStyle !== 'inherit') {
+                $parentStretch = $this->getTAFontStretching($parentStretchStyle, 100.0);
+            }
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // word-spacing
-        if (
-            !empty($dom[$key]['style']['word-spacing'])
-            && \is_numeric($dom[$parentkey]['word-spacing'])
+        $dom[$key]['font-stretch'] = $this->getTAFontStretching(
+            $fontStretch,
+            $parentStretch,
+        );
+    }
+
+    /**
+     * Parse letter-spacing style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleLetterSpacingProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['letter-spacing'])) {
+            return;
+        }
+
+        $letterSpacing = \strtolower(\trim((string) $dom[$key]['style']['letter-spacing']));
+        $parentLetterSpacing = 0.0;
+        if (\is_numeric($dom[$parentkey]['letter-spacing'])) {
+            $parentLetterSpacing = \floatval($dom[$parentkey]['letter-spacing']);
+        } elseif (
+            \is_array($dom[$parentkey]['style'])
+            &&
+            !empty($dom[$parentkey]['style']['letter-spacing'])
+            && \is_string($dom[$parentkey]['style']['letter-spacing'])
         ) {
-            $spacing = \trim($dom[$key]['style']['word-spacing']);
-            if ($spacing === 'inherit') {
-                $dom[$key]['word-spacing'] = (float) $dom[$parentkey]['word-spacing'];
-            } elseif ($spacing === 'normal') {
-                $dom[$key]['word-spacing'] = 0.0;
-            } else {
-                $dom[$key]['word-spacing'] = $this->toUnit(
-                    $this->getUnitValuePoints(
-                        $spacing,
-                        \array_merge(
-                            self::REFUNITVAL,
-                            ['parent' => (float) $dom[$parentkey]['word-spacing']],
+            $parentSpacingStyle = \strtolower(\trim($dom[$parentkey]['style']['letter-spacing']));
+            if ($parentSpacingStyle !== 'inherit') {
+                $parentLetterSpacing = $this->getTALetterSpacing($parentSpacingStyle, 0.0);
+            }
+        }
+        $dom[$key]['letter-spacing'] = $this->getTALetterSpacing(
+            $letterSpacing,
+            $parentLetterSpacing,
+        );
+    }
+
+    /**
+     * Parse word-spacing style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleWordSpacingProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['word-spacing'])) {
+            return;
+        }
+
+        $spacing = \strtolower(\trim((string) $dom[$key]['style']['word-spacing']));
+        $parentWordSpacing = 0.0;
+        if (\is_numeric($dom[$parentkey]['word-spacing'])) {
+            $parentWordSpacing = (float) $dom[$parentkey]['word-spacing'];
+        } elseif (
+            \is_array($dom[$parentkey]['style'])
+            &&
+            !empty($dom[$parentkey]['style']['word-spacing'])
+            && \is_string($dom[$parentkey]['style']['word-spacing'])
+        ) {
+            $parentSpacingStyle = \strtolower(\trim($dom[$parentkey]['style']['word-spacing']));
+            if ($parentSpacingStyle !== 'inherit') {
+                if ($parentSpacingStyle === 'normal') {
+                    $parentWordSpacing = 0.0;
+                } else {
+                    $parentWordSpacing = $this->toUnit(
+                        $this->getUnitValuePoints(
+                            $parentSpacingStyle,
+                            \array_merge(self::REFUNITVAL, ['parent' => 0.0]),
                         ),
+                    );
+                }
+            }
+        }
+        if ($spacing === 'inherit') {
+            $dom[$key]['word-spacing'] = $parentWordSpacing;
+        } elseif ($spacing === 'normal') {
+            $dom[$key]['word-spacing'] = 0.0;
+        } else {
+            $dom[$key]['word-spacing'] = $this->toUnit(
+                $this->getUnitValuePoints(
+                    $spacing,
+                    \array_merge(
+                        self::REFUNITVAL,
+                        ['parent' => $parentWordSpacing],
                     ),
+                ),
+            );
+        }
+    }
+
+    /**
+     * Parse line-height style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleLineHeightProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['line-height'])) {
+            return;
+        }
+
+        $lineheight = \strtolower(\trim((string) $dom[$key]['style']['line-height']));
+        switch ($lineheight) {
+            // A normal line height. This is default
+            case 'normal':
+                $dom[$key]['line-height'] = $dom[0]['line-height'];
+                break;
+            case 'inherit':
+                $dom[$key]['line-height'] = $dom[$parentkey]['line-height'];
+                break;
+            default:
+                if (\is_numeric($lineheight)) {
+                    // Unitless number: ratio used directly (e.g. 1.5 means 1.5× font height).
+                    $dom[$key]['line-height'] = (float) $lineheight;
+                    /** @var array<int, THTMLAttrib> $dom */
+                } elseif (\substr($lineheight, -1) === '%') {
+                    // Percentage: store as a dimensionless ratio (150% → 1.5).
+                    $dom[$key]['line-height'] = (float) $lineheight / 100.0;
+                    /** @var array<int, THTMLAttrib> $dom */
+                } else {
+                    // Absolute unit (pt, mm, …): convert to pts and divide by font size in pts.
+                    $lhpts = $this->getUnitValuePoints($lineheight);
+                    $fontsize = (!empty($dom[$key]['fontsize']) && \is_numeric($dom[$key]['fontsize']))
+                        ? (float) $dom[$key]['fontsize']
+                        : 0.0;
+                    $dom[$key]['line-height'] = ($fontsize > 0) ? ($lhpts / $fontsize) : 1.0;
+                    /** @var array<int, THTMLAttrib> $dom */
+                }
+        }
+    }
+
+    /**
+     * Parse font-weight style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontWeightProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['font-weight']) || !\is_string($dom[$key]['fontstyle'])) {
+            return;
+        }
+
+        $fontWeight = \strtolower(\trim((string) $dom[$key]['style']['font-weight']));
+        if ($fontWeight === 'inherit') {
+            $parentBold = (
+                \is_string($dom[$parentkey]['fontstyle'])
+                && (\strpos($dom[$parentkey]['fontstyle'], 'B') !== false)
+            );
+            if (
+                !$parentBold
+                && !empty($dom[$parentkey]['style']['font-weight'])
+                && \is_string($dom[$parentkey]['style']['font-weight'])
+            ) {
+                $parentWeight = \strtolower(\trim((string) $dom[$parentkey]['style']['font-weight']));
+                $parentBold = (
+                    (\is_numeric($parentWeight) && ((int) $parentWeight >= 600))
+                    || (($parentWeight !== '') && ($parentWeight[0] === 'b'))
                 );
             }
-        }
-        /** @var array<int, THTMLAttrib> $dom */
-        // line-height (internally is the cell height ratio)
-        if (!empty($dom[$key]['style']['line-height'])) {
-            $lineheight = \trim($dom[$key]['style']['line-height']);
-            switch ($lineheight) {
-                // A normal line height. This is default
-                case 'normal':
-                    $dom[$key]['line-height'] = $dom[0]['line-height'];
-                    break;
-                case 'inherit':
-                    $dom[$key]['line-height'] = $dom[$parentkey]['line-height'];
-                    break;
-                default:
-                    if (\is_numeric($lineheight)) {
-                        // Unitless number: ratio used directly (e.g. 1.5 means 1.5× font height).
-                        $dom[$key]['line-height'] = (float) $lineheight;
-                        /** @var array<int, THTMLAttrib> $dom */
-                    } elseif (\substr($lineheight, -1) === '%') {
-                        // Percentage: store as a dimensionless ratio (150% → 1.5).
-                        $dom[$key]['line-height'] = (float) $lineheight / 100.0;
-                        /** @var array<int, THTMLAttrib> $dom */
-                    } else {
-                        // Absolute unit (pt, mm, …): convert to pts and divide by font size in pts.
-                        $lhpts = $this->getUnitValuePoints($lineheight);
-                        $fontsize = (!empty($dom[$key]['fontsize']) && \is_numeric($dom[$key]['fontsize']))
-                            ? (float) $dom[$key]['fontsize']
-                            : 0.0;
-                        $dom[$key]['line-height'] = ($fontsize > 0) ? ($lhpts / $fontsize) : 1.0;
-                        /** @var array<int, THTMLAttrib> $dom */
-                    }
-            }
-        }
-        /** @var array<int, THTMLAttrib> $dom */
-        // font style
-        if (
-            !empty($dom[$key]['style']['font-weight'])
-            && \is_string($dom[$key]['fontstyle'])
-        ) {
-            if (\is_numeric($dom[$key]['style']['font-weight'])) {
-                if ((int) $dom[$key]['style']['font-weight'] >= 600) {
+            if ($parentBold) {
+                if (\strpos($dom[$key]['fontstyle'], 'B') === false) {
                     $dom[$key]['fontstyle'] .= 'B';
-                } else {
-                    $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
                 }
-            } elseif (\strtolower($dom[$key]['style']['font-weight'][0]) == 'n') {
-                if (\strpos($dom[$key]['fontstyle'], 'B') !== false) {
-                    $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
-                }
-            } elseif (\strtolower($dom[$key]['style']['font-weight'][0]) == 'b') {
+            } elseif (\strpos($dom[$key]['fontstyle'], 'B') !== false) {
+                $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
+            }
+        } elseif (\is_numeric($fontWeight)) {
+            if ((int) $fontWeight >= 600) {
                 $dom[$key]['fontstyle'] .= 'B';
+            } else {
+                $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
+            }
+        } elseif ($fontWeight !== '' && $fontWeight[0] == 'n') {
+            if (\strpos($dom[$key]['fontstyle'], 'B') !== false) {
+                $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
+            }
+        } elseif ($fontWeight !== '' && $fontWeight[0] == 'b') {
+            $dom[$key]['fontstyle'] .= 'B';
+        }
+    }
+
+    /**
+     * Parse font-style style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontStyleProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['font-style']) || !\is_string($dom[$key]['fontstyle'])) {
+            return;
+        }
+
+        $fontStyle = \strtolower(\trim((string) $dom[$key]['style']['font-style']));
+        if ($fontStyle === 'inherit') {
+            if (
+                !empty($dom[$parentkey]['fontstyle'])
+                && \is_string($dom[$parentkey]['fontstyle'])
+            ) {
+                $dom[$key]['fontstyle'] = (string) $dom[$parentkey]['fontstyle'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['font-style'])
+                && \is_string($dom[$parentkey]['style']['font-style'])
+            ) {
+                $parentFontStyle = \strtolower(\trim((string) $dom[$parentkey]['style']['font-style']));
+                if ($parentFontStyle === 'normal') {
+                    $dom[$key]['fontstyle'] = \str_replace('I', '', $dom[$key]['fontstyle']);
+                } elseif ($parentFontStyle !== '' && ($parentFontStyle[0] === 'i' || $parentFontStyle[0] === 'o')) {
+                    if (\strpos($dom[$key]['fontstyle'], 'I') === false) {
+                        $dom[$key]['fontstyle'] .= 'I';
+                    }
+                }
+            }
+        } elseif ($fontStyle === 'normal') {
+            $dom[$key]['fontstyle'] = \str_replace('I', '', $dom[$key]['fontstyle']);
+        } elseif ($fontStyle !== '' && ($fontStyle[0] === 'i' || $fontStyle[0] === 'o')) {
+            if (\strpos($dom[$key]['fontstyle'], 'I') === false) {
+                $dom[$key]['fontstyle'] .= 'I';
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        if (
-            !empty($dom[$key]['style']['font-style'])
-            && \is_string($dom[$key]['fontstyle'])
-            && (\strtolower($dom[$key]['style']['font-style'][0]) == 'i')
-        ) {
-            $dom[$key]['fontstyle'] .= 'I';
-        }
-        /** @var array<int, THTMLAttrib> $dom */
-        // font color
+    }
+
+    /**
+     * Parse color style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleColorProperty(array &$dom, int $key, int $parentkey): void
+    {
         if ((!empty($dom[$key]['style']['color']))) {
-            $dom[$key]['fgcolor'] = $this->getCSSColor($dom[$key]['style']['color']);
+            $fontColor = \trim((string) $dom[$key]['style']['color']);
+            if (\strtolower($fontColor) === 'inherit') {
+                if (!empty($dom[$parentkey]['fgcolor']) && \is_string($dom[$parentkey]['fgcolor'])) {
+                    $dom[$key]['fgcolor'] = (string) $dom[$parentkey]['fgcolor'];
+                } elseif (
+                    !empty($dom[$parentkey]['style']['color'])
+                    && \is_string($dom[$parentkey]['style']['color'])
+                ) {
+                    $parentColor = \trim((string) $dom[$parentkey]['style']['color']);
+                    if (\strtolower($parentColor) !== 'inherit') {
+                        $dom[$key]['fgcolor'] = $this->getCSSColor($parentColor);
+                    }
+                }
+            } else {
+                $dom[$key]['fgcolor'] = $this->getCSSColor($fontColor);
+            }
         } elseif ($dom[$key]['value'] == 'a') {
             $dom[$key]['fgcolor'] = 'blue';
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // background color
+    }
+
+    /**
+     * Parse background and background-color style properties.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBackgroundProperty(array &$dom, int $key, int $parentkey): void
+    {
         if ((!empty($dom[$key]['style']['background-color']))) {
-            $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['style']['background-color']);
+            $backgroundColor = \trim((string) $dom[$key]['style']['background-color']);
+            if (\strtolower($backgroundColor) === 'inherit') {
+                if (!empty($dom[$parentkey]['bgcolor']) && \is_string($dom[$parentkey]['bgcolor'])) {
+                    $dom[$key]['bgcolor'] = (string) $dom[$parentkey]['bgcolor'];
+                } elseif (
+                    !empty($dom[$parentkey]['style']['background-color'])
+                    && \is_string($dom[$parentkey]['style']['background-color'])
+                ) {
+                    $parentBgColor = \trim((string) $dom[$parentkey]['style']['background-color']);
+                    if (\strtolower($parentBgColor) !== 'inherit') {
+                        $dom[$key]['bgcolor'] = $this->getCSSColor($parentBgColor);
+                    }
+                } elseif (
+                    !empty($dom[$parentkey]['style']['background'])
+                    && \is_string($dom[$parentkey]['style']['background'])
+                ) {
+                    $parentBackground = \trim((string) $dom[$parentkey]['style']['background']);
+                    if (\strtolower($parentBackground) !== 'inherit') {
+                        $dom[$key]['bgcolor'] = $this->getHTMLBackgroundShorthandColor($parentBackground);
+                    }
+                }
+            } else {
+                $dom[$key]['bgcolor'] = $this->getCSSColor($backgroundColor);
+            }
         } elseif (!empty($dom[$key]['style']['background'])) {
-            $dom[$key]['bgcolor'] = $this->getHTMLBackgroundShorthandColor($dom[$key]['style']['background']);
+            $background = \trim((string) $dom[$key]['style']['background']);
+            if (\strtolower($background) === 'inherit') {
+                if (!empty($dom[$parentkey]['bgcolor']) && \is_string($dom[$parentkey]['bgcolor'])) {
+                    $dom[$key]['bgcolor'] = (string) $dom[$parentkey]['bgcolor'];
+                } elseif (
+                    !empty($dom[$parentkey]['style']['background-color'])
+                    && \is_string($dom[$parentkey]['style']['background-color'])
+                ) {
+                    $parentBgColor = \trim((string) $dom[$parentkey]['style']['background-color']);
+                    if (\strtolower($parentBgColor) !== 'inherit') {
+                        $dom[$key]['bgcolor'] = $this->getCSSColor($parentBgColor);
+                    }
+                } elseif (
+                    !empty($dom[$parentkey]['style']['background'])
+                    && \is_string($dom[$parentkey]['style']['background'])
+                ) {
+                    $parentBackground = \trim((string) $dom[$parentkey]['style']['background']);
+                    if (\strtolower($parentBackground) !== 'inherit') {
+                        $dom[$key]['bgcolor'] = $this->getHTMLBackgroundShorthandColor($parentBackground);
+                    }
+                }
+            } else {
+                $dom[$key]['bgcolor'] = $this->getHTMLBackgroundShorthandColor($background);
+            }
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // text-decoration
+    }
+
+    /**
+     * Parse text-decoration style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleTextDecorationProperty(array &$dom, int $key, int $parentkey): void
+    {
         if (
             !empty($dom[$key]['style']['text-decoration'])
             && \is_string($dom[$key]['fontstyle'])
         ) {
-            $decors = \explode(' ', \strtolower($dom[$key]['style']['text-decoration']));
-            foreach ($decors as $dec) {
-                $dec = \trim($dec);
-                if (!empty($dec)) {
-                    $dom[$key]['fontstyle'] .= match ($dec[0]) {
+            $fontStyleNoDecor = \str_replace(['U', 'D', 'O'], '', $dom[$key]['fontstyle']);
+            $decorations = '';
+            $textDecoration = \strtolower(\trim((string) $dom[$key]['style']['text-decoration']));
+
+            if ($textDecoration === 'inherit') {
+                $parentStyle = \is_string($dom[$parentkey]['fontstyle']) ? $dom[$parentkey]['fontstyle'] : '';
+                foreach (['U', 'D', 'O'] as $flag) {
+                    if (\strpos($parentStyle, $flag) !== false) {
+                        $decorations .= $flag;
+                    }
+                }
+            } elseif ($textDecoration !== 'none') {
+                $decors = \explode(' ', $textDecoration);
+                foreach ($decors as $dec) {
+                    $dec = \trim($dec);
+                    if ($dec === '') {
+                        continue;
+                    }
+
+                    $flag = match ($dec[0]) {
                         'u' => 'U',
                         'l' => 'D',
                         'o' => 'O',
                         default => '',
                     };
+                    if ($flag !== '' && \strpos($decorations, $flag) === false) {
+                        $decorations .= $flag;
+                    }
                 }
             }
+
+            $dom[$key]['fontstyle'] = $fontStyleNoDecor . $decorations;
         } elseif ($dom[$key]['value'] == 'a') {
             $dom[$key]['fontstyle'] .= 'U';
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check width attribute
-        if (!empty($dom[$key]['style']['width'])) {
-            $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['width']));
-        }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check height attribute
-        if (!empty($dom[$key]['style']['height'])) {
-            $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style']['height']));
-        }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check text alignment
-        if (!empty($dom[$key]['style']['text-align'])) {
-            $dom[$key]['align'] = \strtoupper((string) $dom[$key]['style']['text-align'][0]);
-        }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check vertical alignment
-        if (!empty($dom[$key]['style']['vertical-align']) && \is_string($dom[$key]['style']['vertical-align'])) {
-            $valign = \strtolower(\trim($dom[$key]['style']['vertical-align']));
-            if (\in_array($valign, ['top', 'middle', 'bottom'], true)) {
-                $dom[$key]['valign'] = $valign;
-            }
-        }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check for CSS padding properties
-        // @phpstan-ignore parameterByRef.type
-        $dom[$key]['padding'] = empty($dom[$key]['style']['padding']) ?
-            self::ZEROCELLBOUND : $this->getCSSPadding($dom[$key]['style']['padding']);
+    }
 
-        // apply individual padding-* overrides
-        $paddingProps = ['T' => 'padding-top', 'R' => 'padding-right', 'B' => 'padding-bottom', 'L' => 'padding-left'];
-        foreach ($paddingProps as $side => $prop) {
-            if (!empty($dom[$key]['style'][$prop]) && \strtolower(\trim($dom[$key]['style'][$prop])) !== 'auto') {
-                // @phpstan-ignore parameterByRef.type
-                $dom[$key]['padding'][$side] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style'][$prop]));
+    /**
+     * Parse width style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleWidthProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['width'])) {
+            return;
+        }
+
+        $width = \trim((string) $dom[$key]['style']['width']);
+        if (\strtolower($width) === 'inherit') {
+            if (isset($dom[$parentkey]['width']) && \is_numeric($dom[$parentkey]['width'])) {
+                $dom[$key]['width'] = (float) $dom[$parentkey]['width'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['width'])
+                && \is_string($dom[$parentkey]['style']['width'])
+            ) {
+                $parentWidth = \trim((string) $dom[$parentkey]['style']['width']);
+                if (\strtolower($parentWidth) !== 'inherit') {
+                    $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($parentWidth));
+                }
+            }
+        } else {
+            $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($width));
+        }
+    }
+
+    /**
+     * Parse min-width/max-width style properties.
+     *
+     * Conservative policy: clamp only when width is explicitly specified
+     * (or inherited) in the same declaration set.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleMinMaxWidthProperties(array &$dom, int $key): void
+    {
+        if (empty($dom[$key]['style']['width']) || !\is_numeric($dom[$key]['width'])) {
+            return;
+        }
+
+        $min = null;
+        $max = null;
+
+        if (!empty($dom[$key]['style']['min-width']) && \is_string($dom[$key]['style']['min-width'])) {
+            $min = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['min-width']);
+        }
+
+        if (!empty($dom[$key]['style']['max-width']) && \is_string($dom[$key]['style']['max-width'])) {
+            $maxRaw = \strtolower(\trim((string) $dom[$key]['style']['max-width']));
+            if ($maxRaw !== 'none') {
+                $max = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['max-width']);
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check for CSS margin properties
-        // @phpstan-ignore parameterByRef.type
-        $dom[$key]['margin'] = empty($dom[$key]['style']['margin']) ?
-            self::ZEROCELLBOUND : $this->getCSSMargin($dom[$key]['style']['margin']);
-        // apply individual margin-* overrides
-        $marginProps = ['T' => 'margin-top', 'R' => 'margin-right', 'B' => 'margin-bottom', 'L' => 'margin-left'];
-        foreach ($marginProps as $side => $prop) {
-            if (!empty($dom[$key]['style'][$prop]) && \strtolower(\trim($dom[$key]['style'][$prop])) !== 'auto') {
-                // @phpstan-ignore parameterByRef.type
-                $dom[$key]['margin'][$side] = $this->toUnit($this->getUnitValuePoints($dom[$key]['style'][$prop]));
+
+        if ($min === null && $max === null) {
+            return;
+        }
+
+        $width = (float) $dom[$key]['width'];
+        if ($min !== null && $max !== null && $max < $min) {
+            $max = $min;
+        }
+        if ($min !== null && $width < $min) {
+            $width = $min;
+        }
+        if ($max !== null && $width > $max) {
+            $width = $max;
+        }
+
+        $dom[$key]['width'] = $width;
+    }
+
+    /**
+     * Parse height style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleHeightProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['height'])) {
+            return;
+        }
+
+        $height = \trim((string) $dom[$key]['style']['height']);
+        if (\strtolower($height) === 'inherit') {
+            if (isset($dom[$parentkey]['height']) && \is_numeric($dom[$parentkey]['height'])) {
+                $dom[$key]['height'] = (float) $dom[$parentkey]['height'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['height'])
+                && \is_string($dom[$parentkey]['style']['height'])
+            ) {
+                $parentHeight = \trim((string) $dom[$parentkey]['style']['height']);
+                if (\strtolower($parentHeight) !== 'inherit') {
+                    $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($parentHeight));
+                }
+            }
+        } else {
+            $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($height));
+        }
+    }
+
+    /**
+     * Parse min-height/max-height style properties.
+     *
+     * Conservative policy: clamp only when height is explicitly specified
+     * (or inherited) in the same declaration set.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleMinMaxHeightProperties(array &$dom, int $key): void
+    {
+        if (empty($dom[$key]['style']['height']) || !\is_numeric($dom[$key]['height'])) {
+            return;
+        }
+
+        $min = null;
+        $max = null;
+
+        if (!empty($dom[$key]['style']['min-height']) && \is_string($dom[$key]['style']['min-height'])) {
+            $min = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['min-height']);
+        }
+
+        if (!empty($dom[$key]['style']['max-height']) && \is_string($dom[$key]['style']['max-height'])) {
+            $maxRaw = \strtolower(\trim((string) $dom[$key]['style']['max-height']));
+            if ($maxRaw !== 'none') {
+                $max = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['max-height']);
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check CSS border properties
-        if (!empty($dom[$key]['style']['border'])) {
-            $dom[$key]['border']['LTRB'] = $this->getCSSBorderStyle($dom[$key]['style']['border']);
+
+        if ($min === null && $max === null) {
+            return;
         }
-        /** @var  array<string, BorderStyle> $brdr */
-        $brdr = [
+
+        $height = (float) $dom[$key]['height'];
+        if ($min !== null && $max !== null && $max < $min) {
+            $max = $min;
+        }
+        if ($min !== null && $height < $min) {
+            $height = $min;
+        }
+        if ($max !== null && $height > $max) {
+            $height = $max;
+        }
+
+        $dom[$key]['height'] = $height;
+    }
+
+    /**
+     * Parse overflow style properties and map to the engine clipping flag.
+     *
+     * Conservative policy: support visible/hidden/inherit using a single clip flag.
+     * Axis-specific declarations override the shorthand when present.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleOverflowProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $hasOverflow = !empty($dom[$key]['style']['overflow']) && \is_string($dom[$key]['style']['overflow']);
+        $hasOverflowX = !empty($dom[$key]['style']['overflow-x']) && \is_string($dom[$key]['style']['overflow-x']);
+        $hasOverflowY = !empty($dom[$key]['style']['overflow-y']) && \is_string($dom[$key]['style']['overflow-y']);
+        if (!$hasOverflow && !$hasOverflowX && !$hasOverflowY) {
+            return;
+        }
+
+        $clip = null;
+        if ($hasOverflow) {
+            $value = \strtolower(\trim((string) $dom[$key]['style']['overflow']));
+            $clip = $this->resolveHTMLOverflowValueToClip($dom, $parentkey, $value);
+        }
+
+        foreach (['overflow-x', 'overflow-y'] as $axisProp) {
+            if (empty($dom[$key]['style'][$axisProp]) || !\is_string($dom[$key]['style'][$axisProp])) {
+                continue;
+            }
+
+            $axisValue = \strtolower(\trim((string) $dom[$key]['style'][$axisProp]));
+            $axisClip = $this->resolveHTMLOverflowValueToClip($dom, $parentkey, $axisValue);
+            if ($axisClip === null) {
+                continue;
+            }
+
+            if ($axisClip) {
+                $clip = true;
+            } elseif ($clip === null) {
+                $clip = false;
+            }
+        }
+
+        if ($clip !== null) {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['clip'] = $clip;
+        }
+    }
+
+    /**
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function resolveHTMLOverflowValueToClip(array &$dom, int $parentkey, string $value): ?bool
+    {
+        return match ($value) {
+            'hidden' => true,
+            'visible' => false,
+            'inherit' => (bool) ($dom[$parentkey]['clip'] ?? false),
+            default => null,
+        };
+    }
+
+    /**
+     * Convert a CSS length-like token to user units for box constraints.
+     */
+    protected function getHTMLStyleLengthValue(string $value): ?float
+    {
+        $value = \trim($value);
+        $normalized = \strtolower($value);
+        if ($normalized === '' || $normalized === 'auto' || $normalized === 'none') {
+            return null;
+        }
+
+        return $this->toUnit($this->getUnitValuePoints($value));
+    }
+
+    /**
+     * Parse text-align style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleTextAlignProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['text-align'])) {
+            return;
+        }
+
+        $textAlign = \strtolower(\trim((string) $dom[$key]['style']['text-align']));
+        if ($textAlign === 'inherit') {
+            if (!empty($dom[$parentkey]['align']) && \is_string($dom[$parentkey]['align'])) {
+                $dom[$key]['align'] = \strtoupper(\trim((string) $dom[$parentkey]['align']));
+            } elseif (
+                !empty($dom[$parentkey]['style']['text-align'])
+                && \is_string($dom[$parentkey]['style']['text-align'])
+            ) {
+                $parentTextAlign = \strtolower(\trim((string) $dom[$parentkey]['style']['text-align']));
+                if ($parentTextAlign === 'left') {
+                    $dom[$key]['align'] = 'L';
+                } elseif ($parentTextAlign === 'right') {
+                    $dom[$key]['align'] = 'R';
+                } elseif ($parentTextAlign === 'center') {
+                    $dom[$key]['align'] = 'C';
+                } elseif ($parentTextAlign === 'justify') {
+                    $dom[$key]['align'] = 'J';
+                }
+            }
+        } elseif ($textAlign === 'left') {
+            $dom[$key]['align'] = 'L';
+        } elseif ($textAlign === 'right') {
+            $dom[$key]['align'] = 'R';
+        } elseif ($textAlign === 'center') {
+            $dom[$key]['align'] = 'C';
+        } elseif ($textAlign === 'justify') {
+            $dom[$key]['align'] = 'J';
+        }
+    }
+
+    /**
+     * Parse vertical-align style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleVerticalAlignProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['vertical-align']) || !\is_string($dom[$key]['style']['vertical-align'])) {
+            return;
+        }
+
+        $valign = \strtolower(\trim($dom[$key]['style']['vertical-align']));
+        if ($valign === 'inherit') {
+            if (!empty($dom[$parentkey]['valign']) && \is_string($dom[$parentkey]['valign'])) {
+                $dom[$key]['valign'] = \strtolower(\trim((string) $dom[$parentkey]['valign']));
+            } elseif (
+                !empty($dom[$parentkey]['style']['vertical-align'])
+                && \is_string($dom[$parentkey]['style']['vertical-align'])
+            ) {
+                $parentValign = \strtolower(\trim((string) $dom[$parentkey]['style']['vertical-align']));
+                if (\in_array($parentValign, ['top', 'middle', 'bottom'], true)) {
+                    $dom[$key]['valign'] = $parentValign;
+                }
+            }
+        } elseif (\in_array($valign, ['top', 'middle', 'bottom'], true)) {
+            $dom[$key]['valign'] = $valign;
+        }
+    }
+
+    /**
+     * Parse padding shorthand property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePaddingProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!empty($dom[$key]['style']['padding']) && \is_string($dom[$key]['style']['padding'])) {
+            $padding = \trim($dom[$key]['style']['padding']);
+            if (\strtolower($padding) === 'inherit') {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['padding'] = \is_array($dom[$parentkey]['padding'])
+                    ? $dom[$parentkey]['padding']
+                    : self::ZEROCELLBOUND;
+            } else {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['padding'] = $this->getCSSPadding($padding);
+            }
+        } else {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['padding'] = self::ZEROCELLBOUND;
+        }
+    }
+
+    /**
+     * Parse padding-top style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePaddingTopProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'padding', 'padding-top', 'T');
+    }
+
+    /**
+     * Parse padding-right style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePaddingRightProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'padding', 'padding-right', 'R');
+    }
+
+    /**
+     * Parse padding-bottom style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePaddingBottomProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'padding', 'padding-bottom', 'B');
+    }
+
+    /**
+     * Parse padding-left style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePaddingLeftProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'padding', 'padding-left', 'L');
+    }
+
+    /**
+     * Parse one padding/margin side override property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBoxSideOverrideProperty(
+        array &$dom,
+        int $key,
+        int $parentkey,
+        string $box,
+        string $prop,
+        string $side,
+    ): void {
+        if (empty($dom[$key]['style'][$prop]) || !\is_string($dom[$key]['style'][$prop])) {
+            return;
+        }
+
+        $pvalue = \trim($dom[$key]['style'][$prop]);
+        $pvalueLower = \strtolower($pvalue);
+        if ($pvalueLower === 'inherit') {
+            // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            if (\is_array($dom[$parentkey][$box]) && \array_key_exists($side, $dom[$parentkey][$box])) {
+                // @phpstan-ignore parameterByRef.type, offsetAccess.nonOffsetAccessible
+                $dom[$key][$box][$side] = $dom[$parentkey][$box][$side];
+            }
+
+            return;
+        }
+
+        if ($pvalueLower === 'auto') {
+            return;
+        }
+
+        // @phpstan-ignore parameterByRef.type, offsetAccess.nonOffsetAccessible
+        $dom[$key][$box][$side] = $this->toUnit($this->getUnitValuePoints($pvalue));
+    }
+
+    /**
+     * Parse margin shorthand property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleMarginProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!empty($dom[$key]['style']['margin']) && \is_string($dom[$key]['style']['margin'])) {
+            $margin = \trim($dom[$key]['style']['margin']);
+            if (\strtolower($margin) === 'inherit') {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['margin'] = \is_array($dom[$parentkey]['margin'])
+                    ? $dom[$parentkey]['margin']
+                    : self::ZEROCELLBOUND;
+            } else {
+                // @phpstan-ignore parameterByRef.type
+                $dom[$key]['margin'] = $this->getCSSMargin($margin);
+            }
+        } else {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['margin'] = self::ZEROCELLBOUND;
+        }
+    }
+
+    /**
+     * Parse margin-top style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleMarginTopProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'margin', 'margin-top', 'T');
+    }
+
+    /**
+     * Parse margin-right style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleMarginRightProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'margin', 'margin-right', 'R');
+    }
+
+    /**
+     * Parse margin-bottom style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleMarginBottomProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'margin', 'margin-bottom', 'B');
+    }
+
+    /**
+     * Parse margin-left style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleMarginLeftProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBoxSideOverrideProperty($dom, $key, $parentkey, 'margin', 'margin-left', 'L');
+    }
+
+    /**
+     * Parse border style properties and side-level overrides.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBorderProperties(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBorderShorthandProperty($dom, $key, $parentkey);
+        $ctx = $this->getHTMLBorderParentContext($dom, $parentkey);
+        $brdr = $this->getHTMLDefaultBorderSides();
+        $this->parseHTMLStyleBorderColorProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
+        $this->parseHTMLStyleBorderWidthProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
+        $this->parseHTMLStyleBorderStyleProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
+        $cellside = [
+            'L' => 'left',
+            'R' => 'right',
+            'T' => 'top',
+            'B' => 'bottom',
+        ];
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = 0.0;
+        $this->parseHTMLStyleBorderSideProperties(
+            $dom,
+            $key,
+            $parentkey,
+            $brdr,
+            $ctx['parentBorder'],
+            $ctx['parentLTRB'],
+            $cellside,
+            $ref,
+        );
+    }
+
+    /**
+     * Parse border shorthand style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBorderShorthandProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['border'])) {
+            return;
+        }
+
+        $border = \trim((string) $dom[$key]['style']['border']);
+        if (\strtolower($border) === 'inherit') {
+            if (\is_array($dom[$parentkey]['border'])) {
+                $dom[$key]['border'] = $dom[$parentkey]['border'];
+            }
+        } else {
+            $dom[$key]['border']['LTRB'] = $this->getCSSBorderStyle($border);
+        }
+    }
+
+    /**
+     * Build parent border context used for inherit fallbacks.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     *
+     * @return array{parentBorder: array<string, BorderStyleOpt>, parentLTRB: BorderStyleOpt}
+     */
+    protected function getHTMLBorderParentContext(array &$dom, int $parentkey): array
+    {
+        /** @var array<string, BorderStyleOpt> $parentBorder */
+        $parentBorder = (
+            isset($dom[$parentkey]['border'])
+            && \is_array($dom[$parentkey]['border'])
+        ) ? $dom[$parentkey]['border'] : [];
+        /** @var BorderStyleOpt $parentLTRB */
+        $parentLTRB = (
+            isset($parentBorder['LTRB'])
+            && \is_array($parentBorder['LTRB'])
+        ) ? $parentBorder['LTRB'] : [];
+
+        return [
+            'parentBorder' => $parentBorder,
+            'parentLTRB' => $parentLTRB,
+        ];
+    }
+
+    /**
+     * Get default border style map for all sides.
+     *
+     * @return array<string, BorderStyle>
+     */
+    protected function getHTMLDefaultBorderSides(): array
+    {
+        return [
             'L' => $this->getCSSDefaultBorderStyle(),
             'R' => $this->getCSSDefaultBorderStyle(),
             'T' => $this->getCSSDefaultBorderStyle(),
             'B' => $this->getCSSDefaultBorderStyle(),
         ];
-        if (!empty($dom[$key]['style']['border-color'])) {
-            $brd_colors = \preg_split('/[\s]+/', \trim($dom[$key]['style']['border-color']));
+    }
+
+    /**
+     * Parse border-color style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+    * @param array<string, BorderStyleOpt> $brdr
+    * @param array<string, BorderStyleOpt> $parentBorder
+    * @param BorderStyleOpt $parentLTRB
+     */
+    protected function parseHTMLStyleBorderColorProperty(
+        array &$dom,
+        int $key,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+    ): void {
+        if (empty($dom[$key]['style']['border-color'])) {
+            return;
+        }
+
+        $borderColor = \trim((string) $dom[$key]['style']['border-color']);
+        if (\strtolower($borderColor) === 'inherit') {
+            foreach (['L', 'R', 'T', 'B'] as $bkey) {
+                if (
+                    isset($parentBorder[$bkey]['lineColor'])
+                    && \is_string($parentBorder[$bkey]['lineColor'])
+                ) {
+                    $brdr[$bkey]['lineColor'] = $parentBorder[$bkey]['lineColor'];
+                } elseif (isset($parentLTRB['lineColor']) && \is_string($parentLTRB['lineColor'])) {
+                    $brdr[$bkey]['lineColor'] = $parentLTRB['lineColor'];
+                }
+            }
+        } else {
+            $brd_colors = \preg_split('/[\s]+/', $borderColor);
             if ($brd_colors !== false) {
                 if (!empty($brd_colors[3])) {
                     $brdr['L']['lineColor'] = $this->getCSSColor($brd_colors[3]);
@@ -2301,8 +3993,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        if (!empty($dom[$key]['style']['border-width'])) {
-            $brd_widths = \preg_split('/[\s]+/', \trim($dom[$key]['style']['border-width']));
+    }
+
+    /**
+     * Parse border-width style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+    * @param array<string, BorderStyleOpt> $brdr
+    * @param array<string, BorderStyleOpt> $parentBorder
+    * @param BorderStyleOpt $parentLTRB
+     */
+    protected function parseHTMLStyleBorderWidthProperty(
+        array &$dom,
+        int $key,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+    ): void {
+        if (empty($dom[$key]['style']['border-width'])) {
+            return;
+        }
+
+        $borderWidth = \trim((string) $dom[$key]['style']['border-width']);
+        if (\strtolower($borderWidth) === 'inherit') {
+            foreach (['L', 'R', 'T', 'B'] as $bkey) {
+                if (
+                    isset($parentBorder[$bkey]['lineWidth'])
+                    && \is_numeric($parentBorder[$bkey]['lineWidth'])
+                ) {
+                    $brdr[$bkey]['lineWidth'] = (float) $parentBorder[$bkey]['lineWidth'];
+                } elseif (isset($parentLTRB['lineWidth']) && \is_numeric($parentLTRB['lineWidth'])) {
+                    $brdr[$bkey]['lineWidth'] = (float) $parentLTRB['lineWidth'];
+                }
+            }
+        } else {
+            $brd_widths = \preg_split('/[\s]+/', $borderWidth);
             if ($brd_widths !== false) {
                 if (isset($brd_widths[3])) {
                     $brdr['L']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[3]);
@@ -2318,8 +4043,47 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        if (!empty($dom[$key]['style']['border-style'])) {
-            $brd_styles = \preg_split('/[\s]+/', \trim($dom[$key]['style']['border-style']));
+    }
+
+    /**
+     * Parse border-style style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+    * @param array<string, BorderStyleOpt> $brdr
+    * @param array<string, BorderStyleOpt> $parentBorder
+    * @param BorderStyleOpt $parentLTRB
+     */
+    protected function parseHTMLStyleBorderStyleProperty(
+        array &$dom,
+        int $key,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+    ): void {
+        if (empty($dom[$key]['style']['border-style'])) {
+            return;
+        }
+
+        $borderStyle = \trim((string) $dom[$key]['style']['border-style']);
+        if (\strtolower($borderStyle) === 'inherit') {
+            foreach (['L', 'R', 'T', 'B'] as $bkey) {
+                if (
+                    isset($parentBorder[$bkey]['cssBorderStyle'])
+                    && \is_string($parentBorder[$bkey]['cssBorderStyle'])
+                ) {
+                    $brdr[$bkey] = $this->applyCSSBorderStyleKeyword(
+                        $brdr[$bkey],
+                        $parentBorder[$bkey]['cssBorderStyle']
+                    );
+                } elseif (isset($parentLTRB['cssBorderStyle']) && \is_string($parentLTRB['cssBorderStyle'])) {
+                    $brdr[$bkey] = $this->applyCSSBorderStyleKeyword(
+                        $brdr[$bkey],
+                        $parentLTRB['cssBorderStyle']
+                    );
+                }
+            }
+        } else {
+            $brd_styles = \preg_split('/[\s]+/', $borderStyle);
             if ($brd_styles !== false) {
                 if (isset($brd_styles[3]) && ($brd_styles[3] != 'none')) {
                     $brdr['L'] = $this->applyCSSBorderStyleKeyword($brdr['L'], $brd_styles[3]);
@@ -2335,119 +4099,596 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        $cellside = [
-            'L' => 'left',
-            'R' => 'right',
-            'T' => 'top',
-            'B' => 'bottom',
-        ];
-        $ref = self::REFUNITVAL;
-        $ref['parent'] = 0.0;
+    }
+
+    /**
+     * Parse per-side border, padding and margin style overrides.
+     *
+     * @param array<int, THTMLAttrib> $dom
+        * @param array<string, BorderStyleOpt> $brdr
+        * @param array<string, BorderStyleOpt> $parentBorder
+        * @param BorderStyleOpt $parentLTRB
+     * @param array<string, string> $cellside
+        * @param array{
+        *     parent: float,
+        *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
+        *     viewport: array{width: float, height: float},
+        *     page: array{width: float, height: float}
+        * } $ref
+     */
+    protected function parseHTMLStyleBorderSideProperties(
+        array &$dom,
+        int $key,
+        int $parentkey,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+        array $cellside,
+        array $ref,
+    ): void {
         foreach ($cellside as $bsk => $bsv) {
-            if (!empty($dom[$key]['style']['border-' . $bsv])) {
-                $brdr[$bsk] = $this->getCSSBorderStyle($dom[$key]['style']['border-' . $bsv]);
+            $this->parseHTMLStyleBorderSideShorthandProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
+            $this->parseHTMLStyleBorderSideColorProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
+            $this->parseHTMLStyleBorderSideWidthProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
+            $this->parseHTMLStyleBorderSideStyleProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
+            $this->commitHTMLRenderableBorderSide($dom, $key, $brdr, $bsk);
+            $this->parseHTMLStylePaddingSideProperty($dom, $key, $parentkey, $ref, $bsk, $bsv);
+            $this->parseHTMLStyleMarginSideProperty($dom, $key, $parentkey, $ref, $bsk, $bsv);
+        }
+    }
+
+    /**
+     * Parse border-<side> style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+    * @param array<string, BorderStyleOpt> $brdr
+    * @param array<string, BorderStyleOpt> $parentBorder
+    * @param BorderStyleOpt $parentLTRB
+     */
+    protected function parseHTMLStyleBorderSideShorthandProperty(
+        array &$dom,
+        int $key,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+        string $bsk,
+        string $bsv,
+    ): void {
+        if (empty($dom[$key]['style']['border-' . $bsv])) {
+            return;
+        }
+
+        $sideBorder = \trim((string) $dom[$key]['style']['border-' . $bsv]);
+        if (\strtolower($sideBorder) === 'inherit') {
+            if (
+                // @phpstan-ignore offsetAccess.notFound
+                isset($parentBorder[$bsk])
+                && \is_array($parentBorder[$bsk])
+            ) {
+                /** @var BorderStyleOpt $parentBorder */
+                // @phpstan-ignore offsetAccess.notFound
+                $parentSideBorder = $parentBorder[$bsk];
+                // @phpstan-ignore parameterByRef.type
+                $brdr[$bsk] = $parentSideBorder;
+            } elseif ($parentLTRB !== []) {
+                /** @var BorderStyleOpt $parentSideBorder */
+                $parentSideBorder = $parentLTRB;
+                // @phpstan-ignore parameterByRef.type
+                $brdr[$bsk] = $parentSideBorder;
             }
-            if (!empty($dom[$key]['style']['border-' . $bsv . '-color'])) {
-                $brdr[$bsk]['lineColor'] = $this->getCSSColor(
-                    $dom[$key]['style']['border-' . $bsv . '-color']
-                );
+        } else {
+            $brdr[$bsk] = $this->getCSSBorderStyle($sideBorder);
+        }
+    }
+
+    /**
+     * Parse border-<side>-color style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+    * @param array<string, BorderStyleOpt> $brdr
+    * @param array<string, BorderStyleOpt> $parentBorder
+    * @param BorderStyleOpt $parentLTRB
+     */
+    protected function parseHTMLStyleBorderSideColorProperty(
+        array &$dom,
+        int $key,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+        string $bsk,
+        string $bsv,
+    ): void {
+        if (empty($dom[$key]['style']['border-' . $bsv . '-color'])) {
+            return;
+        }
+
+        $sideColor = \trim((string) $dom[$key]['style']['border-' . $bsv . '-color']);
+        if (\strtolower($sideColor) === 'inherit') {
+            if (
+                isset($parentBorder[$bsk]['lineColor'])
+                && \is_string($parentBorder[$bsk]['lineColor'])
+            ) {
+                $brdr[$bsk]['lineColor'] = $parentBorder[$bsk]['lineColor'];
+            } elseif (isset($parentLTRB['lineColor']) && \is_string($parentLTRB['lineColor'])) {
+                $brdr[$bsk]['lineColor'] = $parentLTRB['lineColor'];
             }
-            if (!empty($dom[$key]['style']['border-' . $bsv . '-width'])) {
-                $brdr[$bsk]['lineWidth'] = $this->getCSSBorderWidth(
-                    $dom[$key]['style']['border-' . $bsv . '-width']
-                );
+        } else {
+            $brdr[$bsk]['lineColor'] = $this->getCSSColor($sideColor);
+        }
+    }
+
+    /**
+     * Parse border-<side>-width style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+    * @param array<string, BorderStyleOpt> $brdr
+    * @param array<string, BorderStyleOpt> $parentBorder
+    * @param BorderStyleOpt $parentLTRB
+     */
+    protected function parseHTMLStyleBorderSideWidthProperty(
+        array &$dom,
+        int $key,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+        string $bsk,
+        string $bsv,
+    ): void {
+        if (empty($dom[$key]['style']['border-' . $bsv . '-width'])) {
+            return;
+        }
+
+        $sideWidth = \trim((string) $dom[$key]['style']['border-' . $bsv . '-width']);
+        if (\strtolower($sideWidth) === 'inherit') {
+            if (
+                isset($parentBorder[$bsk]['lineWidth'])
+                && \is_numeric($parentBorder[$bsk]['lineWidth'])
+            ) {
+                $brdr[$bsk]['lineWidth'] = (float) $parentBorder[$bsk]['lineWidth'];
+            } elseif (isset($parentLTRB['lineWidth']) && \is_numeric($parentLTRB['lineWidth'])) {
+                $brdr[$bsk]['lineWidth'] = (float) $parentLTRB['lineWidth'];
             }
-            if (!empty($dom[$key]['style']['border-' . $bsv . '-style'])) {
+        } else {
+            $brdr[$bsk]['lineWidth'] = $this->getCSSBorderWidth($sideWidth);
+        }
+    }
+
+    /**
+     * Parse border-<side>-style style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+    * @param array<string, BorderStyleOpt> $brdr
+    * @param array<string, BorderStyleOpt> $parentBorder
+    * @param BorderStyleOpt $parentLTRB
+     */
+    protected function parseHTMLStyleBorderSideStyleProperty(
+        array &$dom,
+        int $key,
+        array &$brdr,
+        array $parentBorder,
+        array $parentLTRB,
+        string $bsk,
+        string $bsv,
+    ): void {
+        if (empty($dom[$key]['style']['border-' . $bsv . '-style'])) {
+            return;
+        }
+
+        $sideStyle = \trim((string) $dom[$key]['style']['border-' . $bsv . '-style']);
+        if (\strtolower($sideStyle) === 'inherit') {
+            if (
+                isset($parentBorder[$bsk]['cssBorderStyle'])
+                && \is_string($parentBorder[$bsk]['cssBorderStyle'])
+            ) {
                 $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
                     $brdr[$bsk],
-                    $dom[$key]['style']['border-' . $bsv . '-style']
+                    $parentBorder[$bsk]['cssBorderStyle']
+                );
+            } elseif (isset($parentLTRB['cssBorderStyle']) && \is_string($parentLTRB['cssBorderStyle'])) {
+                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
+                    $brdr[$bsk],
+                    $parentLTRB['cssBorderStyle']
                 );
             }
-            /** @var  array<string, BorderStyle> $brdr */
-            if ($this->isHTMLRenderableBorderStyle($brdr[$bsk])) {
-                // @phpstan-ignore parameterByRef.type
-                $dom[$key]['border'][$bsk] = $brdr[$bsk];
-            }
-            /** @var array<int, THTMLAttrib> $dom */
-            if (!empty($dom[$key]['style']['padding-' . $bsv])) {
-                $dom[$key]['padding'][$bsk] = $this->toUnit(
-                    $this->getUnitValuePoints($dom[$key]['style']['padding-' . $bsv], $ref)
-                );
-            }
-            /** @var array<int, THTMLAttrib> $dom */
-            if (!empty($dom[$key]['style']['margin-' . $bsv])) {
-                $dom[$key]['margin'][$bsk] = $this->toUnit($this->getUnitValuePoints(
-                    \str_replace('auto', '0', $dom[$key]['style']['margin-' . $bsv]),
-                    $ref
-                ));
-            }
+        } else {
+            $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
+                $brdr[$bsk],
+                $sideStyle
+            );
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // border-collapse
-        if (!empty($dom[$key]['style']['border-collapse'])) {
-            $bordercollapse = \strtolower(\trim($dom[$key]['style']['border-collapse']));
-            if (\in_array($bordercollapse, ['collapse', 'separate'], true)) {
-                $dom[$key]['border-collapse'] = $bordercollapse;
+    }
+
+    /**
+     * Commit a border side when renderable.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     * @param array<string, BorderStyleOpt> $brdr
+     */
+    protected function commitHTMLRenderableBorderSide(array &$dom, int $key, array $brdr, string $bsk): void
+    {
+        /** @var array<string, BorderStyleOpt> $brdr */
+        if ($this->isHTMLRenderableBorderStyle($brdr[$bsk])) {
+            // @phpstan-ignore parameterByRef.type
+            $dom[$key]['border'][$bsk] = $brdr[$bsk];
+        }
+    }
+
+    /**
+     * Parse padding-<side> style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+        * @param array{
+        *     parent: float,
+        *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
+        *     viewport: array{width: float, height: float},
+        *     page: array{width: float, height: float}
+        * } $ref
+     */
+    protected function parseHTMLStylePaddingSideProperty(
+        array &$dom,
+        int $key,
+        int $parentkey,
+        array $ref,
+        string $bsk,
+        string $bsv,
+    ): void {
+        if (empty($dom[$key]['style']['padding-' . $bsv])) {
+            return;
+        }
+
+        $paddingSide = \trim((string) $dom[$key]['style']['padding-' . $bsv]);
+        $paddingSideLower = \strtolower($paddingSide);
+        if ($paddingSideLower === 'inherit') {
+            if (\is_array($dom[$parentkey]['padding']) && \array_key_exists($bsk, $dom[$parentkey]['padding'])) {
+                $dom[$key]['padding'][$bsk] = $dom[$parentkey]['padding'][$bsk];
             }
+        } elseif ($paddingSideLower !== 'auto') {
+            $dom[$key]['padding'][$bsk] = $this->toUnit(
+                $this->getUnitValuePoints($paddingSide, $ref)
+            );
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // check for CSS border-spacing properties
-        if (!empty($dom[$key]['style']['border-spacing'])) {
-            $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($dom[$key]['style']['border-spacing']);
+    }
+
+    /**
+     * Parse margin-<side> style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+        * @param array{
+        *     parent: float,
+        *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
+        *     viewport: array{width: float, height: float},
+        *     page: array{width: float, height: float}
+        * } $ref
+     */
+    protected function parseHTMLStyleMarginSideProperty(
+        array &$dom,
+        int $key,
+        int $parentkey,
+        array $ref,
+        string $bsk,
+        string $bsv,
+    ): void {
+        if (empty($dom[$key]['style']['margin-' . $bsv])) {
+            return;
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // page-break-inside
+
+        $marginSide = \trim((string) $dom[$key]['style']['margin-' . $bsv]);
+        $marginSideLower = \strtolower($marginSide);
+        if ($marginSideLower === 'inherit') {
+            if (\is_array($dom[$parentkey]['margin']) && \array_key_exists($bsk, $dom[$parentkey]['margin'])) {
+                $dom[$key]['margin'][$bsk] = $dom[$parentkey]['margin'][$bsk];
+            }
+        } else {
+            $dom[$key]['margin'][$bsk] = $this->toUnit($this->getUnitValuePoints(
+                \str_replace('auto', '0', $marginSide),
+                $ref
+            ));
+        }
+    }
+
+    /**
+     * Parse border-collapse style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBorderCollapseProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['border-collapse'])) {
+            return;
+        }
+
+        $bordercollapse = \strtolower(\trim((string) $dom[$key]['style']['border-collapse']));
+        if ($bordercollapse === 'inherit') {
+            if (!empty($dom[$parentkey]['border-collapse']) && \is_string($dom[$parentkey]['border-collapse'])) {
+                $dom[$key]['border-collapse'] = (string) $dom[$parentkey]['border-collapse'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['border-collapse'])
+                && \is_string($dom[$parentkey]['style']['border-collapse'])
+            ) {
+                $parentCollapse = \strtolower(\trim((string) $dom[$parentkey]['style']['border-collapse']));
+                if (\in_array($parentCollapse, ['collapse', 'separate'], true)) {
+                    $dom[$key]['border-collapse'] = $parentCollapse;
+                }
+            }
+        } elseif (\in_array($bordercollapse, ['collapse', 'separate'], true)) {
+            $dom[$key]['border-collapse'] = $bordercollapse;
+        }
+    }
+
+    /**
+     * Parse table-layout style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleTableLayoutProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['table-layout'])) {
+            return;
+        }
+
+        $tableLayout = \strtolower(\trim((string) $dom[$key]['style']['table-layout']));
+        if ($tableLayout === 'inherit') {
+            if (!empty($dom[$parentkey]['table-layout']) && \is_string($dom[$parentkey]['table-layout'])) {
+                $dom[$key]['table-layout'] = (string) $dom[$parentkey]['table-layout'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['table-layout'])
+                && \is_string($dom[$parentkey]['style']['table-layout'])
+            ) {
+                $parentLayout = \strtolower(\trim((string) $dom[$parentkey]['style']['table-layout']));
+                if (\in_array($parentLayout, ['auto', 'fixed'], true)) {
+                    $dom[$key]['table-layout'] = $parentLayout;
+                }
+            }
+        } elseif (\in_array($tableLayout, ['auto', 'fixed'], true)) {
+            $dom[$key]['table-layout'] = $tableLayout;
+        }
+    }
+
+    /**
+     * Parse caption-side style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleCaptionSideProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['caption-side'])) {
+            return;
+        }
+
+        $captionSide = \strtolower(\trim((string) $dom[$key]['style']['caption-side']));
+        if ($captionSide === 'inherit') {
+            if (!empty($dom[$parentkey]['caption-side']) && \is_string($dom[$parentkey]['caption-side'])) {
+                $dom[$key]['caption-side'] = (string) $dom[$parentkey]['caption-side'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['caption-side'])
+                && \is_string($dom[$parentkey]['style']['caption-side'])
+            ) {
+                $parentCaptionSide = \strtolower(\trim((string) $dom[$parentkey]['style']['caption-side']));
+                if (\in_array($parentCaptionSide, ['top', 'bottom'], true)) {
+                    $dom[$key]['caption-side'] = $parentCaptionSide;
+                }
+            }
+        } elseif (\in_array($captionSide, ['top', 'bottom'], true)) {
+            $dom[$key]['caption-side'] = $captionSide;
+        }
+    }
+
+    /**
+     * Parse empty-cells style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleEmptyCellsProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['empty-cells'])) {
+            return;
+        }
+
+        $emptyCells = \strtolower(\trim((string) $dom[$key]['style']['empty-cells']));
+        if ($emptyCells === 'inherit') {
+            if (!empty($dom[$parentkey]['empty-cells']) && \is_string($dom[$parentkey]['empty-cells'])) {
+                $dom[$key]['empty-cells'] = (string) $dom[$parentkey]['empty-cells'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['empty-cells'])
+                && \is_string($dom[$parentkey]['style']['empty-cells'])
+            ) {
+                $parentEmptyCells = \strtolower(\trim((string) $dom[$parentkey]['style']['empty-cells']));
+                if (\in_array($parentEmptyCells, ['show', 'hide'], true)) {
+                    $dom[$key]['empty-cells'] = $parentEmptyCells;
+                }
+            }
+        } elseif (\in_array($emptyCells, ['show', 'hide'], true)) {
+            $dom[$key]['empty-cells'] = $emptyCells;
+        }
+    }
+
+    /**
+     * Return true when empty-cells requires skipping cell paint operations.
+     *
+     * @param THTMLTableState $table
+     * @param THTMLAttrib $elm
+     * @param THTMLTableCellContext $cellctx
+     */
+    protected function shouldHideHTMLEmptyTableCell(array $table, array $elm, array $cellctx): bool
+    {
+        if (!empty($table['collapse'])) {
+            return false;
+        }
+
+        $emptyCells = (!empty($elm['empty-cells']) && \is_string($elm['empty-cells']))
+            ? \strtolower(\trim($elm['empty-cells'])) : 'show';
+        if ($emptyCells !== 'hide') {
+            return false;
+        }
+
+        if (!empty($cellctx['buffer']) && \is_string($cellctx['buffer'])) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Parse border-spacing style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBorderSpacingProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (empty($dom[$key]['style']['border-spacing'])) {
+            return;
+        }
+
+        $borderSpacing = \trim((string) $dom[$key]['style']['border-spacing']);
+        if (\strtolower($borderSpacing) === 'inherit') {
+            if (isset($dom[$parentkey]['border-spacing']) && \is_array($dom[$parentkey]['border-spacing'])) {
+                $dom[$key]['border-spacing'] = $dom[$parentkey]['border-spacing'];
+            } elseif (
+                !empty($dom[$parentkey]['style']['border-spacing'])
+                && \is_string($dom[$parentkey]['style']['border-spacing'])
+            ) {
+                $parentSpacing = \trim((string) $dom[$parentkey]['style']['border-spacing']);
+                if (\strtolower($parentSpacing) !== 'inherit') {
+                    $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($parentSpacing);
+                }
+            }
+        } else {
+            $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($borderSpacing);
+        }
+    }
+
+    /**
+     * Parse page-break-inside style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePageBreakInsideProperty(array &$dom, int $key): void
+    {
         if (
             !empty($dom[$key]['style']['page-break-inside'])
-            && ($dom[$key]['style']['page-break-inside'] == 'avoid')
+            && (\strtolower(\trim((string) $dom[$key]['style']['page-break-inside'])) === 'avoid')
         ) {
             $dom[$key]['attribute']['nobr'] = 'true';
-        } elseif (
+        }
+    }
+
+    /**
+     * Parse break-inside alias style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBreakInsideAliasProperty(array &$dom, int $key): void
+    {
+        if (
+            empty($dom[$key]['attribute']['nobr'])
+            &&
             !empty($dom[$key]['style']['break-inside'])
-            && ($dom[$key]['style']['break-inside'] == 'avoid')
+            && (\strtolower(\trim((string) $dom[$key]['style']['break-inside'])) === 'avoid')
         ) {
             $dom[$key]['attribute']['nobr'] = 'true';
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // page-break-before
-        $pageBreakBefore = '';
-        if (!empty($dom[$key]['style']['page-break-before'])) {
-            $pageBreakBefore = $dom[$key]['style']['page-break-before'];
-        } elseif (!empty($dom[$key]['style']['break-before'])) {
-            $pageBreakBefore = $dom[$key]['style']['break-before'];
+    }
+
+    /**
+     * Parse page-break-before style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePageBreakBeforeProperty(array &$dom, int $key): void
+    {
+        if (empty($dom[$key]['style']['page-break-before'])) {
+            return;
         }
-        if ($pageBreakBefore !== '') {
-            /** @var THTMLAttrib $elm */
-            $elm = $dom[$key];
-            $elm['attribute']['pagebreak'] = match ($pageBreakBefore) {
-                'always' => 'true',
-                'page' => 'true',
-                'left' => 'left',
-                'right' => 'right',
-                default => '',
-            };
-            $dom[$key] = $elm;
+
+        $pageBreakBefore = \strtolower(\trim((string) $dom[$key]['style']['page-break-before']));
+        $this->applyHTMLStyleBreakBeforeValue($dom, $key, $pageBreakBefore);
+    }
+
+    /**
+     * Parse break-before alias style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBreakBeforeAliasProperty(array &$dom, int $key): void
+    {
+        if (empty($dom[$key]['style']['page-break-before']) && !empty($dom[$key]['style']['break-before'])) {
+            $breakBefore = \strtolower(\trim((string) $dom[$key]['style']['break-before']));
+            $this->applyHTMLStyleBreakBeforeValue($dom, $key, $breakBefore);
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        // page-break-after
-        $pageBreakAfter = '';
-        if (!empty($dom[$key]['style']['page-break-after'])) {
-            $pageBreakAfter = $dom[$key]['style']['page-break-after'];
-        } elseif (!empty($dom[$key]['style']['break-after'])) {
-            $pageBreakAfter = $dom[$key]['style']['break-after'];
+    }
+
+    /**
+     * Apply computed break-before value.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function applyHTMLStyleBreakBeforeValue(array &$dom, int $key, string $value): void
+    {
+        if ($value === '') {
+            return;
         }
-        if ($pageBreakAfter !== '') {
-            /** @var THTMLAttrib $elm */
-            $elm = $dom[$key];
-            $elm['attribute']['pagebreakafter'] = match ($pageBreakAfter) {
-                'always' => 'true',
-                'page' => 'true',
-                'left' => 'left',
-                'right' => 'right',
-                default => '',
-            };
-            $dom[$key] = $elm;
+
+        /** @var THTMLAttrib $elm */
+        $elm = $dom[$key];
+        $elm['attribute']['pagebreak'] = match ($value) {
+            'always' => 'true',
+            'page' => 'true',
+            'left' => 'left',
+            'right' => 'right',
+            default => '',
+        };
+        $dom[$key] = $elm;
+    }
+
+    /**
+     * Parse page-break-after style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePageBreakAfterProperty(array &$dom, int $key): void
+    {
+        if (empty($dom[$key]['style']['page-break-after'])) {
+            return;
         }
+
+        $pageBreakAfter = \strtolower(\trim((string) $dom[$key]['style']['page-break-after']));
+        $this->applyHTMLStyleBreakAfterValue($dom, $key, $pageBreakAfter);
+    }
+
+    /**
+     * Parse break-after alias style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleBreakAfterAliasProperty(array &$dom, int $key): void
+    {
+        if (empty($dom[$key]['style']['page-break-after']) && !empty($dom[$key]['style']['break-after'])) {
+            $breakAfter = \strtolower(\trim((string) $dom[$key]['style']['break-after']));
+            $this->applyHTMLStyleBreakAfterValue($dom, $key, $breakAfter);
+        }
+    }
+
+    /**
+     * Apply computed break-after value.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function applyHTMLStyleBreakAfterValue(array &$dom, int $key, string $value): void
+    {
+        if ($value === '') {
+            return;
+        }
+
+        /** @var THTMLAttrib $elm */
+        $elm = $dom[$key];
+        $elm['attribute']['pagebreakafter'] = match ($value) {
+            'always' => 'true',
+            'page' => 'true',
+            'left' => 'left',
+            'right' => 'right',
+            default => '',
+        };
+        $dom[$key] = $elm;
     }
 
     /**
@@ -2568,6 +4809,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $value = \trim(\substr($decl, $split + 1));
+        // Keep the declaration value content while dropping CSS priority marker.
+        // Priority is handled by the cascade layer before inline declaration parsing.
+        $value = \trim((string) (\preg_replace('/\s*!important\s*$/i', '', $value) ?? $value));
         $out[$name] = $value;
     }
 
@@ -2580,17 +4824,74 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function parseHTMLAttributes(array &$dom, int $key, bool $thead): void
     {
+        $this->parseHTMLAttributesDisplayProperty($dom, $key);
+        $this->parseHTMLAttributesBorderProperty($dom, $key);
+        $this->parseHTMLAttributesFontTag($dom, $key);
+        $this->parseHTMLAttributesListAlignment($dom, $key);
+        $this->parseHTMLAttributesSmallSupSub($dom, $key);
+        $this->parseHTMLAttributesEnsureFontStyle($dom, $key);
+        $this->parseHTMLAttributesStrongBold($dom, $key);
+        $this->parseHTMLAttributesEmItalic($dom, $key);
+        $this->parseHTMLAttributesUnderline($dom, $key);
+        $this->parseHTMLAttributesStrikeThrough($dom, $key);
+        $this->parseHTMLAttributesAnchorUnderline($dom, $key);
+        $this->parseHTMLAttributesMonospace($dom, $key);
+        $this->parseHTMLAttributesHeadingDefaults($dom, $key);
+        $this->parseHTMLAttributesBlockMargins($dom, $key);
+        $this->parseHTMLAttributesTableDefaults($dom, $key);
+        $this->parseHTMLAttributesCaptionDefaults($dom, $key);
+        $this->parseHTMLAttributesTableRowDefaults($dom, $key, $thead);
+        $this->parseHTMLAttributesTableCellDefaults($dom, $key);
+        $this->parseHTMLAttributesDirection($dom, $key);
+        $this->parseHTMLAttributesForegroundColor($dom, $key);
+        $this->parseHTMLAttributesBackgroundColor($dom, $key);
+        $this->parseHTMLAttributesStrokeColor($dom, $key);
+        $this->parseHTMLAttributesWidth($dom, $key);
+        $this->parseHTMLAttributesHeight($dom, $key);
+        $this->parseHTMLAttributesAlignment($dom, $key);
+        $this->parseHTMLAttributesVerticalAlignment($dom, $key);
+        $this->parseHTMLAttributesStroke($dom, $key);
+        $this->parseHTMLAttributesFill($dom, $key);
+        $this->parseHTMLAttributesClip($dom, $key);
+    }
+
+    /**
+     * Applies display-related HTML attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesDisplayProperty(array &$dom, int $key): void
+    {
         if (!empty($dom[$key]['attribute']['display'])) {
             $dom[$key]['hide'] = (\trim(\strtolower($dom[$key]['attribute']['display'])) == 'none');
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies border-related HTML attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesBorderProperty(array &$dom, int $key): void
+    {
         if (!empty($dom[$key]['attribute']['border'])) {
             $borderstyle = $this->getCSSBorderStyle($dom[$key]['attribute']['border'] . ' solid black');
             if (!empty($borderstyle)) {
                 $dom[$key]['border']['LTRB'] = $borderstyle;
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies font-tag attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesFontTag(array &$dom, int $key): void
+    {
         // check for font tag
         if ($dom[$key]['value'] == 'font') {
             // font family
@@ -2619,7 +4920,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Forces natural alignment for list elements.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesListAlignment(array &$dom, int $key): void
+    {
         // force natural alignment for lists
         if (
             (($dom[$key]['value'] == 'ul')
@@ -2631,7 +4941,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['align'] = ($this->rtl) ? 'R' : 'L';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies default sizing for small/sup/sub elements.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesSmallSupSub(array &$dom, int $key): void
+    {
         if (
             ($dom[$key]['value'] == 'small')
             || ($dom[$key]['value'] == 'sup')
@@ -2645,30 +4964,75 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['fontsize'] = \floatval($dom[$key]['fontsize']) * self::FONT_SMALL_RATIO;
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Ensures the font style string is initialized.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesEnsureFontStyle(array &$dom, int $key): void
+    {
         if (empty($dom[$key]['fontstyle']) || !\is_string($dom[$key]['fontstyle'])) {
             // @phpstan-ignore parameterByRef.type
             $dom[$key]['fontstyle'] = '';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies bold defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesStrongBold(array &$dom, int $key): void
+    {
         if (
             ($dom[$key]['value'] == 'strong')
             || ($dom[$key]['value'] == 'b')
         ) {
             $dom[$key]['fontstyle'] .= 'B';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies italic defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesEmItalic(array &$dom, int $key): void
+    {
         if (
             ($dom[$key]['value'] == 'em')
             || ($dom[$key]['value'] == 'i')
         ) {
             $dom[$key]['fontstyle'] .= 'I';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies underline defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesUnderline(array &$dom, int $key): void
+    {
         if ($dom[$key]['value'] == 'u') {
             $dom[$key]['fontstyle'] .= 'U';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies strike-through defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesStrikeThrough(array &$dom, int $key): void
+    {
         if (
             ($dom[$key]['value'] == 'del')
             || ($dom[$key]['value'] == 's')
@@ -2676,21 +5040,48 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['fontstyle'] .= 'D';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies underline defaults for anchors when CSS does not override it.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesAnchorUnderline(array &$dom, int $key): void
+    {
         if (
             empty($dom[$key]['style']['text-decoration'])
             && ($dom[$key]['value'] == 'a')
         ) {
             $dom[$key]['fontstyle'] .= 'U';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies monospace font defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesMonospace(array &$dom, int $key): void
+    {
         if (
             ($dom[$key]['value'] == 'pre')
             || ($dom[$key]['value'] == 'tt')
         ) {
             $dom[$key]['fontname'] = self::FONT_MONO;
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies heading defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesHeadingDefaults(array &$dom, int $key): void
+    {
         if (
             !empty($dom[$key]['value'])
             && ($dom[$key]['value'][0] == 'h')
@@ -2718,7 +5109,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize'] * 0.67);
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies default block margins.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesBlockMargins(array &$dom, int $key): void
+    {
         // apply default 1em top/bottom margin for block elements that have it in standard CSS
         // skip nested lists (ol/ul/dl inside li) as browsers do not apply margins to sublists
         if (\in_array($dom[$key]['value'], ['p', 'ol', 'ul', 'dl', 'blockquote', 'pre'], true)) {
@@ -2736,13 +5136,70 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies table defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesTableDefaults(array &$dom, int $key): void
+    {
         if (($dom[$key]['value'] == 'table')) {
             $dom[$key]['rows'] = 0; // number of rows
             $dom[$key]['trids'] = []; // IDs of TR elements
             $dom[$key]['thead'] = ''; // table header rows
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies caption defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesCaptionDefaults(array &$dom, int $key): void
+    {
+        if (($dom[$key]['value'] == 'caption')) {
+            $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
+            if (
+                empty($dom[$key]['style']['text-align'])
+                && empty($dom[$key]['attribute']['align'])
+                && empty($dom[$key]['align'])
+            ) {
+                // Match browser default caption behavior when author style is absent.
+                $dom[$key]['align'] = 'C';
+            }
+
+            if (
+                empty($dom[$key]['style']['caption-side'])
+                && isset($dom[$parent]['caption-side'])
+                && \is_string($dom[$parent]['caption-side'])
+            ) {
+                $dom[$key]['caption-side'] = $dom[$parent]['caption-side'];
+            }
+
+            if (
+                isset($dom[$parent]['value'])
+                && \is_string($dom[$parent]['value'])
+                && \in_array($dom[$parent]['value'], ['table', 'tablehead'], true)
+            ) {
+                // Defer caption rendering to table open/close for deterministic placement.
+                $dom[$key]['hide'] = true;
+            }
+        }
+    }
+
+    /**
+     * Applies table row defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     * @param bool $thead Whether the row belongs to a table head block.
+     */
+    protected function parseHTMLAttributesTableRowDefaults(array &$dom, int $key, bool $thead): void
+    {
         if ($dom[$key]['value'] == 'tr') {
             $dom[$key]['cols'] = 0;
             /** @var array<int, THTMLAttrib> $dom */
@@ -2784,7 +5241,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 \array_push($dom[$parent]['trids'], $key);
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies table cell defaults.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesTableCellDefaults(array &$dom, int $key): void
+    {
         if (
             ($dom[$key]['value'] == 'th')
             || ($dom[$key]['value'] == 'td')
@@ -2805,12 +5271,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$parent]['cols'] += \intval($colspan);
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies text direction attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesDirection(array &$dom, int $key): void
+    {
         // text direction
         if (!empty($dom[$key]['attribute']['dir'])) {
             $dom[$key]['dir'] = $dom[$key]['attribute']['dir'];
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies foreground color attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesForegroundColor(array &$dom, int $key): void
+    {
         // set foreground color attribute
         if (!empty($dom[$key]['attribute']['color'])) {
             $dom[$key]['fgcolor'] = $this->getCSSColor($dom[$key]['attribute']['color']);
@@ -2820,28 +5304,72 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['fgcolor'] = 'blue';
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies background color attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesBackgroundColor(array &$dom, int $key): void
+    {
         // set background color attribute
         if (!empty($dom[$key]['attribute']['bgcolor'])) {
             $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['attribute']['bgcolor']);
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies stroke color attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesStrokeColor(array &$dom, int $key): void
+    {
         // set stroke color attribute
         if (!empty($dom[$key]['attribute']['strokecolor'])) {
             $dom[$key]['strokecolor'] = $this->getCSSColor($dom[$key]['attribute']['strokecolor']);
         }
-        /** @var array<int, THTMLAttrib> $dom */
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies width attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesWidth(array &$dom, int $key): void
+    {
         // check for width attribute
         if (isset($dom[$key]['attribute']['width'])) {
             $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['width']));
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies height attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesHeight(array &$dom, int $key): void
+    {
         // check for height attribute
         if (isset($dom[$key]['attribute']['height'])) {
             $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['height']));
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies text alignment attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesAlignment(array &$dom, int $key): void
+    {
         // check for text alignment
         if (
             (!empty($dom[$key]['attribute']['align']))
@@ -2849,7 +5377,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $dom[$key]['align'] = \strtoupper($dom[$key]['attribute']['align'][0]);
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies vertical alignment attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesVerticalAlignment(array &$dom, int $key): void
+    {
         // check for vertical alignment
         $hasCssValign = false;
         if (!empty($dom[$key]['style']['vertical-align']) && \is_string($dom[$key]['style']['vertical-align'])) {
@@ -2866,7 +5403,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $dom[$key]['valign'] = $valign;
             }
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies stroke width attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesStroke(array &$dom, int $key): void
+    {
         // check for text rendering mode (the following attributes do not exist in HTML)
         if (
             !empty($dom[$key]['attribute']['stroke'])
@@ -2880,12 +5426,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref)
             );
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies fill attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesFill(array &$dom, int $key): void
+    {
         if (isset($dom[$key]['attribute']['fill'])) {
             // font fill
             $dom[$key]['fill'] = ($dom[$key]['attribute']['fill'] == 'true');
         }
-        /** @var array<int, THTMLAttrib> $dom */
+    }
+
+    /**
+     * Applies clip attributes.
+     *
+     * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param int $key Current element ID.
+     */
+    protected function parseHTMLAttributesClip(array &$dom, int $key): void
+    {
         if (isset($dom[$key]['attribute']['clip'])) {
             // clipping mode
             $dom[$key]['clip'] = ($dom[$key]['attribute']['clip'] == 'true');
@@ -3272,12 +5836,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineoriginx' => $posx,
             'maxwidth' => $width,
             'maxheight' => $height,
+            'floatrowleftw' => 0.0,
+            'floatrowrightw' => 0.0,
+            'floatrowtop' => 0.0,
+            'floatrowbottom' => 0.0,
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
             'lineascent' => 0.0,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
+            'pendingblockmarginb' => 0.0,
             'basefont' => $basefont,
         ];
         $hrc['cellctx'] = $cellctx;
@@ -3304,12 +5873,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineoriginx' => 0.0,
             'maxwidth' => 0.0,
             'maxheight' => 0.0,
+            'floatrowleftw' => 0.0,
+            'floatrowrightw' => 0.0,
+            'floatrowtop' => 0.0,
+            'floatrowbottom' => 0.0,
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
             'lineascent' => 0.0,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
+            'pendingblockmarginb' => 0.0,
             'basefont' => 'helvetica',
         ];
         $hrc['cellctx'] = $cellctx;
@@ -3455,6 +6029,128 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $theadh = $this->estimateHTMLTableHeadHeight($hrc, $thead);
         if ($theadh > 0.0) {
             $tpy += $theadh;
+            $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Inject explicit COL widths into a serialized table-header fragment so
+     * replayed headers on continuation pages use the same column geometry
+     * computed for the original table.
+     *
+     * @param array<int, float> $colwidths
+     */
+    protected function injectHTMLTableHeadColWidths(string $thead, array $colwidths): string
+    {
+        if (($thead === '') || ($colwidths === [])) {
+            return $thead;
+        }
+
+        if (\strpos($thead, 'data-tcpdf-colwidths="1"') !== false) {
+            return $thead;
+        }
+
+        $tablePos = \strpos($thead, '<table');
+        if ($tablePos === false) {
+            return $thead;
+        }
+
+        $tagEnd = \strpos($thead, '>', $tablePos);
+        if ($tagEnd === false) {
+            return $thead;
+        }
+
+        $unit = (\in_array($this->unit, self::VALIDUNITS, true)) ? $this->unit : 'mm';
+        $colgroup = '<colgroup data-tcpdf-colwidths="1">';
+        foreach ($colwidths as $width) {
+            if (!\is_numeric($width) || ((float) $width <= 0.0)) {
+                continue;
+            }
+
+            $colgroup .= '<col style="width:' . \sprintf('%.6F', (float) $width) . $unit . ';" />';
+        }
+
+        $colgroup .= '</colgroup>';
+
+        return \substr($thead, 0, $tagEnd + 1)
+            . $colgroup
+            . \substr($thead, $tagEnd + 1);
+    }
+
+    /**
+     * Estimate rendered height for a deferred table-caption fragment.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function estimateHTMLTableCaptionHeight(array &$hrc, string $caption): float
+    {
+        if ($caption === '') {
+            return 0.0;
+        }
+
+        $dom = $this->getHTMLDOM($caption);
+        $savedDom = $hrc['dom'];
+        $hrc['dom'] = $dom;
+
+        $height = 0.0;
+        foreach ($dom as $key => $elm) {
+            if (
+                empty($elm['tag']) || empty($elm['opening']) || empty($elm['value'])
+                || !\is_string($elm['value']) || ($elm['value'] !== 'caption')
+            ) {
+                continue;
+            }
+
+            $height = $this->getHTMLLineAdvance($hrc, $key)
+                + (float) $elm['padding']['T']
+                + (float) $elm['padding']['B']
+                + (float) $elm['margin']['T']
+                + (float) $elm['margin']['B'];
+            break;
+        }
+
+        $hrc['dom'] = $savedDom;
+
+        return $height;
+    }
+
+    /**
+     * Replay deferred bottom caption HTML at the current table cursor.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function replayHTMLTableCaption(
+        array &$hrc,
+        string $caption,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+    ): string {
+        if ($caption === '') {
+            return '';
+        }
+
+        // Defer-caption replay can be invoked while a heading font is active.
+        // Use a neutral non-bold font for DOM root defaults, then restore state.
+        $callerfont = $this->captureHTMLCallerFontState();
+        $basefont = '';
+        if (isset($hrc['cellctx']['basefont']) && \is_string($hrc['cellctx']['basefont'])) {
+            $basefont = (string) $hrc['cellctx']['basefont'];
+        }
+        if ($basefont === '') {
+            $basefont = $callerfont['family'];
+        }
+
+        $this->font->insert($this->pon, $basefont, '', $callerfont['size']);
+
+        $tmph = 0.0;
+        $out = $this->getHTMLCell($caption, $tpx, $tpy, $tpw, $tmph);
+        $this->font->insert($this->pon, $callerfont['family'], $callerfont['style'], $callerfont['size']);
+        $captionh = $this->estimateHTMLTableCaptionHeight($hrc, $caption);
+        if ($captionh > 0.0) {
+            $tpy += $captionh;
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         }
 
@@ -4083,6 +6779,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $fillstyle = ($openkey >= 0)
                     ? $this->getHTMLTableCellFillStyle($hrc, $openkey)
                     : null;
+                if ($isTable) {
+                    // Keep table border ownership in parseHTMLTagCLOSEtable();
+                    // page-split block flush must paint only the background.
+                    $bstyles = [];
+                }
                 $rendered = $this->renderHTMLTableCell(
                     (float) $blk['bx'],
                     (float) $blk['by'],
@@ -4352,6 +7053,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if (!empty($elm['style']['list-style-image']) && \is_string($elm['style']['list-style-image'])) {
             $imagetype = \trim((string) $elm['style']['list-style-image']);
+            if ($imagetype !== '' && \strtolower($imagetype) !== 'none') {
+                $imgmarker = $this->getHTMLListImageMarkerType($imagetype);
+                if ($imgmarker !== '') {
+                    return $imgmarker;
+                }
+            }
+        } elseif (!empty($elm['list-style-image']) && \is_string($elm['list-style-image'])) {
+            $imagetype = \trim((string) $elm['list-style-image']);
             if ($imagetype !== '' && \strtolower($imagetype) !== 'none') {
                 $imgmarker = $this->getHTMLListImageMarkerType($imagetype);
                 if ($imgmarker !== '') {
@@ -4887,6 +7596,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Reset HTML flow cursor after an explicit page break.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function resetHTMLCursorAfterPageBreak(array &$hrc, float &$tpx, float &$tpy, float &$tpw): void
+    {
+        $region = $this->page->getRegion();
+        $regiontop = (float) $region['RY'];
+        $tpy = \max($regiontop, (float) $hrc['cellctx']['originy']);
+        $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
+        $hrc['cellctx']['floatrowleftw'] = 0.0;
+        $hrc['cellctx']['floatrowrightw'] = 0.0;
+        $hrc['cellctx']['floatrowtop'] = 0.0;
+        $hrc['cellctx']['floatrowbottom'] = 0.0;
+        $hrc['cellctx']['pendingblockmarginb'] = 0.0;
+    }
+
+    /**
      * Return the current HTML line advance, including previously rendered inline fragments.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -4943,7 +7670,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && \is_string($hrc['dom'][$key]['white-space'])
         ) {
             $mode = \strtolower(\trim($hrc['dom'][$key]['white-space']));
-            if (\in_array($mode, ['normal', 'nowrap', 'pre', 'pre-wrap'], true)) {
+            if (\in_array($mode, ['normal', 'nowrap', 'pre', 'pre-wrap', 'pre-line'], true)) {
                 return $mode;
             }
         }
@@ -4968,6 +7695,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $mode = $this->getHTMLWhiteSpaceMode($hrc, $key);
         if (($mode === 'pre') || ($mode === 'pre-wrap')) {
             return \str_replace("\u{00A0}", ' ', $text);
+        }
+
+        if ($mode === 'pre-line') {
+            $text = \str_replace("\u{00A0}", ' ', $text);
+            $text = \str_replace(["\r\n", "\r", "\f"], "\n", $text);
+            $lines = \explode("\n", $text);
+            $count = \count($lines);
+            for ($idx = 0; $idx < $count; ++$idx) {
+                $line = \preg_replace('/[^\S\n]+/u', ' ', $lines[$idx]) ?? '';
+                $lines[$idx] = \trim($line, ' ');
+            }
+
+            return \implode("\n", $lines);
         }
 
         $text = \preg_replace('/\s+/u', ' ', $text) ?? '';
@@ -5076,6 +7816,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['lineascent'] = 0.0;
         $hrc['cellctx']['linewordspacing'] = 0.0;
         $hrc['cellctx']['linewrapped'] = false;
+    }
+
+    /**
+     * Return true when there is an active float row intersecting the current cursor.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function hasActiveHTMLFloatRow(array &$hrc, float $tpy): bool
+    {
+        $bottom = isset($hrc['cellctx']['floatrowbottom']) && \is_numeric($hrc['cellctx']['floatrowbottom'])
+            ? (float) $hrc['cellctx']['floatrowbottom']
+            : 0.0;
+
+        return ($bottom > ($tpy + self::WIDTH_TOLERANCE));
+    }
+
+    /**
+     * Move the cursor below the active float row and clear float occupancy state.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function flushHTMLFloatRow(array &$hrc, float &$tpx, float &$tpy, float &$tpw): void
+    {
+        $bottom = isset($hrc['cellctx']['floatrowbottom']) && \is_numeric($hrc['cellctx']['floatrowbottom'])
+            ? (float) $hrc['cellctx']['floatrowbottom']
+            : 0.0;
+        if ($bottom > $tpy) {
+            $tpy = $bottom;
+        }
+
+        $hrc['cellctx']['floatrowleftw'] = 0.0;
+        $hrc['cellctx']['floatrowrightw'] = 0.0;
+        $hrc['cellctx']['floatrowtop'] = 0.0;
+        $hrc['cellctx']['floatrowbottom'] = 0.0;
+        $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
     }
 
     /**
@@ -5605,6 +8380,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function openHTMLBlock(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
         $elm = &$hrc['dom'][$key];
+        $float = (!empty($elm['float']) && \is_string($elm['float']))
+            ? \strtolower(\trim((string) $elm['float']))
+            : 'none';
+        $clear = (!empty($elm['clear']) && \is_string($elm['clear']))
+            ? \strtolower(\trim((string) $elm['clear']))
+            : 'none';
+        if (\in_array($clear, ['left', 'right', 'both'], true) && $this->hasActiveHTMLFloatRow($hrc, $tpy)) {
+            $this->flushHTMLFloatRow($hrc, $tpx, $tpy, $tpw);
+        }
+
+        if (($float === 'none') && $this->hasActiveHTMLFloatRow($hrc, $tpy)) {
+            // Keep conservative flow deterministic: normal blocks start below active float rows.
+            $this->flushHTMLFloatRow($hrc, $tpx, $tpy, $tpw);
+        }
+
+        if (
+            \in_array($clear, ['left', 'right', 'both'], true)
+            && ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
+        ) {
+            // Conservative clear policy: force a new line when the cursor is mid-line.
+            $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
+        }
+
         $lineadvancectx = isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance'])
             ? (float) $hrc['cellctx']['lineadvance']
             : 0.0;
@@ -5612,16 +8410,79 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
             && ($lineadvancectx > self::WIDTH_TOLERANCE)
         );
+        $isFloatInActiveRow =
+            \in_array($float, ['left', 'right'], true)
+            && $this->hasActiveHTMLFloatRow($hrc, $tpy);
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
-
-        if ($hasinlinecontent || ($tpy > $hrc['cellctx']['originy'])) {
-            $tpy += $lineadvance + (float) $elm['margin']['T'] + $this->getHTMLTagVSpace($hrc, $key, 0);
+        $marginTop = (float) $elm['margin']['T'];
+        $collapsed = 0.0;
+        if (!$hasinlinecontent && ($tpy > $hrc['cellctx']['originy'])) {
+            $pendingBottom = isset($hrc['cellctx']['pendingblockmarginb'])
+                ? (float) $hrc['cellctx']['pendingblockmarginb']
+                : 0.0;
+            if ($pendingBottom > 0.0 && $marginTop > 0.0) {
+                // Deterministic PDF policy: adjacent positive vertical margins collapse to max().
+                $collapsed = \round(\min($pendingBottom, $marginTop), 6);
+            }
         }
 
-        $blockX = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'];
-        $blockWidth = $hrc['cellctx']['maxwidth'] > 0
+        if (!$isFloatInActiveRow && ($hasinlinecontent || ($tpy > $hrc['cellctx']['originy']))) {
+            $tpy += $lineadvance + $marginTop + $this->getHTMLTagVSpace($hrc, $key, 0) - $collapsed;
+        }
+        $hrc['cellctx']['pendingblockmarginb'] = 0.0;
+
+        $baseBlockX = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'];
+        $baseBlockWidth = $hrc['cellctx']['maxwidth'] > 0
             ? \max(0.0, $hrc['cellctx']['maxwidth'] - (float) $elm['margin']['L'] - (float) $elm['margin']['R'])
             : 0.0;
+        $baseInnerWidth = \max(0.0, $baseBlockWidth - (float) $elm['padding']['L'] - (float) $elm['padding']['R']);
+        $explicitInnerWidth = 0.0;
+        if (
+            ($float === 'none')
+            && !empty($elm['width'])
+            && \is_numeric($elm['width'])
+            && ((float) $elm['width'] > 0.0)
+            && ($baseInnerWidth > 0.0)
+        ) {
+            $explicitInnerWidth = \min((float) $elm['width'], $baseInnerWidth);
+        }
+        $floatInnerWidth = 0.0;
+        $floatShift = 0.0;
+        if (\in_array($float, ['left', 'right'], true)) {
+            if (!$this->hasActiveHTMLFloatRow($hrc, $tpy)) {
+                $hrc['cellctx']['floatrowleftw'] = 0.0;
+                $hrc['cellctx']['floatrowrightw'] = 0.0;
+                $hrc['cellctx']['floatrowtop'] = $tpy;
+                $hrc['cellctx']['floatrowbottom'] = $tpy;
+            }
+
+            $rowLeft = (float) $hrc['cellctx']['floatrowleftw'];
+            $rowRight = (float) $hrc['cellctx']['floatrowrightw'];
+            $remainingInner = \max(0.0, $baseInnerWidth - $rowLeft - $rowRight);
+
+            if (
+                !empty($elm['width'])
+                && \is_numeric($elm['width'])
+                && ((float) $elm['width'] > 0.0)
+                && ($remainingInner > 0.0)
+            ) {
+                $floatInnerWidth = \min((float) $elm['width'], $remainingInner);
+                if ($float === 'left') {
+                    $floatShift = $rowLeft;
+                    $hrc['cellctx']['floatrowleftw'] = $rowLeft + $floatInnerWidth;
+                } else {
+                    $floatShift = \max(0.0, $baseInnerWidth - $rowRight - $floatInnerWidth);
+                    $hrc['cellctx']['floatrowrightw'] = $rowRight + $floatInnerWidth;
+                }
+            }
+        }
+
+        $blockX = $baseBlockX + $floatShift;
+        $blockWidth = ($floatInnerWidth > 0.0)
+            ? ($floatInnerWidth + (float) $elm['padding']['L'] + (float) $elm['padding']['R'])
+            : (($explicitInnerWidth > 0.0)
+                ? ($explicitInnerWidth + (float) $elm['padding']['L'] + (float) $elm['padding']['R'])
+                : $baseBlockWidth);
 
         // If this block has its OWN border or background (not merely inherited),
         // start buffering content so that fill is painted before content and border after.
@@ -5638,12 +8499,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $hasBgcolor = false;
             }
         }
-        if (
-            (($elm['value'] ?? '') === 'table' || ($elm['value'] ?? '') === 'tablehead')
-            && (($elm['border-collapse'] ?? 'separate') === 'collapse')
-        ) {
+        if ((($elm['value'] ?? '') === 'table') || (($elm['value'] ?? '') === 'tablehead')) {
+            // Keep table border rendering in parseHTMLTagCLOSEtable() to avoid
+            // double outer-frame painting, but still allow table background to
+            // be painted by block buffering before cell content.
             $hasBorder = false;
-            $hasBgcolor = false;
         }
         if ($hasBorder || $hasBgcolor) {
             $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $key);
@@ -5659,7 +8519,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $tpx = $hrc['cellctx']['originx'] + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
+        $tpy += (float) $elm['padding']['T'];
+
+        $tpx = $hrc['cellctx']['originx']
+            + (float) $elm['margin']['L']
+            + (float) $elm['padding']['L']
+            + $floatShift;
+        // Start wrapped inline lines at this block's content origin,
+        // not at the outer cell origin.
+        $hrc['cellctx']['lineoriginx'] = $tpx;
         $tpw = $hrc['cellctx']['maxwidth'];
         $hrc['cellctx']['textindentapplied'] = false;
         if ($tpw > 0) {
@@ -5671,6 +8539,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 - (float) $elm['padding']['L']
                 - (float) $elm['padding']['R']
             );
+        }
+
+        if ($floatInnerWidth > 0.0) {
+            $tpw = \min($tpw, $floatInnerWidth);
+        } elseif ($explicitInnerWidth > 0.0) {
+            $tpw = \min($tpw, $explicitInnerWidth);
+        }
+
+        // Scope line-flow metrics to explicit-width block content boxes only,
+        // so wrapped inline text honors local width without affecting generic
+        // list/float flow behavior.
+        if (($float === 'none') && ($explicitInnerWidth > 0.0)) {
+            $elm['ctxoriginx'] = (float) $hrc['cellctx']['originx'];
+            $elm['ctxmaxwidth'] = (float) $hrc['cellctx']['maxwidth'];
+            $hrc['cellctx']['originx'] = $tpx;
+            $hrc['cellctx']['maxwidth'] = $tpw;
+        } elseif (($float === 'none') && !empty($elm['padding'])) {
+            // For non-float, non-explicit-width blocks, adjust context for padding
+            // so children render inside the padding box.
+            $elm['ctxoriginx'] = (float) $hrc['cellctx']['originx'];
+            $elm['ctxmaxwidth'] = (float) $hrc['cellctx']['maxwidth'];
+            $hrc['cellctx']['originx'] = $blockX + (float) $elm['padding']['L'];
+            $hrc['cellctx']['maxwidth'] = $baseBlockWidth - (float) $elm['padding']['L'] - (float) $elm['padding']['R'];
         }
 
         $role = $this->getHTMLStructRole($elm);
@@ -5793,21 +8684,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function closeHTMLBlock(array &$hrc, int $key, float &$tpx, float &$tpy, float &$tpw): string
     {
         $elm = &$hrc['dom'][$key];
+        $openkey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
+        /** @var THTMLAttrib $openelm */
+        $openelm = (($openkey >= 0) && isset($hrc['dom'][$openkey])) ? $hrc['dom'][$openkey] : $elm;
+        $float = (!empty($openelm['float']) && \is_string($openelm['float']))
+            ? \strtolower(\trim((string) $openelm['float']))
+            : 'none';
         // When a block closes on the same line where inline text was rendered,
         // advance by one line height before applying bottom spacing.
         $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
 
         $out = '';
-        $openkey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
+        $restoreOriginX = (float) ($hrc['cellctx']['originx'] ?? 0.0);
+        $restoreMaxWidth = (float) ($hrc['cellctx']['maxwidth'] ?? 0.0);
+        if (isset($openelm['ctxoriginx']) && \is_numeric($openelm['ctxoriginx'])) {
+            $restoreOriginX = (float) $openelm['ctxoriginx'];
+        }
+        if (isset($openelm['ctxmaxwidth']) && \is_numeric($openelm['ctxmaxwidth'])) {
+            $restoreMaxWidth = (float) $openelm['ctxmaxwidth'];
+        }
 
-        // Pop block buffer if matching.
         if (!empty($hrc['blockbuf'])) {
             $idx = \count($hrc['blockbuf']) - 1;
             if ($hrc['blockbuf'][$idx]['openkey'] === $openkey) {
                 $blk = $hrc['blockbuf'][$idx];
                 \array_pop($hrc['blockbuf']);
-                $blockHeight = ($tpy + $lineadvance + (float) $elm['padding']['B']) - $blk['by'];
+                $blockHeight = ($tpy + $lineadvance + (float) $openelm['padding']['B']) - $blk['by'];
                 if ($blk['bw'] > 0.0 && $blockHeight > 0.0) {
                     $bstyles = ($openkey >= 0)
                         ? $this->getHTMLTableCellBorderStyles($hrc, $openkey)
@@ -5815,6 +8718,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $fillstyle = ($openkey >= 0)
                         ? $this->getHTMLTableCellFillStyle($hrc, $openkey)
                         : null;
+                    if (
+                        ($openkey >= 0)
+                        && isset($hrc['dom'][$openkey]['value'])
+                        && (
+                            ($hrc['dom'][$openkey]['value'] === 'table')
+                            || ($hrc['dom'][$openkey]['value'] === 'tablehead')
+                        )
+                    ) {
+                        // Table border is rendered by parseHTMLTagCLOSEtable().
+                        // Block buffer is used only for pre-content background paint.
+                        $bstyles = [];
+                    }
                     $out .= $this->renderHTMLTableCell(
                         $blk['bx'],
                         $blk['by'],
@@ -5832,9 +8747,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
+        if (\in_array($float, ['left', 'right'], true)) {
+            $floatBottom = $tpy
+                + $lineadvance
+                + (float) $openelm['margin']['B']
+                + (float) $openelm['padding']['B']
+                + $this->getHTMLTagVSpace($hrc, $key, 1);
+            $currentBottom = (float) $hrc['cellctx']['floatrowbottom'];
+            $hrc['cellctx']['floatrowbottom'] = \max($currentBottom, $floatBottom);
+            $tpy = (float) $hrc['cellctx']['floatrowtop'];
+            $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
+            $hrc['cellctx']['originx'] = $restoreOriginX;
+            $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
+            $hrc['cellctx']['pendingblockmarginb'] = 0.0;
+
+            $role = $this->getHTMLStructRole($elm);
+            if ($role !== '') {
+                $this->endStructElem();
+            }
+
+            return $out;
+        }
+
+        $hrc['cellctx']['originx'] = $restoreOriginX;
+        $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-        $tpy += $lineadvance + (float) $elm['margin']['B'] + (float) $elm['padding']['B']
+        $tpy += $lineadvance + (float) $openelm['margin']['B'] + (float) $openelm['padding']['B']
             + $this->getHTMLTagVSpace($hrc, $key, 1);
+        $hrc['cellctx']['pendingblockmarginb'] = (float) $openelm['margin']['B'];
 
         $role = $this->getHTMLStructRole($elm);
         if ($role !== '') {
@@ -6295,7 +9235,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Determine the CSS border-style keyword used for collapsed-border precedence.
      *
-     * @param BorderStyle $style
+    * @param BorderStyleOpt $style
      */
     protected function getHTMLCollapsedBorderStyleName(array $style): string
     {
@@ -6341,7 +9281,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Check whether a parsed border style should render.
      *
-     * @param BorderStyle $style
+        * @param BorderStyleOpt $style
      */
     protected function isHTMLRenderableBorderStyle(array $style): bool
     {
@@ -6913,6 +9853,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): array {
         $defaultWidth = ($cols > 0) ? ($availableWidth / $cols) : $availableWidth;
         $colwidths = \array_fill(0, $cols, $defaultWidth);
+        $tableLayout = (isset($dom[$tablekey]['table-layout']) && \is_string($dom[$tablekey]['table-layout']))
+            ? \strtolower(\trim((string) $dom[$tablekey]['table-layout']))
+            : 'auto';
+        $contentWeights = \array_fill(0, $cols, 0.0);
+        $hasExplicitHints = false;
+        $hasContentHints = false;
         $hintcol = 0;
         $colgroupactive = false;
         $colgrouphascols = false;
@@ -6972,6 +9918,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $idx = $colgroupstart + $i;
                             if (($idx >= 0) && ($idx < $cols)) {
                                 $colwidths[$idx] = $percol;
+                                $hasExplicitHints = true;
                             }
                         }
                     }
@@ -7002,6 +9949,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $idx = $hintcol + $i;
                         if (($idx >= 0) && ($idx < $cols)) {
                             $colwidths[$idx] = $percol;
+                            $hasExplicitHints = true;
                         }
                     }
                 }
@@ -7047,11 +9995,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     for ($i = 0; $i < $colspan; ++$i) {
                         if ($colid + $i < $cols) {
                             $colwidths[$colid + $i] = $percw;
+                            $hasExplicitHints = true;
+                        }
+                    }
+                } elseif (($tableLayout === 'auto') && !$hasExplicitHints && !empty($elm['content'])) {
+                    $plain = \trim((string) (\strip_tags((string) $elm['content'])));
+                    if ($plain !== '') {
+                        $plain = \preg_replace('/\s+/u', ' ', $plain) ?? $plain;
+                        $weight = \mb_strlen($plain, $this->encoding);
+                        if ($weight > 0) {
+                            $percol = ((float) $weight) / $colspan;
+                            for ($i = 0; $i < $colspan; ++$i) {
+                                if (($colid + $i) < $cols) {
+                                    $contentWeights[$colid + $i] += $percol;
+                                    $hasContentHints = true;
+                                }
+                            }
                         }
                     }
                 }
 
                 $colid += $colspan;
+            }
+        }
+
+        if (($tableLayout === 'auto') && !$hasExplicitHints && $hasContentHints) {
+            $sum = \array_sum($contentWeights);
+            if ($sum > 0.0) {
+                for ($idx = 0; $idx < $cols; ++$idx) {
+                    $weight = $contentWeights[$idx];
+                    if ($weight <= 0.0) {
+                        continue;
+                    }
+
+                    $colwidths[$idx] = $availableWidth * ($weight / $sum);
+                }
             }
         }
 
@@ -7394,6 +10372,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 $didpagebreak = true;
                             }
                         }
+                        $this->resetHTMLCursorAfterPageBreak($hrc, $tpx, $tpy, $tpw);
                     }
 
                     if ($didpagebreak && ($elm['value'] === 'tr')) {
@@ -7568,6 +10547,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $tableCols = (!empty($elm['cols']) && \is_numeric($elm['cols']))
                             ? \max(1, (int) $elm['cols']) : 1;
                         $tableWidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
+                        // Constrain $tableWidth to the table's own CSS width so that percentage-based
+                        // TD widths resolve against the table width, not the full container width.
+                        // Percentages are resolved against the current container; absolute values use elm['width'].
+                        $rawTblWidth = '';
+                        if (!empty($elm['style']['width']) && \is_string($elm['style']['width'])) {
+                            $rawTblWidth = \trim($elm['style']['width']);
+                        } elseif (!empty($elm['attribute']['width']) && \is_string($elm['attribute']['width'])) {
+                            $rawTblWidth = \trim($elm['attribute']['width']);
+                        }
+                        if ($rawTblWidth !== '') {
+                            if (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawTblWidth, $pctM)) {
+                                $tableWidth = \min($tableWidth, ($tableWidth * (float) $pctM[1]) / 100.0);
+                            } elseif (
+                                !empty($elm['width'])
+                                && \is_numeric($elm['width'])
+                                && ((float) $elm['width'] > 0.0)
+                            ) {
+                                $tableWidth = \min($tableWidth, (float) $elm['width']);
+                            }
+                        }
                         // @phpstan-ignore parameterByRef.type
                         $elm['pendingcellspacingh'] = (!empty($elm['attribute']['cellspacing'])
                             && \is_numeric($elm['attribute']['cellspacing']))
@@ -7599,6 +10598,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $tableCols,
                             $availableForCols,
                         );
+
+                        // Ensure replayed THEAD fragments on page breaks keep
+                        // the exact per-column widths computed for this table.
+                        if (
+                            ($elm['value'] === 'table')
+                            && !empty($elm['thead'])
+                            && \is_string($elm['thead'])
+                            && \is_array($elm['pendingcolwidths'])
+                        ) {
+                            $elm['thead'] = $this->injectHTMLTableHeadColWidths(
+                                $elm['thead'],
+                                $elm['pendingcolwidths'],
+                            );
+                            $tabletheadmap[$key] = $elm['thead'];
+                        }
                     }
 
                     // Keep the DOM node in sync with local preprocessing updates.
@@ -7713,6 +10727,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 $this->pageBreak();
                             }
                         }
+                        $this->resetHTMLCursorAfterPageBreak($hrc, $tpx, $tpy, $tpw);
                     }
                 } else { // closing tag
                     if (
@@ -7833,6 +10848,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 $this->pageBreak();
                             }
                         }
+                        $this->resetHTMLCursorAfterPageBreak($hrc, $tpx, $tpy, $tpw);
                     }
                 }
             } else { // Text Content
@@ -7854,6 +10870,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             ++$key;
+        }
+
+        if ($this->hasActiveHTMLFloatRow($hrc, $tpy)) {
+            $this->flushHTMLFloatRow($hrc, $tpx, $tpy, $tpw);
         }
     }
 
@@ -8167,7 +11187,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        if ($this->isHTMLPreLikeWhiteSpaceMode($hrc, $key) && \str_contains($text, "\n")) {
+        $whitespaceMode = $this->getHTMLWhiteSpaceMode($hrc, $key);
+        if (
+            (($whitespaceMode === 'pre-line') || $this->isHTMLPreLikeWhiteSpaceMode($hrc, $key))
+            && \str_contains($text, "\n")
+        ) {
             $origElm = $hrc['dom'][$key];
             $splitPos = \strpos($text, "\n");
             if ($splitPos !== false) {
@@ -8567,7 +11591,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $lineOffset = 0.0;
             $remainingWidth = $tpw;
             $lineOriginX = $hrc['cellctx']['lineoriginx'];
-            $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
+            $availableWidth = ($tpw > 0)
+                ? $tpw
+                : (($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : 0.0);
 
             // Collapsible spaces must still be removed when we pre-wrap a fragment.
             // Otherwise the new line can start with an artificial indent.
@@ -8641,6 +11667,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $nodeWordSpacing = $this->getHTMLWordSpacing($hrc, $currentkey);
         $effectiveWordSpacing = $customJustify ? $lineWordSpacing : $nodeWordSpacing;
+        if (
+            !$customJustify
+            && ($halign !== 'J')
+            && ($effectiveWordSpacing > 0.0)
+            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
+            && ($this->getHTMLWhiteSpaceMode($hrc, $currentkey) !== 'nowrap')
+            && $this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
+        ) {
+            // Avoid wrapped non-justified lines being stretched as justified
+            // when CSS word-spacing is present.
+            $effectiveWordSpacing = 0.0;
+        }
 
         $renderPosX = $lineOriginX;
         $renderWidth = $availableWidth;
@@ -8799,13 +11837,116 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (!$deferWrapDetection) {
             $wrapped = $wrapped || ($bbox['h'] > ($lineAdvance + self::WIDTH_TOLERANCE));
         }
+
+        $decorBgcolor = '';
+        $decorPadding = ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0];
+        $decorBorder = [];
+        if (
+            empty($elm['tag'])
+            && isset($elm['parent'])
+            && \is_int($elm['parent'])
+            && isset($hrc['dom'][$elm['parent']])
+        ) {
+            $parentElm = $hrc['dom'][$elm['parent']];
+            if (!empty($parentElm['tag']) && !empty($parentElm['opening'])) {
+                $isInlineParent = (\strtolower(\trim($parentElm['display'])) === 'inline');
+
+                $hasExplicitDecor = false;
+                $parentStyle = '';
+                if (
+                    !empty($parentElm['attribute'])
+                    && \is_array($parentElm['attribute'])
+                    && !empty($parentElm['attribute']['style'])
+                    && \is_string($parentElm['attribute']['style'])
+                ) {
+                    $parentStyle = (string) $parentElm['attribute']['style'];
+                    $hasExplicitDecor = (
+                        \preg_match(
+                            '/(?:^|;)\s*(?:background(?:-color)?|padding(?:-(?:top|right|bottom|left))?'
+                            . '|border(?:-(?:top|right|bottom|left))?)\s*:/i',
+                            $parentStyle,
+                        ) === 1
+                    );
+                }
+
+                if (
+                    !$hasExplicitDecor
+                    && !empty($parentElm['attribute'])
+                    && \is_array($parentElm['attribute'])
+                ) {
+                    $hasExplicitDecor = (
+                        !empty($parentElm['attribute']['bgcolor'])
+                        || !empty($parentElm['attribute']['border'])
+                        || !empty($parentElm['attribute']['padding'])
+                    );
+                }
+
+                $hasInlineDecoration = false;
+                if (!empty($parentElm['bgcolor']) && \is_string($parentElm['bgcolor'])) {
+                    $hasInlineDecoration = true;
+                }
+                if (!empty($parentElm['padding']) && \is_array($parentElm['padding'])) {
+                    foreach (['T', 'R', 'B', 'L'] as $side) {
+                        if (
+                            isset($parentElm['padding'][$side])
+                            && \is_numeric($parentElm['padding'][$side])
+                            && ((float) $parentElm['padding'][$side] > 0.0)
+                        ) {
+                            $hasInlineDecoration = true;
+                            break;
+                        }
+                    }
+                }
+                if (!empty($parentElm['border']) && \is_array($parentElm['border'])) {
+                    $hasInlineDecoration = true;
+                }
+
+                if ($isInlineParent && $hasInlineDecoration && $hasExplicitDecor) {
+                    if (!empty($parentElm['bgcolor']) && \is_string($parentElm['bgcolor'])) {
+                        $decorBgcolor = (string) $parentElm['bgcolor'];
+                    }
+                    if (!empty($parentElm['padding']) && \is_array($parentElm['padding'])) {
+                        foreach (['T', 'R', 'B', 'L'] as $side) {
+                            if (isset($parentElm['padding'][$side]) && \is_numeric($parentElm['padding'][$side])) {
+                                $decorPadding[$side] = (float) $parentElm['padding'][$side];
+                            }
+                        }
+                    }
+                    // Only apply border if it was explicitly set on the element, not inherited.
+                    $hasExplicitBorder = !empty($parentElm['attribute']['border']);
+                    if (
+                        !$hasExplicitBorder
+                        && !empty($parentElm['attribute']['style'])
+                        && \is_string($parentElm['attribute']['style'])
+                    ) {
+                        $hasExplicitBorder = \preg_match(
+                            '/(?:^|;)\s*border(?:-(?:top|right|bottom|left))?\s*:/i',
+                            $parentElm['attribute']['style'],
+                        ) === 1;
+                    }
+                    if (
+                        $hasExplicitBorder
+                        && !empty($parentElm['border'])
+                        && \is_array($parentElm['border'])
+                    ) {
+                        $decorBorder = $parentElm['border'];
+                    }
+                }
+            }
+        }
+
+        $decorRectX = $bbox['x'] - (float) $decorPadding['L'];
+        $decorRectY = $bbox['y'] - (float) $decorPadding['T'];
+        $decorRectW = $bbox['w'] + (float) $decorPadding['L'] + (float) $decorPadding['R'];
+        $decorRectH = $bbox['h'] + (float) $decorPadding['T'] + (float) $decorPadding['B'];
+
         $background = '';
-        if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor']) && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
+        if (($decorBgcolor !== '') && ($decorRectW > 0.0) && ($decorRectH > 0.0)) {
             $bgx = $bbox['x'];
             $bgw = $bbox['w'];
             $bgy = $bbox['y'];
             $bgh = $bbox['h'];
-            $fillstyle = $this->getHTMLFillStyle($elm['bgcolor']);
+            $fillstyle = $this->getHTMLFillStyle($decorBgcolor);
             $hasBlockBgAncestor = $this->hasBlockLvBgAncestor($hrc, $currentkey);
 
             if ($hasBlockBgAncestor) {
@@ -8907,6 +12048,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
+        $inlineBorder = '';
+        if (
+            !empty($decorBorder['LTRB'])
+            && \is_array($decorBorder['LTRB'])
+            && ($decorRectW > 0.0)
+            && ($decorRectH > 0.0)
+        ) {
+            $hasBlockBgAncestor = $this->hasBlockLvBgAncestor($hrc, $currentkey);
+            if (!$hasBlockBgAncestor) {
+                $inlineBorder = $this->graph->getStartTransform()
+                    . $this->graph->getBasicRect(
+                        $decorRectX,
+                        $decorRectY,
+                        $decorRectW,
+                        $decorRectH,
+                        'D',
+                        $decorBorder['LTRB'],
+                    )
+                    . $this->graph->getStopTransform();
+            }
+        }
+
         $link = $this->getCurrentHTMLLink($hrc);
         if (($link !== '') && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
             $lnkid = $this->setLink($bbox['x'], $bbox['y'], $bbox['w'], $bbox['h'], $link);
@@ -8940,7 +12103,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
             }
             $hrc['cellctx']['linewrapped'] = true;
-            return $background . $out;
+
+            return $background . $out . $inlineBorder;
         }
 
         $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
@@ -8969,7 +12133,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $hrc['cellctx']['linewrapped'] = false;
 
-        return $background . $out;
+        return $background . $out . $inlineBorder;
     }
 
     // FUNCTIONS TO PROCESS HTML OPENING TAGS
@@ -9855,6 +13019,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tph,
     ): string {
         unset($tph);
+        $listItemOriginX = (isset($hrc['cellctx']['originx']) && \is_numeric($hrc['cellctx']['originx']))
+            ? (float) $hrc['cellctx']['originx']
+            : 0.0;
+        $listItemMaxWidth = (isset($hrc['cellctx']['maxwidth']) && \is_numeric($hrc['cellctx']['maxwidth']))
+            ? (float) $hrc['cellctx']['maxwidth']
+            : 0.0;
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
@@ -9866,11 +13036,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $font = $this->getHTMLFontMetric($hrc, $key);
-        $indent = $this->getCurrentHTMLListIndentWidth($hrc);
-        $liIndent = $this->getHTMLListIndentOverrideByKey($hrc, $key);
-        if ($liIndent > 0) {
-            $indent += $liIndent;
-        }
+
+        // When the parent <ul>/<ol> carries an explicit CSS padding/margin override,
+        // openHTMLBlock() already consumed those values by shifting hrc['cellctx']['originx']
+        // (and therefore tpx) into the element's content box.  Adding the same amount here
+        // again would double-count the shift and push bullet+text too far right.
+        // Use the default gutter width only when no CSS override was applied.
+        $depthidx = $depth - 1;
+        $hasCSSIndentOverride = isset($hrc['liststack'][$depthidx]['indent'])
+            && \is_numeric($hrc['liststack'][$depthidx]['indent'])
+            && ((float) $hrc['liststack'][$depthidx]['indent'] > 0.0);
+        $indent = $hasCSSIndentOverride ? 0.0 : $this->getHTMLListIndentWidth();
+
+        // IMPORTANT: Do NOT add liIndent here. When the <li> element carries CSS padding/margin,
+        // openHTMLBlock() already consumed those values by shifting tpx. For 'outside' markers
+        // the bullet must not be pushed into the li's content box by li padding-left; that
+        // correction is applied below when computing $bulletx.
 
         $counter = $this->getHTMLListItemCounter($hrc, $key);
         $markerType = $this->getCurrentHTMLListMarkerType($hrc);
@@ -9886,25 +13067,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $insideTextOffset = $this->getStringWidth('0 ');
         }
 
-        // CSS list-indent overrides already shift block content through margin/padding.
-        // Trim one-space marker offset only for outside markers to avoid visible extra gap
-        // near guide borders on shift-variant examples while preserving inside indentation.
-        if ($markerPosition === 'outside') {
-            $depthidx = $this->getHTMLListDepth($hrc) - 1;
-            $trimthreshold = $this->getStringWidth('00');
-            if (
-                ($depthidx >= 0)
-                && isset($hrc['liststack'][$depthidx]['indent'])
-                && \is_numeric($hrc['liststack'][$depthidx]['indent'])
-                && ((float) $hrc['liststack'][$depthidx]['indent'] > $trimthreshold)
-            ) {
-                $indent = \max(0.0, $indent - $this->getStringWidth(' '));
-            }
-        }
-
         $fontAscent = (isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0;
         $baseline = $tpy + $this->toUnit($fontAscent);
-        $bulletx = $tpx + $indent + $insideTextOffset;
+        // For 'outside' markers the bullet hangs in the li's padding area (between the
+        // list's content edge and the li's content edge). openHTMLBlock() already shifted
+        // tpx by li margin+padding into the li's content box, so subtract the li's own
+        // padding-left to re-anchor the marker at the li's border-box left edge instead
+        // of pushing it further right into the content area.
+        $liPaddingL = ($markerPosition === 'outside'
+            && isset($hrc['dom'][$key]['padding']['L'])
+            && \is_numeric($hrc['dom'][$key]['padding']['L']))
+            ? (float) $hrc['dom'][$key]['padding']['L']
+            : 0.0;
+        $bulletx = ($tpx - $liPaddingL) + $indent + $insideTextOffset;
 
         // Get marker styles from li::marker selector
         $markerStyles = [];
@@ -9930,8 +13105,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $out .= $bulletOut;
 
         $hrc['listack'][] = [
-            'originx' => $hrc['cellctx']['originx'],
-            'maxwidth' => $hrc['cellctx']['maxwidth'],
+            'originx' => $listItemOriginX,
+            'maxwidth' => $listItemMaxWidth,
         ];
 
         $tpx += $indent + $insideTextOffset;
@@ -10494,6 +13669,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $width = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
+        $rawTableWidth = '';
+        if (!empty($elm['style']['width']) && \is_string($elm['style']['width'])) {
+            $rawTableWidth = \trim($elm['style']['width']);
+        } elseif (!empty($elm['attribute']['width']) && \is_string($elm['attribute']['width'])) {
+            $rawTableWidth = \trim($elm['attribute']['width']);
+        }
+
+        if (
+            ($rawTableWidth !== '')
+            && (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth, $pctMatch) === 1)
+        ) {
+            $ctxWidth = $width;
+            if (isset($elm['ctxmaxwidth']) && \is_numeric($elm['ctxmaxwidth']) && ((float) $elm['ctxmaxwidth'] > 0.0)) {
+                $ctxWidth = (float) $elm['ctxmaxwidth'];
+            }
+
+            $width = \max(0.0, ($ctxWidth * (float) $pctMatch[1]) / 100.0);
+        }
+
         $cols = (!empty($elm['cols']) && \is_numeric($elm['cols'])) ? \max(1, (int) $elm['cols']) : 1;
         $colwidth = ($cols > 0) ? ($width / $cols) : $width;
 
@@ -10513,7 +13707,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // Compute actual table width from column widths + cellspacing gutters.
         $contentWidth = $cellspacingh * ($cols + 1) + (float) \array_sum($colwidths);
-        $width = \min($width, $contentWidth);
+        if (
+            ($rawTableWidth !== '')
+            && (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth) === 1)
+        ) {
+            // Percentage widths are already resolved against the available box;
+            // keep the computed content width to avoid collapsing to tiny values.
+            $width = $contentWidth;
+        } else {
+            $width = \min($width, $contentWidth);
+        }
 
         // Update the block buffer width so the block-level border/background
         // wraps the actual table content, not the full container.
@@ -10522,6 +13725,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($hrc['blockbuf'][$bidx]['openkey'] === $key) {
                 $hrc['blockbuf'][$bidx]['bw'] = \min($hrc['blockbuf'][$bidx]['bw'], $width);
             }
+        }
+
+        if (
+            isset($hrc['dom'][$key]['caption-top-html'])
+            && \is_string($hrc['dom'][$key]['caption-top-html'])
+            && ($hrc['dom'][$key]['caption-top-html'] !== '')
+        ) {
+            // Use local copies for caption rendering to prevent corrupting table width.
+            // resetHTMLLineCursor called during caption rendering would otherwise modify
+            // the table's width via the $tpw reference parameter.
+            $captpx = $tpx;
+            $captpy = $tpy;
+            $captpw = $width;
+            $out .= $this->replayHTMLTableCaption(
+                $hrc,
+                $hrc['dom'][$key]['caption-top-html'],
+                $captpx,
+                $captpy,
+                $captpw,
+            );
+            // Only update Y position to move past the caption; preserve original width.
+            $tpy = $captpy;
         }
 
         $hrc['tablestack'][] = [
@@ -10927,6 +14152,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['originx'] = $originx;
         $hrc['cellctx']['originy'] = $originy;
         $hrc['cellctx']['maxwidth'] = $maxwidth;
+        $hrc['cellctx']['lineoriginx'] = $originx;
+        $hrc['cellctx']['lineadvance'] = 0.0;
+        $hrc['cellctx']['linebottom'] = 0.0;
+        $hrc['cellctx']['lineascent'] = 0.0;
+        $hrc['cellctx']['linewordspacing'] = 0.0;
+        $hrc['cellctx']['linewrapped'] = false;
+        $hrc['cellctx']['textindentapplied'] = false;
+        $hrc['cellctx']['pendingblockmarginb'] = 0.0;
 
         $tpx = $originx;
         $tpy = $originy;
@@ -12365,6 +15598,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpw = $table['width'];
 
         $out = '';
+
+        $tableheight = \max(0.0, $tablebottom - $table['originy']);
+        $tablebstyles = [];
+        $tablekey = $key;
+        if ($tableheight > 0.0) {
+            // Use opening <table> styles for outer frame/fill.
+            // Closing nodes may inherit unrelated styles from ancestors.
+            if (
+                isset($hrc['dom'][$key]['parent'])
+                && \is_int($hrc['dom'][$key]['parent'])
+                && isset($hrc['dom'][$hrc['dom'][$key]['parent']])
+            ) {
+                $tablekey = $hrc['dom'][$key]['parent'];
+            }
+
+            $tablebstyles = $this->getHTMLTableCellBorderStyles($hrc, $tablekey);
+        }
+
         foreach ($table['rowspans'] as $cell) {
             $height = ($cell['usedheight'] > 0.0) ? $cell['usedheight'] : $cell['contenth'];
             $out .= $this->renderHTMLTableCell(
@@ -12380,37 +15631,48 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
 
-        $tableheight = \max(0.0, $tablebottom - $table['originy']);
-        if ($tableheight > 0.0) {
-            // Use opening <table> styles for outer frame/fill.
-            // Closing nodes may inherit unrelated styles from ancestors.
-            $tablekey = $key;
-            if (
-                isset($hrc['dom'][$key]['parent'])
-                && \is_int($hrc['dom'][$key]['parent'])
-                && isset($hrc['dom'][$hrc['dom'][$key]['parent']])
-            ) {
-                $tablekey = $hrc['dom'][$key]['parent'];
-            }
-
-            $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $tablekey);
-            $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $tablekey);
-            if (($bstyles !== []) || ($fillstyle !== null)) {
-                $out .= $this->renderHTMLTableCell(
-                    $table['originx'],
-                    $table['originy'],
-                    $table['width'],
-                    $tableheight,
-                    $tableheight,
-                    'top',
-                    $bstyles,
-                    $fillstyle,
-                    '',
-                );
-            }
+        if (($tableheight > 0.0) && ($tablebstyles !== [])) {
+            // Draw table frame after cell content for crisp outer edges.
+            $out .= $this->renderHTMLTableCell(
+                $table['originx'],
+                $table['originy'],
+                $table['width'],
+                $tableheight,
+                $tableheight,
+                'top',
+                $tablebstyles,
+                null,
+                '',
+            );
         }
 
-        return $out . $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
+        if (
+            isset($hrc['dom'][$tablekey]['caption-bottom-html'])
+            && \is_string($hrc['dom'][$tablekey]['caption-bottom-html'])
+            && ($hrc['dom'][$tablekey]['caption-bottom-html'] !== '')
+        ) {
+            // Use local copies for caption rendering to prevent corrupting table width.
+            // resetHTMLLineCursor called during caption rendering would otherwise modify
+            // the coordinates via reference parameters.
+            $captpx = $tpx;
+            $captpy = $tpy;
+            $captpw = $tpw;
+            $out .= $this->replayHTMLTableCaption(
+                $hrc,
+                $hrc['dom'][$tablekey]['caption-bottom-html'],
+                $captpx,
+                $captpy,
+                $captpw,
+            );
+            // Update cursor position to move past the caption.
+            $tpx = $captpx;
+            $tpy = $captpy;
+            $tpw = $captpw;
+        }
+
+        // Emit buffered table background/content first, then overlay the
+        // table frame/caption so outer borders stay visible above fills.
+        return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw) . $out;
     }
 
     /**
@@ -12515,6 +15777,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $rowheight = \max($rowheight, (float) $elm['height']);
         }
         $table = $hrc['tablestack'][$tableidx];
+        if ($this->shouldHideHTMLEmptyTableCell($table, $elm, $cellctx)) {
+            $cellctx['bstyles'] = [];
+            $cellctx['fillstyle'] = null;
+        }
         if ($cellctx['bstyles'] !== []) {
             $table['hascellborders'] = true;
         }

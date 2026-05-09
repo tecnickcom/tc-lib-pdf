@@ -1,0 +1,20 @@
+<style>
+body{font-family:helvetica;font-size:11pt;line-height:1.4;color:#1a1a1a;}
+main{max-width:520pt;}
+h1{font-size:20pt;margin:0 0 8pt 0;}
+.lead{margin:0 0 10pt 0;}
+.note{background:#f4f7fb;border-left:3pt solid #2f5a8a;padding:6pt;margin:8pt 0;}
+code{background:#efefef;padding:1pt 2pt;}
+</style>
+<main>
+  <h1>Designing Print-Friendly CSS</h1>
+  <p class="lead">This article fixture stresses heading, paragraph flow, and inline code wrapping under realistic text density.</p>
+  <p>When building print output, prefer stable box flow and avoid relying on dynamic viewport assumptions. Combine semantic markup with conservative declarations and clear section spacing.</p>
+  <p class="note">Known caveat: <code>very_very_very_very_very_very_very_long_tokens_without_breaks</code> can exceed narrow columns.</p>
+  <h2>Checklist</h2>
+  <ul>
+    <li>Use explicit font sizes for predictable line metrics.</li>
+    <li>Keep paragraph width bounded for readability.</li>
+    <li>Use simple list and heading structures.</li>
+  </ul>
+</main>

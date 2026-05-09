@@ -92,6 +92,24 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
         return $this->tidyCSS($css);
     }
 
+    public function exposeNormalizeCharset(string $css): string
+    {
+        return $this->normalizeCharset($css);
+    }
+
+    public function exposeIsMediaPrintRelevant(string $query): bool
+    {
+        return $this->isMediaPrintRelevant($query);
+    }
+
+    /**
+     * @param array<string, bool> $seen
+     */
+    public function exposeResolveImportRules(string $css, int $depth = 0, array &$seen = []): string
+    {
+        return $this->resolveImportRules($css, $depth, $seen);
+    }
+
     /** @phpstan-return array<string, string> */
     public function exposeExtractCSSproperties(string $css): array
     {

@@ -248,6 +248,18 @@ report: ensuretarget
 preflight: ensuretarget
 	bash ./resources/preflight/run_preflight_matrix.sh
 
+## Generate renderability score and trend reports for the real-page corpus
+.PHONY: renderability
+renderability: ensuretarget
+	$(PHP) resources/css/renderability_score.php \
+		--corpus=test/fixtures/html/real_pages/corpus.json \
+		--json=$(TARGETDIR)/report/renderability-score.json \
+		--markdown=$(TARGETDIR)/report/renderability-score.md
+	$(PHP) resources/css/renderability_trend.php \
+		--score=$(TARGETDIR)/report/renderability-score.json \
+		--history=$(TARGETDIR)/report/renderability-trend.json \
+		--markdown=$(TARGETDIR)/report/renderability-trend.md
+
 ## Generate PDF/UA examples and validate with veraPDF
 .PHONY: verapdf-ua
 verapdf-ua: ensuretarget

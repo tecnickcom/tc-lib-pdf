@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "failure_tags": [
+    "overflow",
+    "overlap",
+    "dropped-style",
+    "selector-miss"
+  ],
+  "severity_levels": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "pages": [
+    {
+      "id": "long_form_article",
+      "archetype": "long-form article",
+      "fixture": "long_form_article.html",
+      "failures": [
+        {
+          "tag": "overflow",
+          "severity": "low",
+          "note": "Very long inline code words can still overflow narrow columns."
+        }
+      ]
+    },
+    {
+      "id": "invoice_statement",
+      "archetype": "invoice and statement",
+      "fixture": "invoice_statement.html",
+      "failures": [
+        {
+          "tag": "dropped-style",
+          "severity": "medium",
+          "note": "Some shorthand edge cases are normalized conservatively."
+        }
+      ]
+    },
+    {
+      "id": "product_docs_page",
+      "archetype": "product/documentation page",
+      "fixture": "product_docs_page.html",
+      "failures": [
+        {
+          "tag": "selector-miss",
+          "severity": "low",
+          "note": "Complex selector combinations beyond current scope can be skipped."
+        }
+      ]
+    },
+    {
+      "id": "admin_report_dashboard",
+      "archetype": "admin/report dashboard with tables",
+      "fixture": "admin_report_dashboard.html",
+      "failures": [
+        {
+          "tag": "overlap",
+          "severity": "high",
+          "note": "Dense table blocks can crowd adjacent floated summaries."
+        }
+      ]
+    },
+    {
+      "id": "form_heavy_page",
+      "archetype": "form-heavy page",
+      "fixture": "form_heavy_page.html",
+      "failures": [
+        {
+          "tag": "dropped-style",
+          "severity": "medium",
+          "note": "Not all interactive control states map to static PDF output."
+        }
+      ]
+    }
+  ]
+}

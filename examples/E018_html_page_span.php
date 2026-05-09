@@ -172,7 +172,7 @@ $tablehtml = '<h2>Table across pages</h2>'
 $pdf->addHTMLCell(
     $tablehtml,
     20, // float $posx
-    120, // float $posy
+    220, // float $posy
     150, // float $width
 );
 
