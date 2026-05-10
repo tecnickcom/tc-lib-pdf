@@ -3563,18 +3563,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleBackgroundProperty(array &$dom, int $key, int $parentkey): void
     {
-        if ((!empty($dom[$key]['style']['background-color']))) {
+        $hasBackgroundColor = !empty($dom[$key]['style']['background-color']);
+        $hasBackground = !empty($dom[$key]['style']['background']);
+        $resolvedBg = null;
+
+        $prefBgColor = true;
+        if ($hasBackgroundColor && $hasBackground) {
+            $lastBgProp = $this->getLastHTMLStyleDeclarationProperty(
+                $dom,
+                $key,
+                ['background-color', 'background'],
+            );
+            if ($lastBgProp === 'background') {
+                $prefBgColor = false;
+            }
+        }
+
+        if ($hasBackgroundColor && (!$hasBackground || $prefBgColor)) {
             $backgroundColor = \trim((string) $dom[$key]['style']['background-color']);
             if (\strtolower($backgroundColor) === 'inherit') {
                 if (!empty($dom[$parentkey]['bgcolor']) && \is_string($dom[$parentkey]['bgcolor'])) {
-                    $dom[$key]['bgcolor'] = (string) $dom[$parentkey]['bgcolor'];
+                    $resolvedBg = (string) $dom[$parentkey]['bgcolor'];
                 } elseif (
                     !empty($dom[$parentkey]['style']['background-color'])
                     && \is_string($dom[$parentkey]['style']['background-color'])
                 ) {
                     $parentBgColor = \trim((string) $dom[$parentkey]['style']['background-color']);
                     if (\strtolower($parentBgColor) !== 'inherit') {
-                        $dom[$key]['bgcolor'] = $this->getCSSColor($parentBgColor);
+                        $resolvedBg = $this->getCSSColor($parentBgColor);
                     }
                 } elseif (
                     !empty($dom[$parentkey]['style']['background'])
@@ -3582,24 +3598,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 ) {
                     $parentBackground = \trim((string) $dom[$parentkey]['style']['background']);
                     if (\strtolower($parentBackground) !== 'inherit') {
-                        $dom[$key]['bgcolor'] = $this->getHTMLBackgroundShorthandColor($parentBackground);
+                        $resolvedBg = $this->getHTMLBackgroundShorthandColor($parentBackground);
                     }
                 }
             } else {
-                $dom[$key]['bgcolor'] = $this->getCSSColor($backgroundColor);
+                $resolvedBg = $this->getCSSColor($backgroundColor);
             }
-        } elseif (!empty($dom[$key]['style']['background'])) {
+        } elseif ($hasBackground) {
             $background = \trim((string) $dom[$key]['style']['background']);
             if (\strtolower($background) === 'inherit') {
                 if (!empty($dom[$parentkey]['bgcolor']) && \is_string($dom[$parentkey]['bgcolor'])) {
-                    $dom[$key]['bgcolor'] = (string) $dom[$parentkey]['bgcolor'];
+                    $resolvedBg = (string) $dom[$parentkey]['bgcolor'];
                 } elseif (
                     !empty($dom[$parentkey]['style']['background-color'])
                     && \is_string($dom[$parentkey]['style']['background-color'])
                 ) {
                     $parentBgColor = \trim((string) $dom[$parentkey]['style']['background-color']);
                     if (\strtolower($parentBgColor) !== 'inherit') {
-                        $dom[$key]['bgcolor'] = $this->getCSSColor($parentBgColor);
+                        $resolvedBg = $this->getCSSColor($parentBgColor);
                     }
                 } elseif (
                     !empty($dom[$parentkey]['style']['background'])
@@ -3607,13 +3623,79 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 ) {
                     $parentBackground = \trim((string) $dom[$parentkey]['style']['background']);
                     if (\strtolower($parentBackground) !== 'inherit') {
-                        $dom[$key]['bgcolor'] = $this->getHTMLBackgroundShorthandColor($parentBackground);
+                        $resolvedBg = $this->getHTMLBackgroundShorthandColor($parentBackground);
                     }
                 }
             } else {
-                $dom[$key]['bgcolor'] = $this->getHTMLBackgroundShorthandColor($background);
+                $resolvedBg = $this->getHTMLBackgroundShorthandColor($background);
             }
         }
+
+        if (\is_string($resolvedBg)) {
+            // @phpstan-ignore-next-line parameterByRef.type
+            $dom[$key]['bgcolor'] = $resolvedBg;
+        }
+    }
+
+    /**
+     * Return the last declared property from the requested list in the element inline style string.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     * @param array<int, string> $properties
+     */
+    protected function getLastHTMLStyleDeclarationProperty(array &$dom, int $key, array $properties): string
+    {
+        if (
+            empty($dom[$key]['attribute']['style'])
+            || !\is_string($dom[$key]['attribute']['style'])
+            || ($properties === [])
+        ) {
+            return '';
+        }
+
+        $quoted = [];
+        foreach ($properties as $property) {
+            $quoted[] = \preg_quote(\strtolower($property), '/');
+        }
+
+        $pattern = '/(?:^|;)\s*(' . \implode('|', $quoted) . ')\s*:/i';
+        $matches = [];
+        \preg_match_all($pattern, \strtolower($dom[$key]['attribute']['style']), $matches, PREG_OFFSET_CAPTURE);
+
+        $lastProperty = '';
+        $lastOffset = -1;
+        foreach ($matches[1] ?? [] as $entry) {
+            $prop = (string) $entry[0];
+            $offset = (int) $entry[1];
+            if ($offset >= $lastOffset) {
+                $lastOffset = $offset;
+                $lastProperty = $prop;
+            }
+        }
+
+        return $lastProperty;
+    }
+
+    /**
+     * Check whether a CSS property is the last declared one among competing properties.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     * @param array<int, string> $properties
+     */
+    protected function isLastHTMLStyleDeclarationProperty(
+        array &$dom,
+        int $key,
+        string $property,
+        array $properties,
+    ): bool {
+        $lastProperty = $this->getLastHTMLStyleDeclarationProperty($dom, $key, $properties);
+
+        // If order cannot be recovered, preserve historical behavior.
+        if ($lastProperty === '') {
+            return true;
+        }
+
+        return ($lastProperty === \strtolower($property));
     }
 
     /**
@@ -4222,6 +4304,54 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Expand CSS border quad-value syntax to explicit T/R/B/L values.
+     *
+     * @return array{T: string, R: string, B: string, L: string}|array{}
+     */
+    protected function expandHTMLBorderQuadValues(string $value): array
+    {
+        $tokens = \preg_split('/[\s]+/', \trim($value));
+        if (($tokens === false) || ($tokens === [])) {
+            return [];
+        }
+
+        $count = \count($tokens);
+        if ($count === 1) {
+            return [
+                'T' => (string) $tokens[0],
+                'R' => (string) $tokens[0],
+                'B' => (string) $tokens[0],
+                'L' => (string) $tokens[0],
+            ];
+        }
+
+        if ($count === 2) {
+            return [
+                'T' => (string) $tokens[0],
+                'R' => (string) $tokens[1],
+                'B' => (string) $tokens[0],
+                'L' => (string) $tokens[1],
+            ];
+        }
+
+        if ($count === 3) {
+            return [
+                'T' => (string) $tokens[0],
+                'R' => (string) $tokens[1],
+                'B' => (string) $tokens[2],
+                'L' => (string) $tokens[1],
+            ];
+        }
+
+        return [
+            'T' => (string) $tokens[0],
+            'R' => (string) $tokens[1],
+            'B' => (string) $tokens[2],
+            'L' => (string) $tokens[3],
+        ];
+    }
+
+    /**
      * Parse border-color style property.
      *
      * @param array<int, THTMLAttrib> $dom
@@ -4253,20 +4383,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         } else {
-            $brd_colors = \preg_split('/[\s]+/', $borderColor);
-            if ($brd_colors !== false) {
-                if (!empty($brd_colors[3])) {
-                    $brdr['L']['lineColor'] = $this->getCSSColor($brd_colors[3]);
-                }
-                if (!empty($brd_colors[1])) {
-                    $brdr['R']['lineColor'] = $this->getCSSColor($brd_colors[1]);
-                }
-                if (!empty($brd_colors[0])) {
-                    $brdr['T']['lineColor'] = $this->getCSSColor($brd_colors[0]);
-                }
-                if (!empty($brd_colors[2])) {
-                    $brdr['B']['lineColor'] = $this->getCSSColor($brd_colors[2]);
-                }
+            $colors = $this->expandHTMLBorderQuadValues($borderColor);
+            if ($colors !== []) {
+                $brdr['L']['lineColor'] = $this->getCSSColor($colors['L']);
+                $brdr['R']['lineColor'] = $this->getCSSColor($colors['R']);
+                $brdr['T']['lineColor'] = $this->getCSSColor($colors['T']);
+                $brdr['B']['lineColor'] = $this->getCSSColor($colors['B']);
             }
         }
     }
@@ -4303,20 +4425,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         } else {
-            $brd_widths = \preg_split('/[\s]+/', $borderWidth);
-            if ($brd_widths !== false) {
-                if (isset($brd_widths[3])) {
-                    $brdr['L']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[3]);
-                }
-                if (isset($brd_widths[1])) {
-                    $brdr['R']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[1]);
-                }
-                if (isset($brd_widths[0])) {
-                    $brdr['T']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[0]);
-                }
-                if (isset($brd_widths[2])) {
-                    $brdr['B']['lineWidth'] = $this->getCSSBorderWidth($brd_widths[2]);
-                }
+            $widths = $this->expandHTMLBorderQuadValues($borderWidth);
+            if ($widths !== []) {
+                $brdr['L']['lineWidth'] = $this->getCSSBorderWidth($widths['L']);
+                $brdr['R']['lineWidth'] = $this->getCSSBorderWidth($widths['R']);
+                $brdr['T']['lineWidth'] = $this->getCSSBorderWidth($widths['T']);
+                $brdr['B']['lineWidth'] = $this->getCSSBorderWidth($widths['B']);
             }
         }
     }
@@ -4359,20 +4473,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         } else {
-            $brd_styles = \preg_split('/[\s]+/', $borderStyle);
-            if ($brd_styles !== false) {
-                if (isset($brd_styles[3]) && ($brd_styles[3] != 'none')) {
-                    $brdr['L'] = $this->applyCSSBorderStyleKeyword($brdr['L'], $brd_styles[3]);
-                }
-                if (isset($brd_styles[1])) {
-                    $brdr['R'] = $this->applyCSSBorderStyleKeyword($brdr['R'], $brd_styles[1]);
-                }
-                if (isset($brd_styles[0])) {
-                    $brdr['T'] = $this->applyCSSBorderStyleKeyword($brdr['T'], $brd_styles[0]);
-                }
-                if (isset($brd_styles[2])) {
-                    $brdr['B'] = $this->applyCSSBorderStyleKeyword($brdr['B'], $brd_styles[2]);
-                }
+            $styles = $this->expandHTMLBorderQuadValues($borderStyle);
+            if ($styles !== []) {
+                $brdr['L'] = $this->applyCSSBorderStyleKeyword($brdr['L'], $styles['L']);
+                $brdr['R'] = $this->applyCSSBorderStyleKeyword($brdr['R'], $styles['R']);
+                $brdr['T'] = $this->applyCSSBorderStyleKeyword($brdr['T'], $styles['T']);
+                $brdr['B'] = $this->applyCSSBorderStyleKeyword($brdr['B'], $styles['B']);
             }
         }
     }
@@ -4403,6 +4509,45 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $ref,
     ): void {
         foreach ($cellside as $bsk => $bsv) {
+            $hasSideDecl = (
+                !empty($dom[$key]['style']['border-' . $bsv])
+                || !empty($dom[$key]['style']['border-' . $bsv . '-color'])
+                || !empty($dom[$key]['style']['border-' . $bsv . '-width'])
+                || !empty($dom[$key]['style']['border-' . $bsv . '-style'])
+            );
+
+            // Side-only overrides (e.g. border-right-color) must remain renderable
+            // when the base border shorthand supplies width/style.
+            if (
+                $hasSideDecl
+                && !empty($dom[$key]['border']['LTRB'])
+                && \is_array($dom[$key]['border']['LTRB'])
+                && isset($dom[$key]['border']['LTRB']['lineWidth'])
+                && \is_numeric($dom[$key]['border']['LTRB']['lineWidth'])
+            ) {
+                $brdr[$bsk]['lineWidth'] = (float) $dom[$key]['border']['LTRB']['lineWidth'];
+            }
+            if (
+                $hasSideDecl
+                && !empty($dom[$key]['border']['LTRB'])
+                && \is_array($dom[$key]['border']['LTRB'])
+                && isset($dom[$key]['border']['LTRB']['cssBorderStyle'])
+                && \is_string($dom[$key]['border']['LTRB']['cssBorderStyle'])
+            ) {
+                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
+                    $brdr[$bsk],
+                    $dom[$key]['border']['LTRB']['cssBorderStyle']
+                );
+            }
+            if (
+                $hasSideDecl
+                && !empty($dom[$key]['border']['LTRB'])
+                && \is_array($dom[$key]['border']['LTRB'])
+                && isset($dom[$key]['border']['LTRB']['lineColor'])
+                && \is_string($dom[$key]['border']['LTRB']['lineColor'])
+            ) {
+                $brdr[$bsk]['lineColor'] = $dom[$key]['border']['LTRB']['lineColor'];
+            }
             $this->parseHTMLStyleBorderSideShorthandProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
             $this->parseHTMLStyleBorderSideColorProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
             $this->parseHTMLStyleBorderSideWidthProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
@@ -4431,6 +4576,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsv,
     ): void {
         if (empty($dom[$key]['style']['border-' . $bsv])) {
+            return;
+        }
+
+        // If border shorthand appears after border-<side> in declaration order,
+        // the border shorthand wins and we should not apply the border-<side> override.
+        $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
+            $dom,
+            $key,
+            ['border', 'border-' . $bsv]
+        );
+        if ($lastProperty !== 'border-' . $bsv) {
             return;
         }
 
@@ -4478,6 +4634,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
+        // If border or border-<side> shorthand appears after border-<side>-color in declaration order,
+        // the shorthand wins and we should not apply the side-specific color override.
+        $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
+            $dom,
+            $key,
+            ['border', 'border-' . $bsv, 'border-' . $bsv . '-color']
+        );
+        if ($lastProperty !== 'border-' . $bsv . '-color') {
+            return;
+        }
+
         $sideColor = \trim((string) $dom[$key]['style']['border-' . $bsv . '-color']);
         if (\strtolower($sideColor) === 'inherit') {
             if (
@@ -4514,6 +4681,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
+        // If border or border-<side> shorthand appears after border-<side>-width in declaration order,
+        // the shorthand wins and we should not apply the side-specific width override.
+        $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
+            $dom,
+            $key,
+            ['border', 'border-' . $bsv, 'border-' . $bsv . '-width']
+        );
+        if ($lastProperty !== 'border-' . $bsv . '-width') {
+            return;
+        }
+
         $sideWidth = \trim((string) $dom[$key]['style']['border-' . $bsv . '-width']);
         if (\strtolower($sideWidth) === 'inherit') {
             if (
@@ -4547,6 +4725,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsv,
     ): void {
         if (empty($dom[$key]['style']['border-' . $bsv . '-style'])) {
+            return;
+        }
+
+        // If border or border-<side> shorthand appears after border-<side>-style in declaration order,
+        // the shorthand wins and we should not apply the side-specific style override.
+        $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
+            $dom,
+            $key,
+            ['border', 'border-' . $bsv, 'border-' . $bsv . '-style']
+        );
+        if ($lastProperty !== 'border-' . $bsv . '-style') {
             return;
         }
 
@@ -5545,14 +5734,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ($dom[$key]['value'] == 'th')
             || ($dom[$key]['value'] == 'td')
         ) {
-            $colspan = (isset($dom[$key]['attribute']['colspan'])
-                && \is_numeric($dom[$key]['attribute']['colspan']))
-                ? $dom[$key]['attribute']['colspan'] : '1';
-            $rowspan = (isset($dom[$key]['attribute']['rowspan'])
-                && \is_numeric($dom[$key]['attribute']['rowspan']))
-                ? $dom[$key]['attribute']['rowspan'] : '1';
-            $dom[$key]['attribute']['colspan'] = $colspan;
-            $dom[$key]['attribute']['rowspan'] = $rowspan;
+            /** @var array<string, string> $attributes */
+            $attributes = $dom[$key]['attribute'];
+            /** @var array<string, string> $styles */
+            $styles = $dom[$key]['style'];
+
+            if ($dom[$key]['value'] == 'th') {
+                // HTML default semantics for TH: centered + bold unless explicitly overridden.
+                if (
+                    empty($attributes['align'])
+                    && empty($styles['text-align'])
+                ) {
+                    $dom[$key]['align'] = 'C';
+                }
+
+                if (
+                    empty($styles['font-weight'])
+                    && empty($styles['font'])
+                    && \is_string($dom[$key]['fontstyle'])
+                    && (\strpos($dom[$key]['fontstyle'], 'B') === false)
+                ) {
+                    // @phpstan-ignore-next-line parameterByRef.type
+                    $dom[$key]['fontstyle'] .= 'B';
+                }
+            }
+
+            $colspan = (isset($attributes['colspan'])
+                && \is_numeric($attributes['colspan']))
+                ? $attributes['colspan'] : '1';
+            $rowspan = (isset($attributes['rowspan'])
+                && \is_numeric($attributes['rowspan']))
+                ? $attributes['rowspan'] : '1';
+            $attributes['colspan'] = $colspan;
+            $attributes['rowspan'] = $rowspan;
+            // @phpstan-ignore-next-line parameterByRef.type
+            $dom[$key]['attribute'] = $attributes;
             $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
             if (
                 isset($dom[($parent)]['cols'])
@@ -5565,12 +5781,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // Keep legacy HTML table behavior: table border attribute propagates
             // to cells when no explicit cell border is provided.
             if (
-                empty($dom[$key]['attribute']['border'])
-                && !isset($dom[$key]['style']['border'])
-                && !isset($dom[$key]['style']['border-top'])
-                && !isset($dom[$key]['style']['border-right'])
-                && !isset($dom[$key]['style']['border-bottom'])
-                && !isset($dom[$key]['style']['border-left'])
+                empty($attributes['border'])
+                && !isset($styles['border'])
+                && !isset($styles['border-top'])
+                && !isset($styles['border-right'])
+                && !isset($styles['border-bottom'])
+                && !isset($styles['border-left'])
             ) {
                 $tableParent = $parent;
                 while (
@@ -8963,9 +9179,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->flushHTMLFloatRow($hrc, $tpx, $tpy, $tpw);
         }
 
+        $activeFloatRowLeft = 0.0;
+        $activeFloatRowRight = 0.0;
         if (($float === 'none') && !$hasFloatAncestor && $this->hasActiveHTMLFloatRow($hrc, $tpy)) {
-            // Keep conservative flow deterministic: normal blocks start below active float rows.
-            $this->flushHTMLFloatRow($hrc, $tpx, $tpy, $tpw);
+            // Let normal-flow blocks wrap beside active floats unless clear is requested.
+            $activeFloatRowLeft = (float) $hrc['cellctx']['floatrowleftw'];
+            $activeFloatRowRight = (float) $hrc['cellctx']['floatrowrightw'];
         }
 
         if (
@@ -9009,11 +9228,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $paddingLeft = (float) $elm['padding']['L'];
         $paddingRight = (float) $elm['padding']['R'];
 
-        $baseBlockX = $hrc['cellctx']['originx'] + $marginLeft;
+        $baseBlockX = $hrc['cellctx']['originx'] + $activeFloatRowLeft + $marginLeft;
         $baseBlockWidth = $hrc['cellctx']['maxwidth'] > 0
-            ? \max(0.0, $hrc['cellctx']['maxwidth'] - $marginLeft - $marginRight)
+            ? \max(
+                0.0,
+                $hrc['cellctx']['maxwidth'] - $activeFloatRowLeft - $activeFloatRowRight - $marginLeft - $marginRight,
+            )
             : 0.0;
-        $baseInnerWidth = \max(0.0, $baseBlockWidth - $paddingLeft - $paddingRight);
+        $baseInnerWidth = \max(
+            0.0,
+            $baseBlockWidth - $paddingLeft - $paddingRight,
+        );
         $requestedInnerWidth = $this->getHTMLResolvedExplicitWidth($elm, $baseInnerWidth);
         $explicitInnerWidth = 0.0;
         if (
@@ -9100,6 +9325,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpy += (float) $elm['padding']['T'];
 
         $tpx = $hrc['cellctx']['originx']
+            + $activeFloatRowLeft
             + $marginLeft
             + $paddingLeft
             + $floatShift;
@@ -9800,22 +10026,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $border = $elm['border'];
         $styles = [];
 
-        if (!empty($border['LTRB'])) {
+        $hasSideOverrides = !empty($border['T'])
+            || !empty($border['R'])
+            || !empty($border['B'])
+            || !empty($border['L']);
+
+        if (!empty($border['LTRB']) && !$hasSideOverrides) {
             $styles['all'] = $border['LTRB'];
             return $styles;
         }
 
+        $fallback = (!empty($border['LTRB']) && \is_array($border['LTRB'])) ? $border['LTRB'] : null;
+
         if (!empty($border['T'])) {
             $styles[0] = $border['T'];
+        } elseif ($fallback !== null) {
+            $styles[0] = $fallback;
         }
         if (!empty($border['R'])) {
             $styles[1] = $border['R'];
+        } elseif ($fallback !== null) {
+            $styles[1] = $fallback;
         }
         if (!empty($border['B'])) {
             $styles[2] = $border['B'];
+        } elseif ($fallback !== null) {
+            $styles[2] = $fallback;
         }
         if (!empty($border['L'])) {
             $styles[3] = $border['L'];
+        } elseif ($fallback !== null) {
+            $styles[3] = $fallback;
         }
 
         return $styles;
@@ -15219,6 +15460,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
+        $elm = &$hrc['dom'][$key];
+
+        $hasTextAlignOverride = (
+            !empty($elm['style']['text-align'])
+            || !empty($elm['attribute']['align'])
+        );
+        if (!$hasTextAlignOverride) {
+            $elm['align'] = 'C';
+        }
+
+        $hasWeightOverride = (
+            !empty($elm['style']['font-weight'])
+            || !empty($elm['style']['font'])
+        );
+        if (!$hasWeightOverride && \is_string($elm['fontstyle']) && (\strpos($elm['fontstyle'], 'B') === false)) {
+            $elm['fontstyle'] .= 'B';
+        }
+
         /** @var THTMLRenderContext $hrc */
         // @phpstan-ignore parameterByRef.type
         return $this->parseHTMLTagOPENtd($hrc, $key, $tpx, $tpy, $tpw, $tph);

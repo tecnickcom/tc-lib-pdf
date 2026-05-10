@@ -700,6 +700,49 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThanOrEqual(6.0, $tpy);
     }
 
+    public function testOpenHTMLBlockNormalBlockCanFlowBesideActiveFloatRow(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 40.0, 30.0);
+
+        $floatOpen = $this->makeHtmlNode([
+            'opening' => true,
+            'value' => 'div',
+            'block' => true,
+            'float' => 'left',
+            'width' => 12.0,
+        ]);
+        $floatClose = $this->makeHtmlNode([
+            'opening' => false,
+            'value' => 'div',
+            'block' => true,
+            'float' => 'left',
+            'parent' => 0,
+        ]);
+        $normalOpen = $this->makeHtmlNode([
+            'opening' => true,
+            'value' => 'div',
+            'block' => true,
+            'float' => 'none',
+            'clear' => 'none',
+        ]);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 40.0;
+
+        $obj->exposeOpenHTMLBlock($floatOpen, $tpx, $tpy, $tpw);
+        $obj->exposeSetHTMLLineState(6.0, 0.0, false);
+        $tpx = 4.0;
+        $obj->exposeCloseHTMLBlock($floatClose, $tpx, $tpy, $tpw);
+
+        $obj->exposeOpenHTMLBlock($normalOpen, $tpx, $tpy, $tpw);
+        $this->assertEqualsWithDelta(0.0, $tpy, 0.001);
+        $this->assertEqualsWithDelta(12.0, $tpx, 0.001);
+        $this->assertGreaterThan(0.0, $tpw);
+    }
+
     public function testParseHTMLStyleAttributesDisplayModesAndInherit(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1005,6 +1048,14 @@ class HTMLTest extends TestUtil
                 'style' => [],
                 'fontsize' => 10.0,
             ]),
+            8 => $this->makeHtmlNode([
+                'value' => 'th',
+                'parent' => 3,
+                'attribute' => [],
+                'style' => [],
+                'fontstyle' => '',
+                'align' => '',
+            ]),
         ];
 
         $obj->parseHTMLAttributes($dom, 1, false);
@@ -1014,17 +1065,20 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLAttributes($dom, 5, false);
         $obj->parseHTMLAttributes($dom, 6, false);
         $obj->parseHTMLAttributes($dom, 7, false);
+        $obj->parseHTMLAttributes($dom, 8, false);
 
         $this->assertSame(12.0, $dom[1]['fontsize']);
         $this->assertSame(1, $dom[2]['rows']);
         $this->assertSame([3], $dom[2]['trids']);
-        $this->assertSame(2, $dom[3]['cols']);
+        $this->assertSame(3, $dom[3]['cols']);
         $this->assertSame('2', $dom[4]['attribute']['colspan']);
         $this->assertSame(14.0, $dom[5]['fontsize']);
         $this->assertStringContainsString('B', $dom[5]['fontstyle']);
         $this->assertSame('L', $dom[6]['align']);
         $this->assertGreaterThan(0.0, $dom[7]['fontsize']);
         $this->assertLessThan(10.0, $dom[7]['fontsize']);
+        $this->assertSame('C', $dom[8]['align']);
+        $this->assertStringContainsString('B', $dom[8]['fontstyle']);
     }
 
     public function testParseHTMLStyleAttributesCoversPageBreakAndInheritanceModes(): void
@@ -1351,6 +1405,70 @@ class HTMLTest extends TestUtil
         );
         // @phpstan-ignore nullCoalesce.offset
         $this->assertSame('solid', $dom[3]['border']['T']['cssBorderStyle'] ?? null);
+    }
+
+    public function testGetHTMLTableCellBorderStylesMergesSideOverridesOverLTRB(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $all = [
+            'lineWidth' => 1.0,
+            'lineCap' => 'square',
+            'lineJoin' => 'miter',
+            'miterLimit' => 10.0,
+            'dashArray' => [],
+            'dashPhase' => 0.0,
+            'lineColor' => 'rgba(119,119,119,1)',
+            'fillColor' => '',
+            'cssBorderStyle' => 'solid',
+        ];
+        $top = [
+            'lineWidth' => 2.0,
+            'lineCap' => 'square',
+            'lineJoin' => 'miter',
+            'miterLimit' => 10.0,
+            'dashArray' => [1],
+            'dashPhase' => 0.0,
+            'lineColor' => 'rgba(204,0,0,1)',
+            'fillColor' => '',
+            'cssBorderStyle' => 'dotted',
+        ];
+        $right = [
+            'lineWidth' => 1.0,
+            'lineCap' => 'square',
+            'lineJoin' => 'miter',
+            'miterLimit' => 10.0,
+            'dashArray' => [3],
+            'dashPhase' => 0.0,
+            'lineColor' => 'rgba(0,119,204,1)',
+            'fillColor' => '',
+            'cssBorderStyle' => 'dashed',
+        ];
+
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode([
+                'value' => 'div',
+                'parent' => 0,
+                'border' => [
+                    'LTRB' => $all,
+                    'T' => $top,
+                    'R' => $right,
+                ],
+            ]),
+        ];
+
+        $styles = $obj->exposeGetHTMLTableCellBorderStylesWithDom($dom, 1);
+
+        $this->assertArrayHasKey(0, $styles);
+        $this->assertArrayHasKey(1, $styles);
+        $this->assertArrayHasKey(2, $styles);
+        $this->assertArrayHasKey(3, $styles);
+
+        $this->assertSame($top, $styles[0]);
+        $this->assertSame($right, $styles[1]);
+        $this->assertSame($all, $styles[2]);
+        $this->assertSame($all, $styles[3]);
     }
 
     public function testParseHTMLStyleAttributesBorderInheritFallbacksToParentLTRB(): void

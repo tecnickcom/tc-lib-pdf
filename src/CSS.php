@@ -588,6 +588,14 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     continue;
                 }
 
+                // Keep declaration order aligned with the latest winning occurrence.
+                // This preserves shorthand/longhand cascade behavior across merged rules.
+                $orderIdx = \array_search($key, $order, true);
+                if ($orderIdx !== false) {
+                    unset($order[$orderIdx]);
+                }
+                $order[] = $key;
+
                 $decls[$key] = [
                     'name' => $name,
                     'value' => $value,
