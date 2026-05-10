@@ -2,6 +2,11 @@
 /**
  * E073_css_supported_categories.php
  *
+ * Demonstrates the major CSS feature categories supported by tc-lib-pdf,
+ * including table/float/clear interaction, CSS shorthand inherit propagation,
+ * fieldset and inline-block element styling, overflow-wrap, and complex
+ * CSS selector combinators.
+ *
  * @since       2026-05-08
  * @category    Library
  * @package     Pdf
@@ -29,6 +34,9 @@ $pdf->setSubject('tc-lib-pdf example: 073');
 $pdf->setTitle('CSS Supported Categories');
 $pdf->setKeywords('TCPDF tc-lib-pdf example CSS');
 $pdf->setPDFFilename('073_css_supported_categories.pdf');
+
+
+$pdf->font->insert($pdf->pon, 'courier', '', 11);
 
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
 $pdf->addPage();
@@ -118,6 +126,113 @@ $html = <<<HTML
 <h2>6) Paged media aliases and print media</h2>
 <div class="panel print-only">This block is inside @media print and uses page-break-before for explicit pagination.</div>
 <p>End of CSS category showcase.</p>
+
+<div class="page-break"></div>
+<h2>7) Table, Float, and Clear Interaction</h2>
+<p>Two floated KPI boxes followed by a clear:both div and a full-width table.
+The table begins below the floats at full available width.</p>
+<style>
+.kpi-box { float: left; width: 44%; margin-right: 4%; padding: 3pt;
+           border: 0.4pt solid #9db0c1; background: #f4f8fb; }
+.kpi-box h3 { margin: 0 0 2pt 0; font-size: 10pt; }
+.kpi-clear { clear: both; height: 0; line-height: 0; }
+.kpi-table { width: 100%; border-collapse: collapse; margin-top: 4pt; }
+.kpi-table th, .kpi-table td { border: 0.4pt solid #95a8ba; padding: 2pt; font-size: 9pt; }
+.kpi-table th { background: #e4edf5; }
+</style>
+<div class="kpi-box"><h3>Uptime</h3><p style="margin:0;">99.92%</p></div>
+<div class="kpi-box"><h3>Alerts</h3><p style="margin:0;">17 open, 4 critical</p></div>
+<div class="kpi-clear"></div>
+<table class="kpi-table">
+  <tr><th>Service</th><th>Latency P95</th><th>Error Rate</th><th>Status</th></tr>
+  <tr><td>Gateway</td><td>238ms</td><td>0.4%</td><td>Degraded</td></tr>
+  <tr><td>Billing</td><td>122ms</td><td>0.1%</td><td>Healthy</td></tr>
+</table>
+
+<h2>8) CSS Shorthand inherit Keyword</h2>
+<p>Shorthand properties (margin, padding, border, background, list-style)
+propagate the inherit keyword to each decomposed longhand.</p>
+<style>
+.inherit-parent { margin: 3pt; padding: 4pt; border: 0.4pt solid #336699;
+                  background: #eef3fb; color: #1a3558; }
+.inherit-child-margin { margin: inherit; background: #ddeeff; padding: 2pt; }
+.inherit-child-padding { padding: inherit; border: inherit; background: #d4f0d4; }
+.inherit-list-parent { list-style: disc inside; color: #553300; }
+.inherit-list-child { list-style: inherit; margin-left: 5mm; }
+</style>
+<div class="inherit-parent">
+  Parent: margin 3pt, padding 4pt, border blue, background #eef3fb.
+  <div class="inherit-child-margin">Child with margin:inherit — same outer spacing as parent.</div>
+  <div class="inherit-child-padding">Child with padding:inherit and border:inherit — matches parent box insets.</div>
+</div>
+<ul class="inherit-list-parent">
+  <li>Parent list (disc, inside)</li>
+  <li><ul class="inherit-list-child"><li>Child with list-style:inherit — disc inside preserved.</li></ul></li>
+</ul>
+
+<h2>9) Fieldset, Legend, and Inline-Block Styling</h2>
+<p>Structural styles on fieldset-like containers, legend labels, and inline-block spans.
+Note: interactive pseudo-states (:hover, :focus) are not applicable in static PDF output.</p>
+<style>
+.demo-fieldset { border: 0.4pt solid #9ea7b3; margin: 0 0 4pt 0; padding: 4pt; }
+.demo-legend { font-weight: bold; font-size: 9pt; }
+.demo-label { display: inline-block; width: 80pt; font-weight: bold; color: #333; }
+.demo-input { display: inline-block; border: 0.4pt solid #b9c1cb; padding: 1pt 3pt;
+              width: 160pt; background: #fafbfc; }
+.demo-help { color: #53606f; font-size: 8pt; margin-top: 2pt; }
+</style>
+<div class="demo-fieldset">
+  <span class="demo-legend">Account Details</span>
+  <div><span class="demo-label">Full name</span><span class="demo-input">Jane Example</span></div>
+  <div><span class="demo-label">Email</span><span class="demo-input">jane@example.test</span></div>
+  <p class="demo-help">Note: interactive states (:focus, :hover) are not applicable to static PDF output.</p>
+</div>
+
+<h2>10) Overflow-Wrap and Complex Selector Combinators</h2>
+<p>Long unbreakable words in narrow containers with overflow-wrap; child (&gt;), adjacent (+), and general sibling (~) combinators.</p>
+<style>
+.overflow-box { width: 70mm; border: 0.4pt solid #aaa; padding: 2pt; overflow-wrap: break-word; word-break: break-word; }
+.combo-parent > p { color: #004488; }
+.combo-parent > p + span { font-style: italic; }
+.combo-parent > p ~ span { text-decoration: underline; }
+</style>
+<div class="overflow-box">
+Shortword and <code>verylongunbreakableidentifier_thatcouldcauseoverflowInNarrowColumns</code> handled.
+</div>
+<div class="combo-parent">
+  <p>Direct child paragraph (color #004488 via &gt; combinator).</p>
+  <span>Adjacent sibling span (italic via p + span).</span>
+  <span>General sibling span (underline via p ~ span).</span>
+</div>
+
+<div class="page-break"></div>
+<h2>11) Admin Float + Table Clearance</h2>
+<p>The table top border must start below the dotted guide and below both KPI cards, without touching or overlapping card borders.</p>
+<style>
+.tracker-wrap { border: 0.4pt solid #a6b3bf; padding: 6pt; background: #fbfcfd; }
+.tracker-kpi { float: left; width: 48%; margin-right: 2%; padding: 6pt;
+               border: 0.5pt solid #9db0c1; background: #f4f8fb; }
+.tracker-kpi-last { margin-right: 0; }
+.tracker-kpi h3 { margin: 0 0 4pt 0; font-size: 11pt; }
+.tracker-clear { clear: both; height: 0; line-height: 0; }
+.tracker-guide { margin-top: 4pt; border-top: 0.6pt dotted #d66; color: #a33; font-size: 8pt; }
+.tracker-table { width: 100%; border-collapse: collapse; margin-top: 8pt; }
+.tracker-table th, .tracker-table td { border: 0.5pt solid #95a8ba; padding: 3pt; }
+.tracker-table th { background: #e4edf5; }
+</style>
+<div class="tracker-wrap">
+  <div class="tracker-kpi"><h3>Uptime</h3><p style="margin:0;">99.92% this month</p></div>
+  <div class="tracker-kpi tracker-kpi-last"><h3>Alerts</h3><p style="margin:0;">17 open, 4 critical</p></div>
+  <div class="tracker-clear"></div>
+  <div class="tracker-guide">Guide: table must begin below this line.</div>
+  <table class="tracker-table">
+    <tr><th>Service</th><th>Latency P95</th><th>Error Rate</th><th>Status</th></tr>
+    <tr><td>Gateway</td><td>238ms</td><td>0.4%</td><td>Degraded</td></tr>
+    <tr><td>Billing</td><td>122ms</td><td>0.1%</td><td>Healthy</td></tr>
+    <tr><td>Notifications</td><td>305ms</td><td>0.8%</td><td>Warning</td></tr>
+    <tr><td>Search</td><td>188ms</td><td>0.2%</td><td>Healthy</td></tr>
+  </table>
+</div>
 HTML;
 
 $pdf->addHTMLCell($html, 15, 18, 180, 0);

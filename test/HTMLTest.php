@@ -544,6 +544,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $obj->exposeInitHTMLCellContext(0.0, 0.0, 40.0, 20.0);
+        $obj->exposeSetHTMLLineState(5.0, 0.0, false);
 
         $elm = $this->makeHtmlNode([
             'opening' => true,
@@ -559,7 +560,7 @@ class HTMLTest extends TestUtil
         $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENdiv', $elm, $tpx, $tpy, $tpw, $tph);
 
         $this->assertSame(0.0, $tpx);
-        $this->assertGreaterThan(0.0, $tpy);
+        $this->assertSame(0.0, $tpy);
     }
 
     public function testOpenAndCloseHTMLBlockSiblingFloatsStayOnSameRow(): void
@@ -581,6 +582,9 @@ class HTMLTest extends TestUtil
             'block' => true,
             'float' => 'left',
             'parent' => 0,
+            'ctxoriginx' => 0.0,
+            'ctxmaxwidth' => 40.0,
+            'ctxregionoffset' => 0.0,
         ]);
 
         $rightOpen = $this->makeHtmlNode([
@@ -1441,6 +1445,7 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 4, 0);
 
         $this->assertNotSame('', $dom[1]['bgcolor']);
+        $this->assertIsString($dom[1]['bgcolor']);
         $this->assertStringContainsString('rgba(', $dom[1]['bgcolor']);
         $this->assertSame($dom[4]['bgcolor'], $dom[2]['bgcolor']);
         $this->assertSame('', $dom[3]['bgcolor']);

@@ -53,13 +53,7 @@
       "id": "admin_report_dashboard",
       "archetype": "admin/report dashboard with tables",
       "fixture": "admin_report_dashboard.html",
-      "failures": [
-        {
-          "tag": "overlap",
-          "severity": "high",
-          "note": "Dense table blocks can crowd adjacent floated summaries."
-        }
-      ]
+      "failures": []
     },
     {
       "id": "form_heavy_page",
