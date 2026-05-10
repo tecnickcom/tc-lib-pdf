@@ -1218,6 +1218,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $curfont = $this->font->getCurrentFont();
         $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
         $fontstyle = $curfont['outraw'];
+        if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && (\trim($jsp['textColor']) !== '')) {
+            $colobj = $this->color->getColorObj((string) $jsp['textColor']);
+            if ($colobj !== null) {
+                $color = $colobj->getPdfColor();
+            }
+        }
         $color = empty($color) ? $this->getPDFDefFillColor() : $color;
         $opt['da'] = $fontstyle . ' ' . $color;
         return $opt; // @phpstan-ignore return.type
@@ -1262,14 +1268,36 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt['ap'] = [];
         $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
         $tid = $this->newXObjectTemplate($width, $height);
+        $strokeColor = (
+            isset($jsp['strokeColor'])
+            && \is_string($jsp['strokeColor'])
+            && (\trim($jsp['strokeColor']) !== '')
+        )
+            ? \trim($jsp['strokeColor'])
+            : '#333333';
+        $fillColor = (isset($jsp['fillColor']) && \is_string($jsp['fillColor']) && (\trim($jsp['fillColor']) !== ''))
+            ? \trim($jsp['fillColor'])
+            : '#cccccc';
+        $lineWidth = (isset($jsp['lineWidth']) && \is_numeric($jsp['lineWidth']))
+            ? $this->toUnit(
+                (float) \max(0, (float) $jsp['lineWidth'])
+            )
+            : $this->toUnit(1);
+        $dashArray = [];
+        if (isset($jsp['borderStyle']) && \is_string($jsp['borderStyle'])) {
+            $cssBorderStyle = \strtolower(\trim($jsp['borderStyle']));
+            if ($cssBorderStyle === 'dashed') {
+                $dashArray = [3, 2];
+            }
+        }
         $defbstyle =  [
-            'lineWidth' => $this->toUnit(1),
+            'lineWidth' => $lineWidth,
             'lineCap' => 'square',
             'lineJoin' => 'miter',
-            'dashArray' => [],
+            'dashArray' => $dashArray,
             'dashPhase' => 0,
-            'lineColor' => '#333333',
-            'fillColor' => '#cccccc',
+            'lineColor' => $strokeColor,
+            'fillColor' => $fillColor,
         ];
         $bstyle = [
             'all' => $defbstyle,
@@ -1278,7 +1306,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             2 => $defbstyle, // BOTTOM
             3 => $defbstyle, // LEFT
         ];
-        $bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
+        if (!(isset($jsp['strokeColor']) && \is_string($jsp['strokeColor']) && (\trim($jsp['strokeColor']) !== ''))) {
+            $bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
+        }
         $txtbox = $this->getTextCell(
             $caption,
             0,

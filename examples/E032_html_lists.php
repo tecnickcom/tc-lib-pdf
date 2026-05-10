@@ -231,7 +231,7 @@ h2 {
   <h2>6) List text indentation (`text-indent`)</h2>
   <ol class="ol-decimal indent-first marker-guide">
     <li>First-line indent with long text to make wrapping visible in the list-item rendering path. First-line indent with long text to make wrapping visible in the list-item rendering path.</li>
-    <li>First-line indent with long text to <span>make</span> wrapping visible in the list-item rendering path. (B) First-line indent with long text to make wrapping visible in the list-item rendering path.</li>
+    <li><span>First-line</span> indent with long text to <span>make</span> wrapping visible in the list-item rendering path. (B) First-line indent with long text to make wrapping visible in the list-item rendering path.</li>
     <li>Second item with first-line indent style applied.</li>
   </ol>
 

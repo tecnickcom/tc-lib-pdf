@@ -233,6 +233,129 @@ Shortword and <code>verylongunbreakableidentifier_thatcouldcauseoverflowInNarrow
     <tr><td>Search</td><td>188ms</td><td>0.2%</td><td>Healthy</td></tr>
   </table>
 </div>
+
+<div class="page-break"></div>
+<h2>12) Font Shorthand Parsing and Inherit</h2>
+<p>This section showcases the newly added support for mapping CSS <code>font</code> shorthand
+to longhands and propagating <code>font: inherit</code> to child elements.</p>
+<style>
+.font-demo-wrap { border: 0.4pt solid #9aa6b2; padding: 6pt; background: #fbfcff; }
+.font-explicit {
+  font: italic 700 14pt/1.5 "Times New Roman", serif;
+  color: #1f3d5a;
+  margin-bottom: 5pt;
+}
+.font-explicit code {
+  font: normal 400 9pt/1.2 courier;
+  color: #5b2d00;
+}
+.font-inherit-parent {
+  font: oblique 600 12pt/1.4 helvetica;
+  background: #f0f6fb;
+  border: 0.4pt solid #9db4c9;
+  padding: 4pt;
+  margin-bottom: 5pt;
+}
+.font-inherit-child {
+  font: inherit;
+  border: 0.4pt dashed #aac0d5;
+  padding: 3pt;
+  margin-top: 3pt;
+}
+.font-shorthand-plus-longhand {
+  font: italic 700 13pt/1.4 "Times New Roman", serif;
+  font-style: normal;
+  border: 0.4pt solid #c2c2c2;
+  padding: 3pt;
+}
+</style>
+
+<div class="font-demo-wrap">
+  <div class="font-explicit">
+    Explicit shorthand: <strong>italic + bold + 14pt + line-height 1.5 + Times family</strong>.
+    <br /><code>font: italic 700 14pt/1.5 "Times New Roman", serif;</code>
+  </div>
+
+  <div class="font-inherit-parent">
+    Parent uses shorthand font definition (oblique, semi-bold, 12pt, line-height 1.4).
+    <div class="font-inherit-child">
+      Child uses <code>font: inherit</code> and should visually match the parent font settings.
+    </div>
+  </div>
+
+  <div class="font-shorthand-plus-longhand">
+    Shorthand + explicit longhand override: italic from shorthand is overridden by
+    <code>font-style: normal</code>, while weight/size/family from shorthand remain.
+  </div>
+</div>
+
+<div class="page-break"></div>
+<h2>13) Form Control CSS to Widget Mapping</h2>
+<p>This section demonstrates static style mapping from CSS to AcroForm widgets:
+background color, border color/width/style, and text alignment.</p>
+<style>
+.form-grid { border: 0.4pt solid #b0bac6; background: #f8fafc; padding: 6pt; }
+.form-row { margin-bottom: 5pt; }
+.form-label { display: inline-block; width: 95pt; font-weight: bold; color: #34495e; }
+.ctl-text {
+  width: 180pt;
+  border: 0.8pt dashed #3a6ea5;
+  background: #eaf3ff;
+  color: #123d66;
+  text-align: center;
+}
+.ctl-number {
+  width: 120pt;
+  border: 0.8pt solid #6a8f44;
+  background: #f2faea;
+  color: #2e4f1d;
+}
+.ctl-select {
+  width: 180pt;
+  border: 0.8pt solid #8e44ad;
+  background: #f6ebfb;
+  color: #4c1f61;
+}
+.ctl-textarea {
+  width: 180pt;
+  border: 0.8pt solid #c57b1d;
+  background: #fff7e8;
+  color: #6f3d00;
+}
+.ctl-button {
+  width: 95pt;
+  border: 0.8pt solid #7f8c8d;
+  background: #eef1f2;
+  color: #2f3a3b;
+}
+</style>
+
+<div class="form-grid">
+  <div class="form-row">
+    <span class="form-label">Styled text input</span>
+    <input class="ctl-text" type="text" name="demo_text" value="Centered text" />
+  </div>
+  <div class="form-row">
+    <span class="form-label">Styled number input</span>
+    <input class="ctl-number" type="number" name="demo_num" value="12345" />
+  </div>
+  <div class="form-row">
+    <span class="form-label">Styled select</span>
+    <select class="ctl-select" name="demo_plan">
+      <option value="starter">Starter</option>
+      <option value="pro" selected="selected">Professional</option>
+      <option value="ent">Enterprise</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <span class="form-label">Styled textarea</span>
+    <textarea class="ctl-textarea" name="demo_notes" rows="3" cols="26">Multiline notes example</textarea>
+  </div>
+  <div class="form-row">
+    <span class="form-label">Styled button</span>
+    <input class="ctl-button" type="button" name="demo_btn" value="Action" />
+  </div>
+</div>
 HTML;
 
 $pdf->addHTMLCell($html, 15, 18, 180, 0);

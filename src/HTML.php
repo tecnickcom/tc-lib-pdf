@@ -2427,6 +2427,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->parseHTMLStyleFloatProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleClearProperty($dom, $key, $parentkey);
         $this->parseHTMLStylePositionProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontShorthandProperty($dom, $key);
         $this->parseHTMLStyleFontFamilyProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleListStyleShorthandProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleListStyleTypeProperty($dom, $key, $parentkey);
@@ -2763,6 +2764,126 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return 0.0;
+    }
+
+    /**
+     * Parse the CSS font shorthand and map supported tokens to longhands.
+     *
+     * Conservative policy: only fill missing longhands so explicit longhand
+     * declarations remain authoritative.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontShorthandProperty(array &$dom, int $key): void
+    {
+        if (empty($dom[$key]['style']['font']) || !\is_string($dom[$key]['style']['font'])) {
+            return;
+        }
+
+        $font = \trim((string) $dom[$key]['style']['font']);
+        if ($font === '') {
+            return;
+        }
+
+        $fontLower = \strtolower($font);
+        if ($fontLower === 'inherit') {
+            foreach (
+                [
+                    'font-family',
+                    'font-size',
+                    'font-style',
+                    'font-weight',
+                    'line-height',
+                    'font-stretch',
+                ] as $prop
+            ) {
+                if (empty($dom[$key]['style'][$prop])) {
+                    $dom[$key]['style'][$prop] = 'inherit';
+                }
+            }
+
+            return;
+        }
+
+        if (\in_array($fontLower, ['caption', 'icon', 'menu', 'message-box', 'small-caption', 'status-bar'], true)) {
+            return;
+        }
+
+        $matches = [];
+        $pattern = '/^(.+?\s)?'
+            . '(xx-small|x-small|small|medium|large|x-large|xx-large|smaller|larger|'
+            . '[0-9]*\.?[0-9]+(?:px|pt|pc|mm|cm|in|em|rem|ex|%))'
+            . '(?:\s*\/\s*([^\s]+))?\s+(.+)$/i';
+        if (\preg_match($pattern, $font, $matches) !== 1) {
+            return;
+        }
+
+        $prefix = \trim((string) $matches[1]);
+        $size = \trim((string) $matches[2]);
+        $lineHeight = \trim((string) $matches[3]);
+        $family = \trim((string) $matches[4]);
+
+        if ($size !== '' && empty($dom[$key]['style']['font-size'])) {
+            $dom[$key]['style']['font-size'] = $size;
+        }
+        if ($lineHeight !== '' && empty($dom[$key]['style']['line-height'])) {
+            $dom[$key]['style']['line-height'] = $lineHeight;
+        }
+        if ($family !== '' && empty($dom[$key]['style']['font-family'])) {
+            $dom[$key]['style']['font-family'] = $family;
+        }
+
+        if ($prefix === '') {
+            return;
+        }
+
+        $prefixTokens = \preg_split('/\s+/', \strtolower($prefix));
+        if ($prefixTokens === false) {
+            return;
+        }
+
+        foreach ($prefixTokens as $token) {
+            if ($token === '') {
+                continue;
+            }
+
+            if (
+                empty($dom[$key]['style']['font-style'])
+                && \in_array($token, ['italic', 'oblique'], true)
+            ) {
+                $dom[$key]['style']['font-style'] = $token;
+                continue;
+            }
+
+            if (
+                empty($dom[$key]['style']['font-weight'])
+                && (\in_array($token, ['bold', 'bolder', 'lighter'], true)
+                || (\preg_match('/^[1-9]00$/', $token) === 1))
+            ) {
+                $dom[$key]['style']['font-weight'] = $token;
+                continue;
+            }
+
+            if (
+                empty($dom[$key]['style']['font-stretch'])
+                && \in_array(
+                    $token,
+                    [
+                        'ultra-condensed',
+                        'extra-condensed',
+                        'condensed',
+                        'semi-condensed',
+                        'semi-expanded',
+                        'expanded',
+                        'extra-expanded',
+                        'ultra-expanded',
+                    ],
+                    true,
+                )
+            ) {
+                $dom[$key]['style']['font-stretch'] = $token;
+            }
+        }
     }
 
     /**
@@ -8509,6 +8630,61 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $node = $dom[$key];
 
             if (!empty($node['tag'])) {
+                if (
+                    !empty($node['opening'])
+                    && \in_array((string) $node['value'], ['input', 'select', 'textarea'], true)
+                ) {
+                    $lineheight = $this->getHTMLLineAdvance($hrc, $key);
+                    $ctlheight = $lineheight;
+                    $attr = $node['attribute'] ?? [];
+                    if (!\is_array($attr)) {
+                        $attr = [];
+                    }
+
+                    if ($node['value'] === 'textarea') {
+                        $rows = (isset($attr['rows']) && \is_numeric($attr['rows']))
+                            ? \max(1, (int) $attr['rows'])
+                            : 3;
+                        $ctlheight = $lineheight * (float) $rows;
+                    } elseif ($node['value'] === 'select') {
+                        $size = (isset($attr['size']) && \is_numeric($attr['size'])) ? (int) $attr['size'] : 0;
+                        $hasMultiple = isset($attr['multiple'])
+                            && ((string) $attr['multiple'] !== '0')
+                            && ((string) $attr['multiple'] !== 'false');
+                        if ($hasMultiple || ($size > 1)) {
+                            $ctlheight = $lineheight * (float) \max(1, $size);
+                        }
+                    }
+
+                    if ($ctlheight <= 0.0) {
+                        continue;
+                    }
+
+                    $valign = (isset($attr['align']) && \is_string($attr['align']))
+                        ? \strtolower(\trim($attr['align']))
+                        : 'bottom';
+
+                    $font = $this->getHTMLFontMetric($hrc, $key);
+                    $curAscent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+                        ? $this->toUnit((float) $font['ascent'])
+                        : 0.0;
+                    $curHeight = (isset($font['height']) && \is_numeric($font['height']))
+                        ? $this->toUnit((float) $font['height'])
+                        : $curAscent;
+                    $descent = \max(0.0, $curHeight - $curAscent);
+
+                    $ascent = match ($valign) {
+                        'top' => 0.0,
+                        'middle' => $ctlheight / 2.0,
+                        default => \max(0.0, $ctlheight - $descent),
+                    };
+                    if ($ascent > $maxascent) {
+                        $maxascent = $ascent;
+                    }
+
+                    continue;
+                }
+
                 if (($node['value'] === 'img') && !empty($node['opening'])) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
                     $imgheight = (!empty($node['height']) && \is_numeric($node['height']))
@@ -9102,8 +9278,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             : 'none';
         // When a block closes on the same line where inline text was rendered,
         // advance by one line height before applying bottom spacing.
-        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
-        $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
+        $lineadvancectx = (isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance']))
+            ? (float) $hrc['cellctx']['lineadvance']
+            : 0.0;
+        $linebottomctx = (isset($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
+            ? (float) $hrc['cellctx']['linebottom']
+            : 0.0;
+        $hasinlinecontent =
+            ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
+            || ($lineadvancectx > self::WIDTH_TOLERANCE)
+            || ($linebottomctx > ($tpy + self::WIDTH_TOLERANCE));
+        $lineadvance = $hasinlinecontent
+            ? \max(
+                $this->getCurrentHTMLLineAdvance($hrc, $key),
+                \max(0.0, $linebottomctx - $tpy),
+            )
+            : 0.0;
 
         $out = '';
         $restoreOriginX = (float) ($hrc['cellctx']['originx'] ?? 0.0);
@@ -10024,11 +10214,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Convert HTML form attributes to JavaScript annotation properties.
      *
-        * @param array<string, mixed> $attr
+         * @param array<string, mixed> $attr
+         * @param array<string, mixed> $elm
      *
      * @return array<string, mixed>
      */
-    protected function getHTMLFormFieldJSProperties(array $attr, string $fieldkind): array
+    protected function getHTMLFormFieldJSProperties(array $attr, string $fieldkind, array $elm = []): array
     {
         $jsp = [];
 
@@ -10069,7 +10260,83 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $jsp['alignment'] = 'right';
         }
 
+        $this->applyHTMLFormFieldStyleJSProperties($jsp, $elm);
+
         return $jsp;
+    }
+
+    /**
+     * Map parsed CSS style information to AcroForm widget JS properties.
+     *
+     * @param array<string, mixed> $jsp
+     * @param array<string, mixed> $elm
+     */
+    protected function applyHTMLFormFieldStyleJSProperties(array &$jsp, array $elm): void
+    {
+        if (!empty($elm['fgcolor']) && \is_string($elm['fgcolor'])) {
+            $jsp['textColor'] = (string) $elm['fgcolor'];
+        }
+
+        if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor'])) {
+            $jsp['fillColor'] = (string) $elm['bgcolor'];
+        }
+
+        $lineColor = '';
+        $lineWidth = null;
+        $borderStyle = '';
+        if (!empty($elm['border']) && \is_array($elm['border'])) {
+            $border = $elm['border'];
+            $candidate = [];
+
+            if (!empty($border['LTRB']) && \is_array($border['LTRB'])) {
+                $candidate = $border['LTRB'];
+            } else {
+                foreach (['L', 'R', 'T', 'B'] as $side) {
+                    if (!empty($border[$side]) && \is_array($border[$side])) {
+                        $candidate = $border[$side];
+                        break;
+                    }
+                }
+            }
+
+            if (!empty($candidate['lineColor']) && \is_string($candidate['lineColor'])) {
+                $lineColor = (string) $candidate['lineColor'];
+            }
+            if (isset($candidate['lineWidth']) && \is_numeric($candidate['lineWidth'])) {
+                $points = $this->toPoints((float) $candidate['lineWidth']);
+                $lineWidth = (int) \max(1, \round($points));
+            }
+            if (!empty($candidate['cssBorderStyle']) && \is_string($candidate['cssBorderStyle'])) {
+                $cssStyle = \strtolower(\trim((string) $candidate['cssBorderStyle']));
+                $borderStyle = match ($cssStyle) {
+                    'dashed', 'dotted' => 'dashed',
+                    'none', 'hidden' => 'solid',
+                    default => 'solid',
+                };
+                if (($cssStyle === 'none') || ($cssStyle === 'hidden')) {
+                    $lineWidth = 0;
+                }
+            }
+        }
+
+        if ($lineColor !== '') {
+            $jsp['strokeColor'] = $lineColor;
+        }
+        if ($lineWidth !== null) {
+            $jsp['lineWidth'] = $lineWidth;
+        }
+        if ($borderStyle !== '') {
+            $jsp['borderStyle'] = $borderStyle;
+        }
+
+        if (empty($jsp['alignment']) && !empty($elm['align']) && \is_string($elm['align'])) {
+            $align = \strtoupper(\trim((string) $elm['align']));
+            $jsp['alignment'] = match ($align) {
+                'R' => 'right',
+                'C' => 'center',
+                default => 'left',
+            };
+        }
     }
 
     /**
@@ -11761,8 +12028,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? \max(0.0, $tpw)
             : (($tpw > 0) ? $tpw : $availableWidth);
 
-        // Apply CSS text-indent once per block on the first visual text line.
+        if (
+            empty($elm['tag'])
+            && \is_int($elm['parent'])
+            && isset($hrc['dom'][$elm['parent']])
+        ) {
+            $parentElm = $hrc['dom'][$elm['parent']];
+            $parentDisplay = \strtolower(\trim((string) $parentElm['display']));
+            if (
+                ($parentDisplay === 'inline-block')
+                && ((float) $parentElm['width'] > 0.0)
+            ) {
+                $inlineOriginX = (float) $parentElm['x'];
+                $inlineWidth = (float) $parentElm['width'];
+                $localOffset = \max(0.0, $tpx - $inlineOriginX);
+
+                $lineOriginX = $inlineOriginX;
+                $hrc['cellctx']['lineoriginx'] = $lineOriginX;
+                $lineOffset = $localOffset;
+                $availableWidth = \min($availableWidth, $inlineWidth);
+                $remainingWidth = \max(0.0, $availableWidth - $lineOffset);
+            }
+        }
+
+        // Extract CSS text-indent for first-line offset (will be passed to getTextCell).
         // Positive values create a first-line indent; negative values create a hanging indent.
+        // The text-indent is applied only to the first line by splitLines when used as offset parameter.
+        $textIndentOffset = 0.0;
         if (
             ($lineOffset <= self::WIDTH_TOLERANCE)
             && !empty($elm['text-indent'])
@@ -11770,19 +12062,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && empty($hrc['cellctx']['textindentapplied'])
             && ($availableWidth > 0.0)
         ) {
-            $indent = (float) $elm['text-indent'];
+            $textIndentOffset = (float) $elm['text-indent'];
             if ($forcedir === 'R') {
-                $indent *= -1;
+                $textIndentOffset *= -1;
             }
 
-            $rightBoundary = $hrc['cellctx']['originx'] + $availableWidth;
-            $lineOriginX += $indent;
-            $availableWidth = \max(0.0, $rightBoundary - $lineOriginX);
-            $tpx = $lineOriginX;
-            $tpw = $availableWidth;
-            $lineOffset = 0.0;
-            $remainingWidth = $availableWidth;
-            $hrc['cellctx']['lineoriginx'] = $lineOriginX;
             $hrc['cellctx']['textindentapplied'] = true;
         }
 
@@ -12184,7 +12468,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $renderPosX = $lineOriginX;
         $renderWidth = $availableWidth;
-        $renderOffset = $lineOffset;
+        $renderOffset = $lineOffset + $textIndentOffset;
         $renderAlign = $halign;
         if ($customJustify) {
             $renderAlign = 'L';
@@ -13456,7 +13740,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? (float) $elm['width']
             : $lineheight * 5;
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
-        $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, $type);
+        $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, $type, $elm);
 
         switch ($type) {
             case 'checkbox':
@@ -13980,7 +14264,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? (float) $elm['width']
             : $lineheight * 5;
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
-        $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, 'select');
+        $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, 'select', $elm);
 
         // Parse packed option string into [value, label] pairs and selected entries.
         $values = [];
@@ -14145,8 +14429,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
-        unset($tpx, $tpy, $tpw, $tph);
+        unset($tpw, $tph);
         $elm = &$hrc['dom'][$key];
+
+        $display = \strtolower(\trim((string) ($elm['display'] ?? '')));
+        if ($display === 'inline-block') {
+            // Store inline-block content origin for child text local wrapping.
+            $elm['x'] = $tpx;
+            $elm['y'] = $tpy;
+        }
 
         if (!empty($elm['attribute']['color']) && \is_string($elm['attribute']['color'])) {
             $fgcolor = $this->getCSSColor($elm['attribute']['color']);
@@ -14838,7 +15129,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? $attr['name'] : ('textarea_' . \count($this->tagvspaces));
         $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
-        $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, 'textarea');
+        $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, 'textarea', $elm);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
         $rows = (isset($attr['rows']) && \is_numeric($attr['rows'])) ? \max(1, (int) $attr['rows']) : 3;
         $maxwidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
@@ -14857,6 +15148,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $fieldheight = $lineheight * $rows;
 
+        $fieldy = $tpy;
+        if ($fieldheight > ($lineheight + self::WIDTH_TOLERANCE)) {
+            $font = $this->getHTMLFontMetric($hrc, $key);
+            $curAscent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+                ? $this->toUnit((float) $font['ascent'])
+                : 0.0;
+            if (empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
+                $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $key);
+                if ($lineascent <= 0.0) {
+                    $lineascent = $curAscent;
+                }
+
+                $hrc['cellctx']['lineascent'] = $lineascent;
+            }
+
+            $lineascent = (float) $hrc['cellctx']['lineascent'];
+            if ($lineascent < $curAscent) {
+                $lineascent = $curAscent;
+                $hrc['cellctx']['lineascent'] = $lineascent;
+            }
+
+            // Inline textarea baseline sits on the control's bottom edge in browsers.
+            // Clamp to line top to avoid upward overlap in conservative PDF flow.
+            $targetY = ($tpy + $lineascent) - $fieldheight;
+            $fieldy = \max($tpy, $targetY);
+        }
+
         $opt = ['v' => $value];
         if ($fieldlabel !== '') {
             $opt['tu'] = $fieldlabel;
@@ -14865,7 +15183,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $objid = $this->addFFText(
             $name,
             $tpx,
-            $tpy,
+            $fieldy,
             $fieldwidth,
             $fieldheight,
             $opt,

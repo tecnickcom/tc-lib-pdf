@@ -636,4 +636,15 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     {
         $this->parseHTMLStyleAttributes($dom, $key, $parentkey);
     }
+
+    /**
+     * @param array<string, mixed> $attr
+     * @param array<string, mixed> $elm
+     *
+     * @return array<string, mixed>
+     */
+    public function exposeGetHTMLFormFieldJSProperties(array $attr, string $fieldkind, array $elm = []): array
+    {
+        return $this->getHTMLFormFieldJSProperties($attr, $fieldkind, $elm);
+    }
 }
