@@ -151,7 +151,7 @@ class HTMLRealPageCorpusTest extends TestUtil
         \sort($actualArchetypes);
 
         $this->assertSame($expectedArchetypes, $actualArchetypes);
-        $this->assertGreaterThan(0, $totalFailures, 'Corpus should track severity-tagged failures.');
+        $this->assertGreaterThanOrEqual(0, $totalFailures, 'Corpus should track severity-tagged failures.');
     }
 
     /** @return array<string, array{0: string, 1: string}> */

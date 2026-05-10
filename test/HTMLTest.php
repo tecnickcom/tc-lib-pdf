@@ -10673,6 +10673,35 @@ class HTMLTest extends TestUtil
                 'tag' => true,
                 'opening' => true,
             ]),
+            7 => $this->makeHtmlNode([
+                'value' => 'input',
+                'parent' => 6,
+                'tag' => true,
+                'opening' => true,
+                'attribute' => [
+                    'type' => 'checkbox',
+                    'checked' => 'checked',
+                ],
+            ]),
+            8 => $this->makeHtmlNode([
+                'value' => 'input',
+                'parent' => 6,
+                'tag' => true,
+                'opening' => true,
+                'attribute' => [
+                    'type' => 'text',
+                    'disabled' => 'disabled',
+                ],
+            ]),
+            9 => $this->makeHtmlNode([
+                'value' => 'option',
+                'parent' => 6,
+                'tag' => true,
+                'opening' => true,
+                'attribute' => [
+                    'selected' => 'selected',
+                ],
+            ]),
         ];
 
         $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 1, ' div:first-child'));
@@ -10706,6 +10735,15 @@ class HTMLTest extends TestUtil
         $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 4, ' span:lang(fr)'));
         $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div:hover'));
         $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div:focus'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 7, ' input:hover'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 7, ' input:focus'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 7, ' input:active'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 7, ' input:checked'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 7, ' input:enabled'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 8, ' input:disabled'));
+        $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 8, ' input:enabled'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 9, ' option:checked'));
+        $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 2, ' a:visited'));
         $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div::before'));
         $this->assertFalse($obj->isValidCSSSelectorForTag($dom, 1, ' div::after'));
     }

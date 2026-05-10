@@ -770,6 +770,41 @@ class JavaScriptTest extends TestUtil
 
         $fillColorFallback = $this->getInternalTestObject();
         $this->assertMatchesRegularExpression('/(rg\\n|^$)/', $fillColorFallback->exposeGetPDFDefFillColor());
+
+        $this->initFontAndPage($fillColorFallback);
+        $merged = $fillColorFallback->exposeMergeAnnotOptions(['subtype' => 'text'], []);
+        $this->assertArrayHasKey('da', $merged);
+        $this->assertIsString($merged['da']);
+        $this->assertStringContainsString('0.000000 0.000000 0.000000 rg', $merged['da']);
+
+        $fillColorFallback->addFFText(
+            'disabled_preview',
+            15,
+            18,
+            80,
+            8,
+            ['subtype' => 'text', 'v' => 'input:disabled rule'],
+            [
+                'readonly' => 'true',
+                'fillColor' => 'rgba(93%,93%,93%,1)',
+                'textColor' => 'rgba(55%,55%,55%,1)',
+            ],
+        );
+        /** @var array<int, array<string, mixed>> $ann */
+        $ann = $this->getObjectProperty($fillColorFallback, 'annotation');
+        $last = reset($ann);
+        if (!\is_array($last)) {
+            $this->fail('Expected at least one annotation entry.');
+        }
+        $apn = '';
+        if (isset($last['opt']) && \is_array($last['opt'])) {
+            $opt = $last['opt'];
+            if (isset($opt['ap']) && \is_array($opt['ap']) && isset($opt['ap']['n']) && \is_string($opt['ap']['n'])) {
+                $apn = $opt['ap']['n'];
+            }
+        }
+        $this->assertStringContainsString('(input:disabled rule) Tj', $apn);
+        $this->assertDoesNotMatchRegularExpression('/\s-\d+\.\d+\s+Td\s+\(input:disabled rule\)\s+Tj/', $apn);
     }
 
     public function testXObjectTemplateAppliesDeferredAnnotationTransform(): void

@@ -1224,7 +1224,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 $color = $colobj->getPdfColor();
             }
         }
-        $color = empty($color) ? $this->getPDFDefFillColor() : $color;
+        if (empty($color)) {
+            $black = $this->color->getColorObj('black');
+            $color = ($black !== null) ? $black->getPdfColor() : '';
+        }
         $opt['da'] = $fontstyle . ' ' . $color;
         return $opt; // @phpstan-ignore return.type
     }
@@ -1516,8 +1519,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $tid = $this->newXObjectTemplate($width, $height);
         $txtbox = $this->getTextCell(
             $text,
-            $posx,
-            $posy,
+            0,
+            0,
             $width,
             $height,
             0,
@@ -1753,6 +1756,19 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt['ap'] = [];
         $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
         $text = (!empty($opt['v']) && \is_string($opt['v'])) ? $opt['v'] : '';
+        $txtColor = '';
+        if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && (\trim($jsp['textColor']) !== '')) {
+            $colobj = $this->color->getColorObj((string) $jsp['textColor']);
+            if ($colobj !== null) {
+                $txtColor = $colobj->getPdfColor();
+            }
+        }
+        if ($txtColor === '') {
+            $black = $this->color->getColorObj('black');
+            if ($black !== null) {
+                $txtColor = $black->getPdfColor();
+            }
+        }
         $halign = '';
         if (isset($opt['q'])) {
             $halign = match ($opt['q']) {
@@ -1763,18 +1779,21 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             };
         }
         $tid = $this->newXObjectTemplate($width, $height);
+        /** @var array{margin: array{T: float, R: float, B: float, L: float}, padding: array{T: float, R: float, B: float, L: float}, borderpos: float} $zerocell */
+        $zerocell = $this::ZEROCELL;
         $txtbox = $this->getTextCell(
             $text,
-            $posx,
-            $posy,
+            0,
+            0,
             $width,
             $height,
             0,
             0,
             'T',
             $halign,
+            $zerocell,
         );
-        $this->addXObjectContent($tid, $txtbox);
+        $this->addXObjectContent($tid, $txtColor . $txtbox);
         $this->exitXObjectTemplate();
         $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
         $opt['ap']['n'] .= 'Q EMC';

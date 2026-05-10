@@ -406,6 +406,7 @@ that all shorthand normalization edge cases render correctly.</p>
 <style>
 .inv-header { border-bottom: 1pt solid #444; margin-bottom: 8pt; padding-bottom: 4pt; }
 .inv-meta { float: right; text-align: right; }
+.inv-clear { clear: both; height: 0; line-height: 0; }
 .inv-table { width: 100%; border-collapse: collapse; }
 .inv-table th, .inv-table td { border: 0.5pt solid #999; padding: 4pt; }
 .inv-total { font-weight: bold; background: #f0f0f0; }
@@ -417,6 +418,8 @@ that all shorthand normalization edge cases render correctly.</p>
   <p style="margin: 2pt 0 0 0;">Monthly service statement</p>
 </div>
 
+<div class="inv-clear"></div>
+
 <table class="inv-table">
   <tr><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>
   <tr><td>Monitoring subscription</td><td>1</td><td>49.00</td><td>49.00</td></tr>
@@ -425,8 +428,8 @@ that all shorthand normalization edge cases render correctly.</p>
 </table>
 
 <p style="margin-top: 4pt; font-size: 9pt; color: #666;">
-  Edge cases tested: border-bottom shorthand, margin-bottom, padding-bottom,
-  border shorthand on table cells, background shorthand on row, and margin values in inline styles.
+  Visual targets: header separator, float-right metadata, clear-both handoff before table,
+  collapsed table borders, total-row shorthand background, plus margin/padding shorthand values.
 </p>
 
 <div class="page-break"></div>
@@ -633,6 +636,401 @@ in different declaration orders. Later declarations should win.</p>
     All sides should be gray (right red override should be overwritten).
   </div>
 </div>
+
+<div class="page-break"></div>
+<h2>19) Form Controls - Interactive State Approximations</h2>
+<p>This section demonstrates static PDF approximations of form control interactive states.
+Since PDF is a static format, we approximate :hover, :focus, :active using inline styling conventions
+(border widening, background shifts, etc.).</p>
+<style>
+.form-demo { border: 0.4pt solid #bbb; padding: 6pt; background: #fafafa; margin: 4pt 0; }
+.form-demo input,
+.form-demo textarea,
+.form-demo select,
+.form-demo button {
+  font-family: helvetica;
+  font-size: 9pt;
+  border: 0.3pt solid #999;
+  padding: 2pt 3pt;
+  margin: 2pt 0;
+  background: white;
+}
+
+.form-demo button {
+  background: #e8e8e8;
+  border: 0.3pt solid #666;
+  font-weight: bold;
+}
+
+/* Unfocused state (default) */
+.form-unfocused {
+  border: 0.3pt solid #ccc;
+  background: white;
+}
+
+/* Focused state (approximated with darker border + subtle background shift) */
+.form-focused {
+  border: 0.4pt solid #0066cc;
+  background: #f0f5ff;
+}
+
+/* Hover state (for buttons: lighter background, no change to border) */
+.form-hover {
+  background: #d9d9d9;
+  border: 0.3pt solid #666;
+}
+
+/* Active/pressed state (for buttons: darker background, slightly thicker border) */
+.form-active {
+  background: #c0c0c0;
+  border: 0.4pt solid #333;
+}
+
+/* Disabled state */
+.form-disabled {
+  background: #efefef;
+  color: #999;
+  border: 0.3pt solid #ddd;
+}
+</style>
+
+<div class="form-demo">
+  <strong>Text Input States</strong>
+  <div>
+    <p><strong>Unfocused:</strong> <input type="text" class="form-unfocused" value="unfocused input" /></p>
+    <p><strong>Focused (approximated):</strong> <input type="text" class="form-focused" value="focused input" /></p>
+  </div>
+</div>
+
+<div class="form-demo">
+  <strong>Textarea States</strong>
+  <div>
+    <p><strong>Unfocused:</strong><br /><textarea class="form-unfocused">unfocused textarea with default border</textarea></p>
+    <p><strong>Focused (approximated):</strong><br /><textarea class="form-focused">focused textarea with blue border and light blue background</textarea></p>
+  </div>
+</div>
+
+<div class="form-demo">
+  <strong>Button States</strong>
+  <div>
+    <p>
+      <button class="form-unfocused">Default Button</button>
+      <button class="form-hover">Hover Button</button>
+      <button class="form-active">Active Button</button>
+      <button class="form-disabled">Disabled Button</button>
+    </p>
+  </div>
+</div>
+
+<div class="form-demo">
+  <strong>Select States</strong>
+  <div>
+    <p><strong>Unfocused:</strong> <select class="form-unfocused"><option>Option 1</option><option>Option 2</option></select></p>
+    <p><strong>Focused (approximated):</strong> <select class="form-focused"><option>Option 1</option><option>Option 2</option></select></p>
+  </div>
+</div>
+
+<p style="font-size: 8pt; color: #666; margin-top: 4pt;">
+<em>Note:</em> PDF is a static format and cannot render true interactive states (:hover, :focus, :active).
+This section demonstrates recommended visual conventions for approximating these states in static output.
+Color shifts (blue border for focus, darker gray for hover/active) provide visual cues to users
+that static widget styling is supported, while full interactivity remains a PDF viewer responsibility.
+</p>
+
+<div class="page-break"></div>
+<h2>20) Pseudo-Class Selector Mapping (Engine Validation)</h2>
+<p>This section validates selector-based mapping for interactive/state pseudo-classes in static output.
+Expected: the following pseudo selectors are matched by the engine for supported targets:
+<code>:hover</code>, <code>:focus</code>, <code>:active</code>, <code>:visited</code>,
+<code>:enabled</code>, <code>:disabled</code>, <code>:checked</code>.</p>
+
+<style>
+.state-map {
+  border: 0.4pt solid #aeb7c2;
+  background: #f9fbfd;
+  padding: 6pt;
+  margin: 4pt 0;
+}
+.state-map .row {
+  margin-bottom: 3pt;
+}
+.state-map .lbl {
+  display: inline-block;
+  width: 120pt;
+  font-weight: bold;
+}
+.state-map input,
+.state-map button,
+.state-map select,
+.state-map a {
+  font-family: helvetica;
+  font-size: 9pt;
+}
+
+/* Validate interactive pseudo-class selectors on controls/links */
+.state-map input.v-hover:hover { border: 0.4pt solid #b25a00; background: #fff0df; }
+.state-map input.v-focus:focus { border: 0.4pt solid #005ec4; background: #eaf2ff; }
+.state-map button.v-active:active { border: 0.5pt solid #444; background: #cfcfcf; }
+.state-map a.v-visited:visited { color: #663399; text-decoration: underline; }
+
+/* Validate state pseudo-class selectors */
+.state-map input:enabled { border: 0.35pt solid #2f7d32; background: #edf9ed; }
+.state-map input:disabled { border: 0.35pt solid #9b9b9b; background: #eeeeee; color: #8c8c8c; }
+.state-map input:checked { outline: 0.45pt solid #0f5fb6; }
+</style>
+
+<div class="state-map">
+  <div class="row">
+    <span class="lbl">:hover selector</span>
+    <input type="text" class="v-hover" value="input.v-hover:hover rule" />
+  </div>
+  <div class="row">
+    <span class="lbl">:focus selector</span>
+    <input type="text" class="v-focus" value="input.v-focus:focus rule" />
+  </div>
+  <div class="row">
+    <span class="lbl">:active selector</span>
+    <button class="v-active" type="button" value="button.v-active:active rule">button.v-active:active rule</button>
+  </div>
+  <div class="row">
+    <span class="lbl">:visited selector</span>
+    <a class="v-visited" href="https://example.com/visited">a.v-visited:visited rule</a>
+  </div>
+  <div class="row">
+    <span class="lbl">:enabled selector</span>
+    <input type="text" value="input:enabled rule" />
+  </div>
+  <div class="row">
+    <span class="lbl">:disabled selector</span>
+    <input type="text" value="input:disabled rule" disabled="disabled" />
+  </div>
+  <div class="row">
+    <span class="lbl">:checked selector</span>
+    <input type="checkbox" checked="checked" value="1" /> checked checkbox should show checked styling
+  </div>
+</div>
+
+<p style="font-size: 8pt; color: #666; margin-top: 4pt;">
+<em>Validation hint:</em> if this section shows style differences per row,
+the pseudo-class selector mapping logic is active in the rendering engine.
+</p>
+
+<div class="page-break"></div>
+<h2>21) Narrow-Column Long-Token Overflow</h2>
+<p>The fixture uses a <code>.note</code> callout box
+(left border + tinted background) containing an inline <code>&lt;code&gt;</code> token with no natural
+break points. Three variants are shown side by side.</p>
+
+<style>
+/* Reproduce fixture styles exactly */
+.ovf-article { font-family: helvetica; font-size: 11pt; line-height: 1.4; color: #1a1a1a; }
+.ovf-note {
+  background: #f4f7fb;
+  border-left: 3pt solid #2f5a8a;
+  padding: 6pt;
+  margin: 8pt 0;
+}
+.ovf-note code { background: #efefef; padding: 1pt 2pt; }
+
+/* Column wrapper for side-by-side comparison */
+.ovf-cols { border: 0.4pt solid #b0bbc8; background: #f8f9fb; padding: 5pt; }
+.ovf-col {
+  width: 55mm;
+  border: 0.4pt solid #c8d0da;
+  background: #fff;
+  padding: 3pt;
+  margin: 0 3pt 3pt 0;
+  display: inline-block;
+  vertical-align: top;
+  font-size: 9pt;
+}
+.ovf-col h4 { margin: 0 0 2pt 0; font-size: 8.5pt; color: #2f5a8a; }
+
+/* The fix under test */
+.ovf-fix-wrap { overflow-wrap: break-word; word-break: break-word; }
+</style>
+
+<div class="ovf-cols">
+
+  <div class="ovf-col">
+    <h4>A) Fixture replica (no fix)</h4>
+    <div class="ovf-article">
+      <p class="ovf-note">Known caveat:
+        <code>very_very_very_very_very_very_very_long_tokens_without_breaks</code>
+        can exceed narrow columns.
+      </p>
+    </div>
+  </div>
+
+  <div class="ovf-col">
+    <h4>B) With overflow-wrap on note</h4>
+    <div class="ovf-article">
+      <p class="ovf-note ovf-fix-wrap">Known caveat:
+        <code>very_very_very_very_very_very_very_long_tokens_without_breaks</code>
+        can exceed narrow columns.
+      </p>
+    </div>
+  </div>
+
+  <div class="ovf-col">
+    <h4>C) With overflow-wrap on code</h4>
+    <div class="ovf-article">
+      <p class="ovf-note">Known caveat:
+        <code style="overflow-wrap: break-word; word-break: break-word;">very_very_very_very_very_very_very_long_tokens_without_breaks</code>
+        can exceed narrow columns.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<p style="font-size: 8pt; color: #666; margin-top: 3pt;">
+<em>Validation hints:</em>
+A = current engine output (may overflow right border) |
+B = fix applied at paragraph level |
+C = fix applied at inline element level.
+If A and B/C look identical (no overflow visible), the issue may not be worth fixing.
+If A overflows the border, B and C should demonstrate the fix working.
+</p>
+
+<div class="page-break"></div>
+<h2>22) Complex Selector Coverage (Validated)</h2>
+<p>This section exercises complex CSS selector combinations.
+Selectors in the <em>Supported</em> column should apply styling visibly.
+Selectors in the <em>Extended coverage</em> column should also apply styling visibly.</p>
+
+<style>
+/* Fixture layout replica */
+.pdoc-hero { background: #eaf2fb; padding: 10pt; border: 0.5pt solid #b7c8dc; margin-bottom: 8pt; }
+.pdoc-card { border: 0.5pt solid #bfcbd8; padding: 6pt; margin-bottom: 6pt; }
+.pdoc-kv td { padding: 2pt 4pt; border-bottom: 0.5pt solid #d2d8e0; }
+
+/* Selector test wrapper */
+.sel-grid { border: 0.4pt solid #b0bbc8; background: #f8f9fb; padding: 5pt; }
+.sel-col {
+  width: 82mm;
+  border: 0.4pt solid #c8d0da;
+  background: #fff;
+  padding: 4pt;
+  margin: 0 3pt 3pt 0;
+  display: inline-block;
+  vertical-align: top;
+  font-size: 9pt;
+}
+.sel-col h4 { margin: 0 0 4pt 0; font-size: 8.5pt; color: #2f5a8a; }
+.sel-item { margin: 2pt 0; padding: 2pt 3pt; background: #f4f4f4; }
+.sel-hit  { background: #d4f0d4; color: #1a4d1a; } /* expected to be styled */
+
+/* --- Supported selectors --- */
+/* :first-child / :last-child */
+.sel-col .sel-list li:first-child { background: #cce5ff; color: #00326d; }
+.sel-col .sel-list li:last-child  { background: #ffd6d6; color: #6d0000; }
+
+/* Attribute selector [attr^=value] */
+.sel-col [data-env^="prod"] { font-weight: bold; color: #1a4d00; }
+
+/* Child combinator > */
+.sel-col .sel-parent > .sel-direct { border-left: 2pt solid #0077cc; }
+
+/* Adjacent sibling + */
+.sel-col .sel-adj-trigger + .sel-adj-target { color: #8b3a00; font-style: italic; }
+
+/* General sibling ~ */
+.sel-col .sel-sib-trigger ~ .sel-sib-target { text-decoration: underline; }
+
+/* --- Extended selector coverage --- */
+/* :nth-child() */
+.sel-col .sel-list-nth li:nth-child(2)  { background: #ffe8a0; color: #5a3a00; }
+
+/* :nth-of-type() */
+.sel-col p:nth-of-type(2) { color: #6600aa; }
+
+/* :not() with compound argument */
+.sel-col .sel-item:not(.sel-hit) { opacity: 0.55; }
+
+/* Descendant + class + pseudo compound */
+.sel-col .sel-parent .sel-child:first-child { color: #cc0000; font-weight: bold; }
+</style>
+
+<div class="pdoc-hero">
+  <h3 style="margin:0 0 3pt 0; font-size:12pt;">API Documentation Bundle</h3>
+  <p style="margin:0; font-size:9pt;">Fixture replica — product-style landing section.</p>
+</div>
+<div class="pdoc-card"><strong>Quick Start:</strong> Install, configure, and run your first export.</div>
+<div class="pdoc-card"><strong>Compatibility:</strong> CSS 2.1 print-safe subset with documented partials.</div>
+<table class="pdoc-kv" style="width:100%;border-collapse:collapse;margin-bottom:8pt;">
+  <tr><td>Package</td><td>tc-lib-pdf</td></tr>
+  <tr><td>Runtime</td><td>PHP 8.1+</td></tr>
+</table>
+
+<div class="sel-grid">
+
+  <div class="sel-col">
+    <h4>Supported selectors</h4>
+
+    <strong style="font-size:8pt;">:first-child / :last-child on li</strong>
+    <ul class="sel-list" style="margin:2pt 0 5pt 10pt; padding:0;">
+      <li>Item 1 (blue = :first-child)</li>
+      <li>Item 2 (unstyled)</li>
+      <li>Item 3 (red = :last-child)</li>
+    </ul>
+
+    <strong style="font-size:8pt;">[data-env^="prod"] attribute</strong>
+    <div class="sel-item" data-env="production">data-env="production" (bold green expected)</div>
+    <div class="sel-item" data-env="staging">data-env="staging" (unstyled)</div>
+
+    <strong style="font-size:8pt;">Child combinator &gt;</strong>
+    <div class="sel-parent">
+      <div class="sel-direct sel-item">Direct child (blue left border expected)</div>
+      <div><div class="sel-direct sel-item">Nested (not direct — no extra border)</div></div>
+    </div>
+
+    <strong style="font-size:8pt;">Adjacent sibling +</strong>
+    <div class="sel-adj-trigger sel-item">Trigger</div>
+    <div class="sel-adj-target sel-item">Adjacent target (italic orange expected)</div>
+    <div class="sel-adj-target sel-item">Second sibling (no italic — not adjacent)</div>
+
+    <strong style="font-size:8pt;">General sibling ~</strong>
+    <div class="sel-sib-trigger sel-item">Trigger</div>
+    <div class="sel-sib-target sel-item">Sibling 1 (underline expected)</div>
+    <div class="sel-sib-target sel-item">Sibling 2 (underline expected)</div>
+  </div>
+
+  <div class="sel-col">
+    <h4>Extended selector coverage</h4>
+
+    <strong style="font-size:8pt;">:nth-child(2)</strong>
+    <ul class="sel-list-nth" style="margin:2pt 0 5pt 10pt; padding:0;">
+      <li>Item 1</li>
+      <li>Item 2 (yellow highlight expected)</li>
+      <li>Item 3</li>
+    </ul>
+
+    <strong style="font-size:8pt;">p:nth-of-type(2)</strong>
+    <p style="margin:1pt 0;">Paragraph 1 (unstyled)</p>
+    <p style="margin:1pt 0;">Paragraph 2 (purple expected)</p>
+    <p style="margin:1pt 0;">Paragraph 3 (unstyled)</p>
+
+    <strong style="font-size:8pt;">:not(.sel-hit)</strong>
+    <div class="sel-item">Non-hit item (dimmed expected via :not)</div>
+    <div class="sel-item sel-hit">Hit item (green fill from .sel-hit)</div>
+
+    <strong style="font-size:8pt;">Descendant + class + :first-child compound</strong>
+    <div class="sel-parent">
+      <div class="sel-child sel-item">Child 1 (red+bold expected)</div>
+      <div class="sel-child sel-item">Child 2 (unstyled)</div>
+    </div>
+  </div>
+
+</div>
+
+<p style="font-size: 8pt; color: #666; margin-top: 3pt;">
+<em>Validation hints (left column):</em> blue/red list items, bold green attribute row, blue-left-border
+direct child, italic-orange adjacent sibling, underlined general siblings should all be visible.<br/>
+<em>Validation hints (right column):</em> yellow <code>:nth-child(2)</code> list item, purple
+<code>p:nth-of-type(2)</code>, dimmed non-hit item via <code>:not(.sel-hit)</code>, and red+bold first
+child in the compound selector block should all be visible.
+</p>
 HTML;
 
 $pdf->addHTMLCell($html, 15, 18, 180, 0);
