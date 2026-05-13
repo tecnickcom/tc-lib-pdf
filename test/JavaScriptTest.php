@@ -40,8 +40,7 @@ class JavaScriptTest extends TestUtil
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
         /** @var array{pid: int} $rawPage */
-        $rawPage = $page->add([]);
-        return $rawPage;
+        return $page->add([]);
     }
 
     public function testAppendRawJavaScriptAppendsScript(): void
@@ -281,7 +280,7 @@ class JavaScriptTest extends TestUtil
         $this->assertSame([], $obj->exposeGetAnnotOptFromJSProp([]));
         $this->assertSame(
             ['Subtype' => 'Widget'],
-            $obj->exposeGetAnnotOptFromJSProp(['aopt' => ['Subtype' => 'Widget']])
+            $obj->exposeGetAnnotOptFromJSProp(['aopt' => ['Subtype' => 'Widget']]),
         );
 
         $this->setObjectProperty($obj, 'rtl', true);
@@ -353,7 +352,13 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('dv', $opt['dv']);
         $this->assertSame(100, $opt['f']);
         $this->assertSame([1, 2], $opt['i']);
-        $this->assertSame([['Export A', 'Visible A'], ['Export B', 'Visible B']], $opt['opt']);
+        $this->assertSame(
+            [
+                ['Export A', 'Visible A'],
+                ['Export B', 'Visible B'],
+            ],
+            $opt['opt'],
+        );
         $this->assertSame('<b>visible</b>', $opt['rv']);
         $this->assertSame('submit-field', $opt['tm']);
         $this->assertSame('field-name', $opt['t']);
@@ -607,9 +612,10 @@ class JavaScriptTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        \set_error_handler(static function (int $errno, string $errstr): bool {
-            return ($errno === E_WARNING) && \str_contains($errstr, 'Undefined array key "num"');
-        });
+        \set_error_handler(
+            static fn(int $errno, string $errstr): bool => $errno === E_WARNING
+            && \str_contains($errstr, 'Undefined array key "num"'),
+        );
 
         try {
             $obj->addJSButton('btn', 1, 2, 10, 5, 'Go', 'app.alert(1);');
@@ -627,7 +633,7 @@ class JavaScriptTest extends TestUtil
         $this->assertStringContainsString("fbtn.buttonSetCaption('Go');", $jsScript);
         $this->assertStringContainsString("fbtn.setAction('MouseUp'", $jsScript);
         $this->assertStringContainsString("fchk=this.addField('chk','checkbox'", $jsScript);
-        $this->assertStringContainsString("fcmb.setItems(", $jsScript);
+        $this->assertStringContainsString('fcmb.setItems(', $jsScript);
         $this->assertStringContainsString("flst.\\setItems(", $jsScript);
         $this->assertStringContainsString("frad=this.addField('rad','radiobutton'", $jsScript);
         $this->assertStringContainsString("ftxt=this.addField('txt','text'", $jsScript);
@@ -638,9 +644,10 @@ class JavaScriptTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        \set_error_handler(static function (int $errno, string $errstr): bool {
-            return ($errno === E_WARNING) && \str_contains($errstr, 'Undefined array key "num"');
-        });
+        \set_error_handler(
+            static fn(int $errno, string $errstr): bool => $errno === E_WARNING
+            && \str_contains($errstr, 'Undefined array key "num"'),
+        );
 
         try {
             $obj->addJSComboBox('cmb2', 1, 2, 20, 6, [['A', 'Alpha'], ['B', 'Beta']]);
@@ -659,10 +666,7 @@ class JavaScriptTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
 
-        $this->assertSame(
-            ['f' => 7],
-            $obj->exposeGetAnnotOptFromJSProp(['aopt' => ['f' => 7]]),
-        );
+        $this->assertSame(['f' => 7], $obj->exposeGetAnnotOptFromJSProp(['aopt' => ['f' => 7]]));
 
         $styleVariants = [
             'beveled' => 'B',
@@ -830,9 +834,10 @@ class JavaScriptTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        \set_error_handler(static function (int $errno, string $errstr): bool {
-            return ($errno === E_WARNING) && \str_contains($errstr, 'Undefined array key "num"');
-        });
+        \set_error_handler(
+            static fn(int $errno, string $errstr): bool => $errno === E_WARNING
+            && \str_contains($errstr, 'Undefined array key "num"'),
+        );
 
         try {
             $obj->addJSText('txtProps', 1, 2, 20, 6, ['strokeColor' => 'red', 'value' => 'abc']);
@@ -854,7 +859,7 @@ class JavaScriptTest extends TestUtil
         $this->assertNotFalse($iconPath);
         $iconResource = \imagecreatetruecolor(1, 1);
         $this->assertNotFalse($iconResource);
-        \imagepng($iconResource, (string) $iconPath);
+        \imagepng($iconResource, $iconPath);
         $annotId = -1;
         try {
             $annotId = $obj->setAnnotation(1, 2, 3, 4, 'attach', [
@@ -865,7 +870,9 @@ class JavaScriptTest extends TestUtil
         } catch (\Throwable $e) {
             $this->assertNotSame('', $e->getMessage());
         } finally {
-            @\unlink((string) $iconPath);
+            if (\file_exists($iconPath)) {
+                \unlink($iconPath);
+            }
         }
 
         $this->assertGreaterThanOrEqual(-1, $annotId);
@@ -917,7 +924,7 @@ class JavaScriptTest extends TestUtil
             'On',
             false,
             ['subtype' => 'Widget', 'q' => 0],
-            ['aopt' => ['Subtype' => 'Widget', 'f' => 0], 'readonly' => 'true']
+            ['aopt' => ['Subtype' => 'Widget', 'f' => 0], 'readonly' => 'true'],
         );
         $radioOnId = $obj->addFFRadioButton('radioGroup', 9, 4, 6, 'On', true);
 
@@ -928,7 +935,7 @@ class JavaScriptTest extends TestUtil
             30,
             10,
             ['subtype' => 'Widget', 'q' => 0],
-            ['alignment' => 'left', 'value' => 'L']
+            ['alignment' => 'left', 'value' => 'L'],
         );
         $txtCenterId = $obj->addFFText(
             'txtCenter',
@@ -937,7 +944,7 @@ class JavaScriptTest extends TestUtil
             30,
             10,
             ['subtype' => 'Widget'],
-            ['alignment' => 'center', 'value' => 'C']
+            ['alignment' => 'center', 'value' => 'C'],
         );
         $txtRightId = $obj->addFFText(
             'txtRight',
@@ -946,7 +953,7 @@ class JavaScriptTest extends TestUtil
             30,
             10,
             ['subtype' => 'Widget', 'q' => 2],
-            ['alignment' => 'right', 'value' => 'R']
+            ['alignment' => 'right', 'value' => 'R'],
         );
         $txtUnknownId = $obj->addFFText(
             'txtUnknown',
@@ -955,7 +962,7 @@ class JavaScriptTest extends TestUtil
             30,
             10,
             ['subtype' => 'Widget', 'q' => 99],
-            ['value' => 'U']
+            ['value' => 'U'],
         );
 
         /** @var array<int, array{opt:array<string, mixed>}> $annotation */

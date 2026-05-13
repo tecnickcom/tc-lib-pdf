@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * PageResolver.php
  *
@@ -74,8 +76,7 @@ class PageResolver
         }
 
         $trailer = $src->getTrailer();
-        $rootRefRaw = $trailer['root'] ?? '';
-        $rootRef = SourceDocument::refToKey(\is_string($rootRefRaw) ? $rootRefRaw : '');
+        $rootRef = SourceDocument::refToKey($trailer['root']);
         $rootObj = $src->getObject($rootRef);
         $rootDict = $this->objectToDict($rootObj);
 
@@ -92,12 +93,10 @@ class PageResolver
         $pageDict = $this->walkTree($src, $pagesDict, $inherited, $remaining);
 
         if ($pageDict === null) {
-            throw new ImportPageOutOfRangeException(
-                'Page ' . $pageNum . ' not found; document has fewer pages.'
-            );
+            throw new ImportPageOutOfRangeException('Page ' . $pageNum . ' not found; document has fewer pages.');
         }
 
-            return $this->buildResolved($pageDict, $src);
+        return $this->buildResolved($pageDict, $src);
     }
 
     /**
@@ -112,13 +111,13 @@ class PageResolver
      *
      * @throws ImportCorruptedSourceException On malformed tree.
      */
-    private function walkTree(
-        SourceDocument $src,
-        array $nodeDict,
-        array $inherited,
-        int &$remaining
-    ): ?array {
-        $nodeType = $nodeDict['Type'] ?? '';
+    private function walkTree(SourceDocument $src, array $nodeDict, array $inherited, int &$remaining): ?array
+    {
+        $nodeType = '';
+        if (isset($nodeDict['Type']) && \is_string($nodeDict['Type'])) {
+            $nodeType = $nodeDict['Type'];
+        }
+
         // merge inherited from parent into this node
         $merged = \array_merge($inherited, $this->extractInheritable($nodeDict));
 
@@ -132,18 +131,22 @@ class PageResolver
         }
 
         if ($nodeType !== 'Pages') {
-            $nodeTypeStr = \is_string($nodeType) ? $nodeType : '';
-            throw new ImportCorruptedSourceException('Unexpected page tree node type: ' . $nodeTypeStr);
+            throw new ImportCorruptedSourceException('Unexpected page tree node type: ' . $nodeType);
         }
 
         if (!isset($nodeDict['Kids']) || !\is_array($nodeDict['Kids'])) {
             throw new ImportCorruptedSourceException('/Pages node is missing /Kids array.');
         }
 
-        foreach ($nodeDict['Kids'] as $kidRef) {
-            if (!\is_string($kidRef)) {
+        $kids = \array_values($nodeDict['Kids']);
+        $kidCount = \count($kids);
+        for ($kidIdx = 0; $kidIdx < $kidCount; ++$kidIdx) {
+            $kidRefSlice = \array_slice($kids, $kidIdx, 1);
+            if (\count($kidRefSlice) !== 1 || !\is_string($kidRefSlice[0])) {
                 continue;
             }
+
+            $kidRef = $kidRefSlice[0];
 
             $kidKey = SourceDocument::refToKey($kidRef);
             $kidObj = $src->getObject($kidKey);
@@ -164,6 +167,8 @@ class PageResolver
      *
      * @phpstan-return ResolvedPage
      * @return array<string, mixed>
+     *
+     * @throws ImportCorruptedSourceException If page boxes or resources are malformed.
      */
     private function buildResolved(array $dict, SourceDocument $src): array
     {
@@ -177,15 +182,24 @@ class PageResolver
         $bleedBox = $this->parseBox($dict['BleedBox'] ?? null) ?? $cropBox;
         $trimBox = $this->parseBox($dict['TrimBox'] ?? null) ?? $cropBox;
         $artBox = $this->parseBox($dict['ArtBox'] ?? null) ?? $cropBox;
-        $rotateRaw = $dict['Rotate'] ?? 0;
-        $rotate = \is_int($rotateRaw) ? $rotateRaw : (\is_numeric($rotateRaw) ? (int) $rotateRaw : 0);
+        if (isset($dict['Rotate']) && \is_int($dict['Rotate'])) {
+            $rotate = $dict['Rotate'];
+        } elseif (isset($dict['Rotate']) && \is_numeric($dict['Rotate'])) {
+            $rotate = (int) $dict['Rotate'];
+        } else {
+            $rotate = 0;
+        }
 
-        $resources = $dict['Resources'] ?? [];
+        $resources = [];
+        if (isset($dict['Resources']) && (\is_array($dict['Resources']) || \is_string($dict['Resources']))) {
+            $resources = $dict['Resources'];
+        }
+
         // If Resources is an indirect reference string, resolve it now.
         if (\is_string($resources) && $resources !== '') {
             $resKey = SourceDocument::refToKey($resources);
             $resObj = $src->findObject($resKey);
-            $resources = ($resObj !== null) ? $this->objectToDict($resObj) : [];
+            $resources = $resObj !== null ? $this->objectToDict($resObj) : [];
         }
 
         /** @var array<string, mixed> $resources */
@@ -214,9 +228,11 @@ class PageResolver
     {
         $out = [];
         foreach (self::INHERITABLE as $key) {
-            if (isset($dict[$key])) {
-                $out[$key] = $dict[$key];
+            if (!isset($dict[$key])) {
+                continue;
             }
+
+            $out[$key] = $dict[$key];
         }
 
         return $out;
@@ -237,7 +253,15 @@ class PageResolver
         }
 
         $vals = \array_values($raw);
-        /** @var array<int, mixed> $vals */
+        if (
+            !\array_key_exists(0, $vals)
+            || !\array_key_exists(1, $vals)
+            || !\array_key_exists(2, $vals)
+            || !\array_key_exists(3, $vals)
+        ) {
+            return null;
+        }
+
         return [
             \is_numeric($vals[0]) ? (float) $vals[0] : 0.0,
             \is_numeric($vals[1]) ? (float) $vals[1] : 0.0,
@@ -261,13 +285,16 @@ class PageResolver
      */
     private function objectToDict(array $objData): array
     {
-        foreach ($objData as $element) {
-            if (!\is_array($element)) {
+        $elements = \array_values($objData);
+        $elmCount = \count($elements);
+        for ($elmIdx = 0; $elmIdx < $elmCount; ++$elmIdx) {
+            $elementSlice = \array_slice($elements, $elmIdx, 1);
+            if (\count($elementSlice) !== 1 || !\is_array($elementSlice[0])) {
                 continue;
             }
 
-            if (($element[0] ?? '') === '<<' && \is_array($element[1])) {
-                return $this->parseDictArray(\array_values($element[1]));
+            if (($elementSlice[0][0] ?? null) === '<<' && \is_array($elementSlice[0][1] ?? null)) {
+                return $this->parseDictArray(\array_values($elementSlice[0][1]));
             }
         }
 
@@ -285,17 +312,24 @@ class PageResolver
     private function parseDictArray(array $raw): array
     {
         $dict = [];
-        $cnt = \count($raw);
-        for ($idx = 0; $idx < $cnt - 1; $idx += 2) {
-            $keyEl = $raw[$idx];
-            $valEl = $raw[$idx + 1];
-            if (!\is_array($keyEl) || ($keyEl[0] ?? '') !== '/') {
+        $pairs = \array_values($raw);
+        $cnt = \count($pairs);
+        for ($idx = 0; $idx < ($cnt - 1); $idx += 2) {
+            $pair = \array_slice($pairs, $idx, 2);
+            if (\count($pair) < 2) {
                 continue;
             }
 
-            $keyName = $keyEl[1] ?? '';
-            $key = \ltrim(\is_string($keyName) ? $keyName : '', '/');
-            $dict[$key] = $this->parseValue($valEl);
+            if (!\is_array($pair[0]) || ($pair[0][0] ?? null) !== '/') {
+                continue;
+            }
+
+            if (!\array_key_exists(1, $pair[0]) || !\is_string($pair[0][1])) {
+                continue;
+            }
+
+            $key = \ltrim($pair[0][1], '/');
+            $dict[$key] = $this->parseValue($pair[1]);
         }
 
         return $dict;
@@ -314,27 +348,30 @@ class PageResolver
             return $raw;
         }
 
-        $type = $raw[0] ?? '';
-        $val = $raw[1] ?? null;
-
-        if ($type === '<<' && \is_array($val)) {
-            return $this->parseDictArray(\array_values($val));
+        if (!\array_key_exists(0, $raw)) {
+            return null;
         }
 
-        if ($type === '[' && \is_array($val)) {
-            return \array_map(fn($item) => $this->parseValue($item), $val);
+        $type = \is_string($raw[0]) ? $raw[0] : '';
+
+        if ($type === '<<' && \array_key_exists(1, $raw) && \is_array($raw[1])) {
+            return $this->parseDictArray(\array_values($raw[1]));
+        }
+
+        if ($type === '[' && \array_key_exists(1, $raw) && \is_array($raw[1])) {
+            return \array_map($this->parseValue(...), $raw[1]);
         }
 
         if ($type === 'objref') {
             // Return the raw reference string; callers resolve via SourceDocument::refToKey()
-            return \is_string($val) ? $val : '';
+            return \array_key_exists(1, $raw) && \is_string($raw[1]) ? $raw[1] : '';
         }
 
         if (\in_array($type, ['/', 'string', 'numeric', 'boolean', 'null'], true)) {
-            return $val;
+            return $raw[1] ?? null;
         }
 
         // Fallback: return scalar value
-        return $val;
+        return $raw[1] ?? null;
     }
 }

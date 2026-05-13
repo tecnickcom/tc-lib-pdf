@@ -52,8 +52,7 @@ class OutputTest extends TestUtil
         $pages[$data['pid']]['n'] = $objectNumber;
         $this->setObjectProperty($page, 'page', $pages);
         /** @var array{pid:int,n:int,content:array<int,string>} $pageData */
-        $pageData = $page->getPage($data['pid']);
-        return $pageData;
+        return $page->getPage($data['pid']);
     }
 
     /** @param list<string> $fragments */
@@ -65,7 +64,7 @@ class OutputTest extends TestUtil
     }
 
     /**
-        * @param list<string> $cmd
+     * @param list<string> $cmd
      * @return array{code:int,stdout:string,stderr:string}
      */
     private function runExternalCommand(array $cmd, string $cwd): array
@@ -94,7 +93,7 @@ class OutputTest extends TestUtil
     private function isCommandAvailable(string $name): bool
     {
         $res = $this->runExternalCommand(['sh', '-lc', 'command -v ' . \escapeshellarg($name)], __DIR__ . '/..');
-        return (($res['code'] === 0) && (\trim($res['stdout']) !== ''));
+        return $res['code'] === 0 && \trim($res['stdout']) !== '';
     }
 
     public function testSubsetFontPdfHasReaderCompatibleFontObjects(): void
@@ -107,7 +106,7 @@ class OutputTest extends TestUtil
             '<h1>Subset Font Regression</h1><p><b>Bold</b> THE QUICK BROWN FOX · π ≈ 3.14159 © ® ™</p>',
             15,
             20,
-            180
+            180,
         );
 
         $raw = $obj->getOutPDFString();
@@ -132,29 +131,44 @@ class OutputTest extends TestUtil
 
         try {
             if ($this->isCommandAvailable('pdftoppm')) {
-                $popplerOut = $this->runExternalCommand(
-                    ['pdftoppm', '-f', '1', '-singlefile', '-png', $pdfPath, $tmpBase . '-poppler'],
-                    __DIR__ . '/..'
-                );
+                $popplerOut = $this->runExternalCommand([
+                    'pdftoppm',
+                    '-f',
+                    '1',
+                    '-singlefile',
+                    '-png',
+                    $pdfPath,
+                    $tmpBase . '-poppler',
+                ], __DIR__ . '/..');
                 $this->assertSame(0, $popplerOut['code'], $popplerOut['stderr']);
                 $this->assertStringNotContainsString("Couldn't create a font", $popplerOut['stderr']);
-                @\unlink($tmpBase . '-poppler.png');
+                if (\file_exists($tmpBase . '-poppler.png')) {
+                    \unlink($tmpBase . '-poppler.png');
+                }
             }
 
             if ($this->isCommandAvailable('mutool')) {
                 $mupdfPng = $tmpBase . '-mupdf.png';
-                $mupdfOut = $this->runExternalCommand(
-                    ['mutool', 'draw', '-o', $mupdfPng, $pdfPath, '1'],
-                    __DIR__ . '/..'
-                );
+                $mupdfOut = $this->runExternalCommand([
+                    'mutool',
+                    'draw',
+                    '-o',
+                    $mupdfPng,
+                    $pdfPath,
+                    '1',
+                ], __DIR__ . '/..');
                 $this->assertSame(0, $mupdfOut['code'], $mupdfOut['stderr']);
                 $this->assertStringNotContainsString('FT_New_Memory_Face', $mupdfOut['stderr']);
                 $this->assertStringNotContainsString('locations (loca) table missing', $mupdfOut['stderr']);
                 $this->assertStringNotContainsString('broken table', $mupdfOut['stderr']);
-                @\unlink($mupdfPng);
+                if (\file_exists($mupdfPng)) {
+                    \unlink($mupdfPng);
+                }
             }
         } finally {
-            @\unlink($pdfPath);
+            if (\file_exists($pdfPath)) {
+                \unlink($pdfPath);
+            }
         }
     }
 
@@ -189,28 +203,24 @@ class OutputTest extends TestUtil
         $fonts = \var_export((string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'), true);
 
         $code = <<<'PHP'
-<?php
-require AUTOLOAD_PATH;
-define('K_PATH_FONTS', FONTS_PATH);
+            <?php
+            require AUTOLOAD_PATH;
+            define('K_PATH_FONTS', FONTS_PATH);
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf();
-$font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
-$pdf->addPage();
-$pdf->page->addContent($font['out']);
-$pdf->page->addContent(
-    $pdf->getTextCell('The quick brown fox jumps over the lazy dog', 15, 15, 150, valign: 'T', halign: 'L')
-);
+            $pdf = new \Com\Tecnick\Pdf\Tcpdf();
+            $font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
+            $pdf->addPage();
+            $pdf->page->addContent($font['out']);
+            $pdf->page->addContent(
+                $pdf->getTextCell('The quick brown fox jumps over the lazy dog', 15, 15, 150, valign: 'T', halign: 'L')
+            );
 
-$raw = $pdf->getOutPDFString();
-fwrite(STDERR, md5($raw));
-$pdf->renderPDF($raw);
-PHP;
+            $raw = $pdf->getOutPDFString();
+            fwrite(STDERR, md5($raw));
+            $pdf->renderPDF($raw);
+            PHP;
 
-        $code = \str_replace(
-            ['AUTOLOAD_PATH', 'FONTS_PATH'],
-            [$autoload, $fonts],
-            $code
-        );
+        $code = \str_replace(['AUTOLOAD_PATH', 'FONTS_PATH'], [$autoload, $fonts], $code);
 
         \file_put_contents($script, $code);
 
@@ -275,7 +285,7 @@ PHP;
         $obj = $this->getTestObject();
         $obj->setPDFFilename('saved-output.pdf');
         $dir = \sys_get_temp_dir() . '/tc-lib-pdf-output-' . \bin2hex(\random_bytes(4));
-        $this->assertTrue(\mkdir($dir, 0777, true));
+        $this->assertTrue(\mkdir($dir, 0o777, true));
 
         try {
             $obj->savePDF($dir, 'raw-pdf-data');
@@ -284,8 +294,12 @@ PHP;
             $this->assertFileExists($filepath);
             $this->assertSame('raw-pdf-data', (string) \file_get_contents($filepath));
         } finally {
-            @\unlink($dir . '/saved-output.pdf');
-            @\rmdir($dir);
+            if (\file_exists($dir . '/saved-output.pdf')) {
+                \unlink($dir . '/saved-output.pdf');
+            }
+            if (\is_dir($dir)) {
+                \rmdir($dir);
+            }
         }
     }
 
@@ -309,11 +323,14 @@ PHP;
 
         $offsets = $obj->exposeGetPDFObjectOffsets($data);
 
-        $this->assertSame([
-            1 => \strpos($data, "1 0 obj\n"),
-            3 => \strpos($data, "3 0 obj\n"),
-            10 => \strpos($data, "10 0 obj\n"),
-        ], $offsets);
+        $this->assertSame(
+            [
+                1 => \strpos($data, "1 0 obj\n"),
+                3 => \strpos($data, "3 0 obj\n"),
+                10 => \strpos($data, "10 0 obj\n"),
+            ],
+            $offsets,
+        );
     }
 
     public function testGetOutPDFXrefFormatsPresentAndMissingObjects(): void
@@ -327,7 +344,8 @@ PHP;
             4 => 50,
         ]);
 
-        $expected = "xref\n"
+        $expected =
+            "xref\n"
             . "0 5\n"
             . "0000000000 65535 f \n"
             . "0000000009 00000 n \n"
@@ -367,10 +385,12 @@ PHP;
 
         $this->assertSame('[0.500000]', $obj->exposeGetColorStringFromPercArray([0.5]));
         $this->assertSame('[0.100000 0.200000 0.300000]', $obj->exposeGetColorStringFromPercArray([0.1, 0.2, 0.3]));
-        $this->assertSame(
-            '[0.100000 0.200000 0.300000 0.400000]',
-            $obj->exposeGetColorStringFromPercArray([0.1, 0.2, 0.3, 0.4])
-        );
+        $this->assertSame('[0.100000 0.200000 0.300000 0.400000]', $obj->exposeGetColorStringFromPercArray([
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+        ]));
         $this->assertSame('[]', $obj->exposeGetColorStringFromPercArray([]));
     }
 
@@ -650,9 +670,7 @@ PHP;
         /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
         $encrypt = $this->getObjectProperty($obj, 'encrypt');
 
-        $timesfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json'
-        );
+        $timesfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json');
         $font->insert($pon, 'times', '', 10, null, null, $timesfile);
 
         $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
@@ -725,9 +743,7 @@ PHP;
         /** @var \Com\Tecnick\Pdf\Graph\Draw $graph */
         $graph = $this->getObjectProperty($obj, 'graph');
 
-        $timesfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json'
-        );
+        $timesfile = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/times.json');
         $font->insert($pon, 'times', '', 10, null, null, $timesfile);
 
         $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
@@ -854,22 +870,18 @@ PHP;
         $this->assertStringContainsString(' /LE [/Circle /Slash]', $polylineOut);
 
         $quad = [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]];
-        $this->assertStringContainsString(
-            ' /QuadPoints [',
-            $obj->exposeGetOutAnnotationOptSubtypeHighlight(['opt' => ['quadpoints' => $quad]])
-        );
-        $this->assertStringContainsString(
-            ' /QuadPoints [',
-            $obj->exposeGetOutAnnotationOptSubtypeUnderline(['opt' => ['quadpoints' => $quad]])
-        );
-        $this->assertStringContainsString(
-            ' /QuadPoints [',
-            $obj->exposeGetOutAnnotationOptSubtypeSquiggly(['opt' => ['quadpoints' => $quad]])
-        );
-        $this->assertStringContainsString(
-            ' /QuadPoints [',
-            $obj->exposeGetOutAnnotationOptSubtypeStrikeout(['opt' => ['quadpoints' => $quad]])
-        );
+        $this->assertStringContainsString(' /QuadPoints [', $obj->exposeGetOutAnnotationOptSubtypeHighlight(['opt' => [
+            'quadpoints' => $quad,
+        ]]));
+        $this->assertStringContainsString(' /QuadPoints [', $obj->exposeGetOutAnnotationOptSubtypeUnderline(['opt' => [
+            'quadpoints' => $quad,
+        ]]));
+        $this->assertStringContainsString(' /QuadPoints [', $obj->exposeGetOutAnnotationOptSubtypeSquiggly(['opt' => [
+            'quadpoints' => $quad,
+        ]]));
+        $this->assertStringContainsString(' /QuadPoints [', $obj->exposeGetOutAnnotationOptSubtypeStrikeout(['opt' => [
+            'quadpoints' => $quad,
+        ]]));
 
         $stampOut = $obj->exposeGetOutAnnotationOptSubtypeStamp(['opt' => ['name' => 'Approved']]);
         $this->assertSame(' /Name /Approved', $stampOut);
@@ -986,7 +998,7 @@ PHP;
         $this->assertStringContainsString(' /Type /FixedPrint', $watermarkOut);
         $this->assertStringContainsString(
             ' /Matrix [1.000000 0.000000 0.000000 1.000000 10.000000 20.000000]',
-            $watermarkOut
+            $watermarkOut,
         );
         $this->assertStringContainsString(' /H 0.250000', $watermarkOut);
         $this->assertStringContainsString(' /V 0.750000', $watermarkOut);
@@ -1206,9 +1218,11 @@ PHP;
     {
         $obj = $this->getInternalTestObject();
 
-        $out = $obj->exposeGetOutAnnotationOptSubtypeText(
-            ['opt' => ['open' => true, 'statemodel' => 'Marked', 'state' => 'Accepted']]
-        );
+        $out = $obj->exposeGetOutAnnotationOptSubtypeText(['opt' => [
+            'open' => true,
+            'statemodel' => 'Marked',
+            'state' => 'Accepted',
+        ]]);
 
         $this->assertStringContainsString(' /Open true', $out);
         $this->assertStringContainsString(' /Name /Note', $out);
@@ -1301,7 +1315,7 @@ PHP;
         $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(
             ['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []],
             2,
-            13
+            13,
         );
 
         $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
@@ -1328,7 +1342,7 @@ PHP;
         $externalUri = $obj->exposeGetOutAnnotationOptSubtypeLink(
             ['txt' => 'https://example.com/docs?a=1&b=2', 'opt' => []],
             2,
-            11
+            11,
         );
 
         $this->assertStringNotContainsString(' /S /URI', $externalUri);
@@ -1350,7 +1364,7 @@ PHP;
         $relativePdf = $obj->exposeGetOutAnnotationOptSubtypeLink(
             ['txt' => 'docs/guide.pdf#named=Section2', 'opt' => []],
             2,
-            13
+            13,
         );
 
         $this->assertStringContainsString(' /S /GoTo /D /dest-1', $namedDest);
@@ -1699,10 +1713,7 @@ PHP;
         $this->assertStringContainsString('/MCID 0', $out);
         $this->assertStringContainsString('/MCID 1', $out);
         // There should be exactly one H1 StructElem containing both MCID references.
-        $this->assertMatchesRegularExpression(
-            '/\/Type \/StructElem \/S \/H1.*\/MCID 0.*\/MCID 1/s',
-            $out
-        );
+        $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/H1.*\/MCID 0.*\/MCID 1/s', $out);
         // There should be no separate P StructElem for these fragments.
         $this->assertStringNotContainsString('/Type /StructElem /S /P', $out);
     }
@@ -1759,34 +1770,31 @@ PHP;
         $out = $obj->exposeGetOutPDFBody();
 
         $docMatch = [];
-        $this->assertSame(
-            1,
-            \preg_match(
-                '/(\d+) 0 obj\s*<< \/Type \/StructElem \/S \/Document .*?\/K \[\s*(\d+) 0 R\s*\] >>/s',
-                $out,
-                $docMatch,
-            )
-        );
+        $this->assertSame(1, \preg_match(
+            '/(\d+) 0 obj\s*<< \/Type \/StructElem \/S \/Document .*?\/K \[\s*(\d+) 0 R\s*\] >>/s',
+            $out,
+            $docMatch,
+        ));
 
         $sectOid = $docMatch[2];
         $sectMatch = [];
-        $this->assertSame(
-            1,
-            \preg_match(
-                '/' . $sectOid . ' 0 obj\\s*<< \/Type \/StructElem \/S \/Sect \/P ' . $docMatch[1]
-                . ' 0 R .*?\/K \[\s*(\d+) 0 R\s+(\d+) 0 R\s*\] >>/s',
-                $out,
-                $sectMatch,
-            )
-        );
+        $this->assertSame(1, \preg_match(
+            '/'
+            . $sectOid
+            . ' 0 obj\\s*<< \/Type \/StructElem \/S \/Sect \/P '
+            . $docMatch[1]
+            . ' 0 R .*?\/K \[\s*(\d+) 0 R\s+(\d+) 0 R\s*\] >>/s',
+            $out,
+            $sectMatch,
+        ));
 
         $this->assertMatchesRegularExpression(
             '/' . $sectMatch[1] . ' 0 obj\\s*<< \/Type \/StructElem \/S \/H1 \/P ' . $sectOid . ' 0 R/s',
-            $out
+            $out,
         );
         $this->assertMatchesRegularExpression(
             '/' . $sectMatch[2] . ' 0 obj\\s*<< \/Type \/StructElem \/S \/P \/P ' . $sectOid . ' 0 R/s',
-            $out
+            $out,
         );
     }
 
@@ -1822,7 +1830,8 @@ PHP;
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
         $this->initFontAndPage($obj);
 
-        $html = '<table><thead><tr><th>Name</th><th>Value</th></tr></thead>'
+        $html =
+            '<table><thead><tr><th>Name</th><th>Value</th></tr></thead>'
             . '<tbody><tr><td>A</td><td>1</td></tr></tbody></table>';
         $htmlOut = $obj->getHTMLCell($html, 0, 0, 80, 30);
 
@@ -1881,7 +1890,7 @@ PHP;
         $obj->addTaggedFigureContent(
             $obj->graph->getRect(10.0, 10.0, 12.0, 8.0, 'DF', $style),
             $pid,
-            'Blue rectangle sample figure'
+            'Blue rectangle sample figure',
         );
 
         $out = $obj->exposeGetOutPDFBody();
@@ -1904,7 +1913,10 @@ PHP;
         $this->assertIsString($raw);
         $src = 'data:image/png;base64,' . \base64_encode($raw);
 
-        $html = '<figure><img src="' . $src . '" alt="Test dot" width="4" height="4" />'
+        $html =
+            '<figure><img src="'
+            . $src
+            . '" alt="Test dot" width="4" height="4" />'
             . '<figcaption>Caption text</figcaption></figure>';
         $htmlOut = $obj->getHTMLCell($html, 0, 0, 80, 30);
 
@@ -1918,7 +1930,7 @@ PHP;
         $this->assertSame(
             1,
             \substr_count($out, '/Type /StructElem /S /Figure'),
-            'Expected exactly one Figure StructElem'
+            'Expected exactly one Figure StructElem',
         );
         $this->assertStringContainsString('/Alt ', $out);
         $this->assertStringContainsString('/Type /StructElem /S /Caption', $out);
@@ -1980,17 +1992,16 @@ PHP;
         $font = $this->getObjectProperty($obj, 'font');
         /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
-        $fontfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json'
-        );
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
         $this->addRawPageWithObjectNumber($obj, 6);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
-        $this->setObjectProperty(
-            $obj,
-            'display',
-            ['layout' => 'SinglePage', 'mode' => 'UseNone', 'zoom' => 'fullpage']
-        );
+        $this->setObjectProperty($obj, 'display', [
+            'layout' => 'SinglePage',
+            'mode' => 'UseNone',
+            'zoom' => 'fullpage',
+        ]);
         $this->setObjectProperty($obj, 'lang', ['a_meta_language' => 'en-US']);
 
         $out = $obj->exposeGetOutCatalog();
@@ -2086,31 +2097,31 @@ PHP;
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
         $this->assertStringContainsString(
             "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x004",
-            $obj->exposeGetOutputIntentsPdfX()
+            $obj->exposeGetOutputIntentsPdfX(),
         );
 
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
         $this->assertStringContainsString(
             "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x001\x00a",
-            $obj->exposeGetOutputIntentsPdfX()
+            $obj->exposeGetOutputIntentsPdfX(),
         );
 
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx3');
         $this->assertStringContainsString(
             "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x003",
-            $obj->exposeGetOutputIntentsPdfX()
+            $obj->exposeGetOutputIntentsPdfX(),
         );
 
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx5');
         $this->assertStringContainsString(
             "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x005",
-            $obj->exposeGetOutputIntentsPdfX()
+            $obj->exposeGetOutputIntentsPdfX(),
         );
 
         $this->setObjectProperty($obj, 'pdfxMode', '');
         $this->assertStringContainsString(
             "\xfe\xff\x00O\x00F\x00C\x00O\x00M\x00_\x00P\x00O\x00_\x00P\x001\x00_\x00F\x006\x000\x00_\x009\x005",
-            $obj->exposeGetOutputIntentsPdfX()
+            $obj->exposeGetOutputIntentsPdfX(),
         );
     }
 
@@ -2403,21 +2414,18 @@ PHP;
         $obj = $this->getInternalTestObject();
 
         $byterangePlaceholder = '/ByteRange[0 ********** ********** **********]';
-        $prefix   = 'XPFX';
-        $mid      = '/Contents ';
-        $sigSlot  = '<' . \str_repeat('0', 11742) . '>';
-        $suffix   = 'XSFX';
-        $pdfdoc   = $prefix . $byterangePlaceholder . $mid . $sigSlot . $suffix . "\n";
+        $prefix = 'XPFX';
+        $mid = '/Contents ';
+        $sigSlot = '<' . \str_repeat('0', 11742) . '>';
+        $suffix = 'XSFX';
+        $pdfdoc = $prefix . $byterangePlaceholder . $mid . $sigSlot . $suffix . "\n";
 
         $result = $obj->exposePrepareDocumentForSignature($pdfdoc);
 
         $this->assertSame(0, $result['byte_range'][0]);
         $this->assertSame($result['pdfdoc_length'], \strlen($result['pdfdoc']));
         $this->assertStringNotContainsString('**********', $result['pdfdoc']);
-        $this->assertMatchesRegularExpression(
-            '#/ByteRange\[0 \d+ \d+ \d+\] *#',
-            $result['pdfdoc']
-        );
+        $this->assertMatchesRegularExpression('#/ByteRange\[0 \d+ \d+ \d+\] *#', $result['pdfdoc']);
         // Signature slot (SIGMAXLEN + 2 for < >) is stripped from the signing content
         $expectedLength = \strlen($prefix) + \strlen($byterangePlaceholder) + \strlen($mid) + \strlen($suffix);
         $this->assertSame($expectedLength, $result['pdfdoc_length']);
@@ -2649,11 +2657,7 @@ PHP;
     {
         $obj = $this->getInternalTestObject();
 
-        [$aas, $apx] = $obj->exposeGetAnnotationAppearanceStream(
-            ['opt' => ['ap' => '/N 1 0 R']],
-            10.0,
-            5.0
-        );
+        [$aas, $apx] = $obj->exposeGetAnnotationAppearanceStream(['opt' => ['ap' => '/N 1 0 R']], 10.0, 5.0);
 
         $this->assertMatchesRegularExpression('#/AP <<\s*/N 1 0 R\s*>>#', $aas);
         $this->assertSame('', $apx);
@@ -2663,11 +2667,7 @@ PHP;
     {
         $obj = $this->getInternalTestObject();
 
-        [$aas, $apx] = $obj->exposeGetAnnotationAppearanceStream(
-            ['opt' => ['ap' => ['n' => 'q Q']]],
-            8.0,
-            4.0
-        );
+        [$aas, $apx] = $obj->exposeGetAnnotationAppearanceStream(['opt' => ['ap' => ['n' => 'q Q']]], 8.0, 4.0);
 
         $this->assertStringContainsString(' /N ', $aas);
         $this->assertStringContainsString('/Subtype /Form', $apx);
@@ -2680,7 +2680,7 @@ PHP;
         [$aas, $apx] = $obj->exposeGetAnnotationAppearanceStream(
             ['opt' => ['ap' => ['n' => ['On' => 'q Q', 'Off' => '']]]],
             8.0,
-            4.0
+            4.0,
         );
 
         $this->assertStringContainsString(' /N <<', $aas);
@@ -2760,7 +2760,7 @@ PHP;
         $out = $obj->exposeGetOutAnnotationOptSubtypeText(['opt' => $opt]);
 
         foreach ($expectedFragments as $fragment) {
-            $this->assertStringContainsString((string) $fragment, $out);
+            $this->assertStringContainsString($fragment, $out);
         }
     }
 
@@ -2878,7 +2878,6 @@ PHP;
         }
     }
 
-
     public function testGetOutAnnotationOptSubtypeWidgetWithTuTmAndScalarValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2940,7 +2939,7 @@ PHP;
     public function testGetOutCatalogWithEmbeddedFilesAndJavascriptTree(): void
     {
         $obj = $this->getInternalTestObject();
-            $this->addRawPageWithObjectNumber($obj, 3);
+        $this->addRawPageWithObjectNumber($obj, 3);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
         $this->setObjectProperty($obj, 'jstree', '<< /Names [(JS) 1 0 R] >>');
         $this->setObjectProperty($obj, 'embeddedfiles', [
@@ -3093,7 +3092,7 @@ PHP;
     public function testGetOutCatalogWithOutlinesAutoSetsDisplayMode(): void
     {
         $obj = $this->getInternalTestObject();
-            $page = $this->addRawPageWithObjectNumber($obj, 6);
+        $page = $this->addRawPageWithObjectNumber($obj, 6);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
         $obj->setBookmark('Chapter 1', '', 0, $page['pid']);
         $obj->exposeGetOutBookmarks();
@@ -3114,11 +3113,10 @@ PHP;
         $font = $this->getObjectProperty($obj, 'font');
         /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
-        $fontfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json'
-        );
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
-            $this->addRawPageWithObjectNumber($obj, 6);
+        $this->addRawPageWithObjectNumber($obj, 6);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4, 'form' => [5, 6]]);
 
         $out = $obj->exposeGetOutCatalog();
@@ -3394,14 +3392,14 @@ PHP;
     public function testGetOutAnnotationsWithTextAnnotation(): void
     {
         $obj = $this->getInternalTestObject();
-            $pageInfo = $this->initFontAndPage($obj);
-            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
-            $pageObj = $this->getObjectProperty($obj, 'page');
-            /** @var array<int, array<string, mixed>> $pgdata */
-            $pgdata = $this->getObjectProperty($pageObj, 'page');
-            $pgdata[$pageInfo['pid']]['n'] = 5;
-                $pgdata[$pageInfo['pid']]['num'] = 1;
-            $this->setObjectProperty($pageObj, 'page', $pgdata);
+        $pageInfo = $this->initFontAndPage($obj);
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, array<string, mixed>> $pgdata */
+        $pgdata = $this->getObjectProperty($pageObj, 'page');
+        $pgdata[$pageInfo['pid']]['n'] = 5;
+        $pgdata[$pageInfo['pid']]['num'] = 1;
+        $this->setObjectProperty($pageObj, 'page', $pgdata);
 
         $aoid = $obj->setAnnotation(10.0, 20.0, 50.0, 10.0, 'Test note', ['subtype' => 'text']);
 
@@ -3431,14 +3429,14 @@ PHP;
     public function testGetOutAnnotationsWithLinkAnnotation(): void
     {
         $obj = $this->getInternalTestObject();
-            $pageInfo = $this->initFontAndPage($obj);
-            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
-            $pageObj = $this->getObjectProperty($obj, 'page');
-            /** @var array<int, array<string, mixed>> $pgdata */
-            $pgdata = $this->getObjectProperty($pageObj, 'page');
-            $pgdata[$pageInfo['pid']]['n'] = 5;
-                $pgdata[$pageInfo['pid']]['num'] = 1;
-            $this->setObjectProperty($pageObj, 'page', $pgdata);
+        $pageInfo = $this->initFontAndPage($obj);
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, array<string, mixed>> $pgdata */
+        $pgdata = $this->getObjectProperty($pageObj, 'page');
+        $pgdata[$pageInfo['pid']]['n'] = 5;
+        $pgdata[$pageInfo['pid']]['num'] = 1;
+        $this->setObjectProperty($pageObj, 'page', $pgdata);
 
         $aoid = $obj->setAnnotation(10.0, 20.0, 50.0, 10.0, 'https://example.com', ['subtype' => 'Link']);
 
@@ -3465,14 +3463,14 @@ PHP;
     {
         $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
-            $pageInfo = $this->initFontAndPage($obj);
-            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
-            $pageObj = $this->getObjectProperty($obj, 'page');
-            /** @var array<int, array<string, mixed>> $pgdata */
-            $pgdata = $this->getObjectProperty($pageObj, 'page');
-            $pgdata[$pageInfo['pid']]['n'] = 5;
-                $pgdata[$pageInfo['pid']]['num'] = 1;
-            $this->setObjectProperty($pageObj, 'page', $pgdata);
+        $pageInfo = $this->initFontAndPage($obj);
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, array<string, mixed>> $pgdata */
+        $pgdata = $this->getObjectProperty($pageObj, 'page');
+        $pgdata[$pageInfo['pid']]['n'] = 5;
+        $pgdata[$pageInfo['pid']]['num'] = 1;
+        $this->setObjectProperty($pageObj, 'page', $pgdata);
 
         $aoid = $obj->setAnnotation(10.0, 20.0, 50.0, 10.0, 'https://example.com', ['subtype' => 'Link']);
 
@@ -3498,23 +3496,16 @@ PHP;
     public function testGetOutAnnotationsWithFormFieldAnnotation(): void
     {
         $obj = $this->getInternalTestObject();
-            $pageInfo = $this->initFontAndPage($obj);
-            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
-            $pageObj = $this->getObjectProperty($obj, 'page');
-            /** @var array<int, array<string, mixed>> $pgdata */
-            $pgdata = $this->getObjectProperty($pageObj, 'page');
-            $pgdata[$pageInfo['pid']]['n'] = 5;
-                $pgdata[$pageInfo['pid']]['num'] = 1;
-            $this->setObjectProperty($pageObj, 'page', $pgdata);
+        $pageInfo = $this->initFontAndPage($obj);
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, array<string, mixed>> $pgdata */
+        $pgdata = $this->getObjectProperty($pageObj, 'page');
+        $pgdata[$pageInfo['pid']]['n'] = 5;
+        $pgdata[$pageInfo['pid']]['num'] = 1;
+        $this->setObjectProperty($pageObj, 'page', $pgdata);
 
-        $aoid = $obj->setAnnotation(
-            5.0,
-            10.0,
-            80.0,
-            12.0,
-            'myfield',
-            ['subtype' => 'Widget', 'ft' => 'Tx']
-        );
+        $aoid = $obj->setAnnotation(5.0, 10.0, 80.0, 12.0, 'myfield', ['subtype' => 'Widget', 'ft' => 'Tx']);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
@@ -3537,23 +3528,16 @@ PHP;
     public function testGetOutAnnotationsWithColorOption(): void
     {
         $obj = $this->getInternalTestObject();
-            $pageInfo = $this->initFontAndPage($obj);
-            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
-            $pageObj = $this->getObjectProperty($obj, 'page');
-            /** @var array<int, array<string, mixed>> $pgdata */
-            $pgdata = $this->getObjectProperty($pageObj, 'page');
-            $pgdata[$pageInfo['pid']]['n'] = 5;
-                $pgdata[$pageInfo['pid']]['num'] = 1;
-            $this->setObjectProperty($pageObj, 'page', $pgdata);
+        $pageInfo = $this->initFontAndPage($obj);
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        /** @var array<int, array<string, mixed>> $pgdata */
+        $pgdata = $this->getObjectProperty($pageObj, 'page');
+        $pgdata[$pageInfo['pid']]['n'] = 5;
+        $pgdata[$pageInfo['pid']]['num'] = 1;
+        $this->setObjectProperty($pageObj, 'page', $pgdata);
 
-        $aoid = $obj->setAnnotation(
-            5.0,
-            10.0,
-            80.0,
-            12.0,
-            'Colored note',
-            ['subtype' => 'text', 'c' => '#FF0000']
-        );
+        $aoid = $obj->setAnnotation(5.0, 10.0, 80.0, 12.0, 'Colored note', ['subtype' => 'text', 'c' => '#FF0000']);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
@@ -4120,7 +4104,7 @@ PHP;
         $obj = $this->getTestObject();
         $obj->setPDFFilename('output.pdf');
 
-            $this->expectException(\Throwable::class);
+        $this->expectException(\Throwable::class);
         $obj->savePDF('/path/that/does/not/exist/at/all', 'data');
     }
 
@@ -4207,13 +4191,17 @@ PHP;
             ' /RV C 3.000000',
         ]);
 
-        [$appearanceState, $appearanceXObject] = $obj->exposeGetAnnotationAppearanceStream([
-            'opt' => [
-                'ap' => [
-                    'n' => ['On' => 123, 'Off' => 'q 1 0 0 1 0 0 cm Q'],
+        [$appearanceState, $appearanceXObject] = $obj->exposeGetAnnotationAppearanceStream(
+            [
+                'opt' => [
+                    'ap' => [
+                        'n' => ['On' => 123, 'Off' => 'q 1 0 0 1 0 0 cm Q'],
+                    ],
                 ],
             ],
-        ], 10, 5);
+            10,
+            5,
+        );
         $this->assertContainsAllFragments($appearanceState, [
             ' /AP <<',
             '/Off',
@@ -4228,7 +4216,7 @@ PHP;
         $obj = $this->getInternalTestObject();
         $tmpFile = \tempnam(\sys_get_temp_dir(), 'tc-out-ef-');
         $this->assertNotFalse($tmpFile);
-        \file_put_contents((string) $tmpFile, 'embedded-content');
+        \file_put_contents($tmpFile, 'embedded-content');
 
         try {
             $this->setPdfaModeOnObject($obj, 3);
@@ -4237,7 +4225,7 @@ PHP;
                     'a' => 0,
                     'f' => 11,
                     'n' => 12,
-                    'file' => (string) $tmpFile,
+                    'file' => $tmpFile,
                     'content' => '',
                     'mimeType' => 'text/plain',
                     'afRelationship' => 'Source',
@@ -4255,7 +4243,7 @@ PHP;
                     'a' => 0,
                     'f' => 21,
                     'n' => 22,
-                    'file' => (string) $tmpFile,
+                    'file' => $tmpFile,
                     'content' => '',
                     'mimeType' => 'text/plain',
                     'afRelationship' => 'Source',
@@ -4267,7 +4255,9 @@ PHP;
             $compressedOut = $obj->exposeGetOutEmbeddedFiles();
             $this->assertStringContainsString('/Filter /FlateDecode', $compressedOut);
         } finally {
-            @\unlink((string) $tmpFile);
+            if (\file_exists($tmpFile)) {
+                \unlink($tmpFile);
+            }
         }
     }
 
@@ -4276,7 +4266,7 @@ PHP;
         $obj = $this->getInternalTestObject();
         $tmpFile = \tempnam(\sys_get_temp_dir(), 'tc-out-empty-');
         $this->assertNotFalse($tmpFile);
-        \file_put_contents((string) $tmpFile, '');
+        \file_put_contents($tmpFile, '');
 
         try {
             $this->setObjectProperty($obj, 'embeddedfiles', [
@@ -4284,7 +4274,7 @@ PHP;
                     'a' => 0,
                     'f' => 63,
                     'n' => 64,
-                    'file' => (string) $tmpFile,
+                    'file' => $tmpFile,
                     'content' => '',
                     'mimeType' => 'application/octet-stream',
                     'afRelationship' => 'Source',
@@ -4296,7 +4286,9 @@ PHP;
 
             $this->assertSame('', $obj->exposeGetOutEmbeddedFiles());
         } finally {
-            @\unlink((string) $tmpFile);
+            if (\file_exists($tmpFile)) {
+                \unlink($tmpFile);
+            }
         }
     }
 
@@ -4304,7 +4296,7 @@ PHP;
     {
         $obj = $this->getInternalTestObject();
 
-        $throwingFile = new class () extends \Com\Tecnick\File\File {
+        $throwingFile = new class() extends \Com\Tecnick\File\File {
             public function fileGetContents(string $path): string
             {
                 throw new \Com\Tecnick\Pdf\Exception('mock unreadable file: ' . $path);
@@ -4474,10 +4466,10 @@ PHP;
 
         $obj->setSvgMasks([
             'MSK_AABBCCDD' => [
-                'id'     => 'MSK_AABBCCDD',
+                'id' => 'MSK_AABBCCDD',
                 'stream' => 'q Q',
-                'bbox'   => [0.0, 0.0, 595.0, 841.0],
-                'gs_n'   => 0,
+                'bbox' => [0.0, 0.0, 595.0, 841.0],
+                'gs_n' => 0,
             ],
         ]);
 
@@ -4593,16 +4585,16 @@ PHP;
             'width' => 4,
         ];
 
-        $keyI  = $imageObj->getKey('icon-i.png');
+        $keyI = $imageObj->getKey('icon-i.png');
         $keyRi = $imageObj->getKey('icon-ri.png');
         $keyIx = $imageObj->getKey('icon-ix.png');
 
-        $entryI  = \array_merge($minEntry, ['key' => $keyI,  'obj' => 51]);
+        $entryI = \array_merge($minEntry, ['key' => $keyI, 'obj' => 51]);
         $entryRi = \array_merge($minEntry, ['key' => $keyRi, 'obj' => 52]);
         $entryIx = \array_merge($minEntry, ['key' => $keyIx, 'obj' => 53]);
 
         $this->setObjectProperty($imageObj, 'cache', [
-            $keyI  => $entryI,
+            $keyI => $entryI,
             $keyRi => $entryRi,
             $keyIx => $entryIx,
         ]);
@@ -4611,7 +4603,7 @@ PHP;
             'txt' => 'mk-image-field',
             'opt' => [
                 'mk' => [
-                    'i'  => 'icon-i.png',
+                    'i' => 'icon-i.png',
                     'ri' => 'icon-ri.png',
                     'ix' => 'icon-ix.png',
                 ],

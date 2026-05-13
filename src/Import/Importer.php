@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * Importer.php
  *
@@ -77,7 +79,7 @@ class Importer implements ImporterInterface
      *
      * @var array<string, mixed>
      */
-    // @phpstan-ignore-next-line property.onlyWritten (reference binding; writes propagate to caller's array)
+
     private array $xobjects;
 
     /**
@@ -96,7 +98,7 @@ class Importer implements ImporterInterface
     public function __construct(array &$xobjects, int &$pon)
     {
         // Bind by reference so importPage() writes directly into $pdf->xobjects.
-        // @phpstan-ignore assign.propertyType
+
         $this->xobjects = &$xobjects;
         $this->pon = &$pon;
     }
@@ -175,8 +177,15 @@ class Importer implements ImporterInterface
         $pagesRef = SourceDocument::refToKey(\is_string($rootDict['Pages']) ? $rootDict['Pages'] : '');
         $pagesObj = $src->getObject($pagesRef);
         $pagesDict = $this->parseSimpleDict($pagesObj);
-        $countRaw = $pagesDict['Count'] ?? 0;
-        return \is_int($countRaw) ? $countRaw : (\is_numeric($countRaw) ? (int) $countRaw : 0);
+        if (isset($pagesDict['Count']) && \is_int($pagesDict['Count'])) {
+            return $pagesDict['Count'];
+        }
+
+        if (isset($pagesDict['Count']) && \is_numeric($pagesDict['Count'])) {
+            return (int) $pagesDict['Count'];
+        }
+
+        return 0;
     }
 
     /**
@@ -191,15 +200,27 @@ class Importer implements ImporterInterface
      * @throws ImportSourceNotFoundException     If the source ID is not registered.
      * @throws ImportPageOutOfRangeException     If the page number is out of range.
      * @throws ImportCorruptedSourceException    If the page tree is malformed.
+     * @throws ImportException                   If object mapping or cloning fails.
      * @throws ImportUnsupportedFeatureException If an unsupported feature is encountered.
      */
     public function importPage(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
     {
-        $boxOpt = $options['box'] ?? 'CropBox';
-        $useBox = \is_string($boxOpt) ? $boxOpt : 'CropBox';
-        $respectRotation = (bool) ($options['respectRotation'] ?? true);
-        $useGroup = (bool) ($options['groupXObject'] ?? true);
-        $useCache = (bool) ($options['cache'] ?? true);
+        $useBox = \is_string($options['box'] ?? null) ? $options['box'] : 'CropBox';
+        $respectRotation =
+            ($options['respectRotation'] ?? true) === true
+            || ($options['respectRotation'] ?? true) === 1
+            || ($options['respectRotation'] ?? true) === '1'
+            || ($options['respectRotation'] ?? true) === 'true';
+        $useGroup =
+            ($options['groupXObject'] ?? true) === true
+            || ($options['groupXObject'] ?? true) === 1
+            || ($options['groupXObject'] ?? true) === '1'
+            || ($options['groupXObject'] ?? true) === 'true';
+        $useCache =
+            ($options['cache'] ?? true) === true
+            || ($options['cache'] ?? true) === 1
+            || ($options['cache'] ?? true) === '1'
+            || ($options['cache'] ?? true) === 'true';
 
         $cacheKey = $sourceId . ':' . $pageNum . ':' . $useBox . ':' . ($respectRotation ? 'R1' : 'R0');
         if ($useCache && isset($this->templateCache[$cacheKey])) {
@@ -212,7 +233,11 @@ class Importer implements ImporterInterface
 
         $box = $this->selectBox($resolved, $useBox);
         $rotate = $respectRotation ? $resolved['rotate'] : 0;
-        $map = $this->objectMaps[$sourceId];
+        $map = $this->objectMaps[$sourceId] ?? null;
+        if (!$map instanceof ObjectMap) {
+            $map = new ObjectMap();
+            $this->objectMaps[$sourceId] = $map;
+        }
 
         // Allocate object number for the Form XObject.
         $xobjNum = ++$this->pon;
@@ -245,19 +270,24 @@ class Importer implements ImporterInterface
         $filterEntry = $contentStream['filter'] !== '' ? ' /Filter ' . $contentStream['filter'] : '';
         $groupEntry = $useGroup ? ' /Group << /Type /Group /S /Transparency >>' : '';
 
-        $xobjOut = $xobjNum . ' 0 obj' . "\n"
-            . '<< /Type /XObject /Subtype /Form /FormType 1'
-            . \sprintf(' /BBox [%F %F %F %F]', $xMin, $yMin, $xMax, $yMax)
-            . ' /Matrix [' . $matrixStr . ']'
-            . ' /Resources ' . $resDict
-            . $groupEntry
-            . $filterEntry
-            . ' /Length ' . \strlen($streamBytes)
-            . ' >>'
-            . "\nstream\n"
-            . $streamBytes
-            . "\nendstream\n"
-            . "endobj\n";
+        $xobjOut = \sprintf(
+            '%u 0 obj'
+            . "\n"
+            . '<< /Type /XObject /Subtype /Form /FormType 1 /BBox [%F %F %F %F]'
+            . ' /Matrix [%s] /Resources %s%s%s /Length %u >>'
+            . "\nstream\n%s\nendstream\nendobj\n",
+            $xobjNum,
+            $xMin,
+            $yMin,
+            $xMax,
+            $yMax,
+            $matrixStr,
+            $resDict,
+            $groupEntry,
+            $filterEntry,
+            \strlen($streamBytes),
+            $streamBytes,
+        );
 
         $this->rawObjects[$tid] = $xobjOut;
 
@@ -283,15 +313,7 @@ class Importer implements ImporterInterface
         ];
 
         // Determine user-unit dimensions (points → same unit as pon; leave in pt for now).
-        $tpl = new PageTemplate(
-            $tid,
-            $bboxW,
-            $bboxH,
-            $rotate,
-            $sourceId,
-            $pageNum,
-            [$xMin, $yMin, $xMax, $yMax]
-        );
+        $tpl = new PageTemplate($tid, $bboxW, $bboxH, $rotate, $sourceId, $pageNum, [$xMin, $yMin, $xMax, $yMax]);
 
         if ($useCache) {
             $this->templateCache[$cacheKey] = $tpl;
@@ -312,6 +334,7 @@ class Importer implements ImporterInterface
      * @throws ImportSourceNotFoundException     If the source ID is not registered.
      * @throws ImportPageOutOfRangeException     If any page number is out of range.
      * @throws ImportCorruptedSourceException    If the page tree is malformed.
+     * @throws ImportException                   If object mapping or cloning fails.
      * @throws ImportUnsupportedFeatureException If an unsupported feature is encountered.
      */
     public function importPages(string $sourceId, ?array $range = null, array $options = []): array
@@ -325,7 +348,7 @@ class Importer implements ImporterInterface
                 $num = (int) $pageNum;
                 if ($num < 1 || $num > $total) {
                     throw new ImportPageOutOfRangeException(
-                        'Page number ' . $num . ' is out of range [1,' . $total . '].'
+                        'Page number ' . $num . ' is out of range [1,' . $total . '].',
                     );
                 }
             }
@@ -378,11 +401,12 @@ class Importer implements ImporterInterface
      */
     private function requireSource(string $sourceId): SourceDocument
     {
-        if (!isset($this->sources[$sourceId])) {
+        $source = $this->sources[$sourceId] ?? null;
+        if (!$source instanceof SourceDocument) {
             throw new ImportSourceNotFoundException('Source ID not registered: ' . $sourceId);
         }
 
-        return $this->sources[$sourceId];
+        return $source;
     }
 
     /**
@@ -391,22 +415,46 @@ class Importer implements ImporterInterface
      * @param array<string, mixed> $resolved Resolved page from PageResolver.
      * @param string               $boxName  Preferred box name.
      *
-     * @return array<int, float> Box as [x0, y0, x1, y1].
+     * @return array{0: float, 1: float, 2: float, 3: float} Box as [x0, y0, x1, y1].
      */
     private function selectBox(array $resolved, string $boxName): array
     {
         $boxMap = [
             'MediaBox' => 'mediaBox',
-            'CropBox'  => 'cropBox',
+            'CropBox' => 'cropBox',
             'BleedBox' => 'bleedBox',
-            'TrimBox'  => 'trimBox',
-            'ArtBox'   => 'artBox',
+            'TrimBox' => 'trimBox',
+            'ArtBox' => 'artBox',
         ];
 
         $key = $boxMap[$boxName] ?? 'cropBox';
-        /** @var array<int, float> $box */
-        $box = $resolved[$key] ?? $resolved['mediaBox'];
-        return $box;
+        $rawBox = null;
+        if (isset($resolved[$key]) && \is_array($resolved[$key])) {
+            $rawBox = $resolved[$key];
+        } elseif (isset($resolved['mediaBox']) && \is_array($resolved['mediaBox'])) {
+            $rawBox = $resolved['mediaBox'];
+        }
+
+        if (
+            !\is_array($rawBox)
+            || !\array_key_exists(0, $rawBox)
+            || !\array_key_exists(1, $rawBox)
+            || !\array_key_exists(2, $rawBox)
+            || !\array_key_exists(3, $rawBox)
+            || !\is_numeric($rawBox[0])
+            || !\is_numeric($rawBox[1])
+            || !\is_numeric($rawBox[2])
+            || !\is_numeric($rawBox[3])
+        ) {
+            return [0.0, 0.0, 0.0, 0.0];
+        }
+
+        return [
+            (float) $rawBox[0],
+            (float) $rawBox[1],
+            (float) $rawBox[2],
+            (float) $rawBox[3],
+        ];
     }
 
     /**
@@ -427,7 +475,7 @@ class Importer implements ImporterInterface
     private function rotationMatrix(int $rotate, float $wid, float $hgt): array
     {
         return match ($rotate % 360) {
-            90  => [0.0, 1.0, -1.0, 0.0, $hgt, 0.0],
+            90 => [0.0, 1.0, -1.0, 0.0, $hgt, 0.0],
             180 => [-1.0, 0.0, 0.0, -1.0, $wid, $hgt],
             270 => [0.0, -1.0, 1.0, 0.0, 0.0, $wid],
             default => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
@@ -445,30 +493,61 @@ class Importer implements ImporterInterface
      */
     private function parseSimpleDict(array $objData): array
     {
-        foreach ($objData as $element) {
-            if (!\is_array($element) || ($element[0] ?? '') !== '<<') {
+        $objItems = \array_values($objData);
+        $objCount = \count($objItems);
+        for ($objIdx = 0; $objIdx < $objCount; ++$objIdx) {
+            $objItemSlice = \array_slice($objItems, $objIdx, 1);
+            if (\count($objItemSlice) !== 1 || !\is_array($objItemSlice[0])) {
                 continue;
             }
 
-            if (!\is_array($element[1] ?? null)) {
+            $objItem = $objItemSlice[0];
+
+            if (($objItem[0] ?? null) !== '<<' || !\is_array($objItem[1] ?? null)) {
                 continue;
             }
 
             $dict = [];
-            $raw = $element[1];
+            $raw = \array_values($objItem[1]);
             $cnt = \count($raw);
-            for ($idx = 0; $idx < $cnt - 1; $idx += 2) {
-                $keyEl = $raw[$idx];
-                $valEl = $raw[$idx + 1];
-                if (!\is_array($keyEl) || ($keyEl[0] ?? '') !== '/') {
+            for ($idx = 0; $idx < ($cnt - 1); $idx += 2) {
+                $pair = \array_slice($raw, $idx, 2);
+                if (\count($pair) < 2) {
                     continue;
                 }
 
-                $keyName = $keyEl[1] ?? '';
-                $key = \ltrim(\is_string($keyName) ? $keyName : '', '/');
-                $val = \is_array($valEl) ? ($valEl[1] ?? null) : $valEl;
-                if ($val !== null && !\is_array($val) && \is_scalar($val)) {
-                    $dict[$key] = (string) $val;
+                if (!\is_array($pair[0] ?? null) || ($pair[0][0] ?? null) !== '/') {
+                    continue;
+                }
+
+                if (!\array_key_exists(1, $pair)) {
+                    continue;
+                }
+
+                if (!\array_key_exists(1, $pair[0])) {
+                    continue;
+                }
+
+                if (!\is_string($pair[0][1])) {
+                    continue;
+                }
+
+                $key = \ltrim($pair[0][1], '/');
+
+                if (\is_array($pair[1])) {
+                    if (!\array_key_exists(1, $pair[1])) {
+                        continue;
+                    }
+
+                    if (!\is_array($pair[1][1]) && \is_scalar($pair[1][1])) {
+                        $dict[$key] = (string) $pair[1][1];
+                    }
+
+                    continue;
+                }
+
+                if (!\is_array($pair[1]) && \is_scalar($pair[1])) {
+                    $dict[$key] = (string) $pair[1];
                 }
             }
 

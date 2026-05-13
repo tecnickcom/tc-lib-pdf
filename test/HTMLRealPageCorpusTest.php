@@ -42,9 +42,11 @@ class HTMLRealPageCorpusTest extends TestUtil
 
         $list = [];
         foreach ($value as $item) {
-            if (\is_scalar($item)) {
-                $list[] = (string) $item;
+            if (!\is_scalar($item)) {
+                continue;
             }
+
+            $list[] = (string) $item;
         }
 
         return $list;
@@ -83,14 +85,12 @@ class HTMLRealPageCorpusTest extends TestUtil
          *   pages: array<int, array<string, mixed>>
          * } $typed
          */
-        $typed = [
+        return [
             'version' => \is_int($data['version'] ?? null) ? $data['version'] : 0,
             'failure_tags' => self::toStringList($data['failure_tags'] ?? []),
             'severity_levels' => self::toStringList($data['severity_levels'] ?? []),
             'pages' => \array_values((array) ($data['pages'] ?? [])),
         ];
-
-        return $typed;
     }
 
     public function testRealPageCorpusManifestHasRequiredArchetypesAndSeverityTaggedFailures(): void
@@ -182,7 +182,7 @@ class HTMLRealPageCorpusTest extends TestUtil
         $html = \file_get_contents($fixturePath);
         $this->assertNotFalse($html, 'Unable to read fixture for page id: ' . $pageId);
 
-        $obj->addHTMLCell((string) $html, 10, 10, 190, 0);
+        $obj->addHTMLCell($html, 10, 10, 190, 0);
 
         $pdf = $obj->getOutPDFString();
         $this->assertNotSame('', $pdf, 'Expected rendered PDF output for page id: ' . $pageId);

@@ -147,7 +147,7 @@ class CascadeContextTest extends TestUtil
             $this->assertLessThanOrEqual(
                 CascadeContext::MAX_NORMAL_SOURCE_ORDER,
                 $order,
-                "Normal source order exceeded max at iteration $i"
+                "Normal source order exceeded max at iteration {$i}",
             );
         }
 

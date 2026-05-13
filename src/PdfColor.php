@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * PdfColor.php
  *
@@ -67,14 +69,15 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         // Preserve spot color behavior under PDF/X restrictions.
         try {
             $col = $this->getSpotColor($color);
-            $tint = \sprintf('cs %F scn', (\max(0, \min(1, $tint))));
+            $tint = \sprintf('cs %F scn', \max(0, \min(1, $tint)));
             if ($stroke) {
                 $tint = \strtoupper($tint);
             }
 
             return \sprintf('/CS%d %s' . "\n", $col['i'], $tint);
         } catch (\Com\Tecnick\Color\Exception $colorException) {
-            // \assert(true); // noop
+            // Spot-color lookup may fail for process colors; fall back to CMYK conversion below.
+            unset($colorException);
         }
 
         $model = $this->getColorObject($color);
@@ -84,5 +87,39 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
 
         $cmyk = new \Com\Tecnick\Color\Model\Cmyk($model->toCmykArray());
         return $cmyk->getPdfColor($stroke);
+    }
+
+    /**
+     * Compatibility proxy used by internal modules and no-config static analysis.
+     */
+    public function getColorObj(string $color): ?\Com\Tecnick\Color\Model
+    {
+        return parent::getColorObj($color);
+    }
+
+    /**
+     * Compatibility proxy used by internal modules and no-config static analysis.
+     *
+     * @param array<array-key, string> $keys
+     */
+    public function getPdfSpotResourcesByKeys(array $keys): string
+    {
+        return parent::getPdfSpotResourcesByKeys($keys);
+    }
+
+    /**
+     * Compatibility proxy used by internal modules and no-config static analysis.
+     */
+    public function getPdfRgbComponents(string $color): string
+    {
+        return parent::getPdfRgbComponents($color);
+    }
+
+    /**
+     * Compatibility proxy used by internal modules and no-config static analysis.
+     */
+    public function getPdfSpotObjects(int &$pon): string
+    {
+        return parent::getPdfSpotObjects($pon);
     }
 }

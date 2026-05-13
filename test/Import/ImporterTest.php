@@ -16,10 +16,10 @@
 
 namespace Test\Import;
 
+use Com\Tecnick\Pdf\Import\Importer;
 use Com\Tecnick\Pdf\Import\ImportPageOutOfRangeException;
 use Com\Tecnick\Pdf\Import\ImportSourceNotFoundException;
 use Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException;
-use Com\Tecnick\Pdf\Import\Importer;
 use Com\Tecnick\Pdf\Import\PageTemplate;
 use PHPUnit\Framework\TestCase;
 
@@ -30,7 +30,7 @@ class ImporterTest extends TestCase
         $path = __DIR__ . '/../fixtures/simple_import.pdf';
         $data = file_get_contents($path);
         $this->assertNotFalse($data);
-        return (string) $data;
+        return $data;
     }
 
     private function multipageFixtureData(): string
@@ -38,7 +38,7 @@ class ImporterTest extends TestCase
         $path = __DIR__ . '/../fixtures/multipage_import.pdf';
         $data = file_get_contents($path);
         $this->assertNotFalse($data);
-        return (string) $data;
+        return $data;
     }
 
     private function encryptedFixtureData(): string
@@ -46,7 +46,7 @@ class ImporterTest extends TestCase
         $path = __DIR__ . '/../fixtures/encrypted_import_stub.pdf';
         $data = file_get_contents($path);
         $this->assertNotFalse($data);
-        return (string) $data;
+        return $data;
     }
 
     private function makeImporter(): Importer
@@ -277,7 +277,7 @@ class ImporterTest extends TestCase
         $srcId = $importer->setImportSourceData($data);
 
         $single = $importer->importPage($srcId, 1);
-        $batch  = $importer->importPages($srcId, [1]);
+        $batch = $importer->importPages($srcId, [1]);
 
         // Same page imported again (cache hit) — must return the exact same template.
         $this->assertSame($single->getXobjId(), $batch[0]->getXobjId());

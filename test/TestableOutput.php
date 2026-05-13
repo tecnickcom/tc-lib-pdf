@@ -53,8 +53,7 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         ];
 
         /** @var TAnnot $annot */
-        $annot = \array_replace_recursive($base, $annotData);
-        return $annot;
+        return \array_replace_recursive($base, $annotData);
     }
 
     /** @phpstan-return array<int> */
@@ -585,7 +584,7 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
             if ($key === 'form') {
                 if (\is_array($value)) {
                     /** @var array<int> $form */
-                    $form = \array_map(static fn ($objId): int => (int) $objId, $value);
+                    $form = \array_map(static fn($objId): int => (int) $objId, $value);
                     $this->objid['form'] = $form;
                 }
 

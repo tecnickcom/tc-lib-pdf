@@ -45,9 +45,13 @@ class SpecificityTest extends TestUtil
         int $expectedC,
     ): void {
         $spec = Specificity::fromSelector($selector);
-        $this->assertSame($expectedA, $spec->idCount, "ID count mismatch for: $selector");
-        $this->assertSame($expectedB, $spec->classCount, "Class/attribute/pseudo-class count mismatch for: $selector");
-        $this->assertSame($expectedC, $spec->typeCount, "Type/pseudo-element count mismatch for: $selector");
+        $this->assertSame($expectedA, $spec->idCount, "ID count mismatch for: {$selector}");
+        $this->assertSame(
+            $expectedB,
+            $spec->classCount,
+            "Class/attribute/pseudo-class count mismatch for: {$selector}",
+        );
+        $this->assertSame($expectedC, $spec->typeCount, "Type/pseudo-element count mismatch for: {$selector}");
     }
 
     /** @return array<string, array{0: string, 1: int, 2: int, 3: int}> */

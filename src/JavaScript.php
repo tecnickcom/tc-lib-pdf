@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * JavaScript.php
  *
@@ -33,6 +35,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *
  * @phpstan-import-type TAnnotOpts from Output
  * @phpstan-import-type TGTransparency from Output
+ * @phpstan-import-type TXOBject from Output
  *
  * @phpstan-type TRadioButtonItem array{
  *         'n': int,
@@ -150,7 +153,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function appendRawJavaScript(string $script): void
     {
-        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '')) {
+        if ($this->pdfa > 0 || $this->pdfx || $this->pdfuaMode !== '') {
             return;
         }
 
@@ -167,7 +170,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addRawJavaScriptObj(string $script, bool $onload = false): int
     {
-        if (($this->pdfa > 0) || $this->pdfx || ($this->pdfuaMode !== '')) {
+        if ($this->pdfa > 0 || $this->pdfx || $this->pdfuaMode !== '') {
             return -1;
         }
         $oid = ++$this->pon;
@@ -190,6 +193,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $width width in user units.
      * @param float $height height in user units.
      * @param array<string, string> $prop javascript field properties (see: Javascript for Acrobat API reference).
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     protected function addJavaScriptField(
         string $type,
@@ -201,24 +208,30 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         array $prop,
     ): void {
         $page = $this->page->getPage();
+        /** @var array{num: int, pheight: float} $page */
         $curfont = $this->font->getCurrentFont();
+        /** @var array{size: float} $curfont */
+        $pageNum = $page['num'];
+        $pageHeight = $page['pheight'];
+        $fontSize = $curfont['size'];
         // avoid fields duplication after saving the document
-        $this->javascript .= "if (getField('tcpdfdocsaved').value != 'saved') {"
-        . sprintf(
-            "f" . $name . "=this.addField('%s','%s',%u,[%F,%F,%F,%F]);",
+        $this->javascript .= \sprintf(
+            "if (getField('tcpdfdocsaved').value != 'saved') {f%s=this.addField('%s','%s',%u,[%F,%F,%F,%F]);\nf%s.textSize=%s;\n",
+            $name,
             $name,
             $type,
-            $page['num'] - 1,
+            $pageNum - 1,
             $this->toPoints($posx),
-            $this->toYPoints($posy, $page['pheight']) + 1.0,
+            $this->toYPoints($posy, $pageHeight) + 1.0,
             $this->toPoints($posx + $width),
-            $this->toYPoints($posy + $height, $page['pheight']) + 1.0,
-        ) . "\n"
-        . 'f' . $name . '.textSize=' . $curfont['size'] . ";\n";
+            $this->toYPoints($posy + $height, $pageHeight) + 1.0,
+            $name,
+            $fontSize,
+        );
         foreach ($prop as $key => $val) {
-            if (\strcmp(\substr($key, -5), 'Color') == 0) {
+            if (\strcmp(\substr($key, -5), 'Color') === 0) {
                 $color = $this->color->getColorObj($val);
-                $val = ($color === null) ? '' : $color->getJsPdfColor();
+                $val = $color === null ? '' : $color->getJsPdfColor();
             } else {
                 $val = "'" . $val . "'";
             }
@@ -258,20 +271,22 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, mixed> $prp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return TAnnotOpts Annotation properties.
+     * @throws \Com\Tecnick\Color\Exception
      */
     protected function getAnnotOptFromJSProp(array $prp): array
     {
         /** @var TAnnotOpts $opt */
         $opt = [];
-        if (empty($prp)) {
+        if ($prp === []) {
             return $opt;
         }
-        if (!empty($prp['aopt']) && \is_array($prp['aopt'])) {
+        if (isset($prp['aopt']) && \is_array($prp['aopt'])) {
             // the annotation options are already defined
-            return $prp['aopt']; // @phpstan-ignore return.type
+            /** @var TAnnotOpts */
+            return \array_merge($opt, $prp['aopt']);
         }
         // alignment: Controls how the text is laid out within the text field.
-        if (!empty($prp['alignment'])) {
+        if (isset($prp['alignment'])) {
             $opt['q'] = match ($prp['alignment']) {
                 'left' => 0,
                 'center' => 1,
@@ -281,7 +296,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         }
         // lineWidth:
         // Specifies the thickness of the border when stroking the perimeter of a field's rectangle.
-        $linewidth = (isset($prp['lineWidth']) && (\is_numeric($prp['lineWidth']))) ? \intval($prp['lineWidth']) : 1;
+        $linewidth = isset($prp['lineWidth']) && \is_numeric($prp['lineWidth']) ? \intval($prp['lineWidth']) : 1;
         // borderStyle: The border style for a field.
         if (isset($prp['borderStyle'])) {
             switch ($prp['borderStyle']) {
@@ -315,36 +330,33 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (isset($prp['border']) && \is_array($prp['border'])) {
             $opt['border'] = $prp['border'];
         }
-        if (!isset($opt['mk'])) {
-            $opt['mk'] = [];
-        }
-        if (!isset($opt['mk']['if'])) {
-            $opt['mk']['if'] = [];
-        }
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
-        $opt['mk']['if']['a'] = [0.5, 0.5];
+        $mkifAlign = [0.5, 0.5];
+        /** @var array<array-key, mixed> $mkif */
+        $mkif = [];
         // buttonAlignX:
         // Controls how space is distributed from the left of the button face with respect to the icon.
         if (isset($prp['buttonAlignX'])) {
-            $opt['mk']['if']['a'][0] = $prp['buttonAlignX'];
+            $mkifAlign[0] = $prp['buttonAlignX'];
         }
         // buttonAlignY:
         // Controls how unused space is distributed from the bottom of the button face with respect to the icon.
         if (isset($prp['buttonAlignY'])) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['if']['a'][1] = $prp['buttonAlignY'];
+            $mkifAlign[1] = $prp['buttonAlignY'];
         }
+        $mkif['a'] = $mkifAlign;
         // buttonFitBounds:
         // If true, the extent to which the icon may be scaled is set to the bounds of the button field.
-        if (isset($prp['buttonFitBounds']) && ($prp['buttonFitBounds'] == 'true')) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['if']['fb'] = true;
+        if (
+            isset($prp['buttonFitBounds'])
+            && \is_string($prp['buttonFitBounds'])
+            && $prp['buttonFitBounds'] === 'true'
+        ) {
+            $mkif['fb'] = true;
         }
         // buttonScaleHow:
         // Controls how the icon is scaled (if necessary) to fit inside the button face.
         if (isset($prp['buttonScaleHow'])) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['if']['s'] = match ($prp['buttonScaleHow']) {
+            $mkif['s'] = match ($prp['buttonScaleHow']) {
                 'scaleHow.proportional' => 'P',
                 'scaleHow.anamorphic' => 'A',
                 default => 'P',
@@ -353,8 +365,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // buttonScaleWhen:
         // Controls when an icon is scaled to fit inside the button face.
         if (isset($prp['buttonScaleWhen'])) {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['if']['sw'] = match ($prp['buttonScaleWhen']) {
+            $mkif['sw'] = match ($prp['buttonScaleWhen']) {
                 'scaleWhen.always' => 'A',
                 'scaleWhen.never' => 'N',
                 'scaleWhen.tooBig' => 'B',
@@ -362,6 +373,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 default => 'N',
             };
         }
+
+        /** @var array<array-key, mixed> $mk */
+        $mk = ['if' => $mkif];
         // buttonPosition:
         // Controls how the text and the icon of the button are positioned with respect to each other
         //  within the button face.
@@ -369,17 +383,17 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             if (\is_numeric($prp['buttonPosition'])) {
                 $mktp = \intval($prp['buttonPosition']);
                 if ($mktp >= 0 && $mktp <= 6) {
-                    $opt['mk']['tp'] = $mktp;
+                    $mk['tp'] = $mktp;
                 }
             } else {
-                $opt['mk']['tp'] = match ($prp['buttonPosition']) {
-                    'position.textOnly' =>  0,
-                    'position.iconOnly' =>  1,
-                    'position.iconTextV' =>  2,
-                    'position.textIconV' =>  3,
-                    'position.iconTextH' =>  4,
-                    'position.textIconH' =>  5,
-                    'position.overlay' =>  6,
+                $mk['tp'] = match ($prp['buttonPosition']) {
+                    'position.textOnly' => 0,
+                    'position.iconOnly' => 1,
+                    'position.iconTextV' => 2,
+                    'position.textIconV' => 3,
+                    'position.iconTextH' => 4,
+                    'position.textIconH' => 5,
+                    'position.overlay' => 6,
                     default => 0,
                 };
             }
@@ -388,11 +402,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // Specifies the background color for a field.
         if (isset($prp['fillColor'])) {
             if (\is_array($prp['fillColor'])) {
-                $opt['mk']['bg'] = $prp['fillColor'];
+                $mk['bg'] = $prp['fillColor'];
             } elseif (\is_string($prp['fillColor'])) {
                 $fillColor = $this->color->getColorObj($prp['fillColor']);
                 if ($fillColor !== null) {
-                    $opt['mk']['bg'] = $fillColor->getPDFacArray();
+                    $mk['bg'] = $fillColor->getPDFacArray();
                 }
             }
         }
@@ -401,18 +415,22 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // with a line as large as the line width.
         if (isset($prp['strokeColor'])) {
             if (\is_array($prp['strokeColor'])) {
-                $opt['mk']['bc'] = $prp['strokeColor'];
+                $mk['bc'] = $prp['strokeColor'];
             } elseif (\is_string($prp['strokeColor'])) {
                 $strokeColor = $this->color->getColorObj($prp['strokeColor']);
                 if ($strokeColor !== null) {
-                    $opt['mk']['bc'] = $strokeColor->getPDFacArray();
+                    $mk['bc'] = $strokeColor->getPDFacArray();
                 }
             }
         }
         // rotation:
         // The rotation of a widget in counterclockwise increments.
         if (isset($prp['rotation'])) {
-            $opt['mk']['r'] = $prp['rotation'];
+            $mk['r'] = $prp['rotation'];
+        }
+
+        if ($mk !== []) {
+            $opt['mk'] = $mk;
         }
         // charLimit:
         // Limits the number of characters that a user can type into a text field.
@@ -423,75 +441,75 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // readonly:
         // The read-only characteristic of a field.
         // If a field is read-only, the user can see the field but cannot change it.
-        if (!empty($prp['readonly']) && ($prp['readonly'] == 'true')) {
-            $flg += 1 << 0;
+        if (isset($prp['readonly']) && $prp['readonly'] === 'true') {
+            $flg += 1;
         }
         // required:
         // Specifies whether a field requires a value.
-        if (!empty($prp['required']) && ($prp['required'] == 'true')) {
+        if (isset($prp['required']) && $prp['required'] === 'true') {
             $flg += 1 << 1;
         }
         // multiline:
         // Controls how text is wrapped within the field.
-        if (!empty($prp['multiline']) && ($prp['multiline'] == 'true')) {
+        if (isset($prp['multiline']) && $prp['multiline'] === 'true') {
             $flg += 1 << 12;
         }
         // password:
         // Specifies whether the field should display asterisks when data is entered in the field.
-        if (!empty($prp['password']) && ($prp['password'] == 'true')) {
+        if (isset($prp['password']) && $prp['password'] === 'true') {
             $flg += 1 << 13;
         }
         // NoToggleToOff:
         // If set, exactly one radio button shall be selected at all times;
         // selecting the currently selected button has no effect.
-        if (!empty($prp['NoToggleToOff']) && ($prp['NoToggleToOff'] == 'true')) {
+        if (isset($prp['NoToggleToOff']) && $prp['NoToggleToOff'] === 'true') {
             $flg += 1 << 14;
         }
         // Radio:
         // If set, the field is a set of radio buttons.
-        if (!empty($prp['Radio']) && ($prp['Radio'] == 'true')) {
+        if (isset($prp['Radio']) && $prp['Radio'] === 'true') {
             $flg += 1 << 15;
         }
         // Pushbutton:
         // If set, the field is a pushbutton that does not retain a permanent value.
-        if (!empty($prp['Pushbutton']) && ($prp['Pushbutton'] == 'true')) {
+        if (isset($prp['Pushbutton']) && $prp['Pushbutton'] === 'true') {
             $flg += 1 << 16;
         }
         // Combo:
         // If set, the field is a combo box; if clear, the field is a list box.
-        if (!empty($prp['Combo']) && ($prp['Combo'] == 'true')) {
+        if (isset($prp['Combo']) && $prp['Combo'] === 'true') {
             $flg += 1 << 17;
         }
         // editable:
         // Controls whether a combo box is editable.
-        if (!empty($prp['editable']) && ($prp['editable'] == 'true')) {
+        if (isset($prp['editable']) && $prp['editable'] === 'true') {
             $flg += 1 << 18;
         }
         // Sort:
         // If set, the field's option items shall be sorted alphabetically.
-        if (!empty($prp['Sort']) && ($prp['Sort'] == 'true')) {
+        if (isset($prp['Sort']) && $prp['Sort'] === 'true') {
             $flg += 1 << 19;
         }
         // fileSelect:
         // If true, sets the file-select flag in the Options tab of the text field
         // (Field is Used for File Selection).
-        if (!empty($prp['fileSelect']) && ($prp['fileSelect'] == 'true')) {
+        if (isset($prp['fileSelect']) && $prp['fileSelect'] === 'true') {
             $flg += 1 << 20;
         }
         // multipleSelection:
         // If true, indicates that a list box allows a multiple selection of items.
-        if (!empty($prp['multipleSelection']) && ($prp['multipleSelection'] == 'true')) {
+        if (isset($prp['multipleSelection']) && $prp['multipleSelection'] === 'true') {
             $flg += 1 << 21;
         }
         // doNotSpellCheck:
         // If true, spell checking is not performed on this editable text field.
-        if (!empty($prp['doNotSpellCheck']) && ($prp['doNotSpellCheck'] == 'true')) {
+        if (isset($prp['doNotSpellCheck']) && $prp['doNotSpellCheck'] === 'true') {
             $flg += 1 << 22;
         }
         // doNotScroll:
         // If true, the text field does not scroll and the user,
         // therefore, is limited by the rectangular region designed for the field.
-        if (!empty($prp['doNotScroll']) && ($prp['doNotScroll'] == 'true')) {
+        if (isset($prp['doNotScroll']) && $prp['doNotScroll'] === 'true') {
             $flg += 1 << 23;
         }
         // comb:
@@ -503,23 +521,23 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // The setter will also raise if any of the following field properties are also set multiline,
         // password, and fileSelect.
         // A side-effect of setting this property is that the doNotScroll property is also set.
-        if (!empty($prp['comb']) && ($prp['comb'] == 'true')) {
+        if (isset($prp['comb']) && $prp['comb'] === 'true') {
             $flg += 1 << 24;
         }
         // radiosInUnison:
         // If false, even if a group of radio buttons have the same name and export value,
         // they behave in a mutually exclusive fashion, like HTML radio buttons.
-        if (!empty($prp['radiosInUnison']) && ($prp['radiosInUnison'] == 'true')) {
+        if (isset($prp['radiosInUnison']) && $prp['radiosInUnison'] === 'true') {
             $flg += 1 << 25;
         }
         // richText:
         // If true, the field allows rich text formatting.
-        if (!empty($prp['richText']) && ($prp['richText'] == 'true')) {
+        if (isset($prp['richText']) && $prp['richText'] === 'true') {
             $flg += 1 << 25;
         }
         // commitOnSelChange:
         // Controls whether a field value is committed after a selection change.
-        if (!empty($prp['commitOnSelChange']) && ($prp['commitOnSelChange'] == 'true')) {
+        if (isset($prp['commitOnSelChange']) && $prp['commitOnSelChange'] === 'true') {
             $flg += 1 << 26;
         }
         $opt['ff'] = $flg;
@@ -532,19 +550,18 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // readonly:
         // The read-only characteristic of a field.
         // If a field is read-only, the user can see the field but cannot change it.
-        if (!empty($prp['readonly']) && ($prp['readonly'] == 'true')) {
+        if (isset($prp['readonly']) && $prp['readonly'] === 'true') {
             $anf += 1 << 6;
         }
         // display:
         // Controls whether the field is hidden or visible on screen and in print.
-        if (!empty($prp['display'])) {
-            if ($prp['display'] == 'display.visible') {
-                //
-            } elseif ($prp['display'] == 'display.hidden') {
+        if (isset($prp['display']) && \is_string($prp['display'])) {
+            if ($prp['display'] === 'display.visible') {
+            } elseif ($prp['display'] === 'display.hidden') {
                 $anf += 1 << 1;
-            } elseif ($prp['display'] == 'display.noPrint') {
+            } elseif ($prp['display'] === 'display.noPrint') {
                 $anf -= 1 << 2;
-            } elseif ($prp['display'] == 'display.noView') {
+            } elseif ($prp['display'] === 'display.noView') {
                 $anf += 1 << 5;
             }
         }
@@ -558,16 +575,21 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (isset($prp['value'])) {
             if (\is_array($prp['value'])) {
                 $opt['opt'] = [];
-                foreach ($prp['value'] as $key => $optval) {
+                /** @var array<array-key, bool|float|int|string|null> $valueList */
+                $valueList = $prp['value'];
+                foreach ($valueList as $key => $optval) {
+                    if (\is_bool($optval)) {
+                        $optstr = $optval ? 'true' : 'false';
+                    } else {
+                        $optstr = (string) $optval;
+                    }
                     // exportValues:
                     // An array of strings representing the export values for the field.
-                    // @phpstan-ignore offsetAccess.nonOffsetAccessible
+
                     if (isset($prp['exportValues'][$key])) {
-                        // @phpstan-ignore offsetAccess.nonOffsetAccessible
-                        $opt['opt'][$key] = [$prp['exportValues'][$key], $optval];
+                        $opt['opt'][$key] = [$prp['exportValues'][$key], $optstr];
                     } else {
-                        // @phpstan-ignore offsetAccess.nonOffsetAccessible
-                        $opt['opt'][$key] = $optval;
+                        $opt['opt'][$key] = $optstr;
                     }
                 }
             } else {
@@ -583,17 +605,17 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // If nonempty, used during form submission instead of name.
         // Only applicable if submitting in HTML format (that is, URL-encoded).
         if (isset($prp['submitName'])) {
-            $opt['tm'] = $prp['submitName'];
+            $opt['tm'] = (string) $prp['submitName'];
         }
         // name:
         // Fully qualified field name.
         if (isset($prp['name'])) {
-            $opt['t'] = $prp['name'];
+            $opt['t'] = (string) $prp['name'];
         }
         // userName:
         // The user name (short description string) of the field.
         if (isset($prp['userName'])) {
-            $opt['tu'] = $prp['userName'];
+            $opt['tu'] = (string) $prp['userName'];
         }
         // highlight:
         // Defines how a button reacts when a user clicks it.
@@ -616,6 +638,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         // - defaultStyle: This property defines the default style attributes for the form field.
         // - style: Allows the user to set the glyph style of a check box or radio button.
         // - textColor, textFont, textSize
+        /** @var TAnnotOpts $opt */
         return $opt;
     }
 
@@ -636,30 +659,27 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         string $file,
         string $mime = 'application/octet-stream',
         string $afrel = 'Source',
-        string $desc = ''
+        string $desc = '',
     ): void {
-        if (($this->pdfa == 1) || ($this->pdfa == 2)) {
+        if ($this->pdfa === 1 || $this->pdfa === 2) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
 
-        if (empty($file)) {
+        if ($file === '') {
             throw new PdfException('Empty file name');
         }
 
-        if ($this->pdfa === 3 && !\in_array($afrel, self::VALID_AF_RELATIONSHIPS)) {
+        if ($this->pdfa === 3 && !\in_array($afrel, self::VALID_AF_RELATIONSHIPS, strict: true)) {
             throw new PdfException('afrel must be one of: ' . \implode(', ', self::VALID_AF_RELATIONSHIPS));
         }
 
-        $filekey = \basename((string) $file);
-        if (
-            ! empty($filekey)
-            && empty($this->embeddedfiles[$filekey])
-        ) {
+        $filekey = \basename($file);
+        if (!isset($this->embeddedfiles[$filekey])) {
             $this->embeddedfiles[$filekey] = [
                 'a' => 0,
                 'f' => ++$this->pon,
                 'n' => ++$this->pon,
-                'file' => (string) $file,
+                'file' => $file,
                 'content' => '',
                 'mimeType' => $mime,
                 'afRelationship' => $afrel,
@@ -687,15 +707,15 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         string $content,
         string $mime = 'application/octet-stream',
         string $afrel = 'Source',
-        string $desc = ''
+        string $desc = '',
     ): void {
-        if (($this->pdfa == 1) || ($this->pdfa == 2)) {
+        if ($this->pdfa === 1 || $this->pdfa === 2) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
-        if (empty($file) || empty($content)) {
+        if ($file === '' || $content === '') {
             throw new PdfException('Empty file name or content');
         }
-        if (empty($this->embeddedfiles[$file])) {
+        if (!isset($this->embeddedfiles[$file])) {
             $this->embeddedfiles[$file] = [
                 'a' => 0,
                 'f' => ++$this->pon,
@@ -722,6 +742,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param TAnnotOpts $opt    Array of options (Annotation Types) - all lowercase.
      *
      * @return int Object ID.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\File\Exception
      */
     public function setAnnotation(
         float $posx,
@@ -731,20 +754,20 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         string $txt,
         array $opt = [
             'subtype' => 'text',
-        ]
+        ],
     ): int {
-        if (empty($opt['subtype'])) {
+        if ($opt['subtype'] === '') {
             $opt['subtype'] = 'text';
         }
 
-        $subtype = \strtolower((string) $opt['subtype']);
+        $subtype = \strtolower($opt['subtype']);
 
         // PDF/X interaction restriction: suppress interactive annotation subtypes.
         if ($this->pdfx && \in_array($subtype, self::PDFX_BLOCKED_ANNOT_SUBTYPES, true)) {
             return 0;
         }
 
-        if (!empty($this->xobjtid)) {
+        if ($this->xobjtid !== '' && isset($this->xobjects[$this->xobjtid])) {
             // Store annotationparameters for later use on a XObject template.
             $this->xobjects[$this->xobjtid]['annotations'][] = [
                 'n' => 0,
@@ -771,17 +794,22 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         switch ($subtype) {
             case 'fileattachment':
             case 'sound':
-                $this->addEmbeddedFile($opt['fs']);
+                if (isset($opt['fs']) && $opt['fs'] !== '') {
+                    $this->addEmbeddedFile($opt['fs']);
+                }
         }
         // Add widgets annotation's icons
-        if (isset($opt['mk']['i']) && \is_string($opt['mk']['i'])) {
-            $this->image->add($opt['mk']['i']);
-        }
-        if (isset($opt['mk']['ri']) && \is_string($opt['mk']['ri'])) {
-            $this->image->add($opt['mk']['ri']);
-        }
-        if (isset($opt['mk']['ix']) && \is_string($opt['mk']['ix'])) {
-            $this->image->add($opt['mk']['ix']);
+        if (isset($opt['mk'])) {
+            $mk = $opt['mk'];
+            if (isset($mk['i']) && \is_string($mk['i'])) {
+                $this->image->add($mk['i']);
+            }
+            if (isset($mk['ri']) && \is_string($mk['ri'])) {
+                $this->image->add($mk['ri']);
+            }
+            if (isset($mk['ix']) && \is_string($mk['ix'])) {
+                $this->image->add($mk['ix']);
+            }
         }
         return $oid;
     }
@@ -801,22 +829,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *                           - '*' = embedded generic file
      *
      * @return int Object ID (Add to a page via: $pdf->page->addAnnotRef($aoid);).
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
      */
-    public function setLink(
-        float $posx,
-        float $posy,
-        float $width,
-        float $height,
-        string $link,
-    ): int {
-        return $this->setAnnotation(
-            $posx,
-            $posy,
-            $width,
-            $height,
-            $link,
-            ['subtype' => 'Link']
-        );
+    public function setLink(float $posx, float $posy, float $width, float $height, string $link): int
+    {
+        return $this->setAnnotation($posx, $posy, $width, $height, $link, ['subtype' => 'Link']);
     }
 
     /**
@@ -832,7 +851,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     {
         $lnkid = '@' . (\count($this->links) + 1);
         $this->links[$lnkid] = [
-            'p' => ($page < 0) ? $this->page->getPageID() : $page,
+            'p' => $page < 0 ? $this->page->getPageID() : $page,
             'y' => $posy,
         ];
         return $lnkid;
@@ -848,15 +867,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *
      * @return string Destination name.
      */
-    public function setNamedDestination(
-        string $name,
-        int $page = -1,
-        float $posx = 0,
-        float $posy = 0,
-    ): string {
+    public function setNamedDestination(string $name, int $page = -1, float $posx = 0, float $posy = 0): string
+    {
         $ename = $this->encrypt->encodeNameObject($name);
         $this->dests[$ename] = [
-            'p' => ($page < 0) ? $this->page->getPageID() : $page,
+            'p' => $page < 0 ? $this->page->getPageID() : $page,
             'x' => $posx,
             'y' => $posy,
         ];
@@ -898,12 +913,26 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         string $fstyle = '',
         string $color = '',
     ): void {
-        $maxlevel = ((\count($this->outlines) > 0) ? (\end($this->outlines)['l'] + 1) : 0);
+        $lastOutline = null;
+        $lastOutlineKey = \array_key_last($this->outlines);
+        if ($lastOutlineKey !== null && isset($this->outlines[$lastOutlineKey])) {
+            $lastOutline = $this->outlines[$lastOutlineKey];
+        }
+
+        $maxlevel = isset($lastOutline['l']) ? (int) $lastOutline['l'] + 1 : 0;
+        if ($level < 0) {
+            $outlineLevel = 0;
+        } elseif ($level > $maxlevel) {
+            $outlineLevel = $maxlevel;
+        } else {
+            $outlineLevel = $level;
+        }
+
         $this->outlines[] = [
             't' => $name,
             'u' => $link,
-            'l' => (($level < 0) ? 0 : ($level > $maxlevel ? $maxlevel : $level)),
-            'p' => (($page < 0) ? $this->page->getPageID() : $page),
+            'l' => $outlineLevel,
+            'p' => $page < 0 ? $this->page->getPageID() : $page,
             'x' => $posx,
             'y' => $posy,
             's' => \strtoupper($fstyle),
@@ -933,24 +962,24 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param ?TGTransparency $transpgroup Optional group attributes.
      *
      * @return string XObject template object ID.
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    public function newXObjectTemplate(
-        float $width = 0,
-        float $height = 0,
-        ?array $transpgroup = null,
-    ): string {
+    public function newXObjectTemplate(float $width = 0, float $height = 0, ?array $transpgroup = null): string
+    {
         $oid = ++$this->pon;
         $tid = 'XT' . $oid;
         $this->xobjtid = $tid;
 
         $region = $this->page->getRegion();
+        $regionWidth = $region['RW'];
+        $regionHeight = $region['RH'];
 
-        if (empty($width) || $width < 0) {
-            $width = $region['RW'];
+        if ($width <= 0) {
+            $width = $regionWidth;
         }
 
-        if (empty($height) || $height < 0) {
-            $height = $region['RH'];
+        if ($height <= 0) {
+            $height = $regionHeight;
         }
 
         $this->xobjects[$tid] = [
@@ -980,12 +1009,25 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * Exit from the XObject template mode.
      *
      * See: newXObjectTemplate.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function exitXObjectTemplate(): void
     {
+        if ($this->xobjtid === '' || !isset($this->xobjects[$this->xobjtid])) {
+            $this->xobjtid = '';
+            return;
+        }
+
+        if (isset($this->xobjects[$this->xobjtid]['pheight'])) {
+            $this->page->setPagePHeight($this->xobjects[$this->xobjtid]['pheight']);
+        }
+
+        if (isset($this->xobjects[$this->xobjtid]['gheight'])) {
+            $this->graph->setPageHeight($this->xobjects[$this->xobjtid]['gheight']);
+        }
+
         // restore page height
-        $this->page->setPagePHeight($this->xobjects[$this->xobjtid]['pheight']);
-        $this->graph->setPageHeight($this->xobjects[$this->xobjtid]['gheight']);
         $this->xobjtid = '';
     }
 
@@ -1003,6 +1045,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param string      $halign      Horizontal alignment inside the specified box: L=left; C=center; R=right.
      *
      * @return string The PDF code to render the specified XObject template.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
      */
     public function getXObjectTemplate(
         string $tid,
@@ -1015,19 +1061,23 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     ): string {
         $this->xobjtid = '';
         $region = $this->page->getRegion();
+        $regionWidth = $region['RW'];
+        $regionHeight = $region['RH'];
 
-        if (empty($this->xobjects[$tid])) {
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
             return '';
         }
+        $xobjWidth = $xobj['w'];
+        $xobjHeight = $xobj['h'];
+        $xobjId = $xobj['id'];
 
-        $xobj = $this->xobjects[$tid];
-
-        if (empty($width) || $width < 0) {
-            $width = \min($xobj['w'], $region['RW']);
+        if ($width <= 0) {
+            $width = \min($xobjWidth, $regionWidth);
         }
 
-        if (empty($height) || $height < 0) {
-            $height = \min($xobj['h'], $region['RH']);
+        if ($height <= 0) {
+            $height = \min($xobjHeight, $regionHeight);
         }
 
         $tplx = $this->cellHPos($posx, $width, $halign, $this->defcell);
@@ -1041,62 +1091,85 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         ];
 
         $ctm = [
-            0 => ($width / $xobj['w']),
+            0 => $xobjWidth > 0.0 ? $width / $xobjWidth : 1.0,
             1 => 0,
             2 => 0,
-            3 => ($height / $xobj['h']),
+            3 => $xobjHeight > 0.0 ? $height / $xobjHeight : 1.0,
             4 => $this->toPoints($tplx),
             5 => $this->toYPoints($tply + $height),
         ];
 
         $out = $this->graph->getStartTransform();
         $out .= $this->graph->getTransformation($ctm);
-        $out .= '/' . $xobj['id'] . ' Do' . "\n";
+        $out .= '/' . $xobjId . ' Do' . "\n";
         $out .= $this->graph->getStopTransform();
 
-        if (!empty($xobj['annotations'])) {
+        if ($xobj['annotations'] !== []) {
             foreach ($xobj['annotations'] as $annot) {
                 // transform original coordinates
-                $clt = $this->graph->getCtmProduct(
-                    $ctm,
-                    array(
-                        1,
-                        0,
-                        0,
-                        1,
-                        $this->toPoints($annot['x']),
-                        $this->toPoints(-$annot['y']),
-                    ),
-                );
-                $anx = $this->toUnit($clt[4]);
-                $any = $this->toYUnit($clt[5] + $this->toUnit($height));
+                $clt = $this->graph->getCtmProduct($ctm, [
+                    1,
+                    0,
+                    0,
+                    1,
+                    $this->toPoints($annot['x']),
+                    $this->toPoints(-$annot['y']),
+                ]);
+                $clt4 = $clt[4];
+                $clt5 = $clt[5];
+                $anx = $this->toUnit($clt4);
+                $any = $this->toYUnit($clt5 + $this->toUnit($height));
 
-                $crb = $this->graph->getCtmProduct(
-                    $ctm,
-                    array(
-                        1,
-                        0,
-                        0,
-                        1,
-                        $this->toPoints(($annot['x'] + $annot['w'])),
-                        $this->toPoints((-$annot['y'] - $annot['h'])),
-                    ),
-                );
-                $anw = $this->toUnit($crb[4]) - $anx;
-                $anh = $this->toYUnit($crb[5] + $this->toUnit($height)) - $any;
+                $crb = $this->graph->getCtmProduct($ctm, [
+                    1,
+                    0,
+                    0,
+                    1,
+                    $this->toPoints($annot['x'] + $annot['w']),
+                    $this->toPoints(-$annot['y'] - $annot['h']),
+                ]);
+                $crb4 = $crb[4];
+                $crb5 = $crb[5];
+                $anw = $this->toUnit($crb4) - $anx;
+                $anh = $this->toYUnit($crb5 + $this->toUnit($height)) - $any;
 
-                $out .= $this->setAnnotation(
-                    $anx,
-                    $any,
-                    $anw,
-                    $anh,
-                    $annot['txt'],
-                    $annot['opt']
-                );
+                $out .= $this->setAnnotation($anx, $any, $anw, $anh, $annot['txt'], $annot['opt']);
             }
         }
 
         return $out;
+    }
+
+    /**
+     * @param string $tid
+     * @return TXOBject|null
+     */
+    protected function getXObjectByID(string $tid): ?array
+    {
+        return $this->xobjects[$tid] ?? null;
+    }
+
+    /**
+     * @param string $tid
+     * @param TXOBject $xobj
+     */
+    protected function setXObjectByID(string $tid, array $xobj): void
+    {
+        $this->xobjects[$tid] = $xobj;
+    }
+
+    /**
+     * @param string $tid
+     * @return string
+     */
+    protected function getXObjectOutDataByID(string $tid): string
+    {
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return '';
+        }
+
+        return $xobj['outdata'];
     }
 
     /**
@@ -1107,7 +1180,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addXObjectContent(string $tid, string $data): void
     {
-        $this->xobjects[$tid]['outdata'] .= $data;
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return;
+        }
+        $xobj['outdata'] .= $data;
+        $this->setXObjectByID($tid, $xobj);
     }
 
     /**
@@ -1118,7 +1196,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addXObjectXObjectID(string $tid, string $key): void
     {
-        $this->xobjects[$tid]['xobject'][] = $key;
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return;
+        }
+        $xobj['xobject'][] = $key;
+        $this->setXObjectByID($tid, $xobj);
     }
 
     /**
@@ -1129,7 +1212,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addXObjectImageID(string $tid, int $key): void
     {
-        $this->xobjects[$tid]['image'][] = $key;
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return;
+        }
+        $xobj['image'][] = $key;
+        $this->setXObjectByID($tid, $xobj);
     }
 
     /**
@@ -1140,7 +1228,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addXObjectFontID(string $tid, string $key): void
     {
-        $this->xobjects[$tid]['font'][] = $key;
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return;
+        }
+        $xobj['font'][] = $key;
+        $this->setXObjectByID($tid, $xobj);
     }
 
     /**
@@ -1151,7 +1244,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addXObjectGradientID(string $tid, int $key): void
     {
-        $this->xobjects[$tid]['gradient'][] = $key;
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return;
+        }
+        $xobj['gradient'][] = $key;
+        $this->setXObjectByID($tid, $xobj);
     }
 
     /**
@@ -1162,7 +1260,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addXObjectExtGStateID(string $tid, int $key): void
     {
-        $this->xobjects[$tid]['extgstate'][] = $key;
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return;
+        }
+        $xobj['extgstate'][] = $key;
+        $this->setXObjectByID($tid, $xobj);
     }
 
     /**
@@ -1173,37 +1276,45 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      */
     public function addXObjectSpotColorID(string $tid, string $key): void
     {
-        $this->xobjects[$tid]['spot_colors'][] = $key;
+        $xobj = $this->getXObjectByID($tid);
+        if ($xobj === null) {
+            return;
+        }
+        $xobj['spot_colors'][] = $key;
+        $this->setXObjectByID($tid, $xobj);
     }
 
-    // ===| ANNOTAION FORM FIELDS |=======================================================
+    // ===| ANNOTATION FORM FIELDS |=======================================================
 
-      /**
-       * Retyurns the PDF command to ser the default fill color from the style stack.
-       *
-       * @return string
-       */
+    /**
+     * Retyurns the PDF command to ser the default fill color from the style stack.
+     *
+     * @return string
+     * @throws \Com\Tecnick\Color\Exception
+     */
     protected function getPDFDefFillColor(): string
     {
         $style = $this->graph->getCurrentStyleArray();
-        if (!empty($style['fillColor'])) {
+        if (isset($style['fillColor']) && $style['fillColor'] !== '') {
             $colobj = $this->color->getColorObj($style['fillColor']);
-            if ($colobj != null) {
+            if ($colobj !== null) {
                 return $colobj->getPdfColor();
             }
         }
         return '';
     }
 
-   /**
-    * Merge annotation options with Javascript properties.
-    *
-    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    * @param string $color Default PDF color command.
-    *
-    * @return TAnnotOpts merged Annotation options.
-    */
+    /**
+     * Merge annotation options with Javascript properties.
+     *
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @param string $color Default PDF color command.
+     *
+     * @return TAnnotOpts merged Annotation options.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     */
     protected function mergeAnnotOptions(
         array $opt = [
             'subtype' => 'text',
@@ -1216,20 +1327,24 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt = \array_merge($opt, $this->getAnnotOptFromJSProp($jsp));
         // set font
         $curfont = $this->font->getCurrentFont();
-        $this->annotation_fonts[$curfont['key']] = $curfont['idx'];
+        /** @var array{key: string, idx: int, outraw: string} $curfont */
+        $fontKey = $curfont['key'];
+        $fontIdx = $curfont['idx'];
+        $this->annotation_fonts[$fontKey] = $fontIdx;
         $fontstyle = $curfont['outraw'];
-        if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && (\trim($jsp['textColor']) !== '')) {
-            $colobj = $this->color->getColorObj((string) $jsp['textColor']);
+        if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && \trim($jsp['textColor']) !== '') {
+            $colobj = $this->color->getColorObj($jsp['textColor']);
             if ($colobj !== null) {
                 $color = $colobj->getPdfColor();
             }
         }
-        if (empty($color)) {
+        if ($color === '') {
             $black = $this->color->getColorObj('black');
-            $color = ($black !== null) ? $black->getPdfColor() : '';
+            $color = $black !== null ? $black->getPdfColor() : '';
         }
         $opt['da'] = $fontstyle . ' ' . $color;
-        return $opt; // @phpstan-ignore return.type
+        /** @var TAnnotOpts $opt */
+        return $opt;
     }
 
     /**
@@ -1245,10 +1360,18 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *                      Use a string to specify a javascript action.
      *                      Use an array to specify a form action options
      *                      as in section 12.7.5 of PDF32000_2008.
-    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
      * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return int PDF Object ID.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     public function addFFButton(
         string $name,
@@ -1269,22 +1392,19 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt = $this->mergeAnnotOptions($opt, $jsp);
         // appearance stream
         $opt['ap'] = [];
-        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
+        $da = isset($opt['da']) ? $opt['da'] : '';
+        $opt['ap']['n'] = '/Tx BMC q ' . $da . ' ';
         $tid = $this->newXObjectTemplate($width, $height);
-        $strokeColor = (
-            isset($jsp['strokeColor'])
-            && \is_string($jsp['strokeColor'])
-            && (\trim($jsp['strokeColor']) !== '')
-        )
-            ? \trim($jsp['strokeColor'])
-            : '#333333';
-        $fillColor = (isset($jsp['fillColor']) && \is_string($jsp['fillColor']) && (\trim($jsp['fillColor']) !== ''))
-            ? \trim($jsp['fillColor'])
-            : '#cccccc';
-        $lineWidth = (isset($jsp['lineWidth']) && \is_numeric($jsp['lineWidth']))
-            ? $this->toUnit(
-                (float) \max(0, (float) $jsp['lineWidth'])
-            )
+        $strokeColor =
+            isset($jsp['strokeColor']) && \is_string($jsp['strokeColor']) && \trim($jsp['strokeColor']) !== ''
+                ? \trim($jsp['strokeColor'])
+                : '#333333';
+        $fillColor =
+            isset($jsp['fillColor']) && \is_string($jsp['fillColor']) && \trim($jsp['fillColor']) !== ''
+                ? \trim($jsp['fillColor'])
+                : '#cccccc';
+        $lineWidth = isset($jsp['lineWidth']) && \is_numeric($jsp['lineWidth'])
+            ? $this->toUnit((float) \max(0, (float) $jsp['lineWidth']))
             : $this->toUnit(1);
         $dashArray = [];
         if (isset($jsp['borderStyle']) && \is_string($jsp['borderStyle'])) {
@@ -1293,7 +1413,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 $dashArray = [3, 2];
             }
         }
-        $defbstyle =  [
+        $defbstyle = [
             'lineWidth' => $lineWidth,
             'lineCap' => 'square',
             'lineJoin' => 'miter',
@@ -1309,25 +1429,15 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             2 => $defbstyle, // BOTTOM
             3 => $defbstyle, // LEFT
         ];
-        if (!(isset($jsp['strokeColor']) && \is_string($jsp['strokeColor']) && (\trim($jsp['strokeColor']) !== ''))) {
-            $bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
+        if (!isset($jsp['strokeColor']) || \trim($jsp['strokeColor']) === '') {
+            $bstyle[0]['lineColor'] = '#e7e7e7';
+            $bstyle[3]['lineColor'] = '#e7e7e7';
         }
-        $txtbox = $this->getTextCell(
-            $caption,
-            0,
-            0,
-            $width,
-            $height,
-            0,
-            0,
-            'C',
-            'C',
-            null,
-            $bstyle, // @phpstan-ignore argument.type
-        );
+        $txtbox = $this->getTextCell($caption, 0, 0, $width, $height, 0, 0, 'C', 'C', null, $bstyle);
         $this->addXObjectContent($tid, $txtbox);
         $this->exitXObjectTemplate();
-        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $xobjOutData = $this->getXObjectOutDataByID($tid);
+        $opt['ap']['n'] .= $xobjOutData;
         $opt['ap']['n'] .= 'Q EMC';
         $opt['Subtype'] = 'Widget';
         $opt['ft'] = 'Btn';
@@ -1336,75 +1446,76 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         if (!isset($opt['mk'])) {
             $opt['mk'] = [];
         }
-        $oid = ($this->pon + 1); // from setAnnotation
+        $oid = $this->pon + 1; // from setAnnotation
         $opt['mk']['ca'] = $this->getOutTextString($caption, $oid, true);
         $opt['mk']['rc'] = $this->getOutTextString($caption, $oid, true);
         $opt['mk']['ac'] = $this->getOutTextString($caption, $oid, true);
-        if (!empty($action)) {
+        if ($action !== '' && $action !== []) {
             if (\is_string($action)) {
                 if ($this->pdfa <= 0) {
                     $opt['a'] = '/S /JavaScript /JS ' . $this->getOutTextString($action, $oid, true);
                 }
-            } elseif (\is_array($action)) {
+            } else {
                 // form action options as in section 12.7.5 of PDF32000_2008.
                 $opt['a'] = '/S';
                 $bmode = ['SubmitForm', 'ResetForm', 'ImportData'];
-                foreach ($action as $key => $val) {
-                    if (($key == 'S') && \is_string($val) && \in_array($val, $bmode)) {
-                        $opt['a'] = '/S /' . $val;
-                    } elseif (($key == 'F') && (!empty($val)) && \is_string($val)) {
-                        $opt['a'] .= ' /F ' . $this->encrypt->escapeDataString($val, $oid);
-                    } elseif (($key == 'Fields') && !empty($val) && \is_array($val)) {
-                        $opt['a'] .= ' /Fields [';
-                        foreach ($val as $field) {
-                            if (\is_string($field)) {
-                                $opt['a'] .= ' ' . $this->getOutTextString($field, $oid);
-                            }
-                        }
-                        $opt['a'] .= ']';
-                    } elseif (($key == 'Flags')) {
-                        $flg = 0;
-                        if (\is_array($val)) {
-                            foreach ($val as $flag) {
-                                $flg += match ($flag) {
-                                    'Include/Exclude' => 1 << 0,
-                                    'IncludeNoValueFields' => 1 << 1,
-                                    'ExportFormat' => 1 << 2,
-                                    'GetMethod' => 1 << 3,
-                                    'SubmitCoordinates' => 1 << 4,
-                                    'XFDF' => 1 << 5,
-                                    'IncludeAppendSaves' => 1 << 6,
-                                    'IncludeAnnotations' => 1 << 7,
-                                    'SubmitPDF' => 1 << 8,
-                                    'CanonicalFormat' => 1 << 9,
-                                    'ExclNonUserAnnots' => 1 << 10,
-                                    'ExclFKey' => 1 << 11,
-                                    'EmbedForm' => 1 << 13,
-                                    default => 0,
-                                };
-                            }
-                        } elseif (\is_numeric($val)) {
-                            $flg = intval($val);
-                        }
-                        $opt['a'] .= ' /Flags ' . $flg;
+                if (isset($action['S']) && \is_string($action['S']) && \in_array($action['S'], $bmode, strict: true)) {
+                    $opt['a'] = '/S /' . $action['S'];
+                }
+                if (isset($action['F']) && \is_string($action['F']) && $action['F'] !== '') {
+                    $opt['a'] .= ' /F ' . $this->encrypt->escapeDataString($action['F'], $oid);
+                }
+                if (isset($action['Fields']) && \is_array($action['Fields']) && $action['Fields'] !== []) {
+                    $opt['a'] .= ' /Fields [';
+                    $opt['a'] .= \array_reduce(
+                        $action['Fields'],
+                        fn(string $carry, mixed $field): string => !\is_string($field)
+                            ? $carry
+                            : $carry . ' ' . $this->getOutTextString($field, $oid),
+                        '',
+                    );
+                    $opt['a'] .= ']';
+                }
+                if (isset($action['Flags'])) {
+                    $flg = 0;
+                    if (\is_array($action['Flags'])) {
+                        $flg = \array_reduce(
+                            $action['Flags'],
+                            static fn(int $carry, mixed $flag): int => !\is_string($flag)
+                                ? $carry
+                                : $carry
+                                    + match ($flag) {
+                                        'Include/Exclude' => 1,
+                                        'IncludeNoValueFields' => 1 << 1,
+                                        'ExportFormat' => 1 << 2,
+                                        'GetMethod' => 1 << 3,
+                                        'SubmitCoordinates' => 1 << 4,
+                                        'XFDF' => 1 << 5,
+                                        'IncludeAppendSaves' => 1 << 6,
+                                        'IncludeAnnotations' => 1 << 7,
+                                        'SubmitPDF' => 1 << 8,
+                                        'CanonicalFormat' => 1 << 9,
+                                        'ExclNonUserAnnots' => 1 << 10,
+                                        'ExclFKey' => 1 << 11,
+                                        'EmbedForm' => 1 << 13,
+                                        default => 0,
+                                    },
+                            0,
+                        );
+                    } elseif (\is_numeric($action['Flags'])) {
+                        $flg = intval($action['Flags']);
                     }
+                    $opt['a'] .= ' /Flags ' . $flg;
                 }
             }
         }
-        unset(
-            $this->xobjects[$tid],
-            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-        );
-        return $this->setAnnotation(
-            $posx,
-            $posy,
-            $width,
-            $height,
-            $name,
-            $opt, // @phpstan-ignore argument.type
-        );
+        if (isset($this->xobjects[$tid])) {
+            unset($this->xobjects[$tid]);
+        }
+        unset($opt['mk']['i'], $opt['mk']['ri'], $opt['mk']['ix']);
+        /** @var TAnnotOpts $annotOpt */
+        $annotOpt = $opt;
+        return $this->setAnnotation($posx, $posy, $width, $height, $name, $annotOpt);
     }
 
     /**
@@ -1420,6 +1531,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return int PDF Object ID.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
      */
     public function addFFCheckBox(
         string $name,
@@ -1434,29 +1550,35 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         array $jsp = [],
     ): int {
         $font = $this->font->insert($this->pon, 'zapfdingbats');
+        /** @var array{cw: array<int, float>, ascent: float, descent: float, outraw: string} $font */
         $color = $this->getPDFDefFillColor();
         $jsp['borderStyle'] = 'inset';
-        $jsp['value'] = empty($jsp['value']) ? ['Yes'] : $jsp['value'];
+        $jsp['value'] = !isset($jsp['value']) || $jsp['value'] === [] ? ['Yes'] : $jsp['value'];
         $opt = $this->mergeAnnotOptions($opt, $jsp, $color);
-        $onvalue = empty($onvalue) ? 'Yes' : $onvalue;
+        $onvalue = $onvalue === '' ? 'Yes' : $onvalue;
         $opt['ap'] = [];
         $opt['ap']['n'] = [];
-        $rfx = (($this->toPoints($width) - $font['cw'][110]) / 2);
-        $rfy = ($this->toPoints($width) - ($font['ascent'] - $font['descent']));
+        $cw110 = isset($font['cw'][110]) ? $font['cw'][110] : 0.0;
+        $rfx = ($this->toPoints($width) - $cw110) / 2;
+        $fontAscent = $font['ascent'];
+        $fontDescent = $font['descent'];
+        $fontOutRaw = $font['outraw'];
+        $rfy = $this->toPoints($width) - ($fontAscent - $fontDescent);
         $opt['ap']['n']['Yes'] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(110) . ') Tj ET Q',
             $color,
-            $font['outraw'],
+            $fontOutRaw,
             $rfx,
             $rfy,
         );
 
-        $rfx = (($this->toPoints($width) - $font['cw'][111]) / 2);
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        $cw111 = isset($font['cw'][111]) ? $font['cw'][111] : 0.0;
+        $rfx = ($this->toPoints($width) - $cw111) / 2;
+
         $opt['ap']['n']['Off'] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(111) . ') Tj ET Q',
             $color,
-            $font['outraw'],
+            $fontOutRaw,
             $rfx,
             $rfy,
         );
@@ -1467,14 +1589,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt['ft'] = 'Btn';
         $opt['t'] = $name;
         $this->font->popLastFont();
-        return $this->setAnnotation(
-            $posx,
-            $posy,
-            $width,
-            $width,
-            $name,
-            $opt, // @phpstan-ignore argument.type
-        );
+        /** @var TAnnotOpts $annotOpt */
+        $annotOpt = $opt;
+        return $this->setAnnotation($posx, $posy, $width, $width, $name, $annotOpt);
     }
 
     /**
@@ -1490,6 +1607,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return int PDF Object ID.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     public function addFFComboBox(
         string $name,
@@ -1507,7 +1631,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt = $this->mergeAnnotOptions($opt, $jsp);
         // appearance stream
         $opt['ap'] = [];
-        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
+        $defaultAppearance = isset($opt['da']) ? $opt['da'] : '';
+        $opt['ap']['n'] = '/Tx BMC q ' . $defaultAppearance . ' ';
         $text = '';
         foreach ($values as $item) {
             if (\is_array($item)) {
@@ -1517,19 +1642,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             }
         }
         $tid = $this->newXObjectTemplate($width, $height);
-        $txtbox = $this->getTextCell(
-            $text,
-            0,
-            0,
-            $width,
-            $height,
-            0,
-            0,
-            'T',
-        );
+        $txtbox = $this->getTextCell($text, 0, 0, $width, $height, 0, 0, 'T');
         $this->addXObjectContent($tid, $txtbox);
         $this->exitXObjectTemplate();
-        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $opt['ap']['n'] .= $this->getXObjectOutDataByID($tid);
         $opt['ap']['n'] .= 'Q EMC';
         $opt['subtype'] = 'Widget';
         $opt['Subtype'] = 'Widget';
@@ -1539,22 +1655,17 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         unset(
             $this->xobjects[$tid],
             $opt['mk']['ca'],
-            $opt['mk']['rc'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ac'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['if'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['tp'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['rc'],
+            $opt['mk']['ac'],
+            $opt['mk']['i'],
+            $opt['mk']['ri'],
+            $opt['mk']['ix'],
+            $opt['mk']['if'],
+            $opt['mk']['tp'],
         );
-        return $this->setAnnotation(
-            $posx,
-            $posy,
-            $width,
-            $height,
-            $name,
-            $opt, // @phpstan-ignore argument.type
-        );
+        /** @var TAnnotOpts $annotOpt */
+        $annotOpt = $opt;
+        return $this->setAnnotation($posx, $posy, $width, $height, $name, $annotOpt);
     }
 
     /**
@@ -1570,6 +1681,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return int PDF Object ID.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     public function addFFListBox(
         string $name,
@@ -1586,7 +1704,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt = $this->mergeAnnotOptions($opt, $jsp);
         // appearance stream
         $opt['ap'] = [];
-        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
+        $defaultAppearance = isset($opt['da']) ? $opt['da'] : '';
+        $opt['ap']['n'] = '/Tx BMC q ' . $defaultAppearance . ' ';
         $text = '';
         foreach ($values as $item) {
             if (\is_array($item)) {
@@ -1596,19 +1715,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             }
         }
         $tid = $this->newXObjectTemplate($width, $height);
-        $txtbox = $this->getTextCell(
-            $text,
-            $posx,
-            $posy,
-            $width,
-            $height,
-            0,
-            0,
-            'T',
-        );
+        $txtbox = $this->getTextCell($text, $posx, $posy, $width, $height, 0, 0, 'T');
         $this->addXObjectContent($tid, $txtbox);
         $this->exitXObjectTemplate();
-        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $opt['ap']['n'] .= $this->getXObjectOutDataByID($tid);
         $opt['ap']['n'] .= 'Q EMC';
         $opt['subtype'] = 'Widget';
         $opt['Subtype'] = 'Widget';
@@ -1618,22 +1728,17 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         unset(
             $this->xobjects[$tid],
             $opt['mk']['ca'],
-            $opt['mk']['rc'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ac'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['if'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['tp'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['rc'],
+            $opt['mk']['ac'],
+            $opt['mk']['i'],
+            $opt['mk']['ri'],
+            $opt['mk']['ix'],
+            $opt['mk']['if'],
+            $opt['mk']['tp'],
         );
-        return $this->setAnnotation(
-            $posx,
-            $posy,
-            $width,
-            $height,
-            $name,
-            $opt, // @phpstan-ignore argument.type
-        );
+        /** @var TAnnotOpts $annotOpt */
+        $annotOpt = $opt;
+        return $this->setAnnotation($posx, $posy, $width, $height, $name, $annotOpt);
     }
 
     /**
@@ -1649,6 +1754,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return int PDF Object ID.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
      */
     public function addFFRadioButton(
         string $name,
@@ -1663,14 +1773,15 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         array $jsp = [],
     ): int {
         $font = $this->font->insert($this->pon, 'zapfdingbats');
+        /** @var array{cw: array<int, float>, ascent: float, descent: float, outraw: string} $font */
         $color = $this->getPDFDefFillColor();
         $jsp['NoToggleToOff'] = 'true';
         $jsp['Radio'] = 'true';
         $jsp['borderStyle'] = 'inset';
         $opt = $this->mergeAnnotOptions($opt, $jsp, $color);
-        $onvalue = empty($onvalue) ? 'On' : $onvalue;
-        $defval = ($checked) ? $onvalue : 'Off';
-        if (empty($this->radiobuttons[$name])) {
+        $onvalue = $onvalue === '' ? 'On' : $onvalue;
+        $defval = $checked ? $onvalue : 'Off';
+        if (!isset($this->radiobuttons[$name])) {
             $oid = ++$this->pon;
             $this->radiobuttons[$name] = [
                 'n' => $oid,
@@ -1679,26 +1790,31 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             ];
         }
         $this->radiobuttons[$name]['kids'][] = [
-            'n' => ($this->pon + 1), // this is assigned on setAnnotation
+            'n' => $this->pon + 1, // this is assigned on setAnnotation
             'def' => $defval,
         ];
         $opt['ap'] = [];
         $opt['ap']['n'] = [];
-        $rfx = (($this->toPoints($width) - $font['cw'][108]) / 2);
-        $rfy = ($this->toPoints($width) - ($font['ascent'] - $font['descent']));
+        $cw108 = isset($font['cw'][108]) ? $font['cw'][108] : 0.0;
+        $rfx = ($this->toPoints($width) - $cw108) / 2;
+        $fontAscent = $font['ascent'];
+        $fontDescent = $font['descent'];
+        $fontOutRaw = $font['outraw'];
+        $rfy = $this->toPoints($width) - ($fontAscent - $fontDescent);
         $opt['ap']['n'][$onvalue] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(108) . ') Tj ET Q',
             $color,
-            $font['outraw'],
+            $fontOutRaw,
             $rfx,
             $rfy,
         );
-        $rfx = (($this->toPoints($width) - $font['cw'][109]) / 2);
-        // @phpstan-ignore offsetAccess.nonOffsetAccessible
+        $cw109 = isset($font['cw'][109]) ? $font['cw'][109] : 0.0;
+        $rfx = ($this->toPoints($width) - $cw109) / 2;
+
         $opt['ap']['n']['Off'] = \sprintf(
             'q %s BT %s %F %F Td (' . \chr(109) . ') Tj ET Q',
             $color,
-            $font['outraw'],
+            $fontOutRaw,
             $rfx,
             $rfy,
         );
@@ -1715,31 +1831,36 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $opt['as'] = 'Off';
         }
         // store readonly flag
-        $this->radiobuttons[$name]['#readonly#'] = ($this->radiobuttons[$name]['#readonly#'] || (bool)($opt['f'] & 64));
+        /** @var mixed $annotFlagValue */
+        $annotFlagValue = $opt['f'] ?? null;
+        $annotFlags = \is_numeric($annotFlagValue) ? (int) $annotFlagValue : 0;
+        $this->radiobuttons[$name]['#readonly#'] = $this->radiobuttons[$name]['#readonly#'] || ($annotFlags & 64) !== 0;
         $this->font->popLastFont();
-        return $this->setAnnotation(
-            $posx,
-            $posy,
-            $width,
-            $width,
-            $name,
-            $opt, // @phpstan-ignore argument.type
-        );
+        /** @var TAnnotOpts $annotOpt */
+        $annotOpt = $opt;
+        return $this->setAnnotation($posx, $posy, $width, $width, $name, $annotOpt);
     }
 
     /**
-    * Adds an annotation text form field.
-    *
-    * @param string $name field name.
-    * @param float $posx horizontal position in user units (LTR).
-    * @param float $posy vertical position in user units (LTR).
-    * @param float $width width in user units.
-    * @param float $height height in user units.
-    * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
-    * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    *
-    * @return int PDF Object ID.
-    */
+     * Adds an annotation text form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param TAnnotOpts $opt Array of options (Annotation Types) - all lowercase.
+     * @param array<string, mixed> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     *
+     * @return int PDF Object ID.
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
     public function addFFText(
         string $name,
         float $posx,
@@ -1751,14 +1872,17 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         ],
         array $jsp = [],
     ): int {
+        /** @var mixed $fieldValue */
+        $fieldValue = $opt['v'] ?? null;
         $opt = $this->mergeAnnotOptions($opt, $jsp);
-       // appearance stream
+        // appearance stream
         $opt['ap'] = [];
-        $opt['ap']['n'] = '/Tx BMC q ' . $opt['da'] . ' ';
-        $text = (!empty($opt['v']) && \is_string($opt['v'])) ? $opt['v'] : '';
+        $defaultAppearance = $opt['da'] ?? '';
+        $opt['ap']['n'] = '/Tx BMC q ' . $defaultAppearance . ' ';
+        $text = \is_scalar($fieldValue) ? (string) $fieldValue : '';
         $txtColor = '';
-        if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && (\trim($jsp['textColor']) !== '')) {
-            $colobj = $this->color->getColorObj((string) $jsp['textColor']);
+        if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && \trim($jsp['textColor']) !== '') {
+            $colobj = $this->color->getColorObj($jsp['textColor']);
             if ($colobj !== null) {
                 $txtColor = $colobj->getPdfColor();
             }
@@ -1769,33 +1893,18 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 $txtColor = $black->getPdfColor();
             }
         }
-        $halign = '';
-        if (isset($opt['q'])) {
-            $halign = match ($opt['q']) {
-                0 => 'L',
-                1 => 'C',
-                2 => 'R',
-                default => '',
-            };
-        }
+        $halign = match ((int) ($opt['q'] ?? -1)) {
+            0 => 'L',
+            1 => 'C',
+            2 => 'R',
+            default => '',
+        };
         $tid = $this->newXObjectTemplate($width, $height);
-        /** @var array{margin: array{T: float, R: float, B: float, L: float}, padding: array{T: float, R: float, B: float, L: float}, borderpos: float} $zerocell */
         $zerocell = $this::ZEROCELL;
-        $txtbox = $this->getTextCell(
-            $text,
-            0,
-            0,
-            $width,
-            $height,
-            0,
-            0,
-            'T',
-            $halign,
-            $zerocell,
-        );
+        $txtbox = $this->getTextCell($text, 0, 0, $width, $height, 0, 0, 'T', $halign, $zerocell);
         $this->addXObjectContent($tid, $txtColor . $txtbox);
         $this->exitXObjectTemplate();
-        $opt['ap']['n'] .= $this->xobjects[$tid]['outdata'];
+        $opt['ap']['n'] .= $this->getXObjectOutDataByID($tid);
         $opt['ap']['n'] .= 'Q EMC';
         $opt['subtype'] = 'Widget';
         $opt['Subtype'] = 'Widget';
@@ -1805,22 +1914,17 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $this->xobjects[$tid],
             $opt['bs'],
             $opt['mk']['ca'],
-            $opt['mk']['rc'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ac'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['i'],  // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ri'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['ix'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['if'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            $opt['mk']['tp'], // @phpstan-ignore offsetAccess.nonOffsetAccessible
+            $opt['mk']['rc'],
+            $opt['mk']['ac'],
+            $opt['mk']['i'],
+            $opt['mk']['ri'],
+            $opt['mk']['ix'],
+            $opt['mk']['if'],
+            $opt['mk']['tp'],
         );
-        return $this->setAnnotation(
-            $posx,
-            $posy,
-            $width,
-            $height,
-            $name,
-            $opt, // @phpstan-ignore argument.type
-        );
+        /** @var TAnnotOpts $annotOpt */
+        $annotOpt = $opt;
+        return $this->setAnnotation($posx, $posy, $width, $height, $name, $annotOpt);
     }
 
     // ==| JS Fiedls |==
@@ -1839,6 +1943,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *                      Use an array to specify a form action options
      *                      as in section 12.7.5 of PDF32000_2008.
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSButton(
         string $name,
@@ -1865,14 +1973,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    public function addJSCheckBox(
-        string $name,
-        float $posx,
-        float $posy,
-        float $width,
-        array $jsp = [],
-    ): void {
+    public function addJSCheckBox(string $name, float $posx, float $posy, float $width, array $jsp = []): void
+    {
         $this->addJavaScriptField('checkbox', $name, $posx, $posy, $width, $width, $jsp);
     }
 
@@ -1886,6 +1993,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $height height in user units.
      * @param array<array{string,string}>|array<string> $values List of selection values.
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSComboBox(
         string $name,
@@ -1918,6 +2029,10 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $height height in user units.
      * @param array<array{string,string}>|array<string> $values List of selection values.
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSListBox(
         string $name,
@@ -1929,7 +2044,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         array $jsp = [],
     ): void {
         $this->addJavaScriptField('listbox', $name, $posx, $posy, $width, $height, $jsp);
-            $itm = '';
+        $itm = '';
         foreach ($values as $value) {
             if (\is_array($value)) {
                 $itm .= ',[\'' . \addslashes($value[1]) . '\',\'' . \addslashes($value[0]) . '\']';
@@ -1937,7 +2052,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 $itm .= ',[\'' . \addslashes($value) . '\',\'' . \addslashes($value) . '\']';
             }
         }
-            $this->javascript .= 'f' . $name . '.\setItems(' . \substr($itm, 1) . ');' . "\n";
+        $this->javascript .= 'f' . $name . '.\setItems(' . \substr($itm, 1) . ');' . "\n";
     }
 
     /**
@@ -1948,27 +2063,30 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $posy vertical position in user units (LTR).
      * @param float $width width in user units.
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    public function addJSRadioButton(
-        string $name,
-        float $posx,
-        float $posy,
-        float $width,
-        array $jsp = [],
-    ): void {
+    public function addJSRadioButton(string $name, float $posx, float $posy, float $width, array $jsp = []): void
+    {
         $this->addJavaScriptField('radiobutton', $name, $posx, $posy, $width, $width, $jsp);
     }
 
     /**
-    * Adds a JavaScript text form field.
-    *
-    * @param string $name field name.
-    * @param float $posx horizontal position in user units (LTR).
-    * @param float $posy vertical position in user units (LTR).
-    * @param float $width width in user units.
-    * @param float $height height in user units.
-    * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
-    */
+     * Adds a JavaScript text form field.
+     *
+     * @param string $name field name.
+     * @param float $posx horizontal position in user units (LTR).
+     * @param float $posy vertical position in user units (LTR).
+     * @param float $width width in user units.
+     * @param float $height height in user units.
+     * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
+     * @throws PdfException in case of error.
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
     public function addJSText(
         string $name,
         float $posx,

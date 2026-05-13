@@ -25,7 +25,5 @@ class TestableObjPageForMetaInfo extends \Com\Tecnick\Pdf\Page\Page
         'MediaBox' => 'MediaBox',
     ];
 
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 }

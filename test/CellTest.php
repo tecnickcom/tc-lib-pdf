@@ -261,43 +261,28 @@ class CellTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $fillAndBorder = $obj->exposeDrawCell(
-            10.0,
-            10.0,
-            20.0,
-            8.0,
-            ['all' => ['fillColor' => 'gray', 'lineWidth' => 0.2]]
-        );
+        $fillAndBorder = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, ['all' => [
+            'fillColor' => 'gray',
+            'lineWidth' => 0.2,
+        ]]);
         $this->assertNotSame('', $fillAndBorder);
 
         $fillOnly = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, ['all' => ['fillColor' => 'gray']]);
         $this->assertNotSame('', $fillOnly);
 
-        $perSideBorder = $obj->exposeDrawCell(
-            10.0,
-            10.0,
-            20.0,
-            8.0,
-            [
-                0 => ['lineWidth' => 0.2],
-                1 => ['lineWidth' => 0.3],
-                2 => ['lineWidth' => 0.4],
-                3 => ['lineWidth' => 0.5],
-                'all' => ['fillColor' => ''],
-            ],
-        );
+        $perSideBorder = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, [
+            0 => ['lineWidth' => 0.2],
+            1 => ['lineWidth' => 0.3],
+            2 => ['lineWidth' => 0.4],
+            3 => ['lineWidth' => 0.5],
+            'all' => ['fillColor' => ''],
+        ]);
         $this->assertNotSame('', $perSideBorder);
 
-        $fallbackAdjustBorder = $obj->exposeDrawCell(
-            10.0,
-            10.0,
-            20.0,
-            8.0,
-            [
-                1 => ['lineWidth' => 0.3],
-                'all' => [],
-            ],
-        );
+        $fallbackAdjustBorder = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, [
+            1 => ['lineWidth' => 0.3],
+            'all' => [],
+        ]);
         $this->assertNotSame('', $fallbackAdjustBorder);
     }
 
@@ -306,30 +291,18 @@ class CellTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $rightSideOnly = $obj->exposeDrawCell(
-            10.0,
-            10.0,
-            20.0,
-            8.0,
-            [
-                1 => ['lineWidth' => 0.3],
-                'all' => ['fillColor' => ''],
-            ],
-        );
+        $rightSideOnly = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, [
+            1 => ['lineWidth' => 0.3],
+            'all' => ['fillColor' => ''],
+        ]);
 
-        $rightWithZeroSides = $obj->exposeDrawCell(
-            10.0,
-            10.0,
-            20.0,
-            8.0,
-            [
-                0 => ['lineWidth' => 0.0],
-                1 => ['lineWidth' => 0.3],
-                2 => ['lineWidth' => 0.0],
-                3 => ['lineWidth' => 0.0],
-                'all' => ['fillColor' => ''],
-            ],
-        );
+        $rightWithZeroSides = $obj->exposeDrawCell(10.0, 10.0, 20.0, 8.0, [
+            0 => ['lineWidth' => 0.0],
+            1 => ['lineWidth' => 0.3],
+            2 => ['lineWidth' => 0.0],
+            3 => ['lineWidth' => 0.0],
+            'all' => ['fillColor' => ''],
+        ]);
 
         $this->assertNotSame('', $rightSideOnly);
         $this->assertSame($rightSideOnly, $rightWithZeroSides);

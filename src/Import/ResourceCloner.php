@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * ResourceCloner.php
  *
@@ -83,26 +85,24 @@ class ResourceCloner
             return ['bytes' => '', 'filter' => '', 'length' => 0];
         }
 
-        $contents = $pageDict['Contents'];
-
         // Single reference (string like "5 0 R" or "5_0").
-        if (\is_string($contents)) {
-            return $this->extractSingleStream(SourceDocument::refToKey($contents), $src);
+        if (\is_string($pageDict['Contents'])) {
+            return $this->extractSingleStream(SourceDocument::refToKey($pageDict['Contents']), $src);
         }
 
         // Array of references — for Phase 1 we require exactly one element.
-        if (\is_array($contents)) {
+        if (\is_array($pageDict['Contents'])) {
+            $contents = \array_values($pageDict['Contents']);
             if (\count($contents) === 1) {
-                $ref = \reset($contents);
-                if (!\is_string($ref)) {
+                if (!\is_string($contents[0])) {
                     throw new ImportCorruptedSourceException('Invalid /Contents reference type.');
                 }
 
-                return $this->extractSingleStream(SourceDocument::refToKey($ref), $src);
+                return $this->extractSingleStream(SourceDocument::refToKey($contents[0]), $src);
             }
 
             // Multiple streams: decode and concatenate.
-            return $this->concatenateStreams(\array_values($contents), $src);
+            return $this->concatenateStreams($contents, $src);
         }
 
         throw new ImportCorruptedSourceException('Unexpected /Contents value type.');
@@ -117,23 +117,26 @@ class ResourceCloner
      * @param ObjectMap            $map       Object map for reference remapping.
      *
      * @return string Serialized PDF resource dictionary, e.g. "<< /Font << /F1 7 0 R >> >>".
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
      */
     public function cloneResources(array $resources, SourceDocument $src, ObjectMap $map): string
     {
-        if (empty($resources)) {
+        if ($resources === []) {
             return '';
         }
 
         $out = '<<';
         $out .= ' /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
 
-        foreach ($resources as $resType => $resVal) {
+        foreach (\array_keys($resources) as $resType) {
             if ($resType === 'ProcSet') {
                 continue; // already emitted above
             }
 
             $out .= ' /' . $resType . ' ';
-            $out .= $this->cloneResourceEntry($resVal, $src, $map);
+            $out .= $this->cloneResourceEntry($resources[$resType], $src, $map);
         }
 
         $out .= ' >>';
@@ -148,27 +151,27 @@ class ResourceCloner
      * @param ObjectMap            $map     Object map.
      *
      * @return string Serialized PDF value for this resource entry.
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
      */
-    private function cloneResourceEntry(
-        mixed $resVal,
-        SourceDocument $src,
-        ObjectMap $map
-    ): string {
+    private function cloneResourceEntry(mixed $resVal, SourceDocument $src, ObjectMap $map): string
+    {
         // Resource subdicts (Font, XObject, ExtGState, ColorSpace, Pattern, Shading) are dicts of name->ref.
         if (\is_array($resVal)) {
             $out = '<< ';
-            foreach ($resVal as $name => $ref) {
-                if (!\is_string($ref)) {
+            foreach (\array_keys($resVal) as $name) {
+                if (!\is_string($name) || !isset($resVal[$name]) || !\is_string($resVal[$name])) {
                     // Skip non-string (nested array) values.
                     continue;
                 }
 
-                if ($this->isIndirectRef($ref)) {
-                    $destNum = $this->enqueueObject(SourceDocument::refToKey($ref), $src, $map);
+                if ($this->isIndirectRef($resVal[$name])) {
+                    $destNum = $this->enqueueObject(SourceDocument::refToKey($resVal[$name]), $src, $map);
                     $out .= '/' . $name . ' ' . $destNum . ' 0 R ';
                 } else {
                     // Inline scalar value.
-                    $out .= '/' . $name . ' ' . $ref . ' ';
+                    $out .= '/' . $name . ' ' . $resVal[$name] . ' ';
                 }
             }
 
@@ -185,17 +188,15 @@ class ResourceCloner
             return $resVal;
         }
 
-        return \is_scalar($resVal) ? (string) $resVal : '';
+        return 'null';
     }
 
     /**
-     * Allocate a destination object number for a source reference and recursively clone the object.
-     *
-     * @param string         $srcRef Source object reference.
-     * @param SourceDocument $src    Source document.
      * @param ObjectMap      $map    Object map.
      *
      * @return int Allocated destination object number.
+     *
+     * @throws ImportException
      */
     public function enqueueObject(string $srcRef, SourceDocument $src, ObjectMap $map): int
     {
@@ -231,30 +232,30 @@ class ResourceCloner
      * @param ObjectMap         $map      Object map.
      *
      * @return string Serialized PDF object bytes ending with "endobj\n".
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
      */
-    private function serializeObject(
-        int $destNum,
-        array $objData,
-        SourceDocument $src,
-        ObjectMap $map
-    ): string {
+    private function serializeObject(int $destNum, array $objData, SourceDocument $src, ObjectMap $map): string
+    {
         $dictPart = '';
         $streamBytes = null;
         /** @var array<string, string> $streamDict */
         $streamDict = [];
 
-        foreach ($objData as $element) {
-            if (!\is_array($element)) {
+        $elements = \array_values($objData);
+        $elmCount = \count($elements);
+        for ($elmIdx = 0; $elmIdx < $elmCount; ++$elmIdx) {
+            $elementSlice = \array_slice($elements, $elmIdx, 1);
+            if (\count($elementSlice) !== 1 || !\is_array($elementSlice[0])) {
                 continue;
             }
 
-            $type = $element[0] ?? '';
-            $val = $element[1] ?? null;
+            if (($elementSlice[0][0] ?? null) === '<<' && \is_array($elementSlice[0][1] ?? null)) {
+                $dictPart = $this->serializeDictArray(\array_values($elementSlice[0][1]), $src, $map, $streamDict);
+            } elseif (($elementSlice[0][0] ?? null) === 'stream' && \is_string($elementSlice[0][1] ?? null)) {
+                $streamBytes = $elementSlice[0][1];
 
-            if ($type === '<<' && \is_array($val)) {
-                $dictPart = $this->serializeDictArray(\array_values($val), $src, $map, $streamDict);
-            } elseif ($type === 'stream' && \is_string($val)) {
-                $streamBytes = $val;
                 // Decoded stream is in element[3] if present; we use raw bytes.
             }
         }
@@ -268,8 +269,12 @@ class ResourceCloner
                 $filterEntry = ' /Filter ' . $streamDict['Filter'];
             }
 
-            $out .= '<<' . $dictPart . $filterEntry
-                . ' /Length ' . \strlen($streamBytes)
+            $out .=
+                '<<'
+                . $dictPart
+                . $filterEntry
+                . ' /Length '
+                . \strlen($streamBytes)
                 . ' >>'
                 . "\nstream\n"
                 . $streamBytes
@@ -294,29 +299,31 @@ class ResourceCloner
      * @param array<string, string> $streamDict Populated with Length/Filter entries for stream objects.
      *
      * @return string PDF dict content (without outer << >>).
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
      */
-    private function serializeDictArray(
-        array $raw,
-        SourceDocument $src,
-        ObjectMap $map,
-        array &$streamDict
-    ): string {
+    private function serializeDictArray(array $raw, SourceDocument $src, ObjectMap $map, array &$streamDict): string
+    {
         $out = '';
-        $cnt = \count($raw);
-        for ($idx = 0; $idx < $cnt - 1; $idx += 2) {
-            $keyEl = $raw[$idx];
-            $valEl = $raw[$idx + 1];
-            if (!\is_array($keyEl) || ($keyEl[0] ?? '') !== '/') {
+        $pairs = \array_values($raw);
+        $cnt = \count($pairs);
+        for ($idx = 0; $idx < ($cnt - 1); $idx += 2) {
+            $pair = \array_slice($pairs, $idx, 2);
+            if (\count($pair) < 2 || !\is_array($pair[0]) || ($pair[0][0] ?? null) !== '/') {
                 continue;
             }
 
-            $keyName = $keyEl[1] ?? '';
-            $key = \ltrim(\is_string($keyName) ? $keyName : '', '/');
+            if (!\array_key_exists(1, $pair[0]) || !\is_string($pair[0][1])) {
+                continue;
+            }
+
+            $key = \ltrim($pair[0][1], '/');
             if ($key === 'Length') {
                 continue;
             }
 
-            $serializedVal = $this->serializeValue($valEl, $src, $map);
+            $serializedVal = $this->serializeValue($pair[1], $src, $map);
 
             if ($key === 'Filter') {
                 $streamDict['Filter'] = $serializedVal;
@@ -338,6 +345,9 @@ class ResourceCloner
      * @param ObjectMap      $map Object map.
      *
      * @return string PDF token.
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
      */
     private function serializeValue(mixed $raw, SourceDocument $src, ObjectMap $map): string
     {
@@ -345,40 +355,46 @@ class ResourceCloner
             return \is_scalar($raw) ? (string) $raw : '';
         }
 
-        $typeRaw = $raw[0] ?? '';
-        $type = \is_string($typeRaw) ? $typeRaw : '';
-        $val = $raw[1] ?? null;
+        $type = \is_string($raw[0] ?? null) ? $raw[0] : '';
 
-        if ($type === 'objref' && \is_string($val)) {
-            $destNum = $this->enqueueObject(SourceDocument::refToKey($val), $src, $map);
+        if ($type === 'objref' && \is_string($raw[1] ?? null)) {
+            $destNum = $this->enqueueObject(SourceDocument::refToKey($raw[1]), $src, $map);
             return $destNum . ' 0 R';
         }
 
-        if ($type === '<<' && \is_array($val)) {
+        if ($type === '<<' && \is_array($raw[1] ?? null)) {
             /** @var array<string, string> $unused */
             $unused = [];
-            $inner = $this->serializeDictArray(\array_values($val), $src, $map, $unused);
+            $inner = $this->serializeDictArray(\array_values($raw[1]), $src, $map, $unused);
             return '<<' . $inner . '>>';
         }
 
-        if ($type === '[' && \is_array($val)) {
-            $parts = \array_map(fn($item) => $this->serializeValue($item, $src, $map), $val);
+        if ($type === '[' && \is_array($raw[1] ?? null)) {
+            $parts = \array_map(fn($item) => $this->serializeValue($item, $src, $map), $raw[1]);
             return '[' . \implode(' ', $parts) . ']';
         }
 
         if ($type === '/') {
-            return '/' . (\is_string($val) ? $val : '');
+            return '/' . (\is_string($raw[1] ?? null) ? $raw[1] : '');
         }
 
         if ($type === 'string') {
-            return '(' . \addslashes(\is_string($val) ? $val : '') . ')';
+            return '(' . \addslashes(\is_string($raw[1] ?? null) ? $raw[1] : '') . ')';
         }
 
         if ($type === 'hex') {
-            return '<' . (\is_string($val) ? $val : '') . '>';
+            return '<' . (\is_string($raw[1] ?? null) ? $raw[1] : '') . '>';
         }
 
-        return \is_scalar($val) ? (string) $val : ($type !== '' ? $type : 'null');
+        if (\is_scalar($raw[1] ?? null)) {
+            return (string) $raw[1];
+        }
+
+        if ($type !== '') {
+            return $type;
+        }
+
+        return 'null';
     }
 
     /**
@@ -389,20 +405,25 @@ class ResourceCloner
      * @param ObjectMap         $map     Object map.
      *
      * @return string PDF token.
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
      */
     private function serializeFirstValue(array $objData, SourceDocument $src, ObjectMap $map): string
     {
-        foreach ($objData as $element) {
-            if (!\is_array($element)) {
+        $elements = \array_values($objData);
+        $elmCount = \count($elements);
+        for ($elmIdx = 0; $elmIdx < $elmCount; ++$elmIdx) {
+            $elementSlice = \array_slice($elements, $elmIdx, 1);
+            if (\count($elementSlice) !== 1 || !\is_array($elementSlice[0])) {
                 continue;
             }
 
-            $type = $element[0] ?? '';
-            if (\in_array($type, ['endobj', '<<', 'stream'], true)) {
+            if (\in_array($elementSlice[0][0] ?? '', ['endobj', '<<', 'stream'], true)) {
                 continue;
             }
 
-            return $this->serializeValue($element, $src, $map);
+            return $this->serializeValue($elementSlice[0], $src, $map);
         }
 
         return 'null';
@@ -415,63 +436,55 @@ class ResourceCloner
      * @param SourceDocument $src    Source document.
      *
      * @return array{bytes: string, filter: string, length: int}
+     *
+     * @throws ImportCorruptedSourceException
      */
     private function extractSingleStream(string $objRef, SourceDocument $src): array
     {
         $objData = $src->getObject($objRef);
-            // First pass: find the filter from the stream dict.
-            $filter = '';
+        // First pass: find the filter from the stream dict.
+        $filter = '';
         foreach ($objData as $element) {
-            if (!\is_array($element) || ($element[0] ?? '') !== '<<') {
+            if ($element[0] !== '<<' || !\is_array($element[1])) {
                 continue;
             }
-            /** @var array<int, mixed> $pairs */
-            $pairs = \is_array($element[1] ?? null) ? \array_values($element[1]) : [];
+
+            $pairs = \array_values($element[1]);
             $cnt = \count($pairs);
-            for ($idx = 0; $idx < $cnt - 1; $idx += 2) {
-                $kEl = $pairs[$idx];
-                $vEl = $pairs[$idx + 1];
-                if (!\is_array($kEl) || ($kEl[0] ?? '') !== '/') {
+            for ($idx = 0; $idx < ($cnt - 1); $idx += 2) {
+                $pair = \array_values(\array_slice($pairs, $idx, 2));
+                if (\count($pair) !== 2) {
                     continue;
                 }
-                $kElVal = $kEl[1] ?? '';
-                $key = \ltrim(\is_string($kElVal) ? $kElVal : '', '/');
+
+                $keyEl = \reset($pair);
+                $valEl = \next($pair);
+
+                if ($keyEl[0] !== '/' || !\is_string($keyEl[1])) {
+                    continue;
+                }
+
+                $vArr = \is_array($valEl) ? $valEl : [];
+
+                $key = \ltrim($keyEl[1], '/');
                 if ($key === 'Filter') {
-                    $vArr = \is_array($vEl) ? $vEl : [];
-                    $vArrType = $vArr[0] ?? '';
-                    $vType = \is_string($vArrType) ? $vArrType : '';
+                    $vType = isset($vArr[0]) ? $vArr[0] : '';
                     $vArrVal = $vArr[1] ?? '';
-                    if (\is_string($vArrVal) && $vArrVal !== '') {
-                        $vVal = $vArrVal;
-                    } elseif (\is_string($vEl)) {
-                        $vVal = $vEl;
-                    } else {
-                        $vVal = '';
-                    }
-                    $filter = ($vType === '/') ? '/' . $vVal : $vVal;
+                    $vVal = \is_string($vArrVal) ? $vArrVal : '';
+                    $filter = $vType === '/' ? '/' . $vVal : $vVal;
                     break 2;
                 }
             }
         }
         // Second pass: find the stream bytes.
         foreach ($objData as $element) {
-            if (!\is_array($element) || ($element[0] ?? '') !== 'stream') {
+            if ($element[0] !== 'stream') {
                 continue;
             }
 
-            $rawVal = $element[1] ?? '';
+            $rawVal = $element[1];
             $raw = \is_string($rawVal) ? $rawVal : '';
-            // element[3] is the decoded stream if decoding was requested.
-            $decoded = $element[3][1] ?? null;
-            $bytes = (isset($element[3]) && \is_array($element[3]) && \is_string($decoded))
-                ? $decoded
-                : $raw;
-            // If we got decoded bytes, the filter is no longer needed.
-            if (isset($element[3]) && \is_array($element[3]) && \is_string($decoded)) {
-                $filter = '';
-            }
-
-            return ['bytes' => $bytes, 'filter' => $filter, 'length' => \strlen($bytes)];
+            return ['bytes' => $raw, 'filter' => $filter, 'length' => \strlen($raw)];
         }
 
         return ['bytes' => '', 'filter' => '', 'length' => 0];
@@ -484,16 +497,21 @@ class ResourceCloner
      * @param SourceDocument    $src  Source document.
      *
      * @return array{bytes: string, filter: string, length: int}
+     *
+     * @throws ImportCorruptedSourceException
      */
     private function concatenateStreams(array $refs, SourceDocument $src): array
     {
         $combined = '';
-        foreach ($refs as $ref) {
-            if (!\is_string($ref)) {
+        $values = \array_values($refs);
+        $count = \count($values);
+        for ($idx = 0; $idx < $count; ++$idx) {
+            $refSlice = \array_slice($values, $idx, 1);
+            if (\count($refSlice) !== 1 || !\is_string($refSlice[0])) {
                 continue;
             }
 
-            $stream = $this->extractSingleStream(SourceDocument::refToKey($ref), $src);
+            $stream = $this->extractSingleStream(SourceDocument::refToKey($refSlice[0]), $src);
             $combined .= $stream['bytes'] . ' ';
         }
 

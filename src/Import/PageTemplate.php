@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * PageTemplate.php
  *
@@ -100,7 +102,7 @@ class PageTemplate implements PageTemplateInterface
         int $rotation,
         string $sourceId,
         int $sourcePage,
-        array $mediaBox
+        array $mediaBox,
     ) {
         $this->xobjId = $xobjId;
         $this->width = $width;

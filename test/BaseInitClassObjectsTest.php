@@ -1,7 +1,7 @@
 <?php
 
 /**
- * ClassObjectsTest.php
+ * BaseInitClassObjectsTest.php
  *
  * @since       2002-08-03
  * @category    Library
@@ -16,7 +16,7 @@
 
 namespace Test;
 
-class ClassObjectsTest extends TestUtil
+class BaseInitClassObjectsTest extends TestUtil
 {
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {

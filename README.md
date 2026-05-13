@@ -144,7 +144,7 @@ The fastest way to evaluate the library is to follow the installation and font s
 
 ## Requirements
 
-- **PHP 8.1** or later
+- **PHP 8.2** or later
 - Required PHP extensions: `date`, `pcre` (enforced by Composer)
 - Composer
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * ImportSourceNotFoundException.php
  *
@@ -29,6 +31,4 @@ namespace Com\Tecnick\Pdf\Import;
  * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  */
-class ImportSourceNotFoundException extends ImportException
-{
-}
+class ImportSourceNotFoundException extends ImportException {}

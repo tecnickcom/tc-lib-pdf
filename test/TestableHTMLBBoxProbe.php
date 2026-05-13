@@ -26,12 +26,12 @@ namespace Test;
 class TestableHTMLBBoxProbe extends TestableHTML
 {
     /**
-    * @var array<int, BBoxTraceEntry>
+     * @var array<int, BBoxTraceEntry>
      */
     private array $bboxTrace = [];
 
     /**
-    * @return array<int, BBoxTraceEntry>
+     * @return array<int, BBoxTraceEntry>
      */
     public function exposeGetBBoxTrace(): array
     {
@@ -109,7 +109,7 @@ class TestableHTMLBBoxProbe extends TestableHTML
             'bbox_w' => $bbox['w'],
             'bbox_h' => $bbox['h'],
             'bbox_end_x' => $bbox['x'] + $bbox['w'],
-            'font_size' => (float) ($curfont['size'] ?? 0.0),
+            'font_size' => $curfont['size'] ?? 0.0,
         ];
 
         return $out;

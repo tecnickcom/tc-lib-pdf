@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * SourceDocument.php
  *
@@ -72,7 +74,6 @@ class SourceDocument
     {
         $this->docId = \hash('sha256', $data);
         $passwordProvided = false;
-        /** @var array<string, bool> $parserCfg */
         $parserCfg = $this->normalizeParserConfig($cfg, $passwordProvided);
         try {
             $parser = new Parser($parserCfg);
@@ -83,14 +84,12 @@ class SourceDocument
 
         if (isset($this->xref['trailer']['encrypt'])) {
             if ($passwordProvided) {
-                throw new ImportUnsupportedFeatureException(
-                    'Cannot import encrypted PDF documents: '
-                    . 'password-based import is not supported by the current parser.'
-                );
+                throw new ImportUnsupportedFeatureException('Cannot import encrypted PDF documents: '
+                . 'password-based import is not supported by the current parser.');
             }
 
             throw new ImportUnsupportedFeatureException(
-                'Cannot import encrypted PDF documents: password support is not available in the current parser.'
+                'Cannot import encrypted PDF documents: password support is not available in the current parser.',
             );
         }
     }
@@ -103,23 +102,18 @@ class SourceDocument
      * support password-based decryption.
      *
      * @param array<string, mixed> $cfg
-    *
-    * @return array<string, bool>
+     *
+     * @return array<string, bool>
      */
     private function normalizeParserConfig(array $cfg, bool &$passwordProvided): array
     {
         $passwordKeys = ['password', 'user_password', 'owner_password'];
         foreach ($passwordKeys as $key) {
-            if (!isset($cfg[$key])) {
+            if (!isset($cfg[$key]) || !\is_string($cfg[$key])) {
                 continue;
             }
 
-            $raw = $cfg[$key];
-            if (!\is_string($raw)) {
-                continue;
-            }
-
-            if ($raw !== '') {
+            if ($cfg[$key] !== '') {
                 $passwordProvided = true;
                 break;
             }
@@ -177,11 +171,9 @@ class SourceDocument
      */
     public function getObject(string $ref): array
     {
-        if (!isset($this->objects[$ref])) {
-            throw new ImportCorruptedSourceException('Object not found in source PDF: ' . $ref);
-        }
-
-        return $this->objects[$ref];
+        return (
+            $this->objects[$ref] ?? throw new ImportCorruptedSourceException('Object not found in source PDF: ' . $ref)
+        );
     }
 
     /**
@@ -210,7 +202,8 @@ class SourceDocument
     public static function refToKey(string $refStr): string
     {
         $refStr = \trim($refStr);
-        if (\preg_match('/^(\d+)\s+(\d+)\s+R$/', $refStr, $mtch)) {
+        $mtch = [];
+        if (\preg_match('/^(\d+)\s+(\d+)\s+R$/', $refStr, $mtch) === 1 && isset($mtch[1], $mtch[2])) {
             return $mtch[1] . '_' . $mtch[2];
         }
 

@@ -413,7 +413,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             $width,
             $height,
             $clip_fnc,
-            $clip_par
+            $clip_par,
         );
         return [$out, $svgstyle];
     }

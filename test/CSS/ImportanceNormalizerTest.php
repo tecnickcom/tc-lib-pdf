@@ -16,8 +16,8 @@
 
 namespace Test;
 
-use PHPUnit\Framework\Attributes\DataProvider;
 use Com\Tecnick\Pdf\CSS\ImportanceNormalizer;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * Test ImportanceNormalizer CSS declaration normalization

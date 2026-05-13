@@ -36,16 +36,14 @@ class TextTest extends TestUtil
         return new TestableText();
     }
 
-
     private function initUnicodeFont(\Com\Tecnick\Pdf\Tcpdf $obj): void
     {
         /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
         /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
-        $fontfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json'
-        );
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
         $font->insert($pon, 'dejavusans', '', 10, null, null, $fontfile);
     }
 
@@ -53,36 +51,45 @@ class TextTest extends TestUtil
     {
         $obj = $this->getTestObject();
 
-        $this->assertSame([
-            'x' => 0.0,
-            'y' => 0.0,
-            'w' => 0.0,
-            'h' => 0.0,
-        ], $obj->getLastBBox());
+        $this->assertSame(
+            [
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 0.0,
+                'h' => 0.0,
+            ],
+            $obj->getLastBBox(),
+        );
     }
 
     public function testGetLastTextBBoxDefaultsToZeroBox(): void
     {
         $obj = $this->getTestObject();
 
-        $this->assertSame([
-            'x' => 0.0,
-            'y' => 0.0,
-            'w' => 0.0,
-            'h' => 0.0,
-        ], $obj->getLastTextBBox());
+        $this->assertSame(
+            [
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 0.0,
+                'h' => 0.0,
+            ],
+            $obj->getLastTextBBox(),
+        );
     }
 
     public function testGetLastCellBBoxDefaultsToZeroBox(): void
     {
         $obj = $this->getTestObject();
 
-        $this->assertSame([
-            'x' => 0.0,
-            'y' => 0.0,
-            'w' => 0.0,
-            'h' => 0.0,
-        ], $obj->getLastCellBBox());
+        $this->assertSame(
+            [
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 0.0,
+                'h' => 0.0,
+            ],
+            $obj->getLastCellBBox(),
+        );
     }
 
     public function testLoadTexHyphenPatternsParsesFixture(): void
@@ -324,28 +331,28 @@ class TextTest extends TestUtil
          */
         $stateOperatorCases = [
             [
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTc('raw', 0),
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTc('raw', 1.5),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTc('raw', 0),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTc('raw', 1.5),
                 ' Tc raw 0 Tc',
             ],
             [
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTw('raw', 0),
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTw('raw', 2),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTw('raw', 0),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTw('raw', 2),
                 ' Tw raw 0 Tw',
             ],
             [
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTz('raw', 1),
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTz('raw', 80),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTz('raw', 1),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTz('raw', 80),
                 ' Tz raw 100 Tz',
             ],
             [
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTL('raw', 0),
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTL('raw', 10),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTL('raw', 0),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTL('raw', 10),
                 ' TL raw 0 TL',
             ],
             [
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTs('raw', 0),
-                static fn (TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTs('raw', 3),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTs('raw', 0),
+                static fn(TestableText $txtObj): string => $txtObj->exposeGetOutTextStateOperatorTs('raw', 3),
                 ' Ts raw 0 Ts',
             ],
         ];
@@ -442,7 +449,7 @@ class TextTest extends TestUtil
             true,
             true,
             true,
-            false
+            false,
         );
         $out = $obj->exposeOutTextLine($txt, $ordarr, $dim, 1, 2, 0, 0, 0, 0, 0, true, false, true, true, true, false);
 
@@ -508,7 +515,7 @@ class TextTest extends TestUtil
             false,
             false,
             false,
-            false
+            false,
         );
         $this->assertNotSame('', $cellNoBox);
 
@@ -537,9 +544,11 @@ class TextTest extends TestUtil
 
         $tmp = \tempnam(\sys_get_temp_dir(), 'tc-hyp-');
         $this->assertNotFalse($tmp);
-        \file_put_contents((string) $tmp, "\\patterns{\n\n hy4phen   test1ing \n}");
-        $parsed = $obj->loadTexHyphenPatterns((string) $tmp);
-        @\unlink((string) $tmp);
+        \file_put_contents($tmp, "\\patterns{\n\n hy4phen   test1ing \n}");
+        $parsed = $obj->loadTexHyphenPatterns($tmp);
+        if (\file_exists($tmp)) {
+            \unlink($tmp);
+        }
         $this->assertArrayHasKey('hyphen', $parsed);
 
         $this->setObjectProperty($obj, 'defPageContentEnabled', true);
@@ -592,7 +601,7 @@ class TextTest extends TestUtil
             false,
             '',
             '',
-            $shadow
+            $shadow,
         );
         $this->assertSame(2, \substr_count($shadowOut, 'BT '));
         $this->assertStringContainsString('/GS', $shadowOut);
@@ -625,15 +634,17 @@ class TextTest extends TestUtil
 
         $invalid = \tempnam(\sys_get_temp_dir(), 'tc-hyp-invalid-');
         $this->assertNotFalse($invalid);
-        \file_put_contents((string) $invalid, "% comment only\n\\patternsMissing{hy4phen}");
+        \file_put_contents($invalid, "% comment only\n\\patternsMissing{hy4phen}");
 
         try {
-            $obj->loadTexHyphenPatterns((string) $invalid);
+            $obj->loadTexHyphenPatterns($invalid);
             $this->fail('Expected invalid hyphenation pattern section exception');
         } catch (\Com\Tecnick\Pdf\Exception $e) {
             $this->assertStringContainsString('Invalid hyphenation pattern section', $e->getMessage());
         } finally {
-            @\unlink((string) $invalid);
+            if (\file_exists($invalid)) {
+                \unlink($invalid);
+            }
         }
     }
 
@@ -701,7 +712,7 @@ class TextTest extends TestUtil
             false,
             '',
             '',
-            $shadow
+            $shadow,
         );
 
         $this->assertSame(2, \substr_count($shadowOut, 'BT '));

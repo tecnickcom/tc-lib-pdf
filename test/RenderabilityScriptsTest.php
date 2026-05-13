@@ -69,7 +69,7 @@ class RenderabilityScriptsTest extends TestUtil
             $raw = \file_get_contents($json);
             $this->assertNotFalse($raw);
             /** @var array<string, mixed>|null $report */
-            $report = \json_decode((string) $raw, true);
+            $report = \json_decode($raw, true);
             $this->assertIsArray($report);
             $this->assertArrayHasKey('page_count', $report);
             $this->assertIsInt($report['page_count']);
@@ -83,8 +83,12 @@ class RenderabilityScriptsTest extends TestUtil
             $this->assertStringContainsString('CSS Renderability Score', $markdown);
             $this->assertStringContainsString('| Page | Score | Acceptable |', $markdown);
         } finally {
-            @\unlink($json);
-            @\unlink($markdownFile);
+            if (\file_exists($json)) {
+                \unlink($json);
+            }
+            if (\file_exists($markdownFile)) {
+                \unlink($markdownFile);
+            }
         }
     }
 
@@ -156,7 +160,7 @@ class RenderabilityScriptsTest extends TestUtil
             $rawHistory = \file_get_contents($history);
             $this->assertNotFalse($rawHistory);
             /** @var array<string, mixed>|null $trend */
-            $trend = \json_decode((string) $rawHistory, true);
+            $trend = \json_decode($rawHistory, true);
             $this->assertIsArray($trend);
             $entries = \array_values((array) ($trend['history'] ?? []));
 
@@ -174,9 +178,15 @@ class RenderabilityScriptsTest extends TestUtil
             $this->assertStringContainsString('CSS Renderability Trend', $markdown);
             $this->assertStringContainsString('| Timestamp | Ref | Score |', $markdown);
         } finally {
-            @\unlink($score);
-            @\unlink($history);
-            @\unlink($markdownFile);
+            if (\file_exists($score)) {
+                \unlink($score);
+            }
+            if (\file_exists($history)) {
+                \unlink($history);
+            }
+            if (\file_exists($markdownFile)) {
+                \unlink($markdownFile);
+            }
         }
     }
 }

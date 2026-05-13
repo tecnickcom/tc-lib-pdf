@@ -29,7 +29,7 @@ class ResourceClonerTest extends TestCase
         $path = __DIR__ . '/../fixtures/simple_import.pdf';
         $data = \file_get_contents($path);
         $this->assertNotFalse($data);
-        return new SourceDocument((string) $data);
+        return new SourceDocument($data);
     }
 
     // -------------------------------------------------------------------------

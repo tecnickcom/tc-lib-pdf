@@ -321,7 +321,8 @@ class CSSTest extends TestUtil
     public function testTidyCSSKeepsAllAndPrintMediaOnly(): void
     {
         $obj = $this->getInternalTestObject();
-        $css = '/*c*/ body { color : red ; } @media screen { p{color:blue;} }'
+        $css =
+            '/*c*/ body { color : red ; } @media screen { p{color:blue;} }'
             . ' @media print { h1 { font-weight : bold ; } }';
 
         $out = $obj->exposeTidyCSS($css);
@@ -459,7 +460,7 @@ class CSSTest extends TestUtil
     public function testImplodeCSSDataCascadeImportantAndSourceOrder(
         string $name,
         array $styles,
-        string $expected
+        string $expected,
     ): void {
         $obj = $this->getInternalTestObject();
 
@@ -510,8 +511,11 @@ class CSSTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $cssfile = (string) \realpath(__DIR__ . '/fixtures/css/external.css');
-        $html = '<link rel="stylesheet" type="text/css" media="screen" href="skip.css">'
-            . '<link rel="stylesheet" type="text/css" media="print" href="' . $cssfile . '">'
+        $html =
+            '<link rel="stylesheet" type="text/css" media="screen" href="skip.css">'
+            . '<link rel="stylesheet" type="text/css" media="print" href="'
+            . $cssfile
+            . '">'
             . '<style media="screen">ignored{color:red;}</style>'
             . '<style media="all">h4{font-weight:bold;}</style>'
             . '<style media="print">h5{margin:0;}</style>';
@@ -528,8 +532,7 @@ class CSSTest extends TestUtil
     public function testGetCSSArrayFromHTMLStyleWithoutMediaAttribute(): void
     {
         $obj = $this->getInternalTestObject();
-        $html = '<style>h1{color:blue;}</style>'
-            . '<style media="all">h2{font-size:14pt;}</style>';
+        $html = '<style>h1{color:blue;}</style><style media="all">h2{font-size:14pt;}</style>';
 
         $out = $obj->exposeGetCSSArrayFromHTML($html);
         $vals = \array_values($out);
@@ -687,20 +690,20 @@ class CSSTest extends TestUtil
     public static function mediaRelevanceProvider(): array
     {
         return [
-            'print'                   => ['print', true],
-            'all'                     => ['all', true],
-            'print and condition'     => ['print and (min-width:600px)', true],
-            'all and condition'       => ['all and (orientation:portrait)', true],
-            'feature only'            => ['(max-width:800px)', true],
-            'screen'                  => ['screen', false],
-            'tv'                      => ['tv', false],
-            'screen, print'           => ['screen, print', true],
-            'screen, all'             => ['screen, all', true],
-            'not screen'              => ['not screen', true],
-            'not print'               => ['not print', false],
-            'not all'                 => ['not all', false],
-            'not tv'                  => ['not tv', true],
-            'empty string'            => ['', false],
+            'print' => ['print', true],
+            'all' => ['all', true],
+            'print and condition' => ['print and (min-width:600px)', true],
+            'all and condition' => ['all and (orientation:portrait)', true],
+            'feature only' => ['(max-width:800px)', true],
+            'screen' => ['screen', false],
+            'tv' => ['tv', false],
+            'screen, print' => ['screen, print', true],
+            'screen, all' => ['screen, all', true],
+            'not screen' => ['not screen', true],
+            'not print' => ['not print', false],
+            'not all' => ['not all', false],
+            'not tv' => ['not tv', true],
+            'empty string' => ['', false],
         ];
     }
 

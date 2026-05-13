@@ -17,7 +17,6 @@
 namespace Test\Import;
 
 use Com\Tecnick\Pdf\Import\ImportCorruptedSourceException;
-use Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException;
 use Com\Tecnick\Pdf\Import\SourceDocument;
 use PHPUnit\Framework\TestCase;
 
@@ -28,7 +27,7 @@ class SourceDocumentTest extends TestCase
         $path = __DIR__ . '/../fixtures/simple_import.pdf';
         $data = file_get_contents($path);
         $this->assertNotFalse($data);
-        return (string) $data;
+        return $data;
     }
 
     public function testConstructSucceedsWithValidPdf(): void

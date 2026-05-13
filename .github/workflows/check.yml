@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ["8.1", "8.2", "8.3", "8.4", "8.5"]
+        php-version: ["8.2", "8.3", "8.4", "8.5"]
     steps:
       - uses: actions/checkout@v6
       #- name: Install pdfinfo
@@ -48,6 +48,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-php-${{ matrix.php-version }}-composer-
       - name: Install dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: make deps
       - name: Install qpdf
         if: matrix.php-version == '8.4'

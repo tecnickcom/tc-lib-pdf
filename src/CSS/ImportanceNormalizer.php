@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * ImportanceNormalizer.php
  *
@@ -114,7 +116,7 @@ class ImportanceNormalizer
      */
     public static function normalize(string $declarations): string
     {
-        if (empty($declarations)) {
+        if ($declarations === '') {
             return '';
         }
 
@@ -156,9 +158,9 @@ class ImportanceNormalizer
             }
 
             $value = \trim(\substr($decl, $pos + 1));
-            $important = (\preg_match('/!\s*important\s*$/i', $value) === 1);
+            $important = \preg_match('/!\s*important\s*$/i', $value) === 1;
             if ($important) {
-                $value = \trim((string) (\preg_replace('/!\s*important\s*$/i', '', $value) ?? $value));
+                $value = \trim(\preg_replace('/!\s*important\s*$/i', '', $value) ?? $value);
             }
 
             $result[$name] = [
@@ -171,13 +173,14 @@ class ImportanceNormalizer
     }
 
     /**
-     * Expand shorthand properties, propagating !important to longhands.
+     * Expand shorthand properties to include longhands for !important propagation.
      *
      * @param array<string, array{value: string, important: bool}> $parsed
-     * @return array<string, array{value: string, important: bool}>
+     * @return array<string, array{'important': bool, 'value': string, '_from_shorthand'?: true}>
      */
     private static function expandShorthands(array $parsed): array
     {
+        /** @var array<string, array{'important': bool, 'value': string, '_from_shorthand'?: true}> $result */
         $result = [];
 
         foreach ($parsed as $property => $declaration) {
@@ -192,6 +195,7 @@ class ImportanceNormalizer
                             '_from_shorthand' => true,
                         ];
                     } else {
+                        $result[$longhand]['value'] ??= '';
                         $result[$longhand]['important'] = true;
                     }
                 }
@@ -207,7 +211,7 @@ class ImportanceNormalizer
     /**
      * Rebuild CSS declaration string from parsed declarations.
      *
-     * @param array<string, array{value: string, important: bool}> $declarations
+     * @param array<string, array{'important': bool, 'value': string, '_from_shorthand'?: true}> $declarations
      * @return string
      */
     private static function rebuildDeclarations(array $declarations): string
@@ -216,7 +220,7 @@ class ImportanceNormalizer
 
         foreach ($declarations as $property => $declaration) {
             // Skip empty longhands created only for !important propagation
-            if (($declaration['value'] === '') && isset($declaration['_from_shorthand'])) {
+            if ($declaration['value'] === '' && isset($declaration['_from_shorthand'])) {
                 continue;
             }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * CascadeContext.php
  *
@@ -42,18 +44,18 @@ class CascadeContext
      * Maximum value for normal (non-important, non-inline) source order
      * Normal rules from stylesheets use 0 to MAX_NORMAL_SOURCE_ORDER
      */
-    public const MAX_NORMAL_SOURCE_ORDER = 9999999;
+    public const MAX_NORMAL_SOURCE_ORDER = 9_999_999;
 
     /**
      * Inline style source order - higher than normal rules, lower than !important
      */
-    public const INLINE_STYLE_SOURCE_ORDER = 10000000;
+    public const INLINE_STYLE_SOURCE_ORDER = 10_000_000;
 
     /**
      * Minimum value for !important source order (reserved range)
      * !important rules use 100000000 and above for highest precedence
      */
-    public const MIN_IMPORTANT_SOURCE_ORDER = 100000000;
+    public const MIN_IMPORTANT_SOURCE_ORDER = 100_000_000;
 
     /**
      * Global counter for normal (non-important) rules across all sources

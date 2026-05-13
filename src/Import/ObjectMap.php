@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * ObjectMap.php
  *
@@ -110,11 +112,7 @@ class ObjectMap
      */
     public function get(string $srcRef): int
     {
-        if (!isset($this->map[$srcRef])) {
-            throw new ImportException('Object reference not allocated: ' . $srcRef);
-        }
-
-        return $this->map[$srcRef];
+        return $this->map[$srcRef] ?? throw new ImportException('Object reference not allocated: ' . $srcRef);
     }
 
     /**

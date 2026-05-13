@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * CSS.php
  *
@@ -16,11 +18,9 @@
 
 namespace Com\Tecnick\Pdf;
 
-use Com\Tecnick\Pdf\Exception as PdfException;
-use Com\Tecnick\Pdf\CSS\Specificity;
 use Com\Tecnick\Pdf\CSS\CascadeContext;
 use Com\Tecnick\Pdf\CSS\ImportanceNormalizer;
-use Com\Tecnick\Color\Model as ColorModel;
+use Com\Tecnick\Pdf\CSS\Specificity;
 
 /**
  * Com\Tecnick\Pdf\CSS
@@ -36,6 +36,7 @@ use Com\Tecnick\Color\Model as ColorModel;
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
  * @phpstan-type BorderStyle array{
  *     lineWidth: float,
  *     lineCap: string,
@@ -89,21 +90,21 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @var TCellBound
      */
-    protected $defCSSCellMargin = self::ZEROCELLBOUND;
+    protected array $defCSSCellMargin = self::ZEROCELLBOUND;
 
     /**
      * Default CSS padding.
      *
      * @var TCellBound
      */
-    protected $defCSSCellPadding = self::ZEROCELLBOUND;
+    protected array $defCSSCellPadding = self::ZEROCELLBOUND;
 
     /**
      * Default CSS border space.
      *
      * @var TCSSBorderSpacing
      */
-    protected $defCSSBorderSpacing = self::ZEROBORDERSPACE;
+    protected array $defCSSBorderSpacing = self::ZEROBORDERSPACE;
 
     /**
      * Maximum value that can be represented in Roman notation.
@@ -169,12 +170,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param float $bottom Bottom.
      * @param float $left   Left.
      */
-    public function setDefaultCSSMargin(
-        float $top,
-        float $right,
-        float $bottom,
-        float $left
-    ): void {
+    public function setDefaultCSSMargin(float $top, float $right, float $bottom, float $left): void
+    {
         $this->defCSSCellMargin['T'] = $this->toPoints($top);
         $this->defCSSCellMargin['R'] = $this->toPoints($right);
         $this->defCSSCellMargin['B'] = $this->toPoints($bottom);
@@ -189,12 +186,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param float $bottom Bottom.
      * @param float $left   Left.
      */
-    public function setDefaultCSSPadding(
-        float $top,
-        float $right,
-        float $bottom,
-        float $left
-    ): void {
+    public function setDefaultCSSPadding(float $top, float $right, float $bottom, float $left): void
+    {
         $this->defCSSCellPadding['T'] = $this->toPoints($top);
         $this->defCSSCellPadding['R'] = $this->toPoints($right);
         $this->defCSSCellPadding['B'] = $this->toPoints($bottom);
@@ -207,10 +200,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param float $horiz Horizontal space.
      * @param float $vert Vertical space.
      */
-    public function setDefaultCSSBorderSpacing(
-        float $vert,
-        float $horiz,
-    ): void {
+    public function setDefaultCSSBorderSpacing(float $vert, float $horiz): void
+    {
         $this->defCSSBorderSpacing['V'] = $this->toPoints($vert);
         $this->defCSSBorderSpacing['H'] = $this->toPoints($horiz);
     }
@@ -221,6 +212,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param string $width border width.
      *
      * @return float width in internal points.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
      */
     protected function getCSSBorderWidthPoints(string $width): float
     {
@@ -239,6 +232,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param string $width border width.
      *
      * @return float width in user units.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
      */
     protected function getCSSBorderWidth(string $width): float
     {
@@ -272,15 +267,15 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     /**
      * Apply a CSS border-style keyword to a border style array.
      *
-      * @param BorderStyle|BorderStyleOpt $border Border style array.
+     * @param BorderStyle|BorderStyleOpt $border Border style array.
      * @param string $style CSS border-style keyword.
      *
      * @return BorderStyle
      */
     protected function applyCSSBorderStyleKeyword(array $border, string $style): array
     {
-          /** @var BorderStyle $border */
-          $border = \array_replace($this->getCSSDefaultBorderStyle(), $border);
+        /** @var BorderStyle $border */
+        $border = \array_replace($this->getCSSDefaultBorderStyle(), $border);
         $style = \strtolower(\trim($style));
         $border['lineCap'] = 'square';
         $border['lineJoin'] = 'miter';
@@ -294,7 +289,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             return $border;
         }
 
-        $border['dashArray'] = ($dash > 0) ? [$dash, $dash] : [];
+        $border['dashArray'] = $dash > 0 ? [$dash, $dash] : [];
         $border['dashPhase'] = $dash;
 
         return $border;
@@ -325,14 +320,18 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param string $cssborder border properties.
      *
      * @return BorderStyle border properties.
+     *
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Pdf\Exception
      */
     protected function getCSSBorderStyle(string $cssborder): array
     {
         $border = $this->getCSSDefaultBorderStyle();
-        /** @var list<string> $bprop */
-        $bprop = \preg_split('/[\s]+/', \trim($cssborder)) ?: [''];
+        $bpropSplit = \preg_split('/[\s]+/', \trim($cssborder));
+        $bprop = $bpropSplit === false ? [] : $bpropSplit;
+
         $count = \count($bprop);
-        if (($count > 0) && ($bprop[$count - 1] === '!important')) {
+        if ($count > 0 && $bprop[$count - 1] === '!important') {
             unset($bprop[$count - 1]);
             /** @var list<string> $bprop */
             $bprop = \array_values($bprop);
@@ -341,12 +340,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         switch ($count) {
             case 2:
                 $width = 'medium';
-                $style = $bprop[0];
-                $color = $bprop[1];
+                $style = $bprop[0] ?? '';
+                $color = $bprop[1] ?? '';
                 break;
             case 1:
                 $width = 'medium';
-                $style = $bprop[0];
+                $style = $bprop[0] ?? '';
                 $color = 'black';
                 break;
             case 0:
@@ -355,9 +354,9 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 $color = 'black';
                 break;
             default:
-                $width = $bprop[0];
-                $style = $bprop[1];
-                $color = $bprop[2];
+                $width = $bprop[0] ?? '';
+                $style = $bprop[1] ?? '';
+                $color = $bprop[2] ?? '';
                 break;
         }
         $border = $this->applyCSSBorderStyleKeyword($border, $style);
@@ -366,7 +365,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
         $border['lineWidth'] = $this->getCSSBorderWidth($width);
         $colobj = $this->color->getColorObj($color);
-        $border['lineColor'] = empty($colobj) ? 'black' : $colobj->getCssColor();
+        $border['lineColor'] = $colobj === null ? 'black' : $colobj->getCssColor();
         return $border;
     }
 
@@ -377,13 +376,17 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param float $width width of the containing element.
      *
      * @return TCellBound cell paddings.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     protected function getCSSPadding(string $csspadding, float $width = 0.0): array
     {
         /** @var TCellBound $cellpad */
         $cellpad = $this->defCSSCellPadding;
-        /** @var list<string> $pad */
-        $pad = \preg_split('/[\s]+/', \trim($csspadding)) ?: [''];
+        $padSplit = \preg_split('/[\s]+/', \trim($csspadding));
+        $pad = $padSplit === false ? [] : $padSplit;
+
         switch (\count($pad)) {
             case 4:
                 $cellpad['T'] = $pad[0];
@@ -416,12 +419,13 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
+        /** @var TRefUnitValues $ref */
         $ref = self::REFUNITVAL;
         $ref['parent'] = $width;
-        $cellpad['T'] = $this->toUnit($this->getUnitValuePoints($cellpad['T'], $ref));
-        $cellpad['R'] = $this->toUnit($this->getUnitValuePoints($cellpad['R'], $ref));
-        $cellpad['B'] = $this->toUnit($this->getUnitValuePoints($cellpad['B'], $ref));
-        $cellpad['L'] = $this->toUnit($this->getUnitValuePoints($cellpad['L'], $ref));
+        $cellpad['T'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['T'], $ref));
+        $cellpad['R'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['R'], $ref));
+        $cellpad['B'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['B'], $ref));
+        $cellpad['L'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['L'], $ref));
         return $cellpad;
     }
 
@@ -432,13 +436,17 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param float $width width of the containing element.
      *
      * @return TCellBound cell margins.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     protected function getCSSMargin(string $cssmargin, float $width = 0.0): array
     {
         /** @var TCellBound $cellmrg */
         $cellmrg = $this->defCSSCellMargin;
-        /** @var list<string> $mrg */
-        $mrg = \preg_split('/[\s]+/', \trim($cssmargin)) ?: [''];
+        $mrgSplit = \preg_split('/[\s]+/', \trim($cssmargin));
+        $mrg = $mrgSplit === false ? [] : $mrgSplit;
+
         switch (\count($mrg)) {
             case 4:
                 $cellmrg['T'] = $mrg[0];
@@ -471,10 +479,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
-        $cellmrg['T'] = \str_replace('auto', '0', $cellmrg['T']);
-        $cellmrg['R'] = \str_replace('auto', '0', $cellmrg['R']);
-        $cellmrg['B'] = \str_replace('auto', '0', $cellmrg['B']);
-        $cellmrg['L'] = \str_replace('auto', '0', $cellmrg['L']);
+        $cellmrg['T'] = \str_replace('auto', '0', (string) $cellmrg['T']);
+        $cellmrg['R'] = \str_replace('auto', '0', (string) $cellmrg['R']);
+        $cellmrg['B'] = \str_replace('auto', '0', (string) $cellmrg['B']);
+        $cellmrg['L'] = \str_replace('auto', '0', (string) $cellmrg['L']);
+        /** @var TRefUnitValues $ref */
         $ref = self::REFUNITVAL;
         $ref['parent'] = $width;
         $cellmrg['T'] = $this->toUnit($this->getUnitValuePoints($cellmrg['T'], $ref));
@@ -491,13 +500,17 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param float $width width of the containing element.
      *
      * @return TCSSBorderSpacing of border spacings.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     protected function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
     {
         /** @var TCSSBorderSpacing $bsp */
         $bsp = $this->defCSSBorderSpacing;
-        /** @var list<string> $space */
-        $space = \preg_split('/[\s]+/', \trim($cssbspace)) ?: [''];
+        $spaceSplit = \preg_split('/[\s]+/', \trim($cssbspace));
+        $space = $spaceSplit === false ? [] : $spaceSplit;
+
         switch (\count($space)) {
             case 2:
                 $bsp['H'] = $space[0];
@@ -514,10 +527,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
+        /** @var TRefUnitValues $ref */
         $ref = self::REFUNITVAL;
         $ref['parent'] = $width;
-        $bsp['H'] = $this->toUnit($this->getUnitValuePoints($bsp['H'], $ref));
-        $bsp['V'] = $this->toUnit($this->getUnitValuePoints($bsp['V'], $ref));
+        $bsp['H'] = $this->toUnit($this->getUnitValuePoints((string) $bsp['H'], $ref));
+        $bsp['V'] = $this->toUnit($this->getUnitValuePoints((string) $bsp['V'], $ref));
         return $bsp;
     }
 
@@ -538,10 +552,10 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $order = [];
 
         foreach ($css as $style) {
-            if (empty($style['c'])) {
+            if (!isset($style['c']) || $style['c'] === '') {
                 continue;
             }
-            $csscmds = $this->splitCSSDeclarations((string) $style['c']);
+            $csscmds = $this->splitCSSDeclarations($style['c']);
             foreach ($csscmds as $cmd) {
                 $cmd = \trim($cmd);
                 if ($cmd === '') {
@@ -552,15 +566,15 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     continue;
                 }
 
-                $name = \trim((string) \substr($cmd, 0, $pos));
+                $name = \trim(\substr($cmd, 0, $pos));
                 if ($name === '') {
                     continue;
                 }
 
-                $value = \trim((string) \substr($cmd, ($pos + 1)));
-                $important = (\preg_match('/!\s*important\s*$/i', $value) === 1);
+                $value = \trim(\substr($cmd, $pos + 1));
+                $important = \preg_match('/!\s*important\s*$/i', $value) === 1;
                 if ($important) {
-                    $value = \trim((string) (\preg_replace('/!\s*important\s*$/i', '', $value) ?? $value));
+                    $value = \trim(\preg_replace('/!\s*important\s*$/i', '', $value) ?? $value);
                 }
 
                 $key = \strtolower($name);
@@ -645,7 +659,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
             if ($quote !== '') {
                 $decl .= $chr;
-                if ($chr === $quote && (($idx === 0) || ($style[$idx - 1] !== '\\'))) {
+                if ($chr === $quote && ($idx === 0 || $style[$idx - 1] !== '\\')) {
                     $quote = '';
                 }
 
@@ -670,7 +684,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 continue;
             }
 
-            if ($chr === ';' && ($parenDepth === 0)) {
+            if ($chr === ';' && $parenDepth === 0) {
                 $out[] = $decl;
                 $decl = '';
                 continue;
@@ -716,16 +730,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
         // @charset must be the first rule; allow leading whitespace/BOM
         if (\preg_match('/^(?:\xEF\xBB\xBF)?[\s]*@charset\s+"([^"]+)"\s*;/i', $css, $charsetMatch)) {
-            $declared = \strtolower(\trim($charsetMatch[1]));
+            $declared = \strtolower(\trim($charsetMatch[1] ?? ''));
             // Strip the @charset declaration (and any leading BOM)
             $css = (string) \preg_replace('/^(?:\xEF\xBB\xBF)?[\s]*@charset\s+"[^"]+"\s*;/i', '', $css);
             // Transcode to UTF-8 if charset is not already UTF-8 or ASCII
-            if (
-                $declared !== 'utf-8'
-                && $declared !== 'utf8'
-                && $declared !== 'us-ascii'
-                && $declared !== 'ascii'
-            ) {
+            if ($declared !== 'utf-8' && $declared !== 'utf8' && $declared !== 'us-ascii' && $declared !== 'ascii') {
                 $converted = \mb_convert_encoding($css, 'UTF-8', $declared);
                 if ($converted !== false) {
                     $css = $converted;
@@ -749,6 +758,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *                                 (prevents infinite loops and duplicate imports).
      *
      * @return string CSS string with @import rules replaced by fetched content.
+     *
+     * @throws \Com\Tecnick\File\Exception
      */
     protected function resolveImportRules(string $css, int $depth = 0, array &$seen = []): string
     {
@@ -762,8 +773,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $imports = [];
         if (\preg_match_all($pattern, $css, $matches, \PREG_SET_ORDER) > 0) {
             foreach ($matches as $match) {
-                $url = !empty($match[1]) ? \trim($match[1]) : \trim($match[2]);
-                $media = \strtolower(\trim($match[3]));
+                $url = $match[1] !== '' ? \trim($match[1]) : \trim($match[2] ?? '');
+                $media = \strtolower(\trim($match[3] ?? ''));
                 // Skip non-print media
                 if ($media !== '' && $media !== 'all' && $media !== 'print') {
                     continue;
@@ -822,7 +833,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 }
                 continue;
             }
-            $isPrintOrAll = ($mediaType === 'print' || $mediaType === 'all');
+            $isPrintOrAll = $mediaType === 'print' || $mediaType === 'all';
             if ($negated) {
                 // 'not print' / 'not all' → does not apply to print
                 // 'not screen' / 'not tv' → applies to all non-screen, including print
@@ -840,20 +851,20 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
     protected function tidyCSS(string $css): string
     {
-        if (empty($css)) {
+        if ($css === '') {
             return '';
         }
         // remove comments
-        $css = (string) (\preg_replace('/\/\*[^\*]*\*\//', '', $css) ?? '');
+        $css = \preg_replace('/\/\*[^\*]*\*\//', '', $css) ?? '';
         // remove newlines and multiple spaces
-        $css = (string) (\preg_replace('/[\s]+/', ' ', $css) ?? '');
+        $css = \preg_replace('/[\s]+/', ' ', $css) ?? '';
         // remove some spaces
-        $css = (string) (\preg_replace('/[\s]*([;:\{\}]{1})[\s]*/', '\\1', $css) ?? '');
+        $css = \preg_replace('/[\s]*([;:\{\}]{1})[\s]*/', '\\1', $css) ?? '';
         // remove empty blocks
-        $css = (string) (\preg_replace('/([^\}\{]+)\{\}/', '', $css) ?? '');
+        $css = \preg_replace('/([^\}\{]+)\{\}/', '', $css) ?? '';
         // replace media type parenthesis
-        $css = (string) (\preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1§', $css) ?? '');
-        $css = (string) (\preg_replace('/\}\}/si', '}§', $css) ?? '');
+        $css = \preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1§', $css) ?? '';
+        $css = \preg_replace('/\}\}/si', '}§', $css) ?? '';
         // find media blocks (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
         $blk = [];
         $matches = [];
@@ -862,13 +873,15 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 $blk[$type] = $matches[2][$key];
             }
             // remove media blocks
-            $css = (string) (\preg_replace('/@media[\s]+([^\§]*)§([^§]*)§/i', '', $css) ?? '');
+            $css = \preg_replace('/@media[\s]+([^\§]*)§([^§]*)§/i', '', $css) ?? '';
         }
         // keep print-relevant media blocks; discard screen-only and other non-print types
         foreach ($blk as $type => $content) {
-            if (!empty($content) && $this->isMediaPrintRelevant($type)) {
-                $css .= $content;
+            if ($content === '' || !$this->isMediaPrintRelevant($type)) {
+                continue;
             }
+
+            $css .= $content;
         }
         return \trim($css);
     }
@@ -888,7 +901,9 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @param string $css CSS data string
      * @param CascadeContext|null $context Optional cascade context for global source order tracking
-    * @return array<string, string> Array of parsed CSS selectors with properties
+     * @return array<string, string> Array of parsed CSS selectors with properties
+     *
+     * @throws \Com\Tecnick\File\Exception
      */
     protected function extractCSSproperties(string $css, ?CascadeContext $context = null): array
     {
@@ -896,13 +911,13 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $seen = [];
         $css = $this->resolveImportRules($css, 0, $seen);
         $css = $this->tidyCSS($css);
-        if (empty($css)) {
+        if ($css === '') {
             return [];
         }
         $blk = [];
         $matches = [];
         // explode css data string into array
-        if (\substr($css, -1) == '}') {
+        if (\substr($css, -1) === '}') {
             // remove last parethesis
             $css = \substr($css, 0, -1);
         }
@@ -917,13 +932,15 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
         // split groups of selectors (comma-separated list of selectors)
         foreach ($blk as $key => $block) {
-            if (\strpos($block[0], ',') > 0) {
-                $selectors = \explode(',', $block[0]);
-                foreach ($selectors as $sel) {
-                    $blk[] = [0 => \trim($sel), 1 => $block[1]];
-                }
-                unset($blk[$key]);
+            if (\strpos($block[0], ',') <= 0) {
+                continue;
             }
+
+            $selectors = \explode(',', $block[0]);
+            foreach ($selectors as $sel) {
+                $blk[] = [0 => \trim($sel), 1 => $block[1]];
+            }
+            unset($blk[$key]);
         }
         // covert array to selector => properties
         $out = [];
@@ -941,7 +958,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             // create sortable key: "{a:04d}{b:04d}{c:04d}_{index:06d} {selector}"
             $sortKey = $specificity->toSortKey($sourceOrder);
             // store with specificity key for proper ordering
-            $out["$sortKey $selector"] = $block[1];
+            $out["{$sortKey} {$selector}"] = $block[1] ?? '';
         }
         // sort selectors alphabetically to account for specificity and source order
         \ksort($out, SORT_STRING);
@@ -966,9 +983,9 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $rmn = '';
         foreach (self::ROMAN_VINCULUM as $sfx => $mul) {
             foreach (self::ROMAN_SYMBOL as $sym => $val) {
-                $limit = (int)($mul * $val);
+                $limit = (int) ($mul * $val);
                 while ($num >= $limit) {
-                    $rmn .= $sym[0] . $sfx . (!empty($sym[1]) ? $sym[1] . $sfx : '');
+                    $rmn .= $sym[0] . $sfx . (\strlen($sym) > 1 ? $sym[1] . $sfx : '');
                     $num -= $limit;
                 }
             }
@@ -998,6 +1015,9 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param string $html HTML string to parse.
      *
      * @return array<string, string> CSS styles (selector => properties).
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Color\Exception
      */
     protected function getCSSArrayFromHTML(string &$html): array
     {
@@ -1010,10 +1030,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $matches = [];
         if (\preg_match_all('/<cssarray>([^\<]*?)<\/cssarray>/is', $html, $matches) > 0) {
             if (isset($matches[1][0])) {
-                $dcss = \json_decode(
-                    $this->unhtmlentities($matches[1][0]),
-                    true,
-                );
+                $dcss = \json_decode($this->unhtmlentities($matches[1][0]), true);
                 if (\is_array($dcss)) {
                     $css = $dcss;
                 }
@@ -1032,12 +1049,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
                         // get 'all' and 'print' media, other media types are discarded
                         // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
-                        if (!empty($type[1]) && (($type[1] == 'all') || ($type[1] == 'print'))) {
+                        if (isset($type[1]) && $type[1] !== '' && ($type[1] === 'all' || $type[1] === 'print')) {
                             $type = [];
                             if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
                                 // read CSS data file
-                                $cssdata = $this->file->getFileData(\trim($type[1]));
-                                if (($cssdata !== false) && (\strlen($cssdata) > 0)) {
+                                $cssdata = $this->file->getFileData(\trim($type[1] ?? ''));
+                                if ($cssdata !== false && \strlen($cssdata) > 0) {
                                     $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                                 }
                             }
@@ -1046,8 +1063,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                         // no media attribute defaults to "all"
                         $type = [];
                         if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
-                            $cssdata = $this->file->getFileData(\trim($type[1]));
-                            if (($cssdata !== false) && (\strlen($cssdata) > 0)) {
+                            $cssdata = $this->file->getFileData(\trim($type[1] ?? ''));
+                            if ($cssdata !== false && \strlen($cssdata) > 0) {
                                 $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                             }
                         }
@@ -1065,19 +1082,29 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $media, $type) > 0) {
                     // get 'all' and 'print' media, other media types are discarded
                     // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
-                    if (!empty($type[1]) && (($type[1] == 'all') || ($type[1] == 'print'))) {
-                        $cssdata = $matches[2][$key];
+                    if (isset($type[1]) && $type[1] !== '' && ($type[1] === 'all' || $type[1] === 'print')) {
+                        $cssdata = $matches[2][$key] ?? '';
                         $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                     }
                 } else {
                     // no media attribute defaults to "all"
-                    $cssdata = $matches[2][$key];
+                    $cssdata = $matches[2][$key] ?? '';
                     $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                 }
             }
         }
 
-        return $css; // @phpstan-ignore return.type
+        /** @var array<string, string> $cssout */
+        $cssout = [];
+        foreach ($css as $selector => $properties) {
+            if (!\is_string($selector) || !\is_string($properties)) {
+                continue;
+            }
+
+            $cssout[$selector] = $properties;
+        }
+
+        return $cssout;
     }
 
     /**
@@ -1086,6 +1113,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @param string $color CSS color string to parse.
      *
      * @return string CSS color representation.
+     *
+     * @throws \Com\Tecnick\Color\Exception
      */
     protected function getCSSColor(string $color): string
     {

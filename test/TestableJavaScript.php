@@ -40,7 +40,7 @@ class TestableJavaScript extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeMergeAnnotOptions(
         array $opt = ['subtype' => 'text'],
         array $jsp = [],
-        string $color = ''
+        string $color = '',
     ): array {
         $opt = \array_merge(['subtype' => 'text'], $opt);
         // @phpstan-ignore argument.type

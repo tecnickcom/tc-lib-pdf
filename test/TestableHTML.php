@@ -83,10 +83,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $names = [];
         foreach ($ref->getMethods(\ReflectionMethod::IS_PROTECTED) as $method) {
             $name = $method->getName();
-            if (
-                \str_starts_with($name, 'parseHTMLTagOPEN')
-                || \str_starts_with($name, 'parseHTMLTagCLOSE')
-            ) {
+            if (\str_starts_with($name, 'parseHTMLTagOPEN') || \str_starts_with($name, 'parseHTMLTagCLOSE')) {
                 $names[] = $name;
             }
         }
@@ -132,12 +129,8 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
      *
      * @return array<int, float>
      */
-    public function exposeComputeHTMLTableColWidths(
-        array $dom,
-        int $tablekey,
-        int $cols,
-        float $availableWidth,
-    ): array {
+    public function exposeComputeHTMLTableColWidths(array $dom, int $tablekey, int $cols, float $availableWidth): array
+    {
         return $this->computeHTMLTableColWidths($dom, $tablekey, $cols, $availableWidth);
     }
 
@@ -185,7 +178,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-    * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<int, THTMLAttrib> $dom
      * @phpstan-param array<string, string> $css
      * @phpstan-param array<int> $level
      */
@@ -201,13 +194,8 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @phpstan-param THTMLAttrib $elm */
-    public function exposeParseHTMLText(
-        array $elm,
-        float &$tpx,
-        float &$tpy,
-        float &$tpw,
-        float &$tph,
-    ): string {
+    public function exposeParseHTMLText(array $elm, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
         $this->initExposeRenderContextIfNeeded();
         $this->testhrc['dom'] = [$elm];
 
@@ -231,12 +219,8 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseHTMLText($this->testhrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
-    public function exposeInitHTMLCellContext(
-        float $originx,
-        float $originy,
-        float $maxwidth,
-        float $maxheight,
-    ): void {
+    public function exposeInitHTMLCellContext(float $originx, float $originy, float $maxwidth, float $maxheight): void
+    {
         $this->initHTMLCellContext($this->testhrc, $originx, $originy, $maxwidth, $maxheight);
     }
 

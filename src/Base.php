@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * Base.php
  *
@@ -16,16 +18,15 @@
 
 namespace Com\Tecnick\Pdf;
 
-use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Barcode\Barcode as ObjBarcode;
-use Com\Tecnick\Pdf\Import\ImporterInterface as ObjImporter;
-use Com\Tecnick\Color\Pdf as ObjColor;
 use Com\Tecnick\File\Cache as ObjCache;
 use Com\Tecnick\File\File as ObjFile;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Font\Stack as ObjFont;
 use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
 use Com\Tecnick\Pdf\Image\Import as ObjImage;
+use Com\Tecnick\Pdf\Import\ImporterInterface as ObjImporter;
 use Com\Tecnick\Pdf\Page\Page as ObjPage;
 use Com\Tecnick\Unicode\Convert as ObjUniConvert;
 
@@ -133,6 +134,14 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    attr?: array<string, string>,
  * }
  *
+ * @phpstan-type TFileOptions array{
+ *   allowedHosts?: array<string>,
+ *   maxRemoteSize?: int,
+ *   curlopts?: array<int, bool|int|string>,
+ *   defaultCurlOpts?: array<int, bool|int|string>,
+ *   fixedCurlOpts?: array<int, bool|int|string>
+ * }
+ *
  * @phpstan-import-type TAnnot from Output
  * @phpstan-import-type TEmbeddedFile from Output
  * @phpstan-import-type TObjID from Output
@@ -149,60 +158,60 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  */
 abstract class Base
 {
-   /**
-    * Encrypt object.
-    */
-    public ObjEncrypt $encrypt;
-
-   /**
-    * Color object.
-    */
-    public ObjColor $color;
-
-   /**
-    * Barcode object.
-    */
-    public ObjBarcode $barcode;
-
-   /**
-    * File object.
-    */
-    public ObjFile $file;
-
-   /**
-    * Cache object.
-    */
-    public ObjCache $cache;
-
-   /**
-    * Unicode Convert object.
-    */
-    public ObjUniConvert $uniconv;
-
-   /**
-    * Page object.
-    */
-    public ObjPage $page;
-
-   /**
-    * Graph object.
-    */
-    public ObjGraph $graph;
-
-   /**
-    * Font object.
-    */
-    public ObjFont $font;
-
-   /**
-    * Image Import object.
-    */
-    public ObjImage $image;
-
     /**
      * TCPDF version.
      */
-    protected string $version = '8.20.0';
+    protected string $version = '8.21.0';
+
+    /**
+     * Encrypt object.
+     */
+    public ObjEncrypt $encrypt;
+
+    /**
+     * Color object.
+     */
+    public PdfColor $color;
+
+    /**
+     * Barcode object.
+     */
+    public ObjBarcode $barcode;
+
+    /**
+     * File object.
+     */
+    public ObjFile $file;
+
+    /**
+     * Cache object.
+     */
+    public ObjCache $cache;
+
+    /**
+     * Unicode Convert object.
+     */
+    public ObjUniConvert $uniconv;
+
+    /**
+     * Page object.
+     */
+    public ObjPage $page;
+
+    /**
+     * Graph object.
+     */
+    public ObjGraph $graph;
+
+    /**
+     * Font object.
+     */
+    public ObjFont $font;
+
+    /**
+     * Image Import object.
+     */
+    public ObjImage $image;
 
     /**
      * Time is seconds since EPOCH when the document was created.
@@ -297,14 +306,31 @@ abstract class Base
     protected string $unit = 'mm';
 
     /**
+     * Minimum SVG unit length in points.
+     */
+    protected float $svgminunitlen = 0.0;
+
+    /**
      * Valid HTML/CSS/SVG units.
      *
      * @var array<string>
      */
     protected const VALIDUNITS = [
-        '%', 'ch', 'cm', 'em', 'ex',
-        'in', 'mm', 'pc', 'pt', 'px',
-        'rem', 'vh', 'vmax', 'vmin', 'vw',
+        '%',
+        'ch',
+        'cm',
+        'em',
+        'ex',
+        'in',
+        'mm',
+        'pc',
+        'pt',
+        'px',
+        'rem',
+        'vh',
+        'vmax',
+        'vmin',
+        'vw',
     ];
 
     /**
@@ -431,7 +457,7 @@ abstract class Base
     protected array $pdfuapagemcid = [];
 
     /**
-    * Stack of currently open PDF/UA structure elements.
+     * Stack of currently open PDF/UA structure elements.
      * Each entry preserves its ordered kids (MCRs and nested StructElems).
      *
      * @var array<int, TPdfUaStructElem>
@@ -650,7 +676,7 @@ abstract class Base
      *
      * @var int
      */
-    protected const SIGMAXLEN = 11742;
+    protected const SIGMAXLEN = 11_742;
 
     /**
      * User rights Data.
@@ -744,11 +770,12 @@ abstract class Base
      * @var ?TFontMetric
      */
     protected ?array $defaultfont = null;
+
     /**
      * The default relative position of the cell origin when
      * the border is centered on the cell edge.
      */
-    public const BORDERPOS_DEFAULT = 0;
+    public const BORDERPOS_DEFAULT = 0.0;
 
     /**
      * The relative position of the cell origin when
@@ -790,7 +817,7 @@ abstract class Base
      *
      * @var TCellDef
      */
-    protected $defcell = self::ZEROCELL;
+    protected array $defcell = self::ZEROCELL;
 
     /**
      * Convert user units to internal points unit.
@@ -799,7 +826,7 @@ abstract class Base
      */
     public function toPoints(float $usr): float
     {
-        return ($usr * $this->kunit);
+        return $usr * $this->kunit;
     }
 
     /**
@@ -809,7 +836,7 @@ abstract class Base
      */
     public function toUnit(float $pnt): float
     {
-        return ($pnt / $this->kunit);
+        return $pnt / $this->kunit;
     }
 
     /**
@@ -818,13 +845,17 @@ abstract class Base
      *
      * @param float $usr   Value to convert.
      * @param float $pageh Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function toYPoints(float $usr, float $pageh = -1): float
     {
         if ($pageh < 0) {
-            return ($this->page->getPage()['pheight'] - $this->toPoints($usr));
+            $page = $this->page->getPage();
+            $pheight = $page['pheight'];
+            return $pheight - $this->toPoints($usr);
         }
-        return ($pageh - $this->toPoints($usr));
+        return $pageh - $this->toPoints($usr);
     }
 
     /**
@@ -833,11 +864,15 @@ abstract class Base
      *
      * @param float $pnt   Value to convert.
      * @param float $pageh Optional page height in internal points ($pageh:$this->page->getPage()['pheight']).
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function toYUnit(float $pnt, float $pageh = -1): float
     {
         if ($pageh < 0) {
-             return $this->toUnit($this->page->getPage()['pheight'] - $pnt);
+            $page = $this->page->getPage();
+            $pheight = $page['pheight'];
+            return $this->toUnit($pheight - $pnt);
         }
         return $this->toUnit($pageh - $pnt);
     }
@@ -855,14 +890,20 @@ abstract class Base
     }
 
     /**
-     * Converts a string containing value and unit of measure to internal points.
-     * This is used to convert values for SVG, CSS, HTML.
+     * Convert value from given unit to points.
      *
-     * @param string|float|int $val String containing values and unit.
-     * @param TRefUnitValues $ref Reference values in internal points.
-     * @param string $defunit Default unit (can be one of the VALIDUNITS).
+     * @param string|float|int $val    The numeric value, possibly with unit.
+     * @param array{
+     *     'font': array{'rootsize': float, 'size': float, 'xheight': float, 'zerowidth': float},
+     *     'page': array{'height': float, 'width': float},
+     *     'parent': float,
+     *     'viewport': array{'height': float, 'width': float}
+     * } $ref Reference unit values.
+     * @param string           $defunit Default unit name.
      *
-     * @return float Internal points value.
+     * @return float
+     *
+     * @throws PdfException
      */
     protected function getUnitValuePoints(
         string|float|int $val,
@@ -870,53 +911,57 @@ abstract class Base
         string $defunit = 'px',
     ): float {
         $unit = 'px';
-        if (\in_array($defunit, self::VALIDUNITS)) {
+        if (\in_array($defunit, self::VALIDUNITS, true)) {
             $unit = $defunit;
         }
 
         $value = 0.0;
         if (\is_numeric($val)) {
             $value = \floatval($val);
-        } elseif (\preg_match('/([0-9\.\-\+]+)([a-z%]{0,4})/', $val, $match)) {
-            $value = \floatval($match[1]);
-            if (\in_array($match[2], self::VALIDUNITS)) {
-                $unit = $match[2];
-            }
         } else {
-            throw new PdfException('Invalid value: ' . $val);
+            $match = [];
+            if (\preg_match('/([0-9\.\-\+]+)([a-z%]{0,4})/', $val, $match) === 1 && isset($match[1], $match[2])) {
+                $value = \floatval($match[1]);
+                if (\in_array($match[2], self::VALIDUNITS, true)) {
+                    $unit = $match[2];
+                }
+            } else {
+                throw new PdfException('Invalid value: ' . $val);
+            }
         }
 
         return match ($unit) {
             // Percentage relative to the parent element.
-            '%' => (($value * $ref['parent']) / 100),
+            '%' => ($value * $ref['parent']) / 100,
             // Relative to the width of the "0" (zero)
-            'ch' => ($value * $ref['font']['zerowidth']),
+            'ch' => $value * $ref['font']['zerowidth'],
             // Centimeters.
-            'cm' => (($value * self::DPI_PDF) / 2.54),
+            'cm' => ($value * self::DPI_PDF) / 2.54,
             // Relative to the font-size of the element.
-            'em' => ($value * $ref['font']['size']),
+            'em' => $value * $ref['font']['size'],
             // Relative to the x-height of the current font.
-            'ex' => ($value * $ref['font']['xheight']),
+            'ex' => $value * $ref['font']['xheight'],
             // Inches.
-            'in' => ($value * self::DPI_PDF),
+            'in' => $value * self::DPI_PDF,
             // Millimeters.
-            'mm' => (($value * self::DPI_PDF) / 25.4),
+            'mm' => ($value * self::DPI_PDF) / 25.4,
             // One pica is 12 points.
-            'pc' => ($value * 12),
+            'pc' => $value * 12,
             // Points.
             'pt' => $value,
             // Pixels.
-            'px' => ($value * self::DPI_PIXEL_RATIO),
+            'px' => $value * self::DPI_PIXEL_RATIO,
             // Relative to font-size of the root element.
-            'rem' => ($value * $ref['font']['rootsize']),
+            'rem' => $value * $ref['font']['rootsize'],
             // Relative to 1% of the height of the viewport.
-            'vh' => (($value * $ref['viewport']['height']) / 100),
+            'vh' => ($value * $ref['viewport']['height']) / 100,
             // Relative to 1% of viewport's* larger dimension.
-            'vmax' => (($value * \max($ref['viewport']['height'], $ref['viewport']['width'])) / 100),
+            'vmax' => ($value * \max($ref['viewport']['height'], $ref['viewport']['width'])) / 100,
             // Relative to 1% of viewport's smaller dimension.
-            'vmin' => (($value * \min($ref['viewport']['height'], $ref['viewport']['width'])) / 100),
+            'vmin' => ($value * \min($ref['viewport']['height'], $ref['viewport']['width'])) / 100,
             // Relative to 1% of the width of the viewport.
-            'vw' => (($value * $ref['viewport']['width']) / 100),
+            'vw' => ($value * $ref['viewport']['width']) / 100,
+            default => throw new PdfException('Unsupported unit: ' . $unit),
         };
     }
 
@@ -929,6 +974,8 @@ abstract class Base
      * @param string $defunit Default unit (can be one of the VALIDUNITS).
      *
      * @return float Internal points value.
+     *
+     * @throws PdfException
      */
     protected function getFontValuePoints(
         string|float|int $val,
@@ -936,7 +983,7 @@ abstract class Base
         string $defunit = 'pt',
     ): float {
         if (\is_string($val) && isset(self::FONTRELSIZE[$val])) {
-            return ($ref['parent'] + self::FONTRELSIZE[$val]);
+            return $ref['parent'] + self::FONTRELSIZE[$val];
         }
 
         return $this->getUnitValuePoints($val, $ref, $defunit);
@@ -960,7 +1007,7 @@ abstract class Base
      */
     protected function setTmpRTL(string $mode): void
     {
-        $this->tmprtl = (!empty($mode) && (strtoupper($mode[0]) == 'R'));
+        $this->tmprtl = $mode !== '' && \strtoupper($mode[0]) === 'R';
     }
 
     /**
@@ -970,7 +1017,7 @@ abstract class Base
      */
     protected function isRTL(): bool
     {
-        return ($this->rtl || $this->tmprtl);
+        return $this->rtl || $this->tmprtl;
     }
 
     /**
@@ -1001,5 +1048,77 @@ abstract class Base
         }
 
         return !\in_array($this->pdfxMode, ['pdfx4', 'pdfx5'], true);
+    }
+
+    /**
+     * Initialize dependencies class objects.
+     *
+     * @param ?ObjEncrypt $objEncrypt  Encryption object.
+     * @param TFileOptions|null $fileOptions Optional configuration for the shared file helper used
+     *                                       to load external resources (images, fonts, SVG, etc.).
+     *                                       Supported keys:
+     *                                       - allowedHosts (string[]): Whitelist of host names that
+     *                                         the library is allowed to fetch over HTTP/HTTPS. For
+     *                                         security reasons remote URL loading is DISABLED by
+     *                                         default; you MUST populate this list (for example
+     *                                         ['example.com', 'cdn.example.com']) to enable any
+     *                                         remote download. Local file paths are not affected.
+     *                                       - maxRemoteSize (int): Maximum size in bytes accepted
+     *                                         for a remote download (default 52428800 = 50 MiB).
+     *                                       - curlopts (array<int,bool|int|string>): Per-request
+     *                                         cURL options merged on top of the defaults (keys are
+     *                                         CURLOPT_* constants).
+     *                                       - defaultCurlOpts (array<int,bool|int|string>):
+     *                                         Replaces the built-in default cURL options. Use with
+     *                                         care; omit to keep the safe defaults.
+     *                                       - fixedCurlOpts (array<int,bool|int|string>): cURL
+     *                                         options that are always enforced and cannot be
+     *                                         overridden by curlopts (for example to pin TLS
+     *                                         settings).
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    public function initClassObjects(?ObjEncrypt $objEncrypt = null, ?array $fileOptions = null): void
+    {
+        if ($objEncrypt instanceof ObjEncrypt) {
+            $this->encrypt = $objEncrypt;
+        } else {
+            $this->encrypt = new ObjEncrypt();
+        }
+
+        $this->color = new PdfColor();
+        $this->color->setForceDeviceCmyk($this->requiresPdfxDeviceCmyk());
+        $this->barcode = new ObjBarcode();
+        $this->file = new ObjFile(
+            $fileOptions['allowedHosts'] ?? [],
+            $fileOptions['maxRemoteSize'] ?? 52_428_800,
+            $fileOptions['curlopts'] ?? [],
+            $fileOptions['defaultCurlOpts'] ?? null,
+            $fileOptions['fixedCurlOpts'] ?? null,
+        );
+        $this->cache = new ObjCache();
+        $this->uniconv = new ObjUniConvert();
+
+        $pdfamode = $this->pdfa > 0;
+
+        $this->page = new ObjPage($this->unit, $this->color, $this->encrypt, $pdfamode, $this->compress, $this->sigapp);
+
+        $this->kunit = $this->page->getKUnit();
+        $this->svgminunitlen = $this->toUnit(0.01);
+
+        $this->graph = new ObjGraph(
+            $this->kunit,
+            0, // $this->graph->setPageWidth($pagew)
+            0, // $this->graph->setPageHeight($pageh)
+            $this->color,
+            $this->encrypt,
+            $pdfamode,
+            $this->compress,
+        );
+
+        $this->font = new ObjFont($this->kunit, $this->subsetfont, $this->isunicode, $pdfamode, $fileOptions);
+
+        $this->image = new ObjImage($this->kunit, $this->encrypt, $pdfamode, $this->compress, $fileOptions);
     }
 }

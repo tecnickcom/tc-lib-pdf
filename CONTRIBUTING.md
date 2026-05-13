@@ -39,7 +39,7 @@ Please follow the [Security Policy](SECURITY.md) and report them privately.
 
 ### Requirements
 
-- PHP **≥ 8.1**
+- PHP **≥ 8.2**
 - [Composer](https://getcomposer.org/) v2
 - `make`, `git`
 - Optional: `rpmbuild` (RPM packaging), `dpkg-buildpackage` (DEB packaging)
@@ -119,8 +119,8 @@ The `Makefile` exposes all common development tasks:
 |---------|-------------|
 | `make qa` | Run linting, static analysis, tests, and reports |
 | `make test` | Run PHPUnit with code coverage |
-| `make lint` | Check coding standards (PHPCS, PHPMD, PHPStan) |
-| `make codefix` | Auto-fix coding standard violations (PHPCBF) |
+| `make lint` | Check coding standards |
+| `make format` | Auto-format the code |
 | `make buildall` | Install dependencies, fix style, run QA, and build packages |
 | `make clean` | Remove `vendor/` and `target/` directories |
 | `make server` | Start the built-in PHP development server for the examples |
@@ -132,8 +132,8 @@ Run `make help` to see the full list of available targets.
 ## Coding Standards
 
 - The codebase follows **PSR-12** for formatting.
-- Run `make codefix` to auto-fix style violations before committing.
-- Run `make lint` to catch remaining issues (PHPCS, PHPMD, PHPStan).
+- Run `make format` to auto-format the code.
+- Run `make lint` to catch remaining issues.
 - All source files live under `src/`, all tests under `test/`.
 - Use strict types and explicit visibility on all class members.
 - Avoid introducing new external dependencies without prior discussion.

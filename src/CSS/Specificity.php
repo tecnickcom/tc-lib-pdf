@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * Specificity.php
  *
@@ -104,7 +106,7 @@ class Specificity
         );
 
         // Count type selectors (element names)
-        $typeCount = (int) \preg_match_all('/[\>\+\~\s]{1}[a-zA-Z0-9]+/', " $selector", $matches);
+        $typeCount = (int) \preg_match_all('/[\>\+\~\s]{1}[a-zA-Z0-9]+/', " {$selector}", $matches);
 
         // Count pseudo-elements (::before, ::after)
         $typeCount += (int) \preg_match_all('/::/', $selector, $matches);

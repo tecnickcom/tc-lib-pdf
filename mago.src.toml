@@ -1,0 +1,60 @@
+#:schema https://mago.carthage.software/1.26.0/schema.json
+version = "1"
+php-version = "8.2.0"
+
+[source]
+workspace = "."
+paths = ["src"]
+includes = ["vendor"]
+excludes = []
+
+[source.glob]
+literal-separator = true
+
+[formatter]
+print-width = 120
+tab-width = 4
+use-tabs = false
+
+[linter]
+integrations = []
+
+[linter.rules]
+ambiguous-function-call = { enabled = false }
+literal-named-argument = { enabled = false }
+cyclomatic-complexity = { enabled = false }
+excessive-parameter-list = { enabled = false }
+halstead = { enabled = false, effort-threshold = 7000 }
+identity-comparison = { enabled = true }
+kan-defect = { enabled = false }
+no-boolean-flag-parameter = { enabled = false }
+no-else-clause = { enabled = false }
+no-empty = { enabled = true }
+excessive-nesting = { enabled = true, threshold = 10, function-like-threshold = 10 }
+too-many-methods = { enabled = false }
+no-isset = { enabled = true, allow-array-checks = true }
+too-many-properties = { enabled = true, threshold = 70 }
+no-insecure-comparison = { enabled = true, exclude = ["src/HTML.php", "src/JavaScript.php"] }
+no-literal-password = { enabled = true, exclude = ["src/HTML.php"] }
+
+[analyzer]
+plugins = []
+find-unused-definitions = true
+find-unused-expressions = true
+analyze-dead-code = true
+memoize-properties = true
+check-throws = true
+unchecked-exceptions = [
+	"Error",
+	"LogicException",
+	"ReflectionException",
+]
+unchecked-exception-classes = []
+check-missing-override = true
+find-unused-parameters = true
+strict-list-index-checks = true
+strict-array-index-existence = true
+allow-array-truthy-operand = false
+no-boolean-literal-comparison = true
+check-missing-type-hints = true
+register-super-globals = true

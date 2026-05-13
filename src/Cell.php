@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * Text.php
  *
@@ -70,9 +72,11 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         ];
 
         foreach ($sideMap as $sideKey => $sideIdx) {
-            if (!isset($normalized[$sideIdx]) && !empty($normalized[$sideKey])) {
-                $normalized[$sideIdx] = $normalized[$sideKey];
+            if (!(!isset($normalized[$sideIdx]) && isset($normalized[$sideKey]) && $normalized[$sideKey] !== [])) {
+                continue;
             }
+
+            $normalized[$sideIdx] = $normalized[$sideKey];
         }
 
         return $normalized;
@@ -86,12 +90,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param float $bottom Bottom.
      * @param float $left   Left.
      */
-    public function setDefaultCellMargin(
-        float $top,
-        float $right,
-        float $bottom,
-        float $left
-    ): void {
+    public function setDefaultCellMargin(float $top, float $right, float $bottom, float $left): void
+    {
         $this->defcell['margin']['T'] = $this->toPoints($top);
         $this->defcell['margin']['R'] = $this->toPoints($right);
         $this->defcell['margin']['B'] = $this->toPoints($bottom);
@@ -106,12 +106,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param float $bottom Bottom.
      * @param float $left   Left.
      */
-    public function setDefaultCellPadding(
-        float $top,
-        float $right,
-        float $bottom,
-        float $left
-    ): void {
+    public function setDefaultCellPadding(float $top, float $right, float $bottom, float $left): void
+    {
         $this->defcell['padding']['T'] = $this->toPoints($top);
         $this->defcell['padding']['R'] = $this->toPoints($right);
         $this->defcell['padding']['B'] = $this->toPoints($bottom);
@@ -129,9 +125,9 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     public function setDefaultCellBorderPos(float $borderpos): void
     {
         if (
-            ($borderpos == self::BORDERPOS_DEFAULT)
-            || ($borderpos == self::BORDERPOS_EXTERNAL)
-            || ($borderpos == self::BORDERPOS_INTERNAL)
+            $borderpos === self::BORDERPOS_DEFAULT
+            || $borderpos === self::BORDERPOS_EXTERNAL
+            || $borderpos === self::BORDERPOS_INTERNAL
         ) {
             $this->defcell['borderpos'] = $borderpos;
             return;
@@ -148,10 +144,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @return TCellDef
      */
-    protected function adjustMinCellPadding(
-        array $styles = [],
-        ?array $cell = null
-    ): array {
+    protected function adjustMinCellPadding(array $styles = [], ?array $cell = null): array
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
@@ -168,21 +162,18 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         $minR = 0;
         $minB = 0;
         $minL = 0;
-        if (! empty($styles['all']['lineWidth'])) {
-            $minT = $this->toPoints((float) $styles['all']['lineWidth'] * $border_ratio);
+        if (isset($styles['all']['lineWidth']) && $styles['all']['lineWidth'] > 0) {
+            $minT = $this->toPoints($styles['all']['lineWidth'] * $border_ratio);
             $minR = $minT;
             $minB = $minT;
             $minL = $minT;
         } elseif (
-            isset($styles[0]['lineWidth'])
-            && isset($styles[1]['lineWidth'])
-            && isset($styles[2]['lineWidth'])
-            && isset($styles[3]['lineWidth'])
+            isset($styles[0]['lineWidth'], $styles[1]['lineWidth'], $styles[2]['lineWidth'], $styles[3]['lineWidth'])
         ) {
-            $minT = $this->toPoints((float) $styles[0]['lineWidth'] * $border_ratio);
-            $minR = $this->toPoints((float) $styles[1]['lineWidth'] * $border_ratio);
-            $minB = $this->toPoints((float) $styles[2]['lineWidth'] * $border_ratio);
-            $minL = $this->toPoints((float) $styles[3]['lineWidth'] * $border_ratio);
+            $minT = $this->toPoints($styles[0]['lineWidth'] * $border_ratio);
+            $minR = $this->toPoints($styles[1]['lineWidth'] * $border_ratio);
+            $minB = $this->toPoints($styles[2]['lineWidth'] * $border_ratio);
+            $minL = $this->toPoints($styles[3]['lineWidth'] * $border_ratio);
         } else {
             return $cell;
         }
@@ -206,33 +197,32 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *                          - L=center-on-font-baseline;
      *                          - D=center-on-font-descent.
      * @param ?TCellDef $cell  Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      */
-    protected function cellMinHeight(
-        float $pheight = 0,
-        string $align = 'C',
-        ?array $cell = null
-    ): float {
+    protected function cellMinHeight(float $pheight = 0, string $align = 'C', ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
 
         $curfont = $this->font->getCurrentFont();
+        $fontHeight = $curfont['height'];
+        $fontAscent = $curfont['ascent'];
+        $fontDescent = $curfont['descent'];
 
-        if ($pheight == 0) {
-            $pheight = $curfont['height'];
+        if ($pheight === 0.0) {
+            $pheight = $fontHeight;
         }
 
         return match ($align) {
-            'T', 'B' => ($pheight + $cell['padding']['T'] + $cell['padding']['B']),
-            'L' => ($pheight - $curfont['height'] + (2 * \max(
-                ($cell['padding']['T'] + $curfont['ascent']),
-                ($cell['padding']['B'] - $curfont['descent'])
-            ))),
-            'A', 'D' => ($pheight
-            - $curfont['height']
-            + (2 * ($curfont['height'] + \max($cell['padding']['T'], $cell['padding']['B'])))),
+            'T', 'B' => $pheight + $cell['padding']['T'] + $cell['padding']['B'],
+            'L' => $pheight - $fontHeight
+                + (2 * \max($cell['padding']['T'] + $fontAscent, $cell['padding']['B'] - $fontDescent)),
+            'A', 'D' => $pheight - $fontHeight
+                + (2 * ($fontHeight + \max($cell['padding']['T'], $cell['padding']['B']))),
             // default on 'C' case
-            default => ($pheight + (2 * \max($cell['padding']['T'], $cell['padding']['B']))),
+            default => $pheight + (2 * \max($cell['padding']['T'], $cell['padding']['B'])),
         };
     }
 
@@ -243,11 +233,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param string    $align    Cell horizontal alignment: L=left; C=center; R=right; J=Justify.
      * @param ?TCellDef $cell     Optional to overwrite cell parameters for padding, margin etc.
      */
-    protected function cellMinWidth(
-        float $txtwidth,
-        string $align = 'L',
-        ?array $cell = null
-    ): float {
+    protected function cellMinWidth(float $txtwidth, string $align = 'L', ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
@@ -270,12 +257,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param string    $align   Cell vertical alignment: T=top; C=center; B=bottom.
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
      */
-    protected function cellVPos(
-        float $pnty,
-        float $pheight,
-        string $align = 'T',
-        ?array $cell = null
-    ): float {
+    protected function cellVPos(float $pnty, float $pheight, string $align = 'T', ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
@@ -296,12 +279,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param string   $align  Cell horizontal alignment: L=left; C=center; R=right; J=Justify.
      * @param TCellDef $cell   Optional to overwrite cell parameters for padding, margin etc.
      */
-    protected function cellHPos(
-        float $pntx,
-        float $pwidth,
-        string $align = 'L',
-        ?array $cell = null
-    ): float {
+    protected function cellHPos(float $pntx, float $pwidth, string $align = 'L', ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
@@ -331,31 +310,35 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *                           - L=center-on-font-baseline;
      *                           - D=center-on-font-descent.
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      */
     protected function cellTextVAlign(
         float $cellpheight,
         float $txtpheight = 0,
         string $align = 'C',
-        ?array $cell = null
+        ?array $cell = null,
     ): float {
         if ($cell === null) {
             $cell = $this->defcell;
         }
 
         $curfont = $this->font->getCurrentFont();
+        $fontHeight = $curfont['height'];
+        $fontAscent = $curfont['ascent'];
 
-        if ($txtpheight == 0) {
-            $txtpheight = $curfont['height'];
+        if ($txtpheight === 0.0) {
+            $txtpheight = $fontHeight;
         }
 
         return match ($align) {
-            'T' => ($cell['padding']['T']),
-            'B' => (($cellpheight - $txtpheight) - $cell['padding']['B']),
-            'L' => ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['ascent']),
-            'A' => (($cellpheight - $txtpheight + $curfont['height']) / 2),
-            'D' => ((($cellpheight - $txtpheight + $curfont['height']) / 2) - $curfont['height']),
+            'T' => $cell['padding']['T'],
+            'B' => $cellpheight - $txtpheight - $cell['padding']['B'],
+            'L' => (($cellpheight - $txtpheight + $fontHeight) / 2) - $fontAscent,
+            'A' => ($cellpheight - $txtpheight + $fontHeight) / 2,
+            'D' => (($cellpheight - $txtpheight + $fontHeight) / 2) - $fontHeight,
             // default on 'C' case
-            default => (($cellpheight - $txtpheight) / 2)
+            default => ($cellpheight - $txtpheight) / 2,
         };
     }
 
@@ -367,12 +350,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param string    $align     Text horizontal alignment inside the cell: L=left; C=center; R=right; J=Justify.
      * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      */
-    protected function cellTextHAlign(
-        float $pwidth,
-        float $txtpwidth,
-        string $align = 'L',
-        ?array $cell = null
-    ): float {
+    protected function cellTextHAlign(float $pwidth, float $txtpwidth, string $align = 'L', ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
@@ -382,10 +361,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         }
 
         return match ($align) {
-            'C' => (($pwidth - $txtpwidth) / 2),
-            'R' => ($pwidth - $cell['padding']['R'] - $txtpwidth),
+            'C' => ($pwidth - $txtpwidth) / 2,
+            'R' => $pwidth - $cell['padding']['R'] - $txtpwidth,
             // default on 'L' case
-            default => ($cell['padding']['L']),
+            default => $cell['padding']['L'],
         };
     }
 
@@ -403,15 +382,17 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *                           - L=center-on-font-baseline;
      *                           - D=center-on-font-descent.
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      */
     protected function cellVPosFromText(
         float $txty,
         float $cellpheight,
         float $txtpheight = 0,
         string $align = 'C',
-        ?array $cell = null
+        ?array $cell = null,
     ): float {
-        return ($txty + $this->cellTextVAlign($cellpheight, $txtpheight, $align, $cell));
+        return $txty + $this->cellTextVAlign($cellpheight, $txtpheight, $align, $cell);
     }
 
     /**
@@ -428,9 +409,9 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         float $pwidth,
         float $txtpwidth,
         string $align = 'L',
-        ?array $cell = null
+        ?array $cell = null,
     ): float {
-        return ($txtx - $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell));
+        return $txtx - $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell);
     }
 
     /**
@@ -447,15 +428,17 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *                           - L=center-on-font-baseline;
      *                           - D=center-on-font-descent.
      * @param ?TCellDef $cell    Optional to overwrite cell parameters for padding, margin etc.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      */
     protected function textVPosFromCell(
         float $pnty,
         float $cellpheight,
         float $txtpheight = 0,
         string $align = 'C',
-        ?array $cell = null
+        ?array $cell = null,
     ): float {
-        return ($pnty - $this->cellTextVAlign($cellpheight, $txtpheight, $align, $cell));
+        return $pnty - $this->cellTextVAlign($cellpheight, $txtpheight, $align, $cell);
     }
 
     /**
@@ -472,9 +455,9 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         float $pwidth,
         float $txtpwidth,
         string $align = 'L',
-        ?array $cell = null
+        ?array $cell = null,
     ): float {
-        return ($pntx + $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell));
+        return $pntx + $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell);
     }
 
     /**
@@ -484,17 +467,17 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      *
      * @return float
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    protected function cellMaxWidth(
-        float $pntx = 0,
-        ?array $cell = null
-    ): float {
+    protected function cellMaxWidth(float $pntx = 0, ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
 
         $region = $this->page->getRegion();
-        return ($this->toPoints($region['RW']) - $pntx - $cell['margin']['L'] - $cell['margin']['R']);
+        return $this->toPoints($region['RW']) - $pntx - $cell['margin']['L'] - $cell['margin']['R'];
     }
 
     /**
@@ -505,15 +488,13 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      *
      * @return float The maximum width available for text within the cell.
      */
-    protected function textMaxWidth(
-        float $pwidth,
-        ?array $cell = null
-    ): float {
+    protected function textMaxWidth(float $pwidth, ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
 
-        return ($pwidth - $cell['padding']['L'] - $cell['padding']['R']);
+        return $pwidth - $cell['padding']['L'] - $cell['padding']['R'];
     }
 
     /**
@@ -530,34 +511,32 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param ?TCellDef $cell      Optional to overwrite cell parameters for padding, margin etc.
      *
      * @return float The maximum width available for text within the cell.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      */
-    protected function textMaxHeight(
-        float $pheight,
-        string $align = 'T',
-        ?array $cell = null
-    ): float {
+    protected function textMaxHeight(float $pheight, string $align = 'T', ?array $cell = null): float
+    {
         if ($cell === null) {
             $cell = $this->defcell;
         }
 
         $curfont = $this->font->getCurrentFont();
-        $cph = ($pheight - $cell['margin']['T'] - $cell['margin']['B']);
+        $fontHeight = $curfont['height'];
+        $fontAscent = $curfont['ascent'];
+        $fontDescent = $curfont['descent'];
+        $cph = $pheight - $cell['margin']['T'] - $cell['margin']['B'];
 
         // Use a match expression to determine the maximum text height based on alignment.
         return match ($align) {
             // Top or Bottom
-            'T', 'B' => ($cph - $cell['padding']['T'] - $cell['padding']['B']),
+            'T', 'B' => $cph - $cell['padding']['T'] - $cell['padding']['B'],
             // Center on font Baseline
-            'L' => ($cph + $curfont['height'] - (2 * \max(
-                ($cell['padding']['T'] + $curfont['ascent']),
-                ($cell['padding']['B'] - $curfont['descent'])
-            ))),
+            'L' => $cph + $fontHeight
+                - (2 * \max($cell['padding']['T'] + $fontAscent, $cell['padding']['B'] - $fontDescent)),
             // Center on font Ascent or Descent
-            'A', 'D' => ($cph
-            + $curfont['height']
-            - (2 * ($curfont['height'] + \max($cell['padding']['T'], $cell['padding']['B'])))),
+            'A', 'D' => $cph + $fontHeight - (2 * ($fontHeight + \max($cell['padding']['T'], $cell['padding']['B']))),
             // Default to Center 'C' case
-            default => ($cph - (2 * \max($cell['padding']['T'], $cell['padding']['B']))),
+            default => $cph - (2 * \max($cell['padding']['T'], $cell['padding']['B'])),
         };
     }
 
@@ -568,9 +547,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      */
     protected function styleHasVisibleLineWidth(array $style): bool
     {
-        return isset($style['lineWidth'])
-            && \is_numeric($style['lineWidth'])
-            && ((float) $style['lineWidth'] > 0.0);
+        return isset($style['lineWidth']) && $style['lineWidth'] > 0.0;
     }
 
     /**
@@ -584,6 +561,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param ?TCellDef $cell     Optional to overwrite cell parameters for padding, margin etc.
      *
      * @return string
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     protected function drawCell(
         float $pntx,
@@ -591,18 +570,17 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         float $pwidth,
         float $pheight,
         array $styles = [],
-        ?array $cell = null
-    ) {
+        ?array $cell = null,
+    ): string {
         $styles = $this->normalizeCellSideStyles($styles);
 
-        $drawfill = (!empty($styles['all']['fillColor']));
-        $drawborder = (
-            !empty($styles['all']['lineWidth'])
-            || !empty($styles[0]['lineWidth'])
-            || !empty($styles[1]['lineWidth'])
-            || !empty($styles[2]['lineWidth'])
-            || !empty($styles[3]['lineWidth'])
-        );
+        $drawfill = isset($styles['all']['fillColor']) && $styles['all']['fillColor'] !== '';
+        $drawborder =
+            isset($styles['all']['lineWidth']) && $styles['all']['lineWidth'] > 0
+            || isset($styles[0]['lineWidth']) && $styles[0]['lineWidth'] > 0
+            || isset($styles[1]['lineWidth']) && $styles[1]['lineWidth'] > 0
+            || isset($styles[2]['lineWidth']) && $styles[2]['lineWidth'] > 0
+            || isset($styles[3]['lineWidth']) && $styles[3]['lineWidth'] > 0;
 
         if (!$drawfill && !$drawborder) {
             return '';
@@ -612,17 +590,12 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             $cell = $this->defcell;
         }
 
-        $styleall = (empty($styles['all']) ? [] : $styles['all']);
+        $styleall = $styles['all'] ?? [];
 
         $out = $this->graph->getStartTransform();
         $stoptr = $this->graph->getStopTransform();
 
-        if (
-            $drawfill
-            && $drawborder
-            && ($cell['borderpos'] == self::BORDERPOS_DEFAULT)
-            && (\count($styles) <= 1)
-        ) {
+        if ($drawfill && $drawborder && $cell['borderpos'] === self::BORDERPOS_DEFAULT && \count($styles) <= 1) {
             // single default border style for all sides
             $out .= $this->graph->getBasicRect(
                 $this->toUnit($pntx),
@@ -651,21 +624,29 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             return $out . $stoptr;
         }
 
-        $adj = (isset($styles['all']['lineWidth'])
-            ? $this->toPoints((float) $styles['all']['lineWidth'] * $cell['borderpos'])
-            : 0);
-        $adjx = (isset($styles['3']['lineWidth'])
-            ? $this->toPoints((float) $styles['3']['lineWidth'] * $cell['borderpos'])
-            : $adj);
-        $adjy = isset($styles['0']['lineWidth'])
-            ? $this->toPoints((float) $styles['0']['lineWidth'] * $cell['borderpos'])
+        $adj = isset($styles['all']['lineWidth'])
+            ? $this->toPoints($styles['all']['lineWidth'] * $cell['borderpos'])
+            : 0.0;
+        $adjx = isset($styles['3']['lineWidth'])
+            ? $this->toPoints($styles['3']['lineWidth'] * $cell['borderpos'])
             : $adj;
-        $adjw = $adjx + (isset($styles['1']['lineWidth'])
-            ? $this->toPoints((float) $styles['1']['lineWidth'] * $cell['borderpos'])
-            : $adj);
-        $adjh = $adjy + (isset($styles['2']['lineWidth'])
-            ? $this->toPoints((float) $styles['2']['lineWidth'] * $cell['borderpos'])
-            : $adj);
+        $adjy = isset($styles['0']['lineWidth'])
+            ? $this->toPoints($styles['0']['lineWidth'] * $cell['borderpos'])
+            : $adj;
+        $adjw =
+            $adjx
+            + (
+                isset($styles['1']['lineWidth'])
+                    ? $this->toPoints($styles['1']['lineWidth'] * $cell['borderpos'])
+                    : $adj
+            );
+        $adjh =
+            $adjy
+            + (
+                isset($styles['2']['lineWidth'])
+                    ? $this->toPoints($styles['2']['lineWidth'] * $cell['borderpos'])
+                    : $adj
+            );
 
         // draw only sides with a positive stroke width;
         // PDF "0 w" is a hairline stroke, not "no border".
@@ -674,38 +655,26 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
         $rectw = $this->toUnit($pwidth - $adjw);
         $recth = $this->toUnit($pheight - $adjh);
         $sidestyles = [
-            0 => ($styles[0] ?? $styleall),
-            1 => ($styles[1] ?? $styleall),
-            2 => ($styles[2] ?? $styleall),
-            3 => ($styles[3] ?? $styleall),
+            0 => $styles[0] ?? $styleall,
+            1 => $styles[1] ?? $styleall,
+            2 => $styles[2] ?? $styleall,
+            3 => $styles[3] ?? $styleall,
         ];
 
         if ($this->styleHasVisibleLineWidth($sidestyles[0])) {
-            $out .= $this->graph->getLine($rectx, $recty, ($rectx + $rectw), $recty, $sidestyles[0]);
+            $out .= $this->graph->getLine($rectx, $recty, $rectx + $rectw, $recty, $sidestyles[0]);
         }
 
         if ($this->styleHasVisibleLineWidth($sidestyles[1])) {
-            $out .= $this->graph->getLine(
-                ($rectx + $rectw),
-                $recty,
-                ($rectx + $rectw),
-                ($recty + $recth),
-                $sidestyles[1]
-            );
+            $out .= $this->graph->getLine($rectx + $rectw, $recty, $rectx + $rectw, $recty + $recth, $sidestyles[1]);
         }
 
         if ($this->styleHasVisibleLineWidth($sidestyles[2])) {
-            $out .= $this->graph->getLine(
-                ($rectx + $rectw),
-                ($recty + $recth),
-                $rectx,
-                ($recty + $recth),
-                $sidestyles[2]
-            );
+            $out .= $this->graph->getLine($rectx + $rectw, $recty + $recth, $rectx, $recty + $recth, $sidestyles[2]);
         }
 
         if ($this->styleHasVisibleLineWidth($sidestyles[3])) {
-            $out .= $this->graph->getLine($rectx, ($recty + $recth), $rectx, $recty, $sidestyles[3]);
+            $out .= $this->graph->getLine($rectx, $recty + $recth, $rectx, $recty, $sidestyles[3]);
         }
 
         return $out . $stoptr;
@@ -719,12 +688,11 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @param bool   $bom If true set the Byte Order Mark (BOM).
      *
      * @return string escaped string.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    protected function getOutTextString(
-        string $str,
-        int $oid,
-        bool $bom = false
-    ): string {
+    protected function getOutTextString(string $str, int $oid, bool $bom = false): string
+    {
         if ($this->isunicode) {
             $str = $this->uniconv->toUTF16BE($str);
             if ($bom) {

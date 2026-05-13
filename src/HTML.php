@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * HTML.php
  *
@@ -35,7 +37,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @phpstan-import-type BorderStyleOpt from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSBorderSpacing from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
- * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Cell
+ * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
  * @phpstan-import-type TAnnotOpts from \Com\Tecnick\Pdf\Output
@@ -405,12 +407,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @var string
      */
-    protected const HTML_VALID_TAGS = '<marker/><a><b><blockquote><body><br><br/><code><dd><del><div><dl><dt><em>'
-        . '<button><caption><col><colgroup><figure><figcaption><font><form>'
-        . '<h1><h2><h3><h4><h5><h6><hr><hr/><i><img><input><label>'
-        . '<li><ol><optgroup><option>'
-        . '<p><pre><s><select><small><span><strike><strong><sub><sup><table><tablehead>'
-        . '<tcpdf><td><textarea><tfoot><th><thead><tr><tt><u><ul>';
+    protected const HTML_VALID_TAGS =
+        '<marker/><a><b><blockquote><body><br><br/><code><dd><del><div><dl><dt><em>'
+            . '<button><caption><col><colgroup><figure><figcaption><font><form>'
+            . '<h1><h2><h3><h4><h5><h6><hr><hr/><i><img><input><label>'
+            . '<li><ol><optgroup><option>'
+            . '<p><pre><s><select><small><span><strike><strong><sub><sup><table><tablehead>'
+            . '<tcpdf><td><textarea><tfoot><th><thead><tr><tt><u><ul>';
 
     /**
      * HTML generic regexp tag pattern.
@@ -522,7 +525,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'break-after' => 'auto',
     ];
 
-
     /**
      * Typoe of symbol used for HTML unordered list items.
      *
@@ -546,11 +548,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param string $defcss CSS to add.
      *
      * @return string XHTML code cleaned up.
+     *
+     * @throws PdfException If Tidy cannot parse the input HTML.
      */
-    public function tidyHTML(
-        string $html,
-        string $defcss,
-    ): string {
+    public function tidyHTML(string $html, string $defcss): string
+    {
         $tidyopts = [
             'clean' => 1,
             'drop-empty-paras' => 0,
@@ -575,19 +577,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tidy->cleanRepair();
         // get the CSS part
         $headnode = \tidy_get_head($tidy);
-        $css = empty($headnode) ? '' : $headnode->value;
+        $css = $headnode->value ?? '';
         $css = \preg_replace('/<style([^>]+)>/ims', '<style>', $css) ?? '';
         $css = \preg_replace('/<\/style>(.*)<style>/ims', "\n", $css) ?? '';
         $css = \str_replace('/*<![CDATA[*/', '', $css);
         $css = \str_replace('/*]]>*/', '', $css);
         if (\preg_match('/<style>(.*)<\/style>/ims', $css, $matches) > 0) {
-            $css = empty($matches[1]) ? '' : \strtolower($matches[1]);
+            $css = !isset($matches[1]) || $matches[1] === '' ? '' : \strtolower($matches[1]);
         } else {
             $css = '';
         }
         // get the body part
         $bodynode = \tidy_get_body($tidy);
-        $body = empty($bodynode) ? '' : $bodynode->value;
+        $body = $bodynode->value ?? '';
         // fix some self-closing tags
         $body = \str_replace('<br>', '<br />', $body);
         // remove some empty tag blocks
@@ -605,13 +607,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string left trimmed string.
      */
-    public function strTrimLeft($str, $replace = ''): string
+    public function strTrimLeft(string $str, string $replace = ''): string
     {
-        return \preg_replace(
-            '/^' . $this->spaceregexp['p'] . '+/' . $this->spaceregexp['m'],
-            $replace,
-            $str,
-        ) ?? '';
+        return \preg_replace('/^[^\S\xa0]+/u', $replace, $str) ?? '';
     }
 
     /**
@@ -622,13 +620,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string right trimmed string.
      */
-    public function strTrimRight($str, $replace = ''): string
+    public function strTrimRight(string $str, string $replace = ''): string
     {
-        return \preg_replace(
-            '/' . $this->spaceregexp['p'] . '+$/' . $this->spaceregexp['m'],
-            $replace,
-            $str,
-        ) ?? '';
+        return \preg_replace('/[^\S\xa0]+$/u', $replace, $str) ?? '';
     }
 
     /**
@@ -639,11 +633,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string trimmed string.
      */
-    public function strTrim($str, $replace = '')
+    public function strTrim(string $str, string $replace = ''): string
     {
         $str = $this->strTrimLeft($str, $replace);
-        $str = $this->strTrimRight($str, $replace);
-        return $str;
+        return $this->strTrimRight($str, $replace);
     }
 
     /**
@@ -664,11 +657,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $html = \preg_replace('/<pre/', '<xre', $html) ?? '';
         //replace some blank characters
         $regexp_block_tags = \implode('|', self::HTML_BLOCK_TAGS);
-        $html = \preg_replace(
-            '/<(' . $regexp_block_tags . ')([^\>]*)>[\n\r\t]+/',
-            '<\\1\\2>',
-            $html,
-        ) ?? '';
+        $html = \preg_replace('/<(' . $regexp_block_tags . ')([^\>]*)>[\n\r\t]+/', '<\\1\\2>', $html) ?? '';
         // newlines
         $html = \preg_replace('@(\r\n|\r)@', "\n", $html) ?? '';
         // special chars
@@ -676,37 +665,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // tag: pre
         $offset = 0;
-        while (
-            ($offset < \strlen($html))
-            && (($pos = \strpos($html, '</pre>', $offset)) !== false)
-        ) {
+        while ($offset < \strlen($html) && ($pos = \strpos($html, '</pre>', $offset)) !== false) {
             $html_a = \substr($html, 0, $offset);
-            $html_b = \substr($html, $offset, ($pos - $offset + 6));
-            while (
-                \preg_match(
-                    "'<xre([^\>]*)>(.*?)\n(.*?)</pre>'si",
-                    $html_b,
-                ) > 0
-            ) {
+            $html_b = \substr($html, $offset, $pos - $offset + 6);
+            while (\preg_match("'<xre([^\>]*)>(.*?)\n(.*?)</pre>'si", $html_b) > 0) {
                 // preserve newlines on <pre> tag
-                $html_b = \preg_replace(
-                    "'<xre([^\>]*)>(.*?)\n(.*?)</pre>'si",
-                    "<xre\\1>\\2<br />\\3</pre>",
-                    $html_b,
-                ) ?? '';
+                $html_b =
+                    \preg_replace("'<xre([^\>]*)>(.*?)\n(.*?)</pre>'si", "<xre\\1>\\2<br />\\3</pre>", $html_b) ?? '';
             }
-            while (
-                \preg_match(
-                    "'<xre([^\>]*)>(.*?)" . $this->spaceregexp['p'] . "(.*?)</pre>'" . $this->spaceregexp['m'],
-                    $html_b,
-                ) > 0
-            ) {
+            while (\preg_match("'<xre([^\\>]*)>(.*?)[^\\S\\xa0](.*?)</pre>'ui", $html_b) > 0) {
                 // preserve spaces on <pre> tag
-                $html_b = \preg_replace(
-                    "'<xre([^\>]*)>(.*?)" . $this->spaceregexp['p'] . "(.*?)</pre>'" . $this->spaceregexp['m'],
-                    "<xre\\1>\\2&nbsp;\\3</pre>",
-                    $html_b,
-                ) ?? '';
+                $html_b =
+                    \preg_replace(
+                        "'<xre([^\\>]*)>(.*?)[^\\S\\xa0](.*?)</pre>'ui",
+                        "<xre\\1>\\2&nbsp;\\3</pre>",
+                        $html_b,
+                    ) ?? '';
             }
             $html = $html_a . $html_b . \substr($html, $pos + 6);
             $offset = \strlen($html_a . $html_b);
@@ -714,138 +688,142 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // tag: textarea
         $offset = 0;
-        while (
-            ($offset < \strlen($html))
-            && (($pos = \strpos($html, '</textarea>', $offset)) !== false)
-        ) {
+        while ($offset < \strlen($html) && ($pos = \strpos($html, '</textarea>', $offset)) !== false) {
             $html_a = \substr($html, 0, $offset);
-            $html_b = \substr($html, $offset, ($pos - $offset + 11));
-            while (
-                \preg_match(
-                    "'<textarea([^\>]*)>(.*?)\n(.*?)</textarea>'si",
-                    $html_b,
-                ) > 0
-            ) {
+            $html_b = \substr($html, $offset, $pos - $offset + 11);
+            while (\preg_match("'<textarea([^\>]*)>(.*?)\n(.*?)</textarea>'si", $html_b) > 0) {
                 // preserve newlines on <textarea> tag
-                $html_b = \preg_replace(
-                    "'<textarea([^\>]*)>(.*?)\n(.*?)</textarea>'si",
-                    "<textarea\\1>\\2<TBR>\\3</textarea>",
-                    $html_b,
-                ) ?? '';
-                $html_b = \preg_replace(
-                    "'<textarea([^\>]*)>(.*?)[\"](.*?)</textarea>'si",
-                    "<textarea\\1>\\2''\\3</textarea>",
-                    $html_b,
-                ) ?? '';
+                $html_b =
+                    \preg_replace(
+                        "'<textarea([^\>]*)>(.*?)\n(.*?)</textarea>'si",
+                        "<textarea\\1>\\2<TBR>\\3</textarea>",
+                        $html_b,
+                    ) ?? '';
+                $html_b =
+                    \preg_replace(
+                        "'<textarea([^\>]*)>(.*?)[\"](.*?)</textarea>'si",
+                        "<textarea\\1>\\2''\\3</textarea>",
+                        $html_b,
+                    ) ?? '';
             }
             $html = $html_a . $html_b . \substr($html, $pos + 11);
             $offset = \strlen($html_a . $html_b);
         }
 
         // tags: select / optgroup / option
-        $html = \preg_replace_callback(
-            "'<select([^\>]*)>(.*?)</select>'si",
-            static function (array $selm): string {
-                $selattrs = (string) $selm[1];
-                $inner = (string) $selm[2];
-                $packed = '';
-                $groupLabel = '';
-                $tokenPattern =
-                    '/<optgroup([^\>]*)>|<\/optgroup>|<option([^\>]*)>(.*?)<\/option>/si';
+        $html =
+            \preg_replace_callback(
+                "'<select([^\>]*)>(.*?)</select>'si",
+                static function (array $selm): string {
+                    $selattrs = isset($selm[1]) && \is_string($selm[1]) ? $selm[1] : '';
+                    $inner = isset($selm[2]) && \is_string($selm[2]) ? $selm[2] : '';
+                    $packed = '';
+                    $groupLabel = '';
+                    $tokenPattern = '/<optgroup([^\>]*)>|<\/optgroup>|<option([^\>]*)>(.*?)<\/option>/si';
 
-                if (\preg_match_all($tokenPattern, $inner, $tokens, PREG_SET_ORDER) > 0) {
-                    foreach ($tokens as $tok) {
-                        $toktxt = (string) $tok[0];
-                        if ($toktxt === '') {
-                            continue;
-                        }
-
-                        if (\str_starts_with(\strtolower($toktxt), '</optgroup')) {
-                            $groupLabel = '';
-                            continue;
-                        }
-
-                        if (\str_starts_with(\strtolower($toktxt), '<optgroup')) {
-                            $gattrs = (isset($tok[1]) && \is_string($tok[1])) ? $tok[1] : '';
-                            $groupLabel = '';
-                            if (\preg_match('/[\s]+label[\s]*=[\s]*"([^"]*)"/si', $gattrs, $gmatch) > 0) {
-                                $groupLabel = $gmatch[1];
-                            } elseif (\preg_match('/[\s]+label[\s]*=[\s]*\'([^\']*)\'/si', $gattrs, $gmatch) > 0) {
-                                $groupLabel = $gmatch[1];
-                            } elseif (\preg_match('/[\s]+label[\s]*=[\s]*([^\s>]+)/si', $gattrs, $gmatch) > 0) {
-                                $groupLabel = $gmatch[1];
+                    if (\preg_match_all($tokenPattern, $inner, $tokens, PREG_SET_ORDER) > 0) {
+                        foreach ($tokens as $tok) {
+                            $toktxt = isset($tok[0]) && \is_string($tok[0]) ? $tok[0] : '';
+                            if ($toktxt === '') {
+                                continue;
                             }
-                            continue;
-                        }
 
-                        $oattrs = (isset($tok[2]) && \is_string($tok[2])) ? $tok[2] : '';
-                        $label = (isset($tok[3]) && \is_string($tok[3])) ? $tok[3] : '';
-                        if ($groupLabel !== '') {
-                            $label = $groupLabel . ' - ' . $label;
-                        }
+                            if (\str_starts_with(\strtolower($toktxt), '</optgroup')) {
+                                $groupLabel = '';
+                                continue;
+                            }
 
-                        $value = '';
-                        if (\preg_match('/[\s]+value[\s]*=[\s]*"([^"]*)"/si', $oattrs, $valmatch) > 0) {
-                            $value = $valmatch[1];
-                        } elseif (\preg_match('/[\s]+value[\s]*=[\s]*\'([^\']*)\'/si', $oattrs, $valmatch) > 0) {
-                            $value = $valmatch[1];
-                        } elseif (\preg_match('/[\s]+value[\s]*=[\s]*([^\s>]+)/si', $oattrs, $valmatch) > 0) {
-                            $value = $valmatch[1];
-                        }
+                            if (\str_starts_with(\strtolower($toktxt), '<optgroup')) {
+                                $gattrs = isset($tok[1]) && \is_string($tok[1]) ? $tok[1] : '';
+                                $groupLabel = '';
+                                if (\preg_match('/[\s]+label[\s]*=[\s]*"([^"]*)"/si', $gattrs, $gmatch) > 0) {
+                                    $groupLabel =
+                                        \preg_replace('/.*?[\s]+label[\s]*=[\s]*"([^"]*)".*/si', '\\1', $gattrs) ?? '';
+                                } elseif (\preg_match('/[\s]+label[\s]*=[\s]*\'([^\']*)\'/si', $gattrs, $gmatch) > 0) {
+                                    $groupLabel =
+                                        \preg_replace('/.*?[\s]+label[\s]*=[\s]*\'([^\']*)\'.*/si', '\\1', $gattrs)
+                                        ?? '';
+                                } elseif (\preg_match('/[\s]+label[\s]*=[\s]*([^\s>]+)/si', $gattrs, $gmatch) > 0) {
+                                    $groupLabel =
+                                        \preg_replace('/.*?[\s]+label[\s]*=[\s]*([^\s>]+).*/si', '\\1', $gattrs) ?? '';
+                                }
+                                continue;
+                            }
 
-                        $selPattern = '/(^|[\s])selected([\s]*=[\s]*("[^"]*"|\'[^\']*\'|[^\s>]+))?([\s]|$)/si';
-                        $selected = (\preg_match($selPattern, $oattrs) > 0);
-                        $prefix = $selected ? '#!SeL!#' : '';
+                            $oattrs = isset($tok[2]) && \is_string($tok[2]) ? $tok[2] : '';
+                            $label = isset($tok[3]) && \is_string($tok[3]) ? $tok[3] : '';
+                            if ($groupLabel !== '') {
+                                $label = $groupLabel . ' - ' . $label;
+                            }
 
-                        if ($value !== '') {
-                            $packed .= $prefix . $value . '#!TaB!#' . $label . '#!NwL!#';
-                        } else {
-                            $packed .= $prefix . $label . '#!NwL!#';
+                            $value = '';
+                            if (\preg_match('/[\s]+value[\s]*=[\s]*"([^"]*)"/si', $oattrs, $valmatch) > 0) {
+                                $value = \preg_replace('/.*?[\s]+value[\s]*=[\s]*"([^"]*)".*/si', '\\1', $oattrs) ?? '';
+                            } elseif (\preg_match('/[\s]+value[\s]*=[\s]*\'([^\']*)\'/si', $oattrs, $valmatch) > 0) {
+                                $value =
+                                    \preg_replace('/.*?[\s]+value[\s]*=[\s]*\'([^\']*)\'.*/si', '\\1', $oattrs) ?? '';
+                            } elseif (\preg_match('/[\s]+value[\s]*=[\s]*([^\s>]+)/si', $oattrs, $valmatch) > 0) {
+                                $value = \preg_replace('/.*?[\s]+value[\s]*=[\s]*([^\s>]+).*/si', '\\1', $oattrs) ?? '';
+                            }
+
+                            $selPattern = '/(^|[\s])selected([\s]*=[\s]*("[^"]*"|\'[^\']*\'|[^\s>]+))?([\s]|$)/si';
+                            $selected = \preg_match($selPattern, $oattrs) > 0;
+                            $prefix = $selected ? '#!SeL!#' : '';
+
+                            if ($value !== '') {
+                                $packed .= $prefix . $value . '#!TaB!#' . $label . '#!NwL!#';
+                            } else {
+                                $packed .= $prefix . $label . '#!NwL!#';
+                            }
                         }
                     }
-                }
 
-                if (\str_ends_with($packed, '#!NwL!#')) {
-                    $packed = \substr($packed, 0, -7);
-                }
+                    if (\str_ends_with($packed, '#!NwL!#')) {
+                        $packed = \substr($packed, 0, -7);
+                    }
 
-                return '<select' . $selattrs . ' opt="' . $packed . '" />';
-            },
-            $html,
-        ) ?? '';
+                    return '<select' . $selattrs . ' opt="' . $packed . '" />';
+                },
+                $html,
+            ) ?? '';
 
         // tag: button
-        $html = \preg_replace_callback(
-            "'<button([^\>]*)>(.*?)</button>'si",
-            static function (array $btnm): string {
-                $btnattrs = (string) $btnm[1];
-                $content = (string) $btnm[2];
-                $caption = \trim(\strip_tags($content));
+        $html =
+            \preg_replace_callback(
+                "'<button([^\>]*)>(.*?)</button>'si",
+                static function (array $btnm): string {
+                    $btnattrs = isset($btnm[1]) && \is_string($btnm[1]) ? $btnm[1] : '';
+                    $content = isset($btnm[2]) && \is_string($btnm[2]) ? $btnm[2] : '';
+                    $caption = \trim(\strip_tags($content));
 
-                $type = 'button';
-                if (\preg_match('/[\s]+type[\s]*=[\s]*"([^"]*)"/si', $btnattrs, $tmatch) > 0) {
-                    $type = \strtolower(\trim($tmatch[1]));
-                } elseif (\preg_match('/[\s]+type[\s]*=[\s]*\'([^\']*)\'/si', $btnattrs, $tmatch) > 0) {
-                    $type = \strtolower(\trim($tmatch[1]));
-                } elseif (\preg_match('/[\s]+type[\s]*=[\s]*([^\s>]+)/si', $btnattrs, $tmatch) > 0) {
-                    $type = \strtolower(\trim($tmatch[1]));
-                }
-                if (!\in_array($type, ['button', 'submit', 'reset'], true)) {
                     $type = 'button';
-                }
+                    if (\preg_match('/[\s]+type[\s]*=[\s]*"([^"]*)"/si', $btnattrs, $tmatch) > 0) {
+                        $type = \strtolower(\trim(
+                            \preg_replace('/.*?[\s]+type[\s]*=[\s]*"([^"]*)".*/si', '\\1', $btnattrs) ?? '',
+                        ));
+                    } elseif (\preg_match('/[\s]+type[\s]*=[\s]*\'([^\']*)\'/si', $btnattrs, $tmatch) > 0) {
+                        $type = \strtolower(\trim(
+                            \preg_replace('/.*?[\s]+type[\s]*=[\s]*\'([^\']*)\'.*/si', '\\1', $btnattrs) ?? '',
+                        ));
+                    } elseif (\preg_match('/[\s]+type[\s]*=[\s]*([^\s>]+)/si', $btnattrs, $tmatch) > 0) {
+                        $type = \strtolower(\trim(
+                            \preg_replace('/.*?[\s]+type[\s]*=[\s]*([^\s>]+).*/si', '\\1', $btnattrs) ?? '',
+                        ));
+                    }
+                    if (!\in_array($type, ['button', 'submit', 'reset'], true)) {
+                        $type = 'button';
+                    }
 
-                // Keep all original attributes except type/value, then inject normalized ones.
-                $btnattrs = (string) (\preg_replace(
-                    '/[\s]+(?:type|value)[\s]*=[\s]*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/si',
-                    '',
-                    $btnattrs,
-                ) ?? $btnattrs);
+                    // Keep all original attributes except type/value, then inject normalized ones.
+                    $btnattrs =
+                        \preg_replace('/[\s]+(?:type|value)[\s]*=[\s]*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/si', '', $btnattrs)
+                        ?? $btnattrs;
 
-                $safeCaption = \str_replace('"', '&quot;', $caption);
-                return '<button' . $btnattrs . ' type="' . $type . '" value="' . $safeCaption . '" />';
-            },
-            $html,
-        ) ?? '';
+                    $safeCaption = \str_replace('"', '&quot;', $caption);
+                    return '<button' . $btnattrs . ' type="' . $type . '" value="' . $safeCaption . '" />';
+                },
+                $html,
+            ) ?? '';
 
         // newlines
         $html = \str_replace("\n", ' ', $html);
@@ -853,105 +831,35 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $html = \str_replace('<TBR>', "\n", $html);
 
         // remove extra spaces
-        $html = \preg_replace(
-            '/[\s]+<\/(table|tr|ul|ol|dl)>/',
-            '</\\1>',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/' . $this->spaceregexp['p'] . '+<\/(td|th|li|dt|dd)>/' . $this->spaceregexp['m'],
-            '</\\1>',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/[\s]+<(tr|td|th|li|dt|dd)/',
-            '<\\1',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/' . $this->spaceregexp['p'] . '+<(ul|ol|dl|br)/' . $this->spaceregexp['m'],
-            '<\\1',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
-            '</\\1><',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<\/(td|th)>/',
-            '<marker style="font-size:0"/></\\1>',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<\/table>([\s]*)<marker style="font-size:0"\/>/',
-            '</table>',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/' . $this->spaceregexp['p'] . '+<img/' . $this->spaceregexp['m'],
-            chr(32) . '<img',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<img([^\>]*)>[\s]+([^\<])/xi',
-            '<img\\1>&nbsp;\\2',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<img([^\>]*)>/xi',
-            '<img\\1><span><marker style="font-size:0"/></span>',
-            $html,
-        ) ?? '';
+        $html = \preg_replace('/[\s]+<\/(table|tr|ul|ol|dl)>/', '</\\1>', $html) ?? '';
+        $html = \preg_replace('/[^\\S\\xa0]+<\/(td|th|li|dt|dd)>/u', '</\\1>', $html) ?? '';
+        $html = \preg_replace('/[\s]+<(tr|td|th|li|dt|dd)/', '<\\1', $html) ?? '';
+        $html = \preg_replace('/[^\\S\\xa0]+<(ul|ol|dl|br)/u', '<\\1', $html) ?? '';
+        $html =
+            \preg_replace(
+                '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
+                '</\\1><',
+                $html,
+            ) ?? '';
+        $html = \preg_replace('/<\/(td|th)>/', '<marker style="font-size:0"/></\\1>', $html) ?? '';
+        $html = \preg_replace('/<\/table>([\s]*)<marker style="font-size:0"\/>/', '</table>', $html) ?? '';
+        $html = \preg_replace('/[^\\S\\xa0]+<img/u', chr(32) . '<img', $html) ?? '';
+        $html = \preg_replace('/<img([^\>]*)>[\s]+([^\<])/xi', '<img\\1>&nbsp;\\2', $html) ?? '';
+        $html = \preg_replace('/<img([^\>]*)>/xi', '<img\\1><span><marker style="font-size:0"/></span>', $html) ?? '';
         // restore pre tag
-        $html = \preg_replace(
-            '/<xre/',
-            '<pre',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<textarea([^\>]*)>([^\<]*)<\/textarea>/xi',
-            '<textarea\\1 value="\\2" />',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<li([^\>]*)><\/li>/',
-            '<li\\1>&nbsp;</li>',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<li([^\>]*)>' . $this->spaceregexp['p'] . '*<img/' . $this->spaceregexp['m'],
-            '<li\\1><font size="1">&nbsp;</font><img',
-            $html,
-        ) ?? '';
+        $html = \preg_replace('/<xre/', '<pre', $html) ?? '';
+        $html = \preg_replace('/<textarea([^\>]*)>([^\<]*)<\/textarea>/xi', '<textarea\\1 value="\\2" />', $html) ?? '';
+        $html = \preg_replace('/<li([^\>]*)><\/li>/', '<li\\1>&nbsp;</li>', $html) ?? '';
+        $html =
+            \preg_replace('/<li([^\>]*)>[^\\S\\xa0]*<img/u', '<li\\1><font size="1">&nbsp;</font><img', $html) ?? '';
         // preserve some spaces
-        $html = \preg_replace(
-            '/<([^\>\/]*)>[\s]/',
-            '<\\1>&nbsp;',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/[\s]<\/([^\>]*)>/',
-            '&nbsp;</\\1>',
-            $html,
-        ) ?? '';
+        $html = \preg_replace('/<([^\>\/]*)>[\s]/', '<\\1>&nbsp;', $html) ?? '';
+        $html = \preg_replace('/[\s]<\/([^\>]*)>/', '&nbsp;</\\1>', $html) ?? '';
         // fix sub/sup alignment
-        $html = \preg_replace(
-            '/<su([bp])/',
-            '<zws/><su\\1',
-            $html,
-        ) ?? '';
-        $html = \preg_replace(
-            '/<\/su([bp])>/',
-            '</su\\1><zws/>',
-            $html,
-        ) ?? '';
+        $html = \preg_replace('/<su([bp])/', '<zws/><su\\1', $html) ?? '';
+        $html = \preg_replace('/<\/su([bp])>/', '</su\\1><zws/>', $html) ?? '';
         // replace multiple spaces with a single space
-        $html = \preg_replace(
-            '/' . $this->spaceregexp['p'] . '+/' . $this->spaceregexp['m'],
-            chr(32),
-            $html,
-        ) ?? '';
+        $html = \preg_replace('/[^\\S\\xa0]+/u', chr(32), $html) ?? '';
 
         // trim string
         $html = $this->strTrim($html);
@@ -960,9 +868,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $html = \preg_replace('/<li><br([^\>]*)>/', '<li> <br\\1>', $html) ?? '';
 
         // fix first image tag alignment
-        $html = \preg_replace('/^<img/', '<span style="font-size:0"><br /></span> <img', $html, 1) ?? '';
-
-        return $html;
+        return \preg_replace('/^<img/', '<span style="font-size:0"><br /></span> <img', $html, 1) ?? '';
     }
 
     /**
@@ -972,10 +878,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLRootProperties(): array
     {
-        $font = $this->font->getCurrentFont();
-        $fontname = $this->font->getFontFamilyName((string) $font['key']);
+        $fontStack = $this->font;
+        /** @var array{key?: string, stretching?: numeric, size?: numeric, style?: string, spacing?: numeric} $font */
+        $font = $fontStack->getCurrentFont();
+        $fontkey = \is_array($font) ? $font['key'] ?? '' : '';
+        $fontstretch = \is_array($font) && isset($font['stretching']) && \is_numeric($font['stretching'])
+            ? (float) $font['stretching']
+            : 100.0;
+        $fontsize = \is_array($font) && isset($font['size']) && \is_numeric($font['size'])
+            ? (float) $font['size']
+            : 0.0;
+        $fontstyle = \is_array($font) ? $font['style'] ?? '' : '';
+        $fontspacing = \is_array($font) && isset($font['spacing']) && \is_numeric($font['spacing'])
+            ? (float) $font['spacing']
+            : 0.0;
+        $fontname = $fontStack->getFontFamilyName($fontkey);
         if ($fontname === '') {
-            $fontname = (string) $font['key'];
+            $fontname = $fontkey;
         }
         return [
             'align' => '',
@@ -997,7 +916,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'cssdata' => [],
             'csssel' => [],
             //'cursor' => '',//
-            'dir' => $this->rtl ? 'rtl' : 'ltr',
+            'dir' => $this->isRTL() ? 'rtl' : 'ltr',
             //'direction' => '',//
             'display' => 'inline',
             'elkey' => 0,
@@ -1008,16 +927,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'font-family' => '',//
             //'font-size' => $font['size'],//
             //'font-size-adjust' => '',//
-            'font-stretch' => $font['stretching'],
+            'font-stretch' => $fontstretch,
             //'font-style' => $font['style'],//
             //'font-variant' => '',//
             //'font-weight' => '',//
             'fontname' => $fontname,
-            'fontsize' => $font['size'],
-            'fontstyle' => $font['style'],
+            'fontsize' => $fontsize,
+            'fontstyle' => $fontstyle,
             'height' => 0.0,
             'hide' => false,
-            'letter-spacing' => $font['spacing'],
+            'letter-spacing' => $fontspacing,
             'line-height' => 1.0,
             //'list-style' => '',//
             'list-style-image' => '',
@@ -1025,10 +944,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             //'list-style-type' => '',//
             'listtype' => '',
             'float' => 'none',
-            'margin' => self::ZEROCELLBOUND,
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
             'opening' => false,
             //'orphans' => '',//
-            'padding' => self::ZEROCELLBOUND,
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
             //'page' => '',//
             //'page-break-inside' => '',//
             'parent' => 0,
@@ -1057,7 +976,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'width' => 0.0,
             'x' => 0.0,
             'y' => 0.0,
-
         ];
     }
 
@@ -1095,72 +1013,63 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elkey = 0;
         $key = 1;
         $inthead = false;
+        $rootNode = $dom[0] ?? $this->getHTMLRootProperties();
+        $rootDir = $this->rtl ? 'rtl' : 'ltr';
+        if (isset($rootNode['dir']) && \is_string($rootNode['dir'])) {
+            $rootDir = $rootNode['dir'];
+        }
 
         while ($elkey < $maxel) {
-            $element = $elm[$elkey];
+            $element = $elm[$elkey] ?? '';
             $parent = \intval(\end($level));
+            if (!isset($dom[$parent])) {
+                $parent = 0;
+            }
+            $parentDir = isset($dom[$parent]['dir']) && \is_string($dom[$parent]['dir'])
+                ? $dom[$parent]['dir']
+                : $rootDir;
 
             // init new DOM element
-            $dom[$key] = $dom[0];
-            $dom[$key]['dir'] = $dom[$parent]['dir'];
+            $dom[$key] = $rootNode;
+            $dom[$key]['dir'] = $parentDir;
             $dom[$key]['elkey'] = $elkey;
             $dom[$key]['opening'] = false;
             $dom[$key]['parent'] = $parent;
 
             if (\preg_match(self::HTML_TAG_PATTERN, $element) > 0) {
                 $element = \substr($element, 1, -1);
-                if (empty(\preg_match('/[\/]?([a-zA-Z0-9]*)/', $element, $tag))) {
+                if (\preg_match('/[\/]?([a-zA-Z0-9]*)/', $element, $tag) === 0) {
                     continue;
                 }
-                $tagname = \strtolower($tag[1]);
-                if ($tagname == 'thead') {
-                    $inthead = ($element[0] !== '/');
+                $tagname = isset($tag[1]) && \is_string($tag[1]) ? \strtolower($tag[1]) : '';
+                if ($tagname === 'thead') {
+                    $inthead = !\str_starts_with($element, '/');
                     ++$elkey;
                     continue;
                 }
                 $dom[$key]['tag'] = true;
                 $dom[$key]['value'] = $tagname;
-                $dom[$key]['block'] = \in_array($dom[$key]['value'], self::HTML_BLOCK_TAGS);
+                $dom[$key]['block'] = \in_array($dom[$key]['value'], self::HTML_BLOCK_TAGS, true);
                 $dom[$key]['display'] = $dom[$key]['block'] ? 'block' : 'inline';
                 /** @var array<int, THTMLAttrib> $dom */
-                if ($element[0] == '/') { // closing tag
+                if (\str_starts_with($element, '/')) { // closing tag
                     array_pop($level);
-                    // @phpstan-ignore-next-line parameterByRef.type
-                    $this->processHTMLDOMClosingTag(
-                        $dom,
-                        $elm,
-                        $key,
-                        $parent,
-                        $cssarray,
-                    );
+
+                    $this->processHTMLDOMClosingTag($dom, $elm, $key, $parent, $cssarray);
                 } else { // opening or self-closing html tag
-                    // @phpstan-ignore-next-line parameterByRef.type
-                    $this->processHTMLDOMOpeningTag(
-                        $dom,
-                        $css,
-                        $level,
-                        $element,
-                        $key,
-                        $inthead,
-                    );
+                    $this->processHTMLDOMOpeningTag($dom, $css, $level, $element, $key, $inthead);
                 }
             } else {
                 /** @var array<int, THTMLAttrib> $dom */
                 // content between tags (TEXT)
-                $this->processHTMLDOMText(
-                    $dom,
-                    $element,
-                    $key,
-                    $parent,
-                );
+                $this->processHTMLDOMText($dom, $element, $key, $parent);
             }
 
             ++$elkey;
             ++$key;
         }
 
-        if (!empty($css)) {
-            // @phpstan-ignore-next-line parameterByRef.type
+        if ($css !== []) {
             $this->recomputeHTMLDOMCSSAgainstFinalTree($dom, $css);
         }
 
@@ -1174,7 +1083,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Structural pseudo-classes (for example :last-child) require complete
      * sibling sets and can be mis-evaluated during streaming DOM construction.
      *
-    * @param array<int, THTMLAttrib> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
      */
     protected function recomputeHTMLDOMCSSAgainstFinalTree(array &$dom, array $css): void
@@ -1193,35 +1102,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            $parentkey = (isset($node['parent']) && \is_int($node['parent'])) ? (int) $node['parent'] : 0;
+            $parentkey = isset($node['parent']) && \is_int($node['parent']) ? (int) $node['parent'] : 0;
 
             foreach (self::HTML_INHERITED_PROPERTIES as $prop) {
-                if (\array_key_exists($prop, $defaults)) {
-                    // @phpstan-ignore-next-line parameterByRef.type
-                    $dom[$key][$prop] = $defaults[$prop];
+                if (!\array_key_exists($prop, $defaults)) {
+                    continue;
                 }
+
+                $defaultValue = $defaults[$prop] ?? null;
+                $dom[$key][$prop] = $defaultValue;
             }
 
             // Border is not an inherited CSS property; reset per-node default
             // to avoid accidental cross-node mutation/leakage during parsing.
             if (isset($defaults['border']) && \is_array($defaults['border'])) {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key]['border'] = $defaults['border'];
             }
 
             /** @var array<int, THTMLAttrib> $dom */
             $this->inheritHTMLProperties($dom, $key, $parentkey);
 
-            if (empty($node['tag']) || empty($node['opening'])) {
+            if (!($node['tag'] ?? false) || !($node['opening'] ?? false)) {
                 continue;
             }
 
-            if (!empty($dom[$key]['cssdata'])) {
-                // @phpstan-ignore-next-line parameterByRef.type
+            if (isset($dom[$key]['cssdata']) && $dom[$key]['cssdata'] !== []) {
                 $dom[$key]['cssdata'] = [];
             }
-            if (!empty($dom[$key]['csssel'])) {
-                // @phpstan-ignore-next-line parameterByRef.type
+            if (isset($dom[$key]['csssel']) && $dom[$key]['csssel'] !== []) {
                 $dom[$key]['csssel'] = [];
             }
 
@@ -1230,14 +1138,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $attributes = [];
             }
 
-            if (!empty($attributes)) {
+            if ($attributes !== []) {
                 unset($attributes['pseudo-before-style']);
                 unset($attributes['pseudo-after-style']);
                 unset($attributes['pseudo-marker-style']);
 
-                $rawInlineStyle = (isset($attributes['data-tcpdf-inline-style'])
-                    && \is_string($attributes['data-tcpdf-inline-style']))
-                    ? (string) $attributes['data-tcpdf-inline-style']
+                $rawInlineStyle = isset($attributes['data-tcpdf-inline-style'])
+                && \is_string($attributes['data-tcpdf-inline-style'])
+                    ? $attributes['data-tcpdf-inline-style']
                     : '';
 
                 if ($rawInlineStyle !== '') {
@@ -1247,13 +1155,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
 
-            // @phpstan-ignore-next-line parameterByRef.type
             $dom[$key]['attribute'] = $attributes;
 
             /** @var array<int, THTMLAttrib> $dom */
             $this->getHTMLDOMCSSData($dom, $css, $key);
 
-            if (!empty($dom[$key]['cssdata'])) {
+            if (isset($dom[$key]['cssdata']) && $dom[$key]['cssdata'] !== []) {
                 $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
             }
 
@@ -1270,18 +1177,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function isHTMLNodeInsideThead(array &$dom, int $key): bool
     {
         $parent = $dom[$key]['parent'] ?? null;
-        while (\is_int($parent) && ($parent > 0) && isset($dom[$parent])) {
+        while (\is_int($parent) && $parent > 0 && isset($dom[$parent])) {
             if (
-                !empty($dom[$parent]['tag'])
-                && !empty($dom[$parent]['opening'])
+                ($dom[$parent]['tag'] ?? false)
+                && ($dom[$parent]['opening'] ?? false)
                 && isset($dom[$parent]['value'])
-                && ($dom[$parent]['value'] === 'thead')
+                && $dom[$parent]['value'] === 'thead'
             ) {
                 return true;
             }
 
             $next = $dom[$parent]['parent'] ?? null;
-            if (!\is_int($next) || ($next === $parent)) {
+            if (!\is_int($next) || $next === $parent) {
                 break;
             }
 
@@ -1301,36 +1208,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return void
      */
-    protected function processHTMLDOMText(
-        array &$dom,
-        string $element,
-        int $key,
-        int $parent,
-    ): void {
+    protected function processHTMLDOMText(array &$dom, string $element, int $key, int $parent): void
+    {
         $this->inheritHTMLProperties($dom, $key, $parent);
-        $transform = (
-            isset($dom[$parent]['text-transform'])
-            && \is_string($dom[$parent]['text-transform'])
-        ) ? $dom[$parent]['text-transform'] : '';
+        $transform = isset($dom[$parent]['text-transform']) && \is_string($dom[$parent]['text-transform'])
+            ? $dom[$parent]['text-transform']
+            : '';
 
         if ($transform !== '') {
-            if (\array_key_exists($transform, self::HTML_TEXT_TRANSFORM)) {
-                $element = \mb_convert_case(
-                    $element,
-                    self::HTML_TEXT_TRANSFORM[$transform],
-                    $this->encoding,
-                );
+            $transformMode = self::HTML_TEXT_TRANSFORM[$transform] ?? null;
+            if ($transformMode !== null) {
+                $element = \mb_convert_case($element, $transformMode, $this->encoding);
             }
-            $element = \preg_replace("/&NBSP;/i", "&nbsp;", $element) ?? '';
+            $element = \preg_replace('/&NBSP;/i', '&nbsp;', $element) ?? '';
         }
-        // @phpstan-ignore parameterByRef.type
+
         $dom[$key]['value'] = \stripslashes($this->unhtmlentities($element));
     }
 
     /**
      * Inherit HTML properties from a parent element.
      *
-    * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key ID of the current HTML element.
      * @param int $parent ID of the parent element from which to inherit properties.
      *
@@ -1339,14 +1238,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function inheritHTMLProperties(array &$dom, int $key, int $parent): void
     {
         $defaults = $dom[0] ?? [];
+        $parentNode = $dom[$parent] ?? [];
+        if (!\is_array($parentNode)) {
+            return;
+        }
+
         foreach (self::HTML_INHERITED_PROPERTIES as $prop) {
-            if (!isset($dom[$parent][$prop]) || !isset($defaults[$prop])) {
+            if (!\array_key_exists($prop, $parentNode) || !\array_key_exists($prop, $defaults)) {
                 continue;
             }
 
-            if (!isset($dom[$key][$prop]) || $dom[$key][$prop] === $defaults[$prop]) {
-                // @phpstan-ignore-next-line parameterByRef.type
-                $dom[$key][$prop] = $dom[$parent][$prop];
+            $defaultValue = $defaults[$prop] ?? null;
+            $parentValue = $parentNode[$prop] ?? null;
+
+            if (!isset($dom[$key][$prop]) || $dom[$key][$prop] === $defaultValue) {
+                $dom[$key][$prop] = $parentValue;
             }
         }
     }
@@ -1354,7 +1260,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process the HTML DOM closing tag.
      *
-      * @param array<int, THTMLAttrib> $dom DOM array.
+     * @param array<int, THTMLAttrib> $dom DOM array.
      * @param array<int, string> $elm Current element.
      * @param int $key Current element ID.
      * @param int $parent ID of the parent element.
@@ -1362,54 +1268,63 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return void
      */
-    protected function processHTMLDOMClosingTag(
-        array &$dom,
-        array $elm,
-        int $key,
-        int $parent,
-        string $cssarray,
-    ): void {
-        $granparent = $dom[$parent]['parent'];
+    protected function processHTMLDOMClosingTag(array &$dom, array $elm, int $key, int $parent, string $cssarray): void
+    {
+        $parentNode = $dom[$parent] ?? null;
+        if (!\is_array($parentNode)) {
+            return;
+        }
+
+        $granparent = isset($parentNode['parent']) && \is_int($parentNode['parent']) ? $parentNode['parent'] : 0;
         $tableparent = $granparent;
         while (
             isset($dom[$tableparent]['value'])
             && !\in_array($dom[$tableparent]['value'], ['table', 'tablehead'], true)
             && isset($dom[$tableparent]['parent'])
             && \is_int($dom[$tableparent]['parent'])
-            && ($dom[$tableparent]['parent'] !== $tableparent)
+            && $dom[$tableparent]['parent'] !== $tableparent
         ) {
             $tableparent = $dom[$tableparent]['parent'];
         }
-        // @phpstan-ignore-next-line parameterByRef.type
+
         $this->inheritHTMLProperties($dom, $key, $granparent);
 
         // Carry margin and padding from the opening tag so that closeHTMLBlock
         // can correctly apply bottom spacing (e.g. CSS margin-bottom, heading defaults).
-        if (!empty($dom[$parent]['margin']) && \is_array($dom[$parent]['margin'])) {
-            // @phpstan-ignore parameterByRef.type
-            $dom[$key]['margin'] = $dom[$parent]['margin'];
+        if (isset($parentNode['margin']) && $parentNode['margin'] !== [] && \is_array($parentNode['margin'])) {
+            $dom[$key]['margin'] = $parentNode['margin'];
         }
-        if (!empty($dom[$parent]['padding']) && \is_array($dom[$parent]['padding'])) {
-            // @phpstan-ignore parameterByRef.type
-            $dom[$key]['padding'] = $dom[$parent]['padding'];
+        if (isset($parentNode['padding']) && $parentNode['padding'] !== [] && \is_array($parentNode['padding'])) {
+            $dom[$key]['padding'] = $parentNode['padding'];
         }
         /** @var array<int, THTMLAttrib> $dom */
 
         // set the number of columns in table tag
+        $keyValue = $dom[$key]['value'] ?? '';
+        $tableparentNode = $dom[$tableparent] ?? [];
         if (
-            ($dom[$key]['value'] == 'tr')
-            && (!empty($dom[$parent]['cols']))
-            && (empty($dom[$tableparent]['cols']))
+            $keyValue === 'tr'
+            && isset($parentNode['cols'])
+            && \is_numeric($parentNode['cols'])
+            && (
+                !isset($tableparentNode['cols'])
+                || !\is_numeric($tableparentNode['cols'])
+                || (int) $tableparentNode['cols'] === 0
+            )
         ) {
-            // @phpstan-ignore parameterByRef.type
-            $dom[$tableparent]['cols'] = $dom[$parent]['cols'];
+            $dom[$tableparent]['cols'] = $parentNode['cols'];
         }
         /** @var array<int, THTMLAttrib> $dom */
         $content = '';
-        if (($dom[$key]['value'] == 'td') || ($dom[$key]['value'] == 'th')) {
+        if ($keyValue === 'td' || $keyValue === 'th') {
             $content = $cssarray;
-            for ($idx = ($parent + 1); $idx < $key; ++$idx) {
-                $content .= \stripslashes($elm[$dom[$idx]['elkey']]);
+            for ($idx = $parent + 1; $idx < $key; ++$idx) {
+                $elidx = isset($dom[$idx]['elkey']) && \is_int($dom[$idx]['elkey']) ? $dom[$idx]['elkey'] : null;
+                if ($elidx === null || !isset($elm[$elidx])) {
+                    continue;
+                }
+
+                $content .= \stripslashes($elm[$elidx]);
             }
             $key = $idx;
             // mark nested tables
@@ -1418,54 +1333,61 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $content = \str_replace('<thead>', '', $content);
             $content = \str_replace('</thead>', '', $content);
         }
-        // @phpstan-ignore parameterByRef.type
+
         $dom[$parent]['content'] = $content;
         /** @var array<int, THTMLAttrib> $dom */
         // store header rows on a new table
-        if (
-            ($dom[$key]['value'] == 'tr')
-            && !empty($dom[$parent]['thead'])
-        ) {
-            if (empty($dom[$tableparent]['thead'])) {
-                // @phpstan-ignore parameterByRef.type
-                $dom[$tableparent]['thead'] = $cssarray . $elm[$dom[$tableparent]['elkey']];
+        if ($keyValue === 'tr' && (isset($parentNode['thead']) && $parentNode['thead'] !== '')) {
+            if (!isset($tableparentNode['thead']) || $tableparentNode['thead'] === '') {
+                $tableelkey = isset($tableparentNode['elkey']) && \is_int($tableparentNode['elkey'])
+                    ? $tableparentNode['elkey']
+                    : null;
+
+                $dom[$tableparent]['thead'] =
+                    $cssarray . ($tableelkey !== null && isset($elm[$tableelkey]) ? $elm[$tableelkey] : '');
             }
             for ($idx = $parent; $idx <= $key; ++$idx) {
+                $elidx = isset($dom[$idx]['elkey']) && \is_int($dom[$idx]['elkey']) ? $dom[$idx]['elkey'] : null;
+                if ($elidx === null || !isset($elm[$elidx])) {
+                    continue;
+                }
+
                 /** @var array<int, THTMLAttrib> $dom */
-                // @phpstan-ignore parameterByRef.type
-                $dom[$tableparent]['thead'] .= $elm[$dom[$idx]['elkey']];
+
+                $dom[$tableparent]['thead'] = ($dom[$tableparent]['thead'] ?? '') . $elm[$elidx];
             }
             /** @var array<int, THTMLAttrib> $dom */
             // header elements must be always contained in a single page
-            // @phpstan-ignore parameterByRef.type
+
             $dom[$parent]['attribute']['nobr'] = 'true';
         }
         /** @var array<int, THTMLAttrib> $dom */
-        if (
-            ($dom[$key]['value'] == 'table')
-            && (!empty($dom[$parent]['thead']))
-        ) {
+        if ($keyValue === 'table' && (isset($parentNode['thead']) && $parentNode['thead'] !== '')) {
             // remove the nobr attributes from the table header
-            // @phpstan-ignore-next-line parameterByRef.type
+
             $dom[$parent]['thead'] = \str_replace(' nobr="true"', '', $dom[$parent]['thead']);
-            // @phpstan-ignore-next-line parameterByRef.type
+
             $dom[$parent]['thead'] .= '</tablehead>';
         }
 
-        if (($dom[$key]['value'] === 'caption') && ($tableparent > 0)) {
-            $captionSide = (!empty($dom[$parent]['caption-side']) && \is_string($dom[$parent]['caption-side']))
-                ? \strtolower(\trim((string) $dom[$parent]['caption-side'])) : 'top';
+        if ($keyValue === 'caption' && $tableparent > 0) {
+            $captionSide = isset($parentNode['caption-side'])
+            && $parentNode['caption-side'] !== ''
+            && \is_string($parentNode['caption-side'])
+                ? \strtolower(\trim($parentNode['caption-side']))
+                : 'top';
             $captionhtml = $cssarray;
             for ($idx = $parent; $idx <= $key; ++$idx) {
                 // Suppress in-flow rendering of the full caption subtree; it
                 // will be replayed deterministically at table open/close.
-                // @phpstan-ignore-next-line parameterByRef.type
+
                 $dom[$idx]['hide'] = true;
 
                 $elkey = $dom[$idx]['elkey'] ?? null;
                 if (
-                    empty($elkey)
-                    || (!\is_int($elkey) && !\is_string($elkey))
+                    $elkey === null
+                    || $elkey === ''
+                    || !\is_int($elkey) && !\is_string($elkey)
                     || !isset($elm[$elkey])
                 ) {
                     continue;
@@ -1475,10 +1397,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if ($captionSide === 'bottom') {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$tableparent]['caption-bottom-html'] = $captionhtml;
             } else {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$tableparent]['caption-top-html'] = $captionhtml;
             }
         }
@@ -1487,9 +1407,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML DOM Opening Tag.
      *
-        * @param array<int, THTMLAttrib> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
-        * @param array<int> $level
+     * @param array<int> $level
      * @param string $element
      * @param int $key
      * @param bool $thead
@@ -1504,28 +1424,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         int $key,
         bool $thead,
     ): void {
-        // @phpstan-ignore parameterByRef.type
         $dom[$key]['opening'] = true;
         /** @var array<int, THTMLAttrib> $dom */
-        // @phpstan-ignore parameterByRef.type
-        $dom[$key]['self'] = ((\substr($element, -1, 1) == '/')
-            || (\in_array($dom[$key]['value'], self::HTML_SELF_CLOSING_TAGS)));
+
+        $dom[$key]['self'] =
+            \substr($element, -1, 1) === '/' || \in_array($dom[$key]['value'], self::HTML_SELF_CLOSING_TAGS, true);
         if (!$dom[$key]['self']) {
             \array_push($level, $key);
         }
         $parentkey = 0;
         if ($key > 0) {
             $parentkey = (int) $dom[$key]['parent'];
-            // @phpstan-ignore-next-line parameterByRef.type
+
             $this->inheritHTMLProperties($dom, $key, $parentkey);
         }
 
         // Parse attributes allowing quoted/unquoted values and valueless boolean attributes.
         // Boolean attributes (e.g. readonly, required, disabled) are normalized to "true".
         /** @var array<int, THTMLAttrib> $dom */
-        // @phpstan-ignore parameterByRef.type
+
         $dom[$key]['attribute'] = [];
-        $tagname = (isset($dom[$key]['value']) && \is_string($dom[$key]['value'])) ? $dom[$key]['value'] : '';
+        $tagname = isset($dom[$key]['value']) && \is_string($dom[$key]['value']) ? $dom[$key]['value'] : '';
         if (
             \preg_match_all(
                 '/([a-zA-Z_:][a-zA-Z0-9_:\-\.]*)\s*(?:=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\'`=<>]+)))?/',
@@ -1535,22 +1454,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ) > 0
         ) {
             foreach ($attr_array as $attrm) {
-                $name = \strtolower((string) $attrm[1]);
-                if (($name === '') || (($tagname !== '') && ($name === $tagname))) {
+                $name = \strtolower($attrm[1]);
+                if ($name === '' || $tagname !== '' && $name === $tagname) {
                     continue;
                 }
 
                 $value = 'true';
-                if (isset($attrm[2]) && \is_string($attrm[2]) && ($attrm[2] !== '')) {
+                if (isset($attrm[2]) && \is_string($attrm[2]) && $attrm[2] !== '') {
                     $value = $attrm[2];
-                } elseif (isset($attrm[3]) && \is_string($attrm[3]) && ($attrm[3] !== '')) {
+                } elseif (isset($attrm[3]) && \is_string($attrm[3]) && $attrm[3] !== '') {
                     $value = $attrm[3];
                 } elseif (isset($attrm[4]) && \is_string($attrm[4])) {
                     $value = $attrm[4];
                 }
 
                 /** @var array<int, THTMLAttrib> $dom */
-                // @phpstan-ignore parameterByRef.type
+
                 $dom[$key]['attribute'][$name] = $value;
             }
         }
@@ -1558,18 +1477,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Keep the author-provided inline style separate from merged CSS so
         // selector recomputation against the final DOM can remain idempotent.
         if (!isset($dom[$key]['attribute']['data-tcpdf-inline-style'])) {
-            // @phpstan-ignore-next-line parameterByRef.type
-            $dom[$key]['attribute']['data-tcpdf-inline-style'] =
-                (isset($dom[$key]['attribute']['style']) && \is_string($dom[$key]['attribute']['style']))
+            $dom[$key]['attribute']['data-tcpdf-inline-style'] = isset($dom[$key]['attribute']['style'])
+            && \is_string($dom[$key]['attribute']['style'])
                 ? $dom[$key]['attribute']['style']
                 : '';
         }
 
-        if (!empty($css)) {
+        if ($css !== []) {
             /** @var array<int, THTMLAttrib> $dom */
             // merge CSS style to current style
             $this->getHTMLDOMCSSData($dom, $css, $key);
-            if (!empty($dom[$key]['cssdata'])) {
+            if (isset($dom[$key]['cssdata']) && $dom[$key]['cssdata'] !== []) {
                 $dom[$key]['attribute']['style'] = $this->implodeCSSData($dom[$key]['cssdata']);
             }
         }
@@ -1581,7 +1499,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Returns the styles array that apply for the selected HTML tag.
      *
-    * @param array<int, THTMLAttrib> $dom
+     * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
      * @param int $key Key of the current HTML tag.
      */
@@ -1605,15 +1523,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $parentkey = (int) $dom[$key]['parent'];
         }
 
-        if (
-            ($parentkey >= 0)
-            && isset($dom[$parentkey]['csssel'])
-            && \is_array($dom[$parentkey]['csssel'])
-        ) {
+        if ($parentkey >= 0 && isset($dom[$parentkey]['csssel']) && \is_array($dom[$parentkey]['csssel'])) {
             foreach ($dom[$parentkey]['csssel'] as $parentsel) {
-                if (\is_string($parentsel) && ($parentsel !== '')) {
-                    $inheritedSelectors[] = $parentsel;
+                if (!(\is_string($parentsel) && $parentsel !== '')) {
+                    continue;
                 }
+
+                $inheritedSelectors[] = $parentsel;
             }
         }
 
@@ -1630,7 +1546,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $pseudomatch = [];
             if (\preg_match('/^(.*)::(before|after|marker)\s*$/i', $selector, $pseudomatch) > 0) {
                 $baseselector = \trim($pseudomatch[1]);
-                if (($baseselector !== '') && $this->isValidCSSSelectorForTag($dom, $key, $baseselector)) {
+                if ($baseselector !== '' && $this->isValidCSSSelectorForTag($dom, $key, $baseselector)) {
                     $entry = [
                         'k' => $selector,
                         's' => $specificity,
@@ -1653,7 +1569,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             // check if this selector apply to current tag
             if ($this->isValidCSSSelectorForTag($dom, $key, $selector)) {
-                if (!empty($inheritedSelectors) && \in_array($selector, $inheritedSelectors, true)) {
+                if ($inheritedSelectors !== [] && \in_array($selector, $inheritedSelectors, true)) {
                     continue;
                 }
 
@@ -1668,17 +1584,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $inlineStyle = '';
         if (
-            !empty($dom[$key]['attribute'])
+            isset($dom[$key]['attribute'])
+            && $dom[$key]['attribute'] !== []
             && isset($dom[$key]['attribute']['data-tcpdf-inline-style'])
             && \is_string($dom[$key]['attribute']['data-tcpdf-inline-style'])
         ) {
-            $inlineStyle = (string) $dom[$key]['attribute']['data-tcpdf-inline-style'];
+            $inlineStyle = $dom[$key]['attribute']['data-tcpdf-inline-style'];
         } elseif (
-            !empty($dom[$key]['attribute'])
+            isset($dom[$key]['attribute'])
+            && $dom[$key]['attribute'] !== []
             && isset($dom[$key]['attribute']['style'])
             && \is_string($dom[$key]['attribute']['style'])
         ) {
-            $inlineStyle = (string) $dom[$key]['attribute']['style'];
+            $inlineStyle = $dom[$key]['attribute']['style'];
         }
 
         if ($inlineStyle !== '') {
@@ -1697,7 +1615,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         foreach ($ret as $idx => $val) {
             // If specificity already contains source order (new format with underscore),
             // use it directly; otherwise append the per-element index for backward compatibility
-            if (\strpos($val['s'], '_') !== false) {
+            if (\str_contains($val['s'], '_')) {
                 // New format: specificity is already a sort key
                 $skey = $val['s'];
             } else {
@@ -1706,24 +1624,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             $cssordered[$skey] = $val;
         }
-        if (!empty($selectors)) {
+        if ($selectors !== []) {
             /** @var array<int, THTMLAttrib> $dom */
             /** @var array<string> $selectors */
-            // @phpstan-ignore parameterByRef.type
+
             $dom[$key]['csssel'] = $selectors;
         }
-        if (!empty($cssordered)) {
+        if ($cssordered !== []) {
             // sort selectors alphabetically to account for specificity
             \ksort($cssordered, SORT_STRING);
             /** @var array<int, THTMLAttrib> $dom */
             /** @var array<string, TCSSData> $cssordered */
-            // @phpstan-ignore parameterByRef.type
+
             $dom[$key]['cssdata'] = $cssordered;
         }
 
-        if (!empty($pseudobefore)) {
+        if ($pseudobefore !== '') {
             if (!isset($dom[$key]['attribute']) || !\is_array($dom[$key]['attribute'])) {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key]['attribute'] = [];
             }
 
@@ -1732,13 +1649,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $beforeordered[\sprintf('%s_%04d', $val['s'], $idx)] = $val;
             }
             \ksort($beforeordered, SORT_STRING);
-            // @phpstan-ignore parameterByRef.type
+
             $dom[$key]['attribute']['pseudo-before-style'] = $this->implodeCSSData($beforeordered);
         }
 
-        if (!empty($pseudoafter)) {
+        if ($pseudoafter !== '') {
             if (!isset($dom[$key]['attribute']) || !\is_array($dom[$key]['attribute'])) {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key]['attribute'] = [];
             }
 
@@ -1750,13 +1666,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $afterordered[\sprintf('%s_%04d', $val['s'], $idx)] = $val;
             }
             \ksort($afterordered, SORT_STRING);
-            // @phpstan-ignore parameterByRef.type
+
             $dom[$key]['attribute']['pseudo-after-style'] = $this->implodeCSSData($afterordered);
         }
 
-        if (!empty($pseudomarker)) {
+        if ($pseudomarker !== '') {
             if (!isset($dom[$key]['attribute']) || !\is_array($dom[$key]['attribute'])) {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key]['attribute'] = [];
             }
 
@@ -1772,8 +1687,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $mergedMarkerstyles = $this->implodeCSSData($markerordered);
             $parsedMarkerstyles = $this->parseHTMLStyleDeclarationMap($mergedMarkerstyles);
             $filtered = $this->filterHTMLMarkerStyles($parsedMarkerstyles);
-            if (!empty($filtered)) {
-                // @phpstan-ignore parameterByRef.type
+            if ($filtered !== []) {
                 $dom[$key]['attribute']['pseudo-marker-style'] = $filtered;
             }
         }
@@ -1800,38 +1714,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $selector = $this->escapeHTMLSelectorFunctionalOperators($selector);
         $selector = \preg_replace('/\s*([>+~])\s*/', '\\1', $selector) ?? '';
         $selector = ' ' . \ltrim($selector);
-        $tag = \strtolower((string) ($dom[$key]['value'] ?? ''));
+        $tag = \strtolower($dom[$key]['value'] ?? '');
         $class = [];
-        if (!empty($dom[$key]['attribute']['class'])) {
+        if (isset($dom[$key]['attribute']['class']) && $dom[$key]['attribute']['class'] !== '') {
             $class = \explode(' ', \strtolower($dom[$key]['attribute']['class']));
         }
         $idattr = '';
-        if (!empty($dom[$key]['attribute']['id'])) {
+        if (isset($dom[$key]['attribute']['id']) && $dom[$key]['attribute']['id'] !== '') {
             $idattr = \strtolower($dom[$key]['attribute']['id']);
         }
-        $selector = \preg_replace(
-            '/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si',
-            '\\1*.\\3',
-            $selector,
-        ) ?? '';
-        $selector = \preg_replace(
-            '/([\>\+\~\s]{1})([\#]{1})([^\>\+\~\s]*)/si',
-            '\\1*#\\3',
-            $selector,
-        ) ?? '';
-        $selector = \preg_replace(
-            '/([\>\+\~\s]{1})(\[)/si',
-            '\\1*\\2',
-            $selector,
-        ) ?? '';
+        $selector = \preg_replace('/([\>\+\~\s]{1})([\.]{1})([^\>\+\~\s]*)/si', '\\1*.\\3', $selector) ?? '';
+        $selector = \preg_replace('/([\>\+\~\s]{1})([\#]{1})([^\>\+\~\s]*)/si', '\\1*#\\3', $selector) ?? '';
+        $selector = \preg_replace('/([\>\+\~\s]{1})(\[)/si', '\\1*\\2', $selector) ?? '';
         $matches = [];
         if (
-            empty(\preg_match_all(
+            \preg_match_all(
                 '/([\>\+\~\s]{1})(\*|(?:\\\\.|[\p{L}\p{N}_-])+)([^\>\+\~\s]*)/siu',
                 $selector,
                 $matches,
                 PREG_PATTERN_ORDER | PREG_OFFSET_CAPTURE,
-            ))
+            ) === 0
         ) {
             return $ret;
         }
@@ -1840,40 +1742,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $offset = $parentop[1] ?? 0;
         $lasttag = \array_pop($matches[2]);
         $lasttag = \strtolower($this->decodeHTMLCSSIdentifier(\trim($lasttag[0] ?? '')));
-        if (($lasttag !== '*') && ($lasttag !== $tag)) {
+        if ($lasttag !== '*' && $lasttag !== $tag) {
             return $ret;
         }
         // the last element on selector is our tag or 'any tag'
         $attrib = \array_pop($matches[3]);
         $attrib = \strtolower(\trim($attrib[0] ?? ''));
         $attrib = $this->unescapeHTMLSelectorFunctionalOperators($attrib);
-        if (empty($attrib)) {
+        if ($attrib === '') {
             $ret = true;
         } else {
-            $ret = $this->matchesHTMLSelectorSuffix(
-                $dom,
-                $key,
-                $attrib,
-                $class,
-                $idattr,
-            );
+            $ret = $this->matchesHTMLSelectorSuffix($dom, $key, $attrib, $class, $idattr);
         }
 
-        if (
-            $ret
-            && ($offset > 0)
-            && \is_int($dom[$key]['parent'])
-        ) {
+        if ($ret && $offset > 0 && \is_int($dom[$key]['parent'])) {
             $ret = false;
             // check remaining selector part
             $selector = \substr($selector, 0, $offset);
             $selector = $this->unescapeHTMLSelectorFunctionalOperators($selector);
             switch ($operator) {
                 case ' ': // descendant of an element
-                    while (
-                        \is_int($dom[$key]['parent'])
-                        && ($dom[$key]['parent'] > 0)
-                    ) {
+                    while (\is_int($dom[$key]['parent']) && $dom[$key]['parent'] > 0) {
                         if ($this->isValidCSSSelectorForTag($dom, $dom[$key]['parent'], $selector)) {
                             $ret = true;
                             break;
@@ -1924,15 +1813,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $idattr,
     ): bool {
         $tokens = [];
-        $selectorTokenPattern = '/(\.(?:\\\\.|[\p{L}\p{N}_-])+|#(?:\\\\.|[\p{L}\p{N}_-])+|'
+        $selectorTokenPattern =
+            '/(\.(?:\\\\.|[\p{L}\p{N}_-])+|#(?:\\\\.|[\p{L}\p{N}_-])+|'
             . '\[[^\]]+\]|:{1,2}[a-zA-Z-]+(?:\([^\)]*\))?)/u';
-        if (
-            empty(\preg_match_all(
-                $selectorTokenPattern,
-                $attrib,
-                $tokens,
-            ))
-        ) {
+        if (\preg_match_all($selectorTokenPattern, $attrib, $tokens) === 0) {
             return false;
         }
 
@@ -1984,43 +1868,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom
      */
-    protected function matchesHTMLSelectorAttribute(array &$dom, int $key, string $token): bool
+    protected function matchesHTMLSelectorAttribute(array &$dom, int $key, #[\SensitiveParameter] string $token): bool
     {
         $attrmatch = [];
         if (
-            empty(\preg_match(
+            \preg_match(
                 '/\[([^\s\~\^\$\*\|\]=]+)[\s]*([\~\^\$\*\|\=]*)[\s]*(?:"([^"]*)"|\'([^\']*)\'|([^\]]*))?\]/i',
                 $token,
                 $attrmatch,
-            ))
+            ) === 0
         ) {
             return false;
         }
 
         $att = \strtolower($this->decodeHTMLCSSIdentifier($attrmatch[1]));
         $val = '';
-        if (isset($attrmatch[3]) && ($attrmatch[3] !== '')) {
+        if (isset($attrmatch[3]) && $attrmatch[3] !== '') {
             $val = $attrmatch[3];
-        } elseif (isset($attrmatch[4]) && ($attrmatch[4] !== '')) {
+        } elseif (isset($attrmatch[4]) && $attrmatch[4] !== '') {
             $val = $attrmatch[4];
         } elseif (isset($attrmatch[5])) {
             $val = \trim($attrmatch[5]);
         }
         $val = $this->decodeHTMLCSSIdentifier($val);
-        if (empty($dom[$key]['attribute'][$att])) {
+        if (!isset($dom[$key]['attribute'][$att]) || $dom[$key]['attribute'][$att] === '') {
             return false;
         }
 
-        $current = (string) $dom[$key]['attribute'][$att];
+        $current = $dom[$key]['attribute'][$att];
         $qval = \preg_quote($val, '/');
 
         return match ($attrmatch[2]) {
-            '=' => ($current == $val),
+            '=' => $current === $val,
             '~=' => \in_array($val, \explode(' ', $current), true),
-            '^=' => ($val == \substr($current, 0, \strlen($val))),
-            '$=' => ($val == \substr($current, -\strlen($val))),
-            '*=' => (\strpos($current, $val) !== false),
-            '|=' => (($current == $val) || (\preg_match('/^' . $qval . '-/i', $current) > 0)),
+            '^=' => $val === \substr($current, 0, \strlen($val)),
+            '$=' => $val === \substr($current, -\strlen($val)),
+            '*=' => \str_contains($current, $val),
+            '|=' => $current === $val || \preg_match('/^' . $qval . '-/i', $current) > 0,
             default => true,
         };
     }
@@ -2036,25 +1920,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $value = \preg_replace('/\\\\(?:\r\n|\r|\n|\f)/', '', $value) ?? $value;
 
-        return (string) (\preg_replace_callback(
+        return \preg_replace_callback(
             '/\\\\([0-9a-fA-F]{1,6}\s?|.)/u',
             static function (array $match): string {
                 $esc = $match[1];
                 if (\preg_match('/^[0-9a-fA-F]{1,6}\s?$/', $esc) === 1) {
                     $hex = \trim($esc);
                     $codepoint = (int) \hexdec($hex);
-                    if ($codepoint <= 0 || $codepoint > 0x10FFFF) {
+                    if ($codepoint <= 0 || $codepoint > 0x10_FFFF) {
                         return '';
                     }
 
                     $chr = \mb_chr($codepoint, 'UTF-8');
-                    return ($chr === false) ? '' : $chr;
+                    return $chr === false ? '' : $chr;
                 }
 
                 return $esc;
             },
             $value,
-        ) ?? $value);
+        ) ?? $value;
     }
 
     /**
@@ -2062,7 +1946,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom
      */
-    protected function matchesHTMLPseudoClass(array &$dom, int $key, string $token): bool
+    protected function matchesHTMLPseudoClass(array &$dom, int $key, #[\SensitiveParameter] string $token): bool
     {
         if (\str_starts_with($token, '::')) {
             return false;
@@ -2081,35 +1965,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return match ($name) {
-            'first-child' => (!empty($siblings) && ($siblings[0] === $key)),
-            'last-child' => (!empty($siblings) && ($siblings[\count($siblings) - 1] === $key)),
+            'first-child' => $siblings !== [] && $siblings[0] === $key,
+            'last-child' => $siblings !== [] && $siblings[\count($siblings) - 1] === $key,
             'nth-child' => $this->matchesHTMLPseudoNthChild($siblings, $key, $arg),
             'nth-last-child' => $this->matchesHTMLPseudoNthLastChild($siblings, $key, $arg),
-            'only-child' => ((\count($siblings) === 1) && ($siblings[0] === $key)),
+            'only-child' => \count($siblings) === 1 && $siblings[0] === $key,
             'first-of-type' => $this->matchesHTMLPseudoFirstOfType($dom, $siblings, $key),
             'last-of-type' => $this->matchesHTMLPseudoLastOfType($dom, $siblings, $key),
             'nth-of-type' => $this->matchesHTMLPseudoNthOfType($dom, $siblings, $key, $arg),
             'empty' => $this->matchesHTMLPseudoEmpty($dom, $key),
             'lang' => $this->matchesHTMLPseudoLang($dom, $key, $arg),
-            'link' => (
-                ($dom[$key]['value'] === 'a')
-                && !empty($dom[$key]['attribute']['href'])
-            ),
-            'visited' => (
-                ($dom[$key]['value'] === 'a')
-                && !empty($dom[$key]['attribute']['href'])
-            ),
+            'link' => $dom[$key]['value'] === 'a'
+            && (isset($dom[$key]['attribute']['href']) && $dom[$key]['attribute']['href'] !== ''),
+            'visited' => $dom[$key]['value'] === 'a'
+            && (isset($dom[$key]['attribute']['href']) && $dom[$key]['attribute']['href'] !== ''),
             'hover', 'focus', 'active' => $this->isHTMLStaticInteractivePseudoTarget($dom, $key),
             'disabled' => $this->hasHTMLBooleanAttribute($dom, $key, 'disabled'),
-            'enabled' => (
-                $this->isHTMLFormControlTag($dom, $key)
-                && !$this->hasHTMLBooleanAttribute($dom, $key, 'disabled')
-            ),
-            'checked' => (
-                $this->hasHTMLBooleanAttribute($dom, $key, 'checked')
-                || ((($dom[$key]['value'] ?? '') === 'option')
-                    && $this->hasHTMLBooleanAttribute($dom, $key, 'selected'))
-            ),
+            'enabled' => $this->isHTMLFormControlTag($dom, $key)
+                && !$this->hasHTMLBooleanAttribute($dom, $key, 'disabled'),
+            'checked' => $this->hasHTMLBooleanAttribute($dom, $key, 'checked')
+                || ($dom[$key]['value'] ?? '') === 'option' && $this->hasHTMLBooleanAttribute($dom, $key, 'selected'),
             default => false,
         };
     }
@@ -2123,7 +1998,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return true;
         }
 
-        return (($dom[$key]['value'] ?? '') === 'a') && !empty($dom[$key]['attribute']['href']);
+        return (
+            ($dom[$key]['value'] ?? '') === 'a'
+            && (isset($dom[$key]['attribute']['href']) && $dom[$key]['attribute']['href'] !== '')
+        );
     }
 
     /**
@@ -2131,7 +2009,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function isHTMLFormControlTag(array &$dom, int $key): bool
     {
-        $tag = (string) ($dom[$key]['value'] ?? '');
+        $tag = $dom[$key]['value'] ?? '';
         return \in_array($tag, ['input', 'button', 'select', 'textarea', 'option'], true);
     }
 
@@ -2145,7 +2023,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        $raw = \strtolower(\trim((string) $attr[$name]));
+        $raw = \strtolower(\trim($attr[$name]));
         if ($raw === '') {
             return true;
         }
@@ -2164,14 +2042,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         while (isset($dom[$current])) {
             $attr = $dom[$current]['attribute'] ?? null;
             if (\is_array($attr)) {
-                $lang = (string) ($attr['lang'] ?? $attr['xml:lang'] ?? '');
+                $lang = $attr['lang'] ?? $attr['xml:lang'] ?? '';
                 $lang = \strtolower(\trim($lang));
                 if ($lang !== '') {
                     return $lang;
                 }
             }
             $parent = $dom[$current]['parent'] ?? null;
-            if (!\is_int($parent) || ($parent === $current)) {
+            if (!\is_int($parent) || $parent === $current) {
                 break;
             }
             $current = $parent;
@@ -2195,7 +2073,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        return ($lang === $arg) || \str_starts_with($lang, $arg . '-');
+        return $lang === $arg || \str_starts_with($lang, $arg . '-');
     }
 
     /**
@@ -2210,21 +2088,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * @param array<int, THTMLAttrib> $dom
      * @param array<int> $siblings
-        *
-        * @return array<int>
+     *
+     * @return array<int>
      */
     protected function getHTMLSiblingKeysByTagName(array &$dom, array $siblings, int $key): array
     {
-        $tag = (string) ($dom[$key]['value'] ?? '');
+        $tag = $dom[$key]['value'] ?? '';
         if ($tag === '') {
             return [];
         }
 
         $matched = [];
         foreach ($siblings as $sibling) {
-            if (($dom[$sibling]['value'] ?? '') === $tag) {
-                $matched[] = $sibling;
+            if (($dom[$sibling]['value'] ?? '') !== $tag) {
+                continue;
             }
+
+            $matched[] = $sibling;
         }
 
         return $matched;
@@ -2237,7 +2117,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function matchesHTMLPseudoFirstOfType(array &$dom, array $siblings, int $key): bool
     {
         $typed = $this->getHTMLSiblingKeysByTagName($dom, $siblings, $key);
-        return (!empty($typed) && ($typed[0] === $key));
+        return $typed !== [] && $typed[0] === $key;
     }
 
     /**
@@ -2247,7 +2127,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function matchesHTMLPseudoLastOfType(array &$dom, array $siblings, int $key): bool
     {
         $typed = $this->getHTMLSiblingKeysByTagName($dom, $siblings, $key);
-        return (!empty($typed) && ($typed[\count($typed) - 1] === $key));
+        return $typed !== [] && $typed[\count($typed) - 1] === $key;
     }
 
     /**
@@ -2275,7 +2155,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $index = \array_search($key, $siblings, true);
-        if (($index === false) || !\is_int($index)) {
+        if ($index === false || !\is_int($index)) {
             return false;
         }
 
@@ -2285,11 +2165,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($arg === 'odd') {
-            return (($position % 2) === 1);
+            return ($position % 2) === 1;
         }
 
         if ($arg === 'even') {
-            return (($position % 2) === 0);
+            return ($position % 2) === 0;
         }
 
         if (\preg_match('/^\d+$/', $arg)) {
@@ -2298,7 +2178,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 return false;
             }
 
-            return ($position === $nth);
+            return $position === $nth;
         }
 
         if (!\preg_match('/^([+\-]?\d*)n([+\-]\d+)?$/', $arg, $matches)) {
@@ -2308,7 +2188,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $acoef = $matches[1];
         $boffset = $matches[2] ?? '0';
 
-        if (($acoef === '') || ($acoef === '+')) {
+        if ($acoef === '' || $acoef === '+') {
             $factor = 1;
         } elseif ($acoef === '-') {
             $factor = -1;
@@ -2320,15 +2200,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $delta = $position - $offset;
 
         if ($factor === 0) {
-            return ($position === $offset);
+            return $position === $offset;
         }
 
         if ($factor > 0) {
-            return ($delta >= 0) && (($delta % $factor) === 0);
+            return $delta >= 0 && ($delta % $factor) === 0;
         }
 
         $absFactor = \abs($factor);
-        return ($delta <= 0) && (((-$delta) % $absFactor) === 0);
+        return $delta <= 0 && (-$delta % $absFactor) === 0;
     }
 
     /**
@@ -2351,7 +2231,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if (($char === ']') && ($attrDepth > 0)) {
+            if ($char === ']' && $attrDepth > 0) {
                 --$attrDepth;
                 $out .= $char;
                 continue;
@@ -2363,13 +2243,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if (($char === ')') && ($parenDepth > 0)) {
+            if ($char === ')' && $parenDepth > 0) {
                 --$parenDepth;
                 $out .= $char;
                 continue;
             }
 
-            if (($parenDepth > 0) || ($attrDepth > 0)) {
+            if ($parenDepth > 0 || $attrDepth > 0) {
                 $out .= match ($char) {
                     '+' => "\x1D",
                     '>' => "\x1E",
@@ -2390,14 +2270,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function unescapeHTMLSelectorFunctionalOperators(string $selector): string
     {
-        return \strtr(
-            $selector,
-            [
-                "\x1D" => '+',
-                "\x1E" => '>',
-                "\x1F" => '~',
-            ],
-        );
+        return \strtr($selector, [
+            "\x1D" => '+',
+            "\x1E" => '>',
+            "\x1F" => '~',
+        ]);
     }
 
     /**
@@ -2410,19 +2287,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if (!isset($node['parent']) || ($node['parent'] !== $key)) {
+            if (!isset($node['parent']) || $node['parent'] !== $key) {
                 continue;
             }
 
-            if (!empty($node['tag']) && !empty($node['opening'])) {
+            if (($node['tag'] ?? false) && ($node['opening'] ?? false)) {
                 return false;
             }
 
-            if (
-                empty($node['tag'])
-                && isset($node['value'])
-                && (\trim((string) $node['value']) !== '')
-            ) {
+            if (!($node['tag'] ?? false) && isset($node['value']) && \trim($node['value']) !== '') {
                 return false;
             }
         }
@@ -2440,13 +2313,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $children = [];
         foreach ($dom as $idx => $node) {
             if (
-                isset($node['parent'])
-                && ($node['parent'] === $parent)
-                && !empty($node['tag'])
-                && !empty($node['opening'])
+                !(
+                    isset($node['parent'])
+                    && $node['parent'] === $parent
+                    && ($node['tag'] ?? false)
+                    && ($node['opening'] ?? false)
+                )
             ) {
-                $children[] = $idx;
+                continue;
             }
+
+            $children[] = $idx;
         }
 
         return $children;
@@ -2494,7 +2371,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function parseHTMLStyleAttributes(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['attribute']['style']) || !\is_string($dom[$key]['attribute']['style'])) {
+        if (
+            !isset($dom[$key]['attribute']['style'])
+            || $dom[$key]['attribute']['style'] === ''
+            || !\is_string($dom[$key]['attribute']['style'])
+        ) {
             return;
         }
 
@@ -2505,7 +2386,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         /** @var array<int, THTMLAttrib> $dom */
-        // @phpstan-ignore parameterByRef.type
+
         $dom[$key]['style'] = $styles;
 
         // Layout and list properties.
@@ -2593,20 +2474,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $resolved = $styles;
-        if (
-            isset($resolved['all'])
-            && (\trim(\strtolower((string) $resolved['all'])) === 'initial')
-        ) {
+        if (isset($resolved['all']) && \trim(\strtolower($resolved['all'])) === 'initial') {
             foreach (self::HTML_STYLE_INITIAL_VALUE_MAP as $property => $default) {
-                if (!isset($resolved[$property])) {
-                    $resolved[$property] = $default;
+                if (isset($resolved[$property])) {
+                    continue;
                 }
+
+                $resolved[$property] = $default;
             }
             unset($resolved['all']);
         }
 
         foreach ($resolved as $property => $value) {
-            if (\trim(\strtolower((string) $value)) !== 'initial') {
+            if (\trim(\strtolower($value)) !== 'initial') {
                 continue;
             }
 
@@ -2625,13 +2505,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleDirectionProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['direction'])) {
+        if (!isset($dom[$key]['style']['direction']) || $dom[$key]['style']['direction'] === '') {
             return;
         }
 
-        $direction = \strtolower(\trim((string) $dom[$key]['style']['direction']));
+        $direction = \strtolower(\trim($dom[$key]['style']['direction']));
         if ($direction === 'inherit') {
-            $dom[$key]['dir'] = (string) $dom[$parentkey]['dir'];
+            $dom[$key]['dir'] = $dom[$parentkey]['dir'];
         } elseif (\in_array($direction, ['ltr', 'rtl'], true)) {
             $dom[$key]['dir'] = $direction;
         }
@@ -2644,15 +2524,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleDisplayProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['display'])) {
+        if (!isset($dom[$key]['style']['display']) || $dom[$key]['style']['display'] === '') {
             return;
         }
 
-        $display = \strtolower(\trim((string) $dom[$key]['style']['display']));
+        $display = \strtolower(\trim($dom[$key]['style']['display']));
         if ($display === 'inherit') {
-            $dom[$key]['hide'] = (bool) $dom[$parentkey]['hide'];
-            if (!empty($dom[$parentkey]['display']) && \is_string($dom[$parentkey]['display'])) {
-                $parentDisplay = \strtolower(\trim((string) $dom[$parentkey]['display']));
+            $dom[$key]['hide'] = $dom[$parentkey]['hide'];
+            if (
+                isset($dom[$parentkey]['display'])
+                && $dom[$parentkey]['display'] !== ''
+                && \is_string($dom[$parentkey]['display'])
+            ) {
+                $parentDisplay = \strtolower(\trim($dom[$parentkey]['display']));
                 if ($this->isSupportedHTMLDisplayValue($parentDisplay)) {
                     $dom[$key]['display'] = $parentDisplay;
                     $dom[$key]['block'] = $this->isHTMLDisplayBlockLike($parentDisplay);
@@ -2691,17 +2575,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFloatProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['float'])) {
+        if (!isset($dom[$key]['style']['float']) || $dom[$key]['style']['float'] === '') {
             return;
         }
 
-        $float =
-            \strtolower(\trim((string) $dom[$key]['style']['float']));
+        $float = \strtolower(\trim($dom[$key]['style']['float']));
         if ($float === 'inherit') {
-            if (!empty($dom[$parentkey]['float']) && \is_string($dom[$parentkey]['float'])) {
-                $dom[$key]['float'] = (string) $dom[$parentkey]['float'];
-            } elseif (!empty($dom[$parentkey]['style']['float']) && \is_string($dom[$parentkey]['style']['float'])) {
-                $parentFloat = \strtolower(\trim((string) $dom[$parentkey]['style']['float']));
+            if (
+                isset($dom[$parentkey]['float'])
+                && $dom[$parentkey]['float'] !== ''
+                && \is_string($dom[$parentkey]['float'])
+            ) {
+                $dom[$key]['float'] = $dom[$parentkey]['float'];
+            } elseif (
+                isset($dom[$parentkey]['style']['float'])
+                && $dom[$parentkey]['style']['float'] !== ''
+                && \is_string($dom[$parentkey]['style']['float'])
+            ) {
+                $parentFloat = \strtolower(\trim($dom[$parentkey]['style']['float']));
                 if (\in_array($parentFloat, ['left', 'right', 'none'], true)) {
                     $dom[$key]['float'] = $parentFloat;
                 }
@@ -2722,16 +2613,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleClearProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['clear'])) {
+        if (!isset($dom[$key]['style']['clear']) || $dom[$key]['style']['clear'] === '') {
             return;
         }
 
-        $clear = \strtolower(\trim((string) $dom[$key]['style']['clear']));
+        $clear = \strtolower(\trim($dom[$key]['style']['clear']));
         if ($clear === 'inherit') {
-            if (!empty($dom[$parentkey]['clear']) && \is_string($dom[$parentkey]['clear'])) {
-                $dom[$key]['clear'] = (string) $dom[$parentkey]['clear'];
-            } elseif (!empty($dom[$parentkey]['style']['clear']) && \is_string($dom[$parentkey]['style']['clear'])) {
-                $parentClear = \strtolower(\trim((string) $dom[$parentkey]['style']['clear']));
+            if (
+                isset($dom[$parentkey]['clear'])
+                && $dom[$parentkey]['clear'] !== ''
+                && \is_string($dom[$parentkey]['clear'])
+            ) {
+                $dom[$key]['clear'] = $dom[$parentkey]['clear'];
+            } elseif (
+                isset($dom[$parentkey]['style']['clear'])
+                && $dom[$parentkey]['style']['clear'] !== ''
+                && \is_string($dom[$parentkey]['style']['clear'])
+            ) {
+                $parentClear = \strtolower(\trim($dom[$parentkey]['style']['clear']));
                 if (\in_array($parentClear, ['left', 'right', 'both', 'none'], true)) {
                     $dom[$key]['clear'] = $parentClear;
                 }
@@ -2752,19 +2651,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStylePositionProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['position'])) {
+        if (!isset($dom[$key]['style']['position']) || $dom[$key]['style']['position'] === '') {
             return;
         }
 
-        $position = \strtolower(\trim((string) $dom[$key]['style']['position']));
+        $position = \strtolower(\trim($dom[$key]['style']['position']));
         if ($position === 'inherit') {
-            if (!empty($dom[$parentkey]['position']) && \is_string($dom[$parentkey]['position'])) {
-                $dom[$key]['position'] = (string) $dom[$parentkey]['position'];
+            if (
+                isset($dom[$parentkey]['position'])
+                && $dom[$parentkey]['position'] !== ''
+                && \is_string($dom[$parentkey]['position'])
+            ) {
+                $dom[$key]['position'] = $dom[$parentkey]['position'];
             } elseif (
-                !empty($dom[$parentkey]['style']['position'])
+                isset($dom[$parentkey]['style']['position'])
+                && $dom[$parentkey]['style']['position'] !== ''
                 && \is_string($dom[$parentkey]['style']['position'])
             ) {
-                $parentPosition = \strtolower(\trim((string) $dom[$parentkey]['style']['position']));
+                $parentPosition = \strtolower(\trim($dom[$parentkey]['style']['position']));
                 if (\in_array($parentPosition, ['static', 'relative', 'absolute', 'fixed'], true)) {
                     $dom[$key]['position'] = $parentPosition;
                 }
@@ -2782,11 +2686,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom
      */
-    // @phpstan-ignore parameterByRef.type
+
     protected function parseHTMLStylePositionOffsetProperties(array &$dom, int $key, int $parentkey): void
     {
-        $position = (!empty($dom[$key]['position']) && \is_string($dom[$key]['position']))
-            ? \strtolower(\trim((string) $dom[$key]['position']))
+        $position = isset($dom[$key]['position']) && $dom[$key]['position'] !== '' && \is_string($dom[$key]['position'])
+            ? \strtolower(\trim($dom[$key]['position']))
             : 'static';
         if (!\in_array($position, ['relative', 'absolute', 'fixed'], true)) {
             return;
@@ -2796,29 +2700,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $offsetT = $this->getHTMLStylePositionOffsetValue($dom, $key, $parentkey, 'top');
 
         if (!isset($dom[$key]['margin']) || !\is_array($dom[$key]['margin'])) {
-            // @phpstan-ignore-next-line parameterByRef.type
             $dom[$key]['margin'] = [];
         }
 
+        $keyMargin = isset($dom[$key]['margin']) && \is_array($dom[$key]['margin']) ? $dom[$key]['margin'] : [];
         if ($offsetL !== 0.0) {
-            // @phpstan-ignore parameterByRef.type
-            if (!isset($dom[$key]['margin']['L']) || !\is_numeric($dom[$key]['margin']['L'])) {
-                // @phpstan-ignore parameterByRef.type
-                $dom[$key]['margin']['L'] = 0.0;
-            }
-            // @phpstan-ignore parameterByRef.type
-            $dom[$key]['margin']['L'] += $offsetL;
+            $keyMargin['L'] = ($keyMargin['L'] ?? 0.0) + $offsetL;
         }
 
         if ($offsetT !== 0.0) {
-            // @phpstan-ignore parameterByRef.type
-            if (!isset($dom[$key]['margin']['T']) || !\is_numeric($dom[$key]['margin']['T'])) {
-                // @phpstan-ignore parameterByRef.type
-                $dom[$key]['margin']['T'] = 0.0;
-            }
-            // @phpstan-ignore parameterByRef.type
-            $dom[$key]['margin']['T'] += $offsetT;
+            $keyMargin['T'] = ($keyMargin['T'] ?? 0.0) + $offsetT;
         }
+
+        $dom[$key]['margin'] = $keyMargin;
     }
 
     /**
@@ -2828,16 +2722,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLStylePositionOffsetValue(array &$dom, int $key, int $parentkey, string $prop): float
     {
-        if (!empty($dom[$key]['style'][$prop]) && \is_string($dom[$key]['style'][$prop])) {
-            $raw = \strtolower(\trim((string) $dom[$key]['style'][$prop]));
-            if (($raw === '') || ($raw === 'auto')) {
+        if (
+            isset($dom[$key]['style'][$prop])
+            && $dom[$key]['style'][$prop] !== ''
+            && \is_string($dom[$key]['style'][$prop])
+        ) {
+            $raw = \strtolower(\trim($dom[$key]['style'][$prop]));
+            if ($raw === '' || $raw === 'auto') {
                 return 0.0;
             }
 
             if ($raw === 'inherit') {
-                if (!empty($dom[$parentkey]['style'][$prop]) && \is_string($dom[$parentkey]['style'][$prop])) {
-                    $parentRaw = \strtolower(\trim((string) $dom[$parentkey]['style'][$prop]));
-                    if (($parentRaw === '') || ($parentRaw === 'auto') || ($parentRaw === 'inherit')) {
+                if (
+                    isset($dom[$parentkey]['style'][$prop])
+                    && $dom[$parentkey]['style'][$prop] !== ''
+                    && \is_string($dom[$parentkey]['style'][$prop])
+                ) {
+                    $parentRaw = \strtolower(\trim($dom[$parentkey]['style'][$prop]));
+                    if ($parentRaw === '' || $parentRaw === 'auto' || $parentRaw === 'inherit') {
                         return 0.0;
                     }
 
@@ -2863,30 +2765,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFontShorthandProperty(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['style']['font']) || !\is_string($dom[$key]['style']['font'])) {
+        if (
+            !isset($dom[$key]['style']['font'])
+            || $dom[$key]['style']['font'] === ''
+            || !\is_string($dom[$key]['style']['font'])
+        ) {
             return;
         }
 
-        $font = \trim((string) $dom[$key]['style']['font']);
+        $font = \trim($dom[$key]['style']['font']);
         if ($font === '') {
             return;
         }
 
         $fontLower = \strtolower($font);
         if ($fontLower === 'inherit') {
-            foreach (
-                [
-                    'font-family',
-                    'font-size',
-                    'font-style',
-                    'font-weight',
-                    'line-height',
-                    'font-stretch',
-                ] as $prop
-            ) {
-                if (empty($dom[$key]['style'][$prop])) {
-                    $dom[$key]['style'][$prop] = 'inherit';
+            foreach ([
+                'font-family',
+                'font-size',
+                'font-style',
+                'font-weight',
+                'line-height',
+                'font-stretch',
+            ] as $prop) {
+                if (isset($dom[$key]['style'][$prop]) && $dom[$key]['style'][$prop] !== '') {
+                    continue;
                 }
+
+                $dom[$key]['style'][$prop] = 'inherit';
             }
 
             return;
@@ -2897,7 +2803,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $matches = [];
-        $pattern = '/^(.+?\s)?'
+        $pattern =
+            '/^(.+?\s)?'
             . '(xx-small|x-small|small|medium|large|x-large|xx-large|smaller|larger|'
             . '[0-9]*\.?[0-9]+(?:px|pt|pc|mm|cm|in|em|rem|ex|%))'
             . '(?:\s*\/\s*([^\s]+))?\s+(.+)$/i';
@@ -2905,18 +2812,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        $prefix = \trim((string) $matches[1]);
-        $size = \trim((string) $matches[2]);
-        $lineHeight = \trim((string) $matches[3]);
-        $family = \trim((string) $matches[4]);
+        $prefix = \trim($matches[1]);
+        $size = \trim($matches[2]);
+        $lineHeight = \trim($matches[3]);
+        $family = \trim($matches[4]);
 
-        if ($size !== '' && empty($dom[$key]['style']['font-size'])) {
+        if ($size !== '' && (!isset($dom[$key]['style']['font-size']) || $dom[$key]['style']['font-size'] === '')) {
             $dom[$key]['style']['font-size'] = $size;
         }
-        if ($lineHeight !== '' && empty($dom[$key]['style']['line-height'])) {
+        if (
+            $lineHeight !== ''
+            && (!isset($dom[$key]['style']['line-height']) || $dom[$key]['style']['line-height'] === '')
+        ) {
             $dom[$key]['style']['line-height'] = $lineHeight;
         }
-        if ($family !== '' && empty($dom[$key]['style']['font-family'])) {
+        if (
+            $family !== ''
+            && (!isset($dom[$key]['style']['font-family']) || $dom[$key]['style']['font-family'] === '')
+        ) {
             $dom[$key]['style']['font-family'] = $family;
         }
 
@@ -2935,7 +2848,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if (
-                empty($dom[$key]['style']['font-style'])
+                (!isset($dom[$key]['style']['font-style']) || $dom[$key]['style']['font-style'] === '')
                 && \in_array($token, ['italic', 'oblique'], true)
             ) {
                 $dom[$key]['style']['font-style'] = $token;
@@ -2943,16 +2856,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if (
-                empty($dom[$key]['style']['font-weight'])
-                && (\in_array($token, ['bold', 'bolder', 'lighter'], true)
-                || (\preg_match('/^[1-9]00$/', $token) === 1))
+                (!isset($dom[$key]['style']['font-weight']) || $dom[$key]['style']['font-weight'] === '')
+                && (\in_array($token, ['bold', 'bolder', 'lighter'], true) || \preg_match('/^[1-9]00$/', $token) === 1)
             ) {
                 $dom[$key]['style']['font-weight'] = $token;
                 continue;
             }
 
             if (
-                empty($dom[$key]['style']['font-stretch'])
+                (!isset($dom[$key]['style']['font-stretch']) || $dom[$key]['style']['font-stretch'] === '')
                 && \in_array(
                     $token,
                     [
@@ -2980,13 +2892,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFontFamilyProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['font-family'])) {
+        if (!isset($dom[$key]['style']['font-family']) || $dom[$key]['style']['font-family'] === '') {
             return;
         }
 
-        $fontFamily = \trim((string) $dom[$key]['style']['font-family']);
+        $fontFamily = \trim($dom[$key]['style']['font-family']);
         if (\strtolower($fontFamily) === 'inherit') {
-            $dom[$key]['fontname'] = (string) $dom[$parentkey]['fontname'];
+            $dom[$key]['fontname'] = $dom[$parentkey]['fontname'];
         } else {
             // Keep the raw CSS family list and defer font resolution to insert().
             // Resolving here against the current buffer can incorrectly collapse
@@ -3002,20 +2914,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleListStyleShorthandProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['list-style'])) {
+        if (!isset($dom[$key]['style']['list-style']) || $dom[$key]['style']['list-style'] === '') {
             return;
         }
 
-        $listStyle = \strtolower(\trim((string) $dom[$key]['style']['list-style']));
+        $listStyle = \strtolower(\trim($dom[$key]['style']['list-style']));
         if ($listStyle === 'inherit') {
             $parentListType = '';
-            if (!empty($dom[$parentkey]['listtype']) && \is_string($dom[$parentkey]['listtype'])) {
-                $parentListType = \trim(\strtolower((string) $dom[$parentkey]['listtype']));
+            if (
+                isset($dom[$parentkey]['listtype'])
+                && $dom[$parentkey]['listtype'] !== ''
+                && \is_string($dom[$parentkey]['listtype'])
+            ) {
+                $parentListType = \trim(\strtolower($dom[$parentkey]['listtype']));
             } elseif (
-                !empty($dom[$parentkey]['style']['list-style-type'])
+                isset($dom[$parentkey]['style']['list-style-type'])
+                && $dom[$parentkey]['style']['list-style-type'] !== ''
                 && \is_string($dom[$parentkey]['style']['list-style-type'])
             ) {
-                $styleListType = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-type']));
+                $styleListType = \trim(\strtolower($dom[$parentkey]['style']['list-style-type']));
                 if ($styleListType !== 'inherit') {
                     $parentListType = $styleListType;
                 }
@@ -3026,15 +2943,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $parentListPosition = '';
             if (
-                !empty($dom[$parentkey]['list-style-position'])
+                isset($dom[$parentkey]['list-style-position'])
+                && $dom[$parentkey]['list-style-position'] !== ''
                 && \is_string($dom[$parentkey]['list-style-position'])
             ) {
-                $parentListPosition = \trim(\strtolower((string) $dom[$parentkey]['list-style-position']));
+                $parentListPosition = \trim(\strtolower($dom[$parentkey]['list-style-position']));
             } elseif (
-                !empty($dom[$parentkey]['style']['list-style-position'])
+                isset($dom[$parentkey]['style']['list-style-position'])
+                && $dom[$parentkey]['style']['list-style-position'] !== ''
                 && \is_string($dom[$parentkey]['style']['list-style-position'])
             ) {
-                $styleListPosition = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-position']));
+                $styleListPosition = \trim(\strtolower($dom[$parentkey]['style']['list-style-position']));
                 if (\in_array($styleListPosition, ['inside', 'outside'], true)) {
                     $parentListPosition = $styleListPosition;
                 }
@@ -3045,15 +2964,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $parentImage = '';
             if (
-                !empty($dom[$parentkey]['style']['list-style-image'])
+                isset($dom[$parentkey]['style']['list-style-image'])
+                && $dom[$parentkey]['style']['list-style-image'] !== ''
                 && \is_string($dom[$parentkey]['style']['list-style-image'])
             ) {
-                $parentImage = \trim((string) $dom[$parentkey]['style']['list-style-image']);
+                $parentImage = \trim($dom[$parentkey]['style']['list-style-image']);
             } elseif (
-                !empty($dom[$parentkey]['list-style-image'])
+                isset($dom[$parentkey]['list-style-image'])
+                && $dom[$parentkey]['list-style-image'] !== ''
                 && \is_string($dom[$parentkey]['list-style-image'])
             ) {
-                $parentImage = \trim((string) $dom[$parentkey]['list-style-image']);
+                $parentImage = \trim($dom[$parentkey]['list-style-image']);
             }
 
             if ($parentImage !== '') {
@@ -3070,22 +2991,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleListStyleTypeProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['list-style-type'])) {
+        if (!isset($dom[$key]['style']['list-style-type']) || $dom[$key]['style']['list-style-type'] === '') {
             return;
         }
 
         $dom[$key]['listtype'] = \trim(\strtolower($dom[$key]['style']['list-style-type']));
-        if ($dom[$key]['listtype'] == 'inherit') {
-            if (!empty($dom[$parentkey]['listtype']) && \is_string($dom[$parentkey]['listtype'])) {
-                // @phpstan-ignore-next-line parameterByRef.type
-                $dom[$key]['listtype'] = \trim(\strtolower((string) $dom[$parentkey]['listtype']));
+        if ($dom[$key]['listtype'] === 'inherit') {
+            if (
+                isset($dom[$parentkey]['listtype'])
+                && $dom[$parentkey]['listtype'] !== ''
+                && \is_string($dom[$parentkey]['listtype'])
+            ) {
+                $dom[$key]['listtype'] = \trim(\strtolower($dom[$parentkey]['listtype']));
             } elseif (
-                !empty($dom[$parentkey]['style']['list-style-type'])
+                isset($dom[$parentkey]['style']['list-style-type'])
+                && $dom[$parentkey]['style']['list-style-type'] !== ''
                 && \is_string($dom[$parentkey]['style']['list-style-type'])
             ) {
-                $parentListType = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-type']));
+                $parentListType = \trim(\strtolower($dom[$parentkey]['style']['list-style-type']));
                 if ($parentListType !== 'inherit') {
-                    // @phpstan-ignore-next-line parameterByRef.type
                     $dom[$key]['listtype'] = $parentListType;
                 }
             }
@@ -3099,24 +3023,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleListStylePositionProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['list-style-position'])) {
+        if (!isset($dom[$key]['style']['list-style-position']) || $dom[$key]['style']['list-style-position'] === '') {
             return;
         }
 
         $position = \trim(\strtolower($dom[$key]['style']['list-style-position']));
         if ($position === 'inherit') {
             if (
-                !empty($dom[$parentkey]['list-style-position'])
+                isset($dom[$parentkey]['list-style-position'])
+                && $dom[$parentkey]['list-style-position'] !== ''
                 && \is_string($dom[$parentkey]['list-style-position'])
             ) {
-                $dom[$key]['list-style-position'] = \trim(\strtolower(
-                    (string) $dom[$parentkey]['list-style-position'],
-                ));
+                $dom[$key]['list-style-position'] = \trim(\strtolower($dom[$parentkey]['list-style-position']));
             } elseif (
-                !empty($dom[$parentkey]['style']['list-style-position'])
+                isset($dom[$parentkey]['style']['list-style-position'])
+                && $dom[$parentkey]['style']['list-style-position'] !== ''
                 && \is_string($dom[$parentkey]['style']['list-style-position'])
             ) {
-                $parentPosition = \trim(\strtolower((string) $dom[$parentkey]['style']['list-style-position']));
+                $parentPosition = \trim(\strtolower($dom[$parentkey]['style']['list-style-position']));
                 if (\in_array($parentPosition, ['inside', 'outside'], true)) {
                     $dom[$key]['list-style-position'] = $parentPosition;
                 }
@@ -3133,28 +3057,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleListStyleImageProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['list-style-image'])) {
+        if (!isset($dom[$key]['style']['list-style-image']) || $dom[$key]['style']['list-style-image'] === '') {
             return;
         }
 
-        $listImage = \trim((string) $dom[$key]['style']['list-style-image']);
+        $listImage = \trim($dom[$key]['style']['list-style-image']);
         if (\strtolower($listImage) === 'inherit') {
             $parentImage = '';
             if (
-                !empty($dom[$parentkey]['style']['list-style-image'])
+                isset($dom[$parentkey]['style']['list-style-image'])
+                && $dom[$parentkey]['style']['list-style-image'] !== ''
                 && \is_string($dom[$parentkey]['style']['list-style-image'])
             ) {
-                $parentImage = \trim((string) $dom[$parentkey]['style']['list-style-image']);
+                $parentImage = \trim($dom[$parentkey]['style']['list-style-image']);
             } elseif (
-                !empty($dom[$parentkey]['list-style-image'])
+                isset($dom[$parentkey]['list-style-image'])
+                && $dom[$parentkey]['list-style-image'] !== ''
                 && \is_string($dom[$parentkey]['list-style-image'])
             ) {
-                $parentImage = \trim((string) $dom[$parentkey]['list-style-image']);
+                $parentImage = \trim($dom[$parentkey]['list-style-image']);
             }
 
             $dom[$key]['list-style-image'] = $parentImage;
             if ($parentImage === '') {
-                // @phpstan-ignore-next-line parameterByRef.type
                 unset($dom[$key]['style']['list-style-image']);
             } else {
                 $dom[$key]['style']['list-style-image'] = $parentImage;
@@ -3171,29 +3096,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleTextIndentProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['text-indent'])) {
+        if (!isset($dom[$key]['style']['text-indent']) || $dom[$key]['style']['text-indent'] === '') {
             return;
         }
 
-        $textIndent = \strtolower(\trim((string) $dom[$key]['style']['text-indent']));
+        $textIndent = \strtolower(\trim($dom[$key]['style']['text-indent']));
         if ($textIndent === 'inherit') {
             if (isset($dom[$parentkey]['text-indent']) && \is_numeric($dom[$parentkey]['text-indent'])) {
-                $dom[$key]['text-indent'] = (float) $dom[$parentkey]['text-indent'];
+                $dom[$key]['text-indent'] = $dom[$parentkey]['text-indent'];
             } elseif (
-                !empty($dom[$parentkey]['style']['text-indent'])
+                isset($dom[$parentkey]['style']['text-indent'])
+                && $dom[$parentkey]['style']['text-indent'] !== ''
                 && \is_string($dom[$parentkey]['style']['text-indent'])
             ) {
-                $parentTextIndent = \strtolower(\trim((string) $dom[$parentkey]['style']['text-indent']));
+                $parentTextIndent = \strtolower(\trim($dom[$parentkey]['style']['text-indent']));
                 if ($parentTextIndent !== 'inherit') {
-                    $dom[$key]['text-indent'] = $this->toUnit(
-                        $this->getUnitValuePoints($parentTextIndent),
-                    );
+                    $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($parentTextIndent));
                 }
             }
         } else {
-            $dom[$key]['text-indent'] = $this->toUnit(
-                $this->getUnitValuePoints($textIndent),
-            );
+            $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($textIndent));
         }
     }
 
@@ -3204,22 +3126,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleTextTransformProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['text-transform'])) {
+        if (!isset($dom[$key]['style']['text-transform']) || $dom[$key]['style']['text-transform'] === '') {
             return;
         }
 
-        $transform = \strtolower(\trim((string) $dom[$key]['style']['text-transform']));
+        $transform = \strtolower(\trim($dom[$key]['style']['text-transform']));
         if ($transform === 'inherit') {
             if (
-                !empty($dom[$parentkey]['text-transform'])
+                isset($dom[$parentkey]['text-transform'])
+                && $dom[$parentkey]['text-transform'] !== ''
                 && \is_string($dom[$parentkey]['text-transform'])
             ) {
-                $dom[$key]['text-transform'] = \strtolower(\trim((string) $dom[$parentkey]['text-transform']));
+                $dom[$key]['text-transform'] = \strtolower(\trim($dom[$parentkey]['text-transform']));
             } elseif (
-                !empty($dom[$parentkey]['style']['text-transform'])
+                isset($dom[$parentkey]['style']['text-transform'])
+                && $dom[$parentkey]['style']['text-transform'] !== ''
                 && \is_string($dom[$parentkey]['style']['text-transform'])
             ) {
-                $parentTransform = \strtolower(\trim((string) $dom[$parentkey]['style']['text-transform']));
+                $parentTransform = \strtolower(\trim($dom[$parentkey]['style']['text-transform']));
                 if (\in_array($parentTransform, ['uppercase', 'lowercase', 'capitalize'], true)) {
                     $dom[$key]['text-transform'] = $parentTransform;
                 } elseif ($parentTransform === 'none') {
@@ -3240,22 +3164,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleWhiteSpaceProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['white-space'])) {
+        if (!isset($dom[$key]['style']['white-space']) || $dom[$key]['style']['white-space'] === '') {
             return;
         }
 
         $whitespace = \strtolower(\trim($dom[$key]['style']['white-space']));
         if ($whitespace === 'inherit') {
             if (
-                !empty($dom[$parentkey]['white-space'])
+                isset($dom[$parentkey]['white-space'])
+                && $dom[$parentkey]['white-space'] !== ''
                 && \is_string($dom[$parentkey]['white-space'])
             ) {
-                $dom[$key]['white-space'] = \strtolower(\trim((string) $dom[$parentkey]['white-space']));
+                $dom[$key]['white-space'] = \strtolower(\trim($dom[$parentkey]['white-space']));
             } elseif (
-                !empty($dom[$parentkey]['style']['white-space'])
+                isset($dom[$parentkey]['style']['white-space'])
+                && $dom[$parentkey]['style']['white-space'] !== ''
                 && \is_string($dom[$parentkey]['style']['white-space'])
             ) {
-                $parentWhitespace = \strtolower(\trim((string) $dom[$parentkey]['style']['white-space']));
+                $parentWhitespace = \strtolower(\trim($dom[$parentkey]['style']['white-space']));
                 if (\in_array($parentWhitespace, ['normal', 'nowrap', 'pre', 'pre-wrap', 'pre-line'], true)) {
                     $dom[$key]['white-space'] = $parentWhitespace;
                 }
@@ -3273,14 +3199,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleOverflowWrapProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['overflow-wrap'])) {
+        if (!isset($dom[$key]['style']['overflow-wrap']) || $dom[$key]['style']['overflow-wrap'] === '') {
             return;
         }
 
         $overflow = \strtolower(\trim($dom[$key]['style']['overflow-wrap']));
         if ($overflow === 'inherit') {
             if (
-                !empty($dom[$parentkey]['overflow-wrap'])
+                isset($dom[$parentkey]['overflow-wrap'])
+                && $dom[$parentkey]['overflow-wrap'] !== ''
                 && \is_string($dom[$parentkey]['overflow-wrap'])
             ) {
                 $parentOverflowWrap = $dom[$parentkey]['overflow-wrap'];
@@ -3299,14 +3226,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleWordBreakProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['word-break'])) {
+        if (!isset($dom[$key]['style']['word-break']) || $dom[$key]['style']['word-break'] === '') {
             return;
         }
 
         $wordbreak = \strtolower(\trim($dom[$key]['style']['word-break']));
         if ($wordbreak === 'inherit') {
             if (
-                !empty($dom[$parentkey]['word-break'])
+                isset($dom[$parentkey]['word-break'])
+                && $dom[$parentkey]['word-break'] !== ''
                 && \is_string($dom[$parentkey]['word-break'])
             ) {
                 $parentWordBreak = $dom[$parentkey]['word-break'];
@@ -3324,18 +3252,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFontSizeProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['font-size'])) {
+        if (!isset($dom[$key]['style']['font-size']) || $dom[$key]['style']['font-size'] === '') {
             return;
         }
 
-        $fsize = \strtolower(\trim((string) $dom[$key]['style']['font-size']));
+        $fsize = \strtolower(\trim($dom[$key]['style']['font-size']));
         if ($fsize === 'inherit') {
             if (\is_numeric($dom[$parentkey]['fontsize'])) {
-                $dom[$key]['fontsize'] = (float) $dom[$parentkey]['fontsize'];
+                $dom[$key]['fontsize'] = $dom[$parentkey]['fontsize'];
             } elseif (
                 \is_array($dom[$parentkey]['style'])
-                &&
-                !empty($dom[$parentkey]['style']['font-size'])
+                && isset($dom[$parentkey]['style']['font-size'])
+                && $dom[$parentkey]['style']['font-size'] !== ''
                 && \is_string($dom[$parentkey]['style']['font-size'])
             ) {
                 $parentFontSize = \strtolower(\trim($dom[$parentkey]['style']['font-size']));
@@ -3363,18 +3291,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFontStretchProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['font-stretch'])) {
+        if (!isset($dom[$key]['style']['font-stretch']) || $dom[$key]['style']['font-stretch'] === '') {
             return;
         }
 
-        $fontStretch = \strtolower(\trim((string) $dom[$key]['style']['font-stretch']));
+        $fontStretch = \strtolower(\trim($dom[$key]['style']['font-stretch']));
         $parentStretch = 100.0;
         if (\is_numeric($dom[$parentkey]['font-stretch'])) {
             $parentStretch = \floatval($dom[$parentkey]['font-stretch']);
         } elseif (
             \is_array($dom[$parentkey]['style'])
-            &&
-            !empty($dom[$parentkey]['style']['font-stretch'])
+            && isset($dom[$parentkey]['style']['font-stretch'])
+            && $dom[$parentkey]['style']['font-stretch'] !== ''
             && \is_string($dom[$parentkey]['style']['font-stretch'])
         ) {
             $parentStretchStyle = \strtolower(\trim($dom[$parentkey]['style']['font-stretch']));
@@ -3382,10 +3310,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $parentStretch = $this->getTAFontStretching($parentStretchStyle, 100.0);
             }
         }
-        $dom[$key]['font-stretch'] = $this->getTAFontStretching(
-            $fontStretch,
-            $parentStretch,
-        );
+        $dom[$key]['font-stretch'] = $this->getTAFontStretching($fontStretch, $parentStretch);
     }
 
     /**
@@ -3395,29 +3320,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleLetterSpacingProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['letter-spacing'])) {
+        if (!isset($dom[$key]['style']['letter-spacing']) || $dom[$key]['style']['letter-spacing'] === '') {
             return;
         }
 
-        $letterSpacing = \strtolower(\trim((string) $dom[$key]['style']['letter-spacing']));
+        $letterSpacing = \strtolower(\trim($dom[$key]['style']['letter-spacing']));
+        $parentNode = $dom[$parentkey] ?? [];
+        $parentStyle = isset($parentNode['style']) && \is_array($parentNode['style']) ? $parentNode['style'] : [];
+
         $parentLetterSpacing = 0.0;
-        if (\is_numeric($dom[$parentkey]['letter-spacing'])) {
-            $parentLetterSpacing = \floatval($dom[$parentkey]['letter-spacing']);
+        if (isset($parentNode['letter-spacing']) && \is_numeric($parentNode['letter-spacing'])) {
+            $parentLetterSpacing = \floatval($parentNode['letter-spacing']);
         } elseif (
-            \is_array($dom[$parentkey]['style'])
-            &&
-            !empty($dom[$parentkey]['style']['letter-spacing'])
-            && \is_string($dom[$parentkey]['style']['letter-spacing'])
+            isset($parentStyle['letter-spacing'])
+            && $parentStyle['letter-spacing'] !== ''
+            && \is_string($parentStyle['letter-spacing'])
         ) {
-            $parentSpacingStyle = \strtolower(\trim($dom[$parentkey]['style']['letter-spacing']));
+            $parentSpacingStyle = \strtolower(\trim($parentStyle['letter-spacing']));
             if ($parentSpacingStyle !== 'inherit') {
                 $parentLetterSpacing = $this->getTALetterSpacing($parentSpacingStyle, 0.0);
             }
         }
-        $dom[$key]['letter-spacing'] = $this->getTALetterSpacing(
-            $letterSpacing,
-            $parentLetterSpacing,
-        );
+        $dom[$key]['letter-spacing'] = $this->getTALetterSpacing($letterSpacing, $parentLetterSpacing);
     }
 
     /**
@@ -3427,31 +3351,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleWordSpacingProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['word-spacing'])) {
+        if (!isset($dom[$key]['style']['word-spacing']) || $dom[$key]['style']['word-spacing'] === '') {
             return;
         }
 
-        $spacing = \strtolower(\trim((string) $dom[$key]['style']['word-spacing']));
+        $spacing = \strtolower(\trim($dom[$key]['style']['word-spacing']));
+        $parentNode = $dom[$parentkey] ?? [];
+        $parentStyle = isset($parentNode['style']) && \is_array($parentNode['style']) ? $parentNode['style'] : [];
+
         $parentWordSpacing = 0.0;
-        if (\is_numeric($dom[$parentkey]['word-spacing'])) {
-            $parentWordSpacing = (float) $dom[$parentkey]['word-spacing'];
+        if (isset($parentNode['word-spacing']) && \is_numeric($parentNode['word-spacing'])) {
+            $parentWordSpacing = $parentNode['word-spacing'];
         } elseif (
-            \is_array($dom[$parentkey]['style'])
-            &&
-            !empty($dom[$parentkey]['style']['word-spacing'])
-            && \is_string($dom[$parentkey]['style']['word-spacing'])
+            isset($parentStyle['word-spacing'])
+            && $parentStyle['word-spacing'] !== ''
+            && \is_string($parentStyle['word-spacing'])
         ) {
-            $parentSpacingStyle = \strtolower(\trim($dom[$parentkey]['style']['word-spacing']));
+            $parentSpacingStyle = \strtolower(\trim($parentStyle['word-spacing']));
             if ($parentSpacingStyle !== 'inherit') {
                 if ($parentSpacingStyle === 'normal') {
                     $parentWordSpacing = 0.0;
                 } else {
-                    $parentWordSpacing = $this->toUnit(
-                        $this->getUnitValuePoints(
-                            $parentSpacingStyle,
-                            \array_merge(self::REFUNITVAL, ['parent' => 0.0]),
-                        ),
-                    );
+                    $parentWordSpacing = $this->toUnit($this->getUnitValuePoints($parentSpacingStyle, \array_merge(self::REFUNITVAL, [
+                        'parent' => 0.0,
+                    ])));
                 }
             }
         }
@@ -3460,15 +3383,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         } elseif ($spacing === 'normal') {
             $dom[$key]['word-spacing'] = 0.0;
         } else {
-            $dom[$key]['word-spacing'] = $this->toUnit(
-                $this->getUnitValuePoints(
-                    $spacing,
-                    \array_merge(
-                        self::REFUNITVAL,
-                        ['parent' => $parentWordSpacing],
-                    ),
-                ),
-            );
+            $dom[$key]['word-spacing'] = $this->toUnit($this->getUnitValuePoints($spacing, \array_merge(self::REFUNITVAL, [
+                'parent' => $parentWordSpacing,
+            ])));
         }
     }
 
@@ -3479,35 +3396,47 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleLineHeightProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['line-height'])) {
+        if (!isset($dom[$key]['style']['line-height']) || $dom[$key]['style']['line-height'] === '') {
             return;
         }
 
-        $lineheight = \strtolower(\trim((string) $dom[$key]['style']['line-height']));
+        $lineheight = \strtolower(\trim($dom[$key]['style']['line-height']));
+        $rootLineHeight = isset($dom[0]['line-height']) && \is_numeric($dom[0]['line-height'])
+            ? $dom[0]['line-height']
+            : 1.0;
+        $parentLineHeight = isset($dom[$parentkey]['line-height']) && \is_numeric($dom[$parentkey]['line-height'])
+            ? $dom[$parentkey]['line-height']
+            : $rootLineHeight;
+
         switch ($lineheight) {
             // A normal line height. This is default
             case 'normal':
-                $dom[$key]['line-height'] = $dom[0]['line-height'];
+                $dom[$key]['line-height'] = $rootLineHeight;
                 break;
             case 'inherit':
-                $dom[$key]['line-height'] = $dom[$parentkey]['line-height'];
+                $dom[$key]['line-height'] = $parentLineHeight;
                 break;
             default:
                 if (\is_numeric($lineheight)) {
                     // Unitless number: ratio used directly (e.g. 1.5 means 1.5× font height).
                     $dom[$key]['line-height'] = (float) $lineheight;
+
                     /** @var array<int, THTMLAttrib> $dom */
                 } elseif (\substr($lineheight, -1) === '%') {
                     // Percentage: store as a dimensionless ratio (150% → 1.5).
                     $dom[$key]['line-height'] = (float) $lineheight / 100.0;
+
                     /** @var array<int, THTMLAttrib> $dom */
                 } else {
                     // Absolute unit (pt, mm, …): convert to pts and divide by font size in pts.
                     $lhpts = $this->getUnitValuePoints($lineheight);
-                    $fontsize = (!empty($dom[$key]['fontsize']) && \is_numeric($dom[$key]['fontsize']))
-                        ? (float) $dom[$key]['fontsize']
+                    $fontsize = isset($dom[$key]['fontsize'])
+                    && $dom[$key]['fontsize'] !== ''
+                    && \is_numeric($dom[$key]['fontsize'])
+                        ? $dom[$key]['fontsize']
                         : 0.0;
-                    $dom[$key]['line-height'] = ($fontsize > 0) ? ($lhpts / $fontsize) : 1.0;
+                    $dom[$key]['line-height'] = $fontsize > 0 ? $lhpts / $fontsize : 1.0;
+
                     /** @var array<int, THTMLAttrib> $dom */
                 }
         }
@@ -3520,51 +3449,52 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFontWeightProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['font-weight']) || !\is_string($dom[$key]['fontstyle'])) {
+        if (
+            !isset($dom[$key]['style']['font-weight'])
+            || $dom[$key]['style']['font-weight'] === ''
+            || !\is_string($dom[$key]['fontstyle'])
+        ) {
             return;
         }
 
-        $fontWeight = \strtolower(\trim((string) $dom[$key]['style']['font-weight']));
+        $fontWeight = \strtolower(\trim($dom[$key]['style']['font-weight']));
         if ($fontWeight === 'inherit') {
-            $parentBold = (
-                \is_string($dom[$parentkey]['fontstyle'])
-                && (\strpos($dom[$parentkey]['fontstyle'], 'B') !== false)
-            );
+            $parentNode = $dom[$parentkey] ?? [];
+            $parentStyle = isset($parentNode['style']) && \is_array($parentNode['style']) ? $parentNode['style'] : [];
+
+            $parentBold =
+                isset($parentNode['fontstyle'])
+                && \is_string($parentNode['fontstyle'])
+                && \str_contains($parentNode['fontstyle'], 'B');
             if (
                 !$parentBold
-                && !empty($dom[$parentkey]['style']['font-weight'])
-                && \is_string($dom[$parentkey]['style']['font-weight'])
+                && isset($parentStyle['font-weight'])
+                && $parentStyle['font-weight'] !== ''
+                && \is_string($parentStyle['font-weight'])
             ) {
-                $parentWeight = \strtolower(\trim((string) $dom[$parentkey]['style']['font-weight']));
-                $parentBold = (
-                    (\is_numeric($parentWeight) && ((int) $parentWeight >= 600))
-                    || (($parentWeight !== '') && ($parentWeight[0] === 'b'))
-                );
+                $parentWeight = \strtolower(\trim($parentStyle['font-weight']));
+                $parentBold =
+                    \is_numeric($parentWeight) && (int) $parentWeight >= 600
+                    || $parentWeight !== '' && $parentWeight[0] === 'b';
             }
             if ($parentBold) {
-                if (\strpos($dom[$key]['fontstyle'], 'B') === false) {
-                    // @phpstan-ignore-next-line parameterByRef.type
+                if (!\str_contains($dom[$key]['fontstyle'], 'B')) {
                     $dom[$key]['fontstyle'] .= 'B';
                 }
-            } elseif (\strpos($dom[$key]['fontstyle'], 'B') !== false) {
-                // @phpstan-ignore-next-line parameterByRef.type
+            } elseif (\str_contains($dom[$key]['fontstyle'], 'B')) {
                 $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
             }
         } elseif (\is_numeric($fontWeight)) {
             if ((int) $fontWeight >= 600) {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key]['fontstyle'] .= 'B';
             } else {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
             }
-        } elseif ($fontWeight !== '' && $fontWeight[0] == 'n') {
-            if (\strpos($dom[$key]['fontstyle'], 'B') !== false) {
-                // @phpstan-ignore-next-line parameterByRef.type
+        } elseif ($fontWeight !== '' && $fontWeight[0] === 'n') {
+            if (\str_contains($dom[$key]['fontstyle'], 'B')) {
                 $dom[$key]['fontstyle'] = \str_replace('B', '', $dom[$key]['fontstyle']);
             }
-        } elseif ($fontWeight !== '' && $fontWeight[0] == 'b') {
-            // @phpstan-ignore-next-line parameterByRef.type
+        } elseif ($fontWeight !== '' && $fontWeight[0] === 'b') {
             $dom[$key]['fontstyle'] .= 'B';
         }
     }
@@ -3576,39 +3506,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleFontStyleProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['font-style']) || !\is_string($dom[$key]['fontstyle'])) {
+        if (
+            !isset($dom[$key]['style']['font-style'])
+            || $dom[$key]['style']['font-style'] === ''
+            || !\is_string($dom[$key]['fontstyle'])
+        ) {
             return;
         }
 
-        $fontStyle = \strtolower(\trim((string) $dom[$key]['style']['font-style']));
+        $fontStyle = \strtolower(\trim($dom[$key]['style']['font-style']));
         if ($fontStyle === 'inherit') {
             if (
-                !empty($dom[$parentkey]['fontstyle'])
+                isset($dom[$parentkey]['fontstyle'])
+                && $dom[$parentkey]['fontstyle'] !== ''
                 && \is_string($dom[$parentkey]['fontstyle'])
             ) {
-                // @phpstan-ignore-next-line parameterByRef.type
-                $dom[$key]['fontstyle'] = (string) $dom[$parentkey]['fontstyle'];
+                $dom[$key]['fontstyle'] = $dom[$parentkey]['fontstyle'];
             } elseif (
-                !empty($dom[$parentkey]['style']['font-style'])
+                isset($dom[$parentkey]['style']['font-style'])
+                && $dom[$parentkey]['style']['font-style'] !== ''
                 && \is_string($dom[$parentkey]['style']['font-style'])
             ) {
-                $parentFontStyle = \strtolower(\trim((string) $dom[$parentkey]['style']['font-style']));
+                $parentFontStyle = \strtolower(\trim($dom[$parentkey]['style']['font-style']));
                 if ($parentFontStyle === 'normal') {
-                    // @phpstan-ignore-next-line parameterByRef.type
                     $dom[$key]['fontstyle'] = \str_replace('I', '', $dom[$key]['fontstyle']);
                 } elseif ($parentFontStyle !== '' && ($parentFontStyle[0] === 'i' || $parentFontStyle[0] === 'o')) {
-                    if (\strpos($dom[$key]['fontstyle'], 'I') === false) {
-                        // @phpstan-ignore-next-line parameterByRef.type
+                    if (!\str_contains($dom[$key]['fontstyle'], 'I')) {
                         $dom[$key]['fontstyle'] .= 'I';
                     }
                 }
             }
         } elseif ($fontStyle === 'normal') {
-            // @phpstan-ignore-next-line parameterByRef.type
             $dom[$key]['fontstyle'] = \str_replace('I', '', $dom[$key]['fontstyle']);
         } elseif ($fontStyle !== '' && ($fontStyle[0] === 'i' || $fontStyle[0] === 'o')) {
-            if (\strpos($dom[$key]['fontstyle'], 'I') === false) {
-                // @phpstan-ignore-next-line parameterByRef.type
+            if (!\str_contains($dom[$key]['fontstyle'], 'I')) {
                 $dom[$key]['fontstyle'] .= 'I';
             }
         }
@@ -3621,16 +3552,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleColorProperty(array &$dom, int $key, int $parentkey): void
     {
-        if ((!empty($dom[$key]['style']['color']))) {
-            $fontColor = \trim((string) $dom[$key]['style']['color']);
+        if (isset($dom[$key]['style']['color']) && $dom[$key]['style']['color'] !== '') {
+            $fontColor = \trim($dom[$key]['style']['color']);
             if (\strtolower($fontColor) === 'inherit') {
-                if (!empty($dom[$parentkey]['fgcolor']) && \is_string($dom[$parentkey]['fgcolor'])) {
-                    $dom[$key]['fgcolor'] = (string) $dom[$parentkey]['fgcolor'];
+                if (
+                    isset($dom[$parentkey]['fgcolor'])
+                    && $dom[$parentkey]['fgcolor'] !== ''
+                    && \is_string($dom[$parentkey]['fgcolor'])
+                ) {
+                    $dom[$key]['fgcolor'] = $dom[$parentkey]['fgcolor'];
                 } elseif (
-                    !empty($dom[$parentkey]['style']['color'])
+                    isset($dom[$parentkey]['style']['color'])
+                    && $dom[$parentkey]['style']['color'] !== ''
                     && \is_string($dom[$parentkey]['style']['color'])
                 ) {
-                    $parentColor = \trim((string) $dom[$parentkey]['style']['color']);
+                    $parentColor = \trim($dom[$parentkey]['style']['color']);
                     if (\strtolower($parentColor) !== 'inherit') {
                         $dom[$key]['fgcolor'] = $this->getCSSColor($parentColor);
                     }
@@ -3638,7 +3574,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } else {
                 $dom[$key]['fgcolor'] = $this->getCSSColor($fontColor);
             }
-        } elseif ($dom[$key]['value'] == 'a') {
+        } elseif ($dom[$key]['value'] === 'a') {
             $dom[$key]['fgcolor'] = 'blue';
         }
     }
@@ -3650,40 +3586,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleBackgroundProperty(array &$dom, int $key, int $parentkey): void
     {
-        $hasBackgroundColor = !empty($dom[$key]['style']['background-color']);
-        $hasBackground = !empty($dom[$key]['style']['background']);
+        $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+        $hasBackgroundColor = isset($keyStyle['background-color']) && $keyStyle['background-color'] !== '';
+        $hasBackground = isset($keyStyle['background']) && $keyStyle['background'] !== '';
         $resolvedBg = null;
 
         $prefBgColor = true;
         if ($hasBackgroundColor && $hasBackground) {
-            $lastBgProp = $this->getLastHTMLStyleDeclarationProperty(
-                $dom,
-                $key,
-                ['background-color', 'background'],
-            );
+            $lastBgProp = $this->getLastHTMLStyleDeclarationProperty($dom, $key, ['background-color', 'background']);
             if ($lastBgProp === 'background') {
                 $prefBgColor = false;
             }
         }
 
         if ($hasBackgroundColor && (!$hasBackground || $prefBgColor)) {
-            $backgroundColor = \trim((string) $dom[$key]['style']['background-color']);
+            $backgroundColor = \trim($keyStyle['background-color']);
             if (\strtolower($backgroundColor) === 'inherit') {
-                if (!empty($dom[$parentkey]['bgcolor']) && \is_string($dom[$parentkey]['bgcolor'])) {
-                    $resolvedBg = (string) $dom[$parentkey]['bgcolor'];
+                if (
+                    isset($dom[$parentkey]['bgcolor'])
+                    && $dom[$parentkey]['bgcolor'] !== ''
+                    && \is_string($dom[$parentkey]['bgcolor'])
+                ) {
+                    $resolvedBg = $dom[$parentkey]['bgcolor'];
                 } elseif (
-                    !empty($dom[$parentkey]['style']['background-color'])
+                    isset($dom[$parentkey]['style']['background-color'])
+                    && $dom[$parentkey]['style']['background-color'] !== ''
                     && \is_string($dom[$parentkey]['style']['background-color'])
                 ) {
-                    $parentBgColor = \trim((string) $dom[$parentkey]['style']['background-color']);
+                    $parentBgColor = \trim($dom[$parentkey]['style']['background-color']);
                     if (\strtolower($parentBgColor) !== 'inherit') {
                         $resolvedBg = $this->getCSSColor($parentBgColor);
                     }
                 } elseif (
-                    !empty($dom[$parentkey]['style']['background'])
+                    isset($dom[$parentkey]['style']['background'])
+                    && $dom[$parentkey]['style']['background'] !== ''
                     && \is_string($dom[$parentkey]['style']['background'])
                 ) {
-                    $parentBackground = \trim((string) $dom[$parentkey]['style']['background']);
+                    $parentBackground = \trim($dom[$parentkey]['style']['background']);
                     if (\strtolower($parentBackground) !== 'inherit') {
                         $resolvedBg = $this->getHTMLBackgroundShorthandColor($parentBackground);
                     }
@@ -3692,23 +3631,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $resolvedBg = $this->getCSSColor($backgroundColor);
             }
         } elseif ($hasBackground) {
-            $background = \trim((string) $dom[$key]['style']['background']);
+            $background = \trim($keyStyle['background']);
             if (\strtolower($background) === 'inherit') {
-                if (!empty($dom[$parentkey]['bgcolor']) && \is_string($dom[$parentkey]['bgcolor'])) {
-                    $resolvedBg = (string) $dom[$parentkey]['bgcolor'];
+                if (
+                    isset($dom[$parentkey]['bgcolor'])
+                    && $dom[$parentkey]['bgcolor'] !== ''
+                    && \is_string($dom[$parentkey]['bgcolor'])
+                ) {
+                    $resolvedBg = $dom[$parentkey]['bgcolor'];
                 } elseif (
-                    !empty($dom[$parentkey]['style']['background-color'])
+                    isset($dom[$parentkey]['style']['background-color'])
+                    && $dom[$parentkey]['style']['background-color'] !== ''
                     && \is_string($dom[$parentkey]['style']['background-color'])
                 ) {
-                    $parentBgColor = \trim((string) $dom[$parentkey]['style']['background-color']);
+                    $parentBgColor = \trim($dom[$parentkey]['style']['background-color']);
                     if (\strtolower($parentBgColor) !== 'inherit') {
                         $resolvedBg = $this->getCSSColor($parentBgColor);
                     }
                 } elseif (
-                    !empty($dom[$parentkey]['style']['background'])
+                    isset($dom[$parentkey]['style']['background'])
+                    && $dom[$parentkey]['style']['background'] !== ''
                     && \is_string($dom[$parentkey]['style']['background'])
                 ) {
-                    $parentBackground = \trim((string) $dom[$parentkey]['style']['background']);
+                    $parentBackground = \trim($dom[$parentkey]['style']['background']);
                     if (\strtolower($parentBackground) !== 'inherit') {
                         $resolvedBg = $this->getHTMLBackgroundShorthandColor($parentBackground);
                     }
@@ -3719,7 +3664,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if (\is_string($resolvedBg)) {
-            // @phpstan-ignore-next-line parameterByRef.type
             $dom[$key]['bgcolor'] = $resolvedBg;
         }
     }
@@ -3733,9 +3677,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getLastHTMLStyleDeclarationProperty(array &$dom, int $key, array $properties): string
     {
         if (
-            empty($dom[$key]['attribute']['style'])
+            !isset($dom[$key]['attribute']['style'])
+            || $dom[$key]['attribute']['style'] === ''
             || !\is_string($dom[$key]['attribute']['style'])
-            || ($properties === [])
+            || $properties === []
         ) {
             return '';
         }
@@ -3752,7 +3697,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lastProperty = '';
         $lastOffset = -1;
         foreach ($matches[1] ?? [] as $entry) {
-            $prop = (string) $entry[0];
+            $prop = $entry[0];
             $offset = (int) $entry[1];
             if ($offset >= $lastOffset) {
                 $lastOffset = $offset;
@@ -3782,7 +3727,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return true;
         }
 
-        return ($lastProperty === \strtolower($property));
+        return $lastProperty === \strtolower($property);
     }
 
     /**
@@ -3793,19 +3738,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLStyleTextDecorationProperty(array &$dom, int $key, int $parentkey): void
     {
         if (
-            !empty($dom[$key]['style']['text-decoration'])
+            isset($dom[$key]['style']['text-decoration'])
+            && $dom[$key]['style']['text-decoration'] !== ''
             && \is_string($dom[$key]['fontstyle'])
         ) {
             $fontStyleNoDecor = \str_replace(['U', 'D', 'O'], '', $dom[$key]['fontstyle']);
             $decorations = '';
-            $textDecoration = \strtolower(\trim((string) $dom[$key]['style']['text-decoration']));
+            $textDecoration = \strtolower(\trim($dom[$key]['style']['text-decoration']));
 
             if ($textDecoration === 'inherit') {
                 $parentStyle = \is_string($dom[$parentkey]['fontstyle']) ? $dom[$parentkey]['fontstyle'] : '';
                 foreach (['U', 'D', 'O'] as $flag) {
-                    if (\strpos($parentStyle, $flag) !== false) {
-                        $decorations .= $flag;
+                    if (!\str_contains($parentStyle, $flag)) {
+                        continue;
                     }
+
+                    $decorations .= $flag;
                 }
             } elseif ($textDecoration !== 'none') {
                 $decors = \explode(' ', $textDecoration);
@@ -3821,15 +3769,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'o' => 'O',
                         default => '',
                     };
-                    if ($flag !== '' && \strpos($decorations, $flag) === false) {
+                    if ($flag !== '' && !\str_contains($decorations, $flag)) {
                         $decorations .= $flag;
                     }
                 }
             }
 
-            // @phpstan-ignore-next-line parameterByRef.type
             $dom[$key]['fontstyle'] = $fontStyleNoDecor . $decorations;
-        } elseif ($dom[$key]['value'] == 'a') {
+        } elseif ($dom[$key]['value'] === 'a') {
             $dom[$key]['fontstyle'] .= 'U';
         }
     }
@@ -3841,19 +3788,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleWidthProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['width'])) {
+        if (!isset($dom[$key]['style']['width']) || $dom[$key]['style']['width'] === '') {
             return;
         }
 
-        $width = \trim((string) $dom[$key]['style']['width']);
+        $width = \trim($dom[$key]['style']['width']);
         if (\strtolower($width) === 'inherit') {
             if (isset($dom[$parentkey]['width']) && \is_numeric($dom[$parentkey]['width'])) {
-                $dom[$key]['width'] = (float) $dom[$parentkey]['width'];
+                $dom[$key]['width'] = $dom[$parentkey]['width'];
             } elseif (
-                !empty($dom[$parentkey]['style']['width'])
+                isset($dom[$parentkey]['style']['width'])
+                && $dom[$parentkey]['style']['width'] !== ''
                 && \is_string($dom[$parentkey]['style']['width'])
             ) {
-                $parentWidth = \trim((string) $dom[$parentkey]['style']['width']);
+                $parentWidth = \trim($dom[$parentkey]['style']['width']);
                 if (\strtolower($parentWidth) !== 'inherit') {
                     $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($parentWidth));
                 }
@@ -3873,21 +3821,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleMinMaxWidthProperties(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['style']['width']) || !\is_numeric($dom[$key]['width'])) {
+        if (
+            !isset($dom[$key]['style']['width'])
+            || $dom[$key]['style']['width'] === ''
+            || !\is_numeric($dom[$key]['width'])
+        ) {
             return;
         }
 
         $min = null;
         $max = null;
 
-        if (!empty($dom[$key]['style']['min-width']) && \is_string($dom[$key]['style']['min-width'])) {
-            $min = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['min-width']);
+        if (
+            isset($dom[$key]['style']['min-width'])
+            && $dom[$key]['style']['min-width'] !== ''
+            && \is_string($dom[$key]['style']['min-width'])
+        ) {
+            $min = $this->getHTMLStyleLengthValue($dom[$key]['style']['min-width']);
         }
 
-        if (!empty($dom[$key]['style']['max-width']) && \is_string($dom[$key]['style']['max-width'])) {
-            $maxRaw = \strtolower(\trim((string) $dom[$key]['style']['max-width']));
+        if (
+            isset($dom[$key]['style']['max-width'])
+            && $dom[$key]['style']['max-width'] !== ''
+            && \is_string($dom[$key]['style']['max-width'])
+        ) {
+            $maxRaw = \strtolower(\trim($dom[$key]['style']['max-width']));
             if ($maxRaw !== 'none') {
-                $max = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['max-width']);
+                $max = $this->getHTMLStyleLengthValue($dom[$key]['style']['max-width']);
             }
         }
 
@@ -3895,7 +3855,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        $width = (float) $dom[$key]['width'];
+        $width = $dom[$key]['width'];
         if ($min !== null && $max !== null && $max < $min) {
             $max = $min;
         }
@@ -3906,7 +3866,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $width = $max;
         }
 
-        // @phpstan-ignore-next-line parameterByRef.type
         $dom[$key]['width'] = $width;
     }
 
@@ -3917,19 +3876,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleHeightProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['height'])) {
+        if (!isset($dom[$key]['style']['height']) || $dom[$key]['style']['height'] === '') {
             return;
         }
 
-        $height = \trim((string) $dom[$key]['style']['height']);
+        $height = \trim($dom[$key]['style']['height']);
         if (\strtolower($height) === 'inherit') {
             if (isset($dom[$parentkey]['height']) && \is_numeric($dom[$parentkey]['height'])) {
-                $dom[$key]['height'] = (float) $dom[$parentkey]['height'];
+                $dom[$key]['height'] = $dom[$parentkey]['height'];
             } elseif (
-                !empty($dom[$parentkey]['style']['height'])
+                isset($dom[$parentkey]['style']['height'])
+                && $dom[$parentkey]['style']['height'] !== ''
                 && \is_string($dom[$parentkey]['style']['height'])
             ) {
-                $parentHeight = \trim((string) $dom[$parentkey]['style']['height']);
+                $parentHeight = \trim($dom[$parentkey]['style']['height']);
                 if (\strtolower($parentHeight) !== 'inherit') {
                     $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($parentHeight));
                 }
@@ -3949,21 +3909,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleMinMaxHeightProperties(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['style']['height']) || !\is_numeric($dom[$key]['height'])) {
+        if (
+            !isset($dom[$key]['style']['height'])
+            || $dom[$key]['style']['height'] === ''
+            || !\is_numeric($dom[$key]['height'])
+        ) {
             return;
         }
 
         $min = null;
         $max = null;
 
-        if (!empty($dom[$key]['style']['min-height']) && \is_string($dom[$key]['style']['min-height'])) {
-            $min = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['min-height']);
+        if (
+            isset($dom[$key]['style']['min-height'])
+            && $dom[$key]['style']['min-height'] !== ''
+            && \is_string($dom[$key]['style']['min-height'])
+        ) {
+            $min = $this->getHTMLStyleLengthValue($dom[$key]['style']['min-height']);
         }
 
-        if (!empty($dom[$key]['style']['max-height']) && \is_string($dom[$key]['style']['max-height'])) {
-            $maxRaw = \strtolower(\trim((string) $dom[$key]['style']['max-height']));
+        if (
+            isset($dom[$key]['style']['max-height'])
+            && $dom[$key]['style']['max-height'] !== ''
+            && \is_string($dom[$key]['style']['max-height'])
+        ) {
+            $maxRaw = \strtolower(\trim($dom[$key]['style']['max-height']));
             if ($maxRaw !== 'none') {
-                $max = $this->getHTMLStyleLengthValue((string) $dom[$key]['style']['max-height']);
+                $max = $this->getHTMLStyleLengthValue($dom[$key]['style']['max-height']);
             }
         }
 
@@ -3971,7 +3943,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        $height = (float) $dom[$key]['height'];
+        $height = $dom[$key]['height'];
         if ($min !== null && $max !== null && $max < $min) {
             $max = $min;
         }
@@ -3982,7 +3954,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $height = $max;
         }
 
-        // @phpstan-ignore-next-line parameterByRef.type
         $dom[$key]['height'] = $height;
     }
 
@@ -3996,25 +3967,38 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleOverflowProperty(array &$dom, int $key, int $parentkey): void
     {
-        $hasOverflow = !empty($dom[$key]['style']['overflow']) && \is_string($dom[$key]['style']['overflow']);
-        $hasOverflowX = !empty($dom[$key]['style']['overflow-x']) && \is_string($dom[$key]['style']['overflow-x']);
-        $hasOverflowY = !empty($dom[$key]['style']['overflow-y']) && \is_string($dom[$key]['style']['overflow-y']);
+        $hasOverflow =
+            isset($dom[$key]['style']['overflow'])
+            && $dom[$key]['style']['overflow'] !== ''
+            && \is_string($dom[$key]['style']['overflow']);
+        $hasOverflowX =
+            isset($dom[$key]['style']['overflow-x'])
+            && $dom[$key]['style']['overflow-x'] !== ''
+            && \is_string($dom[$key]['style']['overflow-x']);
+        $hasOverflowY =
+            isset($dom[$key]['style']['overflow-y'])
+            && $dom[$key]['style']['overflow-y'] !== ''
+            && \is_string($dom[$key]['style']['overflow-y']);
         if (!$hasOverflow && !$hasOverflowX && !$hasOverflowY) {
             return;
         }
 
         $clip = null;
         if ($hasOverflow) {
-            $value = \strtolower(\trim((string) $dom[$key]['style']['overflow']));
+            $value = \strtolower(\trim($dom[$key]['style']['overflow']));
             $clip = $this->resolveHTMLOverflowValueToClip($dom, $parentkey, $value);
         }
 
         foreach (['overflow-x', 'overflow-y'] as $axisProp) {
-            if (empty($dom[$key]['style'][$axisProp]) || !\is_string($dom[$key]['style'][$axisProp])) {
+            if (
+                !isset($dom[$key]['style'][$axisProp])
+                || $dom[$key]['style'][$axisProp] === ''
+                || !\is_string($dom[$key]['style'][$axisProp])
+            ) {
                 continue;
             }
 
-            $axisValue = \strtolower(\trim((string) $dom[$key]['style'][$axisProp]));
+            $axisValue = \strtolower(\trim($dom[$key]['style'][$axisProp]));
             $axisClip = $this->resolveHTMLOverflowValueToClip($dom, $parentkey, $axisValue);
             if ($axisClip === null) {
                 continue;
@@ -4028,7 +4012,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($clip !== null) {
-            // @phpstan-ignore parameterByRef.type
             $dom[$key]['clip'] = $clip;
         }
     }
@@ -4041,7 +4024,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         return match ($value) {
             'hidden' => true,
             'visible' => false,
-            'inherit' => (bool) ($dom[$parentkey]['clip'] ?? false),
+            'inherit' => $dom[$parentkey]['clip'] ?? false,
             default => null,
         };
     }
@@ -4067,19 +4050,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleTextAlignProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['text-align'])) {
+        if (!isset($dom[$key]['style']['text-align']) || $dom[$key]['style']['text-align'] === '') {
             return;
         }
 
-        $textAlign = \strtolower(\trim((string) $dom[$key]['style']['text-align']));
+        $textAlign = \strtolower(\trim($dom[$key]['style']['text-align']));
         if ($textAlign === 'inherit') {
-            if (!empty($dom[$parentkey]['align']) && \is_string($dom[$parentkey]['align'])) {
-                $dom[$key]['align'] = \strtoupper(\trim((string) $dom[$parentkey]['align']));
+            if (
+                isset($dom[$parentkey]['align'])
+                && $dom[$parentkey]['align'] !== ''
+                && \is_string($dom[$parentkey]['align'])
+            ) {
+                $dom[$key]['align'] = \strtoupper(\trim($dom[$parentkey]['align']));
             } elseif (
-                !empty($dom[$parentkey]['style']['text-align'])
+                isset($dom[$parentkey]['style']['text-align'])
+                && $dom[$parentkey]['style']['text-align'] !== ''
                 && \is_string($dom[$parentkey]['style']['text-align'])
             ) {
-                $parentTextAlign = \strtolower(\trim((string) $dom[$parentkey]['style']['text-align']));
+                $parentTextAlign = \strtolower(\trim($dom[$parentkey]['style']['text-align']));
                 if ($parentTextAlign === 'left') {
                     $dom[$key]['align'] = 'L';
                 } elseif ($parentTextAlign === 'right') {
@@ -4108,19 +4096,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleVerticalAlignProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['vertical-align']) || !\is_string($dom[$key]['style']['vertical-align'])) {
+        if (
+            !isset($dom[$key]['style']['vertical-align'])
+            || $dom[$key]['style']['vertical-align'] === ''
+            || !\is_string($dom[$key]['style']['vertical-align'])
+        ) {
             return;
         }
 
         $valign = \strtolower(\trim($dom[$key]['style']['vertical-align']));
         if ($valign === 'inherit') {
-            if (!empty($dom[$parentkey]['valign']) && \is_string($dom[$parentkey]['valign'])) {
-                $dom[$key]['valign'] = \strtolower(\trim((string) $dom[$parentkey]['valign']));
+            if (
+                isset($dom[$parentkey]['valign'])
+                && $dom[$parentkey]['valign'] !== ''
+                && \is_string($dom[$parentkey]['valign'])
+            ) {
+                $dom[$key]['valign'] = \strtolower(\trim($dom[$parentkey]['valign']));
             } elseif (
-                !empty($dom[$parentkey]['style']['vertical-align'])
+                isset($dom[$parentkey]['style']['vertical-align'])
+                && $dom[$parentkey]['style']['vertical-align'] !== ''
                 && \is_string($dom[$parentkey]['style']['vertical-align'])
             ) {
-                $parentValign = \strtolower(\trim((string) $dom[$parentkey]['style']['vertical-align']));
+                $parentValign = \strtolower(\trim($dom[$parentkey]['style']['vertical-align']));
                 if (\in_array($parentValign, ['top', 'middle', 'bottom'], true)) {
                     $dom[$key]['valign'] = $parentValign;
                 }
@@ -4137,19 +4134,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStylePaddingProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (!empty($dom[$key]['style']['padding']) && \is_string($dom[$key]['style']['padding'])) {
+        if (
+            isset($dom[$key]['style']['padding'])
+            && $dom[$key]['style']['padding'] !== ''
+            && \is_string($dom[$key]['style']['padding'])
+        ) {
             $padding = \trim($dom[$key]['style']['padding']);
             if (\strtolower($padding) === 'inherit') {
-                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['padding'] = \is_array($dom[$parentkey]['padding'])
                     ? $dom[$parentkey]['padding']
                     : self::ZEROCELLBOUND;
+            } elseif (\preg_match('/^0(?:[a-z%]+)?$/i', $padding) === 1) {
+                $dom[$key]['padding'] = self::ZEROCELLBOUND;
             } else {
-                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['padding'] = $this->getCSSPadding($padding);
             }
         } else {
-            // @phpstan-ignore parameterByRef.type
             $dom[$key]['padding'] = self::ZEROCELLBOUND;
         }
     }
@@ -4207,17 +4207,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $prop,
         string $side,
     ): void {
-        if (empty($dom[$key]['style'][$prop]) || !\is_string($dom[$key]['style'][$prop])) {
+        if (
+            !isset($dom[$key]['style'][$prop])
+            || $dom[$key]['style'][$prop] === ''
+            || !\is_string($dom[$key]['style'][$prop])
+        ) {
             return;
         }
 
         $pvalue = \trim($dom[$key]['style'][$prop]);
         $pvalueLower = \strtolower($pvalue);
         if ($pvalueLower === 'inherit') {
-            // @phpstan-ignore offsetAccess.nonOffsetAccessible
-            if (\is_array($dom[$parentkey][$box]) && \array_key_exists($side, $dom[$parentkey][$box])) {
-                // @phpstan-ignore parameterByRef.type, offsetAccess.nonOffsetAccessible
-                $dom[$key][$box][$side] = $dom[$parentkey][$box][$side];
+            $parentNode = $dom[$parentkey] ?? [];
+            $parentBox = isset($parentNode[$box]) && \is_array($parentNode[$box]) ? $parentNode[$box] : [];
+            if (\array_key_exists($side, $parentBox)) {
+                $dom[$key][$box][$side] = $parentBox[$side];
             }
 
             return;
@@ -4227,7 +4231,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        // @phpstan-ignore parameterByRef.type, offsetAccess.nonOffsetAccessible
+        if (\preg_match('/^0(?:[a-z%]+)?$/i', $pvalue) === 1) {
+            $dom[$key][$box][$side] = 0.0;
+            return;
+        }
+
         $dom[$key][$box][$side] = $this->toUnit($this->getUnitValuePoints($pvalue));
     }
 
@@ -4238,19 +4246,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleMarginProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (!empty($dom[$key]['style']['margin']) && \is_string($dom[$key]['style']['margin'])) {
+        if (
+            isset($dom[$key]['style']['margin'])
+            && $dom[$key]['style']['margin'] !== ''
+            && \is_string($dom[$key]['style']['margin'])
+        ) {
             $margin = \trim($dom[$key]['style']['margin']);
             if (\strtolower($margin) === 'inherit') {
-                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['margin'] = \is_array($dom[$parentkey]['margin'])
                     ? $dom[$parentkey]['margin']
                     : self::ZEROCELLBOUND;
+            } elseif (\preg_match('/^0(?:[a-z%]+)?$/i', $margin) === 1) {
+                $dom[$key]['margin'] = self::ZEROCELLBOUND;
             } else {
-                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['margin'] = $this->getCSSMargin($margin);
             }
         } else {
-            // @phpstan-ignore parameterByRef.type
             $dom[$key]['margin'] = self::ZEROCELLBOUND;
         }
     }
@@ -4335,11 +4346,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleBorderShorthandProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['border'])) {
+        if (!isset($dom[$key]['style']['border']) || $dom[$key]['style']['border'] === '') {
             return;
         }
 
-        $border = \trim((string) $dom[$key]['style']['border']);
+        $border = \trim($dom[$key]['style']['border']);
         if (\strtolower($border) === 'inherit') {
             if (\is_array($dom[$parentkey]['border'])) {
                 $dom[$key]['border'] = $dom[$parentkey]['border'];
@@ -4359,15 +4370,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLBorderParentContext(array &$dom, int $parentkey): array
     {
         /** @var array<string, BorderStyleOpt> $parentBorder */
-        $parentBorder = (
-            isset($dom[$parentkey]['border'])
-            && \is_array($dom[$parentkey]['border'])
-        ) ? $dom[$parentkey]['border'] : [];
+        $parentBorder = isset($dom[$parentkey]['border']) && \is_array($dom[$parentkey]['border'])
+            ? $dom[$parentkey]['border']
+            : [];
         /** @var BorderStyleOpt $parentLTRB */
-        $parentLTRB = (
-            isset($parentBorder['LTRB'])
-            && \is_array($parentBorder['LTRB'])
-        ) ? $parentBorder['LTRB'] : [];
+        $parentLTRB = isset($parentBorder['LTRB']) && \is_array($parentBorder['LTRB']) ? $parentBorder['LTRB'] : [];
 
         return [
             'parentBorder' => $parentBorder,
@@ -4398,43 +4405,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function expandHTMLBorderQuadValues(string $value): array
     {
         $tokens = \preg_split('/[\s]+/', \trim($value));
-        if (($tokens === false) || ($tokens === [])) {
+        if ($tokens === false || $tokens === []) {
             return [];
         }
 
         $count = \count($tokens);
         if ($count === 1) {
             return [
-                'T' => (string) $tokens[0],
-                'R' => (string) $tokens[0],
-                'B' => (string) $tokens[0],
-                'L' => (string) $tokens[0],
+                'T' => $tokens[0],
+                'R' => $tokens[0],
+                'B' => $tokens[0],
+                'L' => $tokens[0],
             ];
         }
 
         if ($count === 2) {
             return [
-                'T' => (string) $tokens[0],
-                'R' => (string) $tokens[1],
-                'B' => (string) $tokens[0],
-                'L' => (string) $tokens[1],
+                'T' => $tokens[0],
+                'R' => $tokens[1],
+                'B' => $tokens[0],
+                'L' => $tokens[1],
             ];
         }
 
         if ($count === 3) {
             return [
-                'T' => (string) $tokens[0],
-                'R' => (string) $tokens[1],
-                'B' => (string) $tokens[2],
-                'L' => (string) $tokens[1],
+                'T' => $tokens[0],
+                'R' => $tokens[1],
+                'B' => $tokens[2],
+                'L' => $tokens[1],
             ];
         }
 
         return [
-            'T' => (string) $tokens[0],
-            'R' => (string) $tokens[1],
-            'B' => (string) $tokens[2],
-            'L' => (string) $tokens[3],
+            'T' => $tokens[0],
+            'R' => $tokens[1],
+            'B' => $tokens[2],
+            'L' => $tokens[3],
         ];
     }
 
@@ -4442,9 +4449,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse border-color style property.
      *
      * @param array<int, THTMLAttrib> $dom
-    * @param array<string, BorderStyleOpt> $brdr
-    * @param array<string, BorderStyleOpt> $parentBorder
-    * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      */
     protected function parseHTMLStyleBorderColorProperty(
         array &$dom,
@@ -4453,17 +4460,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $parentBorder,
         array $parentLTRB,
     ): void {
-        if (empty($dom[$key]['style']['border-color'])) {
+        if (!isset($dom[$key]['style']['border-color']) || $dom[$key]['style']['border-color'] === '') {
             return;
         }
 
-        $borderColor = \trim((string) $dom[$key]['style']['border-color']);
+        $borderColor = \trim($dom[$key]['style']['border-color']);
         if (\strtolower($borderColor) === 'inherit') {
             foreach (['L', 'R', 'T', 'B'] as $bkey) {
-                if (
-                    isset($parentBorder[$bkey]['lineColor'])
-                    && \is_string($parentBorder[$bkey]['lineColor'])
-                ) {
+                if (isset($parentBorder[$bkey]['lineColor']) && \is_string($parentBorder[$bkey]['lineColor'])) {
                     $brdr[$bkey]['lineColor'] = $parentBorder[$bkey]['lineColor'];
                 } elseif (isset($parentLTRB['lineColor']) && \is_string($parentLTRB['lineColor'])) {
                     $brdr[$bkey]['lineColor'] = $parentLTRB['lineColor'];
@@ -4484,9 +4488,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse border-width style property.
      *
      * @param array<int, THTMLAttrib> $dom
-    * @param array<string, BorderStyleOpt> $brdr
-    * @param array<string, BorderStyleOpt> $parentBorder
-    * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      */
     protected function parseHTMLStyleBorderWidthProperty(
         array &$dom,
@@ -4495,20 +4499,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $parentBorder,
         array $parentLTRB,
     ): void {
-        if (empty($dom[$key]['style']['border-width'])) {
+        if (!isset($dom[$key]['style']['border-width']) || $dom[$key]['style']['border-width'] === '') {
             return;
         }
 
-        $borderWidth = \trim((string) $dom[$key]['style']['border-width']);
+        $borderWidth = \trim($dom[$key]['style']['border-width']);
         if (\strtolower($borderWidth) === 'inherit') {
             foreach (['L', 'R', 'T', 'B'] as $bkey) {
-                if (
-                    isset($parentBorder[$bkey]['lineWidth'])
-                    && \is_numeric($parentBorder[$bkey]['lineWidth'])
-                ) {
-                    $brdr[$bkey]['lineWidth'] = (float) $parentBorder[$bkey]['lineWidth'];
+                if (isset($parentBorder[$bkey]['lineWidth']) && \is_numeric($parentBorder[$bkey]['lineWidth'])) {
+                    $brdr[$bkey]['lineWidth'] = $parentBorder[$bkey]['lineWidth'];
                 } elseif (isset($parentLTRB['lineWidth']) && \is_numeric($parentLTRB['lineWidth'])) {
-                    $brdr[$bkey]['lineWidth'] = (float) $parentLTRB['lineWidth'];
+                    $brdr[$bkey]['lineWidth'] = $parentLTRB['lineWidth'];
                 }
             }
         } else {
@@ -4526,9 +4527,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse border-style style property.
      *
      * @param array<int, THTMLAttrib> $dom
-    * @param array<string, BorderStyleOpt> $brdr
-    * @param array<string, BorderStyleOpt> $parentBorder
-    * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      */
     protected function parseHTMLStyleBorderStyleProperty(
         array &$dom,
@@ -4537,26 +4538,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $parentBorder,
         array $parentLTRB,
     ): void {
-        if (empty($dom[$key]['style']['border-style'])) {
+        if (!isset($dom[$key]['style']['border-style']) || $dom[$key]['style']['border-style'] === '') {
             return;
         }
 
-        $borderStyle = \trim((string) $dom[$key]['style']['border-style']);
+        $borderStyle = \trim($dom[$key]['style']['border-style']);
         if (\strtolower($borderStyle) === 'inherit') {
             foreach (['L', 'R', 'T', 'B'] as $bkey) {
                 if (
-                    isset($parentBorder[$bkey]['cssBorderStyle'])
-                    && \is_string($parentBorder[$bkey]['cssBorderStyle'])
+                    isset($parentBorder[$bkey]['cssBorderStyle']) && \is_string($parentBorder[$bkey]['cssBorderStyle'])
                 ) {
                     $brdr[$bkey] = $this->applyCSSBorderStyleKeyword(
                         $brdr[$bkey],
-                        $parentBorder[$bkey]['cssBorderStyle']
+                        $parentBorder[$bkey]['cssBorderStyle'],
                     );
                 } elseif (isset($parentLTRB['cssBorderStyle']) && \is_string($parentLTRB['cssBorderStyle'])) {
-                    $brdr[$bkey] = $this->applyCSSBorderStyleKeyword(
-                        $brdr[$bkey],
-                        $parentLTRB['cssBorderStyle']
-                    );
+                    $brdr[$bkey] = $this->applyCSSBorderStyleKeyword($brdr[$bkey], $parentLTRB['cssBorderStyle']);
                 }
             }
         } else {
@@ -4574,16 +4571,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse per-side border, padding and margin style overrides.
      *
      * @param array<int, THTMLAttrib> $dom
-        * @param array<string, BorderStyleOpt> $brdr
-        * @param array<string, BorderStyleOpt> $parentBorder
-        * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      * @param array<string, string> $cellside
-        * @param array{
-        *     parent: float,
-        *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
-        *     viewport: array{width: float, height: float},
-        *     page: array{width: float, height: float}
-        * } $ref
+     * @param array{
+     *     parent: float,
+     *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
+     *     viewport: array{width: float, height: float},
+     *     page: array{width: float, height: float}
+     * } $ref
      */
     protected function parseHTMLStyleBorderSideProperties(
         array &$dom,
@@ -4596,44 +4593,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $ref,
     ): void {
         foreach ($cellside as $bsk => $bsv) {
-            $hasSideDecl = (
-                !empty($dom[$key]['style']['border-' . $bsv])
-                || !empty($dom[$key]['style']['border-' . $bsv . '-color'])
-                || !empty($dom[$key]['style']['border-' . $bsv . '-width'])
-                || !empty($dom[$key]['style']['border-' . $bsv . '-style'])
-            );
+            $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+            $hasSideDecl =
+                isset($keyStyle['border-' . $bsv]) && $keyStyle['border-' . $bsv] !== ''
+                || isset($keyStyle['border-' . $bsv . '-color']) && $keyStyle['border-' . $bsv . '-color'] !== ''
+                || isset($keyStyle['border-' . $bsv . '-width']) && $keyStyle['border-' . $bsv . '-width'] !== ''
+                || isset($keyStyle['border-' . $bsv . '-style']) && $keyStyle['border-' . $bsv . '-style'] !== '';
 
             // Side-only overrides (e.g. border-right-color) must remain renderable
             // when the base border shorthand supplies width/style.
-            if (
-                $hasSideDecl
-                && !empty($dom[$key]['border']['LTRB'])
-                && \is_array($dom[$key]['border']['LTRB'])
-                && isset($dom[$key]['border']['LTRB']['lineWidth'])
-                && \is_numeric($dom[$key]['border']['LTRB']['lineWidth'])
-            ) {
-                $brdr[$bsk]['lineWidth'] = (float) $dom[$key]['border']['LTRB']['lineWidth'];
-            }
-            if (
-                $hasSideDecl
-                && !empty($dom[$key]['border']['LTRB'])
-                && \is_array($dom[$key]['border']['LTRB'])
-                && isset($dom[$key]['border']['LTRB']['cssBorderStyle'])
-                && \is_string($dom[$key]['border']['LTRB']['cssBorderStyle'])
-            ) {
-                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
-                    $brdr[$bsk],
-                    $dom[$key]['border']['LTRB']['cssBorderStyle']
-                );
-            }
-            if (
-                $hasSideDecl
-                && !empty($dom[$key]['border']['LTRB'])
-                && \is_array($dom[$key]['border']['LTRB'])
-                && isset($dom[$key]['border']['LTRB']['lineColor'])
-                && \is_string($dom[$key]['border']['LTRB']['lineColor'])
-            ) {
-                $brdr[$bsk]['lineColor'] = $dom[$key]['border']['LTRB']['lineColor'];
+            if ($hasSideDecl) {
+                $keyBorderLTRB = isset($dom[$key]['border']['LTRB']) && \is_array($dom[$key]['border']['LTRB'])
+                    ? $dom[$key]['border']['LTRB']
+                    : [];
+                if (isset($keyBorderLTRB['lineWidth']) && \is_numeric($keyBorderLTRB['lineWidth'])) {
+                    $brdr[$bsk]['lineWidth'] = $keyBorderLTRB['lineWidth'];
+                }
+
+                if (isset($keyBorderLTRB['cssBorderStyle']) && \is_string($keyBorderLTRB['cssBorderStyle'])) {
+                    $brdr[$bsk] = $this->applyCSSBorderStyleKeyword($brdr[$bsk], $keyBorderLTRB['cssBorderStyle']);
+                }
+
+                if (isset($keyBorderLTRB['lineColor']) && \is_string($keyBorderLTRB['lineColor'])) {
+                    $brdr[$bsk]['lineColor'] = $keyBorderLTRB['lineColor'];
+                }
             }
             $this->parseHTMLStyleBorderSideShorthandProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
             $this->parseHTMLStyleBorderSideColorProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
@@ -4649,9 +4632,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse border-<side> style property.
      *
      * @param array<int, THTMLAttrib> $dom
-    * @param array<string, BorderStyleOpt> $brdr
-    * @param array<string, BorderStyleOpt> $parentBorder
-    * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      */
     protected function parseHTMLStyleBorderSideShorthandProperty(
         array &$dom,
@@ -4662,37 +4645,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsk,
         string $bsv,
     ): void {
-        if (empty($dom[$key]['style']['border-' . $bsv])) {
+        $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+        $borderVal = $keyStyle['border-' . $bsv] ?? '';
+        if ($borderVal === '') {
             return;
         }
 
         // If border shorthand appears after border-<side> in declaration order,
         // the border shorthand wins and we should not apply the border-<side> override.
-        $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
-            $dom,
-            $key,
-            ['border', 'border-' . $bsv]
-        );
+        $lastProperty = $this->getLastHTMLStyleDeclarationProperty($dom, $key, ['border', 'border-' . $bsv]);
         if ($lastProperty !== 'border-' . $bsv) {
             return;
         }
 
-        $sideBorder = \trim((string) $dom[$key]['style']['border-' . $bsv]);
+        $sideBorder = \trim($borderVal);
         if (\strtolower($sideBorder) === 'inherit') {
-            if (
-                // @phpstan-ignore offsetAccess.notFound
-                isset($parentBorder[$bsk])
-                && \is_array($parentBorder[$bsk])
-            ) {
+            if (isset($parentBorder[$bsk]) && \is_array($parentBorder[$bsk])) {
                 /** @var BorderStyleOpt $parentBorder */
-                // @phpstan-ignore offsetAccess.notFound
+
                 $parentSideBorder = $parentBorder[$bsk];
-                // @phpstan-ignore parameterByRef.type
+
                 $brdr[$bsk] = $parentSideBorder;
             } elseif ($parentLTRB !== []) {
                 /** @var BorderStyleOpt $parentSideBorder */
                 $parentSideBorder = $parentLTRB;
-                // @phpstan-ignore parameterByRef.type
+
                 $brdr[$bsk] = $parentSideBorder;
             }
         } else {
@@ -4704,9 +4681,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse border-<side>-color style property.
      *
      * @param array<int, THTMLAttrib> $dom
-    * @param array<string, BorderStyleOpt> $brdr
-    * @param array<string, BorderStyleOpt> $parentBorder
-    * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      */
     protected function parseHTMLStyleBorderSideColorProperty(
         array &$dom,
@@ -4717,7 +4694,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsk,
         string $bsv,
     ): void {
-        if (empty($dom[$key]['style']['border-' . $bsv . '-color'])) {
+        $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+        $colorVal = $keyStyle['border-' . $bsv . '-color'] ?? '';
+        if ($colorVal === '') {
             return;
         }
 
@@ -4726,18 +4705,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
             $dom,
             $key,
-            ['border', 'border-' . $bsv, 'border-' . $bsv . '-color']
+            ['border', 'border-' . $bsv, 'border-' . $bsv . '-color'],
         );
         if ($lastProperty !== 'border-' . $bsv . '-color') {
             return;
         }
 
-        $sideColor = \trim((string) $dom[$key]['style']['border-' . $bsv . '-color']);
+        $sideColor = \trim($colorVal);
         if (\strtolower($sideColor) === 'inherit') {
-            if (
-                isset($parentBorder[$bsk]['lineColor'])
-                && \is_string($parentBorder[$bsk]['lineColor'])
-            ) {
+            if (isset($parentBorder[$bsk]['lineColor']) && \is_string($parentBorder[$bsk]['lineColor'])) {
                 $brdr[$bsk]['lineColor'] = $parentBorder[$bsk]['lineColor'];
             } elseif (isset($parentLTRB['lineColor']) && \is_string($parentLTRB['lineColor'])) {
                 $brdr[$bsk]['lineColor'] = $parentLTRB['lineColor'];
@@ -4751,9 +4727,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse border-<side>-width style property.
      *
      * @param array<int, THTMLAttrib> $dom
-    * @param array<string, BorderStyleOpt> $brdr
-    * @param array<string, BorderStyleOpt> $parentBorder
-    * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      */
     protected function parseHTMLStyleBorderSideWidthProperty(
         array &$dom,
@@ -4764,7 +4740,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsk,
         string $bsv,
     ): void {
-        if (empty($dom[$key]['style']['border-' . $bsv . '-width'])) {
+        $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+        $widthVal = $keyStyle['border-' . $bsv . '-width'] ?? '';
+        if ($widthVal === '') {
             return;
         }
 
@@ -4773,21 +4751,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
             $dom,
             $key,
-            ['border', 'border-' . $bsv, 'border-' . $bsv . '-width']
+            ['border', 'border-' . $bsv, 'border-' . $bsv . '-width'],
         );
         if ($lastProperty !== 'border-' . $bsv . '-width') {
             return;
         }
 
-        $sideWidth = \trim((string) $dom[$key]['style']['border-' . $bsv . '-width']);
+        $sideWidth = \trim($widthVal);
         if (\strtolower($sideWidth) === 'inherit') {
-            if (
-                isset($parentBorder[$bsk]['lineWidth'])
-                && \is_numeric($parentBorder[$bsk]['lineWidth'])
-            ) {
-                $brdr[$bsk]['lineWidth'] = (float) $parentBorder[$bsk]['lineWidth'];
+            if (isset($parentBorder[$bsk]['lineWidth']) && \is_numeric($parentBorder[$bsk]['lineWidth'])) {
+                $brdr[$bsk]['lineWidth'] = $parentBorder[$bsk]['lineWidth'];
             } elseif (isset($parentLTRB['lineWidth']) && \is_numeric($parentLTRB['lineWidth'])) {
-                $brdr[$bsk]['lineWidth'] = (float) $parentLTRB['lineWidth'];
+                $brdr[$bsk]['lineWidth'] = $parentLTRB['lineWidth'];
             }
         } else {
             $brdr[$bsk]['lineWidth'] = $this->getCSSBorderWidth($sideWidth);
@@ -4798,9 +4773,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse border-<side>-style style property.
      *
      * @param array<int, THTMLAttrib> $dom
-    * @param array<string, BorderStyleOpt> $brdr
-    * @param array<string, BorderStyleOpt> $parentBorder
-    * @param BorderStyleOpt $parentLTRB
+     * @param array<string, BorderStyleOpt> $brdr
+     * @param array<string, BorderStyleOpt> $parentBorder
+     * @param BorderStyleOpt $parentLTRB
      */
     protected function parseHTMLStyleBorderSideStyleProperty(
         array &$dom,
@@ -4811,7 +4786,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsk,
         string $bsv,
     ): void {
-        if (empty($dom[$key]['style']['border-' . $bsv . '-style'])) {
+        $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+        $styleVal = $keyStyle['border-' . $bsv . '-style'] ?? '';
+        if ($styleVal === '') {
             return;
         }
 
@@ -4820,33 +4797,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lastProperty = $this->getLastHTMLStyleDeclarationProperty(
             $dom,
             $key,
-            ['border', 'border-' . $bsv, 'border-' . $bsv . '-style']
+            ['border', 'border-' . $bsv, 'border-' . $bsv . '-style'],
         );
         if ($lastProperty !== 'border-' . $bsv . '-style') {
             return;
         }
 
-        $sideStyle = \trim((string) $dom[$key]['style']['border-' . $bsv . '-style']);
+        $sideStyle = \trim($styleVal);
         if (\strtolower($sideStyle) === 'inherit') {
-            if (
-                isset($parentBorder[$bsk]['cssBorderStyle'])
-                && \is_string($parentBorder[$bsk]['cssBorderStyle'])
-            ) {
-                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
-                    $brdr[$bsk],
-                    $parentBorder[$bsk]['cssBorderStyle']
-                );
+            if (isset($parentBorder[$bsk]['cssBorderStyle']) && \is_string($parentBorder[$bsk]['cssBorderStyle'])) {
+                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword($brdr[$bsk], $parentBorder[$bsk]['cssBorderStyle']);
             } elseif (isset($parentLTRB['cssBorderStyle']) && \is_string($parentLTRB['cssBorderStyle'])) {
-                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
-                    $brdr[$bsk],
-                    $parentLTRB['cssBorderStyle']
-                );
+                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword($brdr[$bsk], $parentLTRB['cssBorderStyle']);
             }
         } else {
-            $brdr[$bsk] = $this->applyCSSBorderStyleKeyword(
-                $brdr[$bsk],
-                $sideStyle
-            );
+            $brdr[$bsk] = $this->applyCSSBorderStyleKeyword($brdr[$bsk], $sideStyle);
         }
     }
 
@@ -4860,7 +4825,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         /** @var array<string, BorderStyleOpt> $brdr */
         if ($this->isHTMLRenderableBorderStyle($brdr[$bsk])) {
-            // @phpstan-ignore parameterByRef.type
             $dom[$key]['border'][$bsk] = $brdr[$bsk];
         }
     }
@@ -4869,12 +4833,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse padding-<side> style property.
      *
      * @param array<int, THTMLAttrib> $dom
-        * @param array{
-        *     parent: float,
-        *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
-        *     viewport: array{width: float, height: float},
-        *     page: array{width: float, height: float}
-        * } $ref
+     * @param array{
+     *     parent: float,
+     *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
+     *     viewport: array{width: float, height: float},
+     *     page: array{width: float, height: float}
+     * } $ref
      */
     protected function parseHTMLStylePaddingSideProperty(
         array &$dom,
@@ -4884,20 +4848,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsk,
         string $bsv,
     ): void {
-        if (empty($dom[$key]['style']['padding-' . $bsv])) {
+        $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+        $paddingVal = $keyStyle['padding-' . $bsv] ?? '';
+        if ($paddingVal === '') {
             return;
         }
 
-        $paddingSide = \trim((string) $dom[$key]['style']['padding-' . $bsv]);
+        $paddingSide = \trim($paddingVal);
         $paddingSideLower = \strtolower($paddingSide);
         if ($paddingSideLower === 'inherit') {
-            if (\is_array($dom[$parentkey]['padding']) && \array_key_exists($bsk, $dom[$parentkey]['padding'])) {
-                $dom[$key]['padding'][$bsk] = $dom[$parentkey]['padding'][$bsk];
+            $parentPadding = isset($dom[$parentkey]['padding']) && \is_array($dom[$parentkey]['padding'])
+                ? $dom[$parentkey]['padding']
+                : [];
+            if (\array_key_exists($bsk, $parentPadding)) {
+                $dom[$key]['padding'][$bsk] = $parentPadding[$bsk];
             }
         } elseif ($paddingSideLower !== 'auto') {
-            $dom[$key]['padding'][$bsk] = $this->toUnit(
-                $this->getUnitValuePoints($paddingSide, $ref)
-            );
+            $dom[$key]['padding'][$bsk] = $this->toUnit($this->getUnitValuePoints($paddingSide, $ref));
         }
     }
 
@@ -4905,12 +4872,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse margin-<side> style property.
      *
      * @param array<int, THTMLAttrib> $dom
-        * @param array{
-        *     parent: float,
-        *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
-        *     viewport: array{width: float, height: float},
-        *     page: array{width: float, height: float}
-        * } $ref
+     * @param array{
+     *     parent: float,
+     *     font: array{rootsize: float, size: float, xheight: float, zerowidth: float},
+     *     viewport: array{width: float, height: float},
+     *     page: array{width: float, height: float}
+     * } $ref
      */
     protected function parseHTMLStyleMarginSideProperty(
         array &$dom,
@@ -4920,20 +4887,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         string $bsk,
         string $bsv,
     ): void {
-        if (empty($dom[$key]['style']['margin-' . $bsv])) {
+        $keyStyle = isset($dom[$key]['style']) && \is_array($dom[$key]['style']) ? $dom[$key]['style'] : [];
+        $marginVal = $keyStyle['margin-' . $bsv] ?? '';
+        if ($marginVal === '') {
             return;
         }
 
-        $marginSide = \trim((string) $dom[$key]['style']['margin-' . $bsv]);
+        $marginSide = \trim($marginVal);
         $marginSideLower = \strtolower($marginSide);
         if ($marginSideLower === 'inherit') {
-            if (\is_array($dom[$parentkey]['margin']) && \array_key_exists($bsk, $dom[$parentkey]['margin'])) {
-                $dom[$key]['margin'][$bsk] = $dom[$parentkey]['margin'][$bsk];
+            $parentMargin = isset($dom[$parentkey]['margin']) && \is_array($dom[$parentkey]['margin'])
+                ? $dom[$parentkey]['margin']
+                : [];
+            if (\array_key_exists($bsk, $parentMargin)) {
+                $dom[$key]['margin'][$bsk] = $parentMargin[$bsk];
             }
         } else {
             $dom[$key]['margin'][$bsk] = $this->toUnit($this->getUnitValuePoints(
                 \str_replace('auto', '0', $marginSide),
-                $ref
+                $ref,
             ));
         }
     }
@@ -4945,19 +4917,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleBorderCollapseProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['border-collapse'])) {
+        if (!isset($dom[$key]['style']['border-collapse']) || $dom[$key]['style']['border-collapse'] === '') {
             return;
         }
 
-        $bordercollapse = \strtolower(\trim((string) $dom[$key]['style']['border-collapse']));
+        $bordercollapse = \strtolower(\trim($dom[$key]['style']['border-collapse']));
         if ($bordercollapse === 'inherit') {
-            if (!empty($dom[$parentkey]['border-collapse']) && \is_string($dom[$parentkey]['border-collapse'])) {
-                $dom[$key]['border-collapse'] = (string) $dom[$parentkey]['border-collapse'];
+            if (
+                isset($dom[$parentkey]['border-collapse'])
+                && $dom[$parentkey]['border-collapse'] !== ''
+                && \is_string($dom[$parentkey]['border-collapse'])
+            ) {
+                $dom[$key]['border-collapse'] = $dom[$parentkey]['border-collapse'];
             } elseif (
-                !empty($dom[$parentkey]['style']['border-collapse'])
+                isset($dom[$parentkey]['style']['border-collapse'])
+                && $dom[$parentkey]['style']['border-collapse'] !== ''
                 && \is_string($dom[$parentkey]['style']['border-collapse'])
             ) {
-                $parentCollapse = \strtolower(\trim((string) $dom[$parentkey]['style']['border-collapse']));
+                $parentCollapse = \strtolower(\trim($dom[$parentkey]['style']['border-collapse']));
                 if (\in_array($parentCollapse, ['collapse', 'separate'], true)) {
                     $dom[$key]['border-collapse'] = $parentCollapse;
                 }
@@ -4974,19 +4951,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleTableLayoutProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['table-layout'])) {
+        if (!isset($dom[$key]['style']['table-layout']) || $dom[$key]['style']['table-layout'] === '') {
             return;
         }
 
-        $tableLayout = \strtolower(\trim((string) $dom[$key]['style']['table-layout']));
+        $tableLayout = \strtolower(\trim($dom[$key]['style']['table-layout']));
         if ($tableLayout === 'inherit') {
-            if (!empty($dom[$parentkey]['table-layout']) && \is_string($dom[$parentkey]['table-layout'])) {
-                $dom[$key]['table-layout'] = (string) $dom[$parentkey]['table-layout'];
+            if (
+                isset($dom[$parentkey]['table-layout'])
+                && $dom[$parentkey]['table-layout'] !== ''
+                && \is_string($dom[$parentkey]['table-layout'])
+            ) {
+                $dom[$key]['table-layout'] = $dom[$parentkey]['table-layout'];
             } elseif (
-                !empty($dom[$parentkey]['style']['table-layout'])
+                isset($dom[$parentkey]['style']['table-layout'])
+                && $dom[$parentkey]['style']['table-layout'] !== ''
                 && \is_string($dom[$parentkey]['style']['table-layout'])
             ) {
-                $parentLayout = \strtolower(\trim((string) $dom[$parentkey]['style']['table-layout']));
+                $parentLayout = \strtolower(\trim($dom[$parentkey]['style']['table-layout']));
                 if (\in_array($parentLayout, ['auto', 'fixed'], true)) {
                     $dom[$key]['table-layout'] = $parentLayout;
                 }
@@ -5003,19 +4985,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleCaptionSideProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['caption-side'])) {
+        if (!isset($dom[$key]['style']['caption-side']) || $dom[$key]['style']['caption-side'] === '') {
             return;
         }
 
-        $captionSide = \strtolower(\trim((string) $dom[$key]['style']['caption-side']));
+        $captionSide = \strtolower(\trim($dom[$key]['style']['caption-side']));
         if ($captionSide === 'inherit') {
-            if (!empty($dom[$parentkey]['caption-side']) && \is_string($dom[$parentkey]['caption-side'])) {
-                $dom[$key]['caption-side'] = (string) $dom[$parentkey]['caption-side'];
+            if (
+                isset($dom[$parentkey]['caption-side'])
+                && $dom[$parentkey]['caption-side'] !== ''
+                && \is_string($dom[$parentkey]['caption-side'])
+            ) {
+                $dom[$key]['caption-side'] = $dom[$parentkey]['caption-side'];
             } elseif (
-                !empty($dom[$parentkey]['style']['caption-side'])
+                isset($dom[$parentkey]['style']['caption-side'])
+                && $dom[$parentkey]['style']['caption-side'] !== ''
                 && \is_string($dom[$parentkey]['style']['caption-side'])
             ) {
-                $parentCaptionSide = \strtolower(\trim((string) $dom[$parentkey]['style']['caption-side']));
+                $parentCaptionSide = \strtolower(\trim($dom[$parentkey]['style']['caption-side']));
                 if (\in_array($parentCaptionSide, ['top', 'bottom'], true)) {
                     $dom[$key]['caption-side'] = $parentCaptionSide;
                 }
@@ -5032,19 +5019,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleEmptyCellsProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['empty-cells'])) {
+        if (!isset($dom[$key]['style']['empty-cells']) || $dom[$key]['style']['empty-cells'] === '') {
             return;
         }
 
-        $emptyCells = \strtolower(\trim((string) $dom[$key]['style']['empty-cells']));
+        $emptyCells = \strtolower(\trim($dom[$key]['style']['empty-cells']));
         if ($emptyCells === 'inherit') {
-            if (!empty($dom[$parentkey]['empty-cells']) && \is_string($dom[$parentkey]['empty-cells'])) {
-                $dom[$key]['empty-cells'] = (string) $dom[$parentkey]['empty-cells'];
+            if (
+                isset($dom[$parentkey]['empty-cells'])
+                && $dom[$parentkey]['empty-cells'] !== ''
+                && \is_string($dom[$parentkey]['empty-cells'])
+            ) {
+                $dom[$key]['empty-cells'] = $dom[$parentkey]['empty-cells'];
             } elseif (
-                !empty($dom[$parentkey]['style']['empty-cells'])
+                isset($dom[$parentkey]['style']['empty-cells'])
+                && $dom[$parentkey]['style']['empty-cells'] !== ''
                 && \is_string($dom[$parentkey]['style']['empty-cells'])
             ) {
-                $parentEmptyCells = \strtolower(\trim((string) $dom[$parentkey]['style']['empty-cells']));
+                $parentEmptyCells = \strtolower(\trim($dom[$parentkey]['style']['empty-cells']));
                 if (\in_array($parentEmptyCells, ['show', 'hide'], true)) {
                     $dom[$key]['empty-cells'] = $parentEmptyCells;
                 }
@@ -5063,17 +5055,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function shouldHideHTMLEmptyTableCell(array $table, array $elm, array $cellctx): bool
     {
-        if (!empty($table['collapse'])) {
+        if ($table['collapse'] ?? false) {
             return false;
         }
 
-        $emptyCells = (!empty($elm['empty-cells']) && \is_string($elm['empty-cells']))
-            ? \strtolower(\trim($elm['empty-cells'])) : 'show';
+        $emptyCells =
+            isset($elm['empty-cells']) && \is_string($elm['empty-cells']) && $elm['empty-cells'] !== ''
+                ? \strtolower(\trim($elm['empty-cells']))
+                : 'show';
         if ($emptyCells !== 'hide') {
             return false;
         }
 
-        if (!empty($cellctx['buffer']) && \is_string($cellctx['buffer'])) {
+        if (isset($cellctx['buffer']) && \is_string($cellctx['buffer']) && $cellctx['buffer'] !== '') {
             return false;
         }
 
@@ -5087,19 +5081,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleBorderSpacingProperty(array &$dom, int $key, int $parentkey): void
     {
-        if (empty($dom[$key]['style']['border-spacing'])) {
+        if (!isset($dom[$key]['style']['border-spacing']) || $dom[$key]['style']['border-spacing'] === '') {
             return;
         }
 
-        $borderSpacing = \trim((string) $dom[$key]['style']['border-spacing']);
+        $borderSpacing = \trim($dom[$key]['style']['border-spacing']);
+        if (\preg_match('/^0(?:[a-z%]+)?$/i', $borderSpacing) === 1) {
+            $dom[$key]['border-spacing'] = ['H' => 0.0, 'V' => 0.0];
+            return;
+        }
+
         if (\strtolower($borderSpacing) === 'inherit') {
             if (isset($dom[$parentkey]['border-spacing']) && \is_array($dom[$parentkey]['border-spacing'])) {
                 $dom[$key]['border-spacing'] = $dom[$parentkey]['border-spacing'];
             } elseif (
-                !empty($dom[$parentkey]['style']['border-spacing'])
+                isset($dom[$parentkey]['style']['border-spacing'])
+                && $dom[$parentkey]['style']['border-spacing'] !== ''
                 && \is_string($dom[$parentkey]['style']['border-spacing'])
             ) {
-                $parentSpacing = \trim((string) $dom[$parentkey]['style']['border-spacing']);
+                $parentSpacing = \trim($dom[$parentkey]['style']['border-spacing']);
                 if (\strtolower($parentSpacing) !== 'inherit') {
                     $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($parentSpacing);
                 }
@@ -5117,8 +5117,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLStylePageBreakInsideProperty(array &$dom, int $key): void
     {
         if (
-            !empty($dom[$key]['style']['page-break-inside'])
-            && (\strtolower(\trim((string) $dom[$key]['style']['page-break-inside'])) === 'avoid')
+            isset($dom[$key]['style']['page-break-inside'])
+            && $dom[$key]['style']['page-break-inside'] !== ''
+            && \strtolower(\trim($dom[$key]['style']['page-break-inside'])) === 'avoid'
         ) {
             $dom[$key]['attribute']['nobr'] = 'true';
         }
@@ -5132,10 +5133,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLStyleBreakInsideAliasProperty(array &$dom, int $key): void
     {
         if (
-            empty($dom[$key]['attribute']['nobr'])
-            &&
-            !empty($dom[$key]['style']['break-inside'])
-            && (\strtolower(\trim((string) $dom[$key]['style']['break-inside'])) === 'avoid')
+            (!isset($dom[$key]['attribute']['nobr']) || $dom[$key]['attribute']['nobr'] === '')
+            && isset($dom[$key]['style']['break-inside'])
+            && $dom[$key]['style']['break-inside'] !== ''
+            && \strtolower(\trim($dom[$key]['style']['break-inside'])) === 'avoid'
         ) {
             $dom[$key]['attribute']['nobr'] = 'true';
         }
@@ -5148,11 +5149,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStylePageBreakBeforeProperty(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['style']['page-break-before'])) {
+        if (!isset($dom[$key]['style']['page-break-before']) || $dom[$key]['style']['page-break-before'] === '') {
             return;
         }
 
-        $pageBreakBefore = \strtolower(\trim((string) $dom[$key]['style']['page-break-before']));
+        $pageBreakBefore = \strtolower(\trim($dom[$key]['style']['page-break-before']));
         $this->applyHTMLStyleBreakBeforeValue($dom, $key, $pageBreakBefore);
     }
 
@@ -5163,8 +5164,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleBreakBeforeAliasProperty(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['style']['page-break-before']) && !empty($dom[$key]['style']['break-before'])) {
-            $breakBefore = \strtolower(\trim((string) $dom[$key]['style']['break-before']));
+        if (
+            (!isset($dom[$key]['style']['page-break-before']) || $dom[$key]['style']['page-break-before'] === '')
+            && (isset($dom[$key]['style']['break-before']) && $dom[$key]['style']['break-before'] !== '')
+        ) {
+            $breakBefore = \strtolower(\trim($dom[$key]['style']['break-before']));
             $this->applyHTMLStyleBreakBeforeValue($dom, $key, $breakBefore);
         }
     }
@@ -5199,11 +5203,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStylePageBreakAfterProperty(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['style']['page-break-after'])) {
+        if (!isset($dom[$key]['style']['page-break-after']) || $dom[$key]['style']['page-break-after'] === '') {
             return;
         }
 
-        $pageBreakAfter = \strtolower(\trim((string) $dom[$key]['style']['page-break-after']));
+        $pageBreakAfter = \strtolower(\trim($dom[$key]['style']['page-break-after']));
         $this->applyHTMLStyleBreakAfterValue($dom, $key, $pageBreakAfter);
     }
 
@@ -5214,8 +5218,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLStyleBreakAfterAliasProperty(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['style']['page-break-after']) && !empty($dom[$key]['style']['break-after'])) {
-            $breakAfter = \strtolower(\trim((string) $dom[$key]['style']['break-after']));
+        if (
+            (!isset($dom[$key]['style']['page-break-after']) || $dom[$key]['style']['page-break-after'] === '')
+            && (isset($dom[$key]['style']['break-after']) && $dom[$key]['style']['break-after'] !== '')
+        ) {
+            $breakAfter = \strtolower(\trim($dom[$key]['style']['break-after']));
             $this->applyHTMLStyleBreakAfterValue($dom, $key, $breakAfter);
         }
     }
@@ -5264,7 +5271,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             if ($quote !== '') {
                 $decl .= $chr;
-                if ($chr === $quote && (($idx === 0) || ($style[$idx - 1] !== '\\'))) {
+                if ($chr === $quote && ($idx === 0 || $style[$idx - 1] !== '\\')) {
                     $quote = '';
                 }
 
@@ -5289,7 +5296,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if ($chr === ';' && ($parenDepth === 0)) {
+            if ($chr === ';' && $parenDepth === 0) {
                 $this->addHTMLStyleDeclaration($out, $decl);
                 $decl = '';
                 continue;
@@ -5323,7 +5330,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         for ($idx = 0; $idx < $dlen; ++$idx) {
             $chr = $decl[$idx];
             if ($quote !== '') {
-                if ($chr === $quote && (($idx === 0) || ($decl[$idx - 1] !== '\\'))) {
+                if ($chr === $quote && ($idx === 0 || $decl[$idx - 1] !== '\\')) {
                     $quote = '';
                 }
 
@@ -5345,7 +5352,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if ($chr === ':' && ($parenDepth === 0)) {
+            if ($chr === ':' && $parenDepth === 0) {
                 $split = $idx;
                 break;
             }
@@ -5363,7 +5370,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $value = \trim(\substr($decl, $split + 1));
         // Keep the declaration value content while dropping CSS priority marker.
         // Priority is handled by the cascade layer before inline declaration parsing.
-        $value = \trim((string) (\preg_replace('/\s*!important\s*$/i', '', $value) ?? $value));
+        $value = \trim(\preg_replace('/\s*!important\s*$/i', '', $value) ?? $value);
         $out[$name] = $value;
     }
 
@@ -5415,8 +5422,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesDisplayProperty(array &$dom, int $key): void
     {
-        if (!empty($dom[$key]['attribute']['display'])) {
-            $dom[$key]['hide'] = (\trim(\strtolower($dom[$key]['attribute']['display'])) == 'none');
+        if (isset($dom[$key]['attribute']['display']) && $dom[$key]['attribute']['display'] !== '') {
+            $dom[$key]['hide'] = \trim(\strtolower($dom[$key]['attribute']['display'])) === 'none';
         }
     }
 
@@ -5428,9 +5435,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesBorderProperty(array &$dom, int $key): void
     {
-        if (!empty($dom[$key]['attribute']['border'])) {
+        if (isset($dom[$key]['attribute']['border']) && $dom[$key]['attribute']['border'] !== '') {
             $borderstyle = $this->getCSSBorderStyle($dom[$key]['attribute']['border'] . ' solid black');
-            if (!empty($borderstyle)) {
+            if ($borderstyle !== '') {
                 $dom[$key]['border']['LTRB'] = $borderstyle;
             }
         }
@@ -5445,26 +5452,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLAttributesFontTag(array &$dom, int $key): void
     {
         // check for font tag
-        if ($dom[$key]['value'] == 'font') {
+        if ($dom[$key]['value'] === 'font') {
             // font family
-            if (!empty($dom[$key]['attribute']['face'])) {
+            if (isset($dom[$key]['attribute']['face']) && $dom[$key]['attribute']['face'] !== '') {
                 // Keep the raw face value and defer font resolution to insert().
-                $dom[$key]['fontname'] = \trim((string) $dom[$key]['attribute']['face']);
+                $dom[$key]['fontname'] = \trim($dom[$key]['attribute']['face']);
             }
             /** @var array<int, THTMLAttrib> $dom */
             $parent = $dom[$key]['parent'];
             // font size
-            if (!empty($dom[$key]['attribute']['size'])) {
+            if (isset($dom[$key]['attribute']['size']) && $dom[$key]['attribute']['size'] !== '') {
                 if (
-                    ($key > 0)
-                    && !empty($dom[$parent]['fontsize'])
+                    $key > 0
+                    && isset($dom[$parent]['fontsize'])
+                    && $dom[$parent]['fontsize'] !== ''
                     && \is_numeric($dom[$parent]['fontsize'])
                 ) {
                     $dom[$key]['fontsize'] = match ($dom[$key]['attribute']['size'][0]) {
-                        '+' => $dom[$parent]['fontsize']
-                            + \floatval(\substr($dom[$key]['attribute']['size'], 1)),
-                        '-' => $dom[$parent]['fontsize']
-                            - \floatval(\substr($dom[$key]['attribute']['size'], 1)),
+                        '+' => $dom[$parent]['fontsize'] + \floatval(\substr($dom[$key]['attribute']['size'], 1)),
+                        '-' => $dom[$parent]['fontsize'] - \floatval(\substr($dom[$key]['attribute']['size'], 1)),
                         default => \floatval($dom[$key]['attribute']['size']),
                     };
                 } elseif (\is_numeric($dom[$key]['attribute']['size'])) {
@@ -5482,16 +5488,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesListAlignment(array &$dom, int $key): void
     {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
         // force natural alignment for lists
         if (
-            (($dom[$key]['value'] == 'ul')
-            || ($dom[$key]['value'] == 'ol')
-            || ($dom[$key]['value'] == 'dl'))
-            && (!isset($dom[$key]['align'])
-            || empty($dom[$key]['align'])
-            || ($dom[$key]['align'] != 'J'))
+            ($dom[$key]['value'] === 'ul' || $dom[$key]['value'] === 'ol' || $dom[$key]['value'] === 'dl')
+            && (!isset($dom[$key]['align']) || $dom[$key]['align'] === '' || $dom[$key]['align'] !== 'J')
         ) {
-            $dom[$key]['align'] = ($this->rtl) ? 'R' : 'L';
+            $dom[$key]['align'] = $this->rtl ? 'R' : 'L';
         }
     }
 
@@ -5503,17 +5509,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesSmallSupSub(array &$dom, int $key): void
     {
-        if (
-            ($dom[$key]['value'] == 'small')
-            || ($dom[$key]['value'] == 'sup')
-            || ($dom[$key]['value'] == 'sub')
-        ) {
+        if ($dom[$key]['value'] === 'small' || $dom[$key]['value'] === 'sup' || $dom[$key]['value'] === 'sub') {
             if (
                 !isset($dom[$key]['attribute']['size'])
-                && empty($dom[$key]['style']['font-size'])
+                && (!isset($dom[$key]['style']['font-size']) || $dom[$key]['style']['font-size'] === '')
                 && \is_numeric($dom[$key]['fontsize'])
             ) {
-                // @phpstan-ignore-next-line parameterByRef.type
                 $dom[$key]['fontsize'] = \floatval($dom[$key]['fontsize']) * self::FONT_SMALL_RATIO;
             }
         }
@@ -5527,8 +5528,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesEnsureFontStyle(array &$dom, int $key): void
     {
-        if (empty($dom[$key]['fontstyle']) || !\is_string($dom[$key]['fontstyle'])) {
-            // @phpstan-ignore parameterByRef.type
+        if (!isset($dom[$key]['fontstyle']) || $dom[$key]['fontstyle'] === '' || !\is_string($dom[$key]['fontstyle'])) {
             $dom[$key]['fontstyle'] = '';
         }
     }
@@ -5541,10 +5541,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesStrongBold(array &$dom, int $key): void
     {
-        if (
-            ($dom[$key]['value'] == 'strong')
-            || ($dom[$key]['value'] == 'b')
-        ) {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'strong' || $dom[$key]['value'] === 'b') {
             $dom[$key]['fontstyle'] .= 'B';
         }
     }
@@ -5557,10 +5558,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesEmItalic(array &$dom, int $key): void
     {
-        if (
-            ($dom[$key]['value'] == 'em')
-            || ($dom[$key]['value'] == 'i')
-        ) {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'em' || $dom[$key]['value'] === 'i') {
             $dom[$key]['fontstyle'] .= 'I';
         }
     }
@@ -5573,7 +5575,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesUnderline(array &$dom, int $key): void
     {
-        if ($dom[$key]['value'] == 'u') {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'u') {
             $dom[$key]['fontstyle'] .= 'U';
         }
     }
@@ -5586,11 +5592,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesStrikeThrough(array &$dom, int $key): void
     {
-        if (
-            ($dom[$key]['value'] == 'del')
-            || ($dom[$key]['value'] == 's')
-            || ($dom[$key]['value'] == 'strike')
-        ) {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'del' || $dom[$key]['value'] === 's' || $dom[$key]['value'] === 'strike') {
             $dom[$key]['fontstyle'] .= 'D';
         }
     }
@@ -5604,8 +5610,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLAttributesAnchorUnderline(array &$dom, int $key): void
     {
         if (
-            empty($dom[$key]['style']['text-decoration'])
-            && ($dom[$key]['value'] == 'a')
+            (!isset($dom[$key]['style']['text-decoration']) || $dom[$key]['style']['text-decoration'] === '')
+            && $dom[$key]['value'] === 'a'
         ) {
             $dom[$key]['fontstyle'] .= 'U';
         }
@@ -5619,11 +5625,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesMonospace(array &$dom, int $key): void
     {
-        if (
-            ($dom[$key]['value'] == 'pre')
-            || ($dom[$key]['value'] == 'tt')
-            || ($dom[$key]['value'] == 'code')
-        ) {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'pre' || $dom[$key]['value'] === 'tt' || $dom[$key]['value'] === 'code') {
             $dom[$key]['fontname'] = self::FONT_MONO;
         }
     }
@@ -5636,38 +5642,48 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesHeadingDefaults(array &$dom, int $key): void
     {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
         if (
-            !empty($dom[$key]['value'])
-            && ($dom[$key]['value'][0] == 'h')
+            isset($dom[$key]['value'])
+            && $dom[$key]['value'] !== ''
+            && $dom[$key]['value'][0] === 'h'
             && \is_numeric($dom[$key]['value'][1])
-            && (\intval($dom[$key]['value'][1]) > 0)
-            && (\intval($dom[$key]['value'][1]) < 7)
+            && \intval($dom[$key]['value'][1]) > 0
+            && \intval($dom[$key]['value'][1]) < 7
         ) {
             // headings h1, h2, h3, h4, h5, h6
             if (
                 !isset($dom[$key]['attribute']['size'])
-                && empty($dom[$key]['style']['font-size'])
+                && (!isset($dom[$key]['style']['font-size']) || $dom[$key]['style']['font-size'] === '')
                 && \is_numeric($dom[$key]['value'][1])
             ) {
                 $headsize = (4 - \intval($dom[$key]['value'][1])) * 2;
-                $dom[$key]['fontsize'] = $dom[0]['fontsize'] + $headsize;
+                $rootFontsize = isset($dom[0]['fontsize']) && \is_numeric($dom[0]['fontsize'])
+                    ? $dom[0]['fontsize']
+                    : 0.0;
+                $dom[$key]['fontsize'] = $rootFontsize + $headsize;
             }
-            if (empty($dom[$key]['style']['font-weight'])) {
+            if (!isset($dom[$key]['style']['font-weight']) || $dom[$key]['style']['font-weight'] === '') {
                 $dom[$key]['fontstyle'] .= 'B';
             }
-            $hasMarginShorthand = isset($dom[$key]['style']['margin'])
-                && \trim((string) $dom[$key]['style']['margin']) !== '';
-            $hasMarginTop = isset($dom[$key]['style']['margin-top'])
-                && \trim((string) $dom[$key]['style']['margin-top']) !== '';
-            $hasMarginBottom = isset($dom[$key]['style']['margin-bottom'])
-                && \trim((string) $dom[$key]['style']['margin-bottom']) !== '';
+            $hasMarginShorthand = isset($dom[$key]['style']['margin']) && \trim($dom[$key]['style']['margin']) !== '';
+            $hasMarginTop = isset($dom[$key]['style']['margin-top']) && \trim($dom[$key]['style']['margin-top']) !== '';
+            $hasMarginBottom =
+                isset($dom[$key]['style']['margin-bottom']) && \trim($dom[$key]['style']['margin-bottom']) !== '';
             // apply default proportional top/bottom margin unless overridden by CSS
+            $keyFontsize = \is_numeric($dom[$key]['fontsize'] ?? null) ? $dom[$key]['fontsize'] : 0.0;
+            $keyMargin = isset($dom[$key]['margin']) && \is_array($dom[$key]['margin']) ? $dom[$key]['margin'] : [];
             if (!$hasMarginShorthand && !$hasMarginTop) {
-                $dom[$key]['margin']['T'] = $this->toUnit((float) $dom[$key]['fontsize'] * 0.67);
+                $keyMargin['T'] = $this->toUnit($keyFontsize * 0.67);
             }
             if (!$hasMarginShorthand && !$hasMarginBottom) {
-                $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize'] * 0.67);
+                $keyMargin['B'] = $this->toUnit($keyFontsize * 0.67);
             }
+
+            $dom[$key]['margin'] = $keyMargin;
         }
     }
 
@@ -5679,27 +5695,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesBlockMargins(array &$dom, int $key): void
     {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
         // apply default 1em top/bottom margin for block elements that have it in standard CSS
         // skip nested lists (ol/ul/dl inside li) as browsers do not apply margins to sublists
         if (\in_array($dom[$key]['value'], ['p', 'ol', 'ul', 'dl', 'blockquote', 'pre'], true)) {
-            $hasMarginShorthand = isset($dom[$key]['style']['margin'])
-                && \trim((string) $dom[$key]['style']['margin']) !== '';
-            $hasMarginTop = isset($dom[$key]['style']['margin-top'])
-                && \trim((string) $dom[$key]['style']['margin-top']) !== '';
-            $hasMarginBottom = isset($dom[$key]['style']['margin-bottom'])
-                && \trim((string) $dom[$key]['style']['margin-bottom']) !== '';
-            $isSublist = \in_array($dom[$key]['value'], ['ol', 'ul', 'dl'], true)
+            $hasMarginShorthand = isset($dom[$key]['style']['margin']) && \trim($dom[$key]['style']['margin']) !== '';
+            $hasMarginTop = isset($dom[$key]['style']['margin-top']) && \trim($dom[$key]['style']['margin-top']) !== '';
+            $hasMarginBottom =
+                isset($dom[$key]['style']['margin-bottom']) && \trim($dom[$key]['style']['margin-bottom']) !== '';
+            $isSublist =
+                \in_array($dom[$key]['value'], ['ol', 'ul', 'dl'], true)
                 && \is_int($dom[$key]['parent'])
-                && ($dom[$key]['parent'] > 0)
+                && $dom[$key]['parent'] > 0
                 && isset($dom[$dom[$key]['parent']]['value'])
-                && ($dom[$dom[$key]['parent']]['value'] === 'li');
+                && $dom[$dom[$key]['parent']]['value'] === 'li';
             if (!$isSublist) {
+                $keyFontsize = \is_numeric($dom[$key]['fontsize'] ?? null) ? $dom[$key]['fontsize'] : 0.0;
+                $keyMargin = isset($dom[$key]['margin']) && \is_array($dom[$key]['margin']) ? $dom[$key]['margin'] : [];
                 if (!$hasMarginShorthand && !$hasMarginTop) {
-                    $dom[$key]['margin']['T'] = $this->toUnit((float) $dom[$key]['fontsize']);
+                    $keyMargin['T'] = $this->toUnit($keyFontsize);
                 }
                 if (!$hasMarginShorthand && !$hasMarginBottom) {
-                    $dom[$key]['margin']['B'] = $this->toUnit((float) $dom[$key]['fontsize']);
+                    $keyMargin['B'] = $this->toUnit($keyFontsize);
                 }
+
+                $dom[$key]['margin'] = $keyMargin;
             }
         }
     }
@@ -5712,7 +5735,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesTableDefaults(array &$dom, int $key): void
     {
-        if (($dom[$key]['value'] == 'table')) {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'table') {
             $dom[$key]['rows'] = 0; // number of rows
             $dom[$key]['trids'] = []; // IDs of TR elements
             $dom[$key]['thead'] = ''; // table header rows
@@ -5727,19 +5754,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesCaptionDefaults(array &$dom, int $key): void
     {
-        if (($dom[$key]['value'] == 'caption')) {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'caption') {
             $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
             if (
-                empty($dom[$key]['style']['text-align'])
-                && empty($dom[$key]['attribute']['align'])
-                && empty($dom[$key]['align'])
+                (!isset($dom[$key]['style']['text-align']) || $dom[$key]['style']['text-align'] === '')
+                && (!isset($dom[$key]['attribute']['align']) || $dom[$key]['attribute']['align'] === '')
+                && (!isset($dom[$key]['align']) || $dom[$key]['align'] === '')
             ) {
                 // Match browser default caption behavior when author style is absent.
                 $dom[$key]['align'] = 'C';
             }
 
             if (
-                empty($dom[$key]['style']['caption-side'])
+                (!isset($dom[$key]['style']['caption-side']) || $dom[$key]['style']['caption-side'] === '')
                 && isset($dom[$parent]['caption-side'])
                 && \is_string($dom[$parent]['caption-side'])
             ) {
@@ -5766,12 +5797,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesTableRowDefaults(array &$dom, int $key, bool $thead): void
     {
-        if ($dom[$key]['value'] == 'tr') {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'tr') {
             $dom[$key]['cols'] = 0;
             /** @var array<int, THTMLAttrib> $dom */
             if ($thead) {
-                // @phpstan-ignore parameterByRef.type
                 $dom[$key]['thead'] = 'true';
+
                 // rows on thead block are printed as a separate table
             } else {
                 $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
@@ -5780,30 +5815,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     && !\in_array($dom[$parent]['value'], ['table', 'tablehead'], true)
                     && isset($dom[$parent]['parent'])
                     && \is_int($dom[$parent]['parent'])
-                    && ($dom[$parent]['parent'] !== $parent)
+                    && $dom[$parent]['parent'] !== $parent
                 ) {
                     $parent = $dom[$parent]['parent'];
                 }
-                if (
-                    !isset($dom[$parent]['rows'])
-                    || !\is_int($dom[$parent]['rows'])
-                ) {
+                if (!isset($dom[$parent]['rows']) || !\is_int($dom[$parent]['rows'])) {
                     $dom[$parent]['rows'] = 0;
                 }
                 /** @var array<int, THTMLAttrib> $dom */
                 // store the number of rows on table element
-                // @phpstan-ignore parameterByRef.type
+
                 ++$dom[$parent]['rows'];
                 /** @var array<int, THTMLAttrib> $dom */
-                if (
-                    !isset($dom[$parent]['trids'])
-                    || !\is_array($dom[$parent]['trids'])
-                ) {
+                if (!isset($dom[$parent]['trids']) || !\is_array($dom[$parent]['trids'])) {
                     $dom[$parent]['trids'] = [];
                 }
                 /** @var array<int, THTMLAttrib> $dom */
                 // store the TR elements IDs on table element
-                // @phpstan-ignore parameterByRef.type
+
                 \array_push($dom[$parent]['trids'], $key);
             }
         }
@@ -5817,58 +5846,55 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function parseHTMLAttributesTableCellDefaults(array &$dom, int $key): void
     {
-        if (
-            ($dom[$key]['value'] == 'th')
-            || ($dom[$key]['value'] == 'td')
-        ) {
+        if (!isset($dom[$key])) {
+            return;
+        }
+
+        if ($dom[$key]['value'] === 'th' || $dom[$key]['value'] === 'td') {
             /** @var array<string, string> $attributes */
             $attributes = $dom[$key]['attribute'];
             /** @var array<string, string> $styles */
             $styles = $dom[$key]['style'];
 
-            if ($dom[$key]['value'] == 'th') {
+            if ($dom[$key]['value'] === 'th') {
                 // HTML default semantics for TH: centered + bold unless explicitly overridden.
                 if (
-                    empty($attributes['align'])
-                    && empty($styles['text-align'])
+                    (!isset($attributes['align']) || $attributes['align'] === '')
+                    && (!isset($styles['text-align']) || $styles['text-align'] === '')
                 ) {
                     $dom[$key]['align'] = 'C';
                 }
 
                 if (
-                    empty($styles['font-weight'])
-                    && empty($styles['font'])
-                    && \is_string($dom[$key]['fontstyle'])
-                    && (\strpos($dom[$key]['fontstyle'], 'B') === false)
+                    (!isset($styles['font-weight']) || $styles['font-weight'] === '')
+                    && (!isset($styles['font']) || $styles['font'] === '')
                 ) {
-                    // @phpstan-ignore-next-line parameterByRef.type
-                    $dom[$key]['fontstyle'] .= 'B';
+                    $keyFontstyle = \is_string($dom[$key]['fontstyle'] ?? null) ? $dom[$key]['fontstyle'] : '';
+                    if (!\str_contains($keyFontstyle, 'B')) {
+                        $dom[$key]['fontstyle'] = $keyFontstyle . 'B';
+                    }
                 }
             }
 
-            $colspan = (isset($attributes['colspan'])
-                && \is_numeric($attributes['colspan']))
-                ? $attributes['colspan'] : '1';
-            $rowspan = (isset($attributes['rowspan'])
-                && \is_numeric($attributes['rowspan']))
-                ? $attributes['rowspan'] : '1';
+            $colspan = isset($attributes['colspan']) && \is_numeric($attributes['colspan'])
+                ? $attributes['colspan']
+                : '1';
+            $rowspan = isset($attributes['rowspan']) && \is_numeric($attributes['rowspan'])
+                ? $attributes['rowspan']
+                : '1';
             $attributes['colspan'] = $colspan;
             $attributes['rowspan'] = $rowspan;
-            // @phpstan-ignore-next-line parameterByRef.type
+
             $dom[$key]['attribute'] = $attributes;
             $parent = \is_int($dom[$key]['parent']) ? $dom[$key]['parent'] : 0;
-            if (
-                isset($dom[($parent)]['cols'])
-                && \is_numeric($dom[($parent)]['cols'])
-            ) {
-                // @phpstan-ignore-next-line parameterByRef.type
+            if (isset($dom[$parent]['cols']) && \is_numeric($dom[$parent]['cols'])) {
                 $dom[$parent]['cols'] += \intval($colspan);
             }
 
             // Keep legacy HTML table behavior: table border attribute propagates
             // to cells when no explicit cell border is provided.
             if (
-                empty($attributes['border'])
+                (!isset($attributes['border']) || $attributes['border'] === '')
                 && !isset($styles['border'])
                 && !isset($styles['border-top'])
                 && !isset($styles['border-right'])
@@ -5879,27 +5905,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 while (
                     isset($dom[$tableParent]['value'])
                     && \is_scalar($dom[$tableParent]['value'])
-                    && !\in_array((string) $dom[$tableParent]['value'], ['table', 'tablehead'], true)
+                    && !\in_array($dom[$tableParent]['value'], ['table', 'tablehead'], true)
                     && isset($dom[$tableParent]['parent'])
                     && \is_int($dom[$tableParent]['parent'])
-                    && ($dom[$tableParent]['parent'] !== $tableParent)
+                    && $dom[$tableParent]['parent'] !== $tableParent
                 ) {
                     $tableParent = $dom[$tableParent]['parent'];
                 }
 
                 if (
-                    isset($dom[$tableParent]['attribute']['border'])
-                    && !empty($dom[$tableParent]['attribute']['border'])
+                    isset($dom[$tableParent]['attribute']['border'], $dom[$tableParent]['attribute']['border'])
+                    && $dom[$tableParent]['attribute']['border'] !== ''
                     && \is_string($dom[$tableParent]['attribute']['border'])
                 ) {
                     $borderStyle = $this->getCSSBorderStyle($dom[$tableParent]['attribute']['border'] . ' solid black');
-                    if (!empty($borderStyle)) {
+                    if ($borderStyle !== '') {
                         if (!isset($dom[$key]['border']) || !\is_array($dom[$key]['border'])) {
-                            // @phpstan-ignore-next-line parameterByRef.type
                             $dom[$key]['border'] = [];
                         }
 
-                        // @phpstan-ignore-next-line parameterByRef.type
                         $dom[$key]['border']['LTRB'] = $borderStyle;
                     }
                 }
@@ -5916,7 +5940,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLAttributesDirection(array &$dom, int $key): void
     {
         // text direction
-        if (!empty($dom[$key]['attribute']['dir'])) {
+        if (isset($dom[$key]['attribute']['dir']) && $dom[$key]['attribute']['dir'] !== '') {
             $dom[$key]['dir'] = $dom[$key]['attribute']['dir'];
         }
     }
@@ -5930,11 +5954,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLAttributesForegroundColor(array &$dom, int $key): void
     {
         // set foreground color attribute
-        if (!empty($dom[$key]['attribute']['color'])) {
+        if (isset($dom[$key]['attribute']['color']) && $dom[$key]['attribute']['color'] !== '') {
             $dom[$key]['fgcolor'] = $this->getCSSColor($dom[$key]['attribute']['color']);
         } elseif (
-            empty($dom[$key]['style']['color'])
-            && ($dom[$key]['value'] == 'a')
+            (!isset($dom[$key]['style']['color']) || $dom[$key]['style']['color'] === '')
+            && $dom[$key]['value'] === 'a'
         ) {
             $dom[$key]['fgcolor'] = 'blue';
         }
@@ -5949,7 +5973,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLAttributesBackgroundColor(array &$dom, int $key): void
     {
         // set background color attribute
-        if (!empty($dom[$key]['attribute']['bgcolor'])) {
+        if (isset($dom[$key]['attribute']['bgcolor']) && $dom[$key]['attribute']['bgcolor'] !== '') {
             $dom[$key]['bgcolor'] = $this->getCSSColor($dom[$key]['attribute']['bgcolor']);
         }
     }
@@ -5963,7 +5987,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLAttributesStrokeColor(array &$dom, int $key): void
     {
         // set stroke color attribute
-        if (!empty($dom[$key]['attribute']['strokecolor'])) {
+        if (isset($dom[$key]['attribute']['strokecolor']) && $dom[$key]['attribute']['strokecolor'] !== '') {
             $dom[$key]['strokecolor'] = $this->getCSSColor($dom[$key]['attribute']['strokecolor']);
         }
     }
@@ -6006,8 +6030,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         // check for text alignment
         if (
-            (!empty($dom[$key]['attribute']['align']))
-            && ($dom[$key]['value'] !== 'img')
+            isset($dom[$key]['attribute']['align'])
+            && $dom[$key]['attribute']['align'] !== ''
+            && $dom[$key]['value'] !== 'img'
         ) {
             $dom[$key]['align'] = \strtoupper($dom[$key]['attribute']['align'][0]);
         }
@@ -6023,13 +6048,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         // check for vertical alignment
         $hasCssValign = false;
-        if (!empty($dom[$key]['style']['vertical-align']) && \is_string($dom[$key]['style']['vertical-align'])) {
+        if (
+            isset($dom[$key]['style']['vertical-align'])
+            && $dom[$key]['style']['vertical-align'] !== ''
+            && \is_string($dom[$key]['style']['vertical-align'])
+        ) {
             $cssValign = \strtolower(\trim($dom[$key]['style']['vertical-align']));
             $hasCssValign = \in_array($cssValign, ['top', 'middle', 'bottom'], true);
         }
         if (
             !$hasCssValign
-            && !empty($dom[$key]['attribute']['valign'])
+            && isset($dom[$key]['attribute']['valign'])
+            && $dom[$key]['attribute']['valign'] !== ''
             && \is_string($dom[$key]['attribute']['valign'])
         ) {
             $valign = \strtolower(\trim($dom[$key]['attribute']['valign']));
@@ -6049,16 +6079,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         // check for text rendering mode (the following attributes do not exist in HTML)
         if (
-            !empty($dom[$key]['attribute']['stroke'])
+            isset($dom[$key]['attribute']['stroke'])
+            && $dom[$key]['attribute']['stroke'] !== ''
             && \is_numeric($dom[$key]['attribute']['stroke'])
             && \is_numeric($dom[$key]['fontsize'])
         ) {
             $ref = self::REFUNITVAL;
             $ref['parent'] = \floatval($dom[$key]['fontsize']);
             // font stroke width
-            $dom[$key]['stroke'] = $this->toUnit(
-                $this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref)
-            );
+            $dom[$key]['stroke'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref));
         }
     }
 
@@ -6072,7 +6101,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         if (isset($dom[$key]['attribute']['fill'])) {
             // font fill
-            $dom[$key]['fill'] = ($dom[$key]['attribute']['fill'] == 'true');
+            $dom[$key]['fill'] = $dom[$key]['attribute']['fill'] === 'true';
         }
     }
 
@@ -6086,7 +6115,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         if (isset($dom[$key]['attribute']['clip'])) {
             // clipping mode
-            $dom[$key]['clip'] = ($dom[$key]['attribute']['clip'] == 'true');
+            $dom[$key]['clip'] = $dom[$key]['attribute']['clip'] === 'true';
         }
     }
 
@@ -6098,14 +6127,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function setULLIDot($sym = '!'): void
     {
-        if (\substr($sym, 0, 4) == 'img|') {
+        if (\substr($sym, 0, 4) === 'img|') {
             // image type
             $this->ullidot = $sym;
             return;
         }
 
         $sym = \strtolower($sym);
-        $this->ullidot = (\in_array($sym, self::LIST_SYMBOL)) ? $sym : '!';
+        $this->ullidot = \in_array($sym, self::LIST_SYMBOL, true) ? $sym : '!';
     }
 
     /**
@@ -6124,7 +6153,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float  $posx   Abscissa of upper-left corner.
      * @param float  $posy   Ordinate of upper-left corner.
      * @param string $type   Type of list.
-    * @param array<string, mixed> $markerStyles Marker style declarations from li::marker.
+     * @param array<string, mixed> $markerStyles Marker style declarations from li::marker.
      *
      * @return string
      */
@@ -6143,13 +6172,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (isset($markerStyles['color']) && \is_string($markerStyles['color'])) {
             $markerColor = \trim($markerStyles['color']);
         }
-        if (!empty($markerStyles)) {
+        if ($markerStyles !== []) {
             $markerPrefix = $this->getStartMarkerStyle($markerStyles, $markerState);
         }
 
         switch ($type) {
             case '^': // special symbol used for avoid justification of rect bullet
-                if (!empty($markerStyles)) {
+                if ($markerStyles !== []) {
                     $this->getStopMarkerStyle($markerState);
                 }
                 return '';
@@ -6168,7 +6197,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $font = $this->font->getCurrentFont();
-        $size = $font['usize'];
+        $size = (float) ($font['usize'] ?? 0.0);
         $lspace = $this->getStringWidth(' '); // width of one space in document units
         $fontheight = $this->toUnit((float) ($font['height'] ?? 0.0));
         $fontascent = $this->toUnit((float) ($font['ascent'] ?? 0.0));
@@ -6185,34 +6214,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
                 $rad = $size / 4;
-                $lspace += (2 * $rad);
+                $lspace += 2 * $rad;
                 $posx += $this->rtl ? $lspace : -$lspace;
                 $style = [
                     'lineWidth' => 0,
-                    'lineCap'   => 'butt',
-                    'lineJoin'  => 'miter',
+                    'lineCap' => 'butt',
+                    'lineJoin' => 'miter',
                     'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
-                    'lineColor' => ($markerColor !== '')
+                    'lineColor' => $markerColor !== ''
                         ? $markerColor
                         : (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
-                    'fillColor' => ($markerColor !== '')
+                    'fillColor' => $markerColor !== ''
                         ? $markerColor
                         : (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
                 ];
-                $result = $this->graph->getStartTransform()
-                . $this->graph->getCircle(
-                    $posx,
-                    $fontTop + ($fontheight / 2),
-                    $rad,
-                    0,
-                    360,
-                    'F',
-                    $style,
-                    8,
-                ) . $this->graph->getStopTransform();
-                if (!empty($markerStyles)) {
+                $result =
+                    $this->graph->getStartTransform()
+                    . $this->graph->getCircle($posx, $fontTop + ($fontheight / 2), $rad, 0, 360, 'F', $style, 8)
+                    . $this->graph->getStopTransform();
+                if ($markerStyles !== []) {
                     $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
                 }
                 return $result;
@@ -6222,34 +6244,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
                 $rad = $size / 4;
-                $lspace += (2 * $rad);
+                $lspace += 2 * $rad;
                 $posx += $this->rtl ? $lspace : -$lspace;
                 $style = [
-                    'lineWidth' => ($rad / 3),
-                    'lineCap'   => 'butt',
-                    'lineJoin'  => 'miter',
+                    'lineWidth' => $rad / 3,
+                    'lineCap' => 'butt',
+                    'lineJoin' => 'miter',
                     'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
-                    'lineColor' => ($markerColor !== '')
+                    'lineColor' => $markerColor !== ''
                         ? $markerColor
                         : (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
-                    'fillColor' => ($markerColor !== '')
+                    'fillColor' => $markerColor !== ''
                         ? $markerColor
                         : (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
                 ];
-                $result = $this->graph->getStartTransform()
-                . $this->graph->getCircle(
-                    $posx,
-                    $fontTop + ($fontheight / 2),
-                    $rad,
-                    0,
-                    360,
-                    'D',
-                    $style,
-                    8,
-                ) . $this->graph->getStopTransform();
-                if (!empty($markerStyles)) {
+                $result =
+                    $this->graph->getStartTransform()
+                    . $this->graph->getCircle($posx, $fontTop + ($fontheight / 2), $rad, 0, 360, 'D', $style, 8)
+                    . $this->graph->getStopTransform();
+                if ($markerStyles !== []) {
                     $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
                 }
                 return $result;
@@ -6263,39 +6278,35 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $posx += $this->rtl ? $lspace : -$lspace;
                 $style = [
                     'lineWidth' => 0,
-                    'lineCap'   => 'butt',
-                    'lineJoin'  => 'miter',
+                    'lineCap' => 'butt',
+                    'lineJoin' => 'miter',
                     'miterLimit' => 0,
                     'dashArray' => [],
                     'dashPhase' => 0,
-                    'lineColor' => ($markerColor !== '')
+                    'lineColor' => $markerColor !== ''
                         ? $markerColor
                         : (string) $this->graph->getLastStyleProperty('lineColor', 'black'),
-                    'fillColor' => ($markerColor !== '')
+                    'fillColor' => $markerColor !== ''
                         ? $markerColor
                         : (string) $this->graph->getLastStyleProperty('fillColor', 'black'),
                 ];
-                $result = $this->graph->getStartTransform()
-                . $this->graph->getBasicRect(
-                    $posx,
-                    $fontTop + (($fontheight - $len) / 2),
-                    $len,
-                    $len,
-                    'F',
-                    $style,
-                ) . $this->graph->getStopTransform();
-                if (!empty($markerStyles)) {
+                $result =
+                    $this->graph->getStartTransform()
+                    . $this->graph->getBasicRect($posx, $fontTop + (($fontheight - $len) / 2), $len, $len, 'F', $style)
+                    . $this->graph->getStopTransform();
+                if ($markerStyles !== []) {
                     $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
                 }
                 return $result;
             case 'img':
                 // 1=>type, 2=>width, 3=>height, 4=>image.ext
-                $lspace += \floatval($img[2]);
+                $imgw = (float) ($img[2] ?? 0.0);
+                $lspace += $imgw;
                 $posx += $this->rtl ? $lspace : -$lspace;
-                $imgtype = strtolower($img[1]);
-                $imgsrc = isset($img[4]) ? (string) $img[4] : '';
+                $imgtype = strtolower($img[1] ?? '');
+                $imgsrc = $img[4] ?? '';
                 if (
-                    ($imgtype === 'svg+xml')
+                    $imgtype === 'svg+xml'
                     || \str_starts_with($imgsrc, '@<svg')
                     || \str_contains($imgsrc, '<svg')
                     || \str_starts_with($imgsrc, 'data:image/svg+xml')
@@ -6303,7 +6314,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $imgtype = 'svg';
                     if (\str_starts_with($imgsrc, 'data:image/svg+xml')) {
                         if (\preg_match('/^data:image\/svg\+xml(?:;base64)?,(.*)$/i', $imgsrc, $svgdata)) {
-                            $payload = (string) $svgdata[1];
+                            $payload = $svgdata[1];
                             $rawsvg = \rawurldecode($payload);
                             if (\str_contains($imgsrc, ';base64,')) {
                                 $decoded = \base64_decode($payload, true);
@@ -6320,19 +6331,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
                 $imgwidth = \floatval($img[2]);
                 $imgheight = \floatval($img[3]);
-                $imgposy = ($posy - $fontascent) + (($fontheight - $imgheight) / 2);
+                $imgposy = $posy - $fontascent + (($fontheight - $imgheight) / 2);
                 $pageheight = $this->page->getPage()['height'];
                 $result = '';
                 switch ($imgtype) {
                     case 'svg':
-                        $svgid = $this->addSVG(
-                            $imgsrc,
-                            $posx,
-                            $imgposy,
-                            $imgwidth,
-                            $imgheight,
-                            $pageheight,
-                        );
+                        $svgid = $this->addSVG($imgsrc, $posx, $imgposy, $imgwidth, $imgheight, $pageheight);
                         $result = $this->getSetSVG($svgid);
                         break;
                     default:
@@ -6347,8 +6351,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         );
                         break;
                 }
-                if (!empty($markerStyles)) {
-                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
+                if ($markerStyles !== []) {
+                    $result = $markerPrefix . (string) $result . $this->getStopMarkerStyle($markerState);
                 }
                 return $result;
             case 'a':
@@ -6388,27 +6392,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $txti = $this->uniconv->chr(4304 + $count - 1);
                 break;
             case 'cjk-ideographic':
-                $txti = $this->uniconv->chr(19968 + $count - 1);
+                $txti = $this->uniconv->chr(19_968 + $count - 1);
                 break;
             case 'hiragana':
-                $txti = $this->uniconv->chr(12354 + $count - 1);
+                $txti = $this->uniconv->chr(12_354 + $count - 1);
                 break;
             case 'hiragana-iroha':
-                $txti = $this->uniconv->chr(12356 + $count - 1);
+                $txti = $this->uniconv->chr(12_356 + $count - 1);
                 break;
             case 'katakana':
-                $txti = $this->uniconv->chr(12450 + $count - 1);
+                $txti = $this->uniconv->chr(12_450 + $count - 1);
                 break;
             case 'katakana-iroha':
-                $txti = $this->uniconv->chr(12452 + $count - 1);
+                $txti = $this->uniconv->chr(12_452 + $count - 1);
                 break;
             default:
                 $txti = \strval($count);
                 break;
         }
 
-        if (empty($txti)) {
-            if (!empty($markerStyles)) {
+        if ($txti === '') {
+            if ($markerStyles !== []) {
                 $this->getStopMarkerStyle($markerState);
             }
             return '';
@@ -6417,19 +6421,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // append dot separator for ordered list types only
         $unorderedTypes = ['disc', 'circle', 'square'];
         if (!\in_array($type, $unorderedTypes, true)) {
-            $txti = $this->rtl ? '.' . $txti : $txti . '.';
+            $txti = $this->rtl ? '.' . (string) $txti : (string) $txti . '.';
         }
 
-        $lspace += $this->getStringWidth($txti);
+        $itemWidth = $this->getStringWidth($txti);
+        $lspace += $itemWidth;
         $posx += $this->rtl ? $lspace : -$lspace;
 
         $out = $this->getTextLine($txti, $posx, $posy);
 
-        if (!empty($markerPrefix)) {
+        if ($markerPrefix !== '') {
             $out = $markerPrefix . $out;
         }
 
-        if (!empty($markerStyles)) {
+        if ($markerStyles !== []) {
             $out .= $this->getStopMarkerStyle($markerState);
         }
 
@@ -6441,9 +6446,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function pageBreak(): int
     {
-        $pid = $this->page->getPageId();
+        $pid = (int) $this->page->getPageId();
         $this->page->getNextRegion($pid);
-        $cpid = $this->page->getPageId();
+        $cpid = (int) $this->page->getPageId();
         if ($cpid > $pid) {
             $pid = $cpid;
             $this->setPageContext($pid);
@@ -6456,13 +6461,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param THTMLRenderContext $hrc HTML render context
      */
-    protected function initHTMLCellContext(
-        array &$hrc,
-        float $posx,
-        float $posy,
-        float $width,
-        float $height,
-    ): void {
+    protected function initHTMLCellContext(array &$hrc, float $posx, float $posy, float $width, float $height): void
+    {
         $basefont = $this->getHTMLBaseFontName();
         $cellctx = [
             'originx' => $posx,
@@ -6497,7 +6497,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Reset the temporary HTML cell rendering context.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function clearHTMLCellContext(array &$hrc): void
@@ -6535,7 +6535,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Estimate the total rendered height for rows inside a table-header fragment.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function estimateHTMLTableHeadHeight(array &$hrc, string $thead): float
@@ -6560,23 +6560,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tablecellspacingv = 0.0;
         foreach ($dom as $elm) {
             if (
-                empty($elm['tag']) || empty($elm['opening']) || empty($elm['value'])
+                !($elm['tag'] ?? false)
+                || !($elm['opening'] ?? false)
+                || !isset($elm['value'])
+                || $elm['value'] === ''
                 || !\is_string($elm['value'])
-                || (($elm['value'] !== 'table') && ($elm['value'] !== 'tablehead'))
+                || $elm['value'] !== 'table' && $elm['value'] !== 'tablehead'
             ) {
                 continue;
             }
-            $attr = (isset($elm['attribute']) && \is_array($elm['attribute'])) ? $elm['attribute'] : [];
-            if (!empty($attr['cellpadding']) && \is_numeric($attr['cellpadding'])) {
-                $tablecellpadding = $this->toUnit($this->getUnitValuePoints((string) $attr['cellpadding']));
+            $attr = isset($elm['attribute']) && \is_array($elm['attribute']) ? $elm['attribute'] : [];
+            if (isset($attr['cellpadding']) && \is_numeric($attr['cellpadding']) && $attr['cellpadding'] > 0) {
+                $tablecellpadding = $this->toUnit($this->getUnitValuePoints($attr['cellpadding']));
             }
-            if (!empty($attr['cellspacing']) && \is_numeric($attr['cellspacing'])) {
-                $tablecellspacingv = $this->toUnit($this->getUnitValuePoints((string) $attr['cellspacing']));
-            } elseif (!empty($elm['border-spacing']) && \is_array($elm['border-spacing'])) {
-                $tablecellspacingv = (isset($elm['border-spacing']['V']) && \is_numeric($elm['border-spacing']['V']))
-                    ? (float) $elm['border-spacing']['V'] : 0.0;
+            if (isset($attr['cellspacing']) && \is_numeric($attr['cellspacing']) && $attr['cellspacing'] > 0) {
+                $tablecellspacingv = $this->toUnit($this->getUnitValuePoints($attr['cellspacing']));
+            } elseif (
+                isset($elm['border-spacing'])
+                && $elm['border-spacing'] !== []
+                && \is_array($elm['border-spacing'])
+            ) {
+                $tablecellspacingv = isset($elm['border-spacing']['V']) && \is_numeric($elm['border-spacing']['V'])
+                    ? $elm['border-spacing']['V']
+                    : 0.0;
             }
-            if ((($elm['border-collapse'] ?? 'separate') === 'collapse')) {
+            if (($elm['border-collapse'] ?? 'separate') === 'collapse') {
                 $tablecellspacingv = 0.0;
             }
             break;
@@ -6586,45 +6594,51 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['dom'] = $dom;
 
         foreach ($dom as $key => $elm) {
-            if (empty($elm['tag']) || empty($elm['value']) || !\is_string($elm['value'])) {
+            if (
+                !($elm['tag'] ?? false)
+                || !isset($elm['value'])
+                || $elm['value'] === ''
+                || !\is_string($elm['value'])
+            ) {
                 continue;
             }
 
-            if ($elm['opening'] && ($elm['value'] === 'tr')) {
+            if ($elm['opening'] && $elm['value'] === 'tr') {
                 $inrow = true;
                 $rowheight = 0.0;
                 continue;
             }
 
-            if ($inrow && $elm['opening'] && (($elm['value'] === 'td') || ($elm['value'] === 'th'))) {
-                $padT = (float) $elm['padding']['T'];
-                $padR = (float) $elm['padding']['R'];
-                $padB = (float) $elm['padding']['B'];
-                $padL = (float) $elm['padding']['L'];
-                if (
-                    ($tablecellpadding > 0.0)
-                    && ($padT === 0.0) && ($padR === 0.0)
-                    && ($padB === 0.0) && ($padL === 0.0)
-                ) {
+            if ($inrow && $elm['opening'] && ($elm['value'] === 'td' || $elm['value'] === 'th')) {
+                $padT = $elm['padding']['T'];
+                $padR = $elm['padding']['R'];
+                $padB = $elm['padding']['B'];
+                $padL = $elm['padding']['L'];
+                if ($tablecellpadding > 0.0 && $padT === 0.0 && $padR === 0.0 && $padB === 0.0 && $padL === 0.0) {
                     $padT = $tablecellpadding;
                     $padB = $tablecellpadding;
                 }
-                $cellh = $this->getHTMLLineAdvance($hrc, $key)
+                $elmMargin = isset($elm['margin']) && \is_array($elm['margin']) ? $elm['margin'] : [];
+                $cellh =
+                    $this->getHTMLLineAdvance($hrc, $key)
                     + $padT
                     + $padB
-                    + (float) $elm['margin']['T']
-                    + (float) $elm['margin']['B'];
-                if (!empty($elm['height']) && \is_numeric($elm['height'])) {
-                    $cellh = \max($cellh, (float) $elm['height']);
+                    + ($elmMargin['T'] ?? 0.0)
+                    + ($elmMargin['B'] ?? 0.0);
+                if (isset($elm['height']) && \is_numeric($elm['height']) && $elm['height'] > 0) {
+                    $cellh = \max($cellh, $elm['height']);
                 }
                 $rowheight = \max($rowheight, $cellh);
                 continue;
             }
 
-            if (!$elm['opening'] && ($elm['value'] === 'tr') && $inrow) {
+            if (!$elm['opening'] && $elm['value'] === 'tr' && $inrow) {
                 if ($rowheight <= 0.0) {
                     $curfont = $this->font->getCurrentFont();
-                    $rowheight = $this->toUnit((float) $curfont['height']);
+                    $fontHeight = \is_array($curfont) && isset($curfont['height']) && \is_numeric($curfont['height'])
+                        ? (float) $curfont['height']
+                        : 0.0;
+                    $rowheight = $this->toUnit($fontHeight);
                 }
                 // Each closed row advances the cursor by rowheight + cellspacing
                 // (parseHTMLTagCLOSEtr); the table opening also advances by one
@@ -6646,7 +6660,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Replay stored table-header HTML at the current row position.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function replayHTMLTableHead(
@@ -6680,11 +6694,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function injectHTMLTableHeadColWidths(string $thead, array $colwidths): string
     {
-        if (($thead === '') || ($colwidths === [])) {
+        if ($thead === '' || $colwidths === []) {
             return $thead;
         }
 
-        if (\strpos($thead, 'data-tcpdf-colwidths="1"') !== false) {
+        if (\str_contains($thead, 'data-tcpdf-colwidths="1"')) {
             return $thead;
         }
 
@@ -6698,21 +6712,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $thead;
         }
 
-        $unit = (\in_array($this->unit, self::VALIDUNITS, true)) ? $this->unit : 'mm';
+        $unit = \in_array($this->unit, self::VALIDUNITS, true) ? $this->unit : 'mm';
         $colgroup = '<colgroup data-tcpdf-colwidths="1">';
         foreach ($colwidths as $width) {
-            if (!\is_numeric($width) || ((float) $width <= 0.0)) {
+            if (!\is_numeric($width) || $width <= 0.0) {
                 continue;
             }
 
-            $colgroup .= '<col style="width:' . \sprintf('%.6F', (float) $width) . $unit . ';" />';
+            $colgroup .= \sprintf('<col style="width:%.6F%s;" />', $width, $unit);
         }
 
         $colgroup .= '</colgroup>';
 
-        return \substr($thead, 0, $tagEnd + 1)
-            . $colgroup
-            . \substr($thead, $tagEnd + 1);
+        return \substr($thead, 0, $tagEnd + 1) . $colgroup . \substr($thead, $tagEnd + 1);
     }
 
     /**
@@ -6733,17 +6745,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $height = 0.0;
         foreach ($dom as $key => $elm) {
             if (
-                empty($elm['tag']) || empty($elm['opening']) || empty($elm['value'])
-                || !\is_string($elm['value']) || ($elm['value'] !== 'caption')
+                !($elm['tag'] ?? false)
+                || !($elm['opening'] ?? false)
+                || !isset($elm['value'])
+                || $elm['value'] === ''
+                || !\is_string($elm['value'])
+                || $elm['value'] !== 'caption'
             ) {
                 continue;
             }
 
-            $height = $this->getHTMLLineAdvance($hrc, $key)
-                + (float) $elm['padding']['T']
-                + (float) $elm['padding']['B']
-                + (float) $elm['margin']['T']
-                + (float) $elm['margin']['B'];
+            $elmMargin2 = isset($elm['margin']) && \is_array($elm['margin']) ? $elm['margin'] : [];
+            $height =
+                $this->getHTMLLineAdvance($hrc, $key)
+                + $elm['padding']['T']
+                + $elm['padding']['B']
+                + ($elmMargin2['T'] ?? 0.0)
+                + ($elmMargin2['B'] ?? 0.0);
             break;
         }
 
@@ -6773,7 +6791,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $callerfont = $this->captureHTMLCallerFontState();
         $basefont = '';
         if (isset($hrc['cellctx']['basefont']) && \is_string($hrc['cellctx']['basefont'])) {
-            $basefont = (string) $hrc['cellctx']['basefont'];
+            $basefont = $hrc['cellctx']['basefont'];
         }
         if ($basefont === '') {
             $basefont = $callerfont['family'];
@@ -6795,7 +6813,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Estimate the total rendered height for a table row starting at the given TR node.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function estimateHTMLTableRowHeight(array &$hrc, int $trkey): float
@@ -6803,26 +6821,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $callerfont = $this->captureHTMLCallerFontState();
 
         try {
-        /** @var array<int, THTMLAttrib> $dom */
+            /** @var array<int, THTMLAttrib> $dom */
             $dom = &$hrc['dom'];
 
-            if (empty($dom[$trkey]) || empty($dom[$trkey]['tag']) || empty($dom[$trkey]['opening'])) {
+            if (
+                !isset($dom[$trkey])
+                || $dom[$trkey] === []
+                || !($dom[$trkey]['tag'] ?? false)
+                || !($dom[$trkey]['opening'] ?? false)
+            ) {
                 return 0.0;
             }
 
-        // Fetch parent-table per-column widths and cellpadding fallback so we can
-        // measure the wrapped text height inside each cell, mirroring what the
-        // renderer will actually produce. Without this the estimate uses a single
-        // line advance and misses multi-line cell content, leading to late page
-        // breaks where the last row spills below the page bottom (see example 018).
+            // Fetch parent-table per-column widths and cellpadding fallback so we can
+            // measure the wrapped text height inside each cell, mirroring what the
+            // renderer will actually produce. Without this the estimate uses a single
+            // line advance and misses multi-line cell content, leading to late page
+            // breaks where the last row spills below the page bottom (see example 018).
             $tableColWidths = [];
             $tableCellPad = 0.0;
             $parentTableKey = isset($dom[$trkey]['parent']) && \is_int($dom[$trkey]['parent'])
-            ? $dom[$trkey]['parent'] : 0;
+                ? $dom[$trkey]['parent']
+                : 0;
             if (
                 $parentTableKey > 0
                 && isset($dom[$parentTableKey])
-                && !empty($dom[$parentTableKey]['tag'])
+                && ($dom[$parentTableKey]['tag'] ?? false)
                 && \is_string($dom[$parentTableKey]['value'])
                 && \in_array($dom[$parentTableKey]['value'], ['table', 'tablehead'], true)
             ) {
@@ -6836,7 +6860,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     isset($dom[$parentTableKey]['pendingcellpadding'])
                     && \is_numeric($dom[$parentTableKey]['pendingcellpadding'])
                 ) {
-                    $tableCellPad = (float) $dom[$parentTableKey]['pendingcellpadding'];
+                    $tableCellPad = $dom[$parentTableKey]['pendingcellpadding'];
                 }
             }
 
@@ -6846,16 +6870,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $numel = \count($dom);
             for ($key = $trkey + 1; $key < $numel; ++$key) {
                 $elm = $dom[$key];
-                if (empty($elm['tag']) || empty($elm['value']) || !\is_string($elm['value'])) {
+                if (
+                    !($elm['tag'] ?? false)
+                    || !isset($elm['value'])
+                    || $elm['value'] === ''
+                    || !\is_string($elm['value'])
+                ) {
                     continue;
                 }
 
-                if ($elm['opening'] && ($elm['value'] === 'tr')) {
+                if ($elm['opening'] && $elm['value'] === 'tr') {
                     ++$depth;
                     continue;
                 }
 
-                if (!$elm['opening'] && ($elm['value'] === 'tr')) {
+                if (!$elm['opening'] && $elm['value'] === 'tr') {
                     if ($depth === 0) {
                         break;
                     }
@@ -6868,35 +6897,36 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                if (!$elm['opening'] || (($elm['value'] !== 'td') && ($elm['value'] !== 'th'))) {
+                if (!$elm['opening'] || $elm['value'] !== 'td' && $elm['value'] !== 'th') {
                     continue;
                 }
 
                 ++$colidx;
 
                 // Determine the cell's content area width for line-wrap measurement.
-                $padL = (float) $elm['padding']['L'];
-                $padR = (float) $elm['padding']['R'];
-                $padT = (float) $elm['padding']['T'];
-                $padB = (float) $elm['padding']['B'];
-                if (($padL <= 0.0) && ($padR <= 0.0) && ($padT <= 0.0) && ($padB <= 0.0)) {
+                $padL = $elm['padding']['L'];
+                $padR = $elm['padding']['R'];
+                $padT = $elm['padding']['T'];
+                $padB = $elm['padding']['B'];
+                if ($padL <= 0.0 && $padR <= 0.0 && $padT <= 0.0 && $padB <= 0.0) {
                     // Apply the table's cellpadding HTML attribute fallback when no
                     // explicit CSS/per-cell padding was set, mirroring parseHTMLTagOPENtd.
-                    $padL = $padR = $padT = $padB = $tableCellPad;
+                    $padL = $tableCellPad;
+                    $padR = $tableCellPad;
+                    $padT = $tableCellPad;
+                    $padB = $tableCellPad;
                 }
 
-                $colwidth = (isset($tableColWidths[$colidx]) && \is_numeric($tableColWidths[$colidx]))
-                ? (float) $tableColWidths[$colidx] : 0.0;
+                $colwidth = isset($tableColWidths[$colidx]) && \is_numeric($tableColWidths[$colidx])
+                    ? $tableColWidths[$colidx]
+                    : 0.0;
                 $contentWidth = \max(0.0, $colwidth - $padL - $padR);
 
                 $cellInner = $this->estimateHTMLCellContentHeight($hrc, $key, $contentWidth);
-                $cellh = $cellInner
-                + $padT
-                + $padB
-                + (float) $elm['margin']['T']
-                + (float) $elm['margin']['B'];
-                if (!empty($elm['height']) && \is_numeric($elm['height'])) {
-                    $cellh = \max($cellh, (float) $elm['height']);
+                $elmMargin = isset($elm['margin']) && \is_array($elm['margin']) ? $elm['margin'] : [];
+                $cellh = $cellInner + $padT + $padB + ($elmMargin['T'] ?? 0.0) + ($elmMargin['B'] ?? 0.0);
+                if (isset($elm['height']) && \is_numeric($elm['height']) && $elm['height'] > 0) {
+                    $cellh = \max($cellh, $elm['height']);
                 }
 
                 $rowheight = \max($rowheight, $cellh);
@@ -6904,7 +6934,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             if ($rowheight <= 0.0) {
                 $curfont = $this->font->getCurrentFont();
-                $rowheight = $this->toUnit((float) $curfont['height']);
+                $fontHeight = \is_array($curfont) && isset($curfont['height']) && \is_numeric($curfont['height'])
+                    ? (float) $curfont['height']
+                    : 0.0;
+                $rowheight = $this->toUnit($fontHeight);
             }
 
             return $rowheight;
@@ -6925,10 +6958,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $callerfont = $this->captureHTMLCallerFontState();
 
         try {
-        /** @var array<int, THTMLAttrib> $dom */
+            /** @var array<int, THTMLAttrib> $dom */
             $dom = &$hrc['dom'];
 
-            if (empty($dom[$cellkey]) || empty($dom[$cellkey]['tag']) || empty($dom[$cellkey]['opening'])) {
+            if (
+                !isset($dom[$cellkey])
+                || $dom[$cellkey] === []
+                || !($dom[$cellkey]['tag'] ?? false)
+                || !($dom[$cellkey]['opening'] ?? false)
+            ) {
                 return 0.0;
             }
 
@@ -6948,11 +6986,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $hasinlinecontent = false;
             /** @var bool $hasinlinecontent */
 
-            for ($key = ($cellkey + 1); $key < $endkey; ++$key) {
+            for ($key = $cellkey + 1; $key < $endkey; ++$key) {
                 $elm = $dom[$key];
 
-                if (empty($elm['tag'])) {
-                    $text = (string) $elm['value'];
+                if (!($elm['tag'] ?? false)) {
+                    $text = $elm['value'];
                     if ($text === '') {
                         continue;
                     }
@@ -6962,25 +7000,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         continue;
                     }
 
-                    $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
+                    $forcedir = $elm['dir'] === 'rtl' ? 'R' : '';
                     $this->getHTMLFontMetric($hrc, $key);
                     $ordarr = [];
                     $dim = $this->getHTMLDefaultTextDims();
                     $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
 
                     $fragmentadvance = $this->getHTMLLineAdvance($hrc, $key);
-                    if (($width <= 0.0) || ($ordarr === [])) {
+                    if ($width <= 0.0 || $ordarr === []) {
                         $inlineadvance = \max($inlineadvance, $fragmentadvance);
                         $hasinlinecontent = true;
                         continue;
                     }
 
-                    $lines = $this->splitLines(
-                        $ordarr,
-                        $dim,
-                        $this->toPoints((float) $width),
-                        $this->toPoints((float) $inlinewidth),
-                    );
+                    $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints($inlinewidth));
                     if ($lines === []) {
                         continue;
                     }
@@ -6988,24 +7021,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $inlineadvance = \max($inlineadvance, $fragmentadvance);
                     $hasinlinecontent = true;
                     if (\count($lines) === 1) {
-                        $inlinewidth = (float) ($inlinewidth + $this->toUnit((float) $lines[0]['totwidth']));
+                        $inlinewidth += $this->toUnit($lines[0]['totwidth']);
                         continue;
                     }
 
-                    $height = (float) ($height + $inlineadvance);
+                    $height += $inlineadvance;
 
                     $lastline = \count($lines) - 1;
                     if ($lastline > 1) {
-                        $height = (float) ($height + (($lastline - 1) * $fragmentadvance));
+                        $height += ($lastline - 1) * $fragmentadvance;
                     }
 
-                    $inlinewidth = $this->toUnit((float) $lines[$lastline]['totwidth']);
+                    $inlinewidth = $this->toUnit($lines[$lastline]['totwidth']);
                     $inlineadvance = $fragmentadvance;
                     $hasinlinecontent = true;
                     continue;
                 }
 
-                if (!empty($elm['opening'])) {
+                if ($elm['opening'] ?? false) {
                     if ($elm['value'] === 'br') {
                         $state = $this->flushHTMLInlineLine(
                             $height,
@@ -7022,34 +7055,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     if ($elm['value'] === 'img') {
-                        $state = $this->flushHTMLInlineLine(
-                            $height,
-                            $inlineadvance,
-                            $hasinlinecontent,
-                            $lineadvance,
-                        );
+                        $state = $this->flushHTMLInlineLine($height, $inlineadvance, $hasinlinecontent, $lineadvance);
                         $height = $state['height'];
                         $inlinewidth = $state['inlinewidth'];
                         $inlineadvance = $state['inlineadvance'];
                         $hasinlinecontent = $state['hasinlinecontent'];
-                        $height = (float) ($height + ((!empty($elm['height']) && \is_numeric($elm['height']))
-                            ? (float) $elm['height']
-                            : $lineadvance));
+                        $height +=
+                            isset($elm['height']) && \is_numeric($elm['height']) && $elm['height'] > 0
+                                ? $elm['height']
+                                : $lineadvance;
                         continue;
                     }
 
                     if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
-                        $state = $this->flushHTMLInlineLine(
-                            $height,
-                            $inlineadvance,
-                            $hasinlinecontent,
-                            $lineadvance,
-                        );
+                        $state = $this->flushHTMLInlineLine($height, $inlineadvance, $hasinlinecontent, $lineadvance);
                         $height = $state['height'];
                         $inlinewidth = $state['inlinewidth'];
                         $inlineadvance = $state['inlineadvance'];
                         $hasinlinecontent = $state['hasinlinecontent'];
-                        $height = (float) ($height + ((float) $elm['margin']['T'] + (float) $elm['padding']['T']));
+                        $elmMargin = isset($elm['margin']) && \is_array($elm['margin']) ? $elm['margin'] : [];
+                        $elmPadding = isset($elm['padding']) && \is_array($elm['padding']) ? $elm['padding'] : [];
+                        $height += ($elmMargin['T'] ?? 0.0) + ($elmPadding['T'] ?? 0.0);
                     }
 
                     continue;
@@ -7057,26 +7083,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 // Closing tag.
                 if (\in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
-                    $state = $this->flushHTMLInlineLine(
-                        $height,
-                        $inlineadvance,
-                        $hasinlinecontent,
-                        $lineadvance,
-                    );
+                    $state = $this->flushHTMLInlineLine($height, $inlineadvance, $hasinlinecontent, $lineadvance);
                     $height = $state['height'];
                     $inlinewidth = $state['inlinewidth'];
                     $inlineadvance = $state['inlineadvance'];
                     $hasinlinecontent = $state['hasinlinecontent'];
-                    $height = (float) ($height + ((float) $elm['margin']['B'] + (float) $elm['padding']['B']));
+                    $elmMargin = isset($elm['margin']) && \is_array($elm['margin']) ? $elm['margin'] : [];
+                    $elmPadding = isset($elm['padding']) && \is_array($elm['padding']) ? $elm['padding'] : [];
+                    $height += ($elmMargin['B'] ?? 0.0) + ($elmPadding['B'] ?? 0.0);
                 }
             }
 
-            $state = $this->flushHTMLInlineLine(
-                $height,
-                $inlineadvance,
-                $hasinlinecontent,
-                $lineadvance,
-            );
+            $state = $this->flushHTMLInlineLine($height, $inlineadvance, $hasinlinecontent, $lineadvance);
             $height = $state['height'];
             $inlinewidth = $state['inlinewidth'];
             $inlineadvance = $state['inlineadvance'];
@@ -7086,7 +7104,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $height = $lineadvance;
             }
 
-            return (float) $height;
+            return $height;
         } finally {
             $this->restoreHTMLCallerFontState($callerfont);
         }
@@ -7110,7 +7128,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         bool $forceempty = false,
     ): array {
         if ($hasinlinecontent) {
-            $height += ($inlineadvance > 0.0) ? $inlineadvance : $fallbackadvance;
+            $height += $inlineadvance > 0.0 ? $inlineadvance : $fallbackadvance;
         } elseif ($forceempty) {
             $height += $fallbackadvance;
         }
@@ -7130,20 +7148,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function findHTMLClosingTagIndex(array $dom, int $startkey): int
     {
-        if (empty($dom[$startkey]['tag']) || empty($dom[$startkey]['opening']) || empty($dom[$startkey]['value'])) {
+        if (
+            !($dom[$startkey]['tag'] ?? false)
+            || !($dom[$startkey]['opening'] ?? false)
+            || (!isset($dom[$startkey]['value']) || $dom[$startkey]['value'] === '')
+        ) {
             return $startkey;
         }
 
-        $tag = (string) $dom[$startkey]['value'];
+        $tag = $dom[$startkey]['value'];
         $depth = 0;
         $numel = \count($dom);
-        for ($key = ($startkey + 1); $key < $numel; ++$key) {
+        for ($key = $startkey + 1; $key < $numel; ++$key) {
             $elm = $dom[$key];
-            if (empty($elm['tag']) || empty($elm['value']) || !\is_string($elm['value']) || ($elm['value'] !== $tag)) {
+            if (
+                !($elm['tag'] ?? false)
+                || !isset($elm['value'])
+                || $elm['value'] === ''
+                || !\is_string($elm['value'])
+                || $elm['value'] !== $tag
+            ) {
                 continue;
             }
 
-            if (!empty($elm['opening'])) {
+            if ($elm['opening'] ?? false) {
                 ++$depth;
                 continue;
             }
@@ -7179,14 +7207,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 return 0.0;
             }
 
-            $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
+            $forcedir = $elm['dir'] === 'rtl' ? 'R' : '';
             $this->getHTMLFontMetric($hrc, $key);
             $ordarr = [];
             $dim = $this->getHTMLDefaultTextDims();
             $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
 
             $lineadvance = $this->getHTMLLineAdvance($hrc, $key);
-            if (($width <= 0.0) || ($ordarr === [])) {
+            if ($width <= 0.0 || $ordarr === []) {
                 return $lineadvance;
             }
 
@@ -7199,7 +7227,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Estimate the height of a nobr subtree so it can be moved intact to a new region.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function estimateHTMLNobrHeight(array &$hrc, int $startkey, float $width): float
@@ -7207,14 +7235,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $callerfont = $this->captureHTMLCallerFontState();
 
         try {
-        /** @var array<int, THTMLAttrib> $dom */
+            /** @var array<int, THTMLAttrib> $dom */
             $dom = &$hrc['dom'];
 
-            if (empty($dom[$startkey]) || empty($dom[$startkey]['tag']) || empty($dom[$startkey]['opening'])) {
+            if (
+                !isset($dom[$startkey])
+                || $dom[$startkey] === []
+                || !($dom[$startkey]['tag'] ?? false)
+                || !($dom[$startkey]['opening'] ?? false)
+            ) {
                 return 0.0;
             }
 
-            $starttag = (string) $dom[$startkey]['value'];
+            $starttag = $dom[$startkey]['value'] ?? '';
             if ($starttag === 'tr') {
                 return $this->estimateHTMLTableRowHeight($hrc, $startkey);
             }
@@ -7225,28 +7258,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             $height = 0.0;
-            for ($key = ($startkey + 1); $key < $endkey; ++$key) {
+            for ($key = $startkey + 1; $key < $endkey; ++$key) {
                 $elm = $dom[$key];
 
-                if (empty($elm['tag'])) {
-                    $height += $this->estimateHTMLTextHeight($hrc, $key, (string) $elm['value'], $width);
+                if (!($elm['tag'] ?? false)) {
+                    $height += $this->estimateHTMLTextHeight($hrc, $key, $elm['value'], $width);
                     continue;
                 }
 
-                if (!empty($elm['opening'])) {
+                if ($elm['opening'] ?? false) {
                     if ($elm['value'] === 'br') {
                         $height += $this->getHTMLLineAdvance($hrc, $key);
                         continue;
                     }
 
                     if ($elm['value'] === 'img') {
-                        $height += (!empty($elm['height']) && \is_numeric($elm['height']))
-                        ? (float) $elm['height']
-                        : $this->getHTMLLineAdvance($hrc, $key);
+                        $height +=
+                            isset($elm['height']) && \is_numeric($elm['height']) && $elm['height'] > 0
+                                ? $elm['height']
+                                : $this->getHTMLLineAdvance($hrc, $key);
                         continue;
                     }
 
-                    if (($elm['value'] === 'input') || ($elm['value'] === 'output')) {
+                    if ($elm['value'] === 'input' || $elm['value'] === 'output') {
                         $height += $this->estimateHTMLTextHeight(
                             $hrc,
                             $key,
@@ -7263,19 +7297,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     if ($elm['value'] === 'textarea') {
-                        $value = (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value']))
-                        ? $elm['attribute']['value']
-                        : '';
+                        $value = isset($elm['attribute']['value'])
+                        && $elm['attribute']['value'] !== ''
+                        && \is_string($elm['attribute']['value'])
+                            ? $elm['attribute']['value']
+                            : '';
                         $height += $this->estimateHTMLTextHeight($hrc, $key, $value, $width);
                         continue;
                     }
 
-                    if (($elm['value'] === 'table') || ($elm['value'] === 'tablehead') || ($elm['value'] === 'thead')) {
+                    if ($elm['value'] === 'table' || $elm['value'] === 'tablehead' || $elm['value'] === 'thead') {
                         $subheight = 0.0;
                         $tableend = $this->findHTMLClosingTagIndex($dom, $key);
                         for ($idx = $key; $idx <= $tableend; ++$idx) {
-                            $isOpenTr = !empty($dom[$idx]['tag']) && !empty($dom[$idx]['opening'])
-                            && ($dom[$idx]['value'] === 'tr');
+                            $isOpenTr =
+                                ($dom[$idx]['tag'] ?? false)
+                                && ($dom[$idx]['opening'] ?? false)
+                                && ($dom[$idx]['value'] ?? '') === 'tr';
                             if ($isOpenTr) {
                                 $subheight += $this->estimateHTMLTableRowHeight($hrc, $idx);
                             }
@@ -7286,14 +7324,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                 }
 
-                if (
-                    !empty($elm['tag'])
-                    && \in_array($elm['value'], self::HTML_BLOCK_TAGS, true)
-                ) {
-                    if (!empty($elm['opening'])) {
-                        $height += (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
+                if (($elm['tag'] ?? false) && \in_array($elm['value'], self::HTML_BLOCK_TAGS, true)) {
+                    $elmMargin = isset($elm['margin']) && \is_array($elm['margin']) ? $elm['margin'] : [];
+                    $elmPadding = isset($elm['padding']) && \is_array($elm['padding']) ? $elm['padding'] : [];
+                    if ($elm['opening'] ?? false) {
+                        $height += ($elmMargin['T'] ?? 0.0) + ($elmPadding['T'] ?? 0.0);
                     } else {
-                        $height += (float) $elm['margin']['B'] + (float) $elm['padding']['B'];
+                        $height += ($elmMargin['B'] ?? 0.0) + ($elmPadding['B'] ?? 0.0);
                     }
                 }
             }
@@ -7310,19 +7347,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Return the remaining vertical space in the current region or explicit cell box.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getHTMLRemainingHeight(array &$hrc, float $tpy): float
     {
         $region = $this->page->getRegion();
-        $remaining = ((float) $region['RY'] + (float) $region['RH']) - $tpy;
+        $regionY = (float) ($region['RY'] ?? 0.0);
+        $regionH = (float) ($region['RH'] ?? 0.0);
+        $remaining = $regionY + $regionH - $tpy;
 
-        if ($hrc['cellctx']['maxheight'] > 0.0) {
-            $remaining = \min(
-                $remaining,
-                ($hrc['cellctx']['originy'] + $hrc['cellctx']['maxheight']) - $tpy,
-            );
+        $cellCtx = $hrc['cellctx'] ?? [];
+        if (($cellCtx['maxheight'] ?? 0.0) > 0.0) {
+            $remaining = \min($remaining, ($cellCtx['originy'] ?? 0.0) + ($cellCtx['maxheight'] ?? 0.0) - $tpy);
         }
 
         return \max(0.0, $remaining);
@@ -7330,7 +7367,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Break to the next page region when the required height does not fit.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function breakHTMLIfNeeded(
@@ -7347,23 +7384,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $region = $this->page->getRegion();
-        $regiontop = (float) $region['RY'];
+        $regiontop = \is_array($region) && isset($region['RY']) && \is_numeric($region['RY'])
+            ? (float) $region['RY']
+            : 0.0;
         $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-        if (($requiredh <= ($remaining + self::WIDTH_TOLERANCE)) || ($tpy <= ($regiontop + self::WIDTH_TOLERANCE))) {
+        if ($requiredh <= ($remaining + self::WIDTH_TOLERANCE) || $tpy <= ($regiontop + self::WIDTH_TOLERANCE)) {
             return '';
         }
 
-        $oldRX = (float) $region['RX'];
+        $oldRX = (float) ($region['RX'] ?? 0.0);
         $this->pageBreak();
         $region = $this->page->getRegion();
-        $hrc['cellctx']['originy'] = (float) $region['RY'];
-        $rxDelta = (float) $region['RX'] - $oldRX;
-        $hrc['cellctx']['originx'] += $rxDelta;
-        $hrc['cellctx']['regionoffset'] = ((float) ($hrc['cellctx']['regionoffset'] ?? 0.0)) + $rxDelta;
-        $tpy = $hrc['cellctx']['originy'];
+        $newRY = (float) ($region['RY'] ?? 0.0);
+        $rxDelta = (float) ($region['RX'] ?? 0.0) - $oldRX;
+
+        $cellCtx = $hrc['cellctx'] ?? [];
+        $cellCtx['originy'] = $newRY;
+        $cellCtx['originx'] = ($cellCtx['originx'] ?? 0.0) + $rxDelta;
+        $cellCtx['regionoffset'] = ($cellCtx['regionoffset'] ?? 0.0) + $rxDelta;
+        $hrc['cellctx'] = $cellCtx;
+
+        $tpy = $newRY;
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
 
-        return ($thead === '') ? '' : $this->replayHTMLTableHead($hrc, $thead, $tpx, $tpy, $tpw, $tph);
+        return $thead === '' ? '' : $this->replayHTMLTableHead($hrc, $thead, $tpx, $tpy, $tpw, $tph);
     }
 
     /**
@@ -7381,7 +7425,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function flushOpenBlockBuffers(array &$hrc, float $tpy): string
     {
-        if (empty($hrc['blockbuf'])) {
+        if (($hrc['blockbuf'] ?? []) === []) {
             return '';
         }
 
@@ -7404,28 +7448,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // with its own top border, so extending the outer frame to the
             // page bottom would leave a tall empty bordered rectangle below
             // the last row on this page.
-            $isTable = ($openkey >= 0)
-                && isset($hrc['dom'][$openkey]['value'])
-                && ($hrc['dom'][$openkey]['value'] === 'table');
+            $isTable =
+                $openkey >= 0 && isset($hrc['dom'][$openkey]['value']) && $hrc['dom'][$openkey]['value'] === 'table';
             $blockBottom = $isTable ? $tpy : $pageBottom;
-            $partialHeight = $blockBottom - (float) $blk['by'];
-            $content = (string) $blk['buffer'] . $rendered;
-            if (((float) $blk['bw'] > 0.0) && ($partialHeight > 0.0)) {
-                $bstyles = ($openkey >= 0)
-                    ? $this->getHTMLTableCellBorderStyles($hrc, $openkey)
-                    : [];
-                $fillstyle = ($openkey >= 0)
-                    ? $this->getHTMLTableCellFillStyle($hrc, $openkey)
-                    : null;
+            $partialHeight = $blockBottom - $blk['by'];
+            $content = $blk['buffer'] . $rendered;
+            if ($blk['bw'] > 0.0 && $partialHeight > 0.0) {
+                $bstyles = $openkey >= 0 ? $this->getHTMLTableCellBorderStyles($hrc, $openkey) : [];
+                $fillstyle = $openkey >= 0 ? $this->getHTMLTableCellFillStyle($hrc, $openkey) : null;
                 if ($isTable) {
                     // Keep table border ownership in parseHTMLTagCLOSEtable();
                     // page-split block flush must paint only the background.
                     $bstyles = [];
                 }
                 $rendered = $this->renderHTMLTableCell(
-                    (float) $blk['bx'],
-                    (float) $blk['by'],
-                    (float) $blk['bw'],
+                    $blk['bx'],
+                    $blk['by'],
+                    $blk['bw'],
                     $partialHeight,
                     $partialHeight,
                     'top',
@@ -7458,15 +7497,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function resetHTMLTableStackOnPageBreak(array &$hrc, float $tpy): void
     {
-        if (empty($hrc['tablestack'])) {
+        if (($hrc['tablestack'] ?? []) === []) {
             return;
         }
 
         // Account for region offset changes (e.g., multi-column layout shifts).
-        $currentOffset = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
+        $currentOffset = $hrc['cellctx']['regionoffset'] ?? 0.0;
 
         foreach ($hrc['tablestack'] as $tidx => $table) {
-            $cellspacing = (float) $table['cellspacingv'];
+            $cellspacing = $table['cellspacingv'];
             $table['originy'] = $tpy;
             $table['rowtop'] = $tpy + $cellspacing;
             $table['rowheight'] = 0.0;
@@ -7476,10 +7515,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // Adjust table originx if region offset has changed since table opened.
             // This handles multi-column/multi-page layouts where content shifts horizontally.
             if (isset($table['regionoffset']) && \is_numeric($table['regionoffset'])) {
-                $savedOffset = (float) $table['regionoffset'];
+                $savedOffset = $table['regionoffset'];
                 $offsetDelta = $currentOffset - $savedOffset;
                 if ($offsetDelta !== 0.0) {
-                    $table['originx'] = ((float) $table['originx']) + $offsetDelta;
+                    $table['originx'] += $offsetDelta;
                     $table['regionoffset'] = $currentOffset;
                 }
             }
@@ -7490,7 +7529,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Push a new active HTML link.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function pushHTMLLink(array &$hrc, string $href): void
@@ -7500,7 +7539,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Pop the current active HTML link.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function popHTMLLink(array &$hrc): void
@@ -7514,7 +7553,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Get the current active HTML link.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getCurrentHTMLLink(array &$hrc): string
@@ -7542,12 +7581,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function hasHTMLListIndentOverride(array $elm): bool
     {
-        if (empty($elm['style']) || !\is_array($elm['style'])) {
+        if (!isset($elm['style']) || $elm['style'] === [] || !\is_array($elm['style'])) {
             return false;
         }
 
         foreach (['padding-left', 'margin-left', 'padding', 'margin'] as $prop) {
-            if (!empty($elm['style'][$prop])) {
+            if (isset($elm['style'][$prop]) && $elm['style'][$prop] !== '') {
                 return true;
             }
         }
@@ -7562,12 +7601,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLListIndentFromElement(array $elm): float
     {
-        $padding = (isset($elm['padding']['L']) && \is_numeric($elm['padding']['L']))
-            ? (float) $elm['padding']['L']
-            : 0.0;
-        $margin = (isset($elm['margin']['L']) && \is_numeric($elm['margin']['L']))
-            ? (float) $elm['margin']['L']
-            : 0.0;
+        $padding = isset($elm['padding']['L']) && \is_numeric($elm['padding']['L']) ? $elm['padding']['L'] : 0.0;
+        $margin = isset($elm['margin']['L']) && \is_numeric($elm['margin']['L']) ? $elm['margin']['L'] : 0.0;
 
         return \max(0.0, $padding + $margin);
     }
@@ -7579,7 +7614,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLListIndentOverrideByKey(array &$hrc, int $key): float
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return 0.0;
         }
 
@@ -7605,7 +7640,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $idx = $depth - 1;
         if (isset($hrc['liststack'][$idx]['indent']) && \is_numeric($hrc['liststack'][$idx]['indent'])) {
-            $indent = (float) $hrc['liststack'][$idx]['indent'];
+            $indent = $hrc['liststack'][$idx]['indent'];
             if ($indent > 0) {
                 return $indent;
             }
@@ -7637,9 +7672,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $imgtype = '';
         if (\preg_match('/^data:image\/([^;,]+)(;base64)?,(.*)$/i', $source, $dataMatch)) {
-            $imgtype = \strtolower((string) $dataMatch[1]);
-            $isBase64 = !empty($dataMatch[2]);
-            $payload = (string) $dataMatch[3];
+            $imgtype = \strtolower($dataMatch[1]);
+            $isBase64 = isset($dataMatch[2]) && $dataMatch[2] !== '';
+            $payload = $dataMatch[3];
             if ($isBase64) {
                 $decoded = \base64_decode($payload, true);
                 if ($decoded === false || $decoded === '') {
@@ -7658,7 +7693,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (\preg_match('/\.svg([?#].*)?$/i', $source)) {
                 $imgtype = 'svg';
             } elseif (\preg_match('/\.([a-z0-9]+)([?#].*)?$/i', $source, $extMatch)) {
-                $imgtype = \strtolower((string) $extMatch[1]);
+                $imgtype = \strtolower($extMatch[1]);
             }
         }
 
@@ -7679,14 +7714,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $imgsize = \max(1.0, \round($fontsize * 0.5, 3));
 
-        return 'img|'
-            . $imgtype
-            . '|'
-            . (string) $imgsize
-            . '|'
-            . (string) $imgsize
-            . '|'
-            . $source;
+        return 'img|' . $imgtype . '|' . (string) $imgsize . '|' . (string) $imgsize . '|' . $source;
     }
 
     /**
@@ -7697,23 +7725,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLListMarkerType(array &$hrc, int $key, bool $ordered): string
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return $ordered ? '#' : $this->ullidot;
         }
 
         $elm = &$hrc['dom'][$key];
         $default = $ordered ? '#' : $this->ullidot;
 
-        if (!empty($elm['style']['list-style-image']) && \is_string($elm['style']['list-style-image'])) {
-            $imagetype = \trim((string) $elm['style']['list-style-image']);
+        if (
+            isset($elm['style']['list-style-image'])
+            && \is_string($elm['style']['list-style-image'])
+            && $elm['style']['list-style-image'] !== ''
+        ) {
+            $imagetype = \trim($elm['style']['list-style-image']);
             if ($imagetype !== '' && \strtolower($imagetype) !== 'none') {
                 $imgmarker = $this->getHTMLListImageMarkerType($imagetype);
                 if ($imgmarker !== '') {
                     return $imgmarker;
                 }
             }
-        } elseif (!empty($elm['list-style-image']) && \is_string($elm['list-style-image'])) {
-            $imagetype = \trim((string) $elm['list-style-image']);
+        } elseif (
+            isset($elm['list-style-image'])
+            && \is_string($elm['list-style-image'])
+            && $elm['list-style-image'] !== ''
+        ) {
+            $imagetype = \trim($elm['list-style-image']);
             if ($imagetype !== '' && \strtolower($imagetype) !== 'none') {
                 $imgmarker = $this->getHTMLListImageMarkerType($imagetype);
                 if ($imgmarker !== '') {
@@ -7722,21 +7758,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $inheritsListStyle = !empty($elm['style']['list-style'])
+        $inheritsListStyle =
+            isset($elm['style']['list-style'])
+            && $elm['style']['list-style'] !== ''
             && \is_string($elm['style']['list-style'])
-            && (\strtolower(\trim((string) $elm['style']['list-style'])) === 'inherit');
-        $inheritsLStyType = !empty($elm['style']['list-style-type'])
+            && \strtolower(\trim($elm['style']['list-style'])) === 'inherit';
+        $inheritsLStyType =
+            isset($elm['style']['list-style-type'])
+            && $elm['style']['list-style-type'] !== ''
             && \is_string($elm['style']['list-style-type'])
-            && (\strtolower(\trim((string) $elm['style']['list-style-type'])) === 'inherit');
-        if (($inheritsListStyle || $inheritsLStyType) && !empty($hrc['liststack'])) {
+            && \strtolower(\trim($elm['style']['list-style-type'])) === 'inherit';
+        if (($inheritsListStyle || $inheritsLStyType) && ($hrc['liststack'] ?? []) !== []) {
             $parentidx = \count($hrc['liststack']) - 1;
             if (isset($hrc['liststack'][$parentidx]['type']) && \is_string($hrc['liststack'][$parentidx]['type'])) {
                 $parenttype = $hrc['liststack'][$parentidx]['type'];
-                if (!$ordered && ($parenttype === '!')) {
+                if (!$ordered && $parenttype === '!') {
                     $parentDepth = \count($hrc['liststack']);
                     return self::LIST_DEF_ULTYPE[($parentDepth - 1) % 3];
                 }
-                if ($ordered && ($parenttype === '#')) {
+                if ($ordered && $parenttype === '#') {
                     return 'decimal';
                 }
 
@@ -7744,12 +7784,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        if (!empty($elm['attribute']['type']) && \is_string($elm['attribute']['type'])) {
+        if (
+            isset($elm['attribute']['type'])
+            && $elm['attribute']['type'] !== ''
+            && \is_string($elm['attribute']['type'])
+        ) {
             $type = \trim(\strtolower($elm['attribute']['type']));
-            return ($type === '') ? $default : $type;
+            return $type === '' ? $default : $type;
         }
 
-        if (!empty($elm['listtype']) && \is_string($elm['listtype'])) {
+        if (isset($elm['listtype']) && \is_string($elm['listtype']) && $elm['listtype'] !== '') {
             return $elm['listtype'];
         }
 
@@ -7764,7 +7808,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function pushHTMLList(array &$hrc, int $key, bool $ordered): void
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             $hrc['liststack'][] = [
                 'ordered' => $ordered,
                 'type' => $ordered ? '#' : $this->ullidot,
@@ -7778,10 +7822,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $start = 0;
         if (
             $ordered
-            && !empty($elm['attribute']['start'])
+            && isset($elm['attribute']['start'])
             && \is_numeric($elm['attribute']['start'])
+            && $elm['attribute']['start'] > 0
         ) {
-            $start = ((int) $elm['attribute']['start']) - 1;
+            $start = (int) $elm['attribute']['start'] - 1;
         }
 
         $indent = $this->getHTMLListIndentOverrideByKey($hrc, $key);
@@ -7796,19 +7841,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Remove the current list level from the rendering stack.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function popHTMLList(array &$hrc): void
     {
-        if (!empty($hrc['liststack'])) {
+        if (($hrc['liststack'] ?? []) !== []) {
             \array_pop($hrc['liststack']);
         }
     }
 
     /**
      * Returns the current list depth.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getHTMLListDepth(array &$hrc): int
@@ -7830,18 +7875,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $idx = $depth - 1;
-        if (!$hrc['liststack'][$idx]['ordered']) {
+        $listEntry = $hrc['liststack'][$idx] ?? [];
+        if (!($listEntry['ordered'] ?? false)) {
             return 1;
         }
 
-        ++$hrc['liststack'][$idx]['count'];
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
-            return $hrc['liststack'][$idx]['count'];
+        $newCount = ($listEntry['count'] ?? 0) + 1;
+        $hrc['liststack'][$idx]['count'] = $newCount;
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
+            return $newCount;
         }
 
         $elm = &$hrc['dom'][$key];
         if (
-            !empty($elm['attribute']['value'])
+            isset($elm['attribute']['value'])
+            && $elm['attribute']['value'] !== ''
             && \is_numeric($elm['attribute']['value'])
         ) {
             $hrc['liststack'][$idx]['count'] = (int) $elm['attribute']['value'];
@@ -7852,7 +7900,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Returns the marker type for the current list level.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function getCurrentHTMLListMarkerType(array &$hrc): string
@@ -7862,7 +7910,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '#';
         }
 
-        return $hrc['liststack'][$depth - 1]['type'];
+        $listEntry = $hrc['liststack'][$depth - 1] ?? [];
+        return $listEntry['type'] ?? '#';
     }
 
     /**
@@ -7881,9 +7930,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $supportedProperties = ['color', 'font-weight', 'font-style', 'font-size'];
 
         foreach ($supportedProperties as $prop) {
-            if (isset($cssdata[$prop])) {
-                $filtered[$prop] = $cssdata[$prop];
+            if (!isset($cssdata[$prop])) {
+                continue;
             }
+
+            $filtered[$prop] = $cssdata[$prop];
         }
 
         return $filtered;
@@ -7919,7 +7970,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && \is_string($fontstate['style'])
             && \is_numeric($fontstate['size'])
         ) {
-            $fontstyle = (string) $fontstate['style'];
+            $fontstyle = $fontstate['style'];
             if (isset($markerStyles['font-weight']) && \is_string($markerStyles['font-weight'])) {
                 $weight = \strtolower(\trim($markerStyles['font-weight']));
                 if (\in_array($weight, ['bold', 'bolder', '600', '700', '800', '900'], true)) {
@@ -7942,7 +7993,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
 
-            $fontsize = (float) $fontstate['size'];
+            $fontsize = $fontstate['size'];
             if (isset($markerStyles['font-size']) && \is_string($markerStyles['font-size'])) {
                 $fsize = \trim($markerStyles['font-size']);
                 if ($fsize !== '') {
@@ -7956,13 +8007,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
 
-            $metric = $this->font->insert(
-                $this->pon,
-                (string) $fontstate['family'],
-                $fontstyle,
-                $fontsize,
-            );
-            if (!empty($metric['out']) && \is_string($metric['out'])) {
+            $metric = $this->font->insert($this->pon, $fontstate['family'], $fontstyle, $fontsize);
+            if (isset($metric['out']) && $metric['out'] !== '' && \is_string($metric['out'])) {
                 $out .= $metric['out'];
             }
         }
@@ -7980,7 +8026,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getStopMarkerStyle(array $markerState): string
     {
         $fillColor = 'black';
-        if (!empty($markerState['fillColor']) && \is_string($markerState['fillColor'])) {
+        if (
+            isset($markerState['fillColor'])
+            && \is_string($markerState['fillColor'])
+            && $markerState['fillColor'] !== ''
+        ) {
             $fillColor = $markerState['fillColor'];
         }
 
@@ -7995,11 +8045,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ) {
             $metric = $this->font->insert(
                 $this->pon,
-                (string) $fontstate['family'],
-                (string) $fontstate['style'],
+                $fontstate['family'],
+                $fontstate['style'],
                 (float) $fontstate['size'],
             );
-            if (!empty($metric['out']) && \is_string($metric['out'])) {
+            if (isset($metric['out']) && $metric['out'] !== '' && \is_string($metric['out'])) {
                 $out = $metric['out'] . $out;
             }
         }
@@ -8020,7 +8070,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $family = $this->font->getFontFamilyName($fontname);
-        if (($family !== '') && !\preg_match('/[biudo]+$/i', $family)) {
+        if ($family !== '' && !\preg_match('/[biudo]+$/i', $family)) {
             return $family;
         }
 
@@ -8049,11 +8099,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $style = '';
-        if (!empty($curfont['style']) && \is_string($curfont['style'])) {
+        if (isset($curfont['style']) && \is_string($curfont['style']) && $curfont['style'] !== '') {
             foreach (['B', 'I'] as $fontstyle) {
-                if (\str_contains($curfont['style'], $fontstyle)) {
-                    $style .= $fontstyle;
+                if (!\str_contains($curfont['style'], $fontstyle)) {
+                    continue;
                 }
+
+                $style .= $fontstyle;
             }
         }
 
@@ -8072,14 +8124,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function restoreHTMLCallerFontState(array $fontstate): string
     {
-        $font = $this->font->insert(
-            $this->pon,
-            $fontstate['family'],
-            $fontstate['style'],
-            $fontstate['size'],
-        );
+        $font = $this->font->insert($this->pon, $fontstate['family'], $fontstate['style'], $fontstate['size']);
 
-        return (isset($font['out']) && \is_string($font['out'])) ? $font['out'] : '';
+        return isset($font['out']) && \is_string($font['out']) ? $font['out'] : '';
     }
 
     /**
@@ -8088,7 +8135,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
      *
-    * @return array<string, mixed>
+     * @return array<string, mixed>
      */
     protected function getHTMLFontMetric(array &$hrc, int $key): array
     {
@@ -8098,23 +8145,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $elm = $hrc['dom'][$key];
         $curfont = $this->font->getCurrentFont();
-        $fontname = empty($elm['fontname'])
-            ? (string) ($hrc['cellctx']['basefont'] ?? $this->getHTMLBaseFontName())
-            : (string) $elm['fontname'];
+        $fontname = !isset($elm['fontname']) || $elm['fontname'] === ''
+            ? $hrc['cellctx']['basefont'] ?? $this->getHTMLBaseFontName()
+            : $elm['fontname'];
 
         $stripped = \preg_replace('/[biudo]+$/i', '', $fontname) ?? '';
-        if (($stripped !== '') && ($stripped !== $fontname)) {
+        if ($stripped !== '' && $stripped !== $fontname) {
             $fontname = $stripped;
         }
-        $fontsize = (!empty($elm['fontsize']) && \is_numeric($elm['fontsize']))
-            ? (float) $elm['fontsize']
+        $fontsize = isset($elm['fontsize']) && $elm['fontsize'] > 0 && \is_numeric($elm['fontsize'])
+            ? $elm['fontsize']
             : (float) ($curfont['size'] ?? 0.0);
         $fontstyle = '';
-        if (!empty($elm['fontstyle']) && \is_string($elm['fontstyle'])) {
+        if (isset($elm['fontstyle']) && $elm['fontstyle'] !== '' && \is_string($elm['fontstyle'])) {
             foreach (['B', 'I'] as $style) {
-                if (\str_contains($elm['fontstyle'], $style)) {
-                    $fontstyle .= $style;
+                if (!\str_contains($elm['fontstyle'], $style)) {
+                    continue;
                 }
+
+                $fontstyle .= $style;
             }
         }
 
@@ -8129,7 +8178,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (isset($hrc['fontcache'][$cachekey]['key']) && \is_string($hrc['fontcache'][$cachekey]['key'])) {
                 $cachefontkey = $hrc['fontcache'][$cachekey]['key'];
             }
-            if (($curkey !== $cachefontkey) || (\abs($cursize - $fontsize) > 0.0001)) {
+            if ($curkey !== $cachefontkey || \abs($cursize - $fontsize) > 0.0001) {
                 $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
             }
 
@@ -8156,8 +8205,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $elm = $hrc['dom'][$key];
         $font = $this->getHTMLFontMetric($hrc, $key);
-        $color = empty($elm['fgcolor']) ? 'black' : (string) $elm['fgcolor'];
-        $fontout = (isset($font['out']) && \is_string($font['out'])) ? $font['out'] : '';
+        $color = !isset($elm['fgcolor']) || $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'];
+        $fontout = isset($font['out']) && \is_string($font['out']) ? $font['out'] : '';
 
         return $fontout . $this->color->getPdfColor($color);
     }
@@ -8176,10 +8225,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $elm = $hrc['dom'][$key];
         $font = $this->getHTMLFontMetric($hrc, $key);
-        $ratio = (!empty($elm['line-height']) && \is_numeric($elm['line-height']))
-            ? (float) $elm['line-height']
-            : 1.0;
-        $fontheight = (isset($font['height']) && \is_numeric($font['height'])) ? (float) $font['height'] : 0.0;
+        $ratio =
+            isset($elm['line-height']) && \is_numeric($elm['line-height']) && $elm['line-height'] > 0
+                ? $elm['line-height']
+                : 1.0;
+        $fontheight = isset($font['height']) && \is_numeric($font['height']) ? (float) $font['height'] : 0.0;
 
         return $this->toUnit($fontheight * $ratio);
     }
@@ -8196,7 +8246,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 0.0;
         }
 
-        return \max(0.0, (float) $hrc['dom'][$key]['word-spacing']);
+        return \max(0.0, $hrc['dom'][$key]['word-spacing']);
     }
 
     /**
@@ -8207,8 +8257,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTableCellSpacingH(array $elm): float
     {
-        $cellspacing = (isset($elm['pendingcellspacingh']) && \is_numeric($elm['pendingcellspacingh']))
-            ? (float) $elm['pendingcellspacingh'] : 0.0;
+        $cellspacing = isset($elm['pendingcellspacingh']) && \is_numeric($elm['pendingcellspacingh'])
+            ? $elm['pendingcellspacingh']
+            : 0.0;
 
         if (($elm['border-collapse'] ?? 'separate') === 'collapse') {
             return 0.0;
@@ -8225,8 +8276,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTableCellSpacingV(array $elm): float
     {
-        $cellspacing = (isset($elm['pendingcellspacingv']) && \is_numeric($elm['pendingcellspacingv']))
-            ? (float) $elm['pendingcellspacingv'] : 0.0;
+        $cellspacing = isset($elm['pendingcellspacingv']) && \is_numeric($elm['pendingcellspacingv'])
+            ? $elm['pendingcellspacingv']
+            : 0.0;
 
         if (($elm['border-collapse'] ?? 'separate') === 'collapse') {
             return 0.0;
@@ -8253,7 +8305,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         foreach ($tokens as $token) {
             $token = \trim($token);
-            if (($token === '') || \str_contains($token, '/')) {
+            if ($token === '' || \str_contains($token, '/')) {
                 continue;
             }
 
@@ -8278,8 +8330,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function resetHTMLCursorAfterPageBreak(array &$hrc, float &$tpx, float &$tpy, float &$tpw): void
     {
         $region = $this->page->getRegion();
-        $regiontop = (float) $region['RY'];
-        $tpy = \max($regiontop, (float) $hrc['cellctx']['originy']);
+        $regiontop = \is_array($region) && isset($region['RY']) && \is_numeric($region['RY'])
+            ? (float) $region['RY']
+            : 0.0;
+        $tpy = \max($regiontop, $hrc['cellctx']['originy']);
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         $hrc['cellctx']['floatrowleftw'] = 0.0;
         $hrc['cellctx']['floatrowrightw'] = 0.0;
@@ -8297,8 +8351,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getCurrentHTMLLineAdvance(array &$hrc, int $key): float
     {
         $lineadvance = 0.0;
-        if (!empty($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance'])) {
-            $lineadvance = (float) $hrc['cellctx']['lineadvance'];
+        if (
+            isset($hrc['cellctx']['lineadvance'])
+            && \is_numeric($hrc['cellctx']['lineadvance'])
+            && $hrc['cellctx']['lineadvance'] > 0
+        ) {
+            $lineadvance = $hrc['cellctx']['lineadvance'];
         }
 
         return \max($lineadvance, $this->getHTMLLineAdvance($hrc, $key));
@@ -8316,9 +8374,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if (
-            empty($hrc['cellctx']['lineadvance'])
+            !isset($hrc['cellctx']['lineadvance'])
+            || $hrc['cellctx']['lineadvance'] <= 0
             || !\is_numeric($hrc['cellctx']['lineadvance'])
-            || ($lineadvance > (float) $hrc['cellctx']['lineadvance'])
+            || $lineadvance > $hrc['cellctx']['lineadvance']
         ) {
             $hrc['cellctx']['lineadvance'] = $lineadvance;
         }
@@ -8326,7 +8385,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Normalize plain HTML text before rendering it.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     /**
@@ -8339,9 +8398,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if (
-            ($key >= 0)
-            && isset($hrc['dom'][$key])
-            && isset($hrc['dom'][$key]['white-space'])
+            $key >= 0
+            && isset($hrc['dom'][$key], $hrc['dom'][$key]['white-space'])
             && \is_string($hrc['dom'][$key]['white-space'])
         ) {
             $mode = \strtolower(\trim($hrc['dom'][$key]['white-space']));
@@ -8359,7 +8417,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function isHTMLPreLikeWhiteSpaceMode(array &$hrc, int $key = -1): bool
     {
         $mode = $this->getHTMLWhiteSpaceMode($hrc, $key);
-        return (($mode === 'pre') || ($mode === 'pre-wrap'));
+        return $mode === 'pre' || $mode === 'pre-wrap';
     }
 
     /**
@@ -8368,7 +8426,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function normalizeHTMLText(array &$hrc, string $text, int $key = -1): string
     {
         $mode = $this->getHTMLWhiteSpaceMode($hrc, $key);
-        if (($mode === 'pre') || ($mode === 'pre-wrap')) {
+        if ($mode === 'pre' || $mode === 'pre-wrap') {
             return \str_replace("\u{00A0}", ' ', $text);
         }
 
@@ -8418,7 +8476,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $checkKey = $key;
 
         // For text nodes and elements without direct CSS, check inherited properties from ancestors
-        if (($checkKey >= 0) && isset($hrc['dom'][$checkKey])) {
+        if ($checkKey >= 0 && isset($hrc['dom'][$checkKey])) {
             $elm = $hrc['dom'][$checkKey];
 
             // First check this element
@@ -8431,7 +8489,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             if (!$allowWordBreak && isset($elm['word-break']) && \is_string($elm['word-break'])) {
                 $wordBreak = \strtolower($elm['word-break']);
-                if (($wordBreak === 'break-all') || ($wordBreak === 'break-word')) {
+                if ($wordBreak === 'break-all' || $wordBreak === 'break-word') {
                     $allowWordBreak = true;
                 }
             }
@@ -8453,7 +8511,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                     if (isset($parent['word-break']) && \is_string($parent['word-break'])) {
                         $wordBreak = \strtolower($parent['word-break']);
-                        if (($wordBreak === 'break-all') || ($wordBreak === 'break-word')) {
+                        if ($wordBreak === 'break-all' || $wordBreak === 'break-word') {
                             $allowWordBreak = true;
                             break;
                         }
@@ -8532,12 +8590,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param TTextDims $dim Output measured text dimensions.
      * @param string $forcedir If 'R' forces RTL, if 'L' forces LTR.
      */
-    protected function prepareHTMLText(
-        string &$txt,
-        array &$ordarr,
-        array &$dim,
-        string $forcedir = '',
-    ): void {
+    protected function prepareHTMLText(string &$txt, array &$ordarr, array &$dim, string $forcedir = ''): void
+    {
         $prevSoftHyphen = $this->htmlRenderSoftHyphen;
         $this->htmlRenderSoftHyphen = true;
         try {
@@ -8557,8 +8611,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $txt = \str_replace("\r", ' ', $txt);
-        $txt = \str_replace($this->uniconv->chr(self::ORD_NO_BREAK_SPACE), ' ', $txt);
-        return $txt;
+        return \str_replace($this->uniconv->chr(self::ORD_NO_BREAK_SPACE), ' ', $txt);
     }
 
     /**
@@ -8574,13 +8627,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return parent::removeOrdArrSoftHyphens($ordarr);
         }
 
-        $keeplast = ((\count($ordarr) > 0) && ($ordarr[(\count($ordarr) - 1)] == self::ORD_SOFT_HYPHEN));
+        $keeplast = \count($ordarr) > 0 && $ordarr[\count($ordarr) - 1] === self::ORD_SOFT_HYPHEN;
         $retarr = \array_filter(
             $ordarr,
-            fn($ord) => (
-                ($ord != self::ORD_SOFT_HYPHEN)
-                && ($ord != self::ORD_ZERO_WIDTH_SPACE)
-            )
+            static fn($ord) => $ord !== self::ORD_SOFT_HYPHEN && $ord !== self::ORD_ZERO_WIDTH_SPACE,
         );
         if ($keeplast) {
             $retarr[] = self::ORD_HYPHEN;
@@ -8590,7 +8640,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Reset the cursor to the current HTML block origin.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function resetHTMLLineCursor(array &$hrc, float &$tpx, float &$tpw): void
@@ -8613,12 +8663,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function hasActiveHTMLFloatRow(array &$hrc, float $tpy): bool
     {
         $bottom = isset($hrc['cellctx']['floatrowbottom']) && \is_numeric($hrc['cellctx']['floatrowbottom'])
-            ? (float) $hrc['cellctx']['floatrowbottom']
+            ? $hrc['cellctx']['floatrowbottom']
             : 0.0;
 
         // Treat near-equal coordinates as active so the next block is placed
         // safely below float borders/strokes instead of touching/overlapping.
-        return ($bottom > ($tpy - self::WIDTH_TOLERANCE));
+        return $bottom > ($tpy - self::WIDTH_TOLERANCE);
     }
 
     /**
@@ -8629,7 +8679,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function flushHTMLFloatRow(array &$hrc, float &$tpx, float &$tpy, float &$tpw): void
     {
         $bottom = isset($hrc['cellctx']['floatrowbottom']) && \is_numeric($hrc['cellctx']['floatrowbottom'])
-            ? (float) $hrc['cellctx']['floatrowbottom']
+            ? $hrc['cellctx']['floatrowbottom']
             : 0.0;
         if ($bottom > $tpy) {
             $tpy = $bottom;
@@ -8657,11 +8707,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         for ($key = $startkey; $key < $numel; ++$key) {
             $node = $dom[$key];
 
-            if (!empty($node['tag'])) {
-                if (($node['value'] === 'img') && !empty($node['opening'])) {
+            if ($node['tag'] ?? false) {
+                if ($node['value'] === 'img' && ($node['opening'] ?? false)) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgwidth = (!empty($node['width']) && \is_numeric($node['width']))
-                        ? (float) $node['width']
+                    $imgwidth = isset($node['width']) && $node['width'] > 0 && \is_numeric($node['width'])
+                        ? $node['width']
                         : $lineheight;
                     if ($imgwidth > 0.0) {
                         $runwidth += $imgwidth;
@@ -8670,14 +8720,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
+                if ($key > $startkey && (($node['block'] ?? false) || $node['value'] === 'br')) {
                     break;
                 }
 
                 continue;
             }
 
-            $text = $this->normalizeHTMLText($hrc, (string) $node['value'], $key);
+            $text = $this->normalizeHTMLText($hrc, $node['value'], $key);
             if ($text === '') {
                 continue;
             }
@@ -8735,18 +8785,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         for ($key = $startkey; $key < $numel; ++$key) {
             $node = $dom[$key];
 
-            if (!empty($node['tag'])) {
-                if (($node['value'] === 'img') && !empty($node['opening'])) {
+            if ($node['tag'] ?? false) {
+                if ($node['value'] === 'img' && ($node['opening'] ?? false)) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgwidth = (!empty($node['width']) && \is_numeric($node['width']))
-                        ? (float) $node['width']
+                    $imgwidth = isset($node['width']) && $node['width'] > 0 && \is_numeric($node['width'])
+                        ? $node['width']
                         : $lineheight;
 
                     if ($imgwidth <= 0.0) {
                         continue;
                     }
 
-                    if (($linewidth > 0.0) && (($linewidth + $imgwidth) > ($maxwidth + self::WIDTH_TOLERANCE))) {
+                    if ($linewidth > 0.0 && ($linewidth + $imgwidth) > ($maxwidth + self::WIDTH_TOLERANCE)) {
                         $wrapped = true;
                         break;
                     }
@@ -8756,26 +8806,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
+                if ($key > $startkey && (($node['block'] ?? false) || $node['value'] === 'br')) {
                     break;
                 }
 
                 continue;
             }
 
-            $text = $this->normalizeHTMLText($hrc, (string) $node['value'], $key);
+            $text = $this->normalizeHTMLText($hrc, $node['value'], $key);
             if ($text === '') {
                 continue;
             }
 
-            if (($key === $startkey) && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)) {
+            if ($key === $startkey && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)) {
                 $text = \ltrim($text);
                 if ($text === '') {
                     continue;
                 }
             }
 
-            $spaceonly = (\trim($text) === '');
+            $spaceonly = \trim($text) === '';
             $remaining = \max(0.0, $maxwidth - $linewidth - ($spaces * $wordspacing));
             if ($remaining <= 0.0) {
                 $wrapped = true;
@@ -8787,32 +8837,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // the fragment's own metrics rather than the previous node's font.
             $this->getHTMLFontMetric($hrc, $key);
 
-            if (($linewidth > 0.0) && !$spaceonly) {
-                $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
+            if ($linewidth > 0.0 && !$spaceonly) {
+                $forcedir = $node['dir'] === 'rtl' ? 'R' : '';
                 $fragmentwidth = $this->getStringWidth($text);
-                $keepchunkonline = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
-                    $text,
-                    $forcedir,
-                    $remaining,
-                );
+                $keepchunkonline = $this->canHTMLTextKeepVisibleChunkOnCurrentLine($text, $forcedir, $remaining);
 
-                if (
-                    ($fragmentwidth > ($remaining + self::WIDTH_TOLERANCE))
-                    && (
-                        !$this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
-                        || (
-                            ($fragmentwidth <= ($maxwidth + self::WIDTH_TOLERANCE))
-                            && !$keepchunkonline
-                        )
-                    )
-                ) {
+                if ($fragmentwidth > ($remaining + self::WIDTH_TOLERANCE) && !$keepchunkonline) {
                     $wrapped = true;
                     break;
                 }
             }
             $ordarr = [];
             $dim = $this->getHTMLDefaultTextDims();
-            $forcedir = ($node['dir'] === 'rtl') ? 'R' : '';
+            $forcedir = $node['dir'] === 'rtl' ? 'R' : '';
             $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
             $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining));
             if ($lines === []) {
@@ -8827,15 +8864,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
             $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
-            if (($linewidth > 0.0) && !$spaceonly && (\trim($chunktext) === '')) {
+            if ($linewidth > 0.0 && !$spaceonly && \trim($chunktext) === '') {
                 $wrapped = true;
                 break;
             }
 
-            $chunkwidth = $this->toUnit((float) $firstline['totwidth']);
+            $chunkwidth = $this->toUnit($firstline['totwidth']);
             $nextspaces = $spaces + (int) ($firstline['spaces'] ?? 0);
-            $lineOverflows = ($linewidth > 0.0)
-                && (($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > $maxwidth + self::WIDTH_TOLERANCE);
+            $lineOverflows =
+                $linewidth > 0.0
+                && ($linewidth + $chunkwidth + ($nextspaces * $wordspacing)) > ($maxwidth + self::WIDTH_TOLERANCE);
             if ($lineOverflows) {
                 $wrapped = true;
                 break;
@@ -8851,9 +8889,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $trailmatch = [];
             if (\preg_match('/ +$/u', $chunktext, $trailmatch) === 1) {
                 $trailspaces = \strlen($trailmatch[0]);
-                $trailspacewidth = ($trailspaces > 0)
-                    ? $this->getStringWidth(\str_repeat(' ', $trailspaces))
-                    : 0.0;
+                $trailspacewidth = $trailspaces > 0 ? $this->getStringWidth(\str_repeat(' ', $trailspaces)) : 0.0;
             } else {
                 $trailspaces = 0;
                 $trailspacewidth = 0.0;
@@ -8868,14 +8904,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        if (($wrapspaces > 0) && $lastspaceonly) {
+        if ($wrapspaces > 0 && $lastspaceonly) {
             $spaces = \max(0, $spaces - $wrapspaces);
             if ($contentwidth <= 0.0) {
                 $linewidth = \max(0.0, $linewidth - $trailspacewidth);
             }
         }
 
-        if (($trailspaces > 0) && !$lastspaceonly) {
+        if ($trailspaces > 0 && !$lastspaceonly) {
             $spaces = \max(0, $spaces - $trailspaces);
             if ($contentwidth > 0.0) {
                 $contentwidth = \max(0.0, $contentwidth - $trailspacewidth);
@@ -8885,7 +8921,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return [
-            'width' => ($contentwidth > 0.0) ? $contentwidth : $linewidth,
+            'width' => $contentwidth > 0.0 ? $contentwidth : $linewidth,
             'spaces' => $spaces,
             'wrapped' => $wrapped,
         ];
@@ -8896,14 +8932,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTextFirstLineSpaces(string $text, string $forcedir, float $maxwidth): int
     {
-        if (($text === '') || ($maxwidth <= 0.0)) {
+        if ($text === '' || $maxwidth <= 0.0) {
             return 0;
         }
 
         $ordarr = [];
         $dim = $this->getHTMLDefaultTextDims();
         $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
-        if ($ordarr === [] || ((int) $dim['spaces'] <= 0)) {
+        if ($ordarr === [] || (int) $dim['spaces'] <= 0) {
             return 0;
         }
 
@@ -8932,11 +8968,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         for ($key = $startkey; $key < $numel; ++$key) {
             $node = $dom[$key];
 
-            if (!empty($node['tag'])) {
-                if (
-                    !empty($node['opening'])
-                    && \in_array((string) $node['value'], ['input', 'select', 'textarea'], true)
-                ) {
+            if ($node['tag'] ?? false) {
+                if (($node['opening'] ?? false) && \in_array($node['value'], ['input', 'select', 'textarea'], true)) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
                     $ctlheight = $lineheight;
                     $attr = $node['attribute'] ?? [];
@@ -8945,16 +8978,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     if ($node['value'] === 'textarea') {
-                        $rows = (isset($attr['rows']) && \is_numeric($attr['rows']))
-                            ? \max(1, (int) $attr['rows'])
-                            : 3;
+                        $rows = isset($attr['rows']) && \is_numeric($attr['rows']) ? \max(1, (int) $attr['rows']) : 3;
                         $ctlheight = $lineheight * (float) $rows;
                     } elseif ($node['value'] === 'select') {
-                        $size = (isset($attr['size']) && \is_numeric($attr['size'])) ? (int) $attr['size'] : 0;
-                        $hasMultiple = isset($attr['multiple'])
-                            && ((string) $attr['multiple'] !== '0')
-                            && ((string) $attr['multiple'] !== 'false');
-                        if ($hasMultiple || ($size > 1)) {
+                        $size = isset($attr['size']) && \is_numeric($attr['size']) ? (int) $attr['size'] : 0;
+                        $hasMultiple =
+                            isset($attr['multiple']) && $attr['multiple'] !== '0' && $attr['multiple'] !== 'false';
+                        if ($hasMultiple || $size > 1) {
                             $ctlheight = $lineheight * (float) \max(1, $size);
                         }
                     }
@@ -8963,15 +8993,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         continue;
                     }
 
-                    $valign = (isset($attr['align']) && \is_string($attr['align']))
+                    $valign = isset($attr['align']) && \is_string($attr['align'])
                         ? \strtolower(\trim($attr['align']))
                         : 'bottom';
 
                     $font = $this->getHTMLFontMetric($hrc, $key);
-                    $curAscent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+                    $curAscent = isset($font['ascent']) && \is_numeric($font['ascent'])
                         ? $this->toUnit((float) $font['ascent'])
                         : 0.0;
-                    $curHeight = (isset($font['height']) && \is_numeric($font['height']))
+                    $curHeight = isset($font['height']) && \is_numeric($font['height'])
                         ? $this->toUnit((float) $font['height'])
                         : $curAscent;
                     $descent = \max(0.0, $curHeight - $curAscent);
@@ -8988,17 +9018,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                if (($node['value'] === 'img') && !empty($node['opening'])) {
+                if ($node['value'] === 'img' && ($node['opening'] ?? false)) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgheight = (!empty($node['height']) && \is_numeric($node['height']))
-                        ? (float) $node['height']
-                        : $lineheight;
+                    $imgheight =
+                        isset($node['height']) && \is_numeric($node['height']) && $node['height'] > 0
+                            ? $node['height']
+                            : $lineheight;
                     if ($imgheight <= 0.0) {
                         continue;
                     }
 
                     $attr = $node['attribute'] ?? [];
-                    $valign = (isset($attr['align']) && \is_string($attr['align']))
+                    $valign = isset($attr['align']) && \is_string($attr['align'])
                         ? \strtolower(\trim($attr['align']))
                         : 'bottom';
                     $ascent = match ($valign) {
@@ -9013,20 +9044,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                if (($key > $startkey) && (!empty($node['block']) || ($node['value'] === 'br'))) {
+                if ($key > $startkey && (($node['block'] ?? false) || $node['value'] === 'br')) {
                     break;
                 }
 
                 continue;
             }
 
-            $text = $this->normalizeHTMLText($hrc, (string) $node['value'], $key);
+            $text = $this->normalizeHTMLText($hrc, $node['value'], $key);
             if ($text === '') {
                 continue;
             }
 
             $font = $this->getHTMLFontMetric($hrc, $key);
-            $ascent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+            $ascent = isset($font['ascent']) && \is_numeric($font['ascent'])
                 ? $this->toUnit((float) $font['ascent'])
                 : 0.0;
             if ($ascent > $maxascent) {
@@ -9060,23 +9091,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if (!empty($node['tag'])) {
-                $isOpening = !empty($node['opening']);
-                $tagname = (isset($node['value']) && \is_string($node['value']))
-                    ? $node['value']
-                    : '';
-                if ($isOpening && (($tagname === 'br') || !empty($node['block']))) {
+            if ($node['tag'] ?? false) {
+                $isOpening = $node['opening'] ?? false;
+                $tagname = isset($node['value']) && \is_string($node['value']) ? $node['value'] : '';
+                if ($isOpening && ($tagname === 'br' || ($node['block'] ?? false))) {
                     return true;
                 }
 
-                if ($isOpening && ($tagname === 'img')) {
+                if ($isOpening && $tagname === 'img') {
                     return false;
                 }
 
                 continue;
             }
 
-            $text = $this->normalizeHTMLText($hrc, (string) ($node['value'] ?? ''), $idx);
+            $text = $this->normalizeHTMLText($hrc, $node['value'] ?? '', $idx);
             if ($text === '') {
                 continue;
             }
@@ -9106,9 +9135,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float $extra = 0,
     ): void {
         $lineadvance = $this->getCurrentHTMLLineAdvance($hrc, $key) + $extra;
-        $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
-            ? (float) $hrc['cellctx']['linebottom']
-            : 0.0;
+        $linebottom =
+            isset($hrc['cellctx']['linebottom'])
+            && \is_numeric($hrc['cellctx']['linebottom'])
+            && $hrc['cellctx']['linebottom'] > 0
+                ? $hrc['cellctx']['linebottom']
+                : 0.0;
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         $tpy = \max($tpy + $lineadvance, $linebottom + $extra);
     }
@@ -9120,23 +9152,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function updateHTMLParentBlockBottom(array &$hrc, int $openkey, float $bottom): void
     {
-        if (($openkey < 0) || !isset($hrc['dom'][$openkey])) {
+        if ($openkey < 0 || !isset($hrc['dom'][$openkey])) {
             return;
         }
 
         $parentkey = isset($hrc['dom'][$openkey]['parent']) && \is_int($hrc['dom'][$openkey]['parent'])
             ? $hrc['dom'][$openkey]['parent']
             : -1;
-        if (($parentkey < 0) || !isset($hrc['dom'][$parentkey])) {
+        if ($parentkey < 0 || !isset($hrc['dom'][$parentkey])) {
             return;
         }
 
         $current = isset($hrc['dom'][$parentkey]['childblockbottom'])
-            && \is_numeric($hrc['dom'][$parentkey]['childblockbottom'])
+        && \is_numeric($hrc['dom'][$parentkey]['childblockbottom'])
             ? (float) $hrc['dom'][$parentkey]['childblockbottom']
             : 0.0;
         if ($bottom > $current) {
-            // @phpstan-ignore-next-line parameterByRef.type
             $hrc['dom'][$parentkey]['childblockbottom'] = $bottom;
         }
     }
@@ -9154,12 +9185,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         unset($key);
 
-        if (empty($hrc['cellctx']['linewrapped'])) {
+        if (!($hrc['cellctx']['linewrapped'] ?? false)) {
             return false;
         }
 
-        $originx = (float) ($hrc['cellctx']['originx'] ?? 0.0);
-        return ($tpx <= ($originx + self::WIDTH_TOLERANCE));
+        $originx = $hrc['cellctx']['originx'] ?? 0.0;
+        return $tpx <= ($originx + self::WIDTH_TOLERANCE);
     }
 
     /**
@@ -9225,11 +9256,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
         // Give splitLines the same tolerance used by wrap guards so boundary fits
         // (for example: one more word after an italic fragment) are not rejected.
-        $lines = $this->splitLines(
-            $ordarr,
-            $dim,
-            $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE),
-        );
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE));
         if ($lines === []) {
             return false;
         }
@@ -9240,7 +9267,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $chunk = \mb_substr($text, 0, (int) $firstline['chars']);
-        return (\trim($chunk) !== '');
+        return \trim($chunk) !== '';
     }
 
     /**
@@ -9253,30 +9280,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         $elm = &$hrc['dom'][$key];
         $elm['childblockbottom'] = 0.0;
-        $display = \strtolower(\trim((string) ($elm['display'] ?? '')));
-        $isInlineBlock = ($display === 'inline-block');
+        $display = \strtolower(\trim($elm['display'] ?? ''));
+        $isInlineBlock = $display === 'inline-block';
         $hasFloatAncestor = false;
-        $scanParentKey = (
-            isset($elm['parent'])
-            && \is_int($elm['parent'])
-        ) ? $elm['parent'] : -1;
+        $scanParentKey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
         $scanGuard = 0;
-        while (($scanParentKey >= 0) && isset($hrc['dom'][$scanParentKey]) && ($scanGuard < 256)) {
-            $parentFloat = (
-                !empty($hrc['dom'][$scanParentKey]['float'])
-                && \is_string($hrc['dom'][$scanParentKey]['float'])
-            )
-                ? \strtolower(\trim((string) $hrc['dom'][$scanParentKey]['float']))
+        while ($scanParentKey >= 0 && isset($hrc['dom'][$scanParentKey]) && $scanGuard < 256) {
+            $parentFloat = isset($hrc['dom'][$scanParentKey]['float'])
+            && $hrc['dom'][$scanParentKey]['float'] !== ''
+            && \is_string($hrc['dom'][$scanParentKey]['float'])
+                ? \strtolower(\trim($hrc['dom'][$scanParentKey]['float']))
                 : 'none';
             if (\in_array($parentFloat, ['left', 'right'], true)) {
                 $hasFloatAncestor = true;
                 break;
             }
 
-            $nextParentKey = (
-                isset($hrc['dom'][$scanParentKey]['parent'])
-                && \is_int($hrc['dom'][$scanParentKey]['parent'])
-            )
+            $nextParentKey = isset($hrc['dom'][$scanParentKey]['parent'])
+            && \is_int($hrc['dom'][$scanParentKey]['parent'])
                 ? $hrc['dom'][$scanParentKey]['parent']
                 : -1;
             if ($nextParentKey === $scanParentKey) {
@@ -9287,48 +9308,46 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ++$scanGuard;
         }
 
-        $float = (!empty($elm['float']) && \is_string($elm['float']))
-            ? \strtolower(\trim((string) $elm['float']))
-            : 'none';
-        $clear = (!empty($elm['clear']) && \is_string($elm['clear']))
-            ? \strtolower(\trim((string) $elm['clear']))
-            : 'none';
+        $float =
+            isset($elm['float']) && \is_string($elm['float']) && $elm['float'] !== ''
+                ? \strtolower(\trim($elm['float']))
+                : 'none';
+        $clear =
+            isset($elm['clear']) && \is_string($elm['clear']) && $elm['clear'] !== ''
+                ? \strtolower(\trim($elm['clear']))
+                : 'none';
         if (\in_array($clear, ['left', 'right', 'both'], true) && $this->hasActiveHTMLFloatRow($hrc, $tpy)) {
             $this->flushHTMLFloatRow($hrc, $tpx, $tpy, $tpw);
         }
 
         $activeFloatRowLeft = 0.0;
         $activeFloatRowRight = 0.0;
-        if (($float === 'none') && !$hasFloatAncestor && $this->hasActiveHTMLFloatRow($hrc, $tpy)) {
+        if ($float === 'none' && !$hasFloatAncestor && $this->hasActiveHTMLFloatRow($hrc, $tpy)) {
             // Let normal-flow blocks wrap beside active floats unless clear is requested.
-            $activeFloatRowLeft = (float) $hrc['cellctx']['floatrowleftw'];
-            $activeFloatRowRight = (float) $hrc['cellctx']['floatrowrightw'];
+            $activeFloatRowLeft = $hrc['cellctx']['floatrowleftw'];
+            $activeFloatRowRight = $hrc['cellctx']['floatrowrightw'];
         }
 
         if (
             \in_array($clear, ['left', 'right', 'both'], true)
-            && ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
+            && $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE)
         ) {
             // Conservative clear policy: force a new line when the cursor is mid-line.
             $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
         }
 
         $lineadvancectx = isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance'])
-            ? (float) $hrc['cellctx']['lineadvance']
+            ? $hrc['cellctx']['lineadvance']
             : 0.0;
-        $hasinlinecontent = (
-            ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
-            && ($lineadvancectx > self::WIDTH_TOLERANCE)
-        );
-        $isFloatInActiveRow =
-            \in_array($float, ['left', 'right'], true)
-            && $this->hasActiveHTMLFloatRow($hrc, $tpy);
+        $hasinlinecontent =
+            $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE) && $lineadvancectx > self::WIDTH_TOLERANCE;
+        $isFloatInActiveRow = \in_array($float, ['left', 'right'], true) && $this->hasActiveHTMLFloatRow($hrc, $tpy);
         $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
-        $marginTop = (float) $elm['margin']['T'];
+        $marginTop = $elm['margin']['T'];
         $collapsed = 0.0;
-        if (!$hasinlinecontent && ($tpy > $hrc['cellctx']['originy'])) {
+        if (!$hasinlinecontent && $tpy > $hrc['cellctx']['originy']) {
             $pendingBottom = isset($hrc['cellctx']['pendingblockmarginb'])
-                ? (float) $hrc['cellctx']['pendingblockmarginb']
+                ? $hrc['cellctx']['pendingblockmarginb']
                 : 0.0;
             if ($pendingBottom > 0.0 && $marginTop > 0.0) {
                 // Deterministic PDF policy: adjacent positive vertical margins collapse to max().
@@ -9336,16 +9355,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        if (!$isInlineBlock && !$isFloatInActiveRow && ($hasinlinecontent || ($tpy > $hrc['cellctx']['originy']))) {
+        if (!$isInlineBlock && !$isFloatInActiveRow && ($hasinlinecontent || $tpy > $hrc['cellctx']['originy'])) {
             $tpy += $lineadvance + $marginTop + $this->getHTMLTagVSpace($hrc, $key, 0) - $collapsed;
         }
         $hrc['cellctx']['pendingblockmarginb'] = 0.0;
 
         $marginLeft = $this->getHTMLResolvedMarginSide($elm, $hrc['cellctx']['maxwidth'], 'L');
         $marginRight = $this->getHTMLResolvedMarginSide($elm, $hrc['cellctx']['maxwidth'], 'R');
-        $paddingLeft = (float) $elm['padding']['L'];
-        $paddingRight = (float) $elm['padding']['R'];
-        $paddingTop = (float) $elm['padding']['T'];
+        $paddingLeft = $elm['padding']['L'];
+        $paddingRight = $elm['padding']['R'];
+        $paddingTop = $elm['padding']['T'];
 
         $baseBlockX = $hrc['cellctx']['originx'] + $activeFloatRowLeft + $marginLeft;
         $baseBlockWidth = $hrc['cellctx']['maxwidth'] > 0
@@ -9354,17 +9373,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $hrc['cellctx']['maxwidth'] - $activeFloatRowLeft - $activeFloatRowRight - $marginLeft - $marginRight,
             )
             : 0.0;
-        $baseInnerWidth = \max(
-            0.0,
-            $baseBlockWidth - $paddingLeft - $paddingRight,
-        );
+        $baseInnerWidth = \max(0.0, $baseBlockWidth - $paddingLeft - $paddingRight);
         $requestedInnerWidth = $this->getHTMLResolvedExplicitWidth($elm, $baseInnerWidth);
         $explicitInnerWidth = 0.0;
-        if (
-            ($float === 'none')
-            && ($requestedInnerWidth > 0.0)
-            && ($baseInnerWidth > 0.0)
-        ) {
+        if ($float === 'none' && $requestedInnerWidth > 0.0 && $baseInnerWidth > 0.0) {
             $explicitInnerWidth = \min($requestedInnerWidth, $baseInnerWidth);
         }
         $floatInnerWidth = 0.0;
@@ -9377,16 +9389,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $hrc['cellctx']['floatrowbottom'] = $tpy;
             }
 
-            $rowLeft = (float) $hrc['cellctx']['floatrowleftw'];
-            $rowRight = (float) $hrc['cellctx']['floatrowrightw'];
+            $rowLeft = $hrc['cellctx']['floatrowleftw'];
+            $rowRight = $hrc['cellctx']['floatrowrightw'];
             $remainingInner = \max(0.0, $baseInnerWidth - $rowLeft - $rowRight);
             $floatOuterExtras = $paddingLeft + $paddingRight + $marginLeft + $marginRight;
             $maxFloatInner = \max(0.0, $remainingInner - $floatOuterExtras);
 
-            if (
-                ($requestedInnerWidth > 0.0)
-                && ($maxFloatInner > 0.0)
-            ) {
+            if ($requestedInnerWidth > 0.0 && $maxFloatInner > 0.0) {
                 $floatInnerWidth = \min($requestedInnerWidth, $maxFloatInner);
                 $floatOuterWidth = $floatInnerWidth + $floatOuterExtras;
                 if ($float === 'left') {
@@ -9400,23 +9409,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $blockX = $baseBlockX + $floatShift;
-        $blockWidth = ($floatInnerWidth > 0.0)
-            ? ($floatInnerWidth + (float) $elm['padding']['L'] + (float) $elm['padding']['R'])
-            : (($explicitInnerWidth > 0.0)
-                ? ($explicitInnerWidth + (float) $elm['padding']['L'] + (float) $elm['padding']['R'])
-                : $baseBlockWidth);
+        if ($floatInnerWidth > 0.0) {
+            $blockWidth = $floatInnerWidth + $elm['padding']['L'] + $elm['padding']['R'];
+        } elseif ($explicitInnerWidth > 0.0) {
+            $blockWidth = $explicitInnerWidth + $elm['padding']['L'] + $elm['padding']['R'];
+        } else {
+            $blockWidth = $baseBlockWidth;
+        }
 
-        if ($isInlineBlock && ($float === 'none')) {
+        if ($isInlineBlock && $float === 'none') {
             $inlineRowStartX = $hrc['cellctx']['originx'] + $activeFloatRowLeft;
             $cursorX = \max($tpx, $inlineRowStartX);
             $inlineNeededW = $marginLeft + $blockWidth + $marginRight;
-            $availableRightX = $hrc['cellctx']['originx']
-                + $hrc['cellctx']['maxwidth']
-                - $activeFloatRowRight;
+            $availableRightX = $hrc['cellctx']['originx'] + $hrc['cellctx']['maxwidth'] - $activeFloatRowRight;
             $remainingW = \max(0.0, $availableRightX - $cursorX);
             if (
-                ($inlineNeededW > ($remainingW + self::WIDTH_TOLERANCE))
-                && ($cursorX > ($inlineRowStartX + self::WIDTH_TOLERANCE))
+                $inlineNeededW > ($remainingW + self::WIDTH_TOLERANCE)
+                && $cursorX > ($inlineRowStartX + self::WIDTH_TOLERANCE)
             ) {
                 $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
                 $cursorX = $hrc['cellctx']['originx'] + $activeFloatRowLeft;
@@ -9430,7 +9439,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // If this block has its OWN border or background (not merely inherited),
         // start buffering content so that fill is painted before content and border after.
         $hasBorder = isset($elm['border']) && \is_array($elm['border']) && $elm['border'] !== [];
-        $hasBgcolor = !empty($elm['bgcolor']) && \is_string($elm['bgcolor']);
+        $hasBgcolor = isset($elm['bgcolor']) && $elm['bgcolor'] !== '' && \is_string($elm['bgcolor']);
         // Exclude inherited values: if the value matches the parent, it was inherited.
         $parentkey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
         if ($parentkey >= 0 && isset($hrc['dom'][$parentkey])) {
@@ -9442,7 +9451,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $hasBgcolor = false;
             }
         }
-        if ((($elm['value'] ?? '') === 'table') || (($elm['value'] ?? '') === 'tablehead')) {
+        if (($elm['value'] ?? '') === 'table' || ($elm['value'] ?? '') === 'tablehead') {
             // Keep table border rendering in parseHTMLTagCLOSEtable() to avoid
             // double outer-frame painting, but still allow table background to
             // be painted by block buffering before cell content.
@@ -9464,16 +9473,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $tpy += $paddingTop;
 
-        if ($isInlineBlock && ($float === 'none')) {
+        if ($isInlineBlock && $float === 'none') {
             $tpx = $blockX + $paddingLeft;
             $elm['x'] = $tpx;
             $elm['y'] = $tpy;
         } else {
-            $tpx = $hrc['cellctx']['originx']
-                + $activeFloatRowLeft
-                + $marginLeft
-                + $paddingLeft
-                + $floatShift;
+            $tpx = $hrc['cellctx']['originx'] + $activeFloatRowLeft + $marginLeft + $paddingLeft + $floatShift;
         }
         // Start wrapped inline lines at this block's content origin,
         // not at the outer cell origin.
@@ -9481,14 +9486,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpw = $hrc['cellctx']['maxwidth'];
         $hrc['cellctx']['textindentapplied'] = false;
         if ($tpw > 0) {
-            $tpw = \max(
-                0.0,
-                $tpw
-                - $marginLeft
-                - $marginRight
-                - $paddingLeft
-                - $paddingRight
-            );
+            $tpw = \max(0.0, $tpw - $marginLeft - $marginRight - $paddingLeft - $paddingRight);
         }
 
         if ($floatInnerWidth > 0.0) {
@@ -9496,7 +9494,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         } elseif ($explicitInnerWidth > 0.0) {
             $tpw = \min($tpw, $explicitInnerWidth);
         }
-        if ($isInlineBlock && ($float === 'none')) {
+        if ($isInlineBlock && $float === 'none') {
             $tpw = \max(0.0, $blockWidth - $paddingLeft - $paddingRight);
         }
 
@@ -9504,28 +9502,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // so wrapped inline text honors local width without affecting generic
         // list/float flow behavior.
         if (\in_array($float, ['left', 'right'], true)) {
-            $elm['ctxoriginx'] = (float) $hrc['cellctx']['originx'];
-            $elm['ctxmaxwidth'] = (float) $hrc['cellctx']['maxwidth'];
-            $elm['ctxregionoffset'] = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
+            $elm['ctxoriginx'] = $hrc['cellctx']['originx'];
+            $elm['ctxmaxwidth'] = $hrc['cellctx']['maxwidth'];
+            $elm['ctxregionoffset'] = $hrc['cellctx']['regionoffset'] ?? 0.0;
             $hrc['cellctx']['originx'] = $tpx;
             $hrc['cellctx']['maxwidth'] = $tpw;
-        } elseif (($float === 'none') && ($explicitInnerWidth > 0.0)) {
-            $elm['ctxoriginx'] = (float) $hrc['cellctx']['originx'];
-            $elm['ctxmaxwidth'] = (float) $hrc['cellctx']['maxwidth'];
-            $elm['ctxregionoffset'] = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
+        } elseif ($float === 'none' && $explicitInnerWidth > 0.0) {
+            $elm['ctxoriginx'] = $hrc['cellctx']['originx'];
+            $elm['ctxmaxwidth'] = $hrc['cellctx']['maxwidth'];
+            $elm['ctxregionoffset'] = $hrc['cellctx']['regionoffset'] ?? 0.0;
             $hrc['cellctx']['originx'] = $tpx;
             $hrc['cellctx']['maxwidth'] = $tpw;
-        } elseif (($float === 'none') && !empty($elm['padding'])) {
+        } elseif ($float === 'none' && isset($elm['padding']) && $elm['padding'] !== []) {
             // For non-float, non-explicit-width blocks, adjust context for padding
             // so children render inside the padding box.
-            $elm['ctxoriginx'] = (float) $hrc['cellctx']['originx'];
-            $elm['ctxmaxwidth'] = (float) $hrc['cellctx']['maxwidth'];
-            $elm['ctxregionoffset'] = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
+            $elm['ctxoriginx'] = $hrc['cellctx']['originx'];
+            $elm['ctxmaxwidth'] = $hrc['cellctx']['maxwidth'];
+            $elm['ctxregionoffset'] = $hrc['cellctx']['regionoffset'] ?? 0.0;
             $hrc['cellctx']['originx'] = $blockX + $paddingLeft;
             $hrc['cellctx']['maxwidth'] = $baseBlockWidth - $paddingLeft - $paddingRight;
         }
 
-        if ($isInlineBlock && ($float === 'none')) {
+        if ($isInlineBlock && $float === 'none') {
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
         }
 
@@ -9535,7 +9533,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $role = $this->pdfuaClampHeadingRole($role);
             }
             $attr = [];
-            if (($this->pdfuaMode === 'pdfua2') && ($role === 'L')) {
+            if ($this->pdfuaMode === 'pdfua2' && $role === 'L') {
                 $listNumbering = $this->getPdfUaListNumbering($elm);
                 if ($listNumbering !== '') {
                     $attr = ['O' => 'List', 'ListNumbering' => $listNumbering];
@@ -9551,10 +9549,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Clamp a heading structure role (H1-H6) to prevent skipped levels in PDF/UA mode.
      * Going back to a higher level (e.g. H3 then H1) is always allowed.
-                if ($table['collapse'] && $table['hascellborders']) {
-                    $bstyles = [];
-                }
-                if (($bstyles !== []) || ($fillstyle !== null)) {
+     * if ($table['collapse'] && $table['hascellborders']) {
+     * $bstyles = [];
+     * }
+     * if (($bstyles !== []) || ($fillstyle !== null)) {
      * Non-heading roles are returned unchanged.
      */
     protected function pdfuaClampHeadingRole(string $role): string
@@ -9563,7 +9561,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $role;
         }
         $requested = (int) $mtch[1];
-        $clamped = ($requested > $this->pdfuaHeadingLevel + 1) ? $this->pdfuaHeadingLevel + 1 : $requested;
+        $clamped = $requested > ($this->pdfuaHeadingLevel + 1) ? $this->pdfuaHeadingLevel + 1 : $requested;
         $this->pdfuaHeadingLevel = $clamped;
         return 'H' . $clamped;
     }
@@ -9577,22 +9575,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         $tag = isset($elm['value']) && \is_string($elm['value']) ? $elm['value'] : '';
         return match ($tag) {
-            'p'          => 'P',
-            'h1'         => 'H1',
-            'h2'         => 'H2',
-            'h3'         => 'H3',
-            'h4'         => 'H4',
-            'h5'         => 'H5',
-            'h6'         => 'H6',
-            'ul', 'ol'   => 'L',
-            'li'         => 'LI',
-            'table'      => 'Table',
-            'caption',
-            'figcaption' => 'Caption',
-            'figure'     => 'Figure',
+            'p' => 'P',
+            'h1' => 'H1',
+            'h2' => 'H2',
+            'h3' => 'H3',
+            'h4' => 'H4',
+            'h5' => 'H5',
+            'h6' => 'H6',
+            'ul', 'ol' => 'L',
+            'li' => 'LI',
+            'table' => 'Table',
+            'caption', 'figcaption' => 'Caption',
+            'figure' => 'Figure',
             'blockquote' => 'BlockQuote',
-            'pre'        => 'Code',
-            default      => ''
+            'pre' => 'Code',
+            default => '',
         };
     }
 
@@ -9604,9 +9601,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getPdfUaListNumbering(array $elm): string
     {
         $tag = isset($elm['value']) && \is_string($elm['value']) ? \strtolower($elm['value']) : '';
-        $listtype = isset($elm['listtype']) && \is_string($elm['listtype'])
-            ? \strtolower(\trim($elm['listtype']))
-            : '';
+        $listtype = isset($elm['listtype']) && \is_string($elm['listtype']) ? \strtolower(\trim($elm['listtype'])) : '';
 
         $map = [
             'disc' => 'Disc',
@@ -9625,7 +9620,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lower-latin' => 'LowerAlpha',
         ];
 
-        if (($listtype !== '') && isset($map[$listtype])) {
+        if ($listtype !== '' && isset($map[$listtype])) {
             return $map[$listtype];
         }
 
@@ -9651,46 +9646,44 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elm = &$hrc['dom'][$key];
         $openkey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
         /** @var THTMLAttrib $openelm */
-        $openelm = (($openkey >= 0) && isset($hrc['dom'][$openkey])) ? $hrc['dom'][$openkey] : $elm;
-        $openDisplay = \strtolower(\trim((string) ($openelm['display'] ?? '')));
-        $isInlineBlock = ($openDisplay === 'inline-block');
-        $float = (!empty($openelm['float']) && \is_string($openelm['float']))
-            ? \strtolower(\trim((string) $openelm['float']))
-            : 'none';
+        $openelm = $openkey >= 0 && isset($hrc['dom'][$openkey]) ? $hrc['dom'][$openkey] : $elm;
+        $openDisplay = \strtolower(\trim($openelm['display'] ?? ''));
+        $isInlineBlock = $openDisplay === 'inline-block';
+        $float =
+            isset($openelm['float']) && \is_string($openelm['float']) && $openelm['float'] !== ''
+                ? \strtolower(\trim($openelm['float']))
+                : 'none';
         // When a block closes on the same line where inline text was rendered,
         // advance by one line height before applying bottom spacing.
-        $lineadvancectx = (isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance']))
-            ? (float) $hrc['cellctx']['lineadvance']
+        $lineadvancectx = isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance'])
+            ? $hrc['cellctx']['lineadvance']
             : 0.0;
-        $linebottomctx = (isset($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
-            ? (float) $hrc['cellctx']['linebottom']
+        $linebottomctx = isset($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom'])
+            ? $hrc['cellctx']['linebottom']
             : 0.0;
-        $childblockbottom = (isset($openelm['childblockbottom']) && \is_numeric($openelm['childblockbottom']))
+        $childblockbottom = isset($openelm['childblockbottom']) && \is_numeric($openelm['childblockbottom'])
             ? (float) $openelm['childblockbottom']
             : 0.0;
         if ($childblockbottom > $linebottomctx) {
             $linebottomctx = $childblockbottom;
         }
         $hasinlinecontent =
-            ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
-            || ($lineadvancectx > self::WIDTH_TOLERANCE)
-            || ($linebottomctx > ($tpy + self::WIDTH_TOLERANCE));
+            $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE)
+            || $lineadvancectx > self::WIDTH_TOLERANCE
+            || $linebottomctx > ($tpy + self::WIDTH_TOLERANCE);
         $lineadvance = $hasinlinecontent
-            ? \max(
-                $this->getCurrentHTMLLineAdvance($hrc, $key),
-                \max(0.0, $linebottomctx - $tpy),
-            )
+            ? \max($this->getCurrentHTMLLineAdvance($hrc, $key), \max(0.0, $linebottomctx - $tpy))
             : 0.0;
 
         $out = '';
-        $restoreOriginX = (float) ($hrc['cellctx']['originx'] ?? 0.0);
-        $restoreMaxWidth = (float) ($hrc['cellctx']['maxwidth'] ?? 0.0);
+        $restoreOriginX = $hrc['cellctx']['originx'] ?? 0.0;
+        $restoreMaxWidth = $hrc['cellctx']['maxwidth'] ?? 0.0;
         if (isset($openelm['ctxoriginx']) && \is_numeric($openelm['ctxoriginx'])) {
             // Adjust the saved originx by any region-break RX shift that occurred
             // while this block was open, so closing the block does not revert to
             // the previous column's x position after a region/page break.
-            $currentOffset = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
-            $savedOffset = (isset($openelm['ctxregionoffset']) && \is_numeric($openelm['ctxregionoffset']))
+            $currentOffset = $hrc['cellctx']['regionoffset'] ?? 0.0;
+            $savedOffset = isset($openelm['ctxregionoffset']) && \is_numeric($openelm['ctxregionoffset'])
                 ? (float) $openelm['ctxregionoffset']
                 : $currentOffset;
             $restoreOriginX = (float) $openelm['ctxoriginx'] + ($currentOffset - $savedOffset);
@@ -9698,25 +9691,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (isset($openelm['ctxmaxwidth']) && \is_numeric($openelm['ctxmaxwidth'])) {
             $restoreMaxWidth = (float) $openelm['ctxmaxwidth'];
         }
-        if (!empty($hrc['blockbuf'])) {
+        if (($hrc['blockbuf'] ?? []) !== []) {
             $idx = \count($hrc['blockbuf']) - 1;
             if ($hrc['blockbuf'][$idx]['openkey'] === $openkey) {
                 $blk = $hrc['blockbuf'][$idx];
                 \array_pop($hrc['blockbuf']);
-                $blockHeight = ($tpy + $lineadvance + (float) $openelm['padding']['B']) - $blk['by'];
+                $blockHeight = $tpy + $lineadvance + $openelm['padding']['B'] - $blk['by'];
                 if ($blk['bw'] > 0.0 && $blockHeight > 0.0) {
-                    $bstyles = ($openkey >= 0)
-                        ? $this->getHTMLTableCellBorderStyles($hrc, $openkey)
-                        : [];
-                    $fillstyle = ($openkey >= 0)
-                        ? $this->getHTMLTableCellFillStyle($hrc, $openkey)
-                        : null;
+                    $bstyles = $openkey >= 0 ? $this->getHTMLTableCellBorderStyles($hrc, $openkey) : [];
+                    $fillstyle = $openkey >= 0 ? $this->getHTMLTableCellFillStyle($hrc, $openkey) : null;
                     if (
-                        ($openkey >= 0)
+                        $openkey >= 0
                         && isset($hrc['dom'][$openkey]['value'])
                         && (
-                            ($hrc['dom'][$openkey]['value'] === 'table')
-                            || ($hrc['dom'][$openkey]['value'] === 'tablehead')
+                            $hrc['dom'][$openkey]['value'] === 'table'
+                            || $hrc['dom'][$openkey]['value'] === 'tablehead'
                         )
                     ) {
                         // Table border is rendered by parseHTMLTagCLOSEtable().
@@ -9747,23 +9736,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 if (
                     isset($bstyles[2]['width'])
                     && \is_numeric($bstyles[2]['width'])
-                    && ((float) $bstyles[2]['width'] > 0.0)
+                    && (float) $bstyles[2]['width'] > 0.0
                 ) {
                     // Borders are centered on the rectangle edge, so reserve
                     // half of the bottom stroke below the content box.
-                    $floatBtmBdrOv = ((float) $bstyles[2]['width']) / 2.0;
+                    $floatBtmBdrOv = (float) $bstyles[2]['width'] / 2.0;
                 }
             }
 
-            $floatBottom = $tpy
+            $floatBottom =
+                $tpy
                 + $lineadvance
-                + (float) $openelm['margin']['B']
-                + (float) $openelm['padding']['B']
+                + $openelm['margin']['B']
+                + $openelm['padding']['B']
                 + $this->getHTMLTagVSpace($hrc, $key, 1)
                 + $floatBtmBdrOv;
-            $currentBottom = (float) $hrc['cellctx']['floatrowbottom'];
+            $currentBottom = $hrc['cellctx']['floatrowbottom'];
             $hrc['cellctx']['floatrowbottom'] = \max($currentBottom, $floatBottom);
-            $tpy = (float) $hrc['cellctx']['floatrowtop'];
+            $tpy = $hrc['cellctx']['floatrowtop'];
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $hrc['cellctx']['originx'] = $restoreOriginX;
             $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
@@ -9780,13 +9770,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($isInlineBlock) {
             $inlineNextX = isset($openelm['inlineblocknextx']) && \is_numeric($openelm['inlineblocknextx'])
                 ? (float) $openelm['inlineblocknextx']
-                : ($tpx + (float) $openelm['margin']['R']);
-            $inlineBottom = $tpy
+                : $tpx + $openelm['margin']['R'];
+            $inlineBottom =
+                $tpy
                 + $lineadvance
-                + (float) $openelm['padding']['B']
-                + (float) $openelm['margin']['B']
+                + $openelm['padding']['B']
+                + $openelm['margin']['B']
                 + $this->getHTMLTagVSpace($hrc, $key, 1);
-            $linebottom = (float) $hrc['cellctx']['linebottom'];
+            $linebottom = $hrc['cellctx']['linebottom'];
             if ($inlineBottom > $linebottom) {
                 $hrc['cellctx']['linebottom'] = $inlineBottom;
             }
@@ -9794,7 +9785,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $hrc['cellctx']['originx'] = $restoreOriginX;
             $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
-            $tpx = \max($tpx + (float) $openelm['margin']['R'], $inlineNextX);
+            $tpx = \max($tpx + $openelm['margin']['R'], $inlineNextX);
             if (isset($openelm['inlineblockrowy']) && \is_numeric($openelm['inlineblockrowy'])) {
                 $tpy = (float) $openelm['inlineblockrowy'];
             }
@@ -9814,9 +9805,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['originx'] = $restoreOriginX;
         $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-        $tpy += $lineadvance + (float) $openelm['margin']['B'] + (float) $openelm['padding']['B']
-            + $this->getHTMLTagVSpace($hrc, $key, 1);
-        $hrc['cellctx']['pendingblockmarginb'] = (float) $openelm['margin']['B'];
+        $tpy +=
+            $lineadvance + $openelm['margin']['B'] + $openelm['padding']['B'] + $this->getHTMLTagVSpace($hrc, $key, 1);
+        $hrc['cellctx']['pendingblockmarginb'] = $openelm['margin']['B'];
 
         $role = $this->getHTMLStructRole($elm);
         if ($role !== '') {
@@ -9834,16 +9825,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function shiftHTMLVerticalPosition(array &$hrc, int $key, float &$tpy, float $ratio): string
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return '';
         }
 
         $elm = &$hrc['dom'][$key];
-        if (empty($elm['fontsize']) || !\is_numeric($elm['fontsize'])) {
+        if (!isset($elm['fontsize']) || $elm['fontsize'] <= 0 || !\is_numeric($elm['fontsize'])) {
             return '';
         }
 
-        $tpy += ((float) $elm['fontsize'] * $ratio);
+        $tpy += $elm['fontsize'] * $ratio;
         return '';
     }
 
@@ -9902,16 +9893,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        if (($type === 'checkbox') || ($type === 'radio')) {
+        if ($type === 'checkbox' || $type === 'radio') {
             return isset($attr['checked']) ? '[x]' : '[ ]';
         }
 
         if ($type === 'password') {
-            $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
-            return ($value === '') ? '' : \str_repeat('*', \mb_strlen($value, $this->encoding));
+            $value = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : '';
+            return $value === '' ? '' : \str_repeat('*', \mb_strlen($value, $this->encoding));
         }
 
-        if (($type === 'submit') || ($type === 'button') || ($type === 'reset')) {
+        if ($type === 'submit' || $type === 'button' || $type === 'reset') {
             if (isset($attr['value']) && \is_string($attr['value'])) {
                 return $attr['value'];
             }
@@ -9948,7 +9939,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $type = \strtolower(\trim($attr['type']));
         }
 
-        if (($type === 'checkbox') || ($type === 'radio')) {
+        if ($type === 'checkbox' || $type === 'radio') {
             return $lineheight;
         }
 
@@ -9958,11 +9949,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $display = $this->getHTMLInputDisplayValue($hrc['dom'][$key]);
-        $displayChars = ($display === '') ? 0 : \mb_strlen($display, $this->encoding);
+        $displayChars = $display === '' ? 0 : \mb_strlen($display, $this->encoding);
         $targetChars = \max($defaultChars, \min(80, $displayChars));
 
         $fieldwidth = $this->getStringWidth(\str_repeat('0', \max(1, $targetChars))) + $lineheight;
-        if (($availableWidth > 0.0) && ($fieldwidth > $availableWidth)) {
+        if ($availableWidth > 0.0 && $fieldwidth > $availableWidth) {
             return $availableWidth;
         }
 
@@ -9982,9 +9973,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): void {
         $this->updateHTMLLineAdvance($hrc, \max($lineheight, $controlBottom - $tpy));
         if (
-            empty($hrc['cellctx']['linebottom'])
+            !isset($hrc['cellctx']['linebottom'])
+            || $hrc['cellctx']['linebottom'] <= 0
             || !\is_numeric($hrc['cellctx']['linebottom'])
-            || ($controlBottom > (float) $hrc['cellctx']['linebottom'])
+            || $controlBottom > $hrc['cellctx']['linebottom']
         ) {
             $hrc['cellctx']['linebottom'] = $controlBottom;
         }
@@ -9998,15 +9990,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLSelectDisplayValue(array $elm): string
     {
         $attr = $elm['attribute'] ?? [];
-        if (!\is_array($attr) || empty($attr['opt']) || !\is_string($attr['opt'])) {
+        if (!\is_array($attr) || !isset($attr['opt']) || $attr['opt'] === [] || !\is_string($attr['opt'])) {
             return '';
         }
 
-        $selected = (isset($attr['value']) && \is_string($attr['value']))
-            ? $attr['value']
-            : '';
+        $selected = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : '';
 
-        $entries = \array_filter(\explode('#!NwL!#', $attr['opt']), static fn ($opt): bool => ($opt !== ''));
+        $entries = \array_filter(\explode('#!NwL!#', $attr['opt']), static fn($opt): bool => $opt !== '');
         if ($entries === []) {
             return '';
         }
@@ -10040,15 +10030,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $label = $entry;
             }
 
-            if (($fallback === '') && ($label !== '')) {
+            if ($fallback === '' && $label !== '') {
                 $fallback = $label;
             }
 
-            if (($value !== '') && ($label !== '')) {
+            if ($value !== '' && $label !== '') {
                 $labels[$value] = $label;
             }
 
-            if ($isselected && ($label !== '')) {
+            if ($isselected && $label !== '') {
                 $selectedlabels[] = $label;
             }
         }
@@ -10105,21 +10095,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTagVSpace(array &$hrc, int $key, int $position): float
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return 0.0;
         }
 
         $elm = &$hrc['dom'][$key];
-        $tag = (isset($elm['value']) && \is_string($elm['value'])) ? $elm['value'] : '';
-        if (empty($this->tagvspaces[$tag][$position])) {
+        $tag = isset($elm['value']) && \is_string($elm['value']) ? $elm['value'] : '';
+        if (!isset($this->tagvspaces[$tag][$position]) || $this->tagvspaces[$tag][$position] <= 0) {
             return 0.0;
         }
 
         $tvs = $this->tagvspaces[$tag][$position];
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $height = (isset($tvs['h']) && \is_numeric($tvs['h'])) ? (float) $tvs['h'] : 0.0;
-        $lines = (isset($tvs['n']) && \is_numeric($tvs['n'])) ? (int) $tvs['n'] : 0;
-        return $height + $lineheight * $lines;
+        $height = isset($tvs['h']) && \is_numeric($tvs['h']) ? (float) $tvs['h'] : 0.0;
+        $lines = isset($tvs['n']) && \is_numeric($tvs['n']) ? (int) $tvs['n'] : 0;
+        return $height + ($lineheight * $lines);
     }
 
     /**
@@ -10136,8 +10126,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $alt = (isset($attr['alt']) && \is_string($attr['alt'])) ? $attr['alt'] : '[img]';
-        if (empty($attr['src']) || !\is_string($attr['src'])) {
+        $alt = isset($attr['alt']) && \is_string($attr['alt']) ? $attr['alt'] : '[img]';
+        if (!isset($attr['src']) || $attr['src'] === '' || !\is_string($attr['src'])) {
             $lineheight = $this->getHTMLLineAdvance($hrc, $key);
             return $this->renderHTMLLiteralText($hrc, $key, $alt, $tpx, $tpy, $tpw, $lineheight);
         }
@@ -10153,26 +10143,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $width = (!empty($elm['width']) && \is_numeric($elm['width']))
-            ? (float) $elm['width']
-            : $lineheight;
-        $height = (!empty($elm['height']) && \is_numeric($elm['height']))
-            ? (float) $elm['height']
-            : $lineheight;
+        $width = isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0 ? $elm['width'] : $lineheight;
+        $height =
+            isset($elm['height']) && \is_numeric($elm['height']) && $elm['height'] > 0 ? $elm['height'] : $lineheight;
 
-        if (($width <= 0) || ($height <= 0)) {
+        if ($width <= 0 || $height <= 0) {
             return '';
         }
 
         // Vertical alignment: top/middle/bottom (default)
-        $valign = (isset($attr['align']) && \is_string($attr['align']))
-            ? \strtolower(\trim($attr['align']))
-            : 'bottom';
+        $valign = isset($attr['align']) && \is_string($attr['align']) ? \strtolower(\trim($attr['align'])) : 'bottom';
         $font = $this->getHTMLFontMetric($hrc, $key);
-        $curAscent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+        $curAscent = isset($font['ascent']) && \is_numeric($font['ascent'])
             ? $this->toUnit((float) $font['ascent'])
             : 0.0;
-        if (empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
+        if (
+            !isset($hrc['cellctx']['lineascent'])
+            || !\is_numeric($hrc['cellctx']['lineascent'])
+            || $hrc['cellctx']['lineascent'] <= 0
+        ) {
             $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $key);
             if ($lineascent <= 0.0) {
                 $lineascent = $curAscent;
@@ -10181,7 +10170,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $hrc['cellctx']['lineascent'] = $lineascent;
         }
 
-        $lineascent = (float) $hrc['cellctx']['lineascent'];
+        $lineascent = $hrc['cellctx']['lineascent'];
         if ($lineascent < $curAscent) {
             $lineascent = $curAscent;
             $hrc['cellctx']['lineascent'] = $lineascent;
@@ -10196,26 +10185,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // Horizontal alignment: inherit text-align for inline image runs.
         $lineOriginX = $hrc['cellctx']['lineoriginx'];
-        $lineOffset = (float) ($tpx - $lineOriginX);
-        $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
-        $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
-            ? \max(0.0, $tpw)
-            : (($tpw > 0) ? $tpw : $availableWidth);
+        $lineOffset = $tpx - $lineOriginX;
+        $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+        if ($hrc['cellctx']['maxwidth'] > 0) {
+            $remainingWidth = \max(0.0, $tpw);
+        } elseif ($tpw > 0) {
+            $remainingWidth = $tpw;
+        } else {
+            $remainingWidth = $availableWidth;
+        }
 
-        $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
+        if (!isset($elm['align']) || $elm['align'] === '') {
+            $halign = $this->rtl ? 'R' : 'L';
+        } else {
+            $halign = (string) $elm['align'];
+        }
         $imagex = $tpx;
         if (
-            (($halign === 'C') || ($halign === 'R'))
-            && ($availableWidth > 0.0)
-            && (
-                ($lineOffset <= self::WIDTH_TOLERANCE)
-                || $this->isHTMLInlineRunFirstRenderableNode($hrc, $key)
-            )
-            && ($width <= ($remainingWidth + self::WIDTH_TOLERANCE))
+            ($halign === 'C' || $halign === 'R')
+            && $availableWidth > 0.0
+            && ($lineOffset <= self::WIDTH_TOLERANCE || $this->isHTMLInlineRunFirstRenderableNode($hrc, $key))
+            && $width <= ($remainingWidth + self::WIDTH_TOLERANCE)
         ) {
             $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $key, $availableWidth);
-            if (($lineWidth > 0.0) && ($lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE))) {
-                $imagex = $lineOriginX + match ($halign) {
+            if ($lineWidth > 0.0 && $lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE)) {
+                $imagex = $lineOriginX
+                + match ($halign) {
                     'R' => \max(0.0, $availableWidth - $lineWidth),
                     default => \max(0.0, ($availableWidth - $lineWidth) / 2.0),
                 };
@@ -10240,9 +10235,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $imagebottom = $imagey + $height;
         $this->updateHTMLLineAdvance($hrc, \max($lineheight, $imagebottom - $tpy));
         if (
-            empty($hrc['cellctx']['linebottom'])
+            !isset($hrc['cellctx']['linebottom'])
+            || $hrc['cellctx']['linebottom'] <= 0
             || !\is_numeric($hrc['cellctx']['linebottom'])
-            || ($imagebottom > (float) $hrc['cellctx']['linebottom'])
+            || $imagebottom > $hrc['cellctx']['linebottom']
         ) {
             $hrc['cellctx']['linebottom'] = $imagebottom;
         }
@@ -10267,7 +10263,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTableCellBorderStyles(array &$hrc, int $key): array
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return [];
         }
 
@@ -10280,34 +10276,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $border = $elm['border'];
         $styles = [];
 
-        $hasSideOverrides = !empty($border['T'])
-            || !empty($border['R'])
-            || !empty($border['B'])
-            || !empty($border['L']);
+        $hasSideOverrides =
+            isset($border['T']) && $border['T'] !== ''
+            || isset($border['R']) && $border['R'] !== ''
+            || isset($border['B']) && $border['B'] !== ''
+            || isset($border['L']) && $border['L'] !== '';
 
-        if (!empty($border['LTRB']) && !$hasSideOverrides) {
+        if (isset($border['LTRB']) && $border['LTRB'] !== '' && !$hasSideOverrides) {
             $styles['all'] = $border['LTRB'];
             return $styles;
         }
 
-        $fallback = (!empty($border['LTRB']) && \is_array($border['LTRB'])) ? $border['LTRB'] : null;
+        $fallback = isset($border['LTRB']) && $border['LTRB'] !== '' && \is_array($border['LTRB'])
+            ? $border['LTRB']
+            : null;
 
-        if (!empty($border['T'])) {
+        if (isset($border['T']) && $border['T'] !== '') {
             $styles[0] = $border['T'];
         } elseif ($fallback !== null) {
             $styles[0] = $fallback;
         }
-        if (!empty($border['R'])) {
+        if (isset($border['R']) && $border['R'] !== '') {
             $styles[1] = $border['R'];
         } elseif ($fallback !== null) {
             $styles[1] = $fallback;
         }
-        if (!empty($border['B'])) {
+        if (isset($border['B']) && $border['B'] !== '') {
             $styles[2] = $border['B'];
         } elseif ($fallback !== null) {
             $styles[2] = $fallback;
         }
-        if (!empty($border['L'])) {
+        if (isset($border['L']) && $border['L'] !== '') {
             $styles[3] = $border['L'];
         } elseif ($fallback !== null) {
             $styles[3] = $fallback;
@@ -10324,11 +10323,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<int|string, BorderStyle> $styles
      * @return array<int|string, BorderStyle>
      */
-    protected function getHTMLCollapsedTableCellBorderStyles(
-        array $styles,
-        bool $keepTop,
-        bool $keepLeft,
-    ): array {
+    protected function getHTMLCollapsedTableCellBorderStyles(array $styles, bool $keepTop, bool $keepLeft): array
+    {
         if ($styles === []) {
             return [];
         }
@@ -10352,7 +10348,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Determine the CSS border-style keyword used for collapsed-border precedence.
      *
-    * @param BorderStyleOpt $style
+     * @param BorderStyleOpt $style
      */
     protected function getHTMLCollapsedBorderStyleName(array $style): string
     {
@@ -10360,7 +10356,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return \strtolower($style['cssBorderStyle']);
         }
 
-        if (!empty($style['dashArray']) && \is_array($style['dashArray'])) {
+        if (isset($style['dashArray']) && \is_array($style['dashArray']) && $style['dashArray'] !== []) {
             $dash = (int) ($style['dashArray'][0] ?? 0);
             if ($dash === 1) {
                 return 'dotted';
@@ -10369,10 +10365,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 'dashed';
         }
 
-        $width = (isset($style['lineWidth']) && \is_numeric($style['lineWidth']))
-            ? (float) $style['lineWidth'] : 0.0;
+        $width = isset($style['lineWidth']) && \is_numeric($style['lineWidth']) ? $style['lineWidth'] : 0.0;
 
-        return ($width > 0.0) ? 'solid' : 'none';
+        return $width > 0.0 ? 'solid' : 'none';
     }
 
     /**
@@ -10398,18 +10393,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Check whether a parsed border style should render.
      *
-        * @param BorderStyleOpt $style
+     * @param BorderStyleOpt $style
      */
     protected function isHTMLRenderableBorderStyle(array $style): bool
     {
         $styleName = $this->getHTMLCollapsedBorderStyleName($style);
-        if (($styleName === 'none') || ($styleName === 'hidden')) {
+        if ($styleName === 'none' || $styleName === 'hidden') {
             return false;
         }
 
-        return isset($style['lineWidth'])
-            && \is_numeric($style['lineWidth'])
-            && ((float) $style['lineWidth'] > 0.0);
+        return isset($style['lineWidth']) && \is_numeric($style['lineWidth']) && $style['lineWidth'] > 0.0;
     }
 
     /**
@@ -10427,28 +10420,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $rightKind = $this->getHTMLCollapsedBorderStyleName($rightStyle);
 
         if ($leftKind === 'hidden') {
-            return $leftStyle;
+            return $leftStyle + ['lineWidth' => 0.0];
         }
 
         if ($rightKind === 'hidden') {
-            return $rightStyle;
+            return $rightStyle + ['lineWidth' => 0.0];
         }
 
         if ($leftKind === 'none') {
-            return $rightStyle;
+            return $rightStyle + ['lineWidth' => 0.0];
         }
 
         if ($rightKind === 'none') {
-            return $leftStyle;
+            return $leftStyle + ['lineWidth' => 0.0];
         }
 
-        $leftWidth = (isset($leftStyle['lineWidth']) && \is_numeric($leftStyle['lineWidth']))
-            ? (float) $leftStyle['lineWidth'] : 0.0;
-        $rightWidth = (isset($rightStyle['lineWidth']) && \is_numeric($rightStyle['lineWidth']))
-            ? (float) $rightStyle['lineWidth'] : 0.0;
+        $leftWidth = isset($leftStyle['lineWidth']) && \is_numeric($leftStyle['lineWidth'])
+            ? $leftStyle['lineWidth']
+            : 0.0;
+        $rightWidth = isset($rightStyle['lineWidth']) && \is_numeric($rightStyle['lineWidth'])
+            ? $rightStyle['lineWidth']
+            : 0.0;
 
         if ($rightWidth > $leftWidth) {
-            return $rightStyle;
+            return $rightStyle + ['lineWidth' => $rightWidth];
         }
 
         if ($leftWidth === $rightWidth) {
@@ -10456,11 +10451,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $rightRank = $this->getHTMLCollapsedBorderStyleRank($rightKind);
 
             if ($rightRank > $leftRank) {
-                return $rightStyle;
+                return $rightStyle + ['lineWidth' => $rightWidth];
             }
         }
 
-        return $leftStyle;
+        return $leftStyle + ['lineWidth' => $leftWidth];
     }
 
     /**
@@ -10494,12 +10489,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTableCellFillStyle(array &$hrc, int $key): ?array
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return null;
         }
 
         $elm = &$hrc['dom'][$key];
-        if (empty($elm['bgcolor']) || !\is_string($elm['bgcolor'])) {
+        if (!isset($elm['bgcolor']) || $elm['bgcolor'] === '' || !\is_string($elm['bgcolor'])) {
             return null;
         }
 
@@ -10532,27 +10527,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function hasBlockLvBgAncestor(array &$hrc, int $key): bool
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return false;
         }
 
         $elm = &$hrc['dom'][$key];
-        if (empty($elm['bgcolor']) || !\is_string($elm['bgcolor'])) {
+        if (!isset($elm['bgcolor']) || $elm['bgcolor'] === '' || !\is_string($elm['bgcolor'])) {
             return false;
         }
 
         $dom = &$hrc['dom'];
         $parent = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : -1;
 
-        while (($parent >= 0) && isset($dom[$parent])) {
+        while ($parent >= 0 && isset($dom[$parent])) {
             $ancestor = $dom[$parent];
             $parent = isset($ancestor['parent']) && \is_int($ancestor['parent']) ? $ancestor['parent'] : -1;
 
-            if (empty($ancestor['tag']) || empty($ancestor['opening'])) {
+            if (!($ancestor['tag'] ?? false) || !($ancestor['opening'] ?? false)) {
                 continue;
             }
 
-            if (empty($ancestor['bgcolor']) || !\is_string($ancestor['bgcolor'])) {
+            if (!isset($ancestor['bgcolor']) || $ancestor['bgcolor'] === '' || !\is_string($ancestor['bgcolor'])) {
                 continue;
             }
 
@@ -10560,7 +10555,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 return false;
             }
 
-            return !empty($ancestor['block']);
+            return $ancestor['block'] ?? false;
         }
 
         return false;
@@ -10576,7 +10571,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function findHTMLAncestorOpeningTag(array &$hrc, int $key, string $tagname): int
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return -1;
         }
 
@@ -10585,7 +10580,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             : -1;
         $visited = [];
 
-        while (($parent >= 0) && isset($hrc['dom'][$parent])) {
+        while ($parent >= 0 && isset($hrc['dom'][$parent])) {
             if (isset($visited[$parent])) {
                 return -1;
             }
@@ -10593,10 +10588,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $ancestor = $hrc['dom'][$parent];
             if (
-                !empty($ancestor['tag'])
-                && !empty($ancestor['opening'])
+                ($ancestor['tag'] ?? false)
+                && ($ancestor['opening'] ?? false)
                 && isset($ancestor['value'])
-                && ($ancestor['value'] === $tagname)
+                && $ancestor['value'] === $tagname
             ) {
                 return $parent;
             }
@@ -10617,7 +10612,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLInputButtonAction(array &$hrc, int $key, string $type, array $attr): string|array
     {
-        if (isset($attr['onclick']) && \is_string($attr['onclick']) && ($attr['onclick'] !== '')) {
+        if (isset($attr['onclick']) && \is_string($attr['onclick']) && $attr['onclick'] !== '') {
             return $attr['onclick'];
         }
 
@@ -10631,27 +10626,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $formkey = $this->findHTMLAncestorOpeningTag($hrc, $key, 'form');
         $formattr = [];
-        $formAttr = ($formkey >= 0) && isset($hrc['dom'][$formkey]['attribute'])
-            && \is_array($hrc['dom'][$formkey]['attribute']);
+        $formAttr =
+            $formkey >= 0 && isset($hrc['dom'][$formkey]['attribute']) && \is_array($hrc['dom'][$formkey]['attribute']);
         if ($formAttr) {
             $formattr = $hrc['dom'][$formkey]['attribute'];
         }
 
         $action = ['S' => 'SubmitForm'];
-        $submitUrl = (isset($attr['formaction']) && \is_string($attr['formaction']))
-            ? \trim($attr['formaction'])
-            : '';
-        if (($submitUrl === '') && isset($formattr['action']) && \is_string($formattr['action'])) {
+        $submitUrl = isset($attr['formaction']) && \is_string($attr['formaction']) ? \trim($attr['formaction']) : '';
+        if ($submitUrl === '' && isset($formattr['action']) && \is_string($formattr['action'])) {
             $submitUrl = \trim($formattr['action']);
         }
         if ($submitUrl !== '') {
             $action['F'] = $submitUrl;
         }
 
-        $method = (isset($attr['formmethod']) && \is_string($attr['formmethod']))
+        $method = isset($attr['formmethod']) && \is_string($attr['formmethod'])
             ? \strtolower(\trim($attr['formmethod']))
             : '';
-        if (($method === '') && isset($formattr['method']) && \is_string($formattr['method'])) {
+        if ($method === '' && isset($formattr['method']) && \is_string($formattr['method'])) {
             $method = \strtolower(\trim($formattr['method']));
         }
 
@@ -10699,7 +10692,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $value = \strtolower(\trim($rawval));
-        if (($value === 'false') || ($value === '0') || ($value === 'off') || ($value === 'no')) {
+        if ($value === 'false' || $value === '0' || $value === 'off' || $value === 'no') {
             return false;
         }
 
@@ -10709,8 +10702,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Convert HTML form attributes to JavaScript annotation properties.
      *
-         * @param array<string, mixed> $attr
-         * @param array<string, mixed> $elm
+     * @param array<string, mixed> $attr
+     * @param array<string, mixed> $elm
      *
      * @return array<string, mixed>
      */
@@ -10736,7 +10729,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         foreach ($attr as $akey => $aval) {
-            if (!\is_string($akey) || (\strtolower($akey) !== 'maxlength') || !\is_numeric($aval)) {
+            if (!\is_string($akey) || \strtolower($akey) !== 'maxlength' || !\is_numeric($aval)) {
                 continue;
             }
 
@@ -10768,17 +10761,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function applyHTMLFormFieldStyleJSProperties(array &$jsp, array $elm): void
     {
-        $isButtonTag = isset($elm['value']) && ($elm['value'] === 'button');
+        $isButtonTag = isset($elm['value']) && $elm['value'] === 'button';
 
-        if (!empty($elm['fgcolor']) && \is_string($elm['fgcolor'])) {
-            $jsp['textColor'] = (string) $elm['fgcolor'];
+        if (isset($elm['fgcolor']) && $elm['fgcolor'] !== '' && \is_string($elm['fgcolor'])) {
+            $jsp['textColor'] = $elm['fgcolor'];
         }
 
-        if (!empty($elm['bgcolor']) && \is_string($elm['bgcolor'])) {
-            $jsp['fillColor'] = (string) $elm['bgcolor'];
+        if (isset($elm['bgcolor']) && $elm['bgcolor'] !== '' && \is_string($elm['bgcolor'])) {
+            $jsp['fillColor'] = $elm['bgcolor'];
         }
 
-        if ($isButtonTag && !empty($elm['cssdata']) && \is_array($elm['cssdata'])) {
+        if ($isButtonTag && isset($elm['cssdata']) && \is_array($elm['cssdata']) && $elm['cssdata'] !== []) {
             $bestSpec = -1;
             $bestBg = '';
             $bestLineColor = '';
@@ -10786,7 +10779,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $bestBorderStyle = '';
 
             foreach ($elm['cssdata'] as $cssentry) {
-                if (!\is_array($cssentry) || empty($cssentry['s']) || !\is_string($cssentry['s'])) {
+                if (
+                    !\is_array($cssentry)
+                    || !isset($cssentry['s'])
+                    || $cssentry['s'] === ''
+                    || !\is_string($cssentry['s'])
+                ) {
                     continue;
                 }
 
@@ -10796,7 +10794,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                if (empty($cssentry['c']) || !\is_string($cssentry['c'])) {
+                if (!isset($cssentry['c']) || $cssentry['c'] === '' || !\is_string($cssentry['c'])) {
                     continue;
                 }
 
@@ -10806,9 +10804,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 $entryBg = '';
-                if (!empty($decl['background-color']) && \is_string($decl['background-color'])) {
+                if (
+                    isset($decl['background-color'])
+                    && \is_string($decl['background-color'])
+                    && $decl['background-color'] !== ''
+                ) {
                     $entryBg = $this->getCSSColor(\trim($decl['background-color']));
-                } elseif (!empty($decl['background']) && \is_string($decl['background'])) {
+                } elseif (isset($decl['background']) && \is_string($decl['background']) && $decl['background'] !== '') {
                     $entryBg = $this->getHTMLBackgroundShorthandColor(\trim($decl['background']));
                 }
 
@@ -10816,26 +10818,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $entryLineWidth = null;
                 $entryBorderStyle = '';
 
-                if (!empty($decl['border']) && \is_string($decl['border'])) {
+                if (isset($decl['border']) && \is_string($decl['border']) && $decl['border'] !== '') {
                     $bstyle = $this->getCSSBorderStyle($decl['border']);
-                    if (!empty($bstyle['lineColor']) && \is_string($bstyle['lineColor'])) {
-                        $entryLineColor = (string) $bstyle['lineColor'];
+                    if (
+                        isset($bstyle['lineColor'])
+                        && \is_string($bstyle['lineColor'])
+                        && $bstyle['lineColor'] !== ''
+                    ) {
+                        $entryLineColor = $bstyle['lineColor'];
                     }
                     if (isset($bstyle['lineWidth']) && \is_numeric($bstyle['lineWidth'])) {
-                        $entryLineWidth = (int) \max(1, \round($this->toPoints((float) $bstyle['lineWidth'])));
+                        $entryLineWidth = (int) \max(1, \round($this->toPoints($bstyle['lineWidth'])));
                     }
-                    if (!empty($bstyle['cssBorderStyle']) && \is_string($bstyle['cssBorderStyle'])) {
+                    if (
+                        isset($bstyle['cssBorderStyle'])
+                        && \is_string($bstyle['cssBorderStyle'])
+                        && $bstyle['cssBorderStyle'] !== ''
+                    ) {
                         $cssStyle = \strtolower(\trim($bstyle['cssBorderStyle']));
-                        $entryBorderStyle = ($cssStyle === 'dashed' || $cssStyle === 'dotted') ? 'dashed' : 'solid';
+                        $entryBorderStyle = $cssStyle === 'dashed' || $cssStyle === 'dotted' ? 'dashed' : 'solid';
                     }
                 }
 
-                if (
-                    $entryBg === ''
-                    && ($entryLineColor === '')
-                    && ($entryLineWidth === null)
-                    && ($entryBorderStyle === '')
-                ) {
+                if ($entryBg === '' && $entryLineColor === '' && $entryLineWidth === null && $entryBorderStyle === '') {
                     continue;
                 }
 
@@ -10867,36 +10872,46 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineColor = '';
         $lineWidth = null;
         $borderStyle = '';
-        if (!empty($elm['border']) && \is_array($elm['border'])) {
+        if (isset($elm['border']) && \is_array($elm['border']) && $elm['border'] !== []) {
             $border = $elm['border'];
             $candidate = [];
 
-            if (!empty($border['LTRB']) && \is_array($border['LTRB'])) {
+            if (isset($border['LTRB']) && $border['LTRB'] !== '' && \is_array($border['LTRB'])) {
                 $candidate = $border['LTRB'];
             } else {
                 foreach (['L', 'R', 'T', 'B'] as $side) {
-                    if (!empty($border[$side]) && \is_array($border[$side])) {
-                        $candidate = $border[$side];
-                        break;
+                    if (!(isset($border[$side]) && \is_array($border[$side]) && $border[$side] !== [])) {
+                        continue;
                     }
+
+                    $candidate = $border[$side];
+                    break;
                 }
             }
 
-            if (!empty($candidate['lineColor']) && \is_string($candidate['lineColor'])) {
-                $lineColor = (string) $candidate['lineColor'];
+            if (
+                isset($candidate['lineColor'])
+                && \is_string($candidate['lineColor'])
+                && $candidate['lineColor'] !== ''
+            ) {
+                $lineColor = $candidate['lineColor'];
             }
             if (isset($candidate['lineWidth']) && \is_numeric($candidate['lineWidth'])) {
                 $points = $this->toPoints((float) $candidate['lineWidth']);
                 $lineWidth = (int) \max(1, \round($points));
             }
-            if (!empty($candidate['cssBorderStyle']) && \is_string($candidate['cssBorderStyle'])) {
-                $cssStyle = \strtolower(\trim((string) $candidate['cssBorderStyle']));
+            if (
+                isset($candidate['cssBorderStyle'])
+                && \is_string($candidate['cssBorderStyle'])
+                && $candidate['cssBorderStyle'] !== ''
+            ) {
+                $cssStyle = \strtolower(\trim($candidate['cssBorderStyle']));
                 $borderStyle = match ($cssStyle) {
                     'dashed', 'dotted' => 'dashed',
                     'none', 'hidden' => 'solid',
                     default => 'solid',
                 };
-                if (($cssStyle === 'none') || ($cssStyle === 'hidden')) {
+                if ($cssStyle === 'none' || $cssStyle === 'hidden') {
                     $lineWidth = 0;
                 }
             }
@@ -10912,8 +10927,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $jsp['borderStyle'] = $borderStyle;
         }
 
-        if (empty($jsp['alignment']) && !empty($elm['align']) && \is_string($elm['align'])) {
-            $align = \strtoupper(\trim((string) $elm['align']));
+        if (
+            (!isset($jsp['alignment']) || $jsp['alignment'] === '')
+            && isset($elm['align'])
+            && $elm['align'] !== ''
+            && \is_string($elm['align'])
+        ) {
+            $align = \strtoupper(\trim($elm['align']));
             $jsp['alignment'] = match ($align) {
                 'R' => 'right',
                 'C' => 'center',
@@ -10933,27 +10953,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLLabelTextForControl(array &$hrc, int $key): string
     {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return '';
         }
 
         $elm = $hrc['dom'][$key];
-        $controlid = (isset($elm['attribute']['id']) && \is_string($elm['attribute']['id']))
+        $controlid = isset($elm['attribute']['id']) && \is_string($elm['attribute']['id'])
             ? \trim($elm['attribute']['id'])
             : '';
 
         if ($controlid !== '') {
             foreach ($hrc['dom'] as $lkey => $node) {
                 if (
-                    empty($node['tag'])
-                    || empty($node['opening'])
-                    || empty($node['value'])
-                    || ($node['value'] !== 'label')
+                    !($node['tag'] ?? false)
+                    || !($node['opening'] ?? false)
+                    || !isset($node['value'])
+                    || $node['value'] === ''
+                    || $node['value'] !== 'label'
                 ) {
                     continue;
                 }
 
-                $target = (isset($node['attribute']['for']) && \is_string($node['attribute']['for']))
+                $target = isset($node['attribute']['for']) && \is_string($node['attribute']['for'])
                     ? \trim($node['attribute']['for'])
                     : '';
                 if ($target !== $controlid) {
@@ -10982,7 +11003,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLNodeTextContent(array $dom, int $startkey): string
     {
-        if (empty($dom[$startkey]['tag']) || empty($dom[$startkey]['opening'])) {
+        if (!($dom[$startkey]['tag'] ?? false) || !($dom[$startkey]['opening'] ?? false)) {
             return '';
         }
 
@@ -10992,9 +11013,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $text = '';
-        for ($idx = ($startkey + 1); $idx < $endkey; ++$idx) {
+        for ($idx = $startkey + 1; $idx < $endkey; ++$idx) {
             $node = $dom[$idx] ?? [];
-            if (!empty($node['tag']) || empty($node['value']) || !\is_string($node['value'])) {
+            if (
+                ($node['tag'] ?? false)
+                || !isset($node['value'])
+                || $node['value'] === ''
+                || !\is_string($node['value'])
+            ) {
                 continue;
             }
 
@@ -11007,20 +11033,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Append a rendered HTML fragment to the active table-cell buffer when needed.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function captureHTMLTableCellBuffer(array &$hrc, string $fragment): bool
     {
-        if (($fragment === '') || empty($hrc['bcellctx'])) {
+        if ($fragment === '' || ($hrc['bcellctx'] ?? []) === []) {
             return false;
         }
 
         $cellidx = \count($hrc['bcellctx']) - 1;
-        if (
-            !isset($hrc['bcellctx'][$cellidx]['buffer'])
-            || !\is_string($hrc['bcellctx'][$cellidx]['buffer'])
-        ) {
+        if (!isset($hrc['bcellctx'][$cellidx]['buffer']) || !\is_string($hrc['bcellctx'][$cellidx]['buffer'])) {
             return false;
         }
 
@@ -11034,13 +11057,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Advance to the next free table column, skipping active row spans.
-        *
+     *
      * @param THTMLTableState $table
      */
     protected function getHTMLTableNextFreeColumn(array $table): int
     {
         $colindex = $table['colindex'];
-        while (($colindex < $table['cols']) && !empty($table['occupied'][$colindex])) {
+        while ($colindex < $table['cols'] && isset($table['occupied'][$colindex]) && $table['occupied'][$colindex]) {
             ++$colindex;
         }
 
@@ -11079,7 +11102,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $tcw += $cellspacing;
             }
 
-            $tcw += ($table['colwidths'][$colindex + $i] ?? $table['colwidth']);
+            $tcw += $table['colwidths'][$colindex + $i] ?? $table['colwidth'];
         }
 
         return $tcw;
@@ -11095,22 +11118,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLTableCellExplicitWidth(array $elm, float $availableWidth): float
     {
-        if (($availableWidth <= 0.0) || !isset($elm['style']) || !\is_array($elm['style'])) {
-            return (!empty($elm['width']) && \is_numeric($elm['width'])) ? (float) $elm['width'] : 0.0;
+        if ($availableWidth <= 0.0 || !isset($elm['style']) || !\is_array($elm['style'])) {
+            return isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0 ? $elm['width'] : 0.0;
         }
 
         $rawWidth = '';
-        if (!empty($elm['style']['width']) && \is_string($elm['style']['width'])) {
+        if (isset($elm['style']['width']) && \is_string($elm['style']['width']) && $elm['style']['width'] !== '') {
             $rawWidth = \trim($elm['style']['width']);
-        } elseif (!empty($elm['attribute']['width']) && \is_string($elm['attribute']['width'])) {
+        } elseif (
+            isset($elm['attribute']['width'])
+            && \is_string($elm['attribute']['width'])
+            && $elm['attribute']['width'] !== ''
+        ) {
             $rawWidth = \trim($elm['attribute']['width']);
         }
 
-        if (($rawWidth !== '') && (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawWidth, $match) === 1)) {
+        if ($rawWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawWidth, $match) === 1) {
             return \max(0.0, ($availableWidth * (float) $match[1]) / 100.0);
         }
 
-        return (!empty($elm['width']) && \is_numeric($elm['width'])) ? (float) $elm['width'] : 0.0;
+        return isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0 ? $elm['width'] : 0.0;
     }
 
     /**
@@ -11128,17 +11155,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $rawWidth = '';
-        if (!empty($elm['style']['width']) && \is_string($elm['style']['width'])) {
+        if (isset($elm['style']['width']) && \is_string($elm['style']['width']) && $elm['style']['width'] !== '') {
             $rawWidth = \trim($elm['style']['width']);
-        } elseif (!empty($elm['attribute']['width']) && \is_string($elm['attribute']['width'])) {
+        } elseif (
+            isset($elm['attribute']['width'])
+            && \is_string($elm['attribute']['width'])
+            && $elm['attribute']['width'] !== ''
+        ) {
             $rawWidth = \trim($elm['attribute']['width']);
         }
 
-        if (($rawWidth !== '') && (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawWidth, $match) === 1)) {
+        if ($rawWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawWidth, $match) === 1) {
             return \max(0.0, ($availableWidth * (float) $match[1]) / 100.0);
         }
 
-        return (!empty($elm['width']) && \is_numeric($elm['width'])) ? (float) $elm['width'] : 0.0;
+        return isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0 ? $elm['width'] : 0.0;
     }
 
     /**
@@ -11149,23 +11180,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLResolvedMarginSide(array $elm, float $availableWidth, string $side): float
     {
         $fallback = 0.0;
-        if (($side === 'L') && !empty($elm['margin']['L']) && \is_numeric($elm['margin']['L'])) {
-            $fallback = (float) $elm['margin']['L'];
-        } elseif (($side === 'R') && !empty($elm['margin']['R']) && \is_numeric($elm['margin']['R'])) {
-            $fallback = (float) $elm['margin']['R'];
+        if (
+            $side === 'L'
+            && isset($elm['margin']['L'])
+            && \is_numeric($elm['margin']['L'])
+            && $elm['margin']['L'] > 0
+        ) {
+            $fallback = $elm['margin']['L'];
+        } elseif (
+            $side === 'R'
+            && isset($elm['margin']['R'])
+            && \is_numeric($elm['margin']['R'])
+            && $elm['margin']['R'] > 0
+        ) {
+            $fallback = $elm['margin']['R'];
         }
 
-        if (($availableWidth <= 0.0) || empty($elm['style']) || !\is_array($elm['style'])) {
+        if ($availableWidth <= 0.0 || !isset($elm['style']) || $elm['style'] === [] || !\is_array($elm['style'])) {
             return $fallback;
         }
 
-        $styleKey = ($side === 'L') ? 'margin-left' : 'margin-right';
-        if (empty($elm['style'][$styleKey]) || !\is_string($elm['style'][$styleKey])) {
+        $styleKey = $side === 'L' ? 'margin-left' : 'margin-right';
+        if (
+            !isset($elm['style'][$styleKey])
+            || $elm['style'][$styleKey] === ''
+            || !\is_string($elm['style'][$styleKey])
+        ) {
             return $fallback;
         }
 
         $rawMargin = \trim($elm['style'][$styleKey]);
-        if ((\preg_match('/^([0-9.+\-]+)\s*%$/', $rawMargin, $match) === 1)) {
+        if (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawMargin, $match) === 1) {
             return \max(0.0, ($availableWidth * (float) $match[1]) / 100.0);
         }
 
@@ -11186,16 +11231,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return array<int, float>
      */
-    protected function computeHTMLTableColWidths(
-        array $dom,
-        int $tablekey,
-        int $cols,
-        float $availableWidth,
-    ): array {
-        $defaultWidth = ($cols > 0) ? ($availableWidth / $cols) : $availableWidth;
+    protected function computeHTMLTableColWidths(array $dom, int $tablekey, int $cols, float $availableWidth): array
+    {
+        $defaultWidth = $cols > 0 ? $availableWidth / $cols : $availableWidth;
         $colwidths = \array_fill(0, $cols, $defaultWidth);
-        $tableLayout = (isset($dom[$tablekey]['table-layout']) && \is_string($dom[$tablekey]['table-layout']))
-            ? \strtolower(\trim((string) $dom[$tablekey]['table-layout']))
+        $tableLayout = isset($dom[$tablekey]['table-layout']) && \is_string($dom[$tablekey]['table-layout'])
+            ? \strtolower(\trim($dom[$tablekey]['table-layout']))
             : 'auto';
         $contentWeights = \array_fill(0, $cols, 0.0);
         $hasExplicitHints = false;
@@ -11208,25 +11249,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $colgroupwidth = 0.0;
 
         $numel = \count($dom);
-        $depth = 0;      // nesting depth for sub-tables
+        $depth = 0; // nesting depth for sub-tables
         $inFirstRow = false;
         $colid = 0;
 
         for ($key = $tablekey + 1; $key < $numel; ++$key) {
             $elm = $dom[$key];
-            if (empty($elm['tag']) || !\is_string($elm['value'])) {
+            if (!($elm['tag'] ?? false) || !\is_string($elm['value'])) {
                 continue;
             }
 
             $val = $elm['value'];
 
             // Track nested table depth so we don't accidentally read inner cells.
-            if (!empty($elm['opening']) && $val === 'table') {
+            if (($elm['opening'] ?? false) && $val === 'table') {
                 ++$depth;
                 continue;
             }
 
-            if (empty($elm['opening']) && $val === 'table') {
+            if (!($elm['opening'] ?? false) && $val === 'table') {
                 if ($depth > 0) {
                     --$depth;
                     continue;
@@ -11240,24 +11281,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             // Resolve COLGROUP/COL width hints before first-row TD/TH fallback.
-            if (!$inFirstRow && !empty($elm['opening']) && ($val === 'colgroup')) {
+            if (!$inFirstRow && ($elm['opening'] ?? false) && $val === 'colgroup') {
                 $colgroupactive = true;
                 $colgrouphascols = false;
                 $colgroupstart = $hintcol;
-                $colgroupspan = (!empty($elm['attribute']['span']) && \is_numeric($elm['attribute']['span']))
-                    ? \max(1, (int) $elm['attribute']['span']) : 1;
+                $colgroupspan = isset($elm['attribute']['span'])
+                && $elm['attribute']['span'] !== ''
+                && \is_numeric($elm['attribute']['span'])
+                    ? \max(1, (int) $elm['attribute']['span'])
+                    : 1;
                 $colgroupspan = \max(1, \min($colgroupspan, $cols - $colgroupstart));
                 $colgroupwidth = $this->getHTMLTableCellExplicitWidth($elm, $availableWidth);
                 continue;
             }
 
-            if (!$inFirstRow && empty($elm['opening']) && ($val === 'colgroup') && $colgroupactive) {
-                if (!$colgrouphascols && ($colgroupspan > 0)) {
+            if (!$inFirstRow && !($elm['opening'] ?? false) && $val === 'colgroup' && $colgroupactive) {
+                if (!$colgrouphascols && $colgroupspan > 0) {
                     if ($colgroupwidth > 0.0) {
                         $percol = $colgroupwidth / $colgroupspan;
                         for ($i = 0; $i < $colgroupspan; ++$i) {
                             $idx = $colgroupstart + $i;
-                            if (($idx >= 0) && ($idx < $cols)) {
+                            if ($idx >= 0 && $idx < $cols) {
                                 $colwidths[$idx] = $percol;
                                 $hasExplicitHints = true;
                             }
@@ -11275,20 +11319,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if (!$inFirstRow && !empty($elm['opening']) && ($val === 'col')) {
+            if (!$inFirstRow && ($elm['opening'] ?? false) && $val === 'col') {
                 if ($colgroupactive) {
                     $colgrouphascols = true;
                 }
 
-                $colspan = (!empty($elm['attribute']['span']) && \is_numeric($elm['attribute']['span']))
-                    ? \max(1, (int) $elm['attribute']['span']) : 1;
+                $colspan = isset($elm['attribute']['span'])
+                && $elm['attribute']['span'] !== ''
+                && \is_numeric($elm['attribute']['span'])
+                    ? \max(1, (int) $elm['attribute']['span'])
+                    : 1;
                 $colspan = \max(1, \min($colspan, $cols - $hintcol));
                 $colw = $this->getHTMLTableCellExplicitWidth($elm, $availableWidth);
-                if (($colw > 0.0) && ($colspan > 0)) {
+                if ($colw > 0.0 && $colspan > 0) {
                     $percol = $colw / $colspan;
                     for ($i = 0; $i < $colspan; ++$i) {
                         $idx = $hintcol + $i;
-                        if (($idx >= 0) && ($idx < $cols)) {
+                        if ($idx >= 0 && $idx < $cols) {
                             $colwidths[$idx] = $percol;
                             $hasExplicitHints = true;
                         }
@@ -11300,8 +11347,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             // Find the first body TR (skip thead rows marked with 'thead' property).
-            if (!empty($elm['opening']) && $val === 'tr') {
-                if (!empty($elm['thead'])) {
+            if (($elm['opening'] ?? false) && $val === 'tr') {
+                if (isset($elm['thead']) && $elm['thead'] !== '') {
                     continue; // skip header row
                 }
 
@@ -11313,7 +11360,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            if (empty($elm['opening']) && $val === 'tr' && $inFirstRow) {
+            if (!($elm['opening'] ?? false) && $val === 'tr' && $inFirstRow) {
                 break; // done collecting from first body row
             }
 
@@ -11322,9 +11369,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             // Collect TD/TH explicit widths in the first body row.
-            if (!empty($elm['opening']) && ($val === 'td' || $val === 'th')) {
+            if (($elm['opening'] ?? false) && ($val === 'td' || $val === 'th')) {
                 $colspan = 1;
-                if (!empty($elm['attribute']['colspan']) && \is_numeric($elm['attribute']['colspan'])) {
+                if (
+                    isset($elm['attribute']['colspan'])
+                    && $elm['attribute']['colspan'] !== ''
+                    && \is_numeric($elm['attribute']['colspan'])
+                ) {
                     $colspan = \max(1, (int) $elm['attribute']['colspan']);
                 }
 
@@ -11334,23 +11385,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 if ($cellw > 0.0) {
                     $percw = $cellw / $colspan;
                     for ($i = 0; $i < $colspan; ++$i) {
-                        if ($colid + $i < $cols) {
-                            $colwidths[$colid + $i] = $percw;
-                            $hasExplicitHints = true;
+                        if (($colid + $i) >= $cols) {
+                            continue;
                         }
+
+                        $colwidths[$colid + $i] = $percw;
+                        $hasExplicitHints = true;
                     }
-                } elseif (($tableLayout === 'auto') && !$hasExplicitHints && !empty($elm['content'])) {
-                    $plain = \trim((string) (\strip_tags((string) $elm['content'])));
+                } elseif (
+                    $tableLayout === 'auto'
+                    && !$hasExplicitHints
+                    && isset($elm['content'])
+                    && $elm['content'] !== ''
+                ) {
+                    $plain = \trim(\strip_tags($elm['content']));
                     if ($plain !== '') {
                         $plain = \preg_replace('/\s+/u', ' ', $plain) ?? $plain;
                         $weight = \mb_strlen($plain, $this->encoding);
                         if ($weight > 0) {
-                            $percol = ((float) $weight) / $colspan;
+                            $percol = (float) $weight / $colspan;
                             for ($i = 0; $i < $colspan; ++$i) {
-                                if (($colid + $i) < $cols) {
-                                    $contentWeights[$colid + $i] += $percol;
-                                    $hasContentHints = true;
+                                if (($colid + $i) >= $cols) {
+                                    continue;
                                 }
+
+                                $contentWeights[$colid + $i] += $percol;
+                                $hasContentHints = true;
                             }
                         }
                     }
@@ -11360,7 +11420,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        if (($tableLayout === 'auto') && !$hasExplicitHints && $hasContentHints) {
+        if ($tableLayout === 'auto' && !$hasExplicitHints && $hasContentHints) {
             $sum = \array_sum($contentWeights);
             if ($sum > 0.0) {
                 for ($idx = 0; $idx < $cols; ++$idx) {
@@ -11381,7 +11441,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Render a resolved table cell using the final computed height.
      *
      * @param array<int|string, BorderStyle> $styles
-    * @param ?BorderStyle $fillstyle
+     * @param ?BorderStyle $fillstyle
      */
     protected function renderHTMLTableCell(
         float $cellx,
@@ -11398,33 +11458,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $decor = '';
 
         if ($fillstyle !== null) {
-            $decor .= $this->graph->getStartTransform()
-                . $this->graph->getBasicRect(
-                    $cellx,
-                    $rowtop,
-                    $cellw,
-                    $cellh,
-                    'f',
-                    $fillstyle,
-                )
+            $decor .=
+                $this->graph->getStartTransform()
+                . $this->graph->getBasicRect($cellx, $rowtop, $cellw, $cellh, 'f', $fillstyle)
                 . $this->graph->getStopTransform();
         }
 
         $contenth = \max(0.0, $contenth);
         $gap = \max(0.0, $cellh - $contenth);
         $offset = match (\strtolower(\trim($valign))) {
-            'middle' => ($gap / 2.0),
+            'middle' => $gap / 2.0,
             'bottom' => $gap,
             default => 0.0,
         };
-        if (($offset > self::WIDTH_TOLERANCE) && ($buffer !== '')) {
-            $buffer = $this->graph->getStartTransform()
-                . \sprintf("1 0 0 1 0 %F cm\n", -$offset)
-                . $buffer
-                . $this->graph->getStopTransform();
+        if ($offset > self::WIDTH_TOLERANCE && $buffer !== '') {
+            $buffer = \sprintf(
+                "%s1 0 0 1 0 %F cm\n%s%s",
+                $this->graph->getStartTransform(),
+                -$offset,
+                $buffer,
+                $this->graph->getStopTransform(),
+            );
         }
 
-        if (($decor !== '') && ($this->pdfuaMode !== '')) {
+        if ($decor !== '' && $this->pdfuaMode !== '') {
             $out .= $this->tagPdfUaArtifactContent($decor);
         } else {
             $out .= $decor;
@@ -11436,24 +11493,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $out;
         }
 
-        $decor = $this->graph->getStartTransform();
-        if (!empty($styles['all'])) {
-            $decor .= $this->graph->getBasicRect(
-                $cellx,
-                $rowtop,
-                $cellw,
-                $cellh,
-                's',
-                $styles['all'],
-            );
+        $decor = (string) $this->graph->getStartTransform();
+        if (isset($styles['all']) && $styles['all'] !== []) {
+            $decor .= (string) $this->graph->getBasicRect($cellx, $rowtop, $cellw, $cellh, 's', $styles['all']);
         } else {
-            $decor .= $this->drawHTMLRectBorderSides(
-                $cellx,
-                $rowtop,
-                $cellw,
-                $cellh,
-                $styles,
-            );
+            $decor .= $this->drawHTMLRectBorderSides($cellx, $rowtop, $cellw, $cellh, $styles);
         }
 
         $decor .= $this->graph->getStopTransform();
@@ -11484,31 +11528,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $out = '';
 
         if (isset($styles[0]) && \is_array($styles[0])) {
-            $out .= $this->graph->getLine($cellx, $rowtop, ($cellx + $cellw), $rowtop, $styles[0]);
+            $out .= $this->graph->getLine($cellx, $rowtop, $cellx + $cellw, $rowtop, $styles[0]);
         }
 
         if (isset($styles[1]) && \is_array($styles[1])) {
-            $out .= $this->graph->getLine(
-                ($cellx + $cellw),
-                $rowtop,
-                ($cellx + $cellw),
-                ($rowtop + $cellh),
-                $styles[1]
-            );
+            $out .= $this->graph->getLine($cellx + $cellw, $rowtop, $cellx + $cellw, $rowtop + $cellh, $styles[1]);
         }
 
         if (isset($styles[2]) && \is_array($styles[2])) {
-            $out .= $this->graph->getLine(
-                ($cellx + $cellw),
-                ($rowtop + $cellh),
-                $cellx,
-                ($rowtop + $cellh),
-                $styles[2]
-            );
+            $out .= $this->graph->getLine($cellx + $cellw, $rowtop + $cellh, $cellx, $rowtop + $cellh, $styles[2]);
         }
 
         if (isset($styles[3]) && \is_array($styles[3])) {
-            $out .= $this->graph->getLine($cellx, ($rowtop + $cellh), $cellx, $rowtop, $styles[3]);
+            $out .= $this->graph->getLine($cellx, $rowtop + $cellh, $cellx, $rowtop, $styles[3]);
         }
 
         return $out;
@@ -11519,18 +11551,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function decodeHTMLCSSString(string $text): string
     {
-        return \preg_replace_callback(
-            '/\\\\(.)/s',
-            static function (array $match): string {
-                return match ($match[1]) {
+        return (
+            \preg_replace_callback(
+                '/\\\\(.)/s',
+                static fn(array $match): string => match ($match[1]) {
                     'n' => "\n",
                     'r' => "\r",
                     't' => "\t",
                     default => $match[1],
-                };
-            },
-            $text,
-        ) ?? '';
+                },
+                $text,
+            ) ?? ''
+        );
     }
 
     /**
@@ -11546,7 +11578,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $match,
             ) === 1
         ) {
-                $quoted = $match[1];
+            $quoted = $match[1];
             if (\strlen($quoted) < 2) {
                 return '';
             }
@@ -11562,11 +11594,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function stripHTMLPseudoContentDeclaration(string $style): string
     {
-        $withoutContent = \preg_replace(
-            '/(?:^|;)\\s*content\\s*:\\s*(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')\\s*(?:;|$)/i',
-            ';',
-            $style,
-        ) ?? '';
+        $withoutContent =
+            \preg_replace(
+                '/(?:^|;)\\s*content\\s*:\\s*(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')\\s*(?:;|$)/i',
+                ';',
+                $style,
+            ) ?? '';
 
         $withoutContent = \preg_replace('/;+/', ';', $withoutContent) ?? '';
         return \trim($withoutContent, " \t\n\r\0\x0B;");
@@ -11590,8 +11623,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ?callable $appendFragment = null,
     ): string {
         if (
-            !isset($hrc['dom'][$key]['attribute'][$stylekey])
-            || !\is_string($hrc['dom'][$key]['attribute'][$stylekey])
+            !isset($hrc['dom'][$key]['attribute'][$stylekey]) || !\is_string($hrc['dom'][$key]['attribute'][$stylekey])
         ) {
             return '';
         }
@@ -11623,7 +11655,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $pseudo['cssdata'] = [];
         $pseudo['csssel'] = [];
 
-        // @phpstan-ignore-next-line parameterByRef.type
         $hrc['dom'][$tmpkey] = $pseudo;
         if ($pseudostyle !== '') {
             /** @var THTMLRenderContext $hrc */
@@ -11659,13 +11690,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         foreach ($dom as $dnode) {
             if (
-                empty($dnode['tag'])
-                || !empty($dnode['opening'])
-                || empty($dnode['value'])
-                || ($dnode['value'] !== 'table')
-                || empty($dnode['parent'])
+                !($dnode['tag'] ?? false)
+                || ($dnode['opening'] ?? false)
+                || !isset($dnode['value'])
+                || $dnode['value'] === ''
+                || $dnode['value'] !== 'table'
+                || !isset($dnode['parent'])
+                || $dnode['parent'] <= 0
                 || !\is_int($dnode['parent'])
-                || empty($dnode['thead'])
+                || !isset($dnode['thead'])
+                || $dnode['thead'] === ''
                 || !\is_string($dnode['thead'])
             ) {
                 continue;
@@ -11687,10 +11721,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         } else {
                             // skip this and all children tags
                             while (
-                                ($key < $numel) && (
+                                $key < $numel
+                                && (
                                     !$dom[$key]['tag']
                                     || $dom[$key]['opening']
-                                    || ($dom[$key]['parent'] != $hidden_node_key)
+                                    || $dom[$key]['parent'] !== $hidden_node_key
                                 )
                             ) {
                                 ++$key; // skip hidden objects
@@ -11703,14 +11738,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $elm = $dom[$key];
                     }
 
-                    if (!empty($elm['attribute']['pagebreak'])) {
+                    if (isset($elm['attribute']['pagebreak']) && $elm['attribute']['pagebreak'] !== '') {
                         $pid = $this->pageBreak();
                         $didpagebreak = true;
-                        if ($elm['attribute']['pagebreak'] != 'true') {
-                            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+                        if ($elm['attribute']['pagebreak'] !== 'true') {
+                            $leftmode = $this->rtl ^ ($pid % 2) === 0;
                             if (
-                                (($elm['attribute']['pagebreak'] == 'left') && $leftmode)
-                                || (($elm['attribute']['pagebreak'] == 'right') && !$leftmode)
+                                $elm['attribute']['pagebreak'] === 'left' && $leftmode
+                                || $elm['attribute']['pagebreak'] === 'right' && !$leftmode
                             ) {
                                 $this->pageBreak();
                                 $didpagebreak = true;
@@ -11719,30 +11754,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $this->resetHTMLCursorAfterPageBreak($hrc, $tpx, $tpy, $tpw);
                     }
 
-                    if ($didpagebreak && ($elm['value'] === 'tr')) {
+                    if ($didpagebreak && $elm['value'] === 'tr') {
                         $parent = \is_int($elm['parent']) ? $elm['parent'] : 0;
                         $theadhtml = '';
                         if (
-                            isset($dom[$parent])
-                            && !empty($dom[$parent]['thead'])
+                            isset($dom[$parent], $dom[$parent]['thead'])
+                            && $dom[$parent]['thead'] !== ''
                             && \is_string($dom[$parent]['thead'])
                         ) {
                             $theadhtml = $dom[$parent]['thead'];
-                        } elseif (!empty($tabletheadmap[$parent]) && \is_string($tabletheadmap[$parent])) {
+                        } elseif (
+                            isset($tabletheadmap[$parent])
+                            && $tabletheadmap[$parent] !== ''
+                            && \is_string($tabletheadmap[$parent])
+                        ) {
                             $theadhtml = $tabletheadmap[$parent];
                         }
 
                         if ($theadhtml !== '') {
-                            $appendFragment(
-                                $this->replayHTMLTableHead(
-                                    $hrc,
-                                    $theadhtml,
-                                    $tpx,
-                                    $tpy,
-                                    $tpw,
-                                    $tph,
-                                )
-                            );
+                            $appendFragment($this->replayHTMLTableHead($hrc, $theadhtml, $tpx, $tpy, $tpw, $tph));
                         }
                     }
 
@@ -11750,12 +11780,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $parent = \is_int($elm['parent']) ? $elm['parent'] : 0;
                         $theadhtml = '';
                         if (
-                            isset($dom[$parent])
-                            && !empty($dom[$parent]['thead'])
+                            isset($dom[$parent], $dom[$parent]['thead'])
+                            && $dom[$parent]['thead'] !== ''
                             && \is_string($dom[$parent]['thead'])
                         ) {
                             $theadhtml = $dom[$parent]['thead'];
-                        } elseif (!empty($tabletheadmap[$parent]) && \is_string($tabletheadmap[$parent])) {
+                        } elseif (
+                            isset($tabletheadmap[$parent])
+                            && $tabletheadmap[$parent] !== ''
+                            && \is_string($tabletheadmap[$parent])
+                        ) {
                             $theadhtml = $tabletheadmap[$parent];
                         }
 
@@ -11767,30 +11801,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         // rendered rows are committed to the right page rather
                         // than carried over via the buffer to the next page.
                         $region = $this->page->getRegion();
-                        $regiontop = (float) $region['RY'];
+                        $regiontop = \is_array($region) && isset($region['RY']) && \is_numeric($region['RY'])
+                            ? (float) $region['RY']
+                            : 0.0;
                         $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-                        $willBreak = ($requiredh > 0.0)
-                            && ($requiredh > ($remaining + self::WIDTH_TOLERANCE))
-                            && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+                        $willBreak =
+                            $requiredh > 0.0
+                            && $requiredh > ($remaining + self::WIDTH_TOLERANCE)
+                            && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
 
-                        if ($willBreak && !empty($hrc['blockbuf'])) {
+                        if ($willBreak && ($hrc['blockbuf'] ?? []) !== []) {
                             $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
                             if ($flush !== '') {
                                 $appendFragment($flush);
                             }
                         }
 
-                        $breakout = $this->breakHTMLIfNeeded(
-                            $hrc,
-                            $requiredh,
-                            $tpx,
-                            $tpy,
-                            $tpw,
-                            $tph,
-                            $theadhtml,
-                        );
+                        $breakout = $this->breakHTMLIfNeeded($hrc, $requiredh, $tpx, $tpy, $tpw, $tph, $theadhtml);
 
-                        if ($willBreak && !empty($hrc['blockbuf'])) {
+                        if ($willBreak && ($hrc['blockbuf'] ?? []) !== []) {
                             foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
                                 /** @var THTMLBlockBuf $blkEntry */
                                 $blkEntry['by'] = $tpy;
@@ -11798,7 +11827,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             }
                         }
 
-                        if ($willBreak && !empty($hrc['tablestack'])) {
+                        if ($willBreak && ($hrc['tablestack'] ?? []) !== []) {
                             $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
                         }
 
@@ -11806,36 +11835,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     if (
-                        ($elm['value'] === 'li')
-                        && empty($hrc['tablestack'])
-                        && empty($hrc['bcellctx'])
-                        && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
+                        $elm['value'] === 'li'
+                        && ($hrc['tablestack'] ?? []) === []
+                        && ($hrc['bcellctx'] ?? []) === []
+                        && $hrc['cellctx']['maxheight'] <= 0.0
                     ) {
                         $liLineAdvance = $this->getHTMLLineAdvance($hrc, $key);
                         if ($liLineAdvance > 0.0) {
                             $region = $this->page->getRegion();
-                            $regiontop = (float) $region['RY'];
+                            $regiontop = \is_array($region) && isset($region['RY']) && \is_numeric($region['RY'])
+                                ? (float) $region['RY']
+                                : 0.0;
                             $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-                            $willBreak = ($liLineAdvance > ($remaining + self::WIDTH_TOLERANCE))
-                                && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+                            $willBreak =
+                                $liLineAdvance > ($remaining + self::WIDTH_TOLERANCE)
+                                && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
 
-                            if ($willBreak && !empty($hrc['blockbuf'])) {
+                            $flush = '';
+                            if ($willBreak && ($hrc['blockbuf'] ?? []) !== []) {
                                 $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
-                                if ($flush !== '') {
-                                    $appendFragment($flush);
-                                }
                             }
 
-                            $breakout = $this->breakHTMLIfNeeded(
-                                $hrc,
-                                $liLineAdvance,
-                                $tpx,
-                                $tpy,
-                                $tpw,
-                                $tph,
-                            );
+                            if ($flush !== '') {
+                                $appendFragment($flush);
+                            }
 
-                            if ($willBreak && !empty($hrc['blockbuf'])) {
+                            $breakout = $this->breakHTMLIfNeeded($hrc, $liLineAdvance, $tpx, $tpy, $tpw, $tph);
+
+                            if ($willBreak && ($hrc['blockbuf'] ?? []) !== []) {
                                 foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
                                     /** @var THTMLBlockBuf $blkEntry */
                                     $blkEntry['by'] = $tpy;
@@ -11843,7 +11870,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 }
                             }
 
-                            if ($willBreak && !empty($hrc['tablestack'])) {
+                            if ($willBreak && ($hrc['tablestack'] ?? []) !== []) {
                                 $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
                             }
 
@@ -11853,33 +11880,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
-                    if (!empty($elm['attribute']['id']) && \is_string($elm['attribute']['id'])) {
+                    if (
+                        isset($elm['attribute']['id'])
+                        && \is_string($elm['attribute']['id'])
+                        && $elm['attribute']['id'] !== ''
+                    ) {
                         $name = \trim($elm['attribute']['id']);
                         if ($name !== '') {
                             $this->setNamedDestination($name, -1, $tpx, $tpy);
                         }
                     }
 
-                    if (!empty($elm['attribute']['nobr']) && ($elm['attribute']['nobr'] === 'true')) {
-                        if (!empty($nobrstack)) {
+                    if (isset($elm['attribute']['nobr']) && $elm['attribute']['nobr'] === 'true') {
+                        if ($nobrstack !== []) {
                             $elm['attribute']['nobr'] = '';
                         } elseif (!$elm['self']) {
                             if ($elm['value'] !== 'tr') {
                                 $requiredh = $this->estimateHTMLNobrHeight(
                                     $hrc,
                                     $key,
-                                    ($tpw > 0.0) ? $tpw : $hrc['cellctx']['maxwidth'],
+                                    $tpw > 0.0 ? $tpw : $hrc['cellctx']['maxwidth'],
                                 );
-                                $appendFragment(
-                                    $this->breakHTMLIfNeeded(
-                                        $hrc,
-                                        $requiredh,
-                                        $tpx,
-                                        $tpy,
-                                        $tpw,
-                                        $tph,
-                                    )
-                                );
+                                $appendFragment($this->breakHTMLIfNeeded($hrc, $requiredh, $tpx, $tpy, $tpw, $tph));
                             }
                             $nobrstack[] = $elm['value'];
                         }
@@ -11887,55 +11909,85 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                     // Pre-compute per-column widths and spacing for table tags
                     // and store them directly on the DOM node for parseHTMLTagOPENtable.
-                    if (($elm['value'] === 'table') || ($elm['value'] === 'tablehead')) {
-                        $tableCols = (!empty($elm['cols']) && \is_numeric($elm['cols']))
-                            ? \max(1, (int) $elm['cols']) : 1;
-                        $tableWidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
+                    if ($elm['value'] === 'table' || $elm['value'] === 'tablehead') {
+                        $tableCols = isset($elm['cols']) && $elm['cols'] !== [] && \is_numeric($elm['cols'])
+                            ? \max(1, (int) $elm['cols'])
+                            : 1;
+                        $tableWidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
                         // Constrain $tableWidth to the table's own CSS width so that percentage-based
                         // TD widths resolve against the table width, not the full container width.
                         // Percentages are resolved against the current container; absolute values use elm['width'].
                         $rawTblWidth = '';
-                        if (!empty($elm['style']['width']) && \is_string($elm['style']['width'])) {
+                        if (
+                            isset($elm['style']['width'])
+                            && \is_string($elm['style']['width'])
+                            && $elm['style']['width'] !== ''
+                        ) {
                             $rawTblWidth = \trim($elm['style']['width']);
-                        } elseif (!empty($elm['attribute']['width']) && \is_string($elm['attribute']['width'])) {
+                        } elseif (
+                            isset($elm['attribute']['width'])
+                            && \is_string($elm['attribute']['width'])
+                            && $elm['attribute']['width'] !== ''
+                        ) {
                             $rawTblWidth = \trim($elm['attribute']['width']);
                         }
                         if ($rawTblWidth !== '') {
                             if (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawTblWidth, $pctM)) {
                                 $tableWidth = \min($tableWidth, ($tableWidth * (float) $pctM[1]) / 100.0);
-                            } elseif (
-                                !empty($elm['width'])
-                                && \is_numeric($elm['width'])
-                                && ((float) $elm['width'] > 0.0)
-                            ) {
-                                $tableWidth = \min($tableWidth, (float) $elm['width']);
+                            } elseif (isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0.0) {
+                                $tableWidth = \min($tableWidth, $elm['width']);
                             }
                         }
-                        // @phpstan-ignore parameterByRef.type
-                        $elm['pendingcellspacingh'] = (!empty($elm['attribute']['cellspacing'])
-                            && \is_numeric($elm['attribute']['cellspacing']))
-                            ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellspacing']))
-                            : ((!empty($elm['border-spacing']) && \is_array($elm['border-spacing'])
-                                && isset($elm['border-spacing']['H']) && \is_numeric($elm['border-spacing']['H']))
-                                ? (float) $elm['border-spacing']['H'] : 0.0);
-                        // @phpstan-ignore parameterByRef.type
-                        $elm['pendingcellspacingv'] = (!empty($elm['attribute']['cellspacing'])
-                            && \is_numeric($elm['attribute']['cellspacing']))
-                            ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellspacing']))
-                            : ((!empty($elm['border-spacing']) && \is_array($elm['border-spacing'])
-                                && isset($elm['border-spacing']['V']) && \is_numeric($elm['border-spacing']['V']))
-                                ? (float) $elm['border-spacing']['V'] : 0.0);
-                        // @phpstan-ignore parameterByRef.type
-                        $elm['pendingcellpadding'] = (!empty($elm['attribute']['cellpadding'])
-                            && \is_numeric($elm['attribute']['cellpadding']))
+
+                        if (
+                            isset($elm['attribute']['cellspacing'])
+                            && $elm['attribute']['cellspacing'] !== ''
+                            && \is_numeric($elm['attribute']['cellspacing'])
+                        ) {
+                            $elm['pendingcellspacingh'] = $this->toUnit($this->getUnitValuePoints(
+                                $elm['attribute']['cellspacing'],
+                            ));
+                        } elseif (
+                            isset($elm['border-spacing'])
+                            && $elm['border-spacing'] !== []
+                            && \is_array($elm['border-spacing'])
+                            && isset($elm['border-spacing']['H'])
+                            && \is_numeric($elm['border-spacing']['H'])
+                        ) {
+                            $elm['pendingcellspacingh'] = $elm['border-spacing']['H'];
+                        } else {
+                            $elm['pendingcellspacingh'] = 0.0;
+                        }
+
+                        if (
+                            isset($elm['attribute']['cellspacing'])
+                            && $elm['attribute']['cellspacing'] !== ''
+                            && \is_numeric($elm['attribute']['cellspacing'])
+                        ) {
+                            $elm['pendingcellspacingv'] = $this->toUnit($this->getUnitValuePoints(
+                                $elm['attribute']['cellspacing'],
+                            ));
+                        } elseif (
+                            isset($elm['border-spacing'])
+                            && $elm['border-spacing'] !== []
+                            && \is_array($elm['border-spacing'])
+                            && isset($elm['border-spacing']['V'])
+                            && \is_numeric($elm['border-spacing']['V'])
+                        ) {
+                            $elm['pendingcellspacingv'] = $elm['border-spacing']['V'];
+                        } else {
+                            $elm['pendingcellspacingv'] = 0.0;
+                        }
+
+                        $elm['pendingcellpadding'] = isset($elm['attribute']['cellpadding'])
+                        && \is_numeric($elm['attribute']['cellpadding'])
+                        && $elm['attribute']['cellpadding'] > 0
+                        && \is_numeric($elm['attribute']['cellpadding'])
                             ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellpadding']))
                             : 0.0;
                         $effectiveCellSpacing = $this->getHTMLTableCellSpacingH($elm);
-                        $availableForCols = \max(
-                            0.0,
-                            $tableWidth - $effectiveCellSpacing * \max(0, $tableCols + 1)
-                        );
-                        // @phpstan-ignore parameterByRef.type
+                        $availableForCols = \max(0.0, $tableWidth - ($effectiveCellSpacing * \max(0, $tableCols + 1)));
+
                         $elm['pendingcolwidths'] = $this->computeHTMLTableColWidths(
                             $dom,
                             $key,
@@ -11946,8 +11998,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         // Ensure replayed THEAD fragments on page breaks keep
                         // the exact per-column widths computed for this table.
                         if (
-                            ($elm['value'] === 'table')
-                            && !empty($elm['thead'])
+                            $elm['value'] === 'table'
+                            && isset($elm['thead'])
+                            && $elm['thead'] !== ''
                             && \is_string($elm['thead'])
                             && \is_array($elm['pendingcolwidths'])
                         ) {
@@ -11963,70 +12016,70 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $dom[$key] = $elm;
 
                     $fragment = match ($elm['value']) {
-                        'a'          => $this->parseHTMLTagOPENa($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'b'          => $this->parseHTMLTagOPENb($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'button'     => $this->parseHTMLTagOPENbutton($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'a' => $this->parseHTMLTagOPENa($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'b' => $this->parseHTMLTagOPENb($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'button' => $this->parseHTMLTagOPENbutton($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'blockquote' => $this->parseHTMLTagOPENblockquote($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'body'       => $this->parseHTMLTagOPENbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'br'         => $this->parseHTMLTagOPENbr($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'caption'    => $this->parseHTMLTagOPENcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'col'        => $this->parseHTMLTagOPENcol($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'colgroup'   => $this->parseHTMLTagOPENcolgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'dd'         => $this->parseHTMLTagOPENdd($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'del'        => $this->parseHTMLTagOPENdel($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'div'        => $this->parseHTMLTagOPENdiv($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'dl'         => $this->parseHTMLTagOPENdl($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'figure'     => $this->parseHTMLTagOPENfigure($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'body' => $this->parseHTMLTagOPENbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'br' => $this->parseHTMLTagOPENbr($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'caption' => $this->parseHTMLTagOPENcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'col' => $this->parseHTMLTagOPENcol($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'colgroup' => $this->parseHTMLTagOPENcolgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'dd' => $this->parseHTMLTagOPENdd($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'del' => $this->parseHTMLTagOPENdel($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'div' => $this->parseHTMLTagOPENdiv($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'dl' => $this->parseHTMLTagOPENdl($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'figure' => $this->parseHTMLTagOPENfigure($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'figcaption' => $this->parseHTMLTagOPENfigcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'dt'         => $this->parseHTMLTagOPENdt($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'em'         => $this->parseHTMLTagOPENem($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'font'       => $this->parseHTMLTagOPENfont($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'form'       => $this->parseHTMLTagOPENform($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h1'         => $this->parseHTMLTagOPENh1($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h2'         => $this->parseHTMLTagOPENh2($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h3'         => $this->parseHTMLTagOPENh3($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h4'         => $this->parseHTMLTagOPENh4($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h5'         => $this->parseHTMLTagOPENh5($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h6'         => $this->parseHTMLTagOPENh6($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'hr'         => $this->parseHTMLTagOPENhr($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'i'          => $this->parseHTMLTagOPENi($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'img'        => $this->parseHTMLTagOPENimg($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'input'      => $this->parseHTMLTagOPENinput($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'label'      => $this->parseHTMLTagOPENlabel($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'li'         => $this->parseHTMLTagOPENli($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'marker'     => $this->parseHTMLTagOPENmarker($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'ol'         => $this->parseHTMLTagOPENol($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'optgroup'   => $this->parseHTMLTagOPENoptgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'option'     => $this->parseHTMLTagOPENoption($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'output'     => $this->parseHTMLTagOPENoutput($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'p'          => $this->parseHTMLTagOPENp($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'code'       => $this->parseHTMLTagOPENcode($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'pre'        => $this->parseHTMLTagOPENpre($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        's'          => $this->parseHTMLTagOPENs($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'select'     => $this->parseHTMLTagOPENselect($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'small'      => $this->parseHTMLTagOPENsmall($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'span'       => $this->parseHTMLTagOPENspan($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'strike'     => $this->parseHTMLTagOPENstrike($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'strong'     => $this->parseHTMLTagOPENstrong($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'sub'        => $this->parseHTMLTagOPENsub($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'sup'        => $this->parseHTMLTagOPENsup($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'table'      => $this->parseHTMLTagOPENtable($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tablehead'  => $this->parseHTMLTagOPENtablehead($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tcpdf'      => $this->parseHTMLTagOPENtcpdf($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'td'         => $this->parseHTMLTagOPENtd($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'textarea'   => $this->parseHTMLTagOPENtextarea($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tfoot'      => $this->parseHTMLTagOPENtfoot($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'th'         => $this->parseHTMLTagOPENth($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'thead'      => $this->parseHTMLTagOPENthead($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tr'         => $this->parseHTMLTagOPENtr($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tt'         => $this->parseHTMLTagOPENtt($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'u'          => $this->parseHTMLTagOPENu($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'ul'         => $this->parseHTMLTagOPENul($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        default      => '',
+                        'dt' => $this->parseHTMLTagOPENdt($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'em' => $this->parseHTMLTagOPENem($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'font' => $this->parseHTMLTagOPENfont($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'form' => $this->parseHTMLTagOPENform($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h1' => $this->parseHTMLTagOPENh1($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h2' => $this->parseHTMLTagOPENh2($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h3' => $this->parseHTMLTagOPENh3($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h4' => $this->parseHTMLTagOPENh4($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h5' => $this->parseHTMLTagOPENh5($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h6' => $this->parseHTMLTagOPENh6($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'hr' => $this->parseHTMLTagOPENhr($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'i' => $this->parseHTMLTagOPENi($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'img' => $this->parseHTMLTagOPENimg($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'input' => $this->parseHTMLTagOPENinput($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'label' => $this->parseHTMLTagOPENlabel($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'li' => $this->parseHTMLTagOPENli($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'marker' => $this->parseHTMLTagOPENmarker($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'ol' => $this->parseHTMLTagOPENol($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'optgroup' => $this->parseHTMLTagOPENoptgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'option' => $this->parseHTMLTagOPENoption($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'output' => $this->parseHTMLTagOPENoutput($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'p' => $this->parseHTMLTagOPENp($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'code' => $this->parseHTMLTagOPENcode($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'pre' => $this->parseHTMLTagOPENpre($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        's' => $this->parseHTMLTagOPENs($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'select' => $this->parseHTMLTagOPENselect($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'small' => $this->parseHTMLTagOPENsmall($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'span' => $this->parseHTMLTagOPENspan($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'strike' => $this->parseHTMLTagOPENstrike($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'strong' => $this->parseHTMLTagOPENstrong($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'sub' => $this->parseHTMLTagOPENsub($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'sup' => $this->parseHTMLTagOPENsup($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'table' => $this->parseHTMLTagOPENtable($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tablehead' => $this->parseHTMLTagOPENtablehead($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tcpdf' => $this->parseHTMLTagOPENtcpdf($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'td' => $this->parseHTMLTagOPENtd($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'textarea' => $this->parseHTMLTagOPENtextarea($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tfoot' => $this->parseHTMLTagOPENtfoot($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'th' => $this->parseHTMLTagOPENth($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'thead' => $this->parseHTMLTagOPENthead($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tr' => $this->parseHTMLTagOPENtr($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tt' => $this->parseHTMLTagOPENtt($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'u' => $this->parseHTMLTagOPENu($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'ul' => $this->parseHTMLTagOPENul($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        default => '',
                     };
                     $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
                     $capturedByBlock = false;
-                    if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
+                    if (!$capturedByTableCell && $fragment !== '' && ($hrc['blockbuf'] ?? []) !== []) {
                         $blockidx = \count($hrc['blockbuf']) - 1;
                         /** @var THTMLBlockBuf $blockbuf */
                         $blockbuf = $hrc['blockbuf'][$blockidx];
@@ -12050,7 +12103,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     );
                     $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $beforefragment);
                     $capturedByBlock = false;
-                    if (!$capturedByTableCell && ($beforefragment !== '') && !empty($hrc['blockbuf'])) {
+                    if (!$capturedByTableCell && $beforefragment !== '' && ($hrc['blockbuf'] ?? []) !== []) {
                         $blockidx = \count($hrc['blockbuf']) - 1;
                         /** @var THTMLBlockBuf $blockbuf */
                         $blockbuf = $hrc['blockbuf'][$blockidx];
@@ -12062,13 +12115,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $appendFragment($beforefragment);
                     }
 
-                    if ($elm['self'] && !empty($elm['attribute']['pagebreakafter'])) {
+                    if (
+                        $elm['self']
+                        && (isset($elm['attribute']['pagebreakafter']) && $elm['attribute']['pagebreakafter'] !== '')
+                    ) {
                         $pid = $this->pageBreak();
-                        if ($elm['attribute']['pagebreakafter'] != 'true') {
-                            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+                        if ($elm['attribute']['pagebreakafter'] !== 'true') {
+                            $leftmode = $this->rtl ^ ($pid % 2) === 0;
                             if (
-                                (($elm['attribute']['pagebreakafter'] == 'left') && $leftmode)
-                                || (($elm['attribute']['pagebreakafter'] == 'right') && !$leftmode)
+                                $elm['attribute']['pagebreakafter'] === 'left' && $leftmode
+                                || $elm['attribute']['pagebreakafter'] === 'right' && !$leftmode
                             ) {
                                 $this->pageBreak();
                             }
@@ -12076,15 +12132,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $this->resetHTMLCursorAfterPageBreak($hrc, $tpx, $tpy, $tpw);
                     }
                 } else { // closing tag
-                    if (
-                        !empty($nobrstack) && (
-                        $nobrstack[\count($nobrstack) - 1] === $elm['value']
-                        )
-                    ) {
+                    if ($nobrstack !== [] && $nobrstack[\count($nobrstack) - 1] === $elm['value']) {
                         \array_pop($nobrstack);
                     }
 
-                    $pseudokey = (isset($elm['parent']) && \is_int($elm['parent'])) ? $elm['parent'] : $key;
+                    $pseudokey = isset($elm['parent']) && \is_int($elm['parent']) ? $elm['parent'] : $key;
                     $afterfragment = $this->renderHTMLPseudoGeneratedText(
                         $hrc,
                         $pseudokey,
@@ -12097,7 +12149,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     );
                     $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $afterfragment);
                     $capturedByBlock = false;
-                    if (!$capturedByTableCell && ($afterfragment !== '') && !empty($hrc['blockbuf'])) {
+                    if (!$capturedByTableCell && $afterfragment !== '' && ($hrc['blockbuf'] ?? []) !== []) {
                         $blockidx = \count($hrc['blockbuf']) - 1;
                         /** @var THTMLBlockBuf $blockbuf */
                         $blockbuf = $hrc['blockbuf'][$blockidx];
@@ -12110,70 +12162,70 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     $fragment = match ($elm['value']) {
-                        'a'          => $this->parseHTMLTagCLOSEa($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'b'          => $this->parseHTMLTagCLOSEb($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'button'     => $this->parseHTMLTagCLOSEbutton($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'a' => $this->parseHTMLTagCLOSEa($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'b' => $this->parseHTMLTagCLOSEb($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'button' => $this->parseHTMLTagCLOSEbutton($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'blockquote' => $this->parseHTMLTagCLOSEblockquote($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'body'       => $this->parseHTMLTagCLOSEbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'br'         => $this->parseHTMLTagCLOSEbr($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'caption'    => $this->parseHTMLTagCLOSEcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'col'        => $this->parseHTMLTagCLOSEcol($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'colgroup'   => $this->parseHTMLTagCLOSEcolgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'dd'         => $this->parseHTMLTagCLOSEdd($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'del'        => $this->parseHTMLTagCLOSEdel($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'div'        => $this->parseHTMLTagCLOSEdiv($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'dl'         => $this->parseHTMLTagCLOSEdl($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'figure'     => $this->parseHTMLTagCLOSEfigure($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'body' => $this->parseHTMLTagCLOSEbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'br' => $this->parseHTMLTagCLOSEbr($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'caption' => $this->parseHTMLTagCLOSEcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'col' => $this->parseHTMLTagCLOSEcol($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'colgroup' => $this->parseHTMLTagCLOSEcolgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'dd' => $this->parseHTMLTagCLOSEdd($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'del' => $this->parseHTMLTagCLOSEdel($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'div' => $this->parseHTMLTagCLOSEdiv($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'dl' => $this->parseHTMLTagCLOSEdl($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'figure' => $this->parseHTMLTagCLOSEfigure($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'figcaption' => $this->parseHTMLTagCLOSEfigcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'dt'         => $this->parseHTMLTagCLOSEdt($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'em'         => $this->parseHTMLTagCLOSEem($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'font'       => $this->parseHTMLTagCLOSEfont($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'form'       => $this->parseHTMLTagCLOSEform($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h1'         => $this->parseHTMLTagCLOSEh1($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h2'         => $this->parseHTMLTagCLOSEh2($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h3'         => $this->parseHTMLTagCLOSEh3($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h4'         => $this->parseHTMLTagCLOSEh4($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h5'         => $this->parseHTMLTagCLOSEh5($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'h6'         => $this->parseHTMLTagCLOSEh6($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'hr'         => $this->parseHTMLTagCLOSEhr($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'i'          => $this->parseHTMLTagCLOSEi($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'img'        => $this->parseHTMLTagCLOSEimg($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'input'      => $this->parseHTMLTagCLOSEinput($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'label'      => $this->parseHTMLTagCLOSElabel($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'li'         => $this->parseHTMLTagCLOSEli($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'marker'     => $this->parseHTMLTagCLOSEmarker($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'ol'         => $this->parseHTMLTagCLOSEol($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'optgroup'   => $this->parseHTMLTagCLOSEoptgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'option'     => $this->parseHTMLTagCLOSEoption($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'output'     => $this->parseHTMLTagCLOSEoutput($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'p'          => $this->parseHTMLTagCLOSEp($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'code'       => $this->parseHTMLTagCLOSEcode($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'pre'        => $this->parseHTMLTagCLOSEpre($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        's'          => $this->parseHTMLTagCLOSEs($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'select'     => $this->parseHTMLTagCLOSEselect($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'small'      => $this->parseHTMLTagCLOSEsmall($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'span'       => $this->parseHTMLTagCLOSEspan($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'strike'     => $this->parseHTMLTagCLOSEstrike($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'strong'     => $this->parseHTMLTagCLOSEstrong($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'sub'        => $this->parseHTMLTagCLOSEsub($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'sup'        => $this->parseHTMLTagCLOSEsup($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'table'      => $this->parseHTMLTagCLOSEtable($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tablehead'  => $this->parseHTMLTagCLOSEtablehead($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tcpdf'      => $this->parseHTMLTagCLOSEtcpdf($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'td'         => $this->parseHTMLTagCLOSEtd($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'textarea'   => $this->parseHTMLTagCLOSEtextarea($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tfoot'      => $this->parseHTMLTagCLOSEtfoot($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'th'         => $this->parseHTMLTagCLOSEth($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'thead'      => $this->parseHTMLTagCLOSEthead($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tr'         => $this->parseHTMLTagCLOSEtr($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'tt'         => $this->parseHTMLTagCLOSEtt($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'u'          => $this->parseHTMLTagCLOSEu($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'ul'         => $this->parseHTMLTagCLOSEul($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        default      => '',
+                        'dt' => $this->parseHTMLTagCLOSEdt($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'em' => $this->parseHTMLTagCLOSEem($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'font' => $this->parseHTMLTagCLOSEfont($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'form' => $this->parseHTMLTagCLOSEform($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h1' => $this->parseHTMLTagCLOSEh1($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h2' => $this->parseHTMLTagCLOSEh2($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h3' => $this->parseHTMLTagCLOSEh3($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h4' => $this->parseHTMLTagCLOSEh4($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h5' => $this->parseHTMLTagCLOSEh5($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'h6' => $this->parseHTMLTagCLOSEh6($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'hr' => $this->parseHTMLTagCLOSEhr($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'i' => $this->parseHTMLTagCLOSEi($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'img' => $this->parseHTMLTagCLOSEimg($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'input' => $this->parseHTMLTagCLOSEinput($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'label' => $this->parseHTMLTagCLOSElabel($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'li' => $this->parseHTMLTagCLOSEli($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'marker' => $this->parseHTMLTagCLOSEmarker($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'ol' => $this->parseHTMLTagCLOSEol($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'optgroup' => $this->parseHTMLTagCLOSEoptgroup($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'option' => $this->parseHTMLTagCLOSEoption($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'output' => $this->parseHTMLTagCLOSEoutput($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'p' => $this->parseHTMLTagCLOSEp($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'code' => $this->parseHTMLTagCLOSEcode($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'pre' => $this->parseHTMLTagCLOSEpre($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        's' => $this->parseHTMLTagCLOSEs($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'select' => $this->parseHTMLTagCLOSEselect($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'small' => $this->parseHTMLTagCLOSEsmall($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'span' => $this->parseHTMLTagCLOSEspan($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'strike' => $this->parseHTMLTagCLOSEstrike($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'strong' => $this->parseHTMLTagCLOSEstrong($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'sub' => $this->parseHTMLTagCLOSEsub($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'sup' => $this->parseHTMLTagCLOSEsup($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'table' => $this->parseHTMLTagCLOSEtable($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tablehead' => $this->parseHTMLTagCLOSEtablehead($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tcpdf' => $this->parseHTMLTagCLOSEtcpdf($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'td' => $this->parseHTMLTagCLOSEtd($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'textarea' => $this->parseHTMLTagCLOSEtextarea($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tfoot' => $this->parseHTMLTagCLOSEtfoot($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'th' => $this->parseHTMLTagCLOSEth($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'thead' => $this->parseHTMLTagCLOSEthead($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tr' => $this->parseHTMLTagCLOSEtr($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'tt' => $this->parseHTMLTagCLOSEtt($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'u' => $this->parseHTMLTagCLOSEu($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'ul' => $this->parseHTMLTagCLOSEul($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        default => '',
                     };
                     $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
                     $capturedByBlock = false;
-                    if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
+                    if (!$capturedByTableCell && $fragment !== '' && ($hrc['blockbuf'] ?? []) !== []) {
                         $blockidx = \count($hrc['blockbuf']) - 1;
                         /** @var THTMLBlockBuf $blockbuf */
                         $blockbuf = $hrc['blockbuf'][$blockidx];
@@ -12185,13 +12237,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $appendFragment($fragment);
                     }
 
-                    if (!empty($elm['attribute']['pagebreakafter'])) {
+                    if (isset($elm['attribute']['pagebreakafter']) && $elm['attribute']['pagebreakafter'] !== '') {
                         $pid = $this->pageBreak();
-                        if ($elm['attribute']['pagebreakafter'] != 'true') {
-                            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
+                        if ($elm['attribute']['pagebreakafter'] !== 'true') {
+                            $leftmode = $this->rtl ^ ($pid % 2) === 0;
                             if (
-                                (($elm['attribute']['pagebreakafter'] == 'left') && $leftmode)
-                                || (($elm['attribute']['pagebreakafter'] == 'right') && !$leftmode)
+                                $elm['attribute']['pagebreakafter'] === 'left' && $leftmode
+                                || $elm['attribute']['pagebreakafter'] === 'right' && !$leftmode
                             ) {
                                 $this->pageBreak();
                             }
@@ -12204,7 +12256,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
                 $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
                 $capturedByBlock = false;
-                if (!$capturedByTableCell && ($fragment !== '') && !empty($hrc['blockbuf'])) {
+                if (!$capturedByTableCell && $fragment !== '' && ($hrc['blockbuf'] ?? []) !== []) {
                     $blockidx = \count($hrc['blockbuf']) - 1;
                     /** @var THTMLBlockBuf $blockbuf */
                     $blockbuf = $hrc['blockbuf'][$blockidx];
@@ -12272,38 +12324,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'dom' => $dom,
         ];
 
-        $drawcell = ($styles !== []);
+        $drawcell = $styles !== [];
         $cellctx = $this->adjustMinCellPadding($styles, $cell);
 
         $cellwidth = $width;
         if ($cellwidth <= 0.0) {
-            $cellwidth = $this->toUnit(
-                $this->cellMaxWidth(
-                    $this->toPoints($posx),
-                    $cellctx,
-                )
-            );
+            $cellwidth = $this->toUnit($this->cellMaxWidth($this->toPoints($posx), $cellctx));
         }
 
-        $offsetx = $this->toUnit((float) $cellctx['margin']['L'] + (float) $cellctx['padding']['L']);
-        $offsety = $this->toUnit((float) $cellctx['margin']['T'] + (float) $cellctx['padding']['T']);
+        $offsetx = $this->toUnit($cellctx['margin']['L'] + $cellctx['padding']['L']);
+        $offsety = $this->toUnit($cellctx['margin']['T'] + $cellctx['padding']['T']);
         $offsetw = $this->toUnit(
-            (float) $cellctx['margin']['L']
-            + (float) $cellctx['margin']['R']
-            + (float) $cellctx['padding']['L']
-            + (float) $cellctx['padding']['R']
+            $cellctx['margin']['L'] + $cellctx['margin']['R'] + $cellctx['padding']['L'] + $cellctx['padding']['R'],
         );
         $offseth = $this->toUnit(
-            (float) $cellctx['margin']['T']
-            + (float) $cellctx['margin']['B']
-            + (float) $cellctx['padding']['T']
-            + (float) $cellctx['padding']['B']
+            $cellctx['margin']['T'] + $cellctx['margin']['B'] + $cellctx['padding']['T'] + $cellctx['padding']['B'],
         );
 
         $contentx = $posx + $offsetx;
         $contenty = $posy + $offsety;
         $contentw = \max(0.0, $cellwidth - $offsetw);
-        $contenth = ($height > 0) ? \max(0.0, $height - $offseth) : 0.0;
+        $contenth = $height > 0 ? \max(0.0, $height - $offseth) : 0.0;
 
         $tpx = $contentx;
         $tpy = $contenty;
@@ -12311,33 +12352,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tph = $contenth;
 
         $this->initHTMLCellContext($hrc, $contentx, $contenty, $contentw, $contenth);
-        $this->renderHTMLCellFragments(
-            $hrc,
-            $tpx,
-            $tpy,
-            $tpw,
-            $tph,
-            function (string $fragment) use (&$out): void {
-                $out .= $fragment;
-            },
-        );
+        $this->renderHTMLCellFragments($hrc, $tpx, $tpy, $tpw, $tph, static function (string $fragment) use (
+            &$out,
+        ): void {
+            $out .= $fragment;
+        });
 
         if ($drawcell) {
             $boxheight = $height;
             if ($boxheight <= 0) {
                 $curfont = $this->font->getCurrentFont();
-                $lineh = $this->toUnit((float) $curfont['height']);
-                $boxheight = \max($lineh, ($tpy - $contenty) + $lineh + $offseth);
+                $fontHeight = \is_array($curfont) && isset($curfont['height']) && \is_numeric($curfont['height'])
+                    ? (float) $curfont['height']
+                    : 0.0;
+                $lineh = $this->toUnit($fontHeight);
+                $boxheight = \max($lineh, $tpy - $contenty + $lineh + $offseth);
             }
 
-            $out = $this->drawCell(
-                $this->toPoints($posx),
-                $this->toYPoints($posy),
-                $this->toPoints($cellwidth),
-                $this->toPoints($boxheight),
-                $styles,
-                $cellctx,
-            ) . $out;
+            $out =
+                $this->drawCell(
+                    $this->toPoints($posx),
+                    $this->toYPoints($posy),
+                    $this->toPoints($cellwidth),
+                    $this->toPoints($boxheight),
+                    $styles,
+                    $cellctx,
+                ) . $out;
         }
 
         $this->clearHTMLCellContext($hrc);
@@ -12405,38 +12445,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $outbypage[$pid] .= $fragment;
         };
 
-        $drawcell = ($styles !== []);
+        $drawcell = $styles !== [];
         $cellctx = $this->adjustMinCellPadding($styles, $cell);
 
         $cellwidth = $width;
         if ($cellwidth <= 0.0) {
-            $cellwidth = $this->toUnit(
-                $this->cellMaxWidth(
-                    $this->toPoints($posx),
-                    $cellctx,
-                )
-            );
+            $cellwidth = $this->toUnit($this->cellMaxWidth($this->toPoints($posx), $cellctx));
         }
 
-        $offsetx = $this->toUnit((float) $cellctx['margin']['L'] + (float) $cellctx['padding']['L']);
-        $offsety = $this->toUnit((float) $cellctx['margin']['T'] + (float) $cellctx['padding']['T']);
+        $offsetx = $this->toUnit($cellctx['margin']['L'] + $cellctx['padding']['L']);
+        $offsety = $this->toUnit($cellctx['margin']['T'] + $cellctx['padding']['T']);
         $offsetw = $this->toUnit(
-            (float) $cellctx['margin']['L']
-            + (float) $cellctx['margin']['R']
-            + (float) $cellctx['padding']['L']
-            + (float) $cellctx['padding']['R']
+            $cellctx['margin']['L'] + $cellctx['margin']['R'] + $cellctx['padding']['L'] + $cellctx['padding']['R'],
         );
         $offseth = $this->toUnit(
-            (float) $cellctx['margin']['T']
-            + (float) $cellctx['margin']['B']
-            + (float) $cellctx['padding']['T']
-            + (float) $cellctx['padding']['B']
+            $cellctx['margin']['T'] + $cellctx['margin']['B'] + $cellctx['padding']['T'] + $cellctx['padding']['B'],
         );
 
         $contentx = $posx + $offsetx;
         $contenty = $posy + $offsety;
         $contentw = \max(0.0, $cellwidth - $offsetw);
-        $contenth = ($height > 0) ? \max(0.0, $height - $offseth) : 0.0;
+        $contenth = $height > 0 ? \max(0.0, $height - $offseth) : 0.0;
 
         $tpx = $contentx;
         $tpy = $contenty;
@@ -12444,22 +12473,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tph = $contenth;
 
         $this->initHTMLCellContext($hrc, $contentx, $contenty, $contentw, $contenth);
-        $this->renderHTMLCellFragments(
-            $hrc,
-            $tpx,
-            $tpy,
-            $tpw,
-            $tph,
-            $appendFragment,
-        );
+        $this->renderHTMLCellFragments($hrc, $tpx, $tpy, $tpw, $tph, $appendFragment);
 
-        $multipage = (\count($outbypage) > 1);
-        if ($drawcell && !($multipage && ($height <= 0))) {
+        $multipage = \count($outbypage) > 1;
+        if ($drawcell && !($multipage && $height <= 0)) {
             $boxheight = $height;
             if ($boxheight <= 0) {
                 $curfont = $this->font->getCurrentFont();
-                $lineh = $this->toUnit((float) $curfont['height']);
-                $boxheight = \max($lineh, ($tpy - $contenty) + $lineh + $offseth);
+                $fontHeight = \is_array($curfont) && isset($curfont['height']) && \is_numeric($curfont['height'])
+                    ? (float) $curfont['height']
+                    : 0.0;
+                $lineh = $this->toUnit($fontHeight);
+                $boxheight = \max($lineh, $tpy - $contenty + $lineh + $offseth);
             }
 
             $cellout = $this->drawCell(
@@ -12501,7 +12526,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Process HTML Text (content between tags).
      *
      * @param THTMLRenderContext $hrc HTML render context.
-    * @param-out THTMLRenderContext $hrc HTML render context.
+     * @param-out THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
      * @param float  $tpx  Abscissa of upper-left corner.
      * @param float  $tpy  Ordinate of upper-left corner.
@@ -12525,7 +12550,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tph,
         ?callable $appendFragment = null,
     ): string {
-        if (($key < 0) || !isset($hrc['dom'][$key])) {
+        if ($key < 0 || !isset($hrc['dom'][$key])) {
             return '';
         }
 
@@ -12543,38 +12568,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $whitespaceMode = $this->getHTMLWhiteSpaceMode($hrc, $key);
         if (
-            (($whitespaceMode === 'pre-line') || $this->isHTMLPreLikeWhiteSpaceMode($hrc, $key))
+            ($whitespaceMode === 'pre-line' || $this->isHTMLPreLikeWhiteSpaceMode($hrc, $key))
             && \str_contains($text, "\n")
         ) {
             $origElm = $hrc['dom'][$key];
             $splitPos = \strpos($text, "\n");
             if ($splitPos !== false) {
-                $head = (string) \substr($text, 0, $splitPos);
-                $tail = (string) \substr($text, ($splitPos + 1));
+                $head = \substr($text, 0, $splitPos);
+                $tail = \substr($text, $splitPos + 1);
 
                 $headOut = '';
                 if ($head !== '') {
                     $headElm = $origElm;
                     $headElm['value'] = $head;
                     $hrc['dom'][$key] = $headElm;
-                    $headOut = $this->parseHTMLText(
-                        $hrc,
-                        $key,
-                        $tpx,
-                        $tpy,
-                        $tpw,
-                        $tph,
-                        $appendFragment,
-                    );
+                    $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
                 }
 
-                $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
-                    ? (float) $hrc['cellctx']['linebottom']
-                    : 0.0;
-                $tpy = \max(
-                    $tpy + $this->getCurrentHTMLLineAdvance($hrc, $key),
-                    $linebottom,
-                );
+                $linebottom =
+                    isset($hrc['cellctx']['linebottom'])
+                    && \is_numeric($hrc['cellctx']['linebottom'])
+                    && $hrc['cellctx']['linebottom'] > 0
+                        ? $hrc['cellctx']['linebottom']
+                        : 0.0;
+                $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
                 $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
 
                 $tailOut = '';
@@ -12582,15 +12599,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $tailElm = $origElm;
                     $tailElm['value'] = $tail;
                     $hrc['dom'][$key] = $tailElm;
-                    $tailOut = $this->parseHTMLText(
-                        $hrc,
-                        $key,
-                        $tpx,
-                        $tpy,
-                        $tpw,
-                        $tph,
-                        $appendFragment,
-                    );
+                    $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
                 }
 
                 $hrc['dom'][$key] = $origElm;
@@ -12598,34 +12607,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $style = empty($elm['fontstyle']) || !\is_string($elm['fontstyle']) ? '' : $elm['fontstyle'];
-        $forcedir = ($elm['dir'] === 'rtl') ? 'R' : '';
-        $halign = empty($elm['align']) ? ($this->rtl ? 'R' : 'L') : (string) $elm['align'];
-        $blockOriginX = (float) $hrc['cellctx']['originx'];
+        $style = !isset($elm['fontstyle']) || $elm['fontstyle'] === '' || !\is_string($elm['fontstyle'])
+            ? ''
+            : $elm['fontstyle'];
+        $forcedir = $elm['dir'] === 'rtl' ? 'R' : '';
+        if (!isset($elm['align']) || $elm['align'] === '') {
+            $halign = $this->rtl ? 'R' : 'L';
+        } else {
+            $halign = (string) $elm['align'];
+        }
+        $blockOriginX = $hrc['cellctx']['originx'];
         $lineOriginX = $hrc['cellctx']['lineoriginx'];
         if ($tpx <= ($blockOriginX + self::WIDTH_TOLERANCE)) {
             $lineOriginX = $blockOriginX;
             $hrc['cellctx']['lineoriginx'] = $lineOriginX;
         }
-        $lineOffset = (float) ($tpx - $lineOriginX);
-        $availableWidth = ($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : $tpw;
-        $remainingWidth = ($hrc['cellctx']['maxwidth'] > 0)
-            ? \max(0.0, $tpw)
-            : (($tpw > 0) ? $tpw : $availableWidth);
+        $lineOffset = $tpx - $lineOriginX;
+        $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+        if ($hrc['cellctx']['maxwidth'] > 0) {
+            $remainingWidth = \max(0.0, $tpw);
+        } elseif ($tpw > 0) {
+            $remainingWidth = $tpw;
+        } else {
+            $remainingWidth = $availableWidth;
+        }
 
-        if (
-            empty($elm['tag'])
-            && \is_int($elm['parent'])
-            && isset($hrc['dom'][$elm['parent']])
-        ) {
+        if (!($elm['tag'] ?? false) && \is_int($elm['parent']) && isset($hrc['dom'][$elm['parent']])) {
             $parentElm = $hrc['dom'][$elm['parent']];
-            $parentDisplay = \strtolower(\trim((string) $parentElm['display']));
-            if (
-                ($parentDisplay === 'inline-block')
-                && ((float) $parentElm['width'] > 0.0)
-            ) {
-                $inlineOriginX = (float) $parentElm['x'];
-                $inlineWidth = (float) $parentElm['width'];
+            $parentDisplay = \strtolower(\trim($parentElm['display']));
+            if ($parentDisplay === 'inline-block' && $parentElm['width'] > 0.0) {
+                $inlineOriginX = $parentElm['x'];
+                $inlineWidth = $parentElm['width'];
                 $localOffset = \max(0.0, $tpx - $inlineOriginX);
 
                 $lineOriginX = $inlineOriginX;
@@ -12641,13 +12653,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // The text-indent is applied only to the first line by splitLines when used as offset parameter.
         $textIndentOffset = 0.0;
         if (
-            ($lineOffset <= self::WIDTH_TOLERANCE)
-            && !empty($elm['text-indent'])
+            $lineOffset <= self::WIDTH_TOLERANCE
+            && isset($elm['text-indent'])
+            && $elm['text-indent'] !== ''
             && \is_numeric($elm['text-indent'])
-            && empty($hrc['cellctx']['textindentapplied'])
-            && ($availableWidth > 0.0)
+            && !($hrc['cellctx']['textindentapplied'] ?? false)
+            && $availableWidth > 0.0
         ) {
-            $textIndentOffset = (float) $elm['text-indent'];
+            $textIndentOffset = $elm['text-indent'];
             if ($forcedir === 'R') {
                 $textIndentOffset *= -1;
             }
@@ -12658,7 +12671,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // In normal HTML flow, collapsible spaces at line start are ignored.
         // Keeping them would shift the first visible fragment and defeat
         // center/right alignment for wrapped inline runs.
-        if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key) && ($lineOffset <= self::WIDTH_TOLERANCE)) {
+        if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key) && $lineOffset <= self::WIDTH_TOLERANCE) {
             if (\trim($text) === '') {
                 return '';
             }
@@ -12676,14 +12689,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $out = $this->getHTMLTextPrefix($hrc, $currentkey);
 
         $curfont = $this->font->getCurrentFont();
-        $curAscent = (isset($curfont['ascent']) && \is_numeric($curfont['ascent']))
+        $curAscent = isset($curfont['ascent']) && \is_numeric($curfont['ascent'])
             ? $this->toUnit((float) $curfont['ascent'])
             : 0.0;
-        $curHeight = (isset($curfont['height']) && \is_numeric($curfont['height']))
+        $curHeight = isset($curfont['height']) && \is_numeric($curfont['height'])
             ? $this->toUnit((float) $curfont['height'])
             : 0.0;
-        $skipAscent = ($lineOffset <= self::WIDTH_TOLERANCE)
-            || empty($hrc['cellctx']['lineascent'])
+        $skipAscent =
+            $lineOffset <= self::WIDTH_TOLERANCE
+            || !isset($hrc['cellctx']['lineascent'])
+            || $hrc['cellctx']['lineascent'] <= 0
             || !\is_numeric($hrc['cellctx']['lineascent']);
         if ($skipAscent) {
             $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
@@ -12694,7 +12709,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $hrc['cellctx']['lineascent'] = $lineascent;
         }
 
-        $lineascent = (float) $hrc['cellctx']['lineascent'];
+        $lineascent = $hrc['cellctx']['lineascent'];
         if ($lineascent < $curAscent) {
             $lineascent = $curAscent;
             $hrc['cellctx']['lineascent'] = $lineascent;
@@ -12711,18 +12726,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // flushing the partial rectangle onto the current page before the
         // break and updating each buffer's origin to the new region top.
         if (
-            empty($hrc['tablestack'])
-            && empty($hrc['bcellctx'])
-            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
-            && ($lineAdvance > 0.0)
+            ($hrc['tablestack'] ?? []) === []
+            && ($hrc['bcellctx'] ?? []) === []
+            && $hrc['cellctx']['maxheight'] <= 0.0
+            && $lineAdvance > 0.0
         ) {
             $region = $this->page->getRegion();
-            $regiontop = (float) $region['RY'];
+            $regiontop = \is_array($region) && isset($region['RY']) && \is_numeric($region['RY'])
+                ? (float) $region['RY']
+                : 0.0;
             $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-            $willBreak = ($lineAdvance > ($remaining + self::WIDTH_TOLERANCE))
-                && ($tpy > ($regiontop + self::WIDTH_TOLERANCE));
+            $willBreak =
+                $lineAdvance > ($remaining + self::WIDTH_TOLERANCE) && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
 
-            if ($willBreak && !empty($hrc['blockbuf']) && ($appendFragment !== null)) {
+            if ($willBreak && ($hrc['blockbuf'] ?? []) !== [] && $appendFragment !== null) {
                 $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
                 if ($flush !== '') {
                     $appendFragment($flush);
@@ -12731,7 +12748,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $breakout = $this->breakHTMLIfNeeded($hrc, $lineAdvance, $tpx, $tpy, $tpw, $tph);
 
-            if ($willBreak && !empty($hrc['blockbuf'])) {
+            if ($willBreak && ($hrc['blockbuf'] ?? []) !== []) {
                 foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
                     /** @var THTMLBlockBuf $blkEntry */
                     $blkEntry['by'] = $tpy;
@@ -12739,7 +12756,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
 
-            if ($willBreak && !empty($hrc['tablestack'])) {
+            if ($willBreak && ($hrc['tablestack'] ?? []) !== []) {
                 $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
             }
 
@@ -12751,30 +12768,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // only the lines that fit, page-break, then process the remainder
         // recursively on the new page region.
         if (
-            empty($hrc['tablestack'])
-            && empty($hrc['bcellctx'])
-            && ((float) $hrc['cellctx']['maxheight'] <= 0.0)
-            && ($lineAdvance > 0.0)
+            ($hrc['tablestack'] ?? []) === []
+            && ($hrc['bcellctx'] ?? []) === []
+            && $hrc['cellctx']['maxheight'] <= 0.0
+            && $lineAdvance > 0.0
             && $this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
         ) {
             $regionMV = $this->page->getRegion();
-            $regiontopMV = (float) $regionMV['RY'];
+            $regiontopMV = \is_array($regionMV) && isset($regionMV['RY']) && \is_numeric($regionMV['RY'])
+                ? (float) $regionMV['RY']
+                : 0.0;
             $remainingMV = $this->getHTMLRemainingHeight($hrc, $tpy);
             $maxFitLines = (int) \floor(($remainingMV + self::WIDTH_TOLERANCE) / $lineAdvance);
             if ($maxFitLines < 1) {
                 $maxFitLines = 1;
             }
 
-            $lineOffsetMV = (float) ($tpx - $hrc['cellctx']['originx']);
+            $lineOffsetMV = $tpx - $hrc['cellctx']['originx'];
             if ($lineOffsetMV < 0.0) {
                 $lineOffsetMV = 0.0;
             }
 
-            $availableWidthMV = ($hrc['cellctx']['maxwidth'] > 0)
-                ? (float) $hrc['cellctx']['maxwidth']
-                : (float) $tpw;
+            $availableWidthMV = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
             if ($availableWidthMV <= 0.0) {
-                $availableWidthMV = (float) $tpw;
+                $availableWidthMV = $tpw;
             }
 
             if ($availableWidthMV > 0.0) {
@@ -12790,37 +12807,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 );
                 $probeCount = \count($probeLines);
 
-                if (
-                    ($probeCount > $maxFitLines)
-                    && ($tpy > ($regiontopMV + self::WIDTH_TOLERANCE))
-                ) {
+                if ($probeCount > $maxFitLines && $tpy > ($regiontopMV + self::WIDTH_TOLERANCE)) {
                     $cut = 0;
                     for ($i = 0; $i < $maxFitLines; ++$i) {
                         $cut = (int) $probeLines[$i]['pos'] + (int) $probeLines[$i]['chars'];
                     }
                     $probeLen = \mb_strlen($probeText);
-                    if (($cut > 0) && ($cut < $probeLen)) {
+                    if ($cut > 0 && $cut < $probeLen) {
                         $head = \mb_substr($probeText, 0, $cut);
                         $tail = \mb_substr($probeText, $cut);
                         if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)) {
                             $tail = \ltrim($tail);
                         }
 
-                        if (($head !== '') && ($tail !== '')) {
+                        if ($head !== '' && $tail !== '') {
                             /** @var THTMLAttrib $origElm */
                             $origElm = $hrc['dom'][$key];
                             $headElm = $origElm;
                             $headElm['value'] = $head;
                             $hrc['dom'][$key] = $headElm;
-                            $headOut = $this->parseHTMLText(
-                                $hrc,
-                                $key,
-                                $tpx,
-                                $tpy,
-                                $tpw,
-                                $tph,
-                                $appendFragment,
-                            );
+                            $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
 
                             // The HEAD portion belongs to the current (about-to-end)
                             // page and must be dispatched before the page break, using
@@ -12833,7 +12839,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $breakoutPrefix = '';
                             if ($headDispatch !== '') {
                                 if (!$this->captureHTMLTableCellBuffer($hrc, $headDispatch)) {
-                                    if (!empty($hrc['blockbuf'])) {
+                                    if (($hrc['blockbuf'] ?? []) !== []) {
                                         $blockidxMV = \count($hrc['blockbuf']) - 1;
                                         /** @var THTMLBlockBuf $blockbufMV */
                                         $blockbufMV = $hrc['blockbuf'][$blockidxMV];
@@ -12845,26 +12851,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 }
                             }
 
-                            if (!empty($hrc['blockbuf']) && ($appendFragment !== null)) {
+                            if (($hrc['blockbuf'] ?? []) !== [] && $appendFragment !== null) {
                                 $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
                                 if ($flush !== '') {
                                     $appendFragment($flush);
                                 }
                             }
 
-                            $forceH = $this->getHTMLRemainingHeight($hrc, $tpy)
-                                + $lineAdvance
-                                + 1.0;
-                            $brk = $this->breakHTMLIfNeeded(
-                                $hrc,
-                                $forceH,
-                                $tpx,
-                                $tpy,
-                                $tpw,
-                                $tph,
-                            );
+                            $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
+                            $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
 
-                            if (!empty($hrc['blockbuf'])) {
+                            if (($hrc['blockbuf'] ?? []) !== []) {
                                 foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
                                     /** @var THTMLBlockBuf $blkEntry2 */
                                     $blkEntry2['by'] = $tpy;
@@ -12872,22 +12869,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 }
                             }
 
-                            if (!empty($hrc['tablestack'])) {
+                            if (($hrc['tablestack'] ?? []) !== []) {
                                 $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
                             }
 
                             $tailElm = $origElm;
                             $tailElm['value'] = $tail;
                             $hrc['dom'][$key] = $tailElm;
-                            $tailOut = $this->parseHTMLText(
-                                $hrc,
-                                $key,
-                                $tpx,
-                                $tpy,
-                                $tpw,
-                                $tph,
-                                $appendFragment,
-                            );
+                            $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
 
                             $hrc['dom'][$key] = $origElm;
 
@@ -12911,9 +12900,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // preserved for the next fragment.
         $trailSpaceAdvance = 0.0;
         if (
-            ($lineOffset > self::WIDTH_TOLERANCE)
+            $lineOffset > self::WIDTH_TOLERANCE
             && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
-            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
+            && $fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE)
         ) {
             $trailVisMatch = [];
             if (\preg_match('/\s+$/u', $text, $trailVisMatch) === 1) {
@@ -12929,46 +12918,42 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $keepChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine(
-            $text,
-            $forcedir,
-            $remainingWidth,
-        );
-        $linebottom = (!empty($hrc['cellctx']['linebottom']) && \is_numeric($hrc['cellctx']['linebottom']))
-            ? (float) $hrc['cellctx']['linebottom']
-            : 0.0;
-        $needDeepLinePrewrap = (
-            $linebottom > ($tpy + $this->getCurrentHTMLLineAdvance($hrc, $currentkey) + self::WIDTH_TOLERANCE)
-        );
+        $keepChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine($text, $forcedir, $remainingWidth);
+        $linebottom =
+            isset($hrc['cellctx']['linebottom'])
+            && \is_numeric($hrc['cellctx']['linebottom'])
+            && $hrc['cellctx']['linebottom'] > 0
+                ? $hrc['cellctx']['linebottom']
+                : 0.0;
+        $needDeepLinePrewrap =
+            $linebottom > ($tpy + $this->getCurrentHTMLLineAdvance($hrc, $currentkey) + self::WIDTH_TOLERANCE);
         if (
-            ($lineOffset > self::WIDTH_TOLERANCE)
-            && (\trim($text) !== '')
-            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
+            $lineOffset > self::WIDTH_TOLERANCE
+            && \trim($text) !== ''
+            && $fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE)
             && (
-                ($needDeepLinePrewrap && !$keepChunkOnLine)
-                ||
-                !$this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
-                || (
-                    ($fragmentWidth <= ($availableWidth + self::WIDTH_TOLERANCE))
-                    && !$keepChunkOnLine
-                )
+                $needDeepLinePrewrap && !$keepChunkOnLine
+                || !$this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
+                || $fragmentWidth <= ($availableWidth + self::WIDTH_TOLERANCE)
+                && !$keepChunkOnLine
             )
         ) {
-            $tpy = \max(
-                $tpy + $this->getCurrentHTMLLineAdvance($hrc, $currentkey),
-                $linebottom,
-            );
+            $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $currentkey), $linebottom);
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $lineOffset = 0.0;
             $remainingWidth = $tpw;
             $lineOriginX = $hrc['cellctx']['lineoriginx'];
-            $availableWidth = ($tpw > 0)
-                ? $tpw
-                : (($hrc['cellctx']['maxwidth'] > 0) ? $hrc['cellctx']['maxwidth'] : 0.0);
+            if ($tpw > 0) {
+                $availableWidth = $tpw;
+            } elseif ($hrc['cellctx']['maxwidth'] > 0) {
+                $availableWidth = $hrc['cellctx']['maxwidth'];
+            } else {
+                $availableWidth = 0.0;
+            }
 
             // Collapsible spaces must still be removed when we pre-wrap a fragment.
             // Otherwise the new line can start with an artificial indent.
-            if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key) && (\preg_match('/^\s*\S+$/u', $text) !== 1)) {
+            if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key) && \preg_match('/^\s*\S+$/u', $text) !== 1) {
                 $text = \ltrim($text);
                 if ($text === '') {
                     return '';
@@ -12996,20 +12981,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $customJustify = false;
         if ($halign === 'J') {
             $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-            $hasFollowingInline = ($runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE));
-            $hasLineWordSpacing = ((float) $hrc['cellctx']['linewordspacing'] > 0.0);
-            $customJustify = ($hasFollowingInline || (($lineOffset > self::WIDTH_TOLERANCE) && $hasLineWordSpacing));
+            $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
+            $hasLineWordSpacing = $hrc['cellctx']['linewordspacing'] > 0.0;
+            $customJustify = $hasFollowingInline || $lineOffset > self::WIDTH_TOLERANCE && $hasLineWordSpacing;
 
             if ($customJustify) {
                 if ($lineOffset <= self::WIDTH_TOLERANCE) {
                     $lineMetrics = $this->measureHTMLInlineLineMetrics($hrc, $currentkey, $availableWidth);
                     if (
-                        !empty($lineMetrics['wrapped'])
-                        && ((int) ($lineMetrics['spaces'] ?? 0) > 0)
-                        && ((float) ($lineMetrics['width'] ?? 0.0) < ($availableWidth - self::WIDTH_TOLERANCE))
+                        ($lineMetrics['wrapped'] ?? false)
+                        && (int) ($lineMetrics['spaces'] ?? 0) > 0
+                        && ($lineMetrics['width'] ?? 0.0) < ($availableWidth - self::WIDTH_TOLERANCE)
                     ) {
-                        $lineWordSpacing = ($availableWidth - (float) $lineMetrics['width'])
-                            / (int) $lineMetrics['spaces'];
+                        $lineWordSpacing = ($availableWidth - $lineMetrics['width']) / (int) $lineMetrics['spaces'];
 
                         $lineMetrics = $this->measureHTMLInlineLineMetrics(
                             $hrc,
@@ -13018,18 +13002,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $lineWordSpacing,
                         );
                         if (
-                            !empty($lineMetrics['wrapped'])
-                            && ((int) ($lineMetrics['spaces'] ?? 0) > 0)
-                            && ((float) ($lineMetrics['width'] ?? 0.0) < ($availableWidth - self::WIDTH_TOLERANCE))
+                            ($lineMetrics['wrapped'] ?? false)
+                            && (int) ($lineMetrics['spaces'] ?? 0) > 0
+                            && ($lineMetrics['width'] ?? 0.0) < ($availableWidth - self::WIDTH_TOLERANCE)
                         ) {
-                            $lineWordSpacing = ($availableWidth - (float) $lineMetrics['width'])
-                                / (int) $lineMetrics['spaces'];
+                            $lineWordSpacing = ($availableWidth - $lineMetrics['width']) / (int) $lineMetrics['spaces'];
                         }
                     }
 
                     $hrc['cellctx']['linewordspacing'] = $lineWordSpacing;
                 } else {
-                    $lineWordSpacing = (float) $hrc['cellctx']['linewordspacing'];
+                    $lineWordSpacing = $hrc['cellctx']['linewordspacing'];
                 }
             } else {
                 $hrc['cellctx']['linewordspacing'] = 0.0;
@@ -13040,10 +13023,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $effectiveWordSpacing = $customJustify ? $lineWordSpacing : $nodeWordSpacing;
         if (
             !$customJustify
-            && ($halign !== 'J')
-            && ($effectiveWordSpacing > 0.0)
-            && ($fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE))
-            && ($this->getHTMLWhiteSpaceMode($hrc, $currentkey) !== 'nowrap')
+            && $halign !== 'J'
+            && $effectiveWordSpacing > 0.0
+            && $fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE)
+            && $this->getHTMLWhiteSpaceMode($hrc, $currentkey) !== 'nowrap'
             && $this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
         ) {
             // Avoid wrapped non-justified lines being stretched as justified
@@ -13059,30 +13042,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $renderAlign = 'L';
         }
         $deferWrapDetection = false;
-        if ((($halign === 'C') || ($halign === 'R')) && ($availableWidth > 0.0)) {
+        if (($halign === 'C' || $halign === 'R') && $availableWidth > 0.0) {
             if ($lineOffset > self::WIDTH_TOLERANCE) {
                 $renderPosX = $lineOriginX;
                 $renderWidth = $availableWidth;
                 $renderOffset = $lineOffset;
                 // Keep the first continuation chunk adjacent to previous inline text,
                 // while preserving center/right alignment on wrapped continuation lines.
-                $renderAlign = ($halign === 'R') ? 'r' : 'c';
+                $renderAlign = $halign === 'R' ? 'r' : 'c';
             } elseif ($fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
                 $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
                 $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-                $hasFollowingInline = ($runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE));
-                $isLeadingSmall = ($curAscent + self::WIDTH_TOLERANCE < $lineascent);
-                $lineWidthCollapsed = (
-                    $hasFollowingInline
-                    && ($lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE))
-                );
-                $deferWrapDetection = ($hasFollowingInline && $isLeadingSmall);
+                $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
+                $isLeadingSmall = ($curAscent + self::WIDTH_TOLERANCE) < $lineascent;
+                $lineWidthCollapsed = $hasFollowingInline && $lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE);
+                $deferWrapDetection = $hasFollowingInline && $isLeadingSmall;
                 if (
-                    ($lineWidth > 0.0)
-                    && ($lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE))
+                    $lineWidth > 0.0
+                    && $lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE)
                     && !$lineWidthCollapsed
                 ) {
-                    $renderPosX = $lineOriginX + match ($halign) {
+                    $renderPosX = $lineOriginX
+                    + match ($halign) {
                         'R' => \max(0.0, $availableWidth - $lineWidth),
                         default => \max(0.0, ($availableWidth - $lineWidth) / 2),
                     };
@@ -13102,13 +13083,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $trailjustifyadvance = 0.0;
-        if ($customJustify && ($lineWordSpacing > 0.0)) {
+        if ($customJustify && $lineWordSpacing > 0.0) {
             $leadmatch = [];
             if (\preg_match('/^ +/u', $text, $leadmatch) === 1) {
                 $leadspaces = \strlen($leadmatch[0]);
                 if ($leadspaces > 0) {
                     $leadadvance = $this->getStringWidth($leadmatch[0]) + ($lineWordSpacing * $leadspaces);
-                    $text = (string) \substr($text, $leadspaces);
+                    $text = \substr($text, $leadspaces);
                     $renderOffset += $leadadvance;
                 }
             }
@@ -13116,9 +13097,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $trailmatch = [];
             if (\preg_match('/ +$/u', $text, $trailmatch) === 1) {
                 $trailspaces = \strlen($trailmatch[0]);
-                if (($trailspaces > 0) && (\trim($text) !== '')) {
+                if ($trailspaces > 0 && \trim($text) !== '') {
                     $trailjustifyadvance = $this->getStringWidth($trailmatch[0]) + ($lineWordSpacing * $trailspaces);
-                    $text = (string) \substr($text, 0, -$trailspaces);
+                    $text = \substr($text, 0, -$trailspaces);
                 }
             }
 
@@ -13134,7 +13115,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $renderStartX = $renderPosX + $renderOffset;
         $renderStartY = $tpy + ($lineascent - $curAscent);
-        $lineSpace = ($lineAdvance > 0.0) ? ($lineAdvance - $curHeight) : 0.0;
+        $lineSpace = $lineAdvance > 0.0 ? $lineAdvance - $curHeight : 0.0;
 
         // When trailing collapsible space was stripped, widen the render box by the
         // stripped amount so that splitLines inside getTextCell does not squeeze the
@@ -13176,19 +13157,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $lineSpace,
                 'T',
                 $renderAlign,
-                static::ZEROCELL, // @phpstan-ignore argument.type
+                static::ZEROCELL,
                 [],
-                (float) $elm['stroke'],
+                $elm['stroke'],
                 $effectiveWordSpacing,
                 0,
                 0,
                 true,
-                (bool) $elm['fill'],
-                ((float) $elm['stroke'] > 0),
+                $elm['fill'],
+                $elm['stroke'] > 0,
                 \str_contains($style, 'U'),
                 \str_contains($style, 'D'),
                 \str_contains($style, 'O'),
-                (bool) $elm['clip'],
+                $elm['clip'],
                 false,
                 $forcedir,
             );
@@ -13196,7 +13177,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
 
-        if (($textout !== '') && ($this->pdfuaMode !== '')) {
+        if ($textout !== '' && $this->pdfuaMode !== '') {
             $textout = $this->tagPdfUaTextContent($textout, $this->page->getPageId(), $actualText);
         }
 
@@ -13206,7 +13187,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $wrapThreshold = \max(self::WIDTH_TOLERANCE, $lineAdvance - self::WIDTH_TOLERANCE);
         $wrapped = ($bbox['y'] - $renderStartY) >= $wrapThreshold;
         if (!$deferWrapDetection) {
-            $wrapped = $wrapped || ($bbox['h'] > ($lineAdvance + self::WIDTH_TOLERANCE));
+            $wrapped = $wrapped || $bbox['h'] > ($lineAdvance + self::WIDTH_TOLERANCE);
         }
 
         $decorBgcolor = '';
@@ -13215,15 +13196,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $ibMinDecorW = 0.0;
         $inlineBlockEndX = 0.0;
         $isInlineBlockParent = false;
-        if (
-            empty($elm['tag'])
-            && \is_int($elm['parent'])
-            && isset($hrc['dom'][$elm['parent']])
-        ) {
+        if (!($elm['tag'] ?? false) && \is_int($elm['parent']) && isset($hrc['dom'][$elm['parent']])) {
             $parentElm = $hrc['dom'][$elm['parent']];
-            if (!empty($parentElm['tag']) && !empty($parentElm['opening'])) {
-                $parentDisplay = \strtolower(\trim((string) $parentElm['display']));
-                $isInlineBlockParent = ($parentDisplay === 'inline-block');
+            if (($parentElm['tag'] ?? false) && ($parentElm['opening'] ?? false)) {
+                $parentDisplay = \strtolower(\trim($parentElm['display']));
+                $isInlineBlockParent = $parentDisplay === 'inline-block';
 
                 $grandParentElm = null;
                 if (isset($hrc['dom'][$parentElm['parent']])) {
@@ -13231,48 +13208,51 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 $hasInlineDecoration = false;
-                if (!empty($parentElm['bgcolor']) && \is_string($parentElm['bgcolor'])) {
+                if (isset($parentElm['bgcolor']) && $parentElm['bgcolor'] !== '' && \is_string($parentElm['bgcolor'])) {
                     $hasInlineDecoration = true;
                 }
-                if (!empty($parentElm['padding']) && \is_array($parentElm['padding'])) {
+                if (isset($parentElm['padding']) && $parentElm['padding'] !== [] && \is_array($parentElm['padding'])) {
                     foreach (['T', 'R', 'B', 'L'] as $side) {
                         if (
-                            isset($parentElm['padding'][$side])
-                            && \is_numeric($parentElm['padding'][$side])
-                            && ((float) $parentElm['padding'][$side] > 0.0)
+                            !(
+                                isset($parentElm['padding'][$side])
+                                && \is_numeric($parentElm['padding'][$side])
+                                && $parentElm['padding'][$side] > 0.0
+                            )
                         ) {
-                            $hasInlineDecoration = true;
-                            break;
+                            continue;
                         }
+
+                        $hasInlineDecoration = true;
+                        break;
                     }
                 }
-                if (!empty($parentElm['border']) && \is_array($parentElm['border'])) {
+                if (isset($parentElm['border']) && $parentElm['border'] !== [] && \is_array($parentElm['border'])) {
                     $hasInlineDecoration = true;
                 }
 
                 $hasOwnBg = false;
-                if (!empty($parentElm['bgcolor']) && \is_string($parentElm['bgcolor'])) {
-                    $hasOwnBg = (
-                        ($grandParentElm === null)
-                        || empty($grandParentElm['bgcolor'])
-                        || ($grandParentElm['bgcolor'] !== $parentElm['bgcolor'])
-                    );
+                if (isset($parentElm['bgcolor']) && $parentElm['bgcolor'] !== '' && \is_string($parentElm['bgcolor'])) {
+                    $hasOwnBg =
+                        $grandParentElm === null
+                        || !isset($grandParentElm['bgcolor'])
+                        || $grandParentElm['bgcolor'] === ''
+                        || $grandParentElm['bgcolor'] !== $parentElm['bgcolor'];
                 }
 
                 $hasOwnPadding = false;
-                if (!empty($parentElm['padding']) && \is_array($parentElm['padding'])) {
+                if (isset($parentElm['padding']) && $parentElm['padding'] !== [] && \is_array($parentElm['padding'])) {
                     foreach (['T', 'R', 'B', 'L'] as $side) {
-                        $parentPad = (isset($parentElm['padding'][$side]) && \is_numeric($parentElm['padding'][$side]))
-                            ? (float) $parentElm['padding'][$side]
+                        $parentPad = isset($parentElm['padding'][$side]) && \is_numeric($parentElm['padding'][$side])
+                            ? $parentElm['padding'][$side]
                             : 0.0;
-                        $grandPad = (
-                            ($grandParentElm !== null)
-                            && !empty($grandParentElm['padding'])
-                            && \is_array($grandParentElm['padding'])
-                            && isset($grandParentElm['padding'][$side])
-                            && \is_numeric($grandParentElm['padding'][$side])
-                        )
-                            ? (float) $grandParentElm['padding'][$side]
+                        $grandPad = $grandParentElm !== null
+                        && isset($grandParentElm['padding'])
+                        && $grandParentElm['padding'] !== []
+                        && \is_array($grandParentElm['padding'])
+                        && isset($grandParentElm['padding'][$side])
+                        && \is_numeric($grandParentElm['padding'][$side])
+                            ? $grandParentElm['padding'][$side]
                             : 0.0;
 
                         if ($parentPad > ($grandPad + self::WIDTH_TOLERANCE)) {
@@ -13283,95 +13263,145 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 $hasOwnBorder = false;
-                if (!empty($parentElm['border']) && \is_array($parentElm['border'])) {
-                    $hasOwnBorder = (
-                        ($grandParentElm === null)
-                        || empty($grandParentElm['border'])
+                if (isset($parentElm['border']) && $parentElm['border'] !== [] && \is_array($parentElm['border'])) {
+                    $hasOwnBorder =
+                        $grandParentElm === null
+                        || !isset($grandParentElm['border'])
+                        || $grandParentElm['border'] === []
                         || !\is_array($grandParentElm['border'])
-                        || ($grandParentElm['border'] !== $parentElm['border'])
-                    );
+                        || $grandParentElm['border'] !== $parentElm['border'];
                 }
 
                 // For pure inline elements, only apply decorations if they are not inherited
                 if (
-                    ($parentDisplay === 'inline')
+                    $parentDisplay === 'inline'
                     && $hasInlineDecoration
                     && ($hasOwnBg || $hasOwnPadding || $hasOwnBorder)
                 ) {
-                    if (!empty($parentElm['bgcolor']) && \is_string($parentElm['bgcolor'])) {
-                        $decorBgcolor = (string) $parentElm['bgcolor'];
+                    if (
+                        isset($parentElm['bgcolor'])
+                        && $parentElm['bgcolor'] !== ''
+                        && \is_string($parentElm['bgcolor'])
+                    ) {
+                        $decorBgcolor = $parentElm['bgcolor'];
                     }
-                    if (!empty($parentElm['padding']) && \is_array($parentElm['padding'])) {
+                    if (
+                        isset($parentElm['padding'])
+                        && $parentElm['padding'] !== []
+                        && \is_array($parentElm['padding'])
+                    ) {
                         foreach (['T', 'R', 'B', 'L'] as $side) {
-                            if (isset($parentElm['padding'][$side]) && \is_numeric($parentElm['padding'][$side])) {
-                                $decorPadding[$side] = (float) $parentElm['padding'][$side];
+                            if (!(isset($parentElm['padding'][$side]) && \is_numeric($parentElm['padding'][$side]))) {
+                                continue;
                             }
+
+                            $decorPadding[$side] = $parentElm['padding'][$side];
                         }
                     }
-                    if ($hasOwnBorder && !empty($parentElm['border']) && \is_array($parentElm['border'])) {
+                    if (
+                        $hasOwnBorder
+                        && isset($parentElm['border'])
+                        && $parentElm['border'] !== []
+                        && \is_array($parentElm['border'])
+                    ) {
                         $decorBorder = $parentElm['border'];
                     }
                 }
 
                 // Inline-block decoration for block-like parents is rendered by block open/close;
                 // keep parseHTMLText decoration only for inline inline-block containers.
-                $isInlineSpanParent = !empty($parentElm['value'])
+                $isInlineSpanParent =
+                    isset($parentElm['value'])
                     && \is_string($parentElm['value'])
-                    && ($parentElm['value'] === 'span');
+                    && $parentElm['value'] !== ''
+                    && $parentElm['value'] === 'span';
                 if ($isInlineBlockParent && $hasInlineDecoration && $isInlineSpanParent) {
-                    if (!empty($parentElm['bgcolor']) && \is_string($parentElm['bgcolor'])) {
-                        $decorBgcolor = (string) $parentElm['bgcolor'];
+                    if (
+                        isset($parentElm['bgcolor'])
+                        && $parentElm['bgcolor'] !== ''
+                        && \is_string($parentElm['bgcolor'])
+                    ) {
+                        $decorBgcolor = $parentElm['bgcolor'];
                     }
-                    if (!empty($parentElm['padding']) && \is_array($parentElm['padding'])) {
+                    if (
+                        isset($parentElm['padding'])
+                        && $parentElm['padding'] !== []
+                        && \is_array($parentElm['padding'])
+                    ) {
                         foreach (['T', 'R', 'B', 'L'] as $side) {
-                            if (isset($parentElm['padding'][$side]) && \is_numeric($parentElm['padding'][$side])) {
-                                $decorPadding[$side] = (float) $parentElm['padding'][$side];
+                            if (!(isset($parentElm['padding'][$side]) && \is_numeric($parentElm['padding'][$side]))) {
+                                continue;
                             }
+
+                            $decorPadding[$side] = $parentElm['padding'][$side];
                         }
                     }
                     if (
-                        !empty($parentElm['border'])
+                        isset($parentElm['border'])
+                        && $parentElm['border'] !== []
                         && \is_array($parentElm['border'])
-                        && !empty($parentElm['border']['LTRB'])
+                        && (isset($parentElm['border']['LTRB']) && $parentElm['border']['LTRB'] !== '')
                     ) {
                         $decorBorder = $parentElm['border'];
                     }
                 }
 
-                if ($isInlineBlockParent && !empty($parentElm['width']) && \is_numeric($parentElm['width'])) {
-                    $inlineWidth = (float) $parentElm['width'];
+                if (
+                    $isInlineBlockParent
+                    && isset($parentElm['width'])
+                    && \is_numeric($parentElm['width'])
+                    && $parentElm['width'] > 0
+                ) {
+                    $inlineWidth = $parentElm['width'];
                     if ($inlineWidth > 0.0) {
                         $borderLeft = 0.0;
                         $borderRight = 0.0;
-                        if (!empty($parentElm['border']) && \is_array($parentElm['border'])) {
-                            if (!empty($parentElm['border']['L']) && \is_array($parentElm['border']['L'])) {
-                                $borderLeft = (float) $parentElm['border']['L']['lineWidth'];
-                            } elseif (!empty($parentElm['border']['LTRB']) && \is_array($parentElm['border']['LTRB'])) {
-                                $borderLeft = (float) $parentElm['border']['LTRB']['lineWidth'];
+                        if (
+                            isset($parentElm['border'])
+                            && $parentElm['border'] !== []
+                            && \is_array($parentElm['border'])
+                        ) {
+                            if (
+                                isset($parentElm['border']['L'])
+                                && \is_array($parentElm['border']['L'])
+                                && $parentElm['border']['L'] !== []
+                            ) {
+                                $borderLeft = $parentElm['border']['L']['lineWidth'];
+                            } elseif (
+                                isset($parentElm['border']['LTRB'])
+                                && $parentElm['border']['LTRB'] !== ''
+                                && \is_array($parentElm['border']['LTRB'])
+                            ) {
+                                $borderLeft = $parentElm['border']['LTRB']['lineWidth'];
                             }
 
-                            if (!empty($parentElm['border']['R']) && \is_array($parentElm['border']['R'])) {
-                                $borderRight = (float) $parentElm['border']['R']['lineWidth'];
-                            } elseif (!empty($parentElm['border']['LTRB']) && \is_array($parentElm['border']['LTRB'])) {
-                                $borderRight = (float) $parentElm['border']['LTRB']['lineWidth'];
+                            if (
+                                isset($parentElm['border']['R'])
+                                && \is_array($parentElm['border']['R'])
+                                && $parentElm['border']['R'] !== []
+                            ) {
+                                $borderRight = $parentElm['border']['R']['lineWidth'];
+                            } elseif (
+                                isset($parentElm['border']['LTRB'])
+                                && $parentElm['border']['LTRB'] !== ''
+                                && \is_array($parentElm['border']['LTRB'])
+                            ) {
+                                $borderRight = $parentElm['border']['LTRB']['lineWidth'];
                             }
                         }
 
-                        $ibMinDecorW = $inlineWidth
-                            + (float) $decorPadding['L']
-                            + (float) $decorPadding['R']
-                            + $borderLeft
-                            + $borderRight;
+                        $ibMinDecorW =
+                            $inlineWidth + $decorPadding['L'] + $decorPadding['R'] + $borderLeft + $borderRight;
                     }
                 }
             }
         }
 
-        $decorRectX = $bbox['x'] - (float) $decorPadding['L'];
-        $decorRectY = $bbox['y'] - (float) $decorPadding['T'];
-        $decorRectW = $bbox['w'] + (float) $decorPadding['L'] + (float) $decorPadding['R'];
-        $decorRectH = $bbox['h'] + (float) $decorPadding['T'] + (float) $decorPadding['B'];
-        if (($ibMinDecorW > 0.0) && ($decorRectW < $ibMinDecorW)) {
+        $decorRectX = $bbox['x'] - $decorPadding['L'];
+        $decorRectY = $bbox['y'] - $decorPadding['T'];
+        $decorRectW = $bbox['w'] + $decorPadding['L'] + $decorPadding['R'];
+        $decorRectH = $bbox['h'] + $decorPadding['T'] + $decorPadding['B'];
+        if ($ibMinDecorW > 0.0 && $decorRectW < $ibMinDecorW) {
             $decorRectW = $ibMinDecorW;
         }
         if ($ibMinDecorW > 0.0) {
@@ -13379,7 +13409,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $background = '';
-        if (($decorBgcolor !== '') && ($decorRectW > 0.0) && ($decorRectH > 0.0)) {
+        if ($decorBgcolor !== '' && $decorRectW > 0.0 && $decorRectH > 0.0) {
             $bgx = $bbox['x'];
             $bgw = $bbox['w'];
             $bgy = $bbox['y'];
@@ -13409,7 +13439,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $firstWidth = \max(0.0, $renderWidth - $renderOffset);
 
                 $segments = [];
-                if (($firstWidth > 0.0) && ($lineSpan > 0.0)) {
+                if ($firstWidth > 0.0 && $lineSpan > 0.0) {
                     $segments[] = [
                         'x' => $renderStartX,
                         'y' => $renderStartY,
@@ -13420,7 +13450,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 if ($lineCount > 2) {
                     $middleH = ($lineCount - 2) * $lineheight;
-                    if (($middleH > 0.0) && ($availableWidth > 0.0)) {
+                    if ($middleH > 0.0 && $availableWidth > 0.0) {
                         $segments[] = [
                             'x' => $lineOriginX,
                             'y' => $renderStartY + $lineheight,
@@ -13436,7 +13466,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $lastY = $bbox['y'];
                     $lastH = $bbox['h'];
                 }
-                if (($bbox['w'] > 0.0) && ($lastH > 0.0)) {
+                if ($bbox['w'] > 0.0 && $lastH > 0.0) {
                     $segments[] = [
                         'x' => $bbox['x'],
                         'y' => $lastY,
@@ -13447,57 +13477,44 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 $bgout = '';
                 foreach ($segments as $segment) {
-                    $segx = (float) $segment['x'];
-                    $segy = (float) $segment['y'];
-                    $segw = (float) $segment['w'];
-                    $segh = (float) $segment['h'];
-                    if (($segw <= 0.0) || ($segh <= 0.0) || ($segx < 0.0)) {
+                    $segx = $segment['x'];
+                    $segy = $segment['y'];
+                    $segw = $segment['w'];
+                    $segh = $segment['h'];
+                    if ($segw <= 0.0 || $segh <= 0.0 || $segx < 0.0) {
                         continue;
                     }
 
-                    $bgout .= $this->graph->getBasicRect(
-                        $segx,
-                        $segy,
-                        $segw,
-                        $segh,
-                        'f',
-                        $fillstyle,
-                    );
+                    $bgout .= $this->graph->getBasicRect($segx, $segy, $segw, $segh, 'f', $fillstyle);
                 }
 
                 if ($bgout !== '') {
-                    $background = $this->graph->getStartTransform()
-                        . $bgout
-                        . $this->graph->getStopTransform();
+                    $background = $this->graph->getStartTransform() . $bgout . $this->graph->getStopTransform();
                 }
             }
 
-            if (($background === '') && ($bgw > 0.0) && ($bgx >= 0.0)) {
-                $background = $this->graph->getStartTransform()
-                    . $this->graph->getBasicRect(
-                        $bgx,
-                        $bgy,
-                        $bgw,
-                        $bgh,
-                        'f',
-                        $fillstyle,
-                    )
+            if ($background === '' && $bgw > 0.0 && $bgx >= 0.0) {
+                $background =
+                    $this->graph->getStartTransform()
+                    . $this->graph->getBasicRect($bgx, $bgy, $bgw, $bgh, 'f', $fillstyle)
                     . $this->graph->getStopTransform();
             }
         }
 
         $inlineBorder = '';
         if (
-            !empty($decorBorder['LTRB'])
+            isset($decorBorder['LTRB'])
             && \is_array($decorBorder['LTRB'])
-            && ($decorRectW > 0.0)
-            && ($decorRectH > 0.0)
+            && $decorBorder['LTRB'] !== []
+            && $decorRectW > 0.0
+            && $decorRectH > 0.0
         ) {
             // For inline-block elements, always render the border (don't check for block ancestor bg)
             // For pure inline elements, check if block ancestor has same bgcolor
             $shouldRenderBorder = $isInlineBlockParent || !$this->hasBlockLvBgAncestor($hrc, $currentkey);
             if ($shouldRenderBorder) {
-                $inlineBorder = $this->graph->getStartTransform()
+                $inlineBorder =
+                    $this->graph->getStartTransform()
                     . $this->graph->getBasicRect(
                         $decorRectX,
                         $decorRectY,
@@ -13511,10 +13528,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $link = $this->getCurrentHTMLLink($hrc);
-        if (($link !== '') && ($bbox['w'] > 0.0) && ($bbox['h'] > 0.0)) {
+        if ($link !== '' && $bbox['w'] > 0.0 && $bbox['h'] > 0.0) {
             $lnkid = $this->setLink($bbox['x'], $bbox['y'], $bbox['w'], $bbox['h'], $link);
             $this->page->addAnnotRef($lnkid, $this->page->getPageID());
-            if (($this->pdfuaMode !== '') && ($lnkid > 0)) {
+            if ($this->pdfuaMode !== '' && $lnkid > 0) {
                 $this->registerPdfUaAnnotation($lnkid, $this->page->getPageID());
             }
         }
@@ -13525,8 +13542,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // content (for example "(" + <em>...</em>) keeps flowing on the same
             // last line instead of being pushed to a fresh empty line.
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-            $tpy = (float) $bbox['y'];
-            $tpx = (float) $bbox['x'] + (float) $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
+            $tpy = $bbox['y'];
+            $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
             if ($inlineBlockEndX > 0.0) {
                 $tpx = \max($tpx, $inlineBlockEndX);
             }
@@ -13541,7 +13558,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
             $this->updateHTMLLineAdvance($hrc, $lineAdvance);
-            $hrc['cellctx']['linebottom'] = (float) $bbox['y'] + (float) $bbox['h'];
+            $hrc['cellctx']['linebottom'] = $bbox['y'] + $bbox['h'];
             if ($hrc['cellctx']['maxwidth'] > 0) {
                 $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
             }
@@ -13565,11 +13582,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
         $this->updateHTMLLineAdvance($hrc, $lineAdvance);
-        $linebottom = (float) $bbox['y'] + (float) $bbox['h'];
+        $linebottom = $bbox['y'] + $bbox['h'];
         if (
-            empty($hrc['cellctx']['linebottom'])
+            !isset($hrc['cellctx']['linebottom'])
+            || $hrc['cellctx']['linebottom'] <= 0
             || !\is_numeric($hrc['cellctx']['linebottom'])
-            || ($linebottom > (float) $hrc['cellctx']['linebottom'])
+            || $linebottom > $hrc['cellctx']['linebottom']
         ) {
             $hrc['cellctx']['linebottom'] = $linebottom;
         }
@@ -13611,11 +13629,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tph,
     ): string {
         $elm = &$hrc['dom'][$key];
-        $href = (!empty($elm['attribute']['href']) && \is_string($elm['attribute']['href']))
-            ? $elm['attribute']['href']
-            : '';
+        $href =
+            isset($elm['attribute']['href'])
+            && \is_string($elm['attribute']['href'])
+            && $elm['attribute']['href'] !== ''
+                ? $elm['attribute']['href']
+                : '';
 
-        if ($this->pdfuaMode !== '' && ($href !== '')) {
+        if ($this->pdfuaMode !== '' && $href !== '') {
             $this->beginStructElem('Link', $this->page->getPageId());
         }
 
@@ -13677,12 +13698,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $elm['attribute'] = [];
         }
 
-        if (empty($elm['attribute']['type']) || !\is_string($elm['attribute']['type'])) {
+        if (
+            !isset($elm['attribute']['type'])
+            || $elm['attribute']['type'] === ''
+            || !\is_string($elm['attribute']['type'])
+        ) {
             $elm['attribute']['type'] = 'button';
         }
 
         // When button text was normalized into a value attribute, reuse it as caption.
-        if (empty($elm['attribute']['value']) || !\is_string($elm['attribute']['value'])) {
+        if (
+            !isset($elm['attribute']['value'])
+            || $elm['attribute']['value'] === ''
+            || !\is_string($elm['attribute']['value'])
+        ) {
             $elm['attribute']['value'] = '';
         }
 
@@ -14248,32 +14277,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elm = &$hrc['dom'][$key];
         unset($tph);
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
-        $availableWidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
+        $availableWidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
         $width = $availableWidth;
-        if (!empty($elm['width']) && \is_numeric($elm['width']) && (float) $elm['width'] > 0) {
-            $width = \min((float) $elm['width'], $availableWidth);
+        if (isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0) {
+            $width = \min($elm['width'], $availableWidth);
         }
 
-        $strokeWidth = ((float) $elm['stroke'] > 0) ? (float) $elm['stroke'] : 0.2;
-        if (!empty($elm['height']) && \is_numeric($elm['height']) && (float) $elm['height'] > 0) {
-            $strokeWidth = (float) $elm['height'];
+        $strokeWidth = $elm['stroke'] > 0 ? $elm['stroke'] : 0.2;
+        if (isset($elm['height']) && \is_numeric($elm['height']) && $elm['height'] > 0) {
+            $strokeWidth = $elm['height'];
         }
 
         $lineY = $tpy + ($this->getHTMLLineAdvance($hrc, $key) / 2);
-        $out .= $this->graph->getLine(
-            $tpx,
-            $lineY,
-            $tpx + $width,
-            $lineY,
-            [
-                'lineWidth' => $strokeWidth,
-                'lineCap' => 'butt',
-                'lineJoin' => 'miter',
-                'dashArray' => [],
-                'dashPhase' => 0,
-                'lineColor' => empty($elm['fgcolor']) ? 'black' : (string) $elm['fgcolor'],
-            ],
-        );
+        $out .= $this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, [
+            'lineWidth' => $strokeWidth,
+            'lineCap' => 'butt',
+            'lineJoin' => 'miter',
+            'dashArray' => [],
+            'dashPhase' => 0,
+            'lineColor' => !isset($elm['fgcolor']) || $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'],
+        ]);
         $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
 
         return $out;
@@ -14363,19 +14386,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $name = (isset($attr['name']) && \is_string($attr['name']))
-            ? $attr['name'] : ('input_' . \count($this->tagvspaces));
+        $name = isset($attr['name']) && \is_string($attr['name'])
+            ? $attr['name']
+            : 'input_' . \count($this->tagvspaces);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $maxwidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
-        $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
-            ? (float) $elm['width']
-            : $this->getHTMLInputFallbackWidth($hrc, $key, $attr, $lineheight, $maxwidth);
+        $maxwidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
+        $fieldwidth =
+            isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0
+                ? $elm['width']
+                : $this->getHTMLInputFallbackWidth($hrc, $key, $attr, $lineheight, $maxwidth);
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
         $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, $type, $elm);
 
         switch ($type) {
             case 'checkbox':
-                $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'Yes';
+                $onvalue = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : 'Yes';
                 $checked = isset($attr['checked']);
                 $opt = ['subtype' => 'Widget'];
                 if ($fieldlabel !== '') {
@@ -14388,7 +14413,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 break;
 
             case 'radio':
-                $onvalue = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : 'On';
+                $onvalue = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : 'On';
                 $checked = isset($attr['checked']);
                 $opt = ['subtype' => 'Widget'];
                 if ($fieldlabel !== '') {
@@ -14403,27 +14428,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'submit':
             case 'button':
             case 'reset':
-                $caption = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : $type;
+                $caption = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : $type;
                 $action = $this->getHTMLInputButtonAction($hrc, $key, $type, $attr);
-                $padTop = (isset($elm['padding']['T']) && \is_numeric($elm['padding']['T']))
-                    ? (float) $elm['padding']['T']
+                $padTop = isset($elm['padding']['T']) && \is_numeric($elm['padding']['T']) ? $elm['padding']['T'] : 0.0;
+                $padBottom = isset($elm['padding']['B']) && \is_numeric($elm['padding']['B'])
+                    ? $elm['padding']['B']
                     : 0.0;
-                $padBottom = (isset($elm['padding']['B']) && \is_numeric($elm['padding']['B']))
-                    ? (float) $elm['padding']['B']
+                $padLeft = isset($elm['padding']['L']) && \is_numeric($elm['padding']['L'])
+                    ? $elm['padding']['L']
                     : 0.0;
-                $padLeft = (isset($elm['padding']['L']) && \is_numeric($elm['padding']['L']))
-                    ? (float) $elm['padding']['L']
-                    : 0.0;
-                $padRight = (isset($elm['padding']['R']) && \is_numeric($elm['padding']['R']))
-                    ? (float) $elm['padding']['R']
+                $padRight = isset($elm['padding']['R']) && \is_numeric($elm['padding']['R'])
+                    ? $elm['padding']['R']
                     : 0.0;
                 $buttonHeight = \max($lineheight, $lineheight + $padTop + $padBottom);
                 $buttonWidth = $fieldwidth;
-                $hasExplicitWidth = !empty($elm['width']) && \is_numeric($elm['width']);
+                $hasExplicitWidth = isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0;
                 if (!$hasExplicitWidth) {
                     $captionWidth = $this->getStringWidth($caption);
                     $buttonWidth = \max($fieldwidth, $captionWidth + $lineheight + $padLeft + $padRight);
-                    if (($maxwidth > 0.0) && ($buttonWidth > $maxwidth)) {
+                    if ($maxwidth > 0.0 && $buttonWidth > $maxwidth) {
                         $buttonWidth = $maxwidth;
                     }
                 }
@@ -14448,7 +14471,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 break;
 
             case 'file':
-                $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+                $value = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : '';
                 $opt = ['v' => $value];
                 if ($fieldlabel !== '') {
                     $opt['tu'] = $fieldlabel;
@@ -14462,7 +14485,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             default:
                 // text, password, email, url, number, etc.
-                $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+                $value = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : '';
                 if ($value === '' && isset($attr['placeholder']) && \is_string($attr['placeholder'])) {
                     $value = $attr['placeholder'];
                 }
@@ -14534,11 +14557,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tph,
     ): string {
         unset($tph);
-        $listItemOriginX = (isset($hrc['cellctx']['originx']) && \is_numeric($hrc['cellctx']['originx']))
-            ? (float) $hrc['cellctx']['originx']
+        $listItemOriginX = isset($hrc['cellctx']['originx']) && \is_numeric($hrc['cellctx']['originx'])
+            ? $hrc['cellctx']['originx']
             : 0.0;
-        $listItemMaxWidth = (isset($hrc['cellctx']['maxwidth']) && \is_numeric($hrc['cellctx']['maxwidth']))
-            ? (float) $hrc['cellctx']['maxwidth']
+        $listItemMaxWidth = isset($hrc['cellctx']['maxwidth']) && \is_numeric($hrc['cellctx']['maxwidth'])
+            ? $hrc['cellctx']['maxwidth']
             : 0.0;
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
@@ -14558,9 +14581,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // again would double-count the shift and push bullet+text too far right.
         // Use the default gutter width only when no CSS override was applied.
         $depthidx = $depth - 1;
-        $hasCSSIndentOverride = isset($hrc['liststack'][$depthidx]['indent'])
+        $hasCSSIndentOverride =
+            isset($hrc['liststack'][$depthidx]['indent'])
             && \is_numeric($hrc['liststack'][$depthidx]['indent'])
-            && ((float) $hrc['liststack'][$depthidx]['indent'] > 0.0);
+            && $hrc['liststack'][$depthidx]['indent'] > 0.0;
         $indent = $hasCSSIndentOverride ? 0.0 : $this->getHTMLListIndentWidth();
 
         // IMPORTANT: Do NOT add liIndent here. When the <li> element carries CSS padding/margin,
@@ -14575,26 +14599,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (
             isset($hrc['dom'][$key]['list-style-position'])
             && \is_string($hrc['dom'][$key]['list-style-position'])
-            && ($hrc['dom'][$key]['list-style-position'] === 'inside')
+            && $hrc['dom'][$key]['list-style-position'] === 'inside'
         ) {
             $markerPosition = 'inside';
             // Browser-like inside markers reserve inline marker space before item text.
             $insideTextOffset = $this->getStringWidth('0 ');
         }
 
-        $fontAscent = (isset($font['ascent']) && \is_numeric($font['ascent'])) ? (float) $font['ascent'] : 0.0;
+        $fontAscent = isset($font['ascent']) && \is_numeric($font['ascent']) ? (float) $font['ascent'] : 0.0;
         $baseline = $tpy + $this->toUnit($fontAscent);
         // For 'outside' markers the bullet hangs in the li's padding area (between the
         // list's content edge and the li's content edge). openHTMLBlock() already shifted
         // tpx by li margin+padding into the li's content box, so subtract the li's own
         // padding-left to re-anchor the marker at the li's border-box left edge instead
         // of pushing it further right into the content area.
-        $liPaddingL = ($markerPosition === 'outside'
-            && isset($hrc['dom'][$key]['padding']['L'])
-            && \is_numeric($hrc['dom'][$key]['padding']['L']))
-            ? (float) $hrc['dom'][$key]['padding']['L']
+        $liPaddingL = $markerPosition === 'outside'
+        && isset($hrc['dom'][$key]['padding']['L'])
+        && \is_numeric($hrc['dom'][$key]['padding']['L'])
+            ? $hrc['dom'][$key]['padding']['L']
             : 0.0;
-        $bulletx = ($tpx - $liPaddingL) + $indent + $insideTextOffset;
+        $bulletx = $tpx - $liPaddingL + $indent + $insideTextOffset;
 
         // Get marker styles from li::marker selector
         $markerStyles = [];
@@ -14689,29 +14713,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         unset($tph);
 
-        $parentIsLi = isset($hrc['dom'][$key]['parent'])
+        $parentIsLi =
+            isset($hrc['dom'][$key]['parent'])
             && \is_int($hrc['dom'][$key]['parent'])
-            && ($hrc['dom'][$key]['parent'] >= 0)
+            && $hrc['dom'][$key]['parent'] >= 0
             && isset($hrc['dom'][$hrc['dom'][$key]['parent']]['value'])
-            && ($hrc['dom'][$hrc['dom'][$key]['parent']]['value'] === 'li');
-        $inheritsListStyle = isset($hrc['dom'][$key]['style']['list-style'])
+            && $hrc['dom'][$hrc['dom'][$key]['parent']]['value'] === 'li';
+        $inheritsListStyle =
+            isset($hrc['dom'][$key]['style']['list-style'])
             && \is_string($hrc['dom'][$key]['style']['list-style'])
-            && (\strtolower(\trim((string) $hrc['dom'][$key]['style']['list-style'])) === 'inherit');
-        $inheritsLStyType = isset($hrc['dom'][$key]['style']['list-style-type'])
+            && \strtolower(\trim($hrc['dom'][$key]['style']['list-style'])) === 'inherit';
+        $inheritsLStyType =
+            isset($hrc['dom'][$key]['style']['list-style-type'])
             && \is_string($hrc['dom'][$key]['style']['list-style-type'])
-            && (\strtolower(\trim((string) $hrc['dom'][$key]['style']['list-style-type'])) === 'inherit');
-        $lineAdvanceCtx = (isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance']))
-            ? (float) $hrc['cellctx']['lineadvance']
+            && \strtolower(\trim($hrc['dom'][$key]['style']['list-style-type'])) === 'inherit';
+        $lineAdvanceCtx = isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance'])
+            ? $hrc['cellctx']['lineadvance']
             : 0.0;
         if (
             $parentIsLi
             && ($inheritsListStyle || $inheritsLStyType)
-            && (
-                ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
-                || ($lineAdvanceCtx > self::WIDTH_TOLERANCE)
-            )
+            && ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE) || $lineAdvanceCtx > self::WIDTH_TOLERANCE)
         ) {
-            $baseOriginX = (float) ($hrc['cellctx']['originx'] ?? 0.0);
+            $baseOriginX = $hrc['cellctx']['originx'] ?? 0.0;
             $lineStartX = $tpx;
             $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
             // Nested lists inside <li> should continue from the current list-item
@@ -14779,7 +14803,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         $elm = &$hrc['dom'][$key];
         $label = '';
-        if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
+        if (
+            isset($elm['attribute']['value'])
+            && $elm['attribute']['value'] !== ''
+            && \is_string($elm['attribute']['value'])
+        ) {
             $label = $elm['attribute']['value'];
         }
 
@@ -14808,7 +14836,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         $elm = &$hrc['dom'][$key];
         $label = '';
-        if (!empty($elm['attribute']['value']) && \is_string($elm['attribute']['value'])) {
+        if (
+            isset($elm['attribute']['value'])
+            && $elm['attribute']['value'] !== ''
+            && \is_string($elm['attribute']['value'])
+        ) {
             $label = $elm['attribute']['value'];
         }
 
@@ -14915,12 +14947,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $name = (isset($attr['name']) && \is_string($attr['name']))
-            ? $attr['name'] : ('select_' . \count($this->tagvspaces));
+        $name = isset($attr['name']) && \is_string($attr['name'])
+            ? $attr['name']
+            : 'select_' . \count($this->tagvspaces);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
-            ? (float) $elm['width']
-            : $lineheight * 5;
+        $fieldwidth =
+            isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0 ? $elm['width'] : $lineheight * 5;
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
         $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, 'select', $elm);
 
@@ -14929,7 +14961,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $optionValues = [];
         $explicitSelVals = [];
         $optionSelectedValues = [];
-        if (isset($attr['value']) && \is_string($attr['value']) && ($attr['value'] !== '')) {
+        if (isset($attr['value']) && \is_string($attr['value']) && $attr['value'] !== '') {
             foreach (\explode(',', $attr['value']) as $selval) {
                 $selval = \trim($selval);
                 if ($selval !== '') {
@@ -14937,8 +14969,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             }
         }
-        if (!empty($attr['opt']) && \is_string($attr['opt'])) {
-            $entries = \array_filter(\explode('#!NwL!#', $attr['opt']), static fn ($ent): bool => $ent !== '');
+        if (isset($attr['opt']) && $attr['opt'] !== [] && \is_string($attr['opt'])) {
+            $entries = \array_filter(\explode('#!NwL!#', $attr['opt']), static fn($ent): bool => $ent !== '');
             foreach ($entries as $entry) {
                 $isSelected = \str_starts_with($entry, '#!SeL!#');
                 if ($isSelected) {
@@ -14962,28 +14994,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $size = (isset($attr['size']) && \is_numeric($attr['size'])) ? (int) $attr['size'] : 0;
+        $size = isset($attr['size']) && \is_numeric($attr['size']) ? (int) $attr['size'] : 0;
         $hasMultiple = $this->isHTMLBooleanAttributeEnabled($attr, 'multiple');
-        $isListBox = $hasMultiple || ($size > 1);
+        $isListBox = $hasMultiple || $size > 1;
 
         $selectedValues = [];
         foreach ($optionSelectedValues as $selectedOptionValue) {
-            if (\in_array($selectedOptionValue, $optionValues, true)) {
-                if (!\in_array($selectedOptionValue, $selectedValues, true)) {
-                    $selectedValues[] = $selectedOptionValue;
-                }
+            if (!\in_array($selectedOptionValue, $optionValues, true)) {
+                continue;
+            }
+
+            if (!\in_array($selectedOptionValue, $selectedValues, true)) {
+                $selectedValues[] = $selectedOptionValue;
             }
         }
         if ($selectedValues === []) {
             foreach ($explicitSelVals as $explicitValue) {
-                if (\in_array($explicitValue, $optionValues, true)) {
-                    if (!\in_array($explicitValue, $selectedValues, true)) {
-                        $selectedValues[] = $explicitValue;
-                    }
+                if (!\in_array($explicitValue, $optionValues, true)) {
+                    continue;
+                }
+
+                if (!\in_array($explicitValue, $selectedValues, true)) {
+                    $selectedValues[] = $explicitValue;
                 }
             }
         }
-        if (($selectedValues === []) && ($optionValues !== [])) {
+        if ($selectedValues === [] && $optionValues !== []) {
             $selectedValues[] = $optionValues[0];
         }
         $selectedValue = $selectedValues[0] ?? '';
@@ -15016,16 +15052,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             /** @var TAnnotOpts $opt */
-            $objid = $this->addFFListBox(
-                $name,
-                $tpx,
-                $tpy,
-                $fieldwidth,
-                $fieldheight,
-                $values,
-                $opt,
-                $jsp,
-            );
+            $objid = $this->addFFListBox($name, $tpx, $tpy, $fieldwidth, $fieldheight, $values, $opt, $jsp);
         } else {
             $opt = ['v' => $selectedValue];
             if ($fieldlabel !== '') {
@@ -15034,7 +15061,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $objid = $this->addFFComboBox($name, $tpx, $tpy, $fieldwidth, $lineheight, $values, $opt, $fieldjsp);
         }
         $this->page->addAnnotRef($objid, $this->page->getPageID());
-        $fieldbottom = $isListBox ? ($tpy + $fieldheight) : ($tpy + $lineheight);
+        $fieldbottom = $isListBox ? $tpy + (float) $fieldheight : $tpy + $lineheight;
         $this->updateHTMLInlineControlMetrics($hrc, $tpy, $lineheight, $fieldbottom);
         $tpx += $fieldwidth;
 
@@ -15092,21 +15119,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         unset($tpw, $tph);
         $elm = &$hrc['dom'][$key];
 
-        $display = \strtolower(\trim((string) ($elm['display'] ?? '')));
+        $display = \strtolower(\trim($elm['display'] ?? ''));
         if ($display === 'inline-block') {
             // Store inline-block content origin for child text local wrapping.
             $elm['x'] = $tpx;
             $elm['y'] = $tpy;
         }
 
-        if (!empty($elm['attribute']['color']) && \is_string($elm['attribute']['color'])) {
+        if (
+            isset($elm['attribute']['color'])
+            && \is_string($elm['attribute']['color'])
+            && $elm['attribute']['color'] !== ''
+        ) {
             $fgcolor = $this->getCSSColor($elm['attribute']['color']);
             if ($fgcolor !== '') {
                 $elm['fgcolor'] = $fgcolor;
             }
         }
 
-        if (!empty($elm['attribute']['bgcolor']) && \is_string($elm['attribute']['bgcolor'])) {
+        if (
+            isset($elm['attribute']['bgcolor'])
+            && \is_string($elm['attribute']['bgcolor'])
+            && $elm['attribute']['bgcolor'] !== ''
+        ) {
             $bgcolor = $this->getCSSColor($elm['attribute']['bgcolor']);
             if ($bgcolor !== '') {
                 $elm['bgcolor'] = $bgcolor;
@@ -15236,49 +15271,51 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         unset($tph);
 
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
-        $width = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
+        $width = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
         $rawTableWidth = '';
-        if (!empty($elm['style']['width']) && \is_string($elm['style']['width'])) {
+        if (isset($elm['style']['width']) && \is_string($elm['style']['width']) && $elm['style']['width'] !== '') {
             $rawTableWidth = \trim($elm['style']['width']);
-        } elseif (!empty($elm['attribute']['width']) && \is_string($elm['attribute']['width'])) {
+        } elseif (
+            isset($elm['attribute']['width'])
+            && \is_string($elm['attribute']['width'])
+            && $elm['attribute']['width'] !== ''
+        ) {
             $rawTableWidth = \trim($elm['attribute']['width']);
         }
 
-        if (
-            ($rawTableWidth !== '')
-            && (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth, $pctMatch) === 1)
-        ) {
+        if ($rawTableWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth, $pctMatch) === 1) {
             $ctxWidth = $width;
-            if (isset($elm['ctxmaxwidth']) && \is_numeric($elm['ctxmaxwidth']) && ((float) $elm['ctxmaxwidth'] > 0.0)) {
+            if (isset($elm['ctxmaxwidth']) && \is_numeric($elm['ctxmaxwidth']) && (float) $elm['ctxmaxwidth'] > 0.0) {
                 $ctxWidth = (float) $elm['ctxmaxwidth'];
             }
 
             $width = \max(0.0, ($ctxWidth * (float) $pctMatch[1]) / 100.0);
         }
 
-        $cols = (!empty($elm['cols']) && \is_numeric($elm['cols'])) ? \max(1, (int) $elm['cols']) : 1;
-        $colwidth = ($cols > 0) ? ($width / $cols) : $width;
+        $cols = isset($elm['cols']) && $elm['cols'] !== [] && \is_numeric($elm['cols'])
+            ? \max(1, (int) $elm['cols'])
+            : 1;
+        $colwidth = $cols > 0 ? $width / $cols : $width;
 
         // Consume pre-computed column widths and spacing stored on the DOM node.
-        $colwidths = (isset($elm['pendingcolwidths']) && \is_array($elm['pendingcolwidths']))
-            ? $elm['pendingcolwidths'] : [];
+        $colwidths = isset($elm['pendingcolwidths']) && \is_array($elm['pendingcolwidths'])
+            ? $elm['pendingcolwidths']
+            : [];
         $cellspacingh = $this->getHTMLTableCellSpacingH($elm);
         $cellspacingv = $this->getHTMLTableCellSpacingV($elm);
-        $cellpadding = (isset($elm['pendingcellpadding']) && \is_numeric($elm['pendingcellpadding']))
-            ? (float) $elm['pendingcellpadding'] : 0.0;
-        $availableWidth = \max(0.0, $width - $cellspacingh * \max(0, $cols + 1));
-        $colwidth = ($cols > 0) ? ($availableWidth / $cols) : $availableWidth;
+        $cellpadding = isset($elm['pendingcellpadding']) && \is_numeric($elm['pendingcellpadding'])
+            ? $elm['pendingcellpadding']
+            : 0.0;
+        $availableWidth = \max(0.0, $width - ($cellspacingh * \max(0, $cols + 1)));
+        $colwidth = $cols > 0 ? $availableWidth / $cols : $availableWidth;
 
-        if (empty($colwidths)) {
+        if ($colwidths === []) {
             $colwidths = \array_fill(0, $cols, $colwidth);
         }
 
         // Compute actual table width from column widths + cellspacing gutters.
-        $contentWidth = $cellspacingh * ($cols + 1) + (float) \array_sum($colwidths);
-        if (
-            ($rawTableWidth !== '')
-            && (\preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth) === 1)
-        ) {
+        $contentWidth = ($cellspacingh * ($cols + 1)) + (float) \array_sum($colwidths);
+        if ($rawTableWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableWidth) === 1) {
             // Percentage widths are already resolved against the available box;
             // keep the computed content width to avoid collapsing to tiny values.
             $width = $contentWidth;
@@ -15288,7 +15325,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // Update the block buffer width so the block-level border/background
         // wraps the actual table content, not the full container.
-        if (!empty($hrc['blockbuf'])) {
+        if (($hrc['blockbuf'] ?? []) !== []) {
             $bidx = \count($hrc['blockbuf']) - 1;
             if ($hrc['blockbuf'][$bidx]['openkey'] === $key) {
                 $hrc['blockbuf'][$bidx]['bw'] = \min($hrc['blockbuf'][$bidx]['bw'], $width);
@@ -15298,7 +15335,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (
             isset($hrc['dom'][$key]['caption-top-html'])
             && \is_string($hrc['dom'][$key]['caption-top-html'])
-            && ($hrc['dom'][$key]['caption-top-html'] !== '')
+            && $hrc['dom'][$key]['caption-top-html'] !== ''
         ) {
             // Use local copies for caption rendering to prevent corrupting table width.
             // resetHTMLLineCursor called during caption rendering would otherwise modify
@@ -15320,20 +15357,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Track regionoffset to account for region/page breaks after table creation.
         // When table cells are rendered later, their X positions must account for any
         // RX shifts that occurred after this table was opened (e.g., multi-column layout).
-        $tableRegionoffset = (float) ($hrc['cellctx']['regionoffset'] ?? 0.0);
+        $tableRegionoffset = $hrc['cellctx']['regionoffset'] ?? 0.0;
 
         $hrc['tablestack'][] = [
             'originx' => $tpx,
             'originy' => $tpy,
             'width' => $width,
-            'dir' => (isset($elm['dir']) && \is_string($elm['dir'])) ? \strtolower(\trim($elm['dir'])) : 'ltr',
+            'dir' => isset($elm['dir']) && \is_string($elm['dir']) ? \strtolower(\trim($elm['dir'])) : 'ltr',
             'cols' => $cols,
             'colwidth' => $colwidth,
             'colwidths' => $colwidths,
             'cellspacingh' => $cellspacingh,
             'cellspacingv' => $cellspacingv,
             'cellpadding' => $cellpadding,
-            'collapse' => (($elm['border-collapse'] ?? 'separate') === 'collapse'),
+            'collapse' => ($elm['border-collapse'] ?? 'separate') === 'collapse',
             'hascellborders' => false,
             'prevrowbottom' => [],
             'rowtop' => $tpy + $cellspacingv,
@@ -15385,7 +15422,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function parseHTMLTcpdfSerializedData(string $data): ?array
     {
         $hpos = \strpos($data, '+');
-        if (($hpos === false) || ($hpos <= 0)) {
+        if ($hpos === false || $hpos <= 0) {
             return null;
         }
 
@@ -15400,7 +15437,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $decoded = \json_decode(\urldecode($encoded), true);
-        if (!\is_array($decoded) || empty($decoded['m']) || !\is_string($decoded['m'])) {
+        if (!\is_array($decoded) || !isset($decoded['m']) || $decoded['m'] === '' || !\is_string($decoded['m'])) {
             return null;
         }
 
@@ -15423,7 +15460,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (\defined('K_ALLOWED_TCPDF_TAGS')) {
             $allowedtags = \constant('K_ALLOWED_TCPDF_TAGS');
             if (\is_string($allowedtags)) {
-                return (\strpos($allowedtags, '|' . $method . '|') !== false);
+                return \str_contains($allowedtags, '|' . $method . '|');
             }
         }
 
@@ -15432,15 +15469,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Execute page-break style tcpdf callback and normalize cursor.
-        *
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      */
     protected function executeHTMLTcpdfPageBreak(array &$hrc, string $mode, float &$tpx, float &$tpw): void
     {
         $pid = $this->pageBreak();
         if ($mode !== 'true') {
-            $leftmode = ($this->rtl ^ (($pid % 2) == 0));
-            if ((($mode == 'left') && $leftmode) || (($mode == 'right') && !$leftmode)) {
+            $leftmode = $this->rtl ^ ($pid % 2) === 0;
+            if ($mode === 'left' && $leftmode || $mode === 'right' && !$leftmode) {
                 $this->pageBreak();
             }
         }
@@ -15471,13 +15508,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elm = &$hrc['dom'][$key];
         unset($tpy, $tph);
 
-        if (!empty($elm['attribute']['data']) && \is_string($elm['attribute']['data'])) {
+        if (
+            isset($elm['attribute']['data'])
+            && \is_string($elm['attribute']['data'])
+            && $elm['attribute']['data'] !== ''
+        ) {
             $tagdata = $this->parseHTMLTcpdfSerializedData($elm['attribute']['data']);
-            if (($tagdata !== null) && $this->isAllowedHTMLTcpdfMethod($tagdata['m'])) {
+            if ($tagdata !== null && $this->isAllowedHTMLTcpdfMethod($tagdata['m'])) {
                 $method = \strtolower($tagdata['m']);
-                if (($method === 'pagebreak') || ($method === 'addpage')) {
+                if ($method === 'pagebreak' || $method === 'addpage') {
                     $mode = 'true';
-                    if (!empty($elm['attribute']['pagebreak']) && \is_string($elm['attribute']['pagebreak'])) {
+                    if (
+                        isset($elm['attribute']['pagebreak'])
+                        && $elm['attribute']['pagebreak'] !== ''
+                        && \is_string($elm['attribute']['pagebreak'])
+                    ) {
                         $mode = \strtolower(\trim($elm['attribute']['pagebreak']));
                     }
                     $this->executeHTMLTcpdfPageBreak($hrc, $mode, $tpx, $tpw);
@@ -15497,16 +15542,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $method = '';
-        if (!empty($elm['attribute']['method']) && \is_string($elm['attribute']['method'])) {
+        if (
+            isset($elm['attribute']['method'])
+            && \is_string($elm['attribute']['method'])
+            && $elm['attribute']['method'] !== ''
+        ) {
             $method = \strtolower(\trim($elm['attribute']['method']));
         }
 
-        if (($method !== 'pagebreak') && ($method !== 'addpage')) {
+        if ($method !== 'pagebreak' && $method !== 'addpage') {
             return '';
         }
 
         $mode = 'true';
-        if (!empty($elm['attribute']['pagebreak']) && \is_string($elm['attribute']['pagebreak'])) {
+        if (
+            isset($elm['attribute']['pagebreak'])
+            && $elm['attribute']['pagebreak'] !== ''
+            && \is_string($elm['attribute']['pagebreak'])
+        ) {
             $mode = \strtolower(\trim($elm['attribute']['pagebreak']));
         }
 
@@ -15544,7 +15597,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($this->pdfuaMode !== '') {
-            $role = (isset($elm['value']) && $elm['value'] === 'th') ? 'TH' : 'TD';
+            $role = isset($elm['value']) && $elm['value'] === 'th' ? 'TH' : 'TD';
             $attr = [];
             if ($role === 'TH') {
                 $attr = ['O' => 'Table', 'Scope' => 'Column'];
@@ -15562,10 +15615,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $remaining = \max(1, $cols - $colindex);
         $colspan = 1;
         $rowspan = 1;
-        if (!empty($elm['attribute']['colspan']) && \is_numeric($elm['attribute']['colspan'])) {
+        if (
+            isset($elm['attribute']['colspan'])
+            && $elm['attribute']['colspan'] !== ''
+            && \is_numeric($elm['attribute']['colspan'])
+        ) {
             $colspan = (int) $elm['attribute']['colspan'];
         }
-        if (!empty($elm['attribute']['rowspan']) && \is_numeric($elm['attribute']['rowspan'])) {
+        if (
+            isset($elm['attribute']['rowspan'])
+            && \is_numeric($elm['attribute']['rowspan'])
+            && $elm['attribute']['rowspan'] > 0
+        ) {
             $rowspan = (int) $elm['attribute']['rowspan'];
         }
         $colspan = \max(1, \min($remaining, $colspan));
@@ -15576,9 +15637,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $rowtop = $table['rowtop'];
         $rawCellStyles = $this->getHTMLTableCellBorderStyles($hrc, $key);
         $cellbstyles = $rawCellStyles;
-        if (!empty($table['collapse'])) {
+        if ($table['collapse'] ?? false) {
             $expandedStyles = $this->getHTMLCollapsedTableCellBorderStyles($rawCellStyles, true, true);
-            $keepTop = ($rowtop <= ($table['originy'] + self::WIDTH_TOLERANCE));
+            $keepTop = $rowtop <= ($table['originy'] + self::WIDTH_TOLERANCE);
             if (!$keepTop && isset($expandedStyles[0]) && \is_array($expandedStyles[0])) {
                 $curTop = $expandedStyles[0];
                 $hasUncoveredTop = false;
@@ -15598,23 +15659,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $keepTop = $hasUncoveredTop || $curTopWinsCovered;
             }
 
-            $cellbstyles = $this->getHTMLCollapsedTableCellBorderStyles(
-                $rawCellStyles,
-                $keepTop,
-                true,
-            );
+            $cellbstyles = $this->getHTMLCollapsedTableCellBorderStyles($rawCellStyles, $keepTop, true);
             if ($colindex > 0) {
-                $leftStyle = (isset($cellbstyles[3]) && \is_array($cellbstyles[3])) ? $cellbstyles[3] : null;
-                if (!empty($table['cells'])) {
+                $leftStyle = isset($cellbstyles[3]) && \is_array($cellbstyles[3]) ? $cellbstyles[3] : null;
+                if (isset($table['cells']) && $table['cells'] !== []) {
                     $previdx = \count($table['cells']) - 1;
                     $prevcell = $table['cells'][$previdx];
                     $prevRightEdge = (int) $prevcell['colindex'] + (int) $prevcell['colspan'];
                     if ($prevRightEdge === $colindex) {
                         /** @var array<int|string, BorderStyle> $prevstyles */
                         $prevstyles = $prevcell['bstyles'];
-                        $rightStyle = (isset($prevstyles[1]) && \is_array($prevstyles[1])) ? $prevstyles[1] : null;
+                        $rightStyle = isset($prevstyles[1]) && \is_array($prevstyles[1]) ? $prevstyles[1] : null;
 
-                        if (($leftStyle !== null) || ($rightStyle !== null)) {
+                        if ($leftStyle !== null || $rightStyle !== null) {
                             if ($rightStyle === null) {
                                 /** @var BorderStyle $sharedStyle */
                                 $sharedStyle = $leftStyle ?? [];
@@ -15624,7 +15681,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                                 $sharedStyle = $this->getHTMLCollapsedPreferredVerticalBorderStyle(
                                     $rightStyle,
                                     $leftStyle,
-                                    (isset($table['dir']) && \is_string($table['dir'])) ? $table['dir'] : 'ltr',
+                                    isset($table['dir']) && \is_string($table['dir']) ? $table['dir'] : 'ltr',
                                 );
                             }
 
@@ -15634,15 +15691,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                 }
 
-                if (!empty($table['rowspans'])) {
+                if (isset($table['rowspans']) && $table['rowspans'] !== []) {
                     foreach ($table['rowspans'] as $spanidx => $rowspanCell) {
-                        if ((($rowspanCell['colindex'] + $rowspanCell['colspan']) !== $colindex)) {
+                        if (($rowspanCell['colindex'] + $rowspanCell['colspan']) !== $colindex) {
                             continue;
                         }
 
-                        $rightStyle = (isset($rowspanCell['bstyles'][1]) && \is_array($rowspanCell['bstyles'][1]))
-                            ? $rowspanCell['bstyles'][1] : null;
-                        if (($leftStyle === null) && ($rightStyle === null)) {
+                        $rightStyle = isset($rowspanCell['bstyles'][1]) && \is_array($rowspanCell['bstyles'][1])
+                            ? $rowspanCell['bstyles'][1]
+                            : null;
+                        if ($leftStyle === null && $rightStyle === null) {
                             break;
                         }
 
@@ -15655,7 +15713,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $sharedStyle = $this->getHTMLCollapsedPreferredVerticalBorderStyle(
                                 $rightStyle,
                                 $leftStyle,
-                                (isset($table['dir']) && \is_string($table['dir'])) ? $table['dir'] : 'ltr',
+                                isset($table['dir']) && \is_string($table['dir']) ? $table['dir'] : 'ltr',
                             );
                         }
 
@@ -15672,68 +15730,76 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // Apply table cellpadding as default when the cell has no CSS padding.
         $cellpadding = $table['cellpadding'];
+        $margin = isset($elm['margin']) && \is_array($elm['margin']) ? $elm['margin'] : [];
+        $padding = isset($elm['padding']) && \is_array($elm['padding']) ? $elm['padding'] : [];
         if (
             $cellpadding > 0.0
-            && (float) $elm['padding']['T'] === 0.0
-            && (float) $elm['padding']['R'] === 0.0
-            && (float) $elm['padding']['B'] === 0.0
-            && (float) $elm['padding']['L'] === 0.0
+            && ($padding['T'] ?? 0.0) === 0.0
+            && ($padding['R'] ?? 0.0) === 0.0
+            && ($padding['B'] ?? 0.0) === 0.0
+            && ($padding['L'] ?? 0.0) === 0.0
         ) {
-            $elm['padding'] = [
+            $padding = [
                 'T' => $cellpadding,
                 'R' => $cellpadding,
                 'B' => $cellpadding,
                 'L' => $cellpadding,
             ];
+            $elm['padding'] = $padding;
         }
 
-        $originx = $cellx + (float) $elm['margin']['L'] + (float) $elm['padding']['L'];
-        $originy = $rowtop + (float) $elm['margin']['T'] + (float) $elm['padding']['T'];
-        $maxwidth = \max(
-            0.0,
-            $cellw
-            - (float) $elm['margin']['L']
-            - (float) $elm['margin']['R']
-            - (float) $elm['padding']['L']
-            - (float) $elm['padding']['R']
-        );
+        $marginL = $margin['L'] ?? 0.0;
+        $marginR = $margin['R'] ?? 0.0;
+        $marginT = $margin['T'] ?? 0.0;
+        $paddingL = $padding['L'] ?? 0.0;
+        $paddingR = $padding['R'] ?? 0.0;
+        $paddingT = $padding['T'] ?? 0.0;
 
+        $originx = $cellx + $marginL + $paddingL;
+        $originy = $rowtop + $marginT + $paddingT;
+        $maxwidth = \max(0.0, $cellw - $marginL - $marginR - $paddingL - $paddingR);
+
+        $prevCellCtx = $hrc['cellctx'] ?? [];
         $hrc['bcellctx'][] = [
-            'originx' => $hrc['cellctx']['originx'],
-            'originy' => $hrc['cellctx']['originy'],
-            'maxwidth' => $hrc['cellctx']['maxwidth'],
-            'maxheight' => $hrc['cellctx']['maxheight'],
-            'lineadvance' => (float) $hrc['cellctx']['lineadvance'],
-            'linebottom' => (float) $hrc['cellctx']['linebottom'],
-            'lineascent' => (float) $hrc['cellctx']['lineascent'],
-            'linewordspacing' => (float) $hrc['cellctx']['linewordspacing'],
-            'linewrapped' => !empty($hrc['cellctx']['linewrapped']),
+            'originx' => $prevCellCtx['originx'] ?? 0.0,
+            'originy' => $prevCellCtx['originy'] ?? 0.0,
+            'maxwidth' => $prevCellCtx['maxwidth'] ?? 0.0,
+            'maxheight' => $prevCellCtx['maxheight'] ?? 0.0,
+            'lineadvance' => $prevCellCtx['lineadvance'] ?? 0.0,
+            'linebottom' => $prevCellCtx['linebottom'] ?? 0.0,
+            'lineascent' => $prevCellCtx['lineascent'] ?? 0.0,
+            'linewordspacing' => $prevCellCtx['linewordspacing'] ?? 0.0,
+            'linewrapped' => $prevCellCtx['linewrapped'] ?? false,
             'rowtop' => $rowtop,
             'cellx' => $cellx,
             'cellw' => $cellw,
             'colindex' => $colindex,
             'colspan' => $colspan,
-            'padding' => $elm['padding'],
-            'margin' => $elm['margin'],
+            'padding' => $padding,
+            'margin' => $margin,
             'bstyles' => $cellbstyles,
             'fillstyle' => $this->getHTMLTableCellFillStyle($hrc, $key),
             'rowspan' => $rowspan,
-            'valign' => (isset($elm['valign']) && \is_string($elm['valign']))
-                ? \strtolower(\trim($elm['valign'])) : 'top',
+            'valign' => isset($elm['valign']) && \is_string($elm['valign'])
+                ? \strtolower(\trim($elm['valign']))
+                : 'top',
             'buffer' => '',
         ];
 
-        $hrc['cellctx']['originx'] = $originx;
-        $hrc['cellctx']['originy'] = $originy;
-        $hrc['cellctx']['maxwidth'] = $maxwidth;
-        $hrc['cellctx']['lineoriginx'] = $originx;
-        $hrc['cellctx']['lineadvance'] = 0.0;
-        $hrc['cellctx']['linebottom'] = 0.0;
-        $hrc['cellctx']['lineascent'] = 0.0;
-        $hrc['cellctx']['linewordspacing'] = 0.0;
-        $hrc['cellctx']['linewrapped'] = false;
-        $hrc['cellctx']['textindentapplied'] = false;
-        $hrc['cellctx']['pendingblockmarginb'] = 0.0;
+        $cellCtx = $hrc['cellctx'] ?? [];
+        $hrc['cellctx'] = \array_merge($cellCtx, [
+            'originx' => $originx,
+            'originy' => $originy,
+            'maxwidth' => $maxwidth,
+            'lineoriginx' => $originx,
+            'lineadvance' => 0.0,
+            'linebottom' => 0.0,
+            'lineascent' => 0.0,
+            'linewordspacing' => 0.0,
+            'linewrapped' => false,
+            'textindentapplied' => false,
+            'pendingblockmarginb' => 0.0,
+        ]);
 
         $tpx = $originx;
         $tpy = $originy;
@@ -15743,14 +15809,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if ($rowspan > 1) {
             for ($idx = $colindex; $idx < ($colindex + $colspan); ++$idx) {
-                $table['occupied'][$idx] = \max(
-                    $table['occupied'][$idx] ?? 0,
-                    $rowspan,
-                );
+                $table['occupied'][$idx] = \max($table['occupied'][$idx] ?? 0, $rowspan);
             }
         }
 
-        // @phpstan-ignore parameterByRef.type
         $hrc['tablestack'][$tableidx] = $table;
 
         return '';
@@ -15759,8 +15821,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Process HTML opening tag <textarea>.
      *
-        * @param THTMLRenderContext $hrc HTML render context.
-        *
+     * @param THTMLRenderContext $hrc HTML render context.
+     *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param int    $key DOM array key.
      * @param float  $tpx Abscissa of upper-left corner.
@@ -15785,24 +15847,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $name = (isset($attr['name']) && \is_string($attr['name']))
-            ? $attr['name'] : ('textarea_' . \count($this->tagvspaces));
-        $value = (isset($attr['value']) && \is_string($attr['value'])) ? $attr['value'] : '';
+        $name = isset($attr['name']) && \is_string($attr['name'])
+            ? $attr['name']
+            : 'textarea_' . \count($this->tagvspaces);
+        $value = isset($attr['value']) && \is_string($attr['value']) ? $attr['value'] : '';
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
         $fieldjsp = $this->getHTMLFormFieldJSProperties($attr, 'textarea', $elm);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $rows = (isset($attr['rows']) && \is_numeric($attr['rows'])) ? \max(1, (int) $attr['rows']) : 3;
-        $maxwidth = ($tpw > 0) ? $tpw : $hrc['cellctx']['maxwidth'];
-        $fieldwidth = (!empty($elm['width']) && \is_numeric($elm['width']))
-            ? (float) $elm['width']
-            : $maxwidth;
-        $hasCols = (empty($elm['width']) || !\is_numeric($elm['width']))
-            && isset($attr['cols']) && \is_numeric($attr['cols']);
+        $rows = isset($attr['rows']) && \is_numeric($attr['rows']) ? \max(1, (int) $attr['rows']) : 3;
+        $maxwidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
+        $fieldwidth =
+            isset($elm['width']) && \is_numeric($elm['width']) && $elm['width'] > 0 ? $elm['width'] : $maxwidth;
+        $hasCols =
+            (!isset($elm['width']) || !\is_numeric($elm['width']) || $elm['width'] <= 0)
+            && isset($attr['cols'])
+            && \is_numeric($attr['cols']);
         if ($hasCols) {
             // Use the current font metrics to map HTML cols to a character-based field width.
             $cols = \max(1, (int) $attr['cols']);
             $fieldwidth = $this->getStringWidth(\str_repeat('0', $cols));
-            if (($maxwidth > 0) && ($fieldwidth > $maxwidth)) {
+            if ($maxwidth > 0 && $fieldwidth > $maxwidth) {
                 $fieldwidth = $maxwidth;
             }
         }
@@ -15811,10 +15875,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $fieldy = $tpy;
         if ($fieldheight > ($lineheight + self::WIDTH_TOLERANCE)) {
             $font = $this->getHTMLFontMetric($hrc, $key);
-            $curAscent = (isset($font['ascent']) && \is_numeric($font['ascent']))
+            $curAscent = isset($font['ascent']) && \is_numeric($font['ascent'])
                 ? $this->toUnit((float) $font['ascent'])
                 : 0.0;
-            if (empty($hrc['cellctx']['lineascent']) || !\is_numeric($hrc['cellctx']['lineascent'])) {
+            if (
+                !isset($hrc['cellctx']['lineascent'])
+                || !\is_numeric($hrc['cellctx']['lineascent'])
+                || $hrc['cellctx']['lineascent'] <= 0
+            ) {
                 $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $key);
                 if ($lineascent <= 0.0) {
                     $lineascent = $curAscent;
@@ -15823,7 +15891,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $hrc['cellctx']['lineascent'] = $lineascent;
             }
 
-            $lineascent = (float) $hrc['cellctx']['lineascent'];
+            $lineascent = $hrc['cellctx']['lineascent'];
             if ($lineascent < $curAscent) {
                 $lineascent = $curAscent;
                 $hrc['cellctx']['lineascent'] = $lineascent;
@@ -15831,7 +15899,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             // Inline textarea baseline sits on the control's bottom edge in browsers.
             // Clamp to line top to avoid upward overlap in conservative PDF flow.
-            $targetY = ($tpy + $lineascent) - $fieldheight;
+            $targetY = $tpy + $lineascent - $fieldheight;
             $fieldy = \max($tpy, $targetY);
         }
 
@@ -15840,15 +15908,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $opt['tu'] = $fieldlabel;
         }
         $jsp = \array_merge($fieldjsp, ['multiline' => 'true']);
-        $objid = $this->addFFText(
-            $name,
-            $tpx,
-            $fieldy,
-            $fieldwidth,
-            $fieldheight,
-            $opt,
-            $jsp
-        );
+        $objid = $this->addFFText($name, $tpx, $fieldy, $fieldwidth, $fieldheight, $opt, $jsp);
         $this->page->addAnnotRef($objid, $this->page->getPageID());
         $this->updateHTMLInlineControlMetrics($hrc, $tpy, $lineheight, $fieldy + $fieldheight);
         $tpx += $fieldwidth;
@@ -15882,24 +15942,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         $elm = &$hrc['dom'][$key];
 
-        $hasTextAlignOverride = (
-            !empty($elm['style']['text-align'])
-            || !empty($elm['attribute']['align'])
-        );
+        $hasTextAlignOverride =
+            isset($elm['style']['text-align']) && $elm['style']['text-align'] !== ''
+            || isset($elm['attribute']['align']) && $elm['attribute']['align'] !== '';
         if (!$hasTextAlignOverride) {
             $elm['align'] = 'C';
         }
 
-        $hasWeightOverride = (
-            !empty($elm['style']['font-weight'])
-            || !empty($elm['style']['font'])
-        );
-        if (!$hasWeightOverride && \is_string($elm['fontstyle']) && (\strpos($elm['fontstyle'], 'B') === false)) {
+        $hasWeightOverride =
+            isset($elm['style']['font-weight']) && $elm['style']['font-weight'] !== ''
+            || isset($elm['style']['font']) && $elm['style']['font'] !== '';
+        if (!$hasWeightOverride && \is_string($elm['fontstyle']) && !\str_contains($elm['fontstyle'], 'B')) {
             $elm['fontstyle'] .= 'B';
         }
 
         /** @var THTMLRenderContext $hrc */
-        // @phpstan-ignore parameterByRef.type
+
         return $this->parseHTMLTagOPENtd($hrc, $key, $tpx, $tpy, $tpw, $tph);
     }
 
@@ -16087,29 +16145,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         unset($tph);
 
-        $parentIsLi = isset($hrc['dom'][$key]['parent'])
+        $parentIsLi =
+            isset($hrc['dom'][$key]['parent'])
             && \is_int($hrc['dom'][$key]['parent'])
-            && ($hrc['dom'][$key]['parent'] >= 0)
+            && $hrc['dom'][$key]['parent'] >= 0
             && isset($hrc['dom'][$hrc['dom'][$key]['parent']]['value'])
-            && ($hrc['dom'][$hrc['dom'][$key]['parent']]['value'] === 'li');
-        $inheritsListStyle = isset($hrc['dom'][$key]['style']['list-style'])
+            && $hrc['dom'][$hrc['dom'][$key]['parent']]['value'] === 'li';
+        $inheritsListStyle =
+            isset($hrc['dom'][$key]['style']['list-style'])
             && \is_string($hrc['dom'][$key]['style']['list-style'])
-            && (\strtolower(\trim((string) $hrc['dom'][$key]['style']['list-style'])) === 'inherit');
-        $inheritsLStyType = isset($hrc['dom'][$key]['style']['list-style-type'])
+            && \strtolower(\trim($hrc['dom'][$key]['style']['list-style'])) === 'inherit';
+        $inheritsLStyType =
+            isset($hrc['dom'][$key]['style']['list-style-type'])
             && \is_string($hrc['dom'][$key]['style']['list-style-type'])
-            && (\strtolower(\trim((string) $hrc['dom'][$key]['style']['list-style-type'])) === 'inherit');
-        $lineAdvanceCtx = (isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance']))
-            ? (float) $hrc['cellctx']['lineadvance']
+            && \strtolower(\trim($hrc['dom'][$key]['style']['list-style-type'])) === 'inherit';
+        $lineAdvanceCtx = isset($hrc['cellctx']['lineadvance']) && \is_numeric($hrc['cellctx']['lineadvance'])
+            ? $hrc['cellctx']['lineadvance']
             : 0.0;
         if (
             $parentIsLi
             && ($inheritsListStyle || $inheritsLStyType)
-            && (
-                ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE))
-                || ($lineAdvanceCtx > self::WIDTH_TOLERANCE)
-            )
+            && ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE) || $lineAdvanceCtx > self::WIDTH_TOLERANCE)
         ) {
-            $baseOriginX = (float) ($hrc['cellctx']['originx'] ?? 0.0);
+            $baseOriginX = $hrc['cellctx']['originx'] ?? 0.0;
             $lineStartX = $tpx;
             $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
             // Nested lists inside <li> should continue from the current list-item
@@ -16160,12 +16218,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         $elm = &$hrc['dom'][$key];
         $value = '';
-        if (!empty($elm['value']) && \is_string($elm['value'])) {
+        if (isset($elm['value']) && $elm['value'] !== '' && \is_string($elm['value'])) {
             $value = \strtolower($elm['value']);
         }
 
         if ($value === 'a') {
-            $hadlink = ($this->getCurrentHTMLLink($hrc) !== '');
+            $hadlink = $this->getCurrentHTMLLink($hrc) !== '';
             $this->popHTMLLink($hrc);
             if ($this->pdfuaMode !== '' && $hadlink) {
                 $this->endStructElem();
@@ -17290,7 +17348,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): string {
         unset($tph);
 
-        if (empty($hrc['tablestack'])) {
+        if (($hrc['tablestack'] ?? []) === []) {
             return $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         }
 
@@ -17323,7 +17381,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         foreach ($table['rowspans'] as $cell) {
-            $height = ($cell['usedheight'] > 0.0) ? $cell['usedheight'] : $cell['contenth'];
+            $height = $cell['usedheight'] > 0.0 ? $cell['usedheight'] : $cell['contenth'];
             $out .= $this->renderHTMLTableCell(
                 $cell['cellx'],
                 $cell['rowtop'],
@@ -17337,7 +17395,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
 
-        if (($tableheight > 0.0) && ($tablebstyles !== [])) {
+        if ($tableheight > 0.0 && $tablebstyles !== []) {
             // Draw table frame after cell content for crisp outer edges.
             $out .= $this->renderHTMLTableCell(
                 $table['originx'],
@@ -17355,7 +17413,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (
             isset($hrc['dom'][$tablekey]['caption-bottom-html'])
             && \is_string($hrc['dom'][$tablekey]['caption-bottom-html'])
-            && ($hrc['dom'][$tablekey]['caption-bottom-html'] !== '')
+            && $hrc['dom'][$tablekey]['caption-bottom-html'] !== ''
         ) {
             // Use local copies for caption rendering to prevent corrupting table width.
             // resetHTMLLineCursor called during caption rendering would otherwise modify
@@ -17453,34 +17511,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $tableidx = \count($hrc['tablestack']) - 1;
         $cellctx = \array_pop($hrc['bcellctx']);
-        if (($tableidx < 0) || ($cellctx === null)) {
+        if ($tableidx < 0 || $cellctx === null) {
             return '';
         }
 
-        $cellPaddingB = (
-            isset($cellctx['padding'])
-            && \is_array($cellctx['padding'])
-            && isset($cellctx['padding']['B'])
-            && \is_numeric($cellctx['padding']['B'])
-        ) ? (float) $cellctx['padding']['B'] : (float) $elm['padding']['B'];
-        $cellMarginB = (
-            isset($cellctx['margin'])
-            && \is_array($cellctx['margin'])
-            && isset($cellctx['margin']['B'])
-            && \is_numeric($cellctx['margin']['B'])
-        ) ? (float) $cellctx['margin']['B'] : (float) $elm['margin']['B'];
+        $cellPaddingB = isset($cellctx['padding'])
+        && \is_array($cellctx['padding'])
+        && isset($cellctx['padding']['B'])
+        && \is_numeric($cellctx['padding']['B'])
+            ? (float) $cellctx['padding']['B']
+            : $elm['padding']['B'] ?? 0.0;
+        $cellMarginB = isset($cellctx['margin'])
+        && \is_array($cellctx['margin'])
+        && isset($cellctx['margin']['B'])
+        && \is_numeric($cellctx['margin']['B'])
+            ? (float) $cellctx['margin']['B']
+            : $elm['margin']['B'] ?? 0.0;
         // Only add trailing line advance when inline content is still present
         // on the current line. Block-only content (e.g. nested tables) already
         // updates the vertical cursor and must not add an extra blank line here.
-        $hasinlinecontent = ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE));
+        $cellCtx = $hrc['cellctx'] ?? [];
+        $hasinlinecontent = $tpx > (($cellCtx['originx'] ?? 0.0) + self::WIDTH_TOLERANCE);
         $lineAdvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
-        $cellbottom = $tpy
-            + $lineAdvance
-            + $cellPaddingB
-            + $cellMarginB;
+        $cellbottom = $tpy + $lineAdvance + $cellPaddingB + $cellMarginB;
         $rowheight = \max(0.0, $cellbottom - $cellctx['rowtop']);
-        if (!empty($elm['height']) && \is_numeric($elm['height'])) {
-            $rowheight = \max($rowheight, (float) $elm['height']);
+        if (isset($elm['height']) && \is_numeric($elm['height']) && $elm['height'] > 0) {
+            $rowheight = \max($rowheight, $elm['height']);
         }
         $table = $hrc['tablestack'][$tableidx];
         if ($this->shouldHideHTMLEmptyTableCell($table, $elm, $cellctx)) {
@@ -17517,10 +17573,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 'fillstyle' => $cellctx['fillstyle'],
                 'buffer' => $cellctx['buffer'],
             ];
-            $table['rowheight'] = \max(
-                $table['rowheight'],
-                $rowheight,
-            );
+            $table['rowheight'] = \max($table['rowheight'], $rowheight);
         }
         $hrc['tablestack'][$tableidx] = $table;
 
@@ -17532,7 +17585,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['linebottom'] = $cellctx['linebottom'];
         $hrc['cellctx']['lineascent'] = $cellctx['lineascent'];
         $hrc['cellctx']['linewordspacing'] = $cellctx['linewordspacing'];
-        $hrc['cellctx']['linewrapped'] = !empty($cellctx['linewrapped']);
+        $hrc['cellctx']['linewrapped'] = $cellctx['linewrapped'] ?? false;
 
         $tpy = $cellctx['rowtop'];
         $tpx = $this->getHTMLTableColX($table, $table['colindex']);
@@ -17671,17 +17724,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         foreach ($table['rowspans'] as $cell) {
             $remainingHeight = \max(0.0, $cell['contenth'] - $cell['usedheight']);
             $rowsremaining = \max(1, $cell['rowsremaining']);
-            $rowheight = \max($rowheight, ($remainingHeight / $rowsremaining));
+            $rowheight = \max($rowheight, $remainingHeight / $rowsremaining);
         }
         if ($rowheight <= 0) {
             $curfont = $this->font->getCurrentFont();
-            $rowheight = $this->toUnit((float) $curfont['height']);
+            $fontHeight = \is_array($curfont) && isset($curfont['height']) && \is_numeric($curfont['height'])
+                ? (float) $curfont['height']
+                : 0.0;
+            $rowheight = $this->toUnit($fontHeight);
         }
 
         $tpy = $table['rowtop'] + $rowheight + $table['cellspacingv'];
 
         $out = '';
-        if (!empty($table['cells'])) {
+        if (isset($table['cells']) && $table['cells'] !== []) {
             foreach ($table['cells'] as $cell) {
                 $out .= $this->renderHTMLTableCell(
                     $cell['cellx'],
@@ -17700,8 +17756,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $rowspans = [];
         $completedRowspans = [];
         foreach ($table['rowspans'] as $cell) {
-            $cellspacing = ($cell['rowsremaining'] > 1) ? $table['cellspacingv'] : 0.0;
-            $cell['usedheight'] += ($rowheight + $cellspacing);
+            $cellspacing = $cell['rowsremaining'] > 1 ? $table['cellspacingv'] : 0.0;
+            $cell['usedheight'] += $rowheight + $cellspacing;
             --$cell['rowsremaining'];
             if ($cell['rowsremaining'] <= 0) {
                 $completedRowspans[] = $cell;
@@ -17723,9 +17779,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         foreach ($table['occupied'] as $idx => $remaining) {
-            if ($remaining > 0) {
-                $table['occupied'][$idx] = $remaining - 1;
+            if ($remaining <= 0) {
+                continue;
             }
+
+            $table['occupied'][$idx] = $remaining - 1;
         }
 
         $prevRowBottom = [];
@@ -17743,10 +17801,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                $prevRowBottom[$idx] = $this->getHTMLCollapsedPreferredBorderStyle(
-                    $prevRowBottom[$idx],
-                    $bottomStyle,
-                );
+                $prevRowBottom[$idx] = $this->getHTMLCollapsedPreferredBorderStyle($prevRowBottom[$idx], $bottomStyle);
             }
         }
 
@@ -17764,10 +17819,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     continue;
                 }
 
-                $prevRowBottom[$idx] = $this->getHTMLCollapsedPreferredBorderStyle(
-                    $prevRowBottom[$idx],
-                    $bottomStyle,
-                );
+                $prevRowBottom[$idx] = $this->getHTMLCollapsedPreferredBorderStyle($prevRowBottom[$idx], $bottomStyle);
             }
         }
 

@@ -299,14 +299,7 @@ class TcpdfImporterFacadeTest extends TestCase
         $tpl = $pdf->importPage($srcId, 1);
         $pdf->addPage();
 
-        $placed = $pdf->useImportedPage(
-            $tpl,
-            10.0,
-            20.0,
-            100.0,
-            200.0,
-            ['keepAspectRatio' => true, 'align' => 'CC']
-        );
+        $placed = $pdf->useImportedPage($tpl, 10.0, 20.0, 100.0, 200.0, ['keepAspectRatio' => true, 'align' => 'CC']);
 
         // In a 100x200 box with source ratio 612:792, width is the limiting axis.
         $this->assertEqualsWithDelta(100.0, $placed['width'], 0.01);
@@ -322,14 +315,7 @@ class TcpdfImporterFacadeTest extends TestCase
         $tpl = $pdf->importPage($srcId, 1);
         $pdf->addPage();
 
-        $pdf->useImportedPage(
-            $tpl,
-            15.0,
-            25.0,
-            80.0,
-            60.0,
-            ['clip' => true, 'keepAspectRatio' => false]
-        );
+        $pdf->useImportedPage($tpl, 15.0, 25.0, 80.0, 60.0, ['clip' => true, 'keepAspectRatio' => false]);
 
         $page = $pdf->page->getPage();
         $content = \implode('', $page['content']);
@@ -358,8 +344,8 @@ class TcpdfImporterFacadeTest extends TestCase
 
         $pageId = $pdf->page->getPageID();
         $page = $pdf->page->getPage($pageId);
-        $pageW = (float) $page['width'];
-        $pageH = (float) $page['height'];
+        $pageW = $page['width'];
+        $pageH = $page['height'];
         $this->assertGreaterThan(0.0, $pageW);
         $this->assertGreaterThan(0.0, $pageH);
         // The aspect ratio of the page must match the template.

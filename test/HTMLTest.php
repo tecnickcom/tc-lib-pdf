@@ -110,9 +110,7 @@ class HTMLTest extends TestUtil
             'y' => 0.0,
         ];
         /** @var THTMLAttrib $typed */
-        $typed = \array_replace($node, $overrides);
-
-        return $typed;
+        return \array_replace($node, $overrides);
     }
 
     public function testStrTrimHelpers(): void
@@ -155,7 +153,7 @@ class HTMLTest extends TestUtil
                     continue;
                 }
 
-                if (($ptype->getName() !== 'array') || !$param->isPassedByReference()) {
+                if ($ptype->getName() !== 'array' || !$param->isPassedByReference()) {
                     continue;
                 }
 
@@ -192,7 +190,7 @@ class HTMLTest extends TestUtil
             $this->assertInstanceOf(
                 \ReflectionNamedType::class,
                 $ptype,
-                'Second parameter must have named type in ' . $name
+                'Second parameter must have named type in ' . $name,
             );
             $this->assertSame('int', $ptype->getName(), 'Second parameter type must be int in ' . $name);
         }
@@ -289,9 +287,10 @@ class HTMLTest extends TestUtil
                 'listtype' => 'square',
                 'fontstyle' => 'BIU',
                 'attribute' => [
-                    'style' => 'direction:initial;display:initial;text-align:initial;color:initial;'
-                        . 'line-height:initial;border-collapse:initial;list-style-position:initial;'
-                        . 'list-style-type:initial;text-decoration:initial;font-weight:initial;font-style:initial;',
+                    'style' =>
+                        'direction:initial;display:initial;text-align:initial;color:initial;'
+                            . 'line-height:initial;border-collapse:initial;list-style-position:initial;'
+                            . 'list-style-type:initial;text-decoration:initial;font-weight:initial;font-style:initial;',
                 ],
             ]),
         ];
@@ -1097,8 +1096,9 @@ class HTMLTest extends TestUtil
                 'font-stretch' => 100.0,
                 'letter-spacing' => 0.0,
                 'attribute' => [
-                    'style' => 'line-height:normal;page-break-before:always;page-break-after:right;'
-                        . 'list-style-type:inherit;text-indent:inherit;',
+                    'style' =>
+                        'line-height:normal;page-break-before:always;page-break-after:right;'
+                            . 'list-style-type:inherit;text-indent:inherit;',
                 ],
             ]),
             2 => $this->makeHtmlNode([
@@ -1225,8 +1225,13 @@ class HTMLTest extends TestUtil
             $obj = $this->getTestObject();
             $this->initFontAndPage($obj);
 
-            $html = '<div>INTRO</div>'
-                . '<div><section><p style="break-before:' . $breakSide . '">' . $marker . '</p></section></div>'
+            $html =
+                '<div>INTRO</div>'
+                . '<div><section><p style="break-before:'
+                . $breakSide
+                . '">'
+                . $marker
+                . '</p></section></div>'
                 . '<div>OUTRO</div>';
 
             $obj->addHTMLCell($html, 0, 0, 60, 0);
@@ -1330,8 +1335,9 @@ class HTMLTest extends TestUtil
             1 => $this->makeHtmlNode([
                 'parent' => 0,
                 'attribute' => [
-                    'style' => 'border:1px solid #111111;border-color:#112233 #223344 #334455 #445566;'
-                        . 'border-width:1px 2px 3px 4px;',
+                    'style' =>
+                        'border:1px solid #111111;border-color:#112233 #223344 #334455 #445566;'
+                            . 'border-width:1px 2px 3px 4px;',
                 ],
             ]),
             2 => $this->makeHtmlNode([
@@ -1679,14 +1685,26 @@ class HTMLTest extends TestUtil
         // "12px" — NOT numeric as a string, but must be parsed by getFontValuePoints
         $dom = [
             0 => $this->makeHtmlNode(['fontsize' => 10.0]),
-            1 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0,
-                'attribute' => ['style' => 'font-size:12px;']]),
-            2 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0,
-                'attribute' => ['style' => 'font-size:150%;']]),
-            3 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0,
-                'attribute' => ['style' => 'font-size:1.5em;']]),
-            4 => $this->makeHtmlNode(['parent' => 0, 'fontsize' => 10.0,
-                'attribute' => ['style' => 'font-size:inherit;']]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-size:12px;'],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-size:150%;'],
+            ]),
+            3 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-size:1.5em;'],
+            ]),
+            4 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontsize' => 10.0,
+                'attribute' => ['style' => 'font-size:inherit;'],
+            ]),
         ];
 
         $obj->parseHTMLStyleAttributes($dom, 1, 0);
@@ -1814,8 +1832,7 @@ class HTMLTest extends TestUtil
                 'width' => 0.0,
                 'height' => 0.0,
                 'attribute' => [
-                    'style' => 'width:10mm;min-width:30mm;max-width:20mm;'
-                        . 'height:10mm;min-height:30mm;max-height:20mm;',
+                    'style' => 'width:10mm;min-width:30mm;max-width:20mm;height:10mm;min-height:30mm;max-height:20mm;',
                 ],
             ]),
             2 => $this->makeHtmlNode([
@@ -1930,9 +1947,10 @@ class HTMLTest extends TestUtil
                 'border-collapse' => '',
                 'border-spacing' => '',
                 'attribute' => [
-                    'style' => 'font-size:inherit;font-stretch:inherit;letter-spacing:inherit;word-spacing:inherit;'
-                        . 'color:inherit;background-color:inherit;border-collapse:inherit;border-spacing:inherit;'
-                        . 'font-weight:inherit;font-style:inherit;',
+                    'style' =>
+                        'font-size:inherit;font-stretch:inherit;letter-spacing:inherit;word-spacing:inherit;'
+                            . 'color:inherit;background-color:inherit;border-collapse:inherit;border-spacing:inherit;'
+                            . 'font-weight:inherit;font-style:inherit;',
                 ],
             ]),
             2 => $this->makeHtmlNode([
@@ -1947,9 +1965,10 @@ class HTMLTest extends TestUtil
                 'border-collapse' => '',
                 'border-spacing' => '',
                 'attribute' => [
-                    'style' => 'font-size:13pt;font-stretch:expanded;letter-spacing:1mm;word-spacing:2mm;'
-                        . 'color:#123456;background-color:#abcdef;border-collapse:collapse;border-spacing:2mm 3mm;'
-                        . 'font-weight:700;font-style:italic;',
+                    'style' =>
+                        'font-size:13pt;font-stretch:expanded;letter-spacing:1mm;word-spacing:2mm;'
+                            . 'color:#123456;background-color:#abcdef;border-collapse:collapse;border-spacing:2mm 3mm;'
+                            . 'font-weight:700;font-style:italic;',
                 ],
             ]),
         ];
@@ -1973,16 +1992,8 @@ class HTMLTest extends TestUtil
         /** @var array{H: float, V: float} $spacing2 */
         // @phpstan-ignore offsetAccess.notFound
         $spacing2 = $dom[2]['border-spacing'];
-        $this->assertEqualsWithDelta(
-            (float) $spacing2['H'],
-            (float) $spacing1['H'],
-            0.0001,
-        );
-        $this->assertEqualsWithDelta(
-            (float) $spacing2['V'],
-            (float) $spacing1['V'],
-            0.0001,
-        );
+        $this->assertEqualsWithDelta($spacing2['H'], $spacing1['H'], 0.0001);
+        $this->assertEqualsWithDelta($spacing2['V'], $spacing1['V'], 0.0001);
     }
 
     public function testParseHTMLStyleAttributesLineHeightInheritDoesNotFallThrough(): void
@@ -2007,7 +2018,7 @@ class HTMLTest extends TestUtil
         $this->assertSame(
             $parentLineHeight,
             $dom[1]['line-height'],
-            'line-height:inherit must not fall through to default recalculation'
+            'line-height:inherit must not fall through to default recalculation',
         );
     }
 
@@ -2113,7 +2124,7 @@ class HTMLTest extends TestUtil
             2.0,
             $dom[1]['line-height'],
             0.01,
-            'line-height:24pt on 12pt font must store ratio 2.0'
+            'line-height:24pt on 12pt font must store ratio 2.0',
         );
 
         // Case 4: 100% → ratio 1.0
@@ -2656,7 +2667,7 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(
             $dom[1]['padding']['T'],
             $dom[1]['padding']['L'],
-            'padding-left (10px) must be greater than padding-top (5px)'
+            'padding-left (10px) must be greater than padding-top (5px)',
         );
         $this->assertGreaterThan(0.0, $dom[1]['margin']['T'], 'margin-top must be applied');
         $this->assertGreaterThan(0.0, $dom[1]['margin']['R'], 'margin-right must be applied');
@@ -2747,7 +2758,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('"Times New Roman", serif', $dom[1]['fontname']);
         $this->assertStringContainsString('I', $dom[1]['fontstyle']);
         $this->assertStringContainsString('B', $dom[1]['fontstyle']);
-        $this->assertEqualsWithDelta(1.5, (float) $dom[1]['line-height'], 0.0001);
+        $this->assertEqualsWithDelta(1.5, $dom[1]['line-height'], 0.0001);
     }
 
     public function testGetHTMLFormFieldJSPropertiesMapsElementStyleToWidgetProperties(): void
@@ -2919,19 +2930,18 @@ class HTMLTest extends TestUtil
         $pon = $this->getObjectProperty($obj, 'pon');
         /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
-        $fontfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json'
-        );
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
 
-        $leftMargin   = 15.0;
-        $rightMargin  = 15.0;
-        $topMargin    = 20.0;
+        $leftMargin = 15.0;
+        $rightMargin = 15.0;
+        $topMargin = 20.0;
         $bottomMargin = 20.0;
-        $columnGap    = 8.0;
-        $contentWidth  = 210.0 - $leftMargin - $rightMargin;
+        $columnGap = 8.0;
+        $contentWidth = 210.0 - $leftMargin - $rightMargin;
         $contentHeight = 297.0 - $topMargin - $bottomMargin;
-        $columnWidth   = ($contentWidth - $columnGap) / 2.0;
+        $columnWidth = ($contentWidth - $columnGap) / 2.0;
 
         $obj->addPage([
             'margin' => [
@@ -2956,7 +2966,8 @@ class HTMLTest extends TestUtil
             ],
         ]);
 
-        $chunk = '<p>Lorem ipsum dolor sit amet consectetur adipiscing elit.'
+        $chunk =
+            '<p>Lorem ipsum dolor sit amet consectetur adipiscing elit.'
             . ' Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
         $html = \str_repeat($chunk, 60);
 
@@ -2966,9 +2977,11 @@ class HTMLTest extends TestUtil
         $pages = $page->getPages();
         $allContent = '';
         foreach ($pages as $pdata) {
-            if (isset($pdata['content']) && \is_array($pdata['content'])) {
-                $allContent .= \implode("\n", $pdata['content']);
+            if (!(isset($pdata['content']) && \is_array($pdata['content']))) {
+                continue;
             }
+
+            $allContent .= \implode("\n", $pdata['content']);
         }
 
         // The second column's X is $leftMargin + $columnWidth + $columnGap ≈ 109 mm.
@@ -2983,15 +2996,19 @@ class HTMLTest extends TestUtil
         \preg_match_all('/\b([\d.]+) [\d.-]+ Td\b/', $allContent, $tdMatches);
         $foundSecondCol = false;
         foreach ($tdMatches[1] as $xVal) {
-            if ((float) $xVal >= $col2xMin) {
-                $foundSecondCol = true;
-                break;
+            if ((float) $xVal < $col2xMin) {
+                continue;
             }
+
+            $foundSecondCol = true;
+            break;
         }
 
         $this->assertTrue(
             $foundSecondCol,
-            'Expected text to flow into the second column (X ≥ ' . \round($col2xMin, 1) . ' pt),'
+            'Expected text to flow into the second column (X ≥ '
+            . \round($col2xMin, 1)
+            . ' pt),'
             . ' but all Td X values stayed in the first column.',
         );
     }
@@ -3005,7 +3022,8 @@ class HTMLTest extends TestUtil
         $page = $this->getObjectProperty($obj, 'page');
         $beforePages = \count($page->getPages());
 
-        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+        $chunk =
+            '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
             . ' Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
         $html = \str_repeat($chunk, 220);
 
@@ -3025,7 +3043,8 @@ class HTMLTest extends TestUtil
         $page = $this->getObjectProperty($obj, 'page');
         $beforePages = \count($page->getPages());
 
-        $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
+        $chunk =
+            '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
             . ' Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>';
         $html = \str_repeat($chunk, 220);
 
@@ -3067,12 +3086,15 @@ class HTMLTest extends TestUtil
             $items .= '<li>Item ' . $i . ' with long text to force wrapping and page flow inside the list block.</li>';
         }
 
-        $html = '<style>'
+        $html =
+            '<style>'
             . '.panel{border:0.2mm solid #333;background-color:#f2f6fb;padding:2mm;margin-bottom:2mm;}'
             . '</style>'
             . '<div class="panel">'
             . '<h2>SECTION4</h2>'
-            . '<ul>' . $items . '</ul>'
+            . '<ul>'
+            . $items
+            . '</ul>'
             . '</div>'
             . '<div class="panel">'
             . '<h2>SECTION6</h2>'
@@ -3118,13 +3140,7 @@ class HTMLTest extends TestUtil
             $rows .= '<tr><td>Row ' . $i . '</td><td>Lorem ipsum dolor sit amet</td></tr>';
         }
 
-        $obj->addHTMLCell(
-            '<table border="1"><tr><th>A</th><th>B</th></tr>' . $rows . '</table>',
-            20,
-            10,
-            150,
-            0,
-        );
+        $obj->addHTMLCell('<table border="1"><tr><th>A</th><th>B</th></tr>' . $rows . '</table>', 20, 10, 150, 0);
 
         $afterPages = \count($page->getPages());
 
@@ -3136,38 +3152,58 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $fontfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json'
-        );
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
         $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
         $obj->page->addContent($font['out']);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
         $beforePages = \count($page->getPages());
-        $spanWords = '<span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
+        $spanWords =
+            '<span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
             . '<span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> '
             . '<span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> '
             . '<span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> '
             . '<span>Quebec</span> <span>Romeo</span> <span>Sierra</span> <span>Tango</span> '
             . '<span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> '
             . '<span>Yankee</span> <span>Zulu</span>';
-        $plainWords = 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike '
+        $plainWords =
+            'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike '
             . 'November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu';
 
-        $html = '<table border="1" cellspacing="3" cellpadding="4">'
-            . '<tr><td align="left"><span>1L</span> ' . $spanWords . '</td></tr>'
-            . '<tr><td align="center"><span>1C</span> ' . $spanWords . '</td></tr>'
-            . '<tr><td align="right"><span>1R</span> ' . $spanWords . '</td></tr>'
+        $html =
+            '<table border="1" cellspacing="3" cellpadding="4">'
+            . '<tr><td align="left"><span>1L</span> '
+            . $spanWords
+            . '</td></tr>'
+            . '<tr><td align="center"><span>1C</span> '
+            . $spanWords
+            . '</td></tr>'
+            . '<tr><td align="right"><span>1R</span> '
+            . $spanWords
+            . '</td></tr>'
             . '<tr><td align="left"><span>2L</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> '
-            . 'column span. ' . $plainWords . '.</td></tr>'
+            . 'column span. '
+            . $plainWords
+            . '.</td></tr>'
             . '<tr><td align="center"><span>2C</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> '
-            . 'column span. ' . $plainWords . '.</td></tr>'
+            . 'column span. '
+            . $plainWords
+            . '.</td></tr>'
             . '<tr><td align="right"><span>2R</span> A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> '
-            . 'column span. ' . $plainWords . '.</td></tr>'
-            . '<tr><td align="left"><small>3L small text</small> ' . $plainWords . '</td></tr>'
-            . '<tr><td align="center"><small>3C small text</small> ' . $plainWords . '</td></tr>'
-            . '<tr><td align="right"><small>3R small text</small> ' . $plainWords . '</td></tr>'
+            . 'column span. '
+            . $plainWords
+            . '.</td></tr>'
+            . '<tr><td align="left"><small>3L small text</small> '
+            . $plainWords
+            . '</td></tr>'
+            . '<tr><td align="center"><small>3C small text</small> '
+            . $plainWords
+            . '</td></tr>'
+            . '<tr><td align="right"><small>3R small text</small> '
+            . $plainWords
+            . '</td></tr>'
             . '</table>';
 
         $obj->addHTMLCell($html, 20, 10, 180, 0);
@@ -3187,9 +3223,7 @@ class HTMLTest extends TestUtil
         $beforePages = \count($page->getPages());
 
         $chunk = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>';
-        $html = '<div style="background-color:#ffeeaa;border:1px solid #000">'
-            . \str_repeat($chunk, 150)
-            . '</div>';
+        $html = '<div style="background-color:#ffeeaa;border:1px solid #000">' . \str_repeat($chunk, 150) . '</div>';
 
         $obj->addHTMLCell($html, 20, 10, 150, 0);
 
@@ -3331,7 +3365,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         // Use significantly longer text to guarantee wrapping with offset applied
-        $html = '<ol><li style="text-indent: 6mm;">'
+        $html =
+            '<ol><li style="text-indent: 6mm;">'
             . 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, '
             . 'sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. '
             . 'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris '
@@ -3350,7 +3385,7 @@ class HTMLTest extends TestUtil
         // Look for traces with actual text content (marker is usually "1" or "1.")
         $textFragments = [];
         foreach ($trace as $entry) {
-            $txt = (string) ($entry['txt'] ?? '');
+            $txt = $entry['txt'] ?? '';
             // Skip empty strings and just the marker
             if ($txt !== '' && !\preg_match('/^1[.)]?$/', $txt)) {
                 $textFragments[] = $entry;
@@ -3430,7 +3465,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<body>'
+        $html =
+            '<body>'
             . '<a href="https://example.com">'
             . '<b>B</b><em>E</em><font>F</font><i>I</i><label>L</label><marker>M</marker>'
             . '<s>S</s><small>sm</small><span>sp</span><strike>st</strike><strong>sg</strong>'
@@ -3479,36 +3515,20 @@ class HTMLTest extends TestUtil
         $this->assertSame(' normal ', $trace[2]['txt']);
         $this->assertSame('small text', $trace[3]['txt']);
 
-        $this->assertEqualsWithDelta(10.0, (float) $trace[0]['font_size'], 1e-9);
-        $this->assertEqualsWithDelta(6.666666666666666, (float) $trace[1]['font_size'], 1e-9);
-        $this->assertEqualsWithDelta(10.0, (float) $trace[2]['font_size'], 1e-9);
-        $this->assertEqualsWithDelta(6.666666666666666, (float) $trace[3]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(10.0, $trace[0]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(6.666666666666666, $trace[1]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(10.0, $trace[2]['font_size'], 1e-9);
+        $this->assertEqualsWithDelta(6.666666666666666, $trace[3]['font_size'], 1e-9);
 
-        $this->assertGreaterThan((float) $trace[0]['bbox_end_x'], (float) $trace[1]['bbox_end_x']);
-        $this->assertGreaterThan((float) $trace[1]['bbox_end_x'], (float) $trace[2]['bbox_end_x']);
-        $this->assertGreaterThan((float) $trace[2]['bbox_end_x'], (float) $trace[3]['bbox_end_x']);
+        $this->assertGreaterThan($trace[0]['bbox_end_x'], $trace[1]['bbox_end_x']);
+        $this->assertGreaterThan($trace[1]['bbox_end_x'], $trace[2]['bbox_end_x']);
+        $this->assertGreaterThan($trace[2]['bbox_end_x'], $trace[3]['bbox_end_x']);
 
-        $this->assertEqualsWithDelta(
-            (float) $trace[0]['bbox_end_x'],
-            (float) $trace[1]['bbox_x'],
-            1e-9,
-        );
-        $this->assertEqualsWithDelta(
-            (float) $trace[1]['bbox_end_x'],
-            (float) $trace[2]['bbox_x'],
-            1e-9,
-        );
-        $this->assertEqualsWithDelta(
-            (float) $trace[2]['bbox_end_x'],
-            (float) $trace[3]['bbox_x'],
-            1e-9,
-        );
+        $this->assertEqualsWithDelta($trace[0]['bbox_end_x'], $trace[1]['bbox_x'], 1e-9);
+        $this->assertEqualsWithDelta($trace[1]['bbox_end_x'], $trace[2]['bbox_x'], 1e-9);
+        $this->assertEqualsWithDelta($trace[2]['bbox_end_x'], $trace[3]['bbox_x'], 1e-9);
 
-        $this->assertEqualsWithDelta(
-            (float) $trace[1]['bbox_w'],
-            (float) $trace[3]['bbox_w'],
-            1e-9,
-        );
+        $this->assertEqualsWithDelta($trace[1]['bbox_w'], $trace[3]['bbox_w'], 1e-9);
     }
 
     public function testGetHTMLCellRendersTopLevelTableOuterBorder(): void
@@ -3516,9 +3536,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<table border="1" cellspacing="3" cellpadding="4">'
-            . '<tr><td style="border:0">X</td></tr>'
-            . '</table>';
+        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr><td style="border:0">X</td></tr></table>';
 
         $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
 
@@ -3532,7 +3550,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $cellWidth = 150.0;
-        $html = '<div style="text-align:center">'
+        $html =
+            '<div style="text-align:center">'
             . 'The words &#8220;<span dir="rtl">&#1502;&#1494;&#1500; [mazel] &#1496;&#1493;&#1489; [tov]</span>'
             . '&#8221; mean &#8220;Congratulations!&#8221;</div>';
 
@@ -3556,7 +3575,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $cellWidth = 60.0;
-        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="center">'
+        $html =
+            '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="center">'
             . '<span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
             . '<span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span>'
             . '</td></tr></table>';
@@ -3571,17 +3591,17 @@ class HTMLTest extends TestUtil
         /** @var array<string, array{left: float, right: float}> $lines */
         $lines = [];
         foreach ($trace as $frag) {
-            $key = \sprintf('%.6f', (float) $frag['bbox_y']);
+            $key = \sprintf('%.6f', $frag['bbox_y']);
             if (!isset($lines[$key])) {
                 $lines[$key] = [
-                    'left' => (float) $frag['bbox_x'],
-                    'right' => (float) $frag['bbox_end_x'],
+                    'left' => $frag['bbox_x'],
+                    'right' => $frag['bbox_end_x'],
                 ];
                 continue;
             }
 
-            $lines[$key]['left'] = \min($lines[$key]['left'], (float) $frag['bbox_x']);
-            $lines[$key]['right'] = \max($lines[$key]['right'], (float) $frag['bbox_end_x']);
+            $lines[$key]['left'] = \min($lines[$key]['left'], $frag['bbox_x']);
+            $lines[$key]['right'] = \max($lines[$key]['right'], $frag['bbox_end_x']);
         }
 
         $lineboxes = \array_values($lines);
@@ -3604,7 +3624,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $cellWidth = 150.0;
-        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="right">'
+        $html =
+            '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="right">'
             . '<span>1R</span> <span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
             . '<span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> <span>India</span> '
             . '<span>Juliett</span> <span>Kilo</span> <span>Lima</span> <span>Mike</span> <span>November</span> '
@@ -3623,7 +3644,7 @@ class HTMLTest extends TestUtil
         /** @var array<string, bool> $linekeys */
         $linekeys = [];
         foreach ($trace as $frag) {
-            $linekeys[\sprintf('%.6f', (float) $frag['bbox_y'])] = true;
+            $linekeys[\sprintf('%.6f', $frag['bbox_y'])] = true;
         }
 
         $this->assertGreaterThanOrEqual(2, \count($linekeys));
@@ -3634,7 +3655,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<table border="0" cellspacing="1" cellpadding="2" style="width:100%;">'
+        $html =
+            '<table border="0" cellspacing="1" cellpadding="2" style="width:100%;">'
             . '<tr>'
             . '<td style="width:50%;">Gesch\u{00E4}ftsf\u{00FC}hrer Egon Schrempp Amtsgericht Stuttgart HRB 1234</td>'
             . '<td style="width:50%;">RIGHTCOL</td>'
@@ -3650,10 +3672,12 @@ class HTMLTest extends TestUtil
 
         $rightIdx = null;
         for ($idx = 0; $idx < \count($trace); ++$idx) {
-            if ((string) $trace[$idx]['txt'] === 'RIGHTCOL') {
-                $rightIdx = $idx;
-                break;
+            if ((string) $trace[$idx]['txt'] !== 'RIGHTCOL') {
+                continue;
             }
+
+            $rightIdx = $idx;
+            break;
         }
 
         $this->assertNotNull($rightIdx, 'Unable to locate the second column text fragment in the trace.');
@@ -3708,7 +3732,7 @@ class HTMLTest extends TestUtil
         /** @var array<int, float> $lineOrder */
         $lineOrder = [];
         foreach ($trace as $frag) {
-            $liney = (float) $frag['bbox_y'];
+            $liney = $frag['bbox_y'];
             $key = \sprintf('%.6f', $liney);
             if (!isset($linekeys[$key])) {
                 $linekeys[$key] = true;
@@ -3733,7 +3757,8 @@ class HTMLTest extends TestUtil
      */
     public static function tableLineRegressionProvider(): array
     {
-        $line1Spans = '<span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
+        $line1Spans =
+            '<span>Alfa</span> <span>Bravo</span> <span>Charlie</span> <span>Delta</span> '
             . '<span>Echo</span> <span>Foxtrot</span> <span>Golf</span> <span>Hotel</span> '
             . '<span>India</span> <span>Juliett</span> <span>Kilo</span> <span>Lima</span> '
             . '<span>Mike</span> <span>November</span> <span>Oscar</span> <span>Papa</span> '
@@ -3741,7 +3766,8 @@ class HTMLTest extends TestUtil
             . '<span>Uniform</span> <span>Victor</span> <span>Whiskey</span> <span>Xray</span> '
             . '<span>Yankee</span> <span>Zulu</span>';
 
-        $line2Text = ' A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. '
+        $line2Text =
+            ' A1 ex<i>amp</i>le <a href="https://tcpdf.org">link</a> column span. '
             . 'One two tree four five six seven eight nine ten.';
 
         return [
@@ -3790,7 +3816,7 @@ class HTMLTest extends TestUtil
             [
                 '3L',
                 '<td align="left"><small>3L small text</small>'
-                . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
                     . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo'
                     . ' Sierra Tango Uniform Victor Whiskey Xray '
                     . 'Yankee Zulu</td>',
@@ -3801,7 +3827,7 @@ class HTMLTest extends TestUtil
             [
                 '3C',
                 '<td align="center"><small>3C small text</small>'
-                . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
                     . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo'
                     . ' Sierra Tango Uniform Victor Whiskey Xray '
                     . 'Yankee Zulu</td>',
@@ -3812,7 +3838,7 @@ class HTMLTest extends TestUtil
             [
                 '3R',
                 '<td align="right"><small>3R small text</small>'
-                . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
+                    . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
                     . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo'
                     . ' Sierra Tango Uniform Victor Whiskey Xray '
                     . 'Yankee Zulu</td>',
@@ -3830,7 +3856,10 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $cellWidth = 150.0;
-        $html = '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="' . $align . '">'
+        $html =
+            '<table border="1" cellspacing="3" cellpadding="4"><tr><td align="'
+            . $align
+            . '">'
             . '<small>3X small text</small> Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett '
             . 'Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
             . 'Yankee Zulu'
@@ -3849,10 +3878,7 @@ class HTMLTest extends TestUtil
 
         // The text after </small> should start on the same line (or higher baseline-adjusted)
         // and not after a forced line advance.
-        $this->assertLessThanOrEqual(
-            (float) $trace[0]['in_y'] + 0.001,
-            (float) $trace[1]['in_y'],
-        );
+        $this->assertLessThanOrEqual((float) $trace[0]['in_y'] + 0.001, (float) $trace[1]['in_y']);
     }
 
     public function testGetHTMLCellExampleTableSmallPrefixCenterRightKeepsFollowingTextOnSameLine(): void
@@ -3860,7 +3886,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<table border="1" cellspacing="3" cellpadding="4">'
+        $html =
+            '<table border="1" cellspacing="3" cellpadding="4">'
             . '<tr><td align="left"><small>3L small text</small>'
             . ' Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India '
             . 'Juliett Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray '
@@ -3885,16 +3912,18 @@ class HTMLTest extends TestUtil
         foreach (['3C small text', '3R small text'] as $label) {
             $smallIdx = null;
             foreach ($trace as $idx => $item) {
-                if (\trim((string) $item['txt']) === $label) {
-                    $smallIdx = $idx;
-                    break;
+                if (\trim($item['txt']) !== $label) {
+                    continue;
                 }
+
+                $smallIdx = $idx;
+                break;
             }
 
             $this->assertNotNull($smallIdx, 'Missing trace fragment: ' . $label);
 
             $nextIdx = null;
-            for ($idx = ((int) $smallIdx + 1); $idx < \count($trace); ++$idx) {
+            for ($idx = (int) $smallIdx + 1; $idx < \count($trace); ++$idx) {
                 if (\trim((string) $trace[$idx]['txt']) === '') {
                     continue;
                 }
@@ -3935,7 +3964,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<p>Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo. '
+        $html =
+            '<p>Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo. '
             . 'Lima Mike November Oscar Papa Quebec Romeo (<em>Sierra-Tango</em>) Uniform Victor '
             . 'Whiskey (<em>Xray-Yankee</em>). Zulu.</p>';
 
@@ -3948,12 +3978,12 @@ class HTMLTest extends TestUtil
         $sierraIdx = null;
         $xrayIdx = null;
         foreach ($trace as $idx => $entry) {
-            $txt = (string) $entry['txt'];
-            if (($sierraIdx === null) && \str_contains($txt, 'Sierra-Tango')) {
+            $txt = $entry['txt'];
+            if ($sierraIdx === null && \str_contains($txt, 'Sierra-Tango')) {
                 $sierraIdx = $idx;
             }
 
-            if (($xrayIdx === null) && \str_contains($txt, 'Xray-Yankee')) {
+            if ($xrayIdx === null && \str_contains($txt, 'Xray-Yankee')) {
                 $xrayIdx = $idx;
             }
         }
@@ -3986,7 +4016,7 @@ class HTMLTest extends TestUtil
         /** @var array<string, bool> $linekeys */
         $linekeys = [];
         foreach ($trace as $entry) {
-            $linekeys[\sprintf('%.3f', (float) $entry['bbox_y'])] = true;
+            $linekeys[\sprintf('%.3f', $entry['bbox_y'])] = true;
         }
 
         $this->assertCount(
@@ -4006,7 +4036,8 @@ class HTMLTest extends TestUtil
 
     public function testGetHTMLCellAppliesLineHeightToWrappedContinuationLines(): void
     {
-        $text = 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa '
+        $text =
+            'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa '
             . 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa';
 
         $measureHeight = function (string $lineHeight) use ($text): float {
@@ -4029,7 +4060,7 @@ class HTMLTest extends TestUtil
             $this->assertGreaterThan(
                 (float) $first['font_size'] + 0.1,
                 $deltaY,
-                'Expected wrapped text sample to span multiple lines.'
+                'Expected wrapped text sample to span multiple lines.',
             );
 
             return $deltaY;
@@ -4041,7 +4072,7 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(
             $height100 + 1.0,
             $height200,
-            'line-height must affect continuation lines created by automatic wraps.'
+            'line-height must affect continuation lines created by automatic wraps.',
         );
     }
 
@@ -4057,7 +4088,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<p>This document demonstrates PDF encryption and permission controls using tc-lib-pdf. '
+        $html =
+            '<p>This document demonstrates PDF encryption and permission controls using tc-lib-pdf. '
             . 'The file is protected with a user password (<em>demo-user</em>) and an owner password '
             . '(<em>demo-owner</em>). Encryption restricts unauthorized access while the owner password '
             . 'grants full control.</p>';
@@ -4072,10 +4104,12 @@ class HTMLTest extends TestUtil
         // continuation that starts with ")".
         $ownerIdx = null;
         foreach ($trace as $idx => $entry) {
-            if (\str_contains((string) $entry['txt'], 'demo-owner')) {
-                $ownerIdx = $idx;
-                break;
+            if (!\str_contains($entry['txt'], 'demo-owner')) {
+                continue;
             }
+
+            $ownerIdx = $idx;
+            break;
         }
 
         $this->assertNotNull($ownerIdx, 'demo-owner fragment must be present in the trace.');
@@ -4161,9 +4195,9 @@ class HTMLTest extends TestUtil
         $this->assertCount(2, $trace);
         $this->assertSame('medium ', $trace[0]['txt']);
         $this->assertSame('large', $trace[1]['txt']);
-        $this->assertGreaterThan(0.0, (float) $trace[0]['bbox_x'] + (float) $trace[0]['bbox_w']);
-        $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
-        $this->assertLessThanOrEqual($cellWidth + 1e-9, (float) $trace[1]['bbox_end_x']);
+        $this->assertGreaterThan(0.0, $trace[0]['bbox_x'] + $trace[0]['bbox_w']);
+        $this->assertEqualsWithDelta(0.0, $trace[1]['bbox_x'], 1e-9);
+        $this->assertLessThanOrEqual($cellWidth + 1e-9, $trace[1]['bbox_end_x']);
     }
 
     public function testParseHTMLTextKeepsBreakableFragmentOnCurrentLineWhenOnlyTailOverflows(): void
@@ -4237,8 +4271,8 @@ class HTMLTest extends TestUtil
         $this->assertCount(2, $trace);
         $this->assertSame('A1 example link', $trace[0]['txt']);
         $this->assertSame(' column span one two three four five six seven eight nine ten', $trace[1]['txt']);
-        $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
-        $this->assertGreaterThan((float) $trace[0]['bbox_y'], (float) $trace[1]['bbox_y']);
+        $this->assertEqualsWithDelta(0.0, $trace[1]['bbox_x'], 1e-9);
+        $this->assertGreaterThan($trace[0]['bbox_y'], $trace[1]['bbox_y']);
     }
 
     public function testParseHTMLTextTreatsLeadingSpaceLongWordAsUnbreakableForPreWrap(): void
@@ -4296,8 +4330,8 @@ class HTMLTest extends TestUtil
         $this->assertCount(2, $trace);
         $this->assertSame('prefix ', $trace[0]['txt']);
         $this->assertSame(' thisisanotherverylongword', $trace[1]['txt']);
-        $this->assertEqualsWithDelta(0.0, (float) $trace[1]['bbox_x'], 1e-9);
-        $this->assertGreaterThan((float) $trace[0]['bbox_y'], (float) $trace[1]['bbox_y']);
+        $this->assertEqualsWithDelta(0.0, $trace[1]['bbox_x'], 1e-9);
+        $this->assertGreaterThan($trace[0]['bbox_y'], $trace[1]['bbox_y']);
     }
 
     public function testAllParseHTMLTagMethodsCanBeInvoked(): void
@@ -4429,7 +4463,7 @@ class HTMLTest extends TestUtil
                 continue;
             }
 
-            if (($txt === 'https://example.com') && (($opt['subtype'] ?? '') === 'Link')) {
+            if ($txt === 'https://example.com' && ($opt['subtype'] ?? '') === 'Link') {
                 $haslink = true;
                 break;
             }
@@ -4562,7 +4596,7 @@ class HTMLTest extends TestUtil
             $indentWidth,
             $indent2,
             0.001,
-            'depth-2 li should increment tpx by the same indentWidth as depth-1 li'
+            'depth-2 li should increment tpx by the same indentWidth as depth-1 li',
         );
     }
 
@@ -4576,10 +4610,12 @@ class HTMLTest extends TestUtil
 
         $defaultX = null;
         foreach ($obj->exposeGetBBoxTrace() as $entry) {
-            if (\str_contains((string) $entry['txt'], 'Probe item baseline')) {
-                $defaultX = (float) $entry['in_x'];
-                break;
+            if (!\str_contains($entry['txt'], 'Probe item baseline')) {
+                continue;
             }
+
+            $defaultX = $entry['in_x'];
+            break;
         }
 
         $this->assertNotNull($defaultX);
@@ -4589,14 +4625,16 @@ class HTMLTest extends TestUtil
 
         $cssX = null;
         foreach ($obj->exposeGetBBoxTrace() as $entry) {
-            if (\str_contains((string) $entry['txt'], 'Probe item baseline')) {
-                $cssX = (float) $entry['in_x'];
-                break;
+            if (!\str_contains($entry['txt'], 'Probe item baseline')) {
+                continue;
             }
+
+            $cssX = $entry['in_x'];
+            break;
         }
 
         $this->assertNotNull($cssX);
-        $this->assertLessThan((float) $defaultX, (float) $cssX);
+        $this->assertLessThan($defaultX, $cssX);
     }
 
     public function testListItemCssIndentOverrideTakesPrecedenceOverListLevel(): void
@@ -4609,10 +4647,12 @@ class HTMLTest extends TestUtil
 
         $listX = null;
         foreach ($obj->exposeGetBBoxTrace() as $entry) {
-            if (\str_contains((string) $entry['txt'], 'Probe precedence')) {
-                $listX = (float) $entry['in_x'];
-                break;
+            if (!\str_contains($entry['txt'], 'Probe precedence')) {
+                continue;
             }
+
+            $listX = $entry['in_x'];
+            break;
         }
 
         $this->assertNotNull($listX);
@@ -4628,14 +4668,16 @@ class HTMLTest extends TestUtil
 
         $liX = null;
         foreach ($obj->exposeGetBBoxTrace() as $entry) {
-            if (\str_contains((string) $entry['txt'], 'Probe precedence')) {
-                $liX = (float) $entry['in_x'];
-                break;
+            if (!\str_contains($entry['txt'], 'Probe precedence')) {
+                continue;
             }
+
+            $liX = $entry['in_x'];
+            break;
         }
 
         $this->assertNotNull($liX);
-        $this->assertGreaterThan((float) $listX, (float) $liX);
+        $this->assertGreaterThan($listX, $liX);
     }
 
     public function testNestedListDefaultIndentKeepsSameLevelStableAndInnerDeeper(): void
@@ -4644,37 +4686,31 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $obj->exposeResetBBoxTrace();
-        $obj->addHTMLCell(
-            '<ol><li>OUTER_A<ul><li>INNER_B</li></ul></li><li>OUTER_C</li></ol>',
-            20,
-            20,
-            120,
-            0,
-        );
+        $obj->addHTMLCell('<ol><li>OUTER_A<ul><li>INNER_B</li></ul></li><li>OUTER_C</li></ol>', 20, 20, 120, 0);
 
         $outerAX = null;
         $innerBX = null;
         $outerCX = null;
         foreach ($obj->exposeGetBBoxTrace() as $entry) {
-            $txt = (string) $entry['txt'];
-            if (($outerAX === null) && \str_contains($txt, 'OUTER_A')) {
-                $outerAX = (float) $entry['in_x'];
+            $txt = $entry['txt'];
+            if ($outerAX === null && \str_contains($txt, 'OUTER_A')) {
+                $outerAX = $entry['in_x'];
             }
 
-            if (($innerBX === null) && \str_contains($txt, 'INNER_B')) {
-                $innerBX = (float) $entry['in_x'];
+            if ($innerBX === null && \str_contains($txt, 'INNER_B')) {
+                $innerBX = $entry['in_x'];
             }
 
-            if (($outerCX === null) && \str_contains($txt, 'OUTER_C')) {
-                $outerCX = (float) $entry['in_x'];
+            if ($outerCX === null && \str_contains($txt, 'OUTER_C')) {
+                $outerCX = $entry['in_x'];
             }
         }
 
         $this->assertNotNull($outerAX);
         $this->assertNotNull($innerBX);
         $this->assertNotNull($outerCX);
-        $this->assertGreaterThan((float) $outerAX, (float) $innerBX);
-        $this->assertEqualsWithDelta((float) $outerAX, (float) $outerCX, 0.001);
+        $this->assertGreaterThan($outerAX, $innerBX);
+        $this->assertEqualsWithDelta($outerAX, $outerCX, 0.001);
     }
 
     public function testNestedListDepthCssOverrideChangesOnlyTargetDepthIndent(): void
@@ -4684,8 +4720,7 @@ class HTMLTest extends TestUtil
 
         $obj->exposeResetBBoxTrace();
         $obj->addHTMLCell(
-            '<ol style="padding-left:9mm"><li>OUTER_D'
-            . '<ul><li>INNER_E</li></ul></li></ol>',
+            '<ol style="padding-left:9mm"><li>OUTER_D<ul><li>INNER_E</li></ul></li></ol>',
             20,
             20,
             120,
@@ -4695,13 +4730,13 @@ class HTMLTest extends TestUtil
         $outerBaseX = null;
         $innerBaseX = null;
         foreach ($obj->exposeGetBBoxTrace() as $entry) {
-            $txt = (string) $entry['txt'];
-            if (($outerBaseX === null) && \str_contains($txt, 'OUTER_D')) {
-                $outerBaseX = (float) $entry['in_x'];
+            $txt = $entry['txt'];
+            if ($outerBaseX === null && \str_contains($txt, 'OUTER_D')) {
+                $outerBaseX = $entry['in_x'];
             }
 
-            if (($innerBaseX === null) && \str_contains($txt, 'INNER_E')) {
-                $innerBaseX = (float) $entry['in_x'];
+            if ($innerBaseX === null && \str_contains($txt, 'INNER_E')) {
+                $innerBaseX = $entry['in_x'];
             }
         }
 
@@ -4710,8 +4745,7 @@ class HTMLTest extends TestUtil
 
         $obj->exposeResetBBoxTrace();
         $obj->addHTMLCell(
-            '<ol style="padding-left:9mm"><li>OUTER_D'
-            . '<ul style="margin-left:2mm"><li>INNER_E</li></ul></li></ol>',
+            '<ol style="padding-left:9mm"><li>OUTER_D<ul style="margin-left:2mm"><li>INNER_E</li></ul></li></ol>',
             20,
             20,
             120,
@@ -4721,20 +4755,20 @@ class HTMLTest extends TestUtil
         $outerOverrideX = null;
         $innerOverrideX = null;
         foreach ($obj->exposeGetBBoxTrace() as $entry) {
-            $txt = (string) $entry['txt'];
-            if (($outerOverrideX === null) && \str_contains($txt, 'OUTER_D')) {
-                $outerOverrideX = (float) $entry['in_x'];
+            $txt = $entry['txt'];
+            if ($outerOverrideX === null && \str_contains($txt, 'OUTER_D')) {
+                $outerOverrideX = $entry['in_x'];
             }
 
-            if (($innerOverrideX === null) && \str_contains($txt, 'INNER_E')) {
-                $innerOverrideX = (float) $entry['in_x'];
+            if ($innerOverrideX === null && \str_contains($txt, 'INNER_E')) {
+                $innerOverrideX = $entry['in_x'];
             }
         }
 
         $this->assertNotNull($outerOverrideX);
         $this->assertNotNull($innerOverrideX);
-        $this->assertEqualsWithDelta((float) $outerBaseX, (float) $outerOverrideX, 0.001);
-        $this->assertLessThan((float) $innerBaseX, (float) $innerOverrideX);
+        $this->assertEqualsWithDelta($outerBaseX, $outerOverrideX, 0.001);
+        $this->assertLessThan($innerBaseX, $innerOverrideX);
     }
 
     public function testListItemInsideMarkerDoesNotShrinkContentBox(): void
@@ -4768,8 +4802,8 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $this->assertGreaterThan($originx, $tpx);
-        $this->assertSame((float) $before['cellctx']['originx'], (float) $after['cellctx']['originx']);
-        $this->assertSame((float) $before['cellctx']['maxwidth'], (float) $after['cellctx']['maxwidth']);
+        $this->assertSame($before['cellctx']['originx'], $after['cellctx']['originx']);
+        $this->assertSame($before['cellctx']['maxwidth'], $after['cellctx']['maxwidth']);
         $this->assertSame($maxwidth, $tpw);
     }
 
@@ -4804,8 +4838,8 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $this->assertGreaterThan($originx, $tpx);
-        $this->assertGreaterThan((float) $before['cellctx']['originx'], (float) $after['cellctx']['originx']);
-        $this->assertLessThan((float) $before['cellctx']['maxwidth'], (float) $after['cellctx']['maxwidth']);
+        $this->assertGreaterThan($before['cellctx']['originx'], $after['cellctx']['originx']);
+        $this->assertLessThan($before['cellctx']['maxwidth'], $after['cellctx']['maxwidth']);
         $this->assertLessThan($maxwidth, $tpw);
     }
 
@@ -4817,8 +4851,7 @@ class HTMLTest extends TestUtil
         // Render ordered list with marker color style
         // Just verify no errors occur during rendering with marker styles
         $obj->addHTMLCell(
-            '<style>li::marker { color: red; }</style>'
-            . '<ol><li>ITEM_1</li><li>ITEM_2</li></ol>',
+            '<style>li::marker { color: red; }</style><ol><li>ITEM_1</li><li>ITEM_2</li></ol>',
             20,
             20,
             120,
@@ -4827,7 +4860,6 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $obj->getOutPDFString());
     }
-
 
     public function testListItemInsideMarkerUsesSameBulletAnchorAsOutside(): void
     {
@@ -5138,20 +5170,14 @@ class HTMLTest extends TestUtil
 
         $this->assertGreaterThan($outsideAdvance, $insideAdvance);
     }
+
     public function testMarkerColorIsAppliedToDiscMarker(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
         // Create a simple ul with disc marker and marker color style
-        $obj->addHTMLCell(
-            '<style>li::marker { color: #FF0000; }</style>'
-            . '<ul><li>ITEM_1</li></ul>',
-            20,
-            20,
-            120,
-            0,
-        );
+        $obj->addHTMLCell('<style>li::marker { color: #FF0000; }</style><ul><li>ITEM_1</li></ul>', 20, 20, 120, 0);
 
         // Just verify no errors occur during rendering with marker styles
         // (Full PDF color rendering would require inspecting PDF ops, which is complex)
@@ -5195,10 +5221,12 @@ class HTMLTest extends TestUtil
 
         $liNode = null;
         foreach ($dom as $node) {
-            if (($node['value'] ?? '') === 'li' && !empty($node['opening'])) {
-                $liNode = $node;
-                break;
+            if (!(($node['value'] ?? '') === 'li' && !empty($node['opening']))) {
+                continue;
             }
+
+            $liNode = $node;
+            break;
         }
 
         $this->assertNotNull($liNode);
@@ -5220,13 +5248,12 @@ class HTMLTest extends TestUtil
 
         // list-style-image CSS should be accepted and parsed without errors
         // (Full image loading/rendering is deferred to future phases)
-        $listImageDataUri = 'data:image/svg+xml;base64,'
+        $listImageDataUri =
+            'data:image/svg+xml;base64,'
             . 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9Ijgi'
             . 'PjxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSI0IiBmaWxsPSJyZWQiLz48L3N2Zz4=';
         $obj->addHTMLCell(
-            '<ul style="list-style-image: url(' . $listImageDataUri . ')">'
-            . '<li>Custom bullet image</li>'
-            . '</ul>',
+            '<ul style="list-style-image: url(' . $listImageDataUri . ')">' . '<li>Custom bullet image</li>' . '</ul>',
             20,
             20,
             120,
@@ -5241,7 +5268,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $svg = 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci'
+        $svg =
+            'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmci'
             . 'IHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgogIDxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSIzIiBmaWxsPSJyZWQi'
             . 'Lz4KPC9zdmc+';
         $dom = [
@@ -5286,13 +5314,14 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<style>.img-list{list-style-image:url(data:image/svg+xml;base64,PHN2Zz4=);}</style>'
+        $html =
+            '<style>.img-list{list-style-image:url(data:image/svg+xml;base64,PHN2Zz4=);}</style>'
             . '<ul class="img-list"><li>Item</li></ul>';
         $dom = $obj->exposeGetHTMLDOM($html);
 
         $ulKey = -1;
         foreach ($dom as $key => $node) {
-            if (empty($node['opening']) || (($node['value'] ?? '') !== 'ul')) {
+            if (empty($node['opening']) || ($node['value'] ?? '') !== 'ul') {
                 continue;
             }
 
@@ -5310,13 +5339,14 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<style>.list-img-svg{list-style-image:url(data:image/svg+xml;base64,PHN2Zz4=);}</style>'
+        $html =
+            '<style>.list-img-svg{list-style-image:url(data:image/svg+xml;base64,PHN2Zz4=);}</style>'
             . '<ul class="list-img-svg"><li>A<ul class="list-img-svg"><li>B</li></ul></li></ul>';
         $dom = $obj->exposeGetHTMLDOM($html);
 
         $markers = [];
         foreach ($dom as $key => $node) {
-            if (empty($node['opening']) || (($node['value'] ?? '') !== 'ul')) {
+            if (empty($node['opening']) || ($node['value'] ?? '') !== 'ul') {
                 continue;
             }
 
@@ -5389,15 +5419,9 @@ class HTMLTest extends TestUtil
         $page = $this->getObjectProperty($obj, 'page');
         $before = $page->getPageId();
         $region = $page->getRegion();
-        $starty = \max(0.0, ((float) $region['RH']) - 5.0);
+        $starty = \max(0.0, $region['RH'] - 5.0);
 
-        $out = $obj->getHTMLCell(
-            '<div nobr="true"><p>A</p><p>B</p></div>',
-            0,
-            $starty,
-            30,
-            0,
-        );
+        $out = $obj->getHTMLCell('<div nobr="true"><p>A</p><p>B</p></div>', 0, $starty, 30, 0);
 
         $after = $page->getPageId();
 
@@ -5457,13 +5481,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $obj->getHTMLCell(
-            '<input type="file" name="userfile" size="20" />',
-            0,
-            0,
-            40,
-            20,
-        );
+        $obj->getHTMLCell('<input type="file" name="userfile" size="20" />', 0, 0, 40, 20);
 
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
@@ -5473,7 +5491,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('Tx', $last['opt']['ft']);
         $this->assertArrayHasKey('ff', $last['opt']);
         $this->assertIsInt($last['opt']['ff']);
-        $this->assertNotSame(0, ($last['opt']['ff']) & (1 << 20));
+        $this->assertNotSame(0, $last['opt']['ff'] & (1 << 20));
     }
 
     public function testGetHTMLCellRendersMultilineTextareaValue(): void
@@ -5519,13 +5537,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $obj->getHTMLCell(
-            '<label>Notes<textarea value="x"></textarea></label>',
-            0,
-            0,
-            50,
-            20,
-        );
+        $obj->getHTMLCell('<label>Notes<textarea value="x"></textarea></label>', 0, 0, 50, 20);
 
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
@@ -5579,10 +5591,10 @@ class HTMLTest extends TestUtil
         $this->assertSame('Tx', $last['opt']['ft'] ?? '');
         $this->assertSame(5, $last['opt']['maxlen'] ?? null);
         $this->assertIsInt($last['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($last['opt']['ff']) & (1 << 0));
-        $this->assertSame(0, ($last['opt']['ff']) & (1 << 1));
+        $this->assertNotSame(0, $last['opt']['ff'] & 1);
+        $this->assertSame(0, $last['opt']['ff'] & (1 << 1));
         $this->assertIsInt($last['opt']['f'] ?? null);
-        $this->assertNotSame(0, ($last['opt']['f']) & (1 << 6));
+        $this->assertNotSame(0, $last['opt']['f'] & (1 << 6));
     }
 
     public function testGetHTMLCellDisabledFieldClearsRequiredFlagForSelect(): void
@@ -5590,13 +5602,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $obj->getHTMLCell(
-            '<select required disabled><option value="v1">Alpha</option></select>',
-            0,
-            0,
-            60,
-            20,
-        );
+        $obj->getHTMLCell('<select required disabled><option value="v1">Alpha</option></select>', 0, 0, 60, 20);
 
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertIsArray($annotation);
@@ -5605,8 +5611,8 @@ class HTMLTest extends TestUtil
         $select = \end($annotation);
         $this->assertSame('Ch', $select['opt']['ft'] ?? '');
         $this->assertIsInt($select['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($select['opt']['ff']) & (1 << 0));
-        $this->assertSame(0, ($select['opt']['ff']) & (1 << 1));
+        $this->assertNotSame(0, $select['opt']['ff'] & 1);
+        $this->assertSame(0, $select['opt']['ff'] & (1 << 1));
     }
 
     public function testGetHTMLCellMapsReadonlyAndRequiredOnSelectAndTextarea(): void
@@ -5632,15 +5638,15 @@ class HTMLTest extends TestUtil
         $select = $items[0];
         $this->assertSame('Ch', $select['opt']['ft'] ?? '');
         $this->assertIsInt($select['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($select['opt']['ff']) & (1 << 0));
-        $this->assertNotSame(0, ($select['opt']['ff']) & (1 << 1));
+        $this->assertNotSame(0, $select['opt']['ff'] & 1);
+        $this->assertNotSame(0, $select['opt']['ff'] & (1 << 1));
 
         /** @var array{opt: array<string, mixed>} $textarea */
         $textarea = $items[1];
         $this->assertSame('Tx', $textarea['opt']['ft'] ?? '');
         $this->assertSame(3, $textarea['opt']['maxlen'] ?? null);
         $this->assertIsInt($textarea['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($textarea['opt']['ff']) & (1 << 0));
+        $this->assertNotSame(0, $textarea['opt']['ff'] & 1);
     }
 
     public function testGetHTMLCellAppliesTypeDefaultsForEmailAndNumberInputs(): void
@@ -5665,14 +5671,14 @@ class HTMLTest extends TestUtil
         $email = $items[0];
         $this->assertSame('Tx', $email['opt']['ft'] ?? '');
         $this->assertIsInt($email['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($email['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $email['opt']['ff'] & (1 << 22));
 
         /** @var array{opt: array<string, mixed>} $number */
         $number = $items[1];
         $this->assertSame('Tx', $number['opt']['ft'] ?? '');
         $this->assertSame(2, $number['opt']['q'] ?? null);
         $this->assertIsInt($number['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($number['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $number['opt']['ff'] & (1 << 22));
     }
 
     public function testGetHTMLCellDisabledReadonlyKeepsTypeDefaultsOnEmailAndNumberInputs(): void
@@ -5699,13 +5705,13 @@ class HTMLTest extends TestUtil
         $this->assertSame('Tx', $email['opt']['ft'] ?? '');
         $this->assertIsInt($email['opt']['ff'] ?? null);
         // readonly field flag
-        $this->assertNotSame(0, ($email['opt']['ff']) & (1 << 0));
+        $this->assertNotSame(0, $email['opt']['ff'] & 1);
         // required must be cleared when disabled
-        $this->assertSame(0, ($email['opt']['ff']) & (1 << 1));
+        $this->assertSame(0, $email['opt']['ff'] & (1 << 1));
         // doNotSpellCheck type default remains applied
-        $this->assertNotSame(0, ($email['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $email['opt']['ff'] & (1 << 22));
         $this->assertIsInt($email['opt']['f'] ?? null);
-        $this->assertNotSame(0, ($email['opt']['f']) & (1 << 6));
+        $this->assertNotSame(0, $email['opt']['f'] & (1 << 6));
 
         /** @var array{opt: array<string, mixed>} $number */
         $number = $items[1];
@@ -5713,11 +5719,11 @@ class HTMLTest extends TestUtil
         // number alignment default remains applied while readonly/disabled
         $this->assertSame(2, $number['opt']['q'] ?? null);
         $this->assertIsInt($number['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($number['opt']['ff']) & (1 << 0));
-        $this->assertSame(0, ($number['opt']['ff']) & (1 << 1));
-        $this->assertNotSame(0, ($number['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $number['opt']['ff'] & 1);
+        $this->assertSame(0, $number['opt']['ff'] & (1 << 1));
+        $this->assertNotSame(0, $number['opt']['ff'] & (1 << 22));
         $this->assertIsInt($number['opt']['f'] ?? null);
-        $this->assertNotSame(0, ($number['opt']['f']) & (1 << 6));
+        $this->assertNotSame(0, $number['opt']['f'] & (1 << 6));
     }
 
     public function testGetHTMLCellAppliesTypeDefaultsForDateAndTelWithDisabledRequiredHandling(): void
@@ -5743,17 +5749,17 @@ class HTMLTest extends TestUtil
         $date = $items[0];
         $this->assertSame('Tx', $date['opt']['ft'] ?? '');
         $this->assertIsInt($date['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($date['opt']['ff']) & (1 << 0));
-        $this->assertSame(0, ($date['opt']['ff']) & (1 << 1));
-        $this->assertNotSame(0, ($date['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $date['opt']['ff'] & 1);
+        $this->assertSame(0, $date['opt']['ff'] & (1 << 1));
+        $this->assertNotSame(0, $date['opt']['ff'] & (1 << 22));
 
         /** @var array{opt: array<string, mixed>} $tel */
         $tel = $items[1];
         $this->assertSame('Tx', $tel['opt']['ft'] ?? '');
         $this->assertIsInt($tel['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($tel['opt']['ff']) & (1 << 0));
-        $this->assertNotSame(0, ($tel['opt']['ff']) & (1 << 1));
-        $this->assertNotSame(0, ($tel['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $tel['opt']['ff'] & 1);
+        $this->assertNotSame(0, $tel['opt']['ff'] & (1 << 1));
+        $this->assertNotSame(0, $tel['opt']['ff'] & (1 << 22));
     }
 
     public function testGetHTMLCellAppliesTypeDefaultsForUrlWithDisabledAndReadonlyHandling(): void
@@ -5779,17 +5785,17 @@ class HTMLTest extends TestUtil
         $disabledUrl = $items[0];
         $this->assertSame('Tx', $disabledUrl['opt']['ft'] ?? '');
         $this->assertIsInt($disabledUrl['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($disabledUrl['opt']['ff']) & (1 << 0));
-        $this->assertSame(0, ($disabledUrl['opt']['ff']) & (1 << 1));
-        $this->assertNotSame(0, ($disabledUrl['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $disabledUrl['opt']['ff'] & 1);
+        $this->assertSame(0, $disabledUrl['opt']['ff'] & (1 << 1));
+        $this->assertNotSame(0, $disabledUrl['opt']['ff'] & (1 << 22));
 
         /** @var array{opt: array<string, mixed>} $readonlyUrl */
         $readonlyUrl = $items[1];
         $this->assertSame('Tx', $readonlyUrl['opt']['ft'] ?? '');
         $this->assertIsInt($readonlyUrl['opt']['ff'] ?? null);
-        $this->assertNotSame(0, ($readonlyUrl['opt']['ff']) & (1 << 0));
-        $this->assertNotSame(0, ($readonlyUrl['opt']['ff']) & (1 << 1));
-        $this->assertNotSame(0, ($readonlyUrl['opt']['ff']) & (1 << 22));
+        $this->assertNotSame(0, $readonlyUrl['opt']['ff'] & 1);
+        $this->assertNotSame(0, $readonlyUrl['opt']['ff'] & (1 << 1));
+        $this->assertNotSame(0, $readonlyUrl['opt']['ff'] & (1 << 22));
     }
 
     /**
@@ -5808,7 +5814,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('Ch', $last['opt']['ft'] ?? '');
         /** @var list<string|list<string>> $opts */
         $opts = (array) ($last['opt']['opt'] ?? []);
-        return \array_map(static fn ($item) => \is_array($item) ? (string) $item[1] : (string) $item, $opts);
+        return \array_map(static fn($item) => \is_array($item) ? (string) $item[1] : $item, $opts);
     }
 
     /**
@@ -5959,13 +5965,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $obj->getHTMLCell(
-            '<select><option>Alpha</option><option selected>Beta</option></select>',
-            0,
-            0,
-            40,
-            20,
-        );
+        $obj->getHTMLCell('<select><option>Alpha</option><option selected>Beta</option></select>', 0, 0, 40, 20);
 
         $labels = $this->getLastComboBoxLabels($obj);
         $this->assertContains('Beta', $labels);
@@ -5977,13 +5977,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $obj->getHTMLCell(
-            '<select><option>Alpha</option><option selected="true">Beta</option></select>',
-            0,
-            0,
-            40,
-            20,
-        );
+        $obj->getHTMLCell('<select><option>Alpha</option><option selected="true">Beta</option></select>', 0, 0, 40, 20);
 
         $labels = $this->getLastComboBoxLabels($obj);
         $this->assertContains('Beta', $labels);
@@ -6013,13 +6007,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $obj->getHTMLCell(
-            '<select><option>Alpha</option><option SELECTED>Beta</option></select>',
-            0,
-            0,
-            40,
-            20,
-        );
+        $obj->getHTMLCell('<select><option>Alpha</option><option SELECTED>Beta</option></select>', 0, 0, 40, 20);
 
         $labels = $this->getLastComboBoxLabels($obj);
         $this->assertContains('Beta', $labels);
@@ -6113,7 +6101,7 @@ class HTMLTest extends TestUtil
             0,
             0,
             20,
-            10
+            10,
         );
 
         $this->assertNotSame('', $out);
@@ -6150,11 +6138,7 @@ class HTMLTest extends TestUtil
         $matches = [];
         \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+s/', $out, $matches, PREG_SET_ORDER);
         $this->assertGreaterThanOrEqual(2, \count($matches));
-        $this->assertEqualsWithDelta(
-            \abs((float) $matches[0][4]),
-            \abs((float) $matches[1][4]),
-            0.0001,
-        );
+        $this->assertEqualsWithDelta(\abs((float) $matches[0][4]), \abs((float) $matches[1][4]), 0.0001);
     }
 
     public function testGetHTMLCellRendersTableWithRowspanContent(): void
@@ -6163,10 +6147,7 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
 
         $out = $obj->getHTMLCell(
-            '<table>'
-            . '<tr><td rowspan="2">A</td><td>Top</td></tr>'
-            . '<tr><td>Bottom</td></tr>'
-            . '</table>',
+            '<table><tr><td rowspan="2">A</td><td>Top</td></tr><tr><td>Bottom</td></tr></table>',
             0,
             0,
             30,
@@ -6201,10 +6182,7 @@ class HTMLTest extends TestUtil
         \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+s/', $out, $matches, PREG_SET_ORDER);
         $this->assertGreaterThanOrEqual(3, \count($matches));
 
-        $heights = \array_map(
-            static fn(array $match): float => \abs((float) $match[4]),
-            $matches,
-        );
+        $heights = \array_map(static fn(array $match): float => \abs((float) $match[4]), $matches);
         \rsort($heights);
 
         $this->assertGreaterThan($heights[1], $heights[0]);
@@ -6233,10 +6211,7 @@ class HTMLTest extends TestUtil
         \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\\s+s/', $out, $matches, PREG_SET_ORDER);
         $this->assertGreaterThanOrEqual(3, \count($matches));
 
-        $heights = \array_map(
-            static fn(array $match): float => \abs((float) $match[4]),
-            $matches,
-        );
+        $heights = \array_map(static fn(array $match): float => \abs((float) $match[4]), $matches);
         \rsort($heights);
 
         $this->assertGreaterThan(
@@ -6268,10 +6243,7 @@ class HTMLTest extends TestUtil
         \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\s+s/', $out, $matches, PREG_SET_ORDER);
         $this->assertGreaterThanOrEqual(3, \count($matches));
 
-        $heights = \array_map(
-            static fn(array $match): float => \abs((float) $match[4]),
-            $matches,
-        );
+        $heights = \array_map(static fn(array $match): float => \abs((float) $match[4]), $matches);
         \rsort($heights);
 
         $this->assertGreaterThan(
@@ -6355,7 +6327,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<table style="caption-side:bottom;border:1px solid #000" cellspacing="0" cellpadding="1">'
+        $html =
+            '<table style="caption-side:bottom;border:1px solid #000" cellspacing="0" cellpadding="1">'
             . '<caption>CAPTION-BOTTOM</caption>'
             . '<tr><td>ROW-CELL</td></tr>'
             . '</table>';
@@ -6379,7 +6352,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<table style="caption-side:top;border:1px solid #000" cellspacing="0" cellpadding="1">'
+        $html =
+            '<table style="caption-side:top;border:1px solid #000" cellspacing="0" cellpadding="1">'
             . '<caption>CAPTION-TOP</caption>'
             . '<tr><td>ROW-CELL</td></tr>'
             . '</table>';
@@ -6403,7 +6377,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<small color="#ff0000" bgcolor="#ffff00">small small small small small small small'
+        $html =
+            '<small color="#ff0000" bgcolor="#ffff00">small small small small small small small'
             . ' small small small small small small small small small small small small small</small>';
 
         $extractFillSpan = static function (string $out): float {
@@ -6453,7 +6428,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<small color="#ff0000" bgcolor="#ffff00">'
+        $html =
+            '<small color="#ff0000" bgcolor="#ffff00">'
             . 'small small small small small small small small small small small small'
             . '</small>';
 
@@ -6554,13 +6530,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        $out = $obj->getHTMLCell(
-            '<table><thead><tr><th>H</th></tr></thead><tr><td>T</td></tr></table>',
-            0,
-            0,
-            30,
-            20,
-        );
+        $out = $obj->getHTMLCell('<table><thead><tr><th>H</th></tr></thead><tr><td>T</td></tr></table>', 0, 0, 30, 20);
 
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('H', $out);
@@ -6648,12 +6618,10 @@ class HTMLTest extends TestUtil
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
         $region = $page->getRegion();
-        $starty = \max(0.0, ((float) $region['RH']) - 10.0);
+        $starty = \max(0.0, $region['RH'] - 10.0);
 
         $out = $obj->getHTMLCell(
-            '<table><thead><tr><th>H</th></tr></thead>'
-            . '<tr><td>Tall</td></tr>'
-            . '<tr><td>Next</td></tr></table>',
+            '<table><thead><tr><th>H</th></tr></thead><tr><td>Tall</td></tr><tr><td>Next</td></tr></table>',
             0,
             $starty,
             30,
@@ -6682,12 +6650,10 @@ class HTMLTest extends TestUtil
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
         $region = $page->getRegion();
-        $starty = \max(0.0, ((float) $region['RH']) - 5.0);
+        $starty = \max(0.0, $region['RH'] - 5.0);
 
         $out = $obj->getHTMLCell(
-            '<table cellpadding="6">'
-            . '<thead><tr><th>HDR</th></tr></thead>'
-            . '<tr><td>BODY</td></tr></table>',
+            '<table cellpadding="6"><thead><tr><th>HDR</th></tr></thead><tr><td>BODY</td></tr></table>',
             0,
             $starty,
             30,
@@ -6743,20 +6709,22 @@ class HTMLTest extends TestUtil
 
         $domObj = $this->getInternalTestObject();
         $this->initFontAndPage($domObj);
-        $dom = $domObj->exposeGetHTMLDOM(
-            '<table><tr><td width="160">Wide</td><td>Narrow</td></tr></table>',
-        );
+        $dom = $domObj->exposeGetHTMLDOM('<table><tr><td width="160">Wide</td><td>Narrow</td></tr></table>');
 
         $tdWidths = [];
         foreach ($dom as $elm) {
             if (
-                !empty($elm['opening'])
-                && (($elm['value'] ?? '') === 'td')
-                && isset($elm['width'])
-                && \is_numeric($elm['width'])
+                !(
+                    !empty($elm['opening'])
+                    && ($elm['value'] ?? '') === 'td'
+                    && isset($elm['width'])
+                    && \is_numeric($elm['width'])
+                )
             ) {
-                $tdWidths[] = (float) $elm['width'];
+                continue;
             }
+
+            $tdWidths[] = $elm['width'];
         }
 
         $this->assertNotSame('', $out);
@@ -7098,10 +7066,7 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $topOut);
         $this->assertNotSame('', $bottomOut);
 
-        $this->assertSame(
-            0,
-            \preg_match('/1 0 0 1 0 -[0-9.]+ cm\n.*?\(A\) Tj/s', $topOut),
-        );
+        $this->assertSame(0, \preg_match('/1 0 0 1 0 -[0-9.]+ cm\n.*?\(A\) Tj/s', $topOut));
         $this->assertSame(
             1,
             \preg_match('/1 0 0 1 0 -[0-9.]+ cm\n.*?\(A\) Tj/s', $bottomOut),
@@ -7205,14 +7170,8 @@ class HTMLTest extends TestUtil
 
         $middleMatch = [];
         $bottomMatch = [];
-        $this->assertSame(
-            1,
-            \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $middleOut, $middleMatch),
-        );
-        $this->assertSame(
-            1,
-            \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $bottomOut, $bottomMatch),
-        );
+        $this->assertSame(1, \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $middleOut, $middleMatch));
+        $this->assertSame(1, \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $bottomOut, $bottomMatch));
 
         $middleOffset = \abs((float) $middleMatch[1]);
         $bottomOffset = \abs((float) $bottomMatch[1]);
@@ -7271,14 +7230,8 @@ class HTMLTest extends TestUtil
 
         $middleMatch = [];
         $bottomMatch = [];
-        $this->assertSame(
-            1,
-            \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $middleOut, $middleMatch),
-        );
-        $this->assertSame(
-            1,
-            \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $bottomOut, $bottomMatch),
-        );
+        $this->assertSame(1, \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $middleOut, $middleMatch));
+        $this->assertSame(1, \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $bottomOut, $bottomMatch));
 
         $middleOffset = \abs((float) $middleMatch[1]);
         $bottomOffset = \abs((float) $bottomMatch[1]);
@@ -7320,14 +7273,8 @@ class HTMLTest extends TestUtil
 
         $middleMatch = [];
         $bottomMatch = [];
-        $this->assertSame(
-            1,
-            \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $cssMiddleOut, $middleMatch),
-        );
-        $this->assertSame(
-            1,
-            \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $attrBottomOut, $bottomMatch),
-        );
+        $this->assertSame(1, \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $cssMiddleOut, $middleMatch));
+        $this->assertSame(1, \preg_match('/1 0 0 1 0 (-[0-9.]+) cm\n.*?\(A\) Tj/s', $attrBottomOut, $bottomMatch));
 
         $middleOffset = \abs((float) $middleMatch[1]);
         $bottomOffset = \abs((float) $bottomMatch[1]);
@@ -7367,10 +7314,7 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $topOut);
         $this->assertNotSame('', $bottomOut);
 
-        $this->assertSame(
-            0,
-            \preg_match('/1 0 0 1 0 -[0-9.]+ cm\\n.*?\\(A\\) Tj/s', $topOut),
-        );
+        $this->assertSame(0, \preg_match('/1 0 0 1 0 -[0-9.]+ cm\\n.*?\\(A\\) Tj/s', $topOut));
         $this->assertSame(
             1,
             \preg_match('/1 0 0 1 0 -[0-9.]+ cm\\n.*?\\(A\\) Tj/s', $bottomOut),
@@ -7394,12 +7338,7 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $matches = [];
-        \preg_match_all(
-            '/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\s+s/',
-            $out,
-            $matches,
-            PREG_SET_ORDER,
-        );
+        \preg_match_all('/(-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) (-?[0-9.]+) re\s+s/', $out, $matches, PREG_SET_ORDER);
         $this->assertCount(
             1,
             $matches,
@@ -9803,8 +9742,11 @@ class HTMLTest extends TestUtil
     public function testSanitizeHTMLNormalizesSelectTextareaAndImgBlocks(): void
     {
         $obj = $this->getInternalTestObject();
-        $html = '<select><option value="v1">Alpha</option><option>Beta</option></select>'
-            . '<textarea>x"y' . "\n" . 'z</textarea><img src="a.png"> tail';
+        $html =
+            '<select><option value="v1">Alpha</option><option>Beta</option></select>'
+            . '<textarea>x"y'
+            . "\n"
+            . 'z</textarea><img src="a.png"> tail';
 
         $out = $obj->exposeSanitizeHTML($html);
 
@@ -9864,10 +9806,12 @@ class HTMLTest extends TestUtil
 
         $input = null;
         foreach ($dom as $node) {
-            if (($node['value'] ?? '') === 'input' && !empty($node['opening'])) {
-                $input = $node;
-                break;
+            if (!(($node['value'] ?? '') === 'input' && !empty($node['opening']))) {
+                continue;
             }
+
+            $input = $node;
+            break;
         }
 
         $this->assertIsArray($input);
@@ -10090,17 +10034,18 @@ class HTMLTest extends TestUtil
                 'fontsize' => 10.0,
                 'fontstyle' => 'B',
                 'attribute' => [
-                    'style' => 'direction:rtl;display:none;font-family:helvetica;list-style-type:inherit;'
-                        . 'text-indent:3mm;text-transform:capitalize;font-size:12;font-stretch:120;'
-                        . 'letter-spacing:0.2;line-height:2;font-weight:normal;font-style:italic;'
-                        . 'color:red;background-color:#00ff00;text-decoration:underline line-through overline;'
-                        . 'width:20;height:10;text-align:right;padding:1 2 3 4;margin:1 2 3 4;'
-                        . 'border:1 solid black;border-color:red green blue black;border-width:1 2 3 4;'
-                        . 'border-style:solid dashed dotted double;padding-left:1;padding-right:2;'
-                        . 'padding-top:3;padding-bottom:4;margin-left:auto;margin-right:2;'
-                        . 'margin-top:1;margin-bottom:3;border-left:1 solid #111;border-right:2 dashed #222;'
-                        . 'border-top:3 dotted #333;border-bottom:4 double #444;border-spacing:2;'
-                        . 'page-break-inside:avoid;page-break-before:left;page-break-after:right;',
+                    'style' =>
+                        'direction:rtl;display:none;font-family:helvetica;list-style-type:inherit;'
+                            . 'text-indent:3mm;text-transform:capitalize;font-size:12;font-stretch:120;'
+                            . 'letter-spacing:0.2;line-height:2;font-weight:normal;font-style:italic;'
+                            . 'color:red;background-color:#00ff00;text-decoration:underline line-through overline;'
+                            . 'width:20;height:10;text-align:right;padding:1 2 3 4;margin:1 2 3 4;'
+                            . 'border:1 solid black;border-color:red green blue black;border-width:1 2 3 4;'
+                            . 'border-style:solid dashed dotted double;padding-left:1;padding-right:2;'
+                            . 'padding-top:3;padding-bottom:4;margin-left:auto;margin-right:2;'
+                            . 'margin-top:1;margin-bottom:3;border-left:1 solid #111;border-right:2 dashed #222;'
+                            . 'border-top:3 dotted #333;border-bottom:4 double #444;border-spacing:2;'
+                            . 'page-break-inside:avoid;page-break-before:left;page-break-after:right;',
                 ],
             ]),
         ];
@@ -10149,11 +10094,7 @@ class HTMLTest extends TestUtil
         $borderSpacing = \array_replace(['H' => 0.0, 'V' => 0.0], $dom[1]['border-spacing'] ?? []);
 
         $this->assertGreaterThan(0.0, $borderSpacing['H']);
-        $this->assertEqualsWithDelta(
-            $borderSpacing['H'] * 2.0,
-            $borderSpacing['V'],
-            0.0001,
-        );
+        $this->assertEqualsWithDelta($borderSpacing['H'] * 2.0, $borderSpacing['V'], 0.0001);
     }
 
     public function testParseHTMLStyleAttributesBorderSpacingInheritApplied(): void
@@ -10267,7 +10208,10 @@ class HTMLTest extends TestUtil
 
         $dom = [
             0 => \array_replace($root, [
-                'value' => 'root', 'elkey' => 0, 'parent' => 0, 'thead' => '<tr nobr="true"></tr>'
+                'value' => 'root',
+                'elkey' => 0,
+                'parent' => 0,
+                'thead' => '<tr nobr="true"></tr>',
             ]),
             1 => \array_replace($root, ['value' => 'table', 'elkey' => 1, 'parent' => 0]),
         ];
@@ -10290,14 +10234,7 @@ class HTMLTest extends TestUtil
             1 => \array_replace($root, ['parent' => 0, 'value' => 'img']),
         ];
 
-        $obj->exposeProcessHTMLDOMOpeningTag(
-            $dom,
-            ['0010 *' => 'color:red;'],
-            [0],
-            '<img src="x" />',
-            1,
-            false,
-        );
+        $obj->exposeProcessHTMLDOMOpeningTag($dom, ['0010 *' => 'color:red;'], [0], '<img src="x" />', 1, false);
 
         $this->assertTrue($dom[1]['self']);
         $attr = $dom[1]['attribute'];
@@ -10361,7 +10298,6 @@ class HTMLTest extends TestUtil
         $this->assertSame('Hello', $dom[2]['value']);
     }
 
-
     public function testParseHTMLStyleAttributesKeepsRawFontFamilyValue(): void
     {
         $obj = $this->getTestObject();
@@ -10402,6 +10338,7 @@ class HTMLTest extends TestUtil
 
         $this->assertSame('times, serif', $dom[1]['fontname']);
     }
+
     public function testGetHTMLliBulletNoneAndCustomImageTypeBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -10474,7 +10411,7 @@ class HTMLTest extends TestUtil
         /** @var array<string, mixed> $font */
         $font = $fontstack->getCurrentFont();
         $ascent = \is_numeric($font['ascent'] ?? null) ? (float) $font['ascent'] : 0.0;
-        $pageHeightRaw = \is_numeric($page['height'] ?? null) ? (float) $page['height'] : 0.0;
+        $pageHeightRaw = \is_numeric($page['height'] ?? null) ? $page['height'] : 0.0;
         $fontHeight = \is_numeric($font['height'] ?? null) ? (float) $font['height'] : 0.0;
         $fontSizeRaw = \is_numeric($font['usize'] ?? null) ? (float) $font['usize'] : 0.0;
 
@@ -10492,12 +10429,8 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($pageHeight - ($fontHeight / 2), (float) $circleMatch[1], 0.001);
 
         $squareOut = $obj->exposeGetHTMLliBullet(1, 2, 0, $baseline, 'square');
-        $squarePattern = '/\\n-?\\d+\\.\\d+\\s+(-?\\d+\\.\\d+)\\s+'
-            . '-?\\d+\\.\\d+\\s+-?\\d+\\.\\d+\\s+re\\n/';
-        $this->assertSame(
-            1,
-            \preg_match($squarePattern, $squareOut, $squareMatch),
-        );
+        $squarePattern = '/\\n-?\\d+\\.\\d+\\s+(-?\\d+\\.\\d+)\\s+-?\\d+\\.\\d+\\s+-?\\d+\\.\\d+\\s+re\\n/';
+        $this->assertSame(1, \preg_match($squarePattern, $squareOut, $squareMatch));
         $squareTop = ($fontHeight - ($sizePt / 2)) / 2;
         $this->assertEqualsWithDelta($pageHeight - $squareTop, (float) $squareMatch[1], 0.001);
     }
@@ -10524,7 +10457,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<img src="x" style="display:none" />'
+        $html =
+            '<img src="x" style="display:none" />'
             . '<div style="display:none"><span>skip</span></div>'
             . '<p style="page-break-before:right">R</p>'
             . '<p style="page-break-before:always">A</p>';
@@ -10542,9 +10476,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<p style="page-break-after:right">R</p>'
-            . '<p style="page-break-after:always">A</p>'
-            . '<p>Z</p>';
+        $html = '<p style="page-break-after:right">R</p><p style="page-break-after:always">A</p><p>Z</p>';
 
         $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
 
@@ -10561,8 +10493,7 @@ class HTMLTest extends TestUtil
 
         $before = $obj->exposePageBreak();
 
-        $html = '<img alt="x" style="page-break-after:always" />'
-            . '<p>AfterBreak</p>';
+        $html = '<img alt="x" style="page-break-after:always" /><p>AfterBreak</p>';
 
         $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
 
@@ -10578,8 +10509,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<tcpdf method="pagebreak" />'
-            . '<p>AfterBreak</p>';
+        $html = '<tcpdf method="pagebreak" /><p>AfterBreak</p>';
 
         $out = $obj->getHTMLCell($html, 0, 0, 20, 6);
 
@@ -10753,7 +10683,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $html = '<style>#selectors li:first-child{color:#0a7a0a;}#selectors li:last-child{color:#aa2222;}</style>'
+        $html =
+            '<style>#selectors li:first-child{color:#0a7a0a;}#selectors li:last-child{color:#aa2222;}</style>'
             . '<div id="selectors"><ul>'
             . '<li>First item styled by :first-child</li>'
             . '<li>Middle item</li>'
@@ -10824,7 +10755,7 @@ class HTMLTest extends TestUtil
         string $name,
         string $selector,
         int $node,
-        bool $expected
+        bool $expected,
     ): void {
         $obj = $this->getInternalTestObject();
         $dom = $this->getSelectorAttributePseudoEdgeCaseDom();
@@ -10837,9 +10768,7 @@ class HTMLTest extends TestUtil
     /** @return array<string, array{0: string, 1: string, 2: int, 3: bool}> */
     public static function selectorAttributePseudoEdgeCaseProvider(): array
     {
-        $json = (string) \file_get_contents(
-            __DIR__ . '/fixtures/css/selectors/attribute_pseudo_edge_cases.json',
-        );
+        $json = (string) \file_get_contents(__DIR__ . '/fixtures/css/selectors/attribute_pseudo_edge_cases.json');
         /** @var array<int, array{name: string, selector: string, node: int, expected: bool}>|null $rows */
         $rows = \json_decode($json, true);
         if (!\is_array($rows)) {
@@ -11028,7 +10957,8 @@ class HTMLTest extends TestUtil
     public function testSanitizeHTMLAcceptsSingleQuotedAndUnquotedSelectOptionAttributes(): void
     {
         $obj = $this->getInternalTestObject();
-        $html = "<select><optgroup label='Group A'><option value=v1 selected>Alpha</option>"
+        $html =
+            "<select><optgroup label='Group A'><option value=v1 selected>Alpha</option>"
             . "<option value='v2'>Beta</option></optgroup></select>";
 
         $out = $obj->exposeSanitizeHTML($html);
@@ -11250,13 +11180,14 @@ class HTMLTest extends TestUtil
                 'fontsize' => 0.0,
                 'fontstyle' => '',
                 'attribute' => [
-                    'style' => 'line-height:12pt;page-break-before:avoid;page-break-after:left;'
-                        . 'border-style:none none none hidden;'
-                        . 'border-left-color:#111;border-right-color:#222;'
-                        . 'border-top-color:#333;border-bottom-color:#444;'
-                        . 'border-left-width:1;border-right-width:2;border-top-width:3;border-bottom-width:4;'
-                        . 'border-left-style:dashed;border-right-style:dotted;'
-                        . 'border-top-style:solid;border-bottom-style:double;',
+                    'style' =>
+                        'line-height:12pt;page-break-before:avoid;page-break-after:left;'
+                            . 'border-style:none none none hidden;'
+                            . 'border-left-color:#111;border-right-color:#222;'
+                            . 'border-top-color:#333;border-bottom-color:#444;'
+                            . 'border-left-width:1;border-right-width:2;border-top-width:3;border-bottom-width:4;'
+                            . 'border-left-style:dashed;border-right-style:dotted;'
+                            . 'border-top-style:solid;border-bottom-style:double;',
                 ],
             ]),
             2 => $this->makeHtmlNode([
@@ -11537,10 +11468,8 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $dom = $obj->exposeGetHTMLDOM(
-            '<table><caption>Cap</caption><colgroup><col span="1"></colgroup>'
-            . '<tfoot><tr><td>Foot</td></tr></tfoot></table>',
-        );
+        $dom = $obj->exposeGetHTMLDOM('<table><caption>Cap</caption><colgroup><col span="1"></colgroup>'
+        . '<tfoot><tr><td>Foot</td></tr></tfoot></table>');
 
         $values = \array_column($dom, 'value');
         $this->assertContains('caption', $values);
@@ -11592,15 +11521,12 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $dom = $obj->exposeGetHTMLDOM(
-            '<table><colgroup span="2" width="80"></colgroup>'
-            . '<tr><td>A</td><td>B</td></tr></table>',
-        );
+        $dom = $obj->exposeGetHTMLDOM('<table><colgroup span="2" width="80"></colgroup>'
+        . '<tr><td>A</td><td>B</td></tr></table>');
 
         /** @var THTMLAttrib $group */
         $group = $dom[2];
-        $groupWidth = isset($group['width']) && \is_numeric($group['width'])
-            ? (float) $group['width'] : 0.0;
+        $groupWidth = isset($group['width']) && \is_numeric($group['width']) ? $group['width'] : 0.0;
 
         $widths = $obj->exposeComputeHTMLTableColWidths($dom, 1, 2, 100.0);
 
@@ -11623,13 +11549,17 @@ class HTMLTest extends TestUtil
         $colWidths = [];
         foreach ($dom as $elm) {
             if (
-                !empty($elm['opening'])
-                && (($elm['value'] ?? '') === 'col')
-                && isset($elm['width'])
-                && \is_numeric($elm['width'])
+                !(
+                    !empty($elm['opening'])
+                    && ($elm['value'] ?? '') === 'col'
+                    && isset($elm['width'])
+                    && \is_numeric($elm['width'])
+                )
             ) {
-                $colWidths[] = (float) $elm['width'];
+                continue;
             }
+
+            $colWidths[] = $elm['width'];
         }
 
         $widths = $obj->exposeComputeHTMLTableColWidths($dom, 1, 3, 120.0);
@@ -11646,30 +11576,28 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        $dom = $obj->exposeGetHTMLDOM(
-            '<table><colgroup><col width="20"><col width="20"></colgroup>'
-            . '<tr><td width="60">A</td><td>B</td></tr></table>',
-        );
+        $dom = $obj->exposeGetHTMLDOM('<table><colgroup><col width="20"><col width="20"></colgroup>'
+        . '<tr><td width="60">A</td><td>B</td></tr></table>');
 
         $colWidths = [];
         $tdWidths = [];
         foreach ($dom as $elm) {
             if (
                 !empty($elm['opening'])
-                && (($elm['value'] ?? '') === 'col')
+                && ($elm['value'] ?? '') === 'col'
                 && isset($elm['width'])
                 && \is_numeric($elm['width'])
             ) {
-                $colWidths[] = (float) $elm['width'];
+                $colWidths[] = $elm['width'];
             }
 
             if (
                 !empty($elm['opening'])
-                && (($elm['value'] ?? '') === 'td')
+                && ($elm['value'] ?? '') === 'td'
                 && isset($elm['width'])
                 && \is_numeric($elm['width'])
             ) {
-                $tdWidths[] = (float) $elm['width'];
+                $tdWidths[] = $elm['width'];
             }
         }
 
@@ -11740,8 +11668,9 @@ class HTMLTest extends TestUtil
                 'parent' => 0,
                 'fontsize' => 10.0,
                 'attribute' => [
-                    'style' => 'border-left:1 solid red;border-right:2 dashed blue;'
-                        . 'border-top:3 dotted green;border-bottom:4 double black;',
+                    'style' =>
+                        'border-left:1 solid red;border-right:2 dashed blue;'
+                            . 'border-top:3 dotted green;border-bottom:4 double black;',
                 ],
             ]),
         ];
@@ -12038,16 +11967,15 @@ class HTMLTest extends TestUtil
             $font = $this->getObjectProperty($obj, 'font');
             /** @var int $pon */
             $pon = $this->getObjectProperty($obj, 'pon');
-            $fontfile = (string) \realpath(
-                __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/cid0/cid0jp.json'
-            );
+            $fontfile = (string) \realpath(__DIR__
+            . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/cid0/cid0jp.json');
             if ($fontfile === '') {
                 $this->markTestSkipped('CID0JP font definition is not available.');
             }
             $font->insert($pon, 'cid0jp', '', 10, null, null, $fontfile);
         }
 
-        $count = ($type === 'cjk-ideographic') ? 1 : 3;
+        $count = $type === 'cjk-ideographic' ? 1 : 3;
         $result = $obj->exposeGetHTMLliBullet(1, $count, 0, 0, $type);
 
         $this->assertNotSame('', $result);
@@ -12329,9 +12257,9 @@ class HTMLTest extends TestUtil
         $this->assertSame('C', $trace[2]['txt']);
 
         // Small fragments on the same line must align to the same baseline offset.
-        $this->assertEqualsWithDelta((float) $trace[0]['bbox_y'], (float) $trace[2]['bbox_y'], 1e-9);
+        $this->assertEqualsWithDelta($trace[0]['bbox_y'], $trace[2]['bbox_y'], 1e-9);
         // The larger fragment sits higher while sharing the same baseline.
-        $this->assertGreaterThan((float) $trace[1]['bbox_y'], (float) $trace[0]['bbox_y']);
+        $this->assertGreaterThan($trace[1]['bbox_y'], $trace[0]['bbox_y']);
     }
 
     // --- Fix tests: <hr> width/height ---
@@ -12398,13 +12326,7 @@ class HTMLTest extends TestUtil
         );
         $obj2 = $this->getTestObject();
         $this->initFontAndPage($obj2);
-        $outTop = $obj2->getHTMLCell(
-            '<img src="' . $b64src . '" width="4" height="4" align="top" />',
-            0,
-            0,
-            40,
-            20,
-        );
+        $outTop = $obj2->getHTMLCell('<img src="' . $b64src . '" width="4" height="4" align="top" />', 0, 0, 40, 20);
 
         $this->assertNotSame('', $outBottom);
         $this->assertNotSame('', $outTop);
@@ -12424,13 +12346,7 @@ class HTMLTest extends TestUtil
         $raw = \ob_get_clean();
         $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
 
-        $out = $obj->getHTMLCell(
-            'left <img src="' . $b64src . '" width="4" height="30" /> right',
-            0,
-            0,
-            80,
-            40,
-        );
+        $out = $obj->getHTMLCell('left <img src="' . $b64src . '" width="4" height="30" /> right', 0, 0, 80, 40);
 
         $this->assertSame(1, \preg_match('/BT .*? [-0-9.]+ ([-0-9.]+) Td \(left \) Tj ET/s', $out, $textMatch));
         $imgPattern = '/q [-0-9.]+ 0 0 [-0-9.]+ [-0-9.]+ ([-0-9.]+) cm \/IMG\d+ Do Q/';
@@ -12458,21 +12374,15 @@ class HTMLTest extends TestUtil
         $obj2 = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj2);
         $obj2->exposeResetBBoxTrace();
-        $obj2->getHTMLCell(
-            'left <img src="' . $b64src . '" width="4" height="30" /> right',
-            0,
-            0,
-            80,
-            40,
-        );
+        $obj2->getHTMLCell('left <img src="' . $b64src . '" width="4" height="30" /> right', 0, 0, 80, 40);
         $imageTrace = $obj2->exposeGetBBoxTrace();
 
         $this->assertCount(1, $plainTrace);
         $this->assertCount(2, $imageTrace);
         $this->assertSame('left ', $imageTrace[0]['txt']);
         $this->assertSame(' right', $imageTrace[1]['txt']);
-        $this->assertGreaterThan((float) $plainTrace[0]['bbox_y'], (float) $imageTrace[0]['bbox_y']);
-        $this->assertEqualsWithDelta((float) $imageTrace[0]['bbox_y'], (float) $imageTrace[1]['bbox_y'], 1e-9);
+        $this->assertGreaterThan((float) $plainTrace[0]['bbox_y'], $imageTrace[0]['bbox_y']);
+        $this->assertEqualsWithDelta($imageTrace[0]['bbox_y'], $imageTrace[1]['bbox_y'], 1e-9);
     }
 
     public function testGetHTMLCellCentersInlineImageRunInsideDiv(): void
@@ -12487,13 +12397,23 @@ class HTMLTest extends TestUtil
         $raw = \ob_get_clean();
         $src = 'data:image/png;base64,' . \base64_encode((string) $raw);
 
-        $htmlCenter = '<div style="text-align:center">'
-            . '<img src="' . $src . '" width="4" height="4" />'
-            . '<img src="' . $src . '" width="4" height="4" />'
+        $htmlCenter =
+            '<div style="text-align:center">'
+            . '<img src="'
+            . $src
+            . '" width="4" height="4" />'
+            . '<img src="'
+            . $src
+            . '" width="4" height="4" />'
             . '</div>';
-        $htmlLeft = '<div style="text-align:left">'
-            . '<img src="' . $src . '" width="4" height="4" />'
-            . '<img src="' . $src . '" width="4" height="4" />'
+        $htmlLeft =
+            '<div style="text-align:left">'
+            . '<img src="'
+            . $src
+            . '" width="4" height="4" />'
+            . '<img src="'
+            . $src
+            . '" width="4" height="4" />'
             . '</div>';
 
         $outCenter = $obj->getHTMLCell($htmlCenter, 0, 0, 40, 20);
@@ -12519,11 +12439,17 @@ class HTMLTest extends TestUtil
         $raw = \ob_get_clean();
         $src = 'data:image/png;base64,' . \base64_encode((string) $raw);
 
-        $htmlCenter = '<table border="1" cellspacing="0" cellpadding="4">'
-            . '<tr><td align="center"><img src="' . $src . '" width="8" height="8" /></td></tr>'
+        $htmlCenter =
+            '<table border="1" cellspacing="0" cellpadding="4">'
+            . '<tr><td align="center"><img src="'
+            . $src
+            . '" width="8" height="8" /></td></tr>'
             . '</table>';
-        $htmlLeft = '<table border="1" cellspacing="0" cellpadding="4">'
-            . '<tr><td align="left"><img src="' . $src . '" width="8" height="8" /></td></tr>'
+        $htmlLeft =
+            '<table border="1" cellspacing="0" cellpadding="4">'
+            . '<tr><td align="left"><img src="'
+            . $src
+            . '" width="8" height="8" /></td></tr>'
             . '</table>';
 
         $outCenter = $obj->getHTMLCell($htmlCenter, 0, 0, 40, 20);
@@ -12544,7 +12470,8 @@ class HTMLTest extends TestUtil
 
         $obj->exposeInitHTMLCellContext(10.0, 10.0, 40.0, 0.0);
 
-        $html = '<div style="text-align:justify;">'
+        $html =
+            '<div style="text-align:justify;">'
             . 'Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> '
             . 'India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i>'
             . '</div>';
@@ -12556,7 +12483,7 @@ class HTMLTest extends TestUtil
                 continue;
             }
 
-            if (\str_starts_with((string) $elm['value'], 'Alfa')) {
+            if (\str_starts_with($elm['value'], 'Alfa')) {
                 $firstTextKey = $key;
                 break;
             }
@@ -12573,7 +12500,7 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $out);
 
         $ctx = $obj->exposeGetHTMLRenderContext();
-        $lineWordSpacing = (float) ($ctx['cellctx']['linewordspacing'] ?? 0.0);
+        $lineWordSpacing = $ctx['cellctx']['linewordspacing'] ?? 0.0;
         $this->assertGreaterThan(0.0, $lineWordSpacing);
 
         $bbox = $obj->getLastBBox();
@@ -12587,7 +12514,8 @@ class HTMLTest extends TestUtil
 
         $obj->exposeInitHTMLCellContext(10.0, 10.0, 40.0, 0.0);
 
-        $html = '<div style="text-align:justify;">'
+        $html =
+            '<div style="text-align:justify;">'
             . 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett '
             . 'Kilo Lima Mike November Oscar Papa Quebec Romeo Sierra Tango'
             . '</div>';
@@ -12599,7 +12527,7 @@ class HTMLTest extends TestUtil
                 continue;
             }
 
-            if (\str_starts_with((string) $elm['value'], 'Alfa')) {
+            if (\str_starts_with($elm['value'], 'Alfa')) {
                 $firstTextKey = $key;
                 break;
             }
@@ -12616,7 +12544,7 @@ class HTMLTest extends TestUtil
         $this->assertNotSame('', $out);
 
         $ctx = $obj->exposeGetHTMLRenderContext();
-        $lineWordSpacing = (float) ($ctx['cellctx']['linewordspacing'] ?? 0.0);
+        $lineWordSpacing = $ctx['cellctx']['linewordspacing'] ?? 0.0;
         $this->assertSame(0.0, $lineWordSpacing);
     }
 
@@ -12626,7 +12554,8 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $obj->exposeResetBBoxTrace();
 
-        $html = '<div style="text-align:justify;">'
+        $html =
+            '<div style="text-align:justify;">'
             . 'Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> '
             . 'India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> Oscar <i>Papa</i> '
             . 'Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> Whiskey <i>Xray</i> '
@@ -12639,9 +12568,11 @@ class HTMLTest extends TestUtil
         $trace = $obj->exposeGetBBoxTrace();
         $line = [];
         foreach ($trace as $row) {
-            if (\abs((float) $row['bbox_y'] - 10.0) < 0.001) {
-                $line[] = $row;
+            if (\abs($row['bbox_y'] - 10.0) >= 0.001) {
+                continue;
             }
+
+            $line[] = $row;
         }
 
         $this->assertGreaterThan(5, \count($line));
@@ -12675,10 +12606,15 @@ class HTMLTest extends TestUtil
         $this->assertNotFalse($logo);
         $this->assertNotFalse($box);
 
-        $html = '<div style="text-align:justify;">'
+        $html =
+            '<div style="text-align:justify;">'
             . 'JUSTIFY: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo '
-            . '<img src="' . $logo . '" alt="TCPDF logo" width="89" height="30" border="0" />'
-            . '<img src="' . $box . '" alt="TCPDF box" width="100" height="67" border="0" /> '
+            . '<img src="'
+            . $logo
+            . '" alt="TCPDF logo" width="89" height="30" border="0" />'
+            . '<img src="'
+            . $box
+            . '" alt="TCPDF box" width="100" height="67" border="0" /> '
             . '<i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
             . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
             . 'Whiskey <i>Xray</i> Yankee <i>Zulu</i>'
@@ -12696,19 +12632,23 @@ class HTMLTest extends TestUtil
 
         $lineY = null;
         foreach ($trace as $row) {
-            if (\trim((string) $row['txt']) === 'India') {
-                $lineY = (float) $row['bbox_y'];
-                break;
+            if (\trim($row['txt']) !== 'India') {
+                continue;
             }
+
+            $lineY = $row['bbox_y'];
+            break;
         }
 
         $this->assertNotNull($lineY);
 
         $secondLine = [];
         foreach ($trace as $row) {
-            if (\abs((float) $row['bbox_y'] - (float) $lineY) < 0.01) {
-                $secondLine[] = $row;
+            if (\abs($row['bbox_y'] - $lineY) >= 0.01) {
+                continue;
             }
+
+            $secondLine[] = $row;
         }
 
         $this->assertGreaterThan(10, \count($secondLine));
@@ -12748,10 +12688,15 @@ class HTMLTest extends TestUtil
         $this->assertNotFalse($logo);
         $this->assertNotFalse($box);
 
-        $html = '<div style="text-align:right;">'
+        $html =
+            '<div style="text-align:right;">'
             . 'RIGHT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo '
-            . '<img src="' . $logo . '" alt="TCPDF logo" width="89" height="30" border="0" />'
-            . '<img src="' . $box . '" alt="TCPDF box" width="100" height="67" border="0" /> '
+            . '<img src="'
+            . $logo
+            . '" alt="TCPDF logo" width="89" height="30" border="0" />'
+            . '<img src="'
+            . $box
+            . '" alt="TCPDF box" width="100" height="67" border="0" /> '
             . '<i>Foxtrot</i> Golf <i>Hotel</i> India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
             . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
             . 'Whiskey <i>Xray</i> Yankee <i>Zulu</i>'
@@ -12769,7 +12714,7 @@ class HTMLTest extends TestUtil
 
         $lines = [];
         foreach ($trace as $row) {
-            $key = \sprintf('%.3F', (float) $row['bbox_y']);
+            $key = \sprintf('%.3F', $row['bbox_y']);
             if (!isset($lines[$key])) {
                 $lines[$key] = [];
             }
@@ -12782,7 +12727,7 @@ class HTMLTest extends TestUtil
         foreach ($lines as $line) {
             $lineRight = 0.0;
             foreach ($line as $row) {
-                $lineRight = \max($lineRight, (float) $row['bbox_x'] + (float) $row['bbox_w']);
+                $lineRight = \max($lineRight, $row['bbox_x'] + $row['bbox_w']);
             }
 
             $this->assertEqualsWithDelta($originX + $cellWidth, $lineRight, 1e-6);
@@ -12790,17 +12735,19 @@ class HTMLTest extends TestUtil
 
         $kiloLineY = null;
         foreach ($trace as $row) {
-            if (\strpos((string) $row['txt'], 'Kilo') !== false) {
-                $kiloLineY = \sprintf('%.3F', (float) $row['bbox_y']);
-                break;
+            if (\strpos($row['txt'], 'Kilo') === false) {
+                continue;
             }
+
+            $kiloLineY = \sprintf('%.3F', $row['bbox_y']);
+            break;
         }
 
         $this->assertNotNull($kiloLineY);
 
         $kiloLineRight = 0.0;
-        foreach ($lines[(string) $kiloLineY] as $row) {
-            $kiloLineRight = \max($kiloLineRight, (float) $row['bbox_x'] + (float) $row['bbox_w']);
+        foreach ($lines[$kiloLineY] as $row) {
+            $kiloLineRight = \max($kiloLineRight, $row['bbox_x'] + $row['bbox_w']);
         }
 
         $this->assertEqualsWithDelta($originX + $cellWidth, $kiloLineRight, 1e-6);
@@ -12815,7 +12762,8 @@ class HTMLTest extends TestUtil
         $obj->page->addContent($bfont['out']);
         $obj->setDefaultCellPadding(2, 2, 2, 2);
 
-        $html = '<div style="text-align:right;">'
+        $html =
+            '<div style="text-align:right;">'
             . 'RIGHT: Alfa <i>Bravo</i> Charlie <i>Delta</i> Echo <i>Foxtrot</i> Golf <i>Hotel</i> '
             . 'India <i>Juliett</i> Kilo <i>Lima</i> Mike <i>November</i> '
             . 'Oscar <i>Papa</i> Quebec <i>Romeo</i> Sierra <i>Tango</i> Uniform <i>Victor</i> '
@@ -12834,7 +12782,7 @@ class HTMLTest extends TestUtil
 
         $lines = [];
         foreach ($trace as $row) {
-            $key = \sprintf('%.3F', (float) $row['bbox_y']);
+            $key = \sprintf('%.3F', $row['bbox_y']);
             if (!isset($lines[$key])) {
                 $lines[$key] = [];
             }
@@ -12843,7 +12791,7 @@ class HTMLTest extends TestUtil
 
         $this->assertCount(2, $lines);
 
-        $rightEdge = ($originX + $cellWidth) - 2.0;
+        $rightEdge = $originX + $cellWidth - 2.0;
         $lineKeys = \array_keys($lines);
         $firstLine = $lines[$lineKeys[0]];
         $secondLine = $lines[$lineKeys[1]];
@@ -12859,13 +12807,15 @@ class HTMLTest extends TestUtil
         $firstLineHasOscar = false;
         $secondStartsPapa = false;
         foreach ($firstLine as $row) {
-            if (\strpos((string) $row['txt'], 'Oscar') !== false) {
-                $firstLineHasOscar = true;
+            if (\strpos($row['txt'], 'Oscar') === false) {
+                continue;
             }
+
+            $firstLineHasOscar = true;
         }
 
         if (isset($secondLine[0])) {
-            $secondStartsPapa = (\strpos((string) $secondLine[0]['txt'], 'Papa') !== false);
+            $secondStartsPapa = \strpos($secondLine[0]['txt'], 'Papa') !== false;
         }
 
         $this->assertTrue($firstLineHasOscar);
@@ -13292,33 +13242,60 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
 
         $this->assertSame('', $obj->exposeGetHTMLInputDisplayValue(['attribute' => 'invalid']));
-        $this->assertSame('', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['type' => 'hidden'],
-        ])));
-        $this->assertSame('[x]', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['type' => 'checkbox', 'checked' => 'checked'],
-        ])));
-        $this->assertSame('[ ]', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['type' => 'radio'],
-        ])));
-        $this->assertSame('***', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['type' => 'password', 'value' => 'abc'],
-        ])));
-        $this->assertSame('Go', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['type' => 'submit', 'value' => 'Go'],
-        ])));
-        $this->assertSame('button', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['type' => 'button'],
-        ])));
-        $this->assertSame('reset', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['type' => 'reset'],
-        ])));
-        $this->assertSame('Filled', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['value' => 'Filled'],
-        ])));
-        $this->assertSame('Hint', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
-            'attribute' => ['placeholder' => 'Hint'],
-        ])));
+        $this->assertSame(
+            '',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['type' => 'hidden'],
+            ])),
+        );
+        $this->assertSame(
+            '[x]',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['type' => 'checkbox', 'checked' => 'checked'],
+            ])),
+        );
+        $this->assertSame(
+            '[ ]',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['type' => 'radio'],
+            ])),
+        );
+        $this->assertSame(
+            '***',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['type' => 'password', 'value' => 'abc'],
+            ])),
+        );
+        $this->assertSame(
+            'Go',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['type' => 'submit', 'value' => 'Go'],
+            ])),
+        );
+        $this->assertSame(
+            'button',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['type' => 'button'],
+            ])),
+        );
+        $this->assertSame(
+            'reset',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['type' => 'reset'],
+            ])),
+        );
+        $this->assertSame(
+            'Filled',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['value' => 'Filled'],
+            ])),
+        );
+        $this->assertSame(
+            'Hint',
+            $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode([
+                'attribute' => ['placeholder' => 'Hint'],
+            ])),
+        );
         $this->assertSame('', $obj->exposeGetHTMLInputDisplayValue($this->makeHtmlNode()));
     }
 
@@ -13327,20 +13304,32 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
 
         $this->assertSame('', $obj->exposeGetHTMLSelectDisplayValue(['attribute' => 'invalid']));
-        $this->assertSame('', $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
-            'attribute' => [],
-        ])));
+        $this->assertSame(
+            '',
+            $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
+                'attribute' => [],
+            ])),
+        );
 
         $opt = 'one#!TaB!#One#!NwL!##!SeL!#two#!TaB!#Two#!NwL!#three#!TaB!#Three#!NwL!#';
-        $this->assertSame('Three, Two', $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
-            'attribute' => ['opt' => $opt, 'value' => 'three, two'],
-        ])));
-        $this->assertSame('Two', $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
-            'attribute' => ['opt' => $opt],
-        ])));
-        $this->assertSame('One', $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
-            'attribute' => ['opt' => 'one#!TaB!#One#!NwL!#two#!TaB!#Two#!NwL!#'],
-        ])));
+        $this->assertSame(
+            'Three, Two',
+            $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
+                'attribute' => ['opt' => $opt, 'value' => 'three, two'],
+            ])),
+        );
+        $this->assertSame(
+            'Two',
+            $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
+                'attribute' => ['opt' => $opt],
+            ])),
+        );
+        $this->assertSame(
+            'One',
+            $obj->exposeGetHTMLSelectDisplayValue($this->makeHtmlNode([
+                'attribute' => ['opt' => 'one#!TaB!#One#!NwL!#two#!TaB!#Two#!NwL!#'],
+            ])),
+        );
     }
 
     public function testHTMLListHelperMethodsTrackMarkerTypesAndCounters(): void
@@ -13465,22 +13454,16 @@ class HTMLTest extends TestUtil
             ]),
         ];
 
-        $this->assertSame(
-            'alert(1)',
-            $obj->exposeGetHTMLInputButtonActionWithDom($dom, 1, 'submit', ['onclick' => 'alert(1)']),
-        );
-        $this->assertSame(
-            ['S' => 'ResetForm'],
-            $obj->exposeGetHTMLInputButtonActionWithDom($dom, 1, 'reset', []),
-        );
+        $this->assertSame('alert(1)', $obj->exposeGetHTMLInputButtonActionWithDom($dom, 1, 'submit', [
+            'onclick' => 'alert(1)',
+        ]));
+        $this->assertSame(['S' => 'ResetForm'], $obj->exposeGetHTMLInputButtonActionWithDom($dom, 1, 'reset', []));
         $this->assertSame('', $obj->exposeGetHTMLInputButtonActionWithDom($dom, 1, 'button', []));
 
-        $override = $obj->exposeGetHTMLInputButtonActionWithDom(
-            $dom,
-            1,
-            'submit',
-            ['formaction' => 'https://example.test/override', 'formmethod' => 'get'],
-        );
+        $override = $obj->exposeGetHTMLInputButtonActionWithDom($dom, 1, 'submit', [
+            'formaction' => 'https://example.test/override',
+            'formmethod' => 'get',
+        ]);
         $this->assertIsArray($override);
         $this->assertSame('SubmitForm', $override['S']);
         $this->assertSame('https://example.test/override', $override['F']);
@@ -13498,7 +13481,7 @@ class HTMLTest extends TestUtil
         $this->initFontAndPage($obj);
         $obj->exposeInitHTMLCellContext(12.0, 0.0, 80.0, 0.0);
 
-        $payload = \rawurlencode((string) \json_encode(['m' => 'AddPage', 'p' => [true]], JSON_THROW_ON_ERROR));
+        $payload = \rawurlencode(\json_encode(['m' => 'AddPage', 'p' => [true]], JSON_THROW_ON_ERROR));
         $data = '64+' . \str_repeat('a', 64) . '+' . $payload;
 
         $parsed = $obj->exposeParseHTMLTcpdfSerializedData($data);
@@ -13600,7 +13583,8 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(
             0.0,
             $obj->exposeEstimateHTMLTableHeadHeight('<tr></tr><tr><td height="8">Head</td></tr>'),
-        );        $dom = [
+        );
+        $dom = [
             $this->makeHtmlNode(['value' => 'tr', 'opening' => true, 'parent' => -1]),
             $this->makeHtmlNode([
                 'value' => 'td',
@@ -13917,8 +13901,8 @@ class HTMLTest extends TestUtil
         /** @var array{w: float} $withCols */
         $withCols = \end($annotation2);
 
-        $this->assertLessThan((float) $auto['w'], (float) $withCols['w']);
-        $this->assertLessThan(80.0, (float) $withCols['w']);
+        $this->assertLessThan($auto['w'], $withCols['w']);
+        $this->assertLessThan(80.0, $withCols['w']);
     }
 
     public function testGetHTMLCellSelectCreatesComboBoxAnnotation(): void
@@ -13942,10 +13926,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('Ch', $last['opt']['ft']);
         /** @var array<string|array<string>> $opts */
         $opts = (array) ($last['opt']['opt'] ?? []);
-        $labels = \array_map(
-            static fn ($item) => \is_array($item) ? (string) $item[1] : (string) $item,
-            $opts,
-        );
+        $labels = \array_map(static fn($item) => \is_array($item) ? (string) $item[1] : $item, $opts);
         $this->assertContains('Red', $labels);
         $this->assertContains('Green', $labels);
     }
@@ -14117,7 +14098,7 @@ class HTMLTest extends TestUtil
         /** @var array{h: float} $list */
         $list = \end($annotation2);
 
-        $this->assertGreaterThan((float) $combo['h'], (float) $list['h']);
+        $this->assertGreaterThan($combo['h'], $list['h']);
     }
 
     public function testNestedInlineTagsRenderOnSameLine(): void
@@ -14141,7 +14122,7 @@ class HTMLTest extends TestUtil
                 continue;
             }
 
-            if (\trim((string) $node['value']) === '') {
+            if (\trim($node['value']) === '') {
                 continue;
             }
 
@@ -14158,7 +14139,7 @@ class HTMLTest extends TestUtil
                 $firstY,
                 $y,
                 0.001,
-                'All nested inline text fragments must be on the same line'
+                'All nested inline text fragments must be on the same line',
             );
         }
 
@@ -14173,7 +14154,7 @@ class HTMLTest extends TestUtil
                 continue;
             }
 
-            if (\trim((string) $node['value']) === '') {
+            if (\trim($node['value']) === '') {
                 continue;
             }
 
@@ -14232,7 +14213,8 @@ class HTMLTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
 
-        $html = '<select name="x"><optgroup label="Group A">'
+        $html =
+            '<select name="x"><optgroup label="Group A">'
             . '<option value="a1">Alpha 1</option>'
             . '</optgroup><optgroup label="Group B">'
             . '<option value="b1">Beta 1</option>'
@@ -14257,10 +14239,12 @@ class HTMLTest extends TestUtil
         // Find the div node and check the unquoted attribute was parsed.
         $divNode = null;
         foreach ($dom as $node) {
-            if (isset($node['value']) && $node['value'] === 'div') {
-                $divNode = $node;
-                break;
+            if (!(isset($node['value']) && $node['value'] === 'div')) {
+                continue;
             }
+
+            $divNode = $node;
+            break;
         }
         $this->assertNotNull($divNode);
         $this->assertSame('42', $divNode['attribute']['data-count'] ?? null);
@@ -14459,8 +14443,7 @@ class HTMLTest extends TestUtil
         $rfn->setAccessible(true);
         $rfn->setValue($obj, 'pdfua');
 
-        $html = '<ol><li>Ordered item &mdash; the number is auto-generated as the'
-            . ' <strong>Lbl</strong></li></ol>';
+        $html = '<ol><li>Ordered item &mdash; the number is auto-generated as the <strong>Lbl</strong></li></ol>';
 
         $obj->exposeResetBBoxTrace();
         $obj->getHTMLCell($html, 15, 20, 180);
@@ -14470,14 +14453,14 @@ class HTMLTest extends TestUtil
 
         // Find the plain-text fragment ending in "...as the " and the "Lbl" strong fragment.
         $plainIdx = null;
-        $lblIdx   = null;
+        $lblIdx = null;
         foreach ($trace as $idx => $entry) {
-            $txt = (string) $entry['txt'];
-            if (($plainIdx === null) && \str_contains($txt, 'auto-generated')) {
+            $txt = $entry['txt'];
+            if ($plainIdx === null && \str_contains($txt, 'auto-generated')) {
                 $plainIdx = $idx;
             }
 
-            if (($lblIdx === null) && $txt === 'Lbl') {
+            if ($lblIdx === null && $txt === 'Lbl') {
                 $lblIdx = $idx;
             }
         }
@@ -14486,7 +14469,7 @@ class HTMLTest extends TestUtil
         $this->assertNotNull($lblIdx, '"Lbl" strong fragment must be present');
 
         $plainEntry = $trace[(int) $plainIdx];
-        $lblEntry   = $trace[(int) $lblIdx];
+        $lblEntry = $trace[(int) $lblIdx];
 
         // Both fragments must sit on the same visual line.
         // A delta of 1 mm is used because the bold "Lbl" and the regular-weight

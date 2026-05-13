@@ -43,16 +43,14 @@ class TcpdfTest extends TestUtil
         $font = $this->getObjectProperty($obj, 'font');
         /** @var int $pon */
         $pon = $this->getObjectProperty($obj, 'pon');
-        $fontfile = (string) \realpath(
-            __DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json'
-        );
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/core/helvetica.json');
         $font->insert($pon, 'helvetica', '', 10, null, null, $fontfile);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
         /** @var array{pid: int} $rawPage */
-        $rawPage = $page->add([]);
-        return $rawPage;
+        return $page->add([]);
     }
 
     public function testSetPDFFilenameAcceptsValidPdfName(): void
@@ -89,14 +87,7 @@ class TcpdfTest extends TestUtil
     public function testConstructorAlignsFileIdWithInjectedEncryptionObject(): void
     {
         $fileid = \md5('tcpdf-encryption-fileid');
-        $enc = new \Com\Tecnick\Pdf\Encrypt\Encrypt(
-            true,
-            $fileid,
-            2,
-            ['modify', 'copy'],
-            'demo-user',
-            'demo-owner'
-        );
+        $enc = new \Com\Tecnick\Pdf\Encrypt\Encrypt(true, $fileid, 2, ['modify', 'copy'], 'demo-user', 'demo-owner');
 
         $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', $enc);
 
@@ -115,19 +106,11 @@ class TcpdfTest extends TestUtil
         ];
         $allowedHosts = ['localhost', 'example.test'];
 
-        $obj = new \Com\Tecnick\Pdf\Tcpdf(
-            'mm',
-            true,
-            false,
-            true,
-            '',
-            null,
-            [
-                'defaultCurlOpts' => $defaultCurlOpts,
-                'fixedCurlOpts' => $fixedCurlOpts,
-                'allowedHosts' => $allowedHosts,
-            ]
-        );
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null, [
+            'defaultCurlOpts' => $defaultCurlOpts,
+            'fixedCurlOpts' => $fixedCurlOpts,
+            'allowedHosts' => $allowedHosts,
+        ]);
 
         /** @var \Com\Tecnick\File\File $file */
         $file = $this->getObjectProperty($obj, 'file');
@@ -700,7 +683,8 @@ class TcpdfTest extends TestUtil
             'ltv' => 'invalid',
         ];
 
-        (new \ReflectionMethod($obj, 'setSignature'))->invoke($obj, $data);
+        $setSignatureObj = new \ReflectionMethod($obj, 'setSignature');
+        $setSignatureObj->invoke($obj, $data);
     }
 
     public function testSetSignatureThrowsWhenLtvKeyIsInvalidType(): void
@@ -727,7 +711,8 @@ class TcpdfTest extends TestUtil
             ],
         ];
 
-        (new \ReflectionMethod($obj, 'setSignature'))->invoke($obj, $data);
+        $setSignatureObj = new \ReflectionMethod($obj, 'setSignature');
+        $setSignatureObj->invoke($obj, $data);
     }
 
     public function testSetSignTimeStampThrowsOnInvalidPolicyOid(): void
@@ -767,7 +752,8 @@ class TcpdfTest extends TestUtil
             'verify_peer' => true,
         ];
 
-        (new \ReflectionMethod($obj, 'setSignTimeStamp'))->invoke($obj, $data);
+        $setSignTimeStampObj = new \ReflectionMethod($obj, 'setSignTimeStamp');
+        $setSignTimeStampObj->invoke($obj, $data);
     }
 
     public function testSetSignTimeStampThrowsOnInvalidTimeout(): void
@@ -807,7 +793,8 @@ class TcpdfTest extends TestUtil
             'verify_peer' => 1,
         ];
 
-        (new \ReflectionMethod($obj, 'setSignTimeStamp'))->invoke($obj, $data);
+        $setSignTimeStampObj = new \ReflectionMethod($obj, 'setSignTimeStamp');
+        $setSignTimeStampObj->invoke($obj, $data);
     }
 
     public function testPdfColorGetterAndInvalidColorFallback(): void

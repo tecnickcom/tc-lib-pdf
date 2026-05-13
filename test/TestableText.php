@@ -177,8 +177,8 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-      * @phpstan-param array<int, int> $ordarr
-      * @phpstan-param TTextDims|array{} $dim
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims|array{} $dim
      * @phpstan-param TextShadow|null $shadow
      */
     public function exposeGetOutTextLine(
@@ -200,7 +200,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $clip = false,
         ?array $shadow = null,
     ): string {
-        if (($txt === '') || ($dim === [])) {
+        if ($txt === '' || $dim === []) {
             return '';
         }
         /** @var TTextDims $lineDim */
@@ -227,8 +227,8 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-      * @phpstan-param array<int, int> $ordarr
-      * @phpstan-param TTextDims|array{} $dim
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims|array{} $dim
      * @phpstan-param TextShadow|null $shadow
      */
     public function exposeRawGetOutTextLine(
@@ -250,7 +250,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $clip = false,
         ?array $shadow = null,
     ): string {
-        if (($txt === '') || ($dim === [])) {
+        if ($txt === '' || $dim === []) {
             return '';
         }
         /** @var TTextDims $lineDim */
@@ -272,13 +272,13 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
             $linethrough,
             $overline,
             $clip,
-            $shadow
+            $shadow,
         );
     }
 
     /**
-      * @phpstan-param array<int, int> $ordarr
-      * @phpstan-param TTextDims|array{} $dim
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims|array{} $dim
      */
     public function exposeOutTextLine(
         string $txt,
@@ -298,7 +298,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $overline = false,
         bool $clip = false,
     ): string {
-        if (($txt === '') || ($dim === [])) {
+        if ($txt === '' || $dim === []) {
             return '';
         }
         /** @var TTextDims $lineDim */
@@ -324,8 +324,8 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-      * @phpstan-param array<int, int> $ordarr
-      * @phpstan-param TTextDims|array{} $dim
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims|array{} $dim
      */
     public function exposeRawOutTextLine(
         string $txt,
@@ -345,7 +345,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $overline = false,
         bool $clip = false,
     ): string {
-        if (($txt === '') || ($dim === [])) {
+        if ($txt === '' || $dim === []) {
             return '';
         }
         /** @var TTextDims $lineDim */
@@ -366,7 +366,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
             $underline,
             $linethrough,
             $overline,
-            $clip
+            $clip,
         );
     }
 
@@ -398,7 +398,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         bool $clip = false,
         ?array $shadow = null,
     ): string {
-        if (($ordarr === []) || ($lines === [])) {
+        if ($ordarr === [] || $lines === []) {
             return '';
         }
         return $this->outTextLines(
