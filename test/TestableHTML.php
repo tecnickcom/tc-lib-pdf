@@ -381,7 +381,6 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeSetHTMLTableStack(array $tablestack): void
     {
         $this->initExposeRenderContextIfNeeded();
-        // @phpstan-ignore assign.propertyType
         $this->testhrc['tablestack'] = $tablestack;
     }
 

@@ -101,7 +101,6 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeRawGetOutTextPosMatrix(string $raw, array $matrix): string
     {
         /** @var array{float, float, float, float, float, float}|array<int, int|float> $matrix */
-        // @phpstan-ignore argument.type
         return $this->getOutTextPosMatrix($raw, $matrix);
     }
 
@@ -494,7 +493,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      */
     public function exposeGetOrdArrDims(array $ordarr): array
     {
-        return $this->font->getOrdArrDims($ordarr); // @phpstan-ignore argument.type
+        return $this->font->getOrdArrDims($ordarr);
     }
 
     /**

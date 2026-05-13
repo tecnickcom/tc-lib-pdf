@@ -1397,19 +1397,16 @@ class HTMLTest extends TestUtil
         $obj->parseHTMLStyleAttributes($dom, 3, 1);
 
         foreach (['L', 'R', 'T', 'B'] as $side) {
-            // @phpstan-ignore nullCoalesce.offset
             $this->assertSame(
                 $dom[1]['border'][$side]['cssBorderStyle'] ?? null,
                 $dom[2]['border'][$side]['cssBorderStyle'] ?? null,
             );
         }
 
-        // @phpstan-ignore nullCoalesce.offset
         $this->assertSame(
             $dom[1]['border']['L']['cssBorderStyle'] ?? null,
             $dom[3]['border']['L']['cssBorderStyle'] ?? null,
         );
-        // @phpstan-ignore nullCoalesce.offset
         $this->assertSame('solid', $dom[3]['border']['T']['cssBorderStyle'] ?? null);
     }
 
@@ -1507,7 +1504,6 @@ class HTMLTest extends TestUtil
         foreach (['L', 'R', 'T', 'B'] as $side) {
             $this->assertSame($parentLTRB['lineColor'], $dom[2]['border'][$side]['lineColor']);
             $this->assertSame($parentLTRB['lineWidth'], $dom[2]['border'][$side]['lineWidth']);
-            // @phpstan-ignore nullCoalesce.offset
             $this->assertSame(
                 $parentLTRB['cssBorderStyle'] ?? null,
                 $dom[2]['border'][$side]['cssBorderStyle'] ?? null,
@@ -1987,10 +1983,8 @@ class HTMLTest extends TestUtil
         $this->assertArrayHasKey('border-spacing', $dom[1]);
         $this->assertArrayHasKey('border-spacing', $dom[2]);
         /** @var array{H: float, V: float} $spacing1 */
-        // @phpstan-ignore offsetAccess.notFound
         $spacing1 = $dom[1]['border-spacing'];
         /** @var array{H: float, V: float} $spacing2 */
-        // @phpstan-ignore offsetAccess.notFound
         $spacing2 = $dom[2]['border-spacing'];
         $this->assertEqualsWithDelta($spacing2['H'], $spacing1['H'], 0.0001);
         $this->assertEqualsWithDelta($spacing2['V'], $spacing1['V'], 0.0001);
@@ -2340,7 +2334,6 @@ class HTMLTest extends TestUtil
         $this->assertSame('inside', $dom[1]['list-style-position']);
         $this->assertArrayHasKey('list-style-image', $dom[1]);
         /** @var string $listImage */
-        // @phpstan-ignore offsetAccess.notFound
         $listImage = $dom[1]['list-style-image'];
         $this->assertSame($parentImage, $listImage);
 
@@ -2371,7 +2364,6 @@ class HTMLTest extends TestUtil
         $this->assertSame('inside', $dom[1]['list-style-position']);
         $this->assertArrayHasKey('list-style-image', $dom[1]);
         /** @var string $listImage */
-        // @phpstan-ignore offsetAccess.notFound
         $listImage = $dom[1]['list-style-image'];
         $this->assertSame($parentImage, $listImage);
         $this->assertSame($parentImage, $dom[1]['style']['list-style-image']);
@@ -11685,7 +11677,6 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
 
         $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'drawHTMLRectBorderSides');
-        $method->setAccessible(true);
 
         $styles = [
             3 => [
@@ -14440,7 +14431,6 @@ class HTMLTest extends TestUtil
 
         // pdfua mode is used to match the E015 example that surfaced the bug.
         $rfn = new \ReflectionProperty($obj, 'pdfuaMode');
-        $rfn->setAccessible(true);
         $rfn->setValue($obj, 'pdfua');
 
         $html = '<ol><li>Ordered item &mdash; the number is auto-generated as the <strong>Lbl</strong></li></ol>';

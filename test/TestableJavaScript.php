@@ -43,7 +43,6 @@ class TestableJavaScript extends \Com\Tecnick\Pdf\Tcpdf
         string $color = '',
     ): array {
         $opt = \array_merge(['subtype' => 'text'], $opt);
-        // @phpstan-ignore argument.type
         return $this->mergeAnnotOptions($opt, $jsp, $color);
     }
 }

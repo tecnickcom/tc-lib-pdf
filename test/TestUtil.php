@@ -73,7 +73,6 @@ class TestUtil extends TestCase
         while ($ref !== false) {
             if ($ref->hasProperty($name)) {
                 $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
                 return $prop->getValue($obj);
             }
             $ref = $ref->getParentClass();
@@ -88,7 +87,6 @@ class TestUtil extends TestCase
         while ($ref !== false) {
             if ($ref->hasProperty($name)) {
                 $prop = $ref->getProperty($name);
-                $prop->setAccessible(true);
                 $prop->setValue($obj, $value);
                 return;
             }

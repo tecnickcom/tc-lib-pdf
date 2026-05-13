@@ -599,7 +599,6 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
 
         $ref = new \ReflectionObject($this->encrypt);
         $prop = $ref->getProperty('encryptdata');
-        $prop->setAccessible(true);
         /** @var array<string, mixed> $data */
         $data = $prop->getValue($this->encrypt);
         $data['objid'] = $encryptObjId;
@@ -635,7 +634,6 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     /** @phpstan-param array<string, mixed> $masks */
     public function setSvgMasks(array $masks): void
     {
-        // @phpstan-ignore assign.propertyType
         $this->svgmasks = $masks;
     }
 

@@ -85,7 +85,6 @@ class TcpdfImporterFacadeTest extends TestCase
         while ($ref !== false) {
             if ($ref->hasProperty('pdfver')) {
                 $prop = $ref->getProperty('pdfver');
-                $prop->setAccessible(true);
                 $val = $prop->getValue($pdf);
                 return \is_string($val) ? $val : '';
             }

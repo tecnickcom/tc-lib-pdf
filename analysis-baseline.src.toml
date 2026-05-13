@@ -315,32 +315,8 @@ count = 1
 [[issues]]
 file = "src/HTML.php"
 code = "invalid-operand"
-message = "Comparing a non-array type `int` with an `array` using `!==`."
-count = 2
-
-[[issues]]
-file = "src/HTML.php"
-code = "invalid-operand"
-message = "Comparing a non-array type `string` with an `array` using `!==`."
-count = 1
-
-[[issues]]
-file = "src/HTML.php"
-code = "invalid-operand"
-message = "Comparing a non-array type `string` with an `array` using `===`."
-count = 1
-
-[[issues]]
-file = "src/HTML.php"
-code = "invalid-operand"
 message = "Comparing an `array` with a non-array type `int(0)` using `<=`."
 count = 1
-
-[[issues]]
-file = "src/HTML.php"
-code = "invalid-operand"
-message = "Comparing an `array` with a non-array type `string('')` using `!==`."
-count = 16
 
 [[issues]]
 file = "src/HTML.php"
@@ -2110,7 +2086,7 @@ count = 1
 file = "src/HTML.php"
 code = "redundant-comparison"
 message = "Redundant `!==` comparison: left-hand side is always not identical to right-hand side."
-count = 8
+count = 27
 
 [[issues]]
 file = "src/HTML.php"
@@ -2122,7 +2098,7 @@ count = 1
 file = "src/HTML.php"
 code = "redundant-comparison"
 message = "Redundant `===` comparison: left-hand side is never identical to right-hand side."
-count = 7
+count = 8
 
 [[issues]]
 file = "src/HTML.php"
@@ -2134,7 +2110,7 @@ count = 28
 file = "src/HTML.php"
 code = "redundant-condition"
 message = "This condition (type `true`) will always evaluate to true."
-count = 4
+count = 7
 
 [[issues]]
 file = "src/HTML.php"
@@ -2410,7 +2386,7 @@ count = 3
 file = "src/HTML.php"
 code = "redundant-logical-operation"
 message = "Redundant `&&` operation: left operand is evaluated and right operand is always truthy."
-count = 411
+count = 427
 
 [[issues]]
 file = "src/HTML.php"
@@ -2428,7 +2404,7 @@ count = 10
 file = "src/HTML.php"
 code = "redundant-logical-operation"
 message = "Redundant `||` operation: left operand is evaluated and right operand is always falsy."
-count = 60
+count = 61
 
 [[issues]]
 file = "src/HTML.php"

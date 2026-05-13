@@ -77,7 +77,6 @@ class MetaInfoTest extends TestUtil
     {
         $obj = $this->getTestObject();
         $pdfa = new \ReflectionProperty(\Com\Tecnick\Pdf\Tcpdf::class, 'pdfa');
-        $pdfa->setAccessible(true);
         $pdfa->setValue($obj, $pdfaMode);
 
         $obj->setPDFVersion($inputVersion);
@@ -93,7 +92,6 @@ class MetaInfoTest extends TestUtil
     ): void {
         $obj = $this->getTestObject();
         $pdfua = new \ReflectionProperty(\Com\Tecnick\Pdf\Tcpdf::class, 'pdfuaMode');
-        $pdfua->setAccessible(true);
         $pdfua->setValue($obj, $pdfuaMode);
 
         $obj->setPDFVersion($inputVersion);

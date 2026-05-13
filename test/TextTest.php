@@ -531,14 +531,12 @@ class TextTest extends TestUtil
 
         $ordarr = $obj->exposeHyphenateWordOrdArr(['testing' => 'te3st2ing'], $obj->exposeStrToOrdArr('testing'));
         $dim = $obj->exposeGetOrdArrDims($ordarr);
-        // @phpstan-ignore argument.type
         $lines = $obj->exposeSplitLines($ordarr, $dim, 5);
         $this->assertNotEmpty($lines);
 
         $this->setObjectProperty($obj, 'isunicode', true);
         $justOrdArr = $obj->exposeStrToOrdArr('word word');
         $justDim = $obj->exposeGetOrdArrDims($justOrdArr);
-        // @phpstan-ignore argument.type
         $just = $obj->exposeGetJustifiedString('word word', $justOrdArr, $justDim, 20);
         $this->assertNotSame('', $just);
 

@@ -266,18 +266,6 @@ count = 1
 
 [[issues]]
 file = "test/HTMLTest.php"
-code = "deprecated-method"
-message = "Call to deprecated method: `ReflectionMethod::setAccessible`."
-count = 1
-
-[[issues]]
-file = "test/HTMLTest.php"
-code = "deprecated-method"
-message = "Call to deprecated method: `ReflectionProperty::setAccessible`."
-count = 1
-
-[[issues]]
-file = "test/HTMLTest.php"
 code = "impossible-condition"
 message = "This condition (type `false`) will always evaluate to false."
 count = 2
@@ -3404,12 +3392,6 @@ count = 1
 
 [[issues]]
 file = "test/MetaInfoTest.php"
-code = "deprecated-method"
-message = "Call to deprecated method: `ReflectionProperty::setAccessible`."
-count = 2
-
-[[issues]]
-file = "test/MetaInfoTest.php"
 code = "mixed-assignment"
 message = "Assigning `mixed` type to a variable may lead to unexpected behavior."
 count = 1
@@ -3458,14 +3440,8 @@ count = 1
 
 [[issues]]
 file = "test/OutputTest.php"
-code = "deprecated-method"
-message = "Call to deprecated method: `ReflectionMethod::setAccessible`."
-count = 1
-
-[[issues]]
-file = "test/OutputTest.php"
 code = "incompatible-parameter-name"
-message = 'Parameter #1 of `class@anonymous:953384009802821480-159701:159937::filegetcontents()` is named `$path` but parent `Com\Tecnick\File\File::filegetcontents()` names it `$file`'
+message = 'Parameter #1 of `class@anonymous:953384009802821480-159663:159899::filegetcontents()` is named `$path` but parent `Com\Tecnick\File\File::filegetcontents()` names it `$file`'
 count = 1
 
 [[issues]]
@@ -3819,7 +3795,7 @@ count = 1
 [[issues]]
 file = "test/OutputTest.php"
 code = "unhandled-thrown-type"
-message = 'Potentially unhandled exception `Com\Tecnick\Pdf\Exception` in `class@anonymous:953384009802821480-159701:159937::fileGetContents`.'
+message = 'Potentially unhandled exception `Com\Tecnick\Pdf\Exception` in `class@anonymous:953384009802821480-159663:159899::fileGetContents`.'
 count = 1
 
 [[issues]]
@@ -4424,12 +4400,6 @@ count = 1
 
 [[issues]]
 file = "test/TcpdfImporterFacadeTest.php"
-code = "deprecated-method"
-message = "Call to deprecated method: `ReflectionProperty::setAccessible`."
-count = 1
-
-[[issues]]
-file = "test/TcpdfImporterFacadeTest.php"
 code = "mixed-array-access"
 message = "Unsafe array access on type `mixed`."
 count = 1
@@ -4643,12 +4613,6 @@ file = "test/TcpdfTest.php"
 code = "unhandled-thrown-type"
 message = 'Potentially unhandled exception `Com\Tecnick\Pdf\Page\Exception` in `Test\TcpdfTest::testSetSignAnnotRefsReturnsWhenNoEmptySignaturesAreDefined`.'
 count = 1
-
-[[issues]]
-file = "test/TestUtil.php"
-code = "deprecated-method"
-message = "Call to deprecated method: `ReflectionProperty::setAccessible`."
-count = 2
 
 [[issues]]
 file = "test/TestUtil.php"
@@ -5336,12 +5300,6 @@ count = 1
 
 [[issues]]
 file = "test/TestableOutput.php"
-code = "deprecated-method"
-message = "Call to deprecated method: `ReflectionProperty::setAccessible`."
-count = 1
-
-[[issues]]
-file = "test/TestableOutput.php"
 code = "invalid-return-statement"
 message = '''Invalid return type for function `Test\TestableOutput::toAnnot`: expected `array{'h': float, 'n': int, 'opt': array{'a'?: array{'duration'?: array{0: int|string, 1: int}|int|string, 'fwposition'?: array{0: float, 1: float}, 'fwscale'?: array{0: int, 1: int}, 'mode'?: string, 'rate'?: float, 'showcontrols'?: bool, 'start'?: array{0: int|string, 1: int}|int|string, 'synchronous'?: bool, 'volume'?: float}|array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}|array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}|bool, 'aa'?: array{'bi'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'd'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'e'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'fo'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'pc'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'pi'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'po'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'pv'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'u'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}, 'x'?: array{'next'?: array<int, array<array-key, mixed>>, 's'?: string, 'type'?: string}}, 'be'?: array{'i'?: float, 's'?: string}, 'border'?: array<array-key, mixed>, 'bs'?: array{'d'?: array<array-key, int>, 's': string, 'type'?: string, 'w': int}, 'cap'?: bool, 'cl'?: array<array-key, float>, 'co'?: array{0: float, 1: float}, 'cp'?: string, 'da'?: string, 'dest'?: array<array-key, mixed>|string, 'ds'?: string, 'dv'?: mixed, 'f'?: int, 'ff'?: array<int, int>|int, 'fixedprint'?: array{'h'?: float, 'matrix'?: array{0: float, 1: float, 2: float, 3: float, 4: float, 5: float}, 'type': string, 'v'?: float}, 'fs'?: string, 'h'?: string, 'i'?: array<array-key, mixed>, 'ic'?: array{0: float, 1: float, 2: float, 3: float}, 'inklist'?: array<int, array<array-key, float>>, 'it'?: string, 'l'?: array{0: float, 1: float, 2: float, 3: float}, 'le'?: array{0: string, 1: string}|string, 'll'?: float, 'lle'?: float, 'llo'?: float, 'maxlen'?: int, 'measure'?: array{'subtype'?: string, 'type'?: string}, 'mk'?: array<array-key, mixed>|array{'ac'?: mixed, 'bc'?: mixed, 'bg'?: mixed, 'ca'?: mixed, 'i'?: mixed, 'if'?: mixed, 'ix'?: mixed, 'r'?: mixed, 'rc'?: mixed, 'ri'?: mixed, 'tp'?: mixed}, 'movie'?: array{'aspect'?: array{0: float, 1: float}, 'f': string, 'poster'?: bool|string, 'rotate'?: int}, 'name'?: string, 'open'?: bool, 'opt'?: array<int, array{0: mixed, 1: string}|string>, 'overlaytext'?: string, 'pa'?: array{'ismap'?: bool, 's': string, 'uri': string}, 'parent'?: array<array-key, mixed>, 'q'?: int, 'quadpoints'?: array<int, array{0: float, 1: float, 2: float, 3: float, 4: float, 5: float, 6: float, 7: float}>, 'rc'?: string, 'rd'?: array{0: float, 1: float, 2: float, 3: float}, 'repeat'?: bool, 'ro'?: string, 'rv'?: mixed, 'sound'?: string, 'state'?: string, 'statemodel'?: string, 'subtype': string, 'sy'?: string, 't'?: string, 'tm'?: string, 'tu'?: string, 'v'?: mixed, 'vertices'?: array<array-key, float>}, 'txt': string, 'w': float, 'x': float, 'y': float}`, but found `array<string, mixed>`.'''
 count = 1
@@ -5416,7 +5374,7 @@ count = 2
 file = "test/TestableOutput.php"
 code = "possibly-non-existent-property"
 message = 'Property `$encrypt` might not exist on type `Test\TestableOutput` at runtime.'
-count = 2
+count = 1
 
 [[issues]]
 file = "test/TestableOutput.php"

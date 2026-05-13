@@ -3763,7 +3763,6 @@ class SVGTest extends TestUtil
         $styleNoAnchor = $base;
         unset($styleNoAnchor['text-anchor']);
         unset($styleNoAnchor['direction']);
-        // @phpstan-ignore argument.type
         $txtOut = $obj->exposeParseSVGTagSTARTtext($parser, 72, ['x' => '1', 'y' => '1'], $styleNoAnchor, $base);
         $this->assertNotSame('', $txtOut);
 

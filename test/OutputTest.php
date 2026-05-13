@@ -3040,7 +3040,6 @@ class OutputTest extends TestUtil
         $this->setObjectProperty($obj, 'pagestructmcids', [9 => 1]);
 
         $method = new \ReflectionMethod($obj, 'getOutStructTreeRoot');
-        $method->setAccessible(true);
         $out = $method->invoke($obj);
 
         $this->assertSame('', $out);
