@@ -331,9 +331,9 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $bprop = $bpropSplit === false ? [] : $bpropSplit;
 
         $count = \count($bprop);
-        if ($count > 0 && $bprop[$count - 1] === '!important') {
+        $lastBprop = $bprop[$count - 1] ?? '';
+        if ($count > 0 && $lastBprop === '!important') {
             unset($bprop[$count - 1]);
-            /** @var list<string> $bprop */
             $bprop = \array_values($bprop);
             --$count;
         }
@@ -382,35 +382,34 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function getCSSPadding(string $csspadding, float $width = 0.0): array
     {
-        /** @var TCellBound $cellpad */
         $cellpad = $this->defCSSCellPadding;
         $padSplit = \preg_split('/[\s]+/', \trim($csspadding));
         $pad = $padSplit === false ? [] : $padSplit;
 
         switch (\count($pad)) {
             case 4:
-                $cellpad['T'] = $pad[0];
-                $cellpad['R'] = $pad[1];
-                $cellpad['B'] = $pad[2];
-                $cellpad['L'] = $pad[3];
+                $cellpad['T'] = $pad[0] ?? '';
+                $cellpad['R'] = $pad[1] ?? '';
+                $cellpad['B'] = $pad[2] ?? '';
+                $cellpad['L'] = $pad[3] ?? '';
                 break;
             case 3:
-                $cellpad['T'] = $pad[0];
-                $cellpad['R'] = $pad[1];
-                $cellpad['B'] = $pad[2];
-                $cellpad['L'] = $pad[1];
+                $cellpad['T'] = $pad[0] ?? '';
+                $cellpad['R'] = $pad[1] ?? '';
+                $cellpad['B'] = $pad[2] ?? '';
+                $cellpad['L'] = $pad[1] ?? '';
                 break;
             case 2:
-                $cellpad['T'] = $pad[0];
-                $cellpad['R'] = $pad[1];
-                $cellpad['B'] = $pad[0];
-                $cellpad['L'] = $pad[1];
+                $cellpad['T'] = $pad[0] ?? '';
+                $cellpad['R'] = $pad[1] ?? '';
+                $cellpad['B'] = $pad[0] ?? '';
+                $cellpad['L'] = $pad[1] ?? '';
                 break;
             case 1:
-                $cellpad['T'] = $pad[0];
-                $cellpad['R'] = $pad[0];
-                $cellpad['B'] = $pad[0];
-                $cellpad['L'] = $pad[0];
+                $cellpad['T'] = $pad[0] ?? '';
+                $cellpad['R'] = $pad[0] ?? '';
+                $cellpad['B'] = $pad[0] ?? '';
+                $cellpad['L'] = $pad[0] ?? '';
                 break;
             default:
                 return $cellpad;
@@ -419,13 +418,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
-        /** @var TRefUnitValues $ref */
         $ref = self::REFUNITVAL;
         $ref['parent'] = $width;
-        $cellpad['T'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['T'], $ref));
-        $cellpad['R'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['R'], $ref));
-        $cellpad['B'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['B'], $ref));
-        $cellpad['L'] = $this->toUnit($this->getUnitValuePoints((string) $cellpad['L'], $ref));
+        $cellpad['T'] = $this->toUnit($this->getUnitValuePoints($cellpad['T'], $ref));
+        $cellpad['R'] = $this->toUnit($this->getUnitValuePoints($cellpad['R'], $ref));
+        $cellpad['B'] = $this->toUnit($this->getUnitValuePoints($cellpad['B'], $ref));
+        $cellpad['L'] = $this->toUnit($this->getUnitValuePoints($cellpad['L'], $ref));
         return $cellpad;
     }
 
@@ -442,35 +440,34 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function getCSSMargin(string $cssmargin, float $width = 0.0): array
     {
-        /** @var TCellBound $cellmrg */
         $cellmrg = $this->defCSSCellMargin;
         $mrgSplit = \preg_split('/[\s]+/', \trim($cssmargin));
         $mrg = $mrgSplit === false ? [] : $mrgSplit;
 
         switch (\count($mrg)) {
             case 4:
-                $cellmrg['T'] = $mrg[0];
-                $cellmrg['R'] = $mrg[1];
-                $cellmrg['B'] = $mrg[2];
-                $cellmrg['L'] = $mrg[3];
+                $cellmrg['T'] = $mrg[0] ?? '';
+                $cellmrg['R'] = $mrg[1] ?? '';
+                $cellmrg['B'] = $mrg[2] ?? '';
+                $cellmrg['L'] = $mrg[3] ?? '';
                 break;
             case 3:
-                $cellmrg['T'] = $mrg[0];
-                $cellmrg['R'] = $mrg[1];
-                $cellmrg['B'] = $mrg[2];
-                $cellmrg['L'] = $mrg[1];
+                $cellmrg['T'] = $mrg[0] ?? '';
+                $cellmrg['R'] = $mrg[1] ?? '';
+                $cellmrg['B'] = $mrg[2] ?? '';
+                $cellmrg['L'] = $mrg[1] ?? '';
                 break;
             case 2:
-                $cellmrg['T'] = $mrg[0];
-                $cellmrg['R'] = $mrg[1];
-                $cellmrg['B'] = $mrg[0];
-                $cellmrg['L'] = $mrg[1];
+                $cellmrg['T'] = $mrg[0] ?? '';
+                $cellmrg['R'] = $mrg[1] ?? '';
+                $cellmrg['B'] = $mrg[0] ?? '';
+                $cellmrg['L'] = $mrg[1] ?? '';
                 break;
             case 1:
-                $cellmrg['T'] = $mrg[0];
-                $cellmrg['R'] = $mrg[0];
-                $cellmrg['B'] = $mrg[0];
-                $cellmrg['L'] = $mrg[0];
+                $cellmrg['T'] = $mrg[0] ?? '';
+                $cellmrg['R'] = $mrg[0] ?? '';
+                $cellmrg['B'] = $mrg[0] ?? '';
+                $cellmrg['L'] = $mrg[0] ?? '';
                 break;
             default:
                 return $cellmrg;
@@ -479,11 +476,10 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
-        $cellmrg['T'] = \str_replace('auto', '0', (string) $cellmrg['T']);
-        $cellmrg['R'] = \str_replace('auto', '0', (string) $cellmrg['R']);
-        $cellmrg['B'] = \str_replace('auto', '0', (string) $cellmrg['B']);
-        $cellmrg['L'] = \str_replace('auto', '0', (string) $cellmrg['L']);
-        /** @var TRefUnitValues $ref */
+        $cellmrg['T'] = \str_replace('auto', '0', $cellmrg['T']);
+        $cellmrg['R'] = \str_replace('auto', '0', $cellmrg['R']);
+        $cellmrg['B'] = \str_replace('auto', '0', $cellmrg['B']);
+        $cellmrg['L'] = \str_replace('auto', '0', $cellmrg['L']);
         $ref = self::REFUNITVAL;
         $ref['parent'] = $width;
         $cellmrg['T'] = $this->toUnit($this->getUnitValuePoints($cellmrg['T'], $ref));
@@ -506,19 +502,18 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
     {
-        /** @var TCSSBorderSpacing $bsp */
         $bsp = $this->defCSSBorderSpacing;
         $spaceSplit = \preg_split('/[\s]+/', \trim($cssbspace));
         $space = $spaceSplit === false ? [] : $spaceSplit;
 
         switch (\count($space)) {
             case 2:
-                $bsp['H'] = $space[0];
-                $bsp['V'] = $space[1];
+                $bsp['H'] = $space[0] ?? '';
+                $bsp['V'] = $space[1] ?? '';
                 break;
             case 1:
-                $bsp['H'] = $space[0];
-                $bsp['V'] = $space[0];
+                $bsp['H'] = $space[0] ?? '';
+                $bsp['V'] = $space[0] ?? '';
                 break;
             default:
                 return $bsp;
@@ -527,11 +522,10 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
-        /** @var TRefUnitValues $ref */
         $ref = self::REFUNITVAL;
         $ref['parent'] = $width;
-        $bsp['H'] = $this->toUnit($this->getUnitValuePoints((string) $bsp['H'], $ref));
-        $bsp['V'] = $this->toUnit($this->getUnitValuePoints((string) $bsp['V'], $ref));
+        $bsp['H'] = $this->toUnit($this->getUnitValuePoints($bsp['H'], $ref));
+        $bsp['V'] = $this->toUnit($this->getUnitValuePoints($bsp['V'], $ref));
         return $bsp;
     }
 
@@ -552,7 +546,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $order = [];
 
         foreach ($css as $style) {
-            if (!isset($style['c']) || $style['c'] === '') {
+            if ($style['c'] === '') {
                 continue;
             }
             $csscmds = $this->splitCSSDeclarations($style['c']);
@@ -597,7 +591,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     continue;
                 }
 
-                if ($decls[$key]['important'] && !$important) {
+                $decl = $decls[$key] ?? ['name' => '', 'value' => '', 'important' => false];
+                if ($decl['important'] && !$important) {
                     // Existing !important declaration wins over later non-important declaration.
                     continue;
                 }
@@ -626,12 +621,13 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
         $out = '';
         foreach ($order as $key) {
-            if (!isset($decls[$key])) {
+            $decl = $decls[$key] ?? null;
+            if ($decl === null) {
                 continue;
             }
 
-            $out .= $decls[$key]['name'] . ':' . $decls[$key]['value'];
-            if ($decls[$key]['important']) {
+            $out .= $decl['name'] . ':' . $decl['value'];
+            if ($decl['important']) {
                 $out .= '!important';
             }
             $out .= ';';
@@ -729,6 +725,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             return $css;
         }
         // @charset must be the first rule; allow leading whitespace/BOM
+        $charsetMatch = [];
         if (\preg_match('/^(?:\xEF\xBB\xBF)?[\s]*@charset\s+"([^"]+)"\s*;/i', $css, $charsetMatch)) {
             $declared = \strtolower(\trim($charsetMatch[1] ?? ''));
             // Strip the @charset declaration (and any leading BOM)
@@ -771,9 +768,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         // Capture: (1) url  (2) optional media list
         $pattern = '/@import\s+(?:url\([\'"]?([^\'")\s]+)[\'"]?\)|[\'"]([^\'"]+)[\'"])\s*([^;]*);/i';
         $imports = [];
-        if (\preg_match_all($pattern, $css, $matches, \PREG_SET_ORDER) > 0) {
+        $matches = [];
+        $matchCount = \preg_match_all($pattern, $css, $matches, \PREG_SET_ORDER);
+        if ($matchCount !== false && $matchCount > 0) {
             foreach ($matches as $match) {
-                $url = $match[1] !== '' ? \trim($match[1]) : \trim($match[2] ?? '');
+                $matchUrl = $match[1] ?? '';
+                $url = $matchUrl !== '' ? \trim($matchUrl) : \trim($match[2] ?? '');
                 $media = \strtolower(\trim($match[3] ?? ''));
                 // Skip non-print media
                 if ($media !== '' && $media !== 'all' && $media !== 'print') {
@@ -868,16 +868,24 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         // find media blocks (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
         $blk = [];
         $matches = [];
-        if (\preg_match_all('/@media[\s]+([^\§]*)§([^§]*)§/i', $css, $matches) > 0) {
-            foreach ($matches[1] as $key => $type) {
-                $blk[$type] = $matches[2][$key];
+        $matchCount = \preg_match_all('/@media[\s]+([^\§]*)§([^§]*)§/i', $css, $matches);
+        if ($matchCount !== false && $matchCount > 0) {
+            $mediaTypes = $matches[1] ?? [];
+            $mediaContent = $matches[2] ?? [];
+            foreach ($mediaTypes as $key => $type) {
+                $content = $mediaContent[$key] ?? '';
+                if ($content === '') {
+                    continue;
+                }
+
+                $blk[$type] = $content;
             }
             // remove media blocks
             $css = \preg_replace('/@media[\s]+([^\§]*)§([^§]*)§/i', '', $css) ?? '';
         }
         // keep print-relevant media blocks; discard screen-only and other non-print types
         foreach ($blk as $type => $content) {
-            if ($content === '' || !$this->isMediaPrintRelevant($type)) {
+            if (!$this->isMediaPrintRelevant($type)) {
                 continue;
             }
 
@@ -932,13 +940,16 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
         // split groups of selectors (comma-separated list of selectors)
         foreach ($blk as $key => $block) {
-            if (\strpos($block[0], ',') <= 0) {
+            $selectorList = $block[0];
+            $commaPos = \strpos($selectorList, ',');
+            if ($commaPos === false || $commaPos <= 0) {
                 continue;
             }
 
-            $selectors = \explode(',', $block[0]);
+            $selectors = \explode(',', $selectorList);
+            $blockProperties = $block[1] ?? '';
             foreach ($selectors as $sel) {
-                $blk[] = [0 => \trim($sel), 1 => $block[1]];
+                $blk[] = [0 => \trim($sel), 1 => $blockProperties];
             }
             unset($blk[$key]);
         }
@@ -1010,6 +1021,36 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     }
 
     /**
+     * Decode a serialized CSS map and keep only string selector/value pairs.
+     *
+     * @return array<string, string>
+     */
+    protected function decodeCSSMap(string $payload): array
+    {
+        /** @var mixed $decoded */
+        $decoded = \json_decode($this->unhtmlentities($payload), true);
+        if (!\is_array($decoded)) {
+            return [];
+        }
+
+        $css = [];
+        foreach (\array_keys($decoded) as $selector) {
+            if (!\is_string($selector)) {
+                continue;
+            }
+
+            if (!\is_string($decoded[$selector] ?? null)) {
+                continue;
+            }
+
+            $properties = $decoded[$selector];
+            $css[$selector] = $properties;
+        }
+
+        return $css;
+    }
+
+    /**
      * Extract CSS styles from an HTML string.
      *
      * @param string $html HTML string to parse.
@@ -1021,37 +1062,38 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function getCSSArrayFromHTML(string &$html): array
     {
-        /** @var array<string, mixed> $css */
+        /** @var array<string, string> $css */
         $css = [];
 
         // Create cascade context to track global source order across all CSS sources
         $cascadeCtx = new CascadeContext();
 
         $matches = [];
-        if (\preg_match_all('/<cssarray>([^\<]*?)<\/cssarray>/is', $html, $matches) > 0) {
-            if (isset($matches[1][0])) {
-                $dcss = \json_decode($this->unhtmlentities($matches[1][0]), true);
-                if (\is_array($dcss)) {
-                    $css = $dcss;
-                }
+        $matchCount = \preg_match_all('/<cssarray>([^\<]*?)<\/cssarray>/is', $html, $matches);
+        if ($matchCount !== false && $matchCount > 0) {
+            $cssArrayPayload = $matches[1][0] ?? null;
+            if (\is_string($cssArrayPayload)) {
+                $css = \array_merge($css, $this->decodeCSSMap($cssArrayPayload));
             }
             $html = \preg_replace('/<cssarray>(.*?)<\/cssarray>/is', '', $html) ?? '';
         }
 
         // extract external CSS files
         $matches = [];
-        if (\preg_match_all('/<link([^\>]*?)>/is', $html, $matches) > 0) {
+        $matchCount = \preg_match_all('/<link([^\>]*?)>/is', $html, $matches);
+        if ($matchCount !== false && $matchCount > 0) {
             $cascadeCtx->setCurrentSourceType('external');
-            foreach ($matches[1] as $key => $link) {
+            $linkTags = $matches[1] ?? [];
+            foreach ($linkTags as $link) {
                 $type = [];
-                if (\preg_match('/type[\s]*=[\s]*"text\/css"/', $link, $type) > 0) {
+                if (\preg_match('/type[\s]*=[\s]*"text\/css"/', $link, $type) === 1) {
                     $type = [];
-                    if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
+                    if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $link, $type) === 1) {
                         // get 'all' and 'print' media, other media types are discarded
                         // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
                         if (isset($type[1]) && $type[1] !== '' && ($type[1] === 'all' || $type[1] === 'print')) {
                             $type = [];
-                            if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
+                            if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) === 1) {
                                 // read CSS data file
                                 $cssdata = $this->file->getFileData(\trim($type[1] ?? ''));
                                 if ($cssdata !== false && \strlen($cssdata) > 0) {
@@ -1062,7 +1104,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     } else {
                         // no media attribute defaults to "all"
                         $type = [];
-                        if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) > 0) {
+                        if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) === 1) {
                             $cssdata = $this->file->getFileData(\trim($type[1] ?? ''));
                             if ($cssdata !== false && \strlen($cssdata) > 0) {
                                 $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
@@ -1075,36 +1117,29 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
         // extract style tags
         $matches = [];
-        if (\preg_match_all('/<style([^\>]*?)>([^\<]*?)<\/style>/is', $html, $matches) > 0) {
+        $matchCount = \preg_match_all('/<style([^\>]*?)>([^\<]*?)<\/style>/is', $html, $matches);
+        if ($matchCount !== false && $matchCount > 0) {
             $cascadeCtx->setCurrentSourceType('embedded');
-            foreach ($matches[1] as $key => $media) {
+            $styleMediaDefs = $matches[1] ?? [];
+            $styleBodies = $matches[2] ?? [];
+            foreach ($styleMediaDefs as $key => $media) {
                 $type = [];
-                if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $media, $type) > 0) {
+                if (\preg_match('/media[\s]*=[\s]*"([^"]*)"/', $media, $type) === 1) {
                     // get 'all' and 'print' media, other media types are discarded
                     // (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
                     if (isset($type[1]) && $type[1] !== '' && ($type[1] === 'all' || $type[1] === 'print')) {
-                        $cssdata = $matches[2][$key] ?? '';
+                        $cssdata = $styleBodies[$key] ?? '';
                         $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                     }
                 } else {
                     // no media attribute defaults to "all"
-                    $cssdata = $matches[2][$key] ?? '';
+                    $cssdata = $styleBodies[$key] ?? '';
                     $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                 }
             }
         }
 
-        /** @var array<string, string> $cssout */
-        $cssout = [];
-        foreach ($css as $selector => $properties) {
-            if (!\is_string($selector) || !\is_string($properties)) {
-                continue;
-            }
-
-            $cssout[$selector] = $properties;
-        }
-
-        return $cssout;
+        return $css;
     }
 
     /**

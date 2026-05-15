@@ -442,6 +442,25 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->estimateHTMLTableHeadHeight($this->testhrc, $thead);
     }
 
+    public function exposeMeasureHTMLCellRenderedHeight(
+        string $html,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        ?array $cell = null,
+        array $styles = [],
+    ): float {
+        return $this->measureHTMLCellRenderedHeight($html, $posx, $posy, $width, $height, $cell, $styles);
+    }
+
+    public function exposeReplayHTMLTableHead(string $thead, float &$tpx, float &$tpy, float &$tpw, float &$tph): string
+    {
+        $this->initExposeRenderContextIfNeeded();
+
+        return $this->replayHTMLTableHead($this->testhrc, $thead, $tpx, $tpy, $tpw, $tph);
+    }
+
     /** @phpstan-param array<int, THTMLAttrib> $dom */
     public function exposeEstimateHTMLTableRowHeightWithDom(array $dom, int $trkey): float
     {
@@ -479,6 +498,19 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     {
         $this->initExposeRenderContextIfNeeded();
         $this->testhrc['prelevel'] = $prelevel;
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeSetHTMLDom(array $dom): void
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+    }
+
+    public function exposeUpdateHTMLParentBlockBottom(int $openkey, float $bottom): void
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->updateHTMLParentBlockBottom($this->testhrc, $openkey, $bottom);
     }
 
     public function exposeGetHTMLBaseFontName(): string

@@ -43,10 +43,40 @@ use Com\Tecnick\Pdf\Import\PageTemplateInterface;
  * @phpstan-import-type PageInputData from \Com\Tecnick\Pdf\Page\Box
  * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
  *
- * @phpstan-import-type TSignature from Output
- * @phpstan-import-type TSignTimeStamp from Output
- * @phpstan-import-type TUserRights from Output
+ * @phpstan-import-type TSignature from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TSignTimeStamp from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TUserRights from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TFileOptions from Base
+ * @mixin \Com\Tecnick\Pdf\Base
+ * @mixin \Com\Tecnick\Pdf\Text
+ * @method void initClassObjects(?ObjEncrypt $objEncrypt = null, ?array $fileOptions = null)
+ * @method float toPoints(float $usr)
+ * @method float toUnit(float $pnt)
+ * @method float toYUnit(float $pnt, float $pageh = -1)
+ * @method string defaultPageContent(int $pid = -1)
+ * @method array<string, mixed> addPage(array $data = [])
+ * @method void setPageContext(int $pid = -1)
+ * @method void addTextCell(string $txt, int $pid = -1, float $posx = 0, float $posy = 0, float $width = 0, float $height = 0, float $offset = 0, float $linespace = 0, string $valign = 'T', string $halign = '', ?array $cell = null, array $styles = [], float $strokewidth = 0, float $wordspacing = 0, float $leading = 0, float $rise = 0, bool $jlast = true, bool $fill = true, bool $stroke = false, bool $underline = false, bool $linethrough = false, bool $overline = false, bool $clip = false, bool $drawcell = true, string $forcedir = '', ?array $shadow = null)
+ * @method array<string, mixed> getLastBBox()
+ * @property bool $defPageContentEnabled
+ *
+ * @property string $unit
+ * @property bool $subsetfont
+ * @property bool $compress
+ * @property string $pdffilename
+ * @property string $encpdffilename
+ * @property array{r: string, p: string, m: string} $spaceregexp
+ * @property array{zoom: int|string, layout: string, page: string} $display
+ * @property array<string, string> $lang
+ * @property TUserRights $userrights
+ * @property TSignature $signature
+ * @property bool $sign
+ * @property bool $sigapp
+ * @property TSignTimeStamp $sigtimestamp
+ * @property array<string, mixed> $defcell
+ * @property array<int, array<string, mixed>> $outlines
+ * @property ImporterInterface|null $importer
+ * @property array<string, mixed> $xobjects
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
@@ -83,6 +113,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *                                         options that are always enforced and cannot be
      *                                         overridden by curlopts (for example to pin TLS
      *                                         settings).
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Random\RandomException
      */
     public function __construct(
         string $unit = 'mm',
@@ -100,11 +135,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $this->fileid = \md5($seed->encrypt('TCPDF'));
         if ($objEncrypt instanceof ObjEncrypt) {
             $encData = $objEncrypt->getEncryptionData();
-            /** @var array{encrypted?: bool, fileid?: string} $enc */
-            $enc = \is_array($encData) ? $encData : [];
-            if (isset($enc['encrypted']) && $enc['encrypted'] && isset($enc['fileid']) && $enc['fileid'] !== '') {
+            if ($encData['encrypted'] && $encData['fileid'] !== '') {
                 // Keep trailer ID aligned with encryption key derivation input.
-                $this->fileid = $objEncrypt->convertStringToHexString($enc['fileid']);
+                $this->fileid = $objEncrypt->convertStringToHexString($encData['fileid']);
             }
         }
         $this->setPDFFilename($this->fileid . '.pdf');
@@ -157,7 +190,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
         $matches = [];
         if (\preg_match('/^pdfa([1-3])([abu])?$/i', $normalizedMode, $matches) === 1) {
-            $this->pdfa = (int) $matches[1];
+            $pdfaPart = $matches[1] ?? null;
+            if ($pdfaPart === null || $pdfaPart === '') {
+                return;
+            }
+
+            $this->pdfa = (int) $pdfaPart;
             if (isset($matches[2]) && $matches[2] !== '') {
                 $conf = \strtoupper($matches[2]);
                 if ($conf === 'U' && $this->pdfa === 1) {
@@ -180,19 +218,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
     /**
      * Set the decimal separator.
-     *
-     * @throw PdfException in case of error.
      */
     protected function setDecimalSeparator(): void
     {
-        // check for locale-related bug
-        if (1.1 === 1) {
-            throw new PdfException("Don't alter the locale before including class file");
-        }
-
-        // check for decimal separator
-
-        if (\sprintf('%.1F', 1.0) !== '1.0') {
+        // Ensure numeric formatting uses dot as decimal separator for PDF output.
+        $decimalPoint = \localeconv()['decimal_point'];
+        if ($decimalPoint !== '.') {
             \setlocale(LC_NUMERIC, 'C');
         }
     }
@@ -317,7 +348,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     ): static {
         $this->display['zoom'] = \is_numeric($zoom) || \in_array($zoom, $this::VALIDZOOM, true) ? $zoom : 'default';
         $this->display['layout'] = $this->page->getLayout($layout);
-        $this->display['page'] = $this->page->getDisplay($mode);
+        $this->display['mode'] = $this->page->getDisplay($mode);
         return $this;
     }
 
@@ -343,6 +374,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param StyleDataOpt              $style   Array of style options.
      *
      * @throws BarcodeException in case of error
+     * @throws \Com\Tecnick\Color\Exception
      */
     public function getBarcode(
         string $type,
@@ -361,10 +393,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $out .= $this->graph->getStyleCmd($style);
         foreach ($bars as $bar) {
             /** @var array{0: numeric, 1: numeric, 2: numeric, 3: numeric} $bar */
-            $x = (float) ($bar[0] ?? 0);
-            $y = (float) ($bar[1] ?? 0);
-            $w = (float) ($bar[2] ?? 0);
-            $h = (float) ($bar[3] ?? 0);
+            $x = (float) $bar[0];
+            $y = (float) $bar[1];
+            $w = (float) $bar[2];
+            $h = (float) $bar[3];
             $out .= $this->graph->getBasicRect($posx + $x, $posy + $y, $w, $h, 'f');
         }
 
@@ -459,9 +491,38 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *            - embed_certs (bool) Embed certificate bytes in validation material.
      *            - include_dss (bool) Include DSS objects in output.
      *            - include_vri (bool) Include VRI map in output.
+     *
+     * @throws PdfException
      */
     public function setSignature(array $data): void
     {
+        if (\array_key_exists('ltv', $data)) {
+            /** @var mixed $ltvData */
+            $ltvData = $data['ltv'];
+            if (!\is_array($ltvData)) {
+                throw new PdfException('Invalid signature LTV options');
+            }
+
+            $ltvDefaults = [
+                'enabled' => false,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ];
+            /** @var array<string, mixed> $ltvData */
+            $ltvData = \array_merge($ltvDefaults, $ltvData);
+
+            foreach (['enabled', 'embed_ocsp', 'embed_crl', 'embed_certs', 'include_dss', 'include_vri'] as $key) {
+                /** @var mixed $ltvVal */
+                $ltvVal = $ltvData[$key] ?? null;
+                if (!\is_bool($ltvVal)) {
+                    throw new PdfException('Invalid signature LTV option: ' . $key);
+                }
+            }
+        }
+
         $this->signature = \array_merge($this->signature, $data);
 
         if (!isset($this->signature['ltv'])) {
@@ -475,21 +536,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             ];
         }
 
-        if (!\is_array($this->signature['ltv'])) {
-            throw new PdfException('Invalid signature LTV options');
-        }
-
-        foreach (['enabled', 'embed_ocsp', 'embed_crl', 'embed_certs', 'include_dss', 'include_vri'] as $key) {
-            if (!\array_key_exists($key, $this->signature['ltv']) || !\is_bool($this->signature['ltv'][$key])) {
-                throw new PdfException('Invalid signature LTV option: ' . $key);
-            }
-        }
-
-        if (!isset($this->signature['signcert']) || $this->signature['signcert'] === '') {
+        if ($this->signature['signcert'] === '') {
             throw new PdfException('Invalid signing certificate (signcert)');
         }
 
-        if (!isset($this->signature['privkey']) || $this->signature['privkey'] === '') {
+        if ($this->signature['privkey'] === '') {
             $this->signature['privkey'] = $this->signature['signcert'];
         }
 
@@ -538,39 +589,50 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *        - nonce_enabled (bool) Add nonce to the timestamp request.
      *        - timeout (int) Request timeout in seconds.
      *        - verify_peer (bool) Validate TSA TLS certificate.
+     *
+     * @throws PdfException
      */
     public function setSignTimeStamp(array $data): void
     {
-        $this->sigtimestamp = \array_merge($this->sigtimestamp, $data);
-
-        if (
-            $this->sigtimestamp['enabled']
-            && (!isset($this->sigtimestamp['host']) || $this->sigtimestamp['host'] === '')
-        ) {
-            throw new PdfException('Invalid TSA host');
-        }
-
-        if (!\in_array(\strtolower($this->sigtimestamp['hash_algorithm']), ['sha256', 'sha384', 'sha512'], true)) {
-            throw new PdfException('Invalid TSA hash algorithm');
-        }
-
-        if (
-            $this->sigtimestamp['policy_oid'] !== ''
-            && \preg_match('/^\\d+(?:\\.\\d+)+$/', $this->sigtimestamp['policy_oid']) !== 1
-        ) {
-            throw new PdfException('Invalid TSA policy OID');
-        }
-
-        if (!\is_bool($this->sigtimestamp['nonce_enabled'])) {
+        /** @var array<string, mixed> $rawData */
+        $rawData = $data;
+        if (\array_key_exists('nonce_enabled', $rawData) && !\is_bool($rawData['nonce_enabled'])) {
             throw new PdfException('Invalid TSA nonce setting');
         }
 
-        if ((int) $this->sigtimestamp['timeout'] < 1) {
-            throw new PdfException('Invalid TSA timeout');
+        if (\array_key_exists('verify_peer', $rawData) && !\is_bool($rawData['verify_peer'])) {
+            throw new PdfException('Invalid TSA verify peer setting');
         }
 
-        if (!\is_bool($this->sigtimestamp['verify_peer'])) {
-            throw new PdfException('Invalid TSA verify peer setting');
+        $this->sigtimestamp = \array_merge($this->sigtimestamp, $data);
+
+        /** @var array<string, mixed> $sigtimestamp */
+        $sigtimestamp = $this->sigtimestamp;
+
+        $enabled = isset($sigtimestamp['enabled']) && $sigtimestamp['enabled'] === true;
+        $host = isset($sigtimestamp['host']) && \is_string($sigtimestamp['host']) ? $sigtimestamp['host'] : '';
+
+        if ($enabled && $host === '') {
+            throw new PdfException('Invalid TSA host');
+        }
+
+        $hashAlgorithm = isset($sigtimestamp['hash_algorithm']) && \is_string($sigtimestamp['hash_algorithm'])
+            ? \strtolower($sigtimestamp['hash_algorithm'])
+            : '';
+        if (!\in_array($hashAlgorithm, ['sha256', 'sha384', 'sha512'], true)) {
+            throw new PdfException('Invalid TSA hash algorithm');
+        }
+
+        $policyOid = isset($sigtimestamp['policy_oid']) && \is_string($sigtimestamp['policy_oid'])
+            ? $sigtimestamp['policy_oid']
+            : '';
+        if ($policyOid !== '' && \preg_match('/^\\d+(?:\\.\\d+)+$/', $policyOid) !== 1) {
+            throw new PdfException('Invalid TSA policy OID');
+        }
+
+        $timeout = isset($sigtimestamp['timeout']) && \is_int($sigtimestamp['timeout']) ? $sigtimestamp['timeout'] : 0;
+        if ($timeout < 1) {
+            throw new PdfException('Invalid TSA timeout');
         }
     }
 
@@ -589,6 +651,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *           'page': int,
      *           'rect': string,
      *         } Array defining page and rectangle coordinates of signature appearance.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     protected function getSignatureAppearanceArray(
         float $posx = 0,
@@ -622,6 +686,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param float $heigth Height of the signature area.
      * @param int $page option page number (if < 0 the current page is used).
      * @param string $name Name of the signature.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function setSignatureAppearance(
         float $posx = 0,
@@ -644,6 +710,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param string $stream Appearance stream content.
      * @param string $mode Appearance mode: N (normal), R (rollover), D (down).
      * @param string $state Optional appearance state name.
+     *
+     * @throws PdfException
      */
     public function setSignatureAppearanceStream(string $stream, string $mode = 'N', string $state = ''): void
     {
@@ -682,6 +750,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * The XObject will be auto-fitted to the signature rectangle.
      *
      * @param string $xobjid XObject resource name (for example "IMP1").
+     *
+     * @throws PdfException
      */
     public function setSignatureAppearanceXObject(string $xobjid): void
     {
@@ -702,6 +772,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param float $heigth Height of the signature area.
      * @param int $page option page number (if < 0 the current page is used).
      * @param string $name Name of the signature.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addEmptySignatureAppearance(
         float $posx = 0,
@@ -722,31 +794,33 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $this->setSignAnnotRefs();
     }
 
-    /*
+    /**
      * Set the signature annotation references.
      */
     protected function setSignAnnotRefs(): void
     {
-        if ($this->objid['signature'] === 0) {
+        $signatureObjId = (int) $this->objid['signature'];
+        if ($signatureObjId === 0) {
             return;
         }
 
-        if (
-            isset($this->signature['appearance']['page'], $this->signature['appearance']['rect'])
-            && \is_int($this->signature['appearance']['page'])
-            && $this->signature['appearance']['page'] >= 0
-            && \is_string($this->signature['appearance']['rect'])
-            && $this->signature['appearance']['rect'] !== ''
-        ) {
-            $this->page->addAnnotRef($this->objid['signature'], $this->signature['appearance']['page']);
-        }
+        try {
+            $appearancePage = $this->signature['appearance']['page'];
+            $appearanceRect = $this->signature['appearance']['rect'];
+            if ($appearancePage >= 0 && $appearanceRect !== '') {
+                $this->page->addAnnotRef($signatureObjId, $appearancePage);
+            }
 
-        if (!isset($this->signature['appearance']['empty']) || $this->signature['appearance']['empty'] === []) {
+            $emptyAppearances = $this->signature['appearance']['empty'];
+            if ($emptyAppearances === []) {
+                return;
+            }
+
+            foreach ($emptyAppearances as $esa) {
+                $this->page->addAnnotRef($esa['objid'], $esa['page']);
+            }
+        } catch (\Com\Tecnick\Pdf\Page\Exception) {
             return;
-        }
-
-        foreach ($this->signature['appearance']['empty'] as $esa) {
-            $this->page->addAnnotRef($esa['objid'], $esa['page']);
         }
     }
 
@@ -771,7 +845,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         bool $lock = true,
     ): string {
         $layer = \sprintf('LYR%03d', \count($this->pdflayer) + 1);
-        $name = \preg_replace('/[^a-zA-Z0-9_\-]/', '', $name);
+        $name = (string) \preg_replace('/[^a-zA-Z0-9_\-]/', '', $name);
         if ($name === '') {
             $name = $layer;
         }
@@ -815,6 +889,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param bool  $rtl   Right-To-Left - If true prints the TOC in RTL mode.
      * @param StyleDataOpt $linestyle Line style for the space filler.
      *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     * @throws PdfException
+     *
      * @return void
      */
     public function addTOC(
@@ -834,31 +915,31 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         ],
     ): void {
         if ($width <= 0) {
-            $regionData = $this->page->getRegion();
-            /** @var array{RW: numeric} $reg */
-            $reg = \is_array($regionData) ? $regionData : ['RW' => 0];
-            $width = (float) ($reg['RW'] ?? 0);
+            $reg = $this->page->getRegion();
+            $width = $reg['RW'];
         }
 
-        $fontData = $this->font->getCurrentFont();
-        /** @var array{cw: array<int, numeric>, dw: numeric} $curfont */
-        $curfont = \is_array($fontData) ? $fontData : ['cw' => [], 'dw' => 0];
+        /** @var array{cw: array<int, numeric>, dw: numeric, idx: int, size: numeric, spacing: float, stretching: float} $curfont */
+        $curfont = $this->font->getCurrentFont();
 
         // width to accomodate the number (max 9 digits space).
-        $cwVal = (float) ($curfont['cw'][48] ?? $curfont['dw'] ?? 0);
+        $cwVal = (float) ($curfont['cw'][48] ?? $curfont['dw']);
         $chrw = $this->toUnit($cwVal); // 48 ASCII = '0'.
         $indent = 2 * $chrw; // each level is indented by 2 characters.
         $numwidth = 9 * $chrw; // maximum 9 digits to print the page number.
         $txtwidth = $width - $numwidth;
 
-        $marginT = $this->defcell['margin']['T'] ?? 0;
-        $paddingT = $this->defcell['padding']['T'] ?? 0;
+        $defcellData = $this->defcell;
+        $marginData = $defcellData['margin'];
+        $paddingData = $defcellData['padding'];
+        $marginT = $this->getNumericFloatValue($marginData['T']);
+        $paddingT = $this->getNumericFloatValue($paddingData['T']);
         $cellSpaceT = $this->toUnit($marginT + $paddingT);
-        $marginB = $this->defcell['margin']['B'] ?? 0;
-        $paddingB = $this->defcell['padding']['B'] ?? 0;
+        $marginB = $this->getNumericFloatValue($marginData['B']);
+        $paddingB = $this->getNumericFloatValue($paddingData['B']);
         $cellSpaceB = $this->toUnit($marginB + $paddingB);
-        $marginL = $this->defcell['margin']['L'] ?? 0;
-        $paddingR = $this->defcell['padding']['R'] ?? 0;
+        $marginL = $this->getNumericFloatValue($marginData['L']);
+        $paddingR = $this->getNumericFloatValue($paddingData['R']);
         $cellSpaceH = $chrw + $this->toUnit($marginL + $marginL + $paddingR + $paddingR);
 
         $aligntext = 'L';
@@ -876,24 +957,30 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
         $pid = $page < 0 ? (int) $this->page->getPageID() : (int) $page;
 
-        foreach ($this->outlines as $bmrk) {
+        $outlines = $this->outlines;
+        foreach ($outlines as $bmrk) {
+            $bmrkStyle = $bmrk['s'];
+            $bmrkLevel = $bmrk['l'];
+            $bmrkText = $bmrk['t'];
+            $bmrkPage = $bmrk['p'];
+            $bmrkY = $bmrk['y'];
+            $bmrkColor = $bmrk['c'];
+            $bmrkLink = $bmrk['u'];
+            $fontSize = (float) $curfont['size'];
+
             $font = $this->font->cloneFont(
                 $this->pon,
                 $curfont['idx'],
-                $bmrk['s'] . ($bmrk['l'] === 0 ? 'B' : ''),
-                (int) \round($curfont['size'] - $bmrk['l']),
+                $bmrkStyle . ($bmrkLevel === 0 ? 'B' : ''),
+                (int) \round($fontSize - $bmrkLevel),
                 $curfont['spacing'],
                 $curfont['stretching'],
             );
-            $fontHeight = \is_array($font) && isset($font['height']) && \is_numeric($font['height'])
-                ? $font['height']
-                : 0.0;
-            $fontOut = \is_array($font) ? $font['out'] ?? '' : '';
+            $fontHeight = $font['height'];
+            $fontOut = $font['out'];
 
             $region = $this->page->getRegion($pid);
-            $regionHeight = \is_array($region) && isset($region['RH']) && \is_numeric($region['RH'])
-                ? $region['RH']
-                : 0.0;
+            $regionHeight = $region['RH'];
 
             if (($posy + $cellSpaceT + $cellSpaceB + $fontHeight) > $regionHeight) {
                 $this->page->getNextRegion($pid);
@@ -902,29 +989,27 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
                     $pid = $curpid;
                     $this->setPageContext($pid);
                 }
-                $regionData = $this->page->getRegion($pid);
-                /** @var array{RH: numeric, RY: numeric} $region */
-                $region = \is_array($regionData) ? $regionData : ['RH' => 0, 'RY' => 0];
+                $region = $this->page->getRegion($pid);
                 $posy = 0; // $region['RY'];
             }
 
             $this->page->addContent($this->graph->getStartTransform(), $pid);
             $this->page->addContent($fontOut, $pid);
 
-            if (isset($bmrk['c']) && $bmrk['c'] !== '') {
-                $col = $this->color->getPdfColor($bmrk['c']);
+            if ($bmrkColor !== '') {
+                $col = $this->color->getPdfColor($bmrkColor);
                 $this->page->addContent($col, $pid);
             }
 
-            if (!isset($bmrk['u']) || $bmrk['u'] === '') {
-                $bmrk['u'] = $this->addInternalLink($bmrk['p'], $bmrk['y']);
+            if ($bmrkLink === '') {
+                $bmrkLink = $this->addInternalLink($bmrkPage, $bmrkY);
             }
 
-            $offset = $indent * $bmrk['l'];
+            $offset = $indent * $bmrkLevel;
             // add bookmark text
             $prevpid = (int) $this->page->getPageID();
             $this->addTextCell(
-                $bmrk['t'],
+                $bmrkText,
                 $pid,
                 $txt_posx,
                 $posy,
@@ -940,25 +1025,25 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
             $bbox = $this->getLastBBox();
             /** @var array{w: numeric, h: numeric, y: numeric} $bbox */
-            $wtxt = (float) ($bbox['w'] ?? 0);
+            $wtxt = (float) $bbox['w'];
 
             $pageid = (int) $this->page->getPageID();
             if ($pageid > $prevpid) {
                 $this->page->addContent($this->graph->getStopTransform(), $pid);
-                $regionRH = (float) ($region['RH'] ?? 0);
-                $lnkid = $this->setLink($posx, $posy, $width, $regionRH - $posy, $bmrk['u'] ?? '');
+                $regionRH = $region['RH'];
+                $lnkid = $this->setLink($posx, $posy, $width, $regionRH - $posy, $bmrkLink);
                 $this->page->addAnnotRef($lnkid, $pid);
                 $pid = $pageid;
                 $this->page->addContent($this->graph->getStartTransform(), $pid);
                 $this->page->addContent($fontOut, $pid);
             }
 
-            $bboxY = (float) ($bbox['y'] ?? 0);
+            $bboxY = (float) $bbox['y'];
             $posy = $bboxY - $cellSpaceT; // align number with the last line of the text
 
             // add page number
             $this->addTextCell(
-                (string) ($bmrk['p'] + 1),
+                (string) ($bmrkPage + 1),
                 $pid,
                 $num_posx,
                 $posy,
@@ -974,18 +1059,18 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
             $bbox = $this->getLastBBox();
             /** @var array{w: numeric, h: numeric, y: numeric} $bbox */
-            $wnum = (float) ($bbox['w'] ?? 0);
+            $wnum = (float) $bbox['w'];
 
             // add line to fill the gap between text and number
-            $fontAscent = $font['ascent'] ?? 0;
+            $fontAscent = $font['ascent'];
             $line_posx = $cellSpaceH + $offset + $posx + ($rtl ? $wnum : $wtxt);
             $line_posy = $bboxY + $this->toUnit($fontAscent);
             $lineLength = $width - $wtxt - $wnum - (2 * $cellSpaceH) - $offset;
             $line = $this->graph->getLine($line_posx, $line_posy, $line_posx + $lineLength, $line_posy, $linestyle);
             $this->page->addContent($line, $pid);
 
-            $bboxH = (float) ($bbox['h'] ?? 0);
-            $lnkid = $this->setLink($posx, $bboxY, $width, $bboxH, $bmrk['u'] ?? '');
+            $bboxH = (float) $bbox['h'];
+            $lnkid = $this->setLink($posx, $bboxY, $width, $bboxH, $bmrkLink);
             $this->page->addAnnotRef($lnkid, $pid);
 
             $this->page->addContent($this->graph->getStopTransform(), $pid);
@@ -1008,8 +1093,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     {
         if ($this->importer === null) {
             // Pass xobjects by reference so Importer writes directly into this document's registry.
-
-            $this->importer = new ObjImporter($this->xobjects, $this->pon);
+            $xobjects = &$this->xobjects;
+            $this->importer = new ObjImporter($xobjects, $this->pon);
         }
 
         return $this->importer;
@@ -1022,6 +1107,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed> $cfg  Optional parser configuration.
      *
      * @return string Source document identifier.
+     *
+     * @throws \Com\Tecnick\Pdf\Import\ImportSourceNotFoundException
+     * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
+     * @throws \Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException
      */
     public function setImportSourceFile(string $path, array $cfg = []): string
     {
@@ -1035,6 +1124,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed> $cfg  Optional parser configuration.
      *
      * @return string Source document identifier.
+     *
+     * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
+     * @throws \Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException
      */
     public function setImportSourceData(string $data, array $cfg = []): string
     {
@@ -1047,6 +1139,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param string $sourceId Source document identifier.
      *
      * @return int Total page count.
+     *
+     * @throws \Com\Tecnick\Pdf\Import\ImportSourceNotFoundException
+     * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
      */
     public function getSourcePageCount(string $sourceId): int
     {
@@ -1061,6 +1156,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed>   $options  Import options.
      *
      * @return PageTemplateInterface Imported page template ready for placement.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Import\ImportException
      */
     public function importPage(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
     {
@@ -1079,6 +1177,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed> $options Placement options.
      *
      * @return array{x: float, y: float, width: float, height: float} Actual placed rect in user units.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function useImportedPage(
         PageTemplateInterface $tpl,
@@ -1097,9 +1197,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $dstW = $boxW;
         $dstH = $boxH;
 
-        $keepAspectOpt = $options['keepAspectRatio'] ?? true;
         $keepAspect =
-            $keepAspectOpt === true || $keepAspectOpt === 1 || $keepAspectOpt === '1' || $keepAspectOpt === 'true';
+            !\array_key_exists('keepAspectRatio', $options)
+            || $options['keepAspectRatio'] === true
+            || $options['keepAspectRatio'] === 1
+            || $options['keepAspectRatio'] === '1'
+            || $options['keepAspectRatio'] === 'true';
         if ($keepAspect && $tplW > 0 && $tplH > 0) {
             $scaleX = $dstW / $tplW;
             $scaleY = $dstH / $tplH;
@@ -1108,8 +1211,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             $dstH = $tplH * $scale;
         }
 
-        $alignOpt = $options['align'] ?? 'TL';
-        $align = \is_string($alignOpt) ? \strtoupper($alignOpt) : 'TL';
+        $align = 'TL';
+        if (isset($options['align']) && \is_string($options['align'])) {
+            $align = \strtoupper($options['align']);
+        }
         if (\strlen($align) !== 2) {
             $align = 'TL';
         }
@@ -1143,17 +1248,22 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
         // PDF coordinate system has Y increasing upward; page origin is bottom-left.
         $xPt = $this->toPoints($finalX);
+        /** @var array{pheight: float} $pageData */
         $pageData = $this->page->getPage();
-        /** @var array{pheight: numeric} $pg */
-        $pg = \is_array($pageData) ? $pageData : ['pheight' => 0];
-        $pageHeightPt = (float) ($pg['pheight'] ?? 0);
+        $pageHeightPt = $pageData['pheight'];
         $yPt = $pageHeightPt - $this->toPoints($finalY) - ($dstH * $scalePt);
 
         $matrix = \sprintf('%F 0 0 %F %F %F', $scaleX2, $scaleY2, $xPt, $yPt);
         $content = 'q ';
 
-        $clipOpt = $options['clip'] ?? false;
-        $clip = $clipOpt === true || $clipOpt === 1 || $clipOpt === '1' || $clipOpt === 'true';
+        $clip =
+            isset($options['clip'])
+            && (
+                $options['clip'] === true
+                || $options['clip'] === 1
+                || $options['clip'] === '1'
+                || $options['clip'] === 'true'
+            );
         if ($clip) {
             $clipX = $this->toPoints($xpos);
             $clipY = $pageHeightPt - $this->toPoints($ypos) - $this->toPoints($boxH);
@@ -1175,6 +1285,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed> $options  Import options (same as importPage).
      *
      * @return array<int, PageTemplateInterface> One PageTemplateInterface per requested page.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Import\ImportException
      */
     public function importPages(string $sourceId, ?array $range = null, array $options = []): array
     {
@@ -1190,6 +1303,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed> $options  Import options (same as importPage).
      *
      * @return PageTemplateInterface The imported page template.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Import\ImportException
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     public function addPageFromImport(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
     {
@@ -1217,6 +1336,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed> $options  Import options (same as importPage).
      *
      * @return array<int, PageTemplateInterface> One PageTemplateInterface per appended page.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Import\ImportException
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     public function appendDocument(string $sourceId, ?array $range = null, array $options = []): array
     {
@@ -1236,11 +1361,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         }
 
         if ($prevPid >= 0) {
-            $prevPageData = $this->page->setCurrentPage($prevPid);
-            /** @var array{width: numeric, height: numeric} $prevPage */
-            $prevPage = \is_array($prevPageData) ? $prevPageData : ['width' => 0, 'height' => 0];
-            $this->graph->setPageWidth((float) ($prevPage['width'] ?? 0));
-            $this->graph->setPageHeight((float) ($prevPage['height'] ?? 0));
+            /** @var array{width: float, height: float} $prevPage */
+            $prevPage = $this->page->setCurrentPage($prevPid);
+            $this->graph->setPageWidth($prevPage['width']);
+            $this->graph->setPageHeight($prevPage['height']);
         }
 
         return $templates;
@@ -1255,11 +1379,17 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param array<string, mixed> $options
      *
      * @return array<string, mixed>
+     *
+     * @throws PdfException
      */
     private function normalizeImportOptions(array $options): array
     {
-        $groupOpt = $options['groupXObject'] ?? true;
-        $useGroup = $groupOpt === true || $groupOpt === 1 || $groupOpt === '1' || $groupOpt === 'true';
+        $useGroup =
+            !\array_key_exists('groupXObject', $options)
+            || $options['groupXObject'] === true
+            || $options['groupXObject'] === 1
+            || $options['groupXObject'] === '1'
+            || $options['groupXObject'] === 'true';
         if ($useGroup && !$this->isTransparencyAllowed()) {
             $useGroup = false;
         }
@@ -1270,5 +1400,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
         $options['groupXObject'] = $useGroup;
         return $options;
+    }
+
+    /**
+     * Normalize numeric-like input to float.
+     */
+    private function getNumericFloatValue(mixed $value): float
+    {
+        return \is_numeric($value) ? (float) $value : 0.0;
     }
 }

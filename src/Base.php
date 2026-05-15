@@ -142,17 +142,549 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *   fixedCurlOpts?: array<int, bool|int|string>
  * }
  *
- * @phpstan-import-type TAnnot from Output
- * @phpstan-import-type TEmbeddedFile from Output
- * @phpstan-import-type TObjID from Output
- * @phpstan-import-type TOutline from Output
- * @phpstan-import-type TSignature from Output
- * @phpstan-import-type TSignTimeStamp from Output
- * @phpstan-import-type TPatternObject from Output
- * @phpstan-import-type TSVGMaskObject from Output
- * @phpstan-import-type TGTransparency from Output
- * @phpstan-import-type TUserRights from Output
- * @phpstan-import-type TXOBject from Output
+ * @phpstan-type TFourFloat array{
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *    }
+ *
+ * @phpstan-type TAnnotQuadPoint array{
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *        float,
+ *    }
+ *
+ * @phpstan-type TAnnotBorderStyle array{
+ *        'type'?: string,
+ *        'w': int,
+ *        's': string,
+ *        'd'?: array<int>,
+ *    }
+ *
+ * @phpstan-type TAnnotBorderEffect array{
+ *        's'?: string,
+ *        'i'?: float,
+ *    }
+ *
+ * @phpstan-type TAnnotMeasure array{
+ *        'type'?: string,
+ *        'subtype'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotMarkup array{
+ *        't'?: string,
+ *        'popup'?: array<mixed>,
+ *        'ca'?: float,
+ *        'rc'?: string,
+ *        'creationdate'?: string,
+ *        'irt'?: array<mixed>,
+ *        'subj'?: string,
+ *        'rt'?: string,
+ *        'it'?: string,
+ *        'exdata'?: array{
+ *      'type'?: string,
+ *      'subtype': string,
+ *        },
+ *    }
+ *
+ * @phpstan-type TAnnotStates array{
+ *        'marked'?: string,
+ *        'review'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotText array{
+ *        'subtype': string,
+ *        'open'?: bool,
+ *        'name'?: string,
+ *        'state'?: string,
+ *        'statemodel'?: string,
+ *    }
+ *
+ * @phpstan-type TUriAction array{
+ *       's': string,
+ *       'uri': string,
+ *       'ismap'?: bool,
+ *    }
+ *
+ * @phpstan-type TAnnotActionDict array{
+ *        'type'?: string,
+ *        's'?: string,
+ *        'next'?: array<int, array<mixed>>,
+ *    }
+ *
+ * @phpstan-type TAnnotAdditionalActionDict array{
+ *        'e'?: TAnnotActionDict,
+ *        'x'?: TAnnotActionDict,
+ *        'd'?: TAnnotActionDict,
+ *        'u'?: TAnnotActionDict,
+ *        'fo'?: TAnnotActionDict,
+ *        'bi'?: TAnnotActionDict,
+ *        'po'?: TAnnotActionDict,
+ *        'pc'?: TAnnotActionDict,
+ *        'pv'?: TAnnotActionDict,
+ *        'pi'?: TAnnotActionDict,
+ *    }
+ *
+ * @phpstan-type TAnnotLink array{
+ *        'subtype': string,
+ *        'a'?: TAnnotActionDict,
+ *        'dest'?: string|array<mixed>,
+ *        'h'?: string,
+ *        'pa'?: TUriAction,
+ *        'quadpoints'?: array<int, TAnnotQuadPoint>,
+ *        'bs'?: TAnnotBorderStyle,
+ *    }
+ *
+ * @phpstan-type TAnnotFreeText array{
+ *        'subtype': string,
+ *        'da': string,
+ *        'q'?: int,
+ *        'rc'?: string,
+ *        'ds'?: string,
+ *        'cl'?: array<float>,
+ *        'it'?: string,
+ *        'be'?: TAnnotBorderEffect,
+ *        'rd'?: TFourFloat,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'le'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotLine array{
+ *        'subtype': string,
+ *        'l': TFourFloat,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'le'?: array{
+ *            string,
+ *            string
+ *        },
+ *        'ic'?: TFourFloat,
+ *        'll'?: float,
+ *        'lle'?: float,
+ *        'cap'?: bool,
+ *        'it'?: string,
+ *        'llo'?: float,
+ *        'cp'?: string,
+ *        'measure'?: TAnnotMeasure,
+ *        'co'?: array{
+ *            float,
+ *            float
+ *        },
+ *    }
+ *
+ * @phpstan-type TAnnotSquare array{
+ *        'subtype': string,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'ic'?: TFourFloat,
+ *        'be'?: TAnnotBorderEffect,
+ *        'rd'?: TFourFloat,
+ *    }
+ *
+ * @phpstan-type TAnnotCircle TAnnotSquare
+ *
+ * @phpstan-type TAnnotPolygon array{
+ *        'subtype': string,
+ *        'vertices'?: array<float>,
+ *        'le'?: array{
+ *            string,
+ *            string
+ *        },
+ *        'bs'?: TAnnotBorderStyle,
+ *        'ic'?: TFourFloat,
+ *        'be'?: TAnnotBorderEffect,
+ *        'it'?: string,
+ *        'measure'?: TAnnotMeasure,
+ *    }
+ *
+ * @phpstan-type TAnnotPolyline TAnnotPolygon
+ *
+ * @phpstan-type TAnnotTextMarkup array{
+ *        'subtype': string,
+ *        'quadpoints': array<int, TAnnotQuadPoint>,
+ *    }
+ *
+ * @phpstan-type TAnnotCaret array{
+ *        'subtype': string,
+ *        'rd'?: TFourFloat,
+ *        'sy'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotRubberStamp array{
+ *        'subtype': string,
+ *        'name'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotInk array{
+ *        'subtype': string,
+ *        'inklist'?: array<int, array<float>>,
+ *        'bs'?: TAnnotBorderStyle,
+ *    }
+ *
+ * @phpstan-type TAnnotPopup array{
+ *        'subtype': string,
+ *        'parent'?: array<mixed>,
+ *        'open'?: bool,
+ *    }
+ *
+ * @phpstan-type TAnnotFileAttachment array{
+ *        'subtype': string,
+ *        'fs'?: string,
+ *        'name'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotSound array{
+ *        'subtype': string,
+ *        'sound': string,
+ *        'name'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotMovieDict array{
+ *        'f': string,
+ *        'aspect'?: array{
+ *            float,
+ *            float
+ *        },
+ *        'rotate'?: int,
+ *        'poster'?: bool|string,
+ *    }
+ *
+ * @phpstan-type TAnnotMovieActDict array{
+ *        'start'?: int|string|array{
+ *            int|string,
+ *            int
+ *        },
+ *        'duration'?: int|string|array{
+ *            int|string,
+ *            int
+ *        },
+ *        'rate'?: float,
+ *        'volume'?: float,
+ *        'showcontrols'?: bool,
+ *        'mode'?: string,
+ *        'synchronous'?: bool,
+ *        'fwscale'?: array{
+ *            int,
+ *            int
+ *        },
+ *        'fwposition'?: array{
+ *            float,
+ *            float
+ *        },
+ *    }
+ *
+ * @phpstan-type TAnnotMovie array{
+ *        'subtype': string,
+ *        't'?: string,
+ *        'movie'?: TAnnotMovieDict,
+ *        'a'?: bool|TAnnotMovieActDict,
+ *    }
+ *
+ * @phpstan-type TAnnotIconFitDict array{
+ *        'sw'?: string,
+ *        's'?: string,
+ *        'a'?: array{
+ *            float,
+ *            float
+ *        },
+ *        'fb'?: bool,
+ *    }
+ *
+ * @phpstan-type TAnnotMKDict array{
+ *        'r'?: int,
+ *        'bc'?: TFourFloat,
+ *        'bg'?: array{float},
+ *        'ca'?: string,
+ *        'rc'?: string,
+ *        'ac'?: string,
+ *        'i'?: string,
+ *        'ri'?: string,
+ *        'ix'?: string,
+ *        'if'?: TAnnotIconFitDict,
+ *        'tp'?: int,
+ *    }
+ *
+ * @phpstan-type TAnnotScreen array{
+ *        'subtype': string,
+ *        't'?: string,
+ *        'mk'?: TAnnotMKDict,
+ *        'a'?: TAnnotActionDict,
+ *        'aa'?: TAnnotAdditionalActionDict,
+ *    }
+ *
+ * @phpstan-type TAnnotWidget array{
+ *        'subtype': string,
+ *        'h'?: string,
+ *        'mk'?: array<array-key, mixed>,
+ *        'a'?: TAnnotActionDict,
+ *        'aa'?: TAnnotAdditionalActionDict,
+ *        'bs'?: TAnnotBorderStyle,
+ *        'parent'?: array<mixed>,
+ *        'border'?: array<mixed>,
+ *        'f'?: int,
+ *        'ff'?: int|array<int, int>,
+ *        'dv'?: mixed,
+ *        'v'?: mixed,
+ *        'rv'?: mixed,
+ *        't'?: string,
+ *        'tm'?: string,
+ *        'tu'?: string,
+ *        'i'?: array<mixed>,
+ *        'opt'?: array<int, string|array{mixed, string}>,
+ *        'maxlen'?: int,
+ *        'da'?: string,
+ *    }
+ *
+ * @phpstan-type TAnnotFixedPrintDict array{
+ *        'type': string,
+ *        'matrix'?: array{
+ *            float,
+ *            float,
+ *            float,
+ *            float,
+ *            float,
+ *            float
+ *        },
+ *        'h'?: float,
+ *        'v'?: float,
+ *    }
+ *
+ * @phpstan-type TAnnotWatermark array{
+ *        'subtype': string,
+ *        'fixedprint'?: TAnnotFixedPrintDict,
+ *    }
+ *
+ * @phpstan-type TAnnotRedact array{
+ *        'subtype': string,
+ *        'quadpoints'?: array<int, TAnnotQuadPoint>,
+ *        'ic'?: TFourFloat,
+ *        'ro'?: string,
+ *        'overlaytext'?: string,
+ *        'repeat'?: bool,
+ *        'da'?: string,
+ *        'q'?: int,
+ *    }
+ *
+ * @phpstan-type TAnnotOptsA TAnnotText|TAnnotLink|TAnnotFreeText
+ * @phpstan-type TAnnotOptsB TAnnotLine|TAnnotSquare|TAnnotCircle|TAnnotPolygon|TAnnotPolyline
+ * @phpstan-type TAnnotOptsC TAnnotTextMarkup|TAnnotCaret|TAnnotRubberStamp|TAnnotInk|TAnnotPopup
+ * @phpstan-type TAnnotOptsD TAnnotFileAttachment|TAnnotSound|TAnnotMovie
+ * @phpstan-type TAnnotOptsE TAnnotScreen|TAnnotWidget|TAnnotWatermark|TAnnotRedact
+ *
+ * @phpstan-type TAnnotOpts TAnnotOptsA|TAnnotOptsB|TAnnotOptsC|TAnnotOptsD|TAnnotOptsE
+ *
+ * @phpstan-type TAnnot array{
+ *        'n': int,
+ *        'x': float,
+ *        'y': float,
+ *        'w': float,
+ *        'h': float,
+ *        'txt': string,
+ *        'opt': TAnnotOpts,
+ *    }
+ *
+ * @phpstan-type TGTransparency array{
+ *         'CS': string,
+ *         'I': bool,
+ *         'K': bool,
+ *     }
+ *
+ * @phpstan-type TXOBject array{
+ *         'spot_colors': array<string>,
+ *         'extgstate': array<int>,
+ *         'gradient': array<int>,
+ *         'font': array<string>,
+ *         'image': array<int>,
+ *         'xobject': array<string>,
+ *         'annotations': array<int, TAnnot>,
+ *         'transparency'?: ?TGTransparency,
+ *         'id': string,
+ *         'outdata': string,
+ *         'n': int,
+ *         'x': float,
+ *         'y': float,
+ *         'w': float,
+ *         'h': float,
+ *         'pheight': float,
+ *         'gheight': float,
+ *     }
+ *
+ * @phpstan-type TPatternObject array{
+ *         'id': string,
+ *         'n': int,
+ *         'outdata': string,
+ *         'bbox': array{
+ *             float,
+ *             float,
+ *             float,
+ *             float
+ *         },
+ *         'xstep': float,
+ *         'ystep': float,
+ *         'matrix': array{
+ *             float,
+ *             float,
+ *             float,
+ *             float,
+ *             float,
+ *             float
+ *         },
+ *     }
+ *
+ * @phpstan-type TSVGMaskObject array{
+ *         'id': string,
+ *         'stream': string,
+ *         'bbox': array{
+ *             float,
+ *             float,
+ *             float,
+ *             float
+ *         },
+ *         'gs_n': int,
+ *     }
+ *
+ * @phpstan-type TOutline array{
+ *         't': string,
+ *         'u': string,
+ *         'l': int,
+ *         'p': int,
+ *         'x': float,
+ *         'y': float,
+ *         's': string,
+ *         'c': string,
+ *         'parent': int,
+ *         'last': int,
+ *         'first': int,
+ *         'prev': int,
+ *         'next': int,
+ *     }
+ *
+ * @phpstan-type TLtvConfig array{
+ *        'enabled': bool,
+ *        'embed_ocsp': bool,
+ *        'embed_crl': bool,
+ *        'embed_certs': bool,
+ *        'include_dss': bool,
+ *        'include_vri': bool,
+ *    }
+ *
+ * @phpstan-type TSignature array{
+ *        'appearance': array{
+ *            'ap'?: string|array<string, string|array<string, string>>,
+ *            'as'?: string,
+ *            'empty': array<int, array{
+ *                'objid': int,
+ *                'name': string,
+ *                'page': int,
+ *                'rect': string,
+ *            }>,
+ *            'name': string,
+ *            'page': int,
+ *            'rect': string,
+ *            'xobj'?: string,
+ *        },
+ *        'approval': string,
+ *        'cert_type': int,
+ *        'extracerts': ?string,
+ *        'info': array{
+ *            'ContactInfo': string,
+ *            'Location': string,
+ *            'Name': string,
+ *            'Reason': string,
+ *        },
+ *        'password': string,
+ *        'privkey': string,
+ *        'signcert': string,
+ *        'ltv'?: TLtvConfig,
+ *    }
+ *
+ * @phpstan-type TSignTimeStamp array{
+ *        'enabled': bool,
+ *        'host': string,
+ *        'username': string,
+ *        'password': string,
+ *        'cert': string,
+ *        'hash_algorithm': string,
+ *        'policy_oid': string,
+ *        'nonce_enabled': bool,
+ *        'timeout': int,
+ *        'verify_peer': bool,
+ *    }
+ *
+ * @phpstan-type TUserRights array{
+ *        'annots': string,
+ *        'document': string,
+ *        'ef': string,
+ *        'enabled': bool,
+ *        'form': string,
+ *        'formex': string,
+ *        'signature': string,
+ *    }
+ *
+ * @phpstan-type TEmbeddedFile array{
+ *        'a': int,
+ *        'f': int,
+ *        'n': int,
+ *        'file': string,
+ *        'content': string,
+ *        'mimeType': string,
+ *        'afRelationship': string,
+ *        'description': string,
+ *        'creationDate': int,
+ *        'modDate': int,
+ *    }
+ *
+ * @phpstan-type TObjID array{
+ *        'catalog': int,
+ *        'dests': int,
+ *        'dss': int,
+ *        'form': array<int>,
+ *        'info': int,
+ *        'pages': int,
+ *        'resdic': int,
+ *        'signature': int,
+ *        'srgbicc': int,
+ *        'xmp': int,
+ *    }
+ *
+ * @phpstan-type TSignDocPrepared array{
+ *        'byte_range': array{
+ *            int,
+ *            int,
+ *            int,
+ *            int
+ *        },
+ *        'pdfdoc': string,
+ *        'pdfdoc_length': int,
+ *    }
+ *
+ * @phpstan-type TValidationCert array{
+ *        'pem': string,
+ *        'der': string,
+ *        'serial': string,
+ *        'subject': string,
+ *        'issuer': string,
+ *        'ocsp_urls': array<int, string>,
+ *        'crl_dp_urls': array<int, string>,
+ *    }
+ *
+ * @phpstan-type TValidationVri array{
+ *        'certs': array<int>,
+ *        'ocsp': array<int>,
+ *        'crls': array<int>,
+ *    }
+ *
+ * @phpstan-type TValidationMaterial array{
+ *        'cert_chain': array<int, TValidationCert>,
+ *        'certs': array<int, string>,
+ *        'ocsp': array<int, string>,
+ *        'crls': array<int, string>,
+ *        'vri': array<string, TValidationVri>,
+ *    }
  *
  * @SuppressWarnings("PHPMD")
  */
@@ -161,7 +693,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.21.0';
+    protected string $version = '8.22.0';
 
     /**
      * Encrypt object.

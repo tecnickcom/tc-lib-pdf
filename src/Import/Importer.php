@@ -32,7 +32,7 @@ namespace Com\Tecnick\Pdf\Import;
  * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- * @phpstan-import-type TXOBject from \Com\Tecnick\Pdf\Output
+ * @phpstan-import-type TXOBject from \Com\Tecnick\Pdf\Base
  *
  * @phpstan-type ImportOptions array{
  *     box?:           string,

@@ -33,9 +33,9 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE.TXT)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- * @phpstan-import-type TAnnotOpts from Output
- * @phpstan-import-type TGTransparency from Output
- * @phpstan-import-type TXOBject from Output
+ * @phpstan-import-type TAnnotOpts from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TGTransparency from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TXOBject from \Com\Tecnick\Pdf\Base
  *
  * @phpstan-type TRadioButtonItem array{
  *         'n': int,

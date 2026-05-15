@@ -36,6 +36,32 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * @phpstan-import-type TViewerPref from Base
+ * @phpstan-import-type TObjID from Base
+ * @phpstan-import-type TCustomXMP from Base
+ * @mixin \Com\Tecnick\Pdf\Base
+ * @property string $version
+ * @property int $pdfa
+ * @property string $pdfaConformance
+ * @property string $pdfver
+ * @property string $pdfuaMode
+ * @property bool $pdfx
+ * @property string $pdfxMode
+ * @property bool $sRGB
+ * @property int $doctime
+ * @property int $docmodtime
+ * @property string $creator
+ * @property string $author
+ * @property string $subject
+ * @property string $title
+ * @property string $keywords
+ * @property string $fileid
+ * @property \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt
+ * @property int $pon
+ * @property array<string, mixed> $objid
+ * @property array<string, string> $custom_xmp
+ * @property array<string, mixed> $viewerpref
+ * @property bool $rtl
+ * @property bool $isunicode
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
@@ -49,44 +75,338 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     protected const VALIDZOOM = ['fullpage', 'fullwidth', 'real', 'default'];
 
     /**
+     * Map normalized page box names to canonical PDF box names.
+     *
+     * @var array<string, string>
+     */
+    protected const VALID_PAGE_BOXES = [
+        'mediabox' => 'MediaBox',
+        'cropbox' => 'CropBox',
+        'bleedbox' => 'BleedBox',
+        'trimbox' => 'TrimBox',
+        'artbox' => 'ArtBox',
+    ];
+
+    /**
+     * Read an existing property through the documented magic-property path.
+     *
+     * @param string $name Property name.
+     *
+     * @return mixed
+     */
+    public function __get(string $name): mixed
+    {
+        return match ($name) {
+            'version' => $this->version,
+            'pdfa' => $this->pdfa,
+            'pdfaConformance' => $this->pdfaConformance,
+            'pdfver' => $this->pdfver,
+            'pdfuaMode' => $this->pdfuaMode,
+            'pdfx' => $this->pdfx,
+            'pdfxMode' => $this->pdfxMode,
+            'sRGB' => $this->sRGB,
+            'doctime' => $this->doctime,
+            'docmodtime' => $this->docmodtime,
+            'creator' => $this->creator,
+            'author' => $this->author,
+            'subject' => $this->subject,
+            'title' => $this->title,
+            'keywords' => $this->keywords,
+            'fileid' => $this->fileid,
+            'encrypt' => $this->encrypt,
+            'pon' => $this->pon,
+            'objid' => $this->objid,
+            'custom_xmp' => $this->custom_xmp,
+            'viewerpref' => $this->viewerpref,
+            'rtl' => $this->rtl,
+            default => null,
+        };
+    }
+
+    /**
+     * Write an existing property through the documented magic-property path.
+     *
+     * @param string $name Property name.
+     * @param mixed $value Property value.
+     */
+    public function __set(string $name, mixed $value): void
+    {
+        switch ($name) {
+            case 'version':
+                if (\is_string($value)) {
+                    $this->version = $value;
+                }
+                return;
+            case 'pdfa':
+                if (\is_int($value)) {
+                    $this->pdfa = $value;
+                }
+                return;
+            case 'pdfaConformance':
+                if (\is_string($value)) {
+                    $this->pdfaConformance = $value;
+                }
+                return;
+            case 'pdfver':
+                if (\is_string($value)) {
+                    $this->pdfver = $value;
+                }
+                return;
+            case 'pdfuaMode':
+                if (\is_string($value)) {
+                    $this->pdfuaMode = $value;
+                }
+                return;
+            case 'pdfx':
+                if (\is_bool($value)) {
+                    $this->pdfx = $value;
+                }
+                return;
+            case 'pdfxMode':
+                if (\is_string($value)) {
+                    $this->pdfxMode = $value;
+                }
+                return;
+            case 'sRGB':
+                if (\is_bool($value)) {
+                    $this->sRGB = $value;
+                }
+                return;
+            case 'doctime':
+                if (\is_int($value)) {
+                    $this->doctime = $value;
+                }
+                return;
+            case 'docmodtime':
+                if (\is_int($value)) {
+                    $this->docmodtime = $value;
+                }
+                return;
+            case 'creator':
+                if (\is_string($value)) {
+                    $this->creator = $value;
+                }
+                return;
+            case 'author':
+                if (\is_string($value)) {
+                    $this->author = $value;
+                }
+                return;
+            case 'subject':
+                if (\is_string($value)) {
+                    $this->subject = $value;
+                }
+                return;
+            case 'title':
+                if (\is_string($value)) {
+                    $this->title = $value;
+                }
+                return;
+            case 'keywords':
+                if (\is_string($value)) {
+                    $this->keywords = $value;
+                }
+                return;
+            case 'fileid':
+                if (\is_string($value)) {
+                    $this->fileid = $value;
+                }
+                return;
+            case 'encrypt':
+                if ($value instanceof \Com\Tecnick\Pdf\Encrypt\Encrypt) {
+                    $this->encrypt = $value;
+                }
+                return;
+            case 'pon':
+                if (\is_int($value)) {
+                    $this->pon = $value;
+                }
+                return;
+            case 'objid':
+                if (\is_array($value)) {
+                    $objid = $this->objid;
+                    if (isset($value['catalog']) && \is_numeric($value['catalog'])) {
+                        $objid['catalog'] = (int) $value['catalog'];
+                    }
+                    if (isset($value['dests']) && \is_numeric($value['dests'])) {
+                        $objid['dests'] = (int) $value['dests'];
+                    }
+                    if (isset($value['dss']) && \is_numeric($value['dss'])) {
+                        $objid['dss'] = (int) $value['dss'];
+                    }
+                    if (isset($value['info']) && \is_numeric($value['info'])) {
+                        $objid['info'] = (int) $value['info'];
+                    }
+                    if (isset($value['pages']) && \is_numeric($value['pages'])) {
+                        $objid['pages'] = (int) $value['pages'];
+                    }
+                    if (isset($value['resdic']) && \is_numeric($value['resdic'])) {
+                        $objid['resdic'] = (int) $value['resdic'];
+                    }
+                    if (isset($value['signature']) && \is_numeric($value['signature'])) {
+                        $objid['signature'] = (int) $value['signature'];
+                    }
+                    if (isset($value['srgbicc']) && \is_numeric($value['srgbicc'])) {
+                        $objid['srgbicc'] = (int) $value['srgbicc'];
+                    }
+                    if (isset($value['xmp']) && \is_numeric($value['xmp'])) {
+                        $objid['xmp'] = (int) $value['xmp'];
+                    }
+                    if (isset($value['form']) && \is_array($value['form'])) {
+                        $form = [];
+                        foreach (\array_keys($value['form']) as $formKey) {
+                            if (!isset($value['form'][$formKey]) || !\is_numeric($value['form'][$formKey])) {
+                                continue;
+                            }
+
+                            $form[] = (int) $value['form'][$formKey];
+                        }
+                        $objid['form'] = $form;
+                    }
+
+                    $this->objid = $objid;
+                }
+                return;
+            case 'custom_xmp':
+                if (\is_array($value)) {
+                    $customXmp = $this->custom_xmp;
+                    if (isset($value['x:xmpmeta']) && \is_string($value['x:xmpmeta'])) {
+                        $customXmp['x:xmpmeta'] = $value['x:xmpmeta'];
+                    }
+                    if (isset($value['x:xmpmeta.rdf:RDF']) && \is_string($value['x:xmpmeta.rdf:RDF'])) {
+                        $customXmp['x:xmpmeta.rdf:RDF'] = $value['x:xmpmeta.rdf:RDF'];
+                    }
+                    if (
+                        isset($value['x:xmpmeta.rdf:RDF.rdf:Description'])
+                        && \is_string($value['x:xmpmeta.rdf:RDF.rdf:Description'])
+                    ) {
+                        $customXmp['x:xmpmeta.rdf:RDF.rdf:Description'] = $value['x:xmpmeta.rdf:RDF.rdf:Description'];
+                    }
+                    if (
+                        isset($value['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas'])
+                        && \is_string($value['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas'])
+                    ) {
+                        $customXmp['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas'] =
+                            $value['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas'];
+                    }
+                    if (
+                        isset($value['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag'])
+                        && \is_string($value['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag'])
+                    ) {
+                        $customXmp['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag'] =
+                            $value['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag'];
+                    }
+                    $this->custom_xmp = $customXmp;
+                }
+                return;
+            case 'viewerpref':
+                if (\is_array($value)) {
+                    /** @var TViewerPref $viewerPref */
+                    $viewerPref = [];
+                    if (isset($value['HideToolbar']) && \is_bool($value['HideToolbar'])) {
+                        $viewerPref['HideToolbar'] = $value['HideToolbar'];
+                    }
+                    if (isset($value['HideMenubar']) && \is_bool($value['HideMenubar'])) {
+                        $viewerPref['HideMenubar'] = $value['HideMenubar'];
+                    }
+                    if (isset($value['HideWindowUI']) && \is_bool($value['HideWindowUI'])) {
+                        $viewerPref['HideWindowUI'] = $value['HideWindowUI'];
+                    }
+                    if (isset($value['FitWindow']) && \is_bool($value['FitWindow'])) {
+                        $viewerPref['FitWindow'] = $value['FitWindow'];
+                    }
+                    if (isset($value['CenterWindow']) && \is_bool($value['CenterWindow'])) {
+                        $viewerPref['CenterWindow'] = $value['CenterWindow'];
+                    }
+                    if (isset($value['DisplayDocTitle']) && \is_bool($value['DisplayDocTitle'])) {
+                        $viewerPref['DisplayDocTitle'] = $value['DisplayDocTitle'];
+                    }
+                    if (isset($value['PickTrayByPDFSize']) && \is_bool($value['PickTrayByPDFSize'])) {
+                        $viewerPref['PickTrayByPDFSize'] = $value['PickTrayByPDFSize'];
+                    }
+                    if (isset($value['NonFullScreenPageMode']) && \is_string($value['NonFullScreenPageMode'])) {
+                        $viewerPref['NonFullScreenPageMode'] = $value['NonFullScreenPageMode'];
+                    }
+                    if (isset($value['Direction']) && \is_string($value['Direction'])) {
+                        $viewerPref['Direction'] = $value['Direction'];
+                    }
+                    if (isset($value['ViewArea']) && \is_string($value['ViewArea'])) {
+                        $viewerPref['ViewArea'] = $value['ViewArea'];
+                    }
+                    if (isset($value['ViewClip']) && \is_string($value['ViewClip'])) {
+                        $viewerPref['ViewClip'] = $value['ViewClip'];
+                    }
+                    if (isset($value['PrintArea']) && \is_string($value['PrintArea'])) {
+                        $viewerPref['PrintArea'] = $value['PrintArea'];
+                    }
+                    if (isset($value['PrintClip']) && \is_string($value['PrintClip'])) {
+                        $viewerPref['PrintClip'] = $value['PrintClip'];
+                    }
+                    if (isset($value['PrintScaling']) && \is_string($value['PrintScaling'])) {
+                        $viewerPref['PrintScaling'] = $value['PrintScaling'];
+                    }
+                    if (isset($value['Duplex']) && \is_string($value['Duplex'])) {
+                        $viewerPref['Duplex'] = $value['Duplex'];
+                    }
+                    if (isset($value['NumCopies']) && \is_numeric($value['NumCopies'])) {
+                        $viewerPref['NumCopies'] = (int) $value['NumCopies'];
+                    }
+                    if (isset($value['PrintPageRange']) && \is_array($value['PrintPageRange'])) {
+                        $printPageRange = [];
+                        foreach (\array_keys($value['PrintPageRange']) as $rangeKey) {
+                            if (
+                                !isset($value['PrintPageRange'][$rangeKey])
+                                || !\is_numeric($value['PrintPageRange'][$rangeKey])
+                            ) {
+                                continue;
+                            }
+
+                            $printPageRange[] = (int) $value['PrintPageRange'][$rangeKey];
+                        }
+                        $viewerPref['PrintPageRange'] = $printPageRange;
+                    }
+
+                    $this->viewerpref = $viewerPref;
+                }
+                return;
+            case 'rtl':
+                if (\is_bool($value)) {
+                    $this->rtl = $value;
+                }
+                return;
+        }
+    }
+
+    /**
+     * Format a text string for output.
+     *
+     * @param string $str String to escape.
+     * @param int    $oid Current PDF object number.
+     * @param bool   $bom If true set the Byte Order Mark (BOM).
+     *
+     * @return string escaped string.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getOutTextString(string $str, int $oid, bool $bom = false): string
+    {
+        if ($this->isunicode) {
+            $str = $this->uniconv->toUTF16BE($str);
+            if ($bom) {
+                $str = "\xFE\xFF" . $str;
+            }
+        }
+
+        return $this->encrypt->escapeDataString($str, $oid);
+    }
+
+    /**
      * Return the program version.
      */
     public function getVersion(): string
     {
         return $this->version;
-    }
-
-    /**
-     * Set a field value only if it is not empty.
-     *
-     * @param string $field Field name
-     * @param string $value Value to set
-     */
-    private function setNonEmptyFieldValue(string $field, string $value): static
-    {
-        if ($value !== '') {
-            $this->$field = $value;
-        }
-
-        return $this;
-    }
-
-    /**
-     * Set the value of an existing array key if it is not empty.
-     *
-     * @param string $field Field array name
-     * @param string $key Key name
-     * @param string $value Value to set
-     */
-    private function setNonEmptyArrayFieldValue(string $field, string $key, string $value): static
-    {
-        $fieldValue = \property_exists($this, $field) ? $this->{$field} : null;
-
-        if (\is_array($fieldValue) && $key !== '' && \array_key_exists($key, $fieldValue) && $value !== '') {
-            $this->{$field}[$key] = $value;
-        }
-
-        return $this;
     }
 
     /**
@@ -97,7 +417,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     public function setCreator(string $creator): static
     {
-        return $this->setNonEmptyFieldValue('creator', $creator);
+        if ($creator !== '') {
+            $this->creator = $creator;
+        }
+
+        return $this;
     }
 
     /**
@@ -107,7 +431,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     public function setAuthor(string $author): static
     {
-        return $this->setNonEmptyFieldValue('author', $author);
+        if ($author !== '') {
+            $this->author = $author;
+        }
+
+        return $this;
     }
 
     /**
@@ -117,7 +445,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     public function setSubject(string $subject): static
     {
-        return $this->setNonEmptyFieldValue('subject', $subject);
+        if ($subject !== '') {
+            $this->subject = $subject;
+        }
+
+        return $this;
     }
 
     /**
@@ -127,7 +459,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     public function setTitle(string $title): static
     {
-        return $this->setNonEmptyFieldValue('title', $title);
+        if ($title !== '') {
+            $this->title = $title;
+        }
+
+        return $this;
     }
 
     /**
@@ -137,7 +473,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     public function setKeywords(string $keywords): static
     {
-        return $this->setNonEmptyFieldValue('keywords', $keywords);
+        if ($keywords !== '') {
+            $this->keywords = $keywords;
+        }
+
+        return $this;
     }
 
     /**
@@ -277,6 +617,8 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      * @param int $oid  Current PDF object number.
      *
      * @return string escaped date-time string.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     protected function getOutDateTimeString(int $time, int $oid): string
     {
@@ -290,6 +632,9 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     /**
      * Get the PDF output string for the Document Information Dictionary.
      * (ref. Chapter 14.3.3 Document Information Dictionary of PDF32000_2008.pdf).
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function getOutMetaInfo(): string
     {
@@ -360,13 +705,29 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      */
     public function setCustomXMP(string $key, string $xmp): static
     {
-        return $this->setNonEmptyArrayFieldValue('custom_xmp', $key, $xmp);
+        if ($key === '' || $xmp === '') {
+            return $this;
+        }
+
+        switch ($key) {
+            case 'x:xmpmeta':
+            case 'x:xmpmeta.rdf:RDF':
+            case 'x:xmpmeta.rdf:RDF.rdf:Description':
+            case 'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas':
+            case 'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag':
+                $this->custom_xmp[$key] = $xmp;
+                break;
+        }
+
+        return $this;
     }
 
     /**
      * Get the PDF output string for the XMP data object
      *
      * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
+     *
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function getOutXMP(): string
     {
@@ -551,7 +912,8 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
 
         if ($this->pdfuaMode !== '') {
             $part = 1;
-            if (\preg_match('/^pdfua([12])$/', $this->pdfuaMode, $matches) === 1) {
+            $matches = [];
+            if (\preg_match('/^pdfua([12])$/', $this->pdfuaMode, $matches) === 1 && isset($matches[1])) {
                 $part = (int) $matches[1];
             }
 
@@ -811,10 +1173,10 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     protected function getPageBoxName(string $name): string
     {
         $box = 'CropBox';
-        if (isset($this->viewerpref[$name])) {
-            $val = $this->viewerpref[$name];
-            if (isset($this->page->{$box}[$val]) && \is_string($this->page->{$box}[$val])) {
-                $box = $this->page->{$box}[$val];
+        if (isset($this->viewerpref[$name]) && \is_string($this->viewerpref[$name])) {
+            $lookup = \strtolower($this->viewerpref[$name]);
+            if (isset(self::VALID_PAGE_BOXES[$lookup])) {
+                $box = self::VALID_PAGE_BOXES[$lookup];
             }
         }
 

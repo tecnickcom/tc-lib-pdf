@@ -88,38 +88,4 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         $cmyk = new \Com\Tecnick\Color\Model\Cmyk($model->toCmykArray());
         return $cmyk->getPdfColor($stroke);
     }
-
-    /**
-     * Compatibility proxy used by internal modules and no-config static analysis.
-     */
-    public function getColorObj(string $color): ?\Com\Tecnick\Color\Model
-    {
-        return parent::getColorObj($color);
-    }
-
-    /**
-     * Compatibility proxy used by internal modules and no-config static analysis.
-     *
-     * @param array<array-key, string> $keys
-     */
-    public function getPdfSpotResourcesByKeys(array $keys): string
-    {
-        return parent::getPdfSpotResourcesByKeys($keys);
-    }
-
-    /**
-     * Compatibility proxy used by internal modules and no-config static analysis.
-     */
-    public function getPdfRgbComponents(string $color): string
-    {
-        return parent::getPdfRgbComponents($color);
-    }
-
-    /**
-     * Compatibility proxy used by internal modules and no-config static analysis.
-     */
-    public function getPdfSpotObjects(int &$pon): string
-    {
-        return parent::getPdfSpotObjects($pon);
-    }
 }

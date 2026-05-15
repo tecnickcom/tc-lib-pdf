@@ -657,6 +657,98 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta($leftY, $tpy, 0.001);
     }
 
+    public function testOpenAndCloseHTMLBlockSiblingInlineBlocksAdvanceToSavedNextX(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 120.0, 60.0);
+
+        $firstOpen = $this->makeHtmlNode([
+            'opening' => true,
+            'value' => 'div',
+            'block' => true,
+            'display' => 'inline-block',
+            'float' => 'none',
+            'width' => 30.0,
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'margin' => ['T' => 0.0, 'R' => 3.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+        $firstClose = $this->makeHtmlNode([
+            'opening' => false,
+            'value' => 'div',
+            'block' => true,
+            'display' => 'inline-block',
+            'float' => 'none',
+            'parent' => 0,
+            'margin' => ['T' => 0.0, 'R' => 3.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'ctxoriginx' => 0.0,
+            'ctxmaxwidth' => 120.0,
+            'ctxregionoffset' => 0.0,
+            'inlineblockrowy' => 0.0,
+            'inlineblocknextx' => 33.0,
+        ]);
+        $secondOpen = $this->makeHtmlNode([
+            'opening' => true,
+            'value' => 'div',
+            'block' => true,
+            'display' => 'inline-block',
+            'float' => 'none',
+            'width' => 30.0,
+            'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        ]);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 120.0;
+
+        $obj->exposeOpenHTMLBlock($firstOpen, $tpx, $tpy, $tpw);
+        $this->assertEqualsWithDelta(0.0, $tpx, 0.001);
+
+        $obj->exposeSetHTMLLineState(8.0, 8.0, false);
+        $tpx = 30.0;
+        $obj->exposeCloseHTMLBlock($firstClose, $tpx, $tpy, $tpw);
+        $this->assertEqualsWithDelta(33.0, $tpx, 0.001, 'Inline-block close must restore the saved next x position.');
+        $this->assertEqualsWithDelta(0.0, $tpy, 0.001, 'Inline-block siblings should stay on the same row.');
+
+        $obj->exposeOpenHTMLBlock($secondOpen, $tpx, $tpy, $tpw);
+        $this->assertGreaterThanOrEqual(
+            33.0,
+            $tpx,
+            'The next inline-block sibling must start to the right of the first sibling.',
+        );
+    }
+
+    public function testUpdateHTMLParentBlockBottomKeepsTallestChildBottom(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->exposeSetHTMLDom([
+            0 => $this->makeHtmlNode([
+                'value' => 'div',
+                'opening' => true,
+                'parent' => 0,
+                'childblockbottom' => 0.0,
+            ]),
+            1 => $this->makeHtmlNode([
+                'value' => 'div',
+                'opening' => true,
+                'parent' => 0,
+            ]),
+            2 => $this->makeHtmlNode([
+                'value' => 'div',
+                'opening' => true,
+                'parent' => 0,
+            ]),
+        ]);
+
+        $obj->exposeUpdateHTMLParentBlockBottom(1, 42.0);
+        $obj->exposeUpdateHTMLParentBlockBottom(2, 18.0);
+
+        $hrc = $obj->exposeGetHTMLRenderContext();
+        $this->assertSame(42.0, $hrc['dom'][0]['childblockbottom']);
+    }
+
     public function testOpenHTMLBlockClearBothFlushesActiveFloatRow(): void
     {
         $obj = $this->getInternalTestObject();
@@ -6680,6 +6772,37 @@ class HTMLTest extends TestUtil
             \abs($hdrSecondY - $bodyY),
             'Replayed header and the first body row on the new page must not overlap; '
             . 'the vertical gap must include the table cellpadding.',
+        );
+        $this->assertLessThan(
+            24.0,
+            \abs($hdrSecondY - $bodyY),
+            'Replayed header and the first body row on the new page must not drift apart with an extra continuation gap.',
+        );
+    }
+
+    public function testReplayHTMLTableHeadAdvancesCursorByActualRenderedHeight(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 30.0, 0.0);
+
+        $thead = '<table cellpadding="6" cellspacing="0"><tr><th>HDR</th></tr></table>';
+        $expectedHeight = $obj->exposeMeasureHTMLCellRenderedHeight($thead, 0.0, 0.0, 30.0, 0.0);
+
+        $tpx = 0.0;
+        $tpy = 0.0;
+        $tpw = 30.0;
+        $tph = 0.0;
+
+        $out = $obj->exposeReplayHTMLTableHead($thead, $tpx, $tpy, $tpw, $tph);
+
+        $this->assertNotSame('', $out);
+        $this->assertGreaterThan(0.0, $expectedHeight);
+        $this->assertEqualsWithDelta(
+            $expectedHeight,
+            $tpy,
+            0.01,
+            'Replayed table headers must advance the cursor by their actual rendered height.',
         );
     }
 
