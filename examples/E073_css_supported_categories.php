@@ -960,7 +960,7 @@ Selectors in the <em>Extended coverage</em> column should also apply styling vis
 <div class="pdoc-card"><strong>Compatibility:</strong> CSS 2.1 print-safe subset with documented partials.</div>
 <table class="pdoc-kv" style="width:100%;border-collapse:collapse;margin-bottom:8pt;">
   <tr><td>Package</td><td>tc-lib-pdf</td></tr>
-  <tr><td>Runtime</td><td>PHP 8.1+</td></tr>
+  <tr><td>Runtime</td><td>PHP 8.2+</td></tr>
 </table>
 
 <div class="sel-grid">

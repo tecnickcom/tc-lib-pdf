@@ -147,7 +147,7 @@ $pdf->setBookmark('tux.svg', '', 0, -1, 0, 0, 'B', 'black');
 
 $pdf->page->addContent($bfont['out']);
 
-$pdf->addTextCell('tux.svg — complex multi-path illustration (Larry Ewing)', -1, 10, 10, 190, 6, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
+$pdf->addTextCell('tux.svg — complex multi-path illustration (The copyright holder of the Tux image is Larry Ewing)', -1, 10, 10, 190, 6, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
 
 // Large centred render
 $svg04a = $pdf->addSVG($svgdir . '/tux.svg', 55, 20, 100, 121, $page04['height']);
