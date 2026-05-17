@@ -15884,6 +15884,12 @@ count = 1
 
 [[issues]]
 file = "test/TestableHTML.php"
+code = "less-specific-argument"
+message = 'Argument type mismatch for argument #6 of `Com\Tecnick\Pdf\HTML::measureHTMLCellRenderedHeight`: expected `array<string, mixed>|null`, but provided type `array<array-key, mixed>|null` is less specific.'
+count = 1
+
+[[issues]]
+file = "test/TestableHTML.php"
 code = "less-specific-nested-argument-type"
 message = 'Argument type mismatch for argument #7 of `Com\Tecnick\Pdf\HTML::measureHTMLCellRenderedHeight`: expected `array<int|string, array<array-key, array<array-key, int>|float|int|string>|float|string>`, but provided type `array<array-key, mixed>` is less specific.'
 count = 1
