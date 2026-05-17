@@ -66,22 +66,6 @@ class Specificity
     }
 
     /**
-     * Backward-compatible access for legacy tuple property names.
-     *
-     * @param string $name
-     * @return int|null
-     */
-    public function __get(string $name): ?int
-    {
-        return match ($name) {
-            'a' => $this->idCount,
-            'b' => $this->classCount,
-            'c' => $this->typeCount,
-            default => null,
-        };
-    }
-
-    /**
      * Parse specificity tuple from a selector string
      *
      * @param string $selector CSS selector string
