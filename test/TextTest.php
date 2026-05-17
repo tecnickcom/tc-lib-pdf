@@ -26,16 +26,19 @@ class TextTest extends TestUtil
         }
     }
 
+    /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /** @throws \Throwable */
     protected function getInternalTestObject(): TestableText
     {
         return new TestableText();
     }
 
+    /** @throws \Throwable */
     private function initUnicodeFont(\Com\Tecnick\Pdf\Tcpdf $obj): void
     {
         /** @var \Com\Tecnick\Pdf\Font\Stack $font */
@@ -47,6 +50,19 @@ class TextTest extends TestUtil
         $font->insert($pon, 'dejavusans', '', 10, null, null, $fontfile);
     }
 
+    /**
+     * @param array<string, mixed> $page
+     */
+    private function requirePageId(array $page): int
+    {
+        if (!isset($page['pid']) || !\is_int($page['pid'])) {
+            $this->fail('Expected addPage to return an integer pid');
+        }
+
+        return $page['pid'];
+    }
+
+    /** @throws \Throwable */
     public function testGetLastBBoxDefaultsToZeroBox(): void
     {
         $obj = $this->getTestObject();
@@ -62,6 +78,7 @@ class TextTest extends TestUtil
         );
     }
 
+    /** @throws \Throwable */
     public function testGetLastTextBBoxDefaultsToZeroBox(): void
     {
         $obj = $this->getTestObject();
@@ -77,6 +94,7 @@ class TextTest extends TestUtil
         );
     }
 
+    /** @throws \Throwable */
     public function testGetLastCellBBoxDefaultsToZeroBox(): void
     {
         $obj = $this->getTestObject();
@@ -92,6 +110,7 @@ class TextTest extends TestUtil
         );
     }
 
+    /** @throws \Throwable */
     public function testLoadTexHyphenPatternsParsesFixture(): void
     {
         $obj = $this->getTestObject();
@@ -99,11 +118,15 @@ class TextTest extends TestUtil
 
         $patterns = $obj->loadTexHyphenPatterns($file);
 
-        $this->assertSame('hy4phen', $patterns['hyphen']);
-        $this->assertSame('test1ing', $patterns['testing']);
-        $this->assertSame('a1bc', $patterns['abc']);
+        $this->assertArrayHasKey('hyphen', $patterns);
+        $this->assertArrayHasKey('testing', $patterns);
+        $this->assertArrayHasKey('abc', $patterns);
+        $this->assertSame('hy4phen', $patterns['hyphen'] ?? null);
+        $this->assertSame('test1ing', $patterns['testing'] ?? null);
+        $this->assertSame('a1bc', $patterns['abc'] ?? null);
     }
 
+    /** @throws \Throwable */
     public function testSetTexHyphenPatternsStoresPatterns(): void
     {
         $obj = $this->getTestObject();
@@ -113,6 +136,7 @@ class TextTest extends TestUtil
         $this->assertSame($patterns, $this->getObjectProperty($obj, 'hyphen_patterns'));
     }
 
+    /** @throws \Throwable */
     public function testEnableZeroWidthBreakPointsTogglesFlag(): void
     {
         $obj = $this->getTestObject();
@@ -123,6 +147,7 @@ class TextTest extends TestUtil
         $this->assertFalse($this->getObjectProperty($obj, 'autozerowidthbreaks'));
     }
 
+    /** @throws \Throwable */
     public function testAddPageReturnsPageData(): void
     {
         $obj = $this->getTestObject();
@@ -133,34 +158,39 @@ class TextTest extends TestUtil
         $this->assertArrayHasKey('pid', $page);
         /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
         $pageObj = $this->getObjectProperty($obj, 'page');
-        $this->assertSame($page['pid'], $pageObj->getPageId());
+        $this->assertSame($page['pid'] ?? null, $pageObj->getPageId());
     }
 
+    /** @throws \Throwable */
     public function testDefaultPageContentReturnsPdfCommands(): void
     {
         $obj = $this->getTestObject();
         $this->initFont($obj);
         $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
 
-        $out = $obj->defaultPageContent($page['pid']);
+        $out = $obj->defaultPageContent($pid);
 
         $this->assertNotSame('', $out);
         $this->assertStringContainsString('BT', $out);
     }
 
+    /** @throws \Throwable */
     public function testDefaultPageContentUsesFooterArtifactInPdfUa(): void
     {
         $obj = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfua');
         $this->initFont($obj);
         $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
 
-        $out = $obj->defaultPageContent($page['pid']);
+        $out = $obj->defaultPageContent($pid);
 
         $this->assertStringContainsString('/Artifact << /Type /Pagination /Subtype /Footer >> BDC', $out);
         $this->assertStringContainsString('EMC', $out);
         $this->assertStringNotContainsString('/MCID', $out);
     }
 
+    /** @throws \Throwable */
     public function testArtifactHelpersAndAddArtifactContent(): void
     {
         $obj = $this->getTestObject();
@@ -177,18 +207,22 @@ class TextTest extends TestUtil
 
         /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
         $pageObj = $this->getObjectProperty($pdfua, 'page');
-        $pdfua->addArtifactContent("q\nQ\n", $page['pid'], 'Pagination', 'Header');
+        $pid = $this->requirePageId($page);
+        $pdfua->addArtifactContent("q\nQ\n", $pid, 'Pagination', 'Header');
         /** @var array<int, string> $content */
-        $content = $pageObj->getPage($page['pid'])['content'];
+        $content = $pageObj->getPage($pid)['content'];
 
-        $lastKey = \array_key_last($content);
-        $this->assertNotNull($lastKey);
-        $this->assertStringContainsString('/Artifact << /Type /Pagination /Subtype /Header >> BDC', $content[$lastKey]);
-        $this->assertStringContainsString("q\nQ\n", $content[$lastKey]);
-        $this->assertStringContainsString('EMC', $content[$lastKey]);
-        $this->assertStringNotContainsString('/MCID', $content[$lastKey]);
+        $lastIdx = \count($content) - 1;
+        $this->assertGreaterThanOrEqual(0, $lastIdx);
+        $lastContent = $content[$lastIdx] ?? null;
+        $this->assertIsString($lastContent);
+        $this->assertStringContainsString('/Artifact << /Type /Pagination /Subtype /Header >> BDC', $lastContent);
+        $this->assertStringContainsString("q\nQ\n", $lastContent);
+        $this->assertStringContainsString('EMC', $lastContent);
+        $this->assertStringNotContainsString('/MCID', $lastContent);
     }
 
+    /** @throws \Throwable */
     public function testDefaultPageContentPreservesCurrentUnicodeFont(): void
     {
         $obj = $this->getTestObject();
@@ -207,6 +241,7 @@ class TextTest extends TestUtil
         $this->assertStringContainsString("\000T\000h\000e", $out);
     }
 
+    /** @throws \Throwable */
     public function testGetTextLineAndGetTextCellHandleBasicInput(): void
     {
         $obj = $this->getTestObject();
@@ -223,6 +258,7 @@ class TextTest extends TestUtil
         $this->assertNotSame('', $cell);
     }
 
+    /** @throws \Throwable */
     public function testGetTextCellAcceptsNamedAndNumericBorderStyleSides(): void
     {
         $obj = $this->getTestObject();
@@ -255,28 +291,32 @@ class TextTest extends TestUtil
         $this->assertSame($numericOut, $namedOut);
     }
 
+    /** @throws \Throwable */
     public function testAddTextCellAppendsContentToPage(): void
     {
         $obj = $this->getTestObject();
         $this->initFont($obj);
         $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
         $pageObj = $this->getObjectProperty($obj, 'page');
         /** @var array<int, string> $before */
-        $before = $pageObj->getPage($page['pid'])['content'];
+        $before = $pageObj->getPage($pid)['content'];
 
-        $obj->addTextCell('Hello', $page['pid'], 1, 2, 20, 6, 0, 0, 'T', 'L');
+        $obj->addTextCell('Hello', $pid, 1, 2, 20, 6, 0, 0, 'T', 'L');
 
         /** @var array<int, string> $after */
-        $after = $pageObj->getPage($page['pid'])['content'];
+        $after = $pageObj->getPage($pid)['content'];
         $this->assertGreaterThan(\count($before), \count($after));
         $lastKey = \array_key_last($after);
-        $this->assertNotNull($lastKey);
-        $this->assertIsString($after[$lastKey]);
-        $this->assertNotSame('', $after[$lastKey]);
+        $this->assertIsInt($lastKey);
+        $lastValue = $after[$lastKey] ?? null;
+        $this->assertIsString($lastValue);
+        $this->assertNotSame('', $lastValue);
     }
 
+    /** @throws \Throwable */
     public function testGetLastTextBBoxAndCellBBoxUpdatedByGetTextCell(): void
     {
         $obj = $this->getTestObject();
@@ -294,13 +334,15 @@ class TextTest extends TestUtil
         $this->assertGreaterThan(0.0, $cellbbox['h']);
     }
 
+    /** @throws \Throwable */
     public function testGetLastCellBBoxUpdatedByAddTextCell(): void
     {
         $obj = $this->getTestObject();
         $this->initFont($obj);
         $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
 
-        $obj->addTextCell('Hello world', $page['pid'], 10, 20, 40, 12, 0, 0, 'T', 'L');
+        $obj->addTextCell('Hello world', $pid, 10, 20, 40, 12, 0, 0, 'T', 'L');
 
         $cellbbox = $obj->getLastCellBBox();
         $textbbox = $obj->getLastTextBBox();
@@ -310,6 +352,7 @@ class TextTest extends TestUtil
         $this->assertGreaterThan(0.0, $textbbox['h']);
     }
 
+    /** @throws \Throwable */
     public function testTextOperatorHelpersCoverModesAndFormatting(): void
     {
         $obj = $this->getInternalTestObject();
@@ -374,6 +417,7 @@ class TextTest extends TestUtil
         $this->assertSame("BT xyz ET\n", $obj->exposeGetOutTextObject('xyz'));
     }
 
+    /** @throws \Throwable */
     public function testTextCleanupHyphenationAndEscapingHelpers(): void
     {
         $obj = $this->getInternalTestObject();
@@ -385,25 +429,28 @@ class TextTest extends TestUtil
         $this->assertSame('100%% ready', $obj->exposeEscapePerc('100% ready'));
     }
 
+    /** @throws \Throwable */
     public function testSetPageContextAndStringWidthHelpers(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFont($obj);
         $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
         $pageObj = $this->getObjectProperty($obj, 'page');
         /** @var array<int, string> $before */
-        $before = $pageObj->getPage($page['pid'])['content'];
-        $obj->exposeSetPageContext($page['pid']);
+        $before = $pageObj->getPage($pid)['content'];
+        $obj->exposeSetPageContext($pid);
         /** @var array<int, string> $after */
-        $after = $pageObj->getPage($page['pid'])['content'];
+        $after = $pageObj->getPage($pid)['content'];
 
         $this->assertGreaterThan(\count($before), \count($after));
         $this->assertSame(0.0, $obj->exposeGetStringWidth(''));
         $this->assertGreaterThan(0, $obj->exposeGetStringWidth('Hello'));
     }
 
+    /** @throws \Throwable */
     public function testPrepareTextAndSplitLinesCoverEmptyAndMultiLineCases(): void
     {
         $obj = $this->getInternalTestObject();
@@ -422,6 +469,7 @@ class TextTest extends TestUtil
         $this->assertSame([], $obj->exposeSplitLines([], $dim, 10));
     }
 
+    /** @throws \Throwable */
     public function testGetOutTextLineAndOutTextLineRenderFromPreparedText(): void
     {
         $obj = $this->getInternalTestObject();
@@ -458,6 +506,7 @@ class TextTest extends TestUtil
         $this->assertStringContainsString('re f', $out);
     }
 
+    /** @throws \Throwable */
     public function testOutTextLinesGetJustifiedStringAndHyphenationHelpers(): void
     {
         $obj = $this->getInternalTestObject();
@@ -486,6 +535,7 @@ class TextTest extends TestUtil
         $this->assertSame($word, $obj->exposeHyphenateWordOrdArr([], $word));
     }
 
+    /** @throws \Throwable */
     public function testTextAdditionalBranchesForCoverage(): void
     {
         $obj = $this->getInternalTestObject();
@@ -550,11 +600,13 @@ class TextTest extends TestUtil
         $this->assertArrayHasKey('hyphen', $parsed);
 
         $this->setObjectProperty($obj, 'defPageContentEnabled', true);
-        $obj->exposeSetPageContext($page['pid']);
+        $pid = $this->requirePageId($page);
+        $obj->exposeSetPageContext($pid);
         $defaultOut = $obj->defaultPageContent();
         $this->assertStringContainsString('BT', $defaultOut);
     }
 
+    /** @throws \Throwable */
     public function testTextRemainingBranchCoverageBatch(): void
     {
         $obj = $this->getInternalTestObject();
@@ -570,10 +622,10 @@ class TextTest extends TestUtil
         $obj->getTextLine('Hello', 10, 20, 0, 0, 0, 0, 0, true, false, false, false, false, false, 'R', 'E');
         $endRtl = $obj->getLastBBox();
 
-        $this->assertLessThan(10, $middleLtr['x']);
-        $this->assertGreaterThan(10, $middleRtl['x']);
-        $this->assertLessThan(10, $endLtr['x']);
-        $this->assertGreaterThan(10, $endRtl['x']);
+        $this->assertLessThan(10, $middleLtr['x'] ?? 0);
+        $this->assertGreaterThan(10, $middleRtl['x'] ?? 0);
+        $this->assertLessThan(10, $endLtr['x'] ?? 0);
+        $this->assertGreaterThan(10, $endRtl['x'] ?? 0);
 
         $shadow = [
             'xoffset' => -1.5,
@@ -607,9 +659,10 @@ class TextTest extends TestUtil
         $softDim = $obj->exposeGetOrdArrDims($soft);
         $softLines = $obj->exposeSplitLines($soft, $softDim, 5);
         $this->assertGreaterThan(1, \count($softLines));
-        $lastKey = \array_key_last($softLines);
-        $this->assertNotNull($lastKey);
-        $lastLine = $softLines[$lastKey];
+        $lastIndex = \count($softLines) - 1;
+        $this->assertGreaterThanOrEqual(0, $lastIndex);
+        $lastLine = $softLines[$lastIndex] ?? null;
+        $this->assertIsArray($lastLine);
         $this->assertGreaterThan(0, $lastLine['chars']);
 
         $this->assertSame('', $obj->exposeRawGetOutTextLine('Hello', [], []));
@@ -646,6 +699,7 @@ class TextTest extends TestUtil
         }
     }
 
+    /** @throws \Throwable */
     public function testPdfUaActualTextLigatureHelpersAndTagging(): void
     {
         $obj = $this->getInternalTestObject();
@@ -679,6 +733,7 @@ class TextTest extends TestUtil
         $this->assertStringContainsString("BT (line1) Tj ET\nBT (line2) Tj ET\n", $wrappedMultiLine);
     }
 
+    /** @throws \Throwable */
     public function testGetTextLineOmitsShadowAlphaInPdfx3(): void
     {
         $obj = new TestableText('mm', true, false, true, 'pdfx3');

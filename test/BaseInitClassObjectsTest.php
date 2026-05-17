@@ -18,11 +18,13 @@ namespace Test;
 
 class BaseInitClassObjectsTest extends TestUtil
 {
+    /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /** @throws \Throwable */
     public function testInitClassObjectsInitializesDependencies(): void
     {
         $obj = $this->getTestObject();
@@ -37,6 +39,7 @@ class BaseInitClassObjectsTest extends TestUtil
         $this->assertInstanceOf(\Com\Tecnick\Pdf\Image\Import::class, $this->getObjectProperty($obj, 'image'));
     }
 
+    /** @throws \Throwable */
     public function testInitClassObjectsUsesProvidedEncryptObject(): void
     {
         $obj = $this->getTestObject();

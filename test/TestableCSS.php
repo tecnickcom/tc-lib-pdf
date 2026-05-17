@@ -24,11 +24,13 @@ namespace Test;
  */
 class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
 {
+    /** @throws \Throwable */
     public function exposeGetCSSBorderWidthPoints(string $width): float
     {
         return $this->getCSSBorderWidthPoints($width);
     }
 
+    /** @throws \Throwable */
     public function exposeGetCSSBorderWidth(string $width): float
     {
         return $this->getCSSBorderWidth($width);
@@ -39,31 +41,45 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getCSSBorderDashStyle($style);
     }
 
-    /** @phpstan-return StyleData */
+    /** @return StyleData */
     public function exposeGetCSSDefaultBorderStyle(): array
     {
+        /** @var StyleData */
         return $this->getCSSDefaultBorderStyle();
     }
 
-    /** @phpstan-return StyleData */
+    /**
+     * @return StyleData
+     * @throws \Throwable
+     */
     public function exposeGetCSSBorderStyle(string $cssborder): array
     {
+        /** @var StyleData */
         return $this->getCSSBorderStyle($cssborder);
     }
 
-    /** @phpstan-return TCellBound */
+    /**
+     * @phpstan-return TCellBound
+     * @throws \Throwable
+     */
     public function exposeGetCSSPadding(string $csspadding, float $width = 0.0): array
     {
         return $this->getCSSPadding($csspadding, $width);
     }
 
-    /** @phpstan-return TCellBound */
+    /**
+     * @phpstan-return TCellBound
+     * @throws \Throwable
+     */
     public function exposeGetCSSMargin(string $cssmargin, float $width = 0.0): array
     {
         return $this->getCSSMargin($cssmargin, $width);
     }
 
-    /** @phpstan-return TCSSBorderSpacing */
+    /**
+     * @phpstan-return TCSSBorderSpacing
+     * @throws \Throwable
+     */
     public function exposeGetCSSBorderMargin(string $cssbspace, float $width = 0.0): array
     {
         return $this->getCSSBorderMargin($cssbspace, $width);
@@ -82,7 +98,6 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
                 's' => $key,
             ];
         }
-        /** @var array<string, TCSSData> $normalized */
 
         return $this->implodeCSSData($normalized);
     }
@@ -104,13 +119,17 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @param array<string, bool> $seen
+     * @throws \Throwable
      */
     public function exposeResolveImportRules(string $css, int $depth = 0, array &$seen = []): string
     {
         return $this->resolveImportRules($css, $depth, $seen);
     }
 
-    /** @phpstan-return array<string, string> */
+    /**
+     * @phpstan-return array<string, string>
+     * @throws \Throwable
+     */
     public function exposeExtractCSSproperties(string $css): array
     {
         return $this->extractCSSproperties($css);
@@ -126,12 +145,16 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
         return $this->unhtmlentities($text);
     }
 
-    /** @phpstan-return array<string, string> */
+    /**
+     * @phpstan-return array<string, string>
+     * @throws \Throwable
+     */
     public function exposeGetCSSArrayFromHTML(string &$html): array
     {
         return $this->getCSSArrayFromHTML($html);
     }
 
+    /** @throws \Throwable */
     public function exposeGetCSSColor(string $color): string
     {
         return $this->getCSSColor($color);

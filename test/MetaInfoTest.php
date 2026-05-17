@@ -20,22 +20,26 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class MetaInfoTest extends TestUtil
 {
+    /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /** @throws \Throwable */
     protected function getInternalTestObject(): TestablMetaInfo
     {
         return new TestablMetaInfo();
     }
 
+    /** @throws \Throwable */
     public function testGetVersionReturnsNonEmptyString(): void
     {
         $obj = $this->getTestObject();
         $this->assertNotSame('', $obj->getVersion());
     }
 
+    /** @throws \Throwable */
     public function testMetadataSettersStoreNonEmptyValuesAndReturnSameInstance(): void
     {
         $obj = $this->getTestObject();
@@ -53,16 +57,18 @@ class MetaInfoTest extends TestUtil
         $this->assertSame('one two', $this->getObjectProperty($obj, 'keywords'));
     }
 
+    /** @throws \Throwable */
     public function testMetadataSettersIgnoreEmptyValues(): void
     {
         $obj = $this->getTestObject();
-        $before = $this->getObjectProperty($obj, 'title');
+        $before = (string) $this->getObjectProperty($obj, 'title');
 
         $obj->setTitle('');
 
         $this->assertSame($before, $this->getObjectProperty($obj, 'title'));
     }
 
+    /** @throws \Throwable */
     public function testSetPDFVersionStoresExplicitVersion(): void
     {
         $obj = $this->getTestObject();
@@ -72,6 +78,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame('1.6', $this->getObjectProperty($obj, 'pdfver'));
     }
 
+    /** @throws \Throwable */
     #[DataProvider('pdfaVersionFixtureProvider')]
     public function testSetPDFVersionHonorsPdfaModes(int $pdfaMode, string $inputVersion, string $expectedVersion): void
     {
@@ -84,6 +91,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
     }
 
+    /** @throws \Throwable */
     #[DataProvider('pdfuaVersionFixtureProvider')]
     public function testSetPDFVersionHonorsPdfuaModes(
         string $pdfuaMode,
@@ -99,6 +107,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
     }
 
+    /** @throws \Throwable */
     public function testSetPDFVersionThrowsOnInvalidFormat(): void
     {
         $obj = $this->getTestObject();
@@ -108,6 +117,7 @@ class MetaInfoTest extends TestUtil
         $obj->setPDFVersion('1.A');
     }
 
+    /** @throws \Throwable */
     public function testSetSRGBTogglesFlag(): void
     {
         $obj = $this->getTestObject();
@@ -118,6 +128,7 @@ class MetaInfoTest extends TestUtil
         $this->assertFalse($this->getObjectProperty($obj, 'sRGB'));
     }
 
+    /** @throws \Throwable */
     public function testSetCustomXMPUpdatesKnownKeyOnly(): void
     {
         $obj = $this->getTestObject();
@@ -125,7 +136,8 @@ class MetaInfoTest extends TestUtil
 
         /** @var array<string, string> $custom */
         $custom = $this->getObjectProperty($obj, 'custom_xmp');
-        $this->assertSame('<custom/>', $custom['x:xmpmeta']);
+        $this->assertArrayHasKey('x:xmpmeta', $custom);
+        $this->assertSame('<custom/>', $custom['x:xmpmeta'] ?? null);
 
         $obj->setCustomXMP('unknown-key', '<ignored/>');
         /** @var array<string, string> $custom */
@@ -133,6 +145,7 @@ class MetaInfoTest extends TestUtil
         $this->assertArrayNotHasKey('unknown-key', $custom);
     }
 
+    /** @throws \Throwable */
     public function testSetViewerPreferencesStoresPreferences(): void
     {
         $obj = $this->getTestObject();
@@ -142,7 +155,10 @@ class MetaInfoTest extends TestUtil
         $this->assertSame($pref, $this->getObjectProperty($obj, 'viewerpref'));
     }
 
-    /** @param ?array<string, mixed> $viewerPref */
+    /**
+     * @param ?array<string, mixed> $viewerPref
+     * @throws \Throwable
+     */
     #[DataProvider('pagePrintScalingFixtureProvider')]
     public function testGetPagePrintScalingReturnsExpectedValue(
         ?array $viewerPref,
@@ -160,6 +176,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString($expectedToken, $result);
     }
 
+    /** @throws \Throwable */
     public function testGetDuplexModeReturnsEmptyByDefault(): void
     {
         $obj = $this->getInternalTestObject();
@@ -169,6 +186,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame('', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetPageBoxNameReturnsMappedValueWhenAvailable(): void
     {
         $obj = $this->getInternalTestObject();
@@ -180,6 +198,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame(' /ViewArea /MediaBox', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetBooleanModeReturnsEmptyWhenNotSet(): void
     {
         $obj = $this->getInternalTestObject();
@@ -189,6 +208,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame('', $result);
     }
 
+    /** @throws \Throwable */
     #[DataProvider('duplexModeFixtureProvider')]
     public function testGetDuplexModeReturnsMappedValue(string $duplexMode, string $expectedOutput): void
     {
@@ -200,6 +220,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString($expectedOutput, $result);
     }
 
+    /** @throws \Throwable */
     #[DataProvider('booleanModeFixtureProvider')]
     public function testGetBooleanModeReturnsMappedValue(bool $value, string $expectedWord): void
     {
@@ -211,6 +232,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/HideToolbar ' . $expectedWord, $result);
     }
 
+    /** @throws \Throwable */
     public function testGetFormattedDateReturnsPdfDateStyle(): void
     {
         $obj = $this->getInternalTestObject();
@@ -220,6 +242,7 @@ class MetaInfoTest extends TestUtil
         $this->assertMatchesRegularExpression('/^[0-9]{14}[\+\-Z\']/', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetXMPFormattedDateReturnsIsoStyle(): void
     {
         $obj = $this->getInternalTestObject();
@@ -229,6 +252,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('T', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutDateTimeStringBuildsEscapedDate(): void
     {
         $obj = $this->getInternalTestObject();
@@ -238,6 +262,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('D:', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutDateTimeStringUsesDocumentTimeWhenInputIsZero(): void
     {
         $obj = $this->getInternalTestObject();
@@ -248,6 +273,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('D:', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetEscapedXMLEscapesSpecialChars(): void
     {
         $obj = $this->getInternalTestObject();
@@ -257,6 +283,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame('&lt;a&amp;b&gt;', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutMetaInfoContainsDocumentInfoKeys(): void
     {
         $obj = $this->getInternalTestObject();
@@ -268,6 +295,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/Trapped /False', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutXMPContainsMetadataStreamStructure(): void
     {
         $obj = $this->getInternalTestObject();
@@ -279,6 +307,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('endobj', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutXMPIncludesPdfaBlockWhenPdfaEnabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -291,6 +320,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('<pdfaid:conformance>U</pdfaid:conformance>', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutXMPIncludesPdfuaBlockWhenPdfuaEnabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -302,6 +332,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('<pdfuaid:part>2</pdfuaid:part>', $result);
     }
 
+    /** @throws \Throwable */
     #[DataProvider('pdfxVersionFixtureProvider')]
     public function testSetPDFVersionHonorsPdfxModes(
         string $pdfxMode,
@@ -317,6 +348,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame($expectedVersion, $this->getObjectProperty($obj, 'pdfver'));
     }
 
+    /** @throws \Throwable */
     #[DataProvider('pdfxGtsVersionStringFixtureProvider')]
     public function testGetGtsPdfxVersionStringReturnsExpectedValue(string $pdfxMode, string $expected): void
     {
@@ -327,6 +359,7 @@ class MetaInfoTest extends TestUtil
         $this->assertSame($expected, $obj->exposeGetGtsPdfxVersionString());
     }
 
+    /** @throws \Throwable */
     public function testGetOutMetaInfoIncludesGtsPdfxVersionWhenPdfxEnabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -339,6 +372,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/GTS_PDFXVersion', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutMetaInfoOmitsGtsPdfxVersionWhenPdfxDisabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -348,6 +382,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringNotContainsString('/GTS_PDFXVersion', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutXMPIncludesPdfxidBlockWhenPdfxEnabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -360,6 +395,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('<pdfxid:GTS_PDFXVersion>PDF/X-1a:2003</pdfxid:GTS_PDFXVersion>', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutXMPOmitsPdfxidBlockWhenPdfxDisabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -369,6 +405,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringNotContainsString('pdfxid', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutViewerPrefIncludesDirectionAndKnownFlags(): void
     {
         $obj = $this->getInternalTestObject();
@@ -383,6 +420,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/NumCopies 2', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutViewerPrefIncludesPageRangeAndDisplayMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -407,6 +445,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/NumCopies 2', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutViewerPrefForceDisplayDocTitleTrueInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -417,6 +456,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/DisplayDocTitle true', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutViewerPrefRespectsExplicitDisplayDocTitleFalseInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -428,6 +468,7 @@ class MetaInfoTest extends TestUtil
         $this->assertStringContainsString('/DisplayDocTitle false', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetOutViewerPrefDoesNotForceDisplayDocTitleOutsidePdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();

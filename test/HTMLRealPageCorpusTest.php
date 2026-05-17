@@ -23,33 +23,57 @@ class HTMLRealPageCorpusTest extends TestUtil
     private const CORPUS_FILE = __DIR__ . '/fixtures/html/real_pages/corpus.json';
 
     /**
-     * @param mixed $value
+     * @param array<array-key, mixed> $value
+     * @return array<string, mixed>
      */
-    private static function scalarToString($value): string
+    private static function toStringKeyMap(array $value): array
+    {
+        $typed = [];
+        foreach (\array_keys($value) as $key) {
+            if (!\is_string($key)) {
+                continue;
+            }
+
+            $typed[$key] = $value[$key] ?? null;
+        }
+
+        return $typed;
+    }
+
+    private static function scalarToString(mixed $value): string
     {
         return \is_scalar($value) ? (string) $value : '';
     }
 
-    /**
-     * @param mixed $value
-     * @return list<string>
-     */
-    private static function toStringList($value): array
+    /** @return list<string> */
+    private static function toStringList(mixed $value): array
     {
         if (!\is_array($value)) {
             return [];
         }
 
         $list = [];
-        foreach ($value as $item) {
-            if (!\is_scalar($item)) {
-                continue;
-            }
+        $items = \array_filter($value, static fn(mixed $item): bool => \is_scalar($item));
 
-            $list[] = (string) $item;
+        return \array_values(\array_map(static fn(string|int|float|bool $item): string => (string) $item, $items));
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function toPageList(mixed $value): array
+    {
+        if (!\is_array($value)) {
+            return [];
         }
 
-        return $list;
+        /** @var array<int, array<string, mixed>> $pages */
+        $pages = [];
+        /** @var array<int, array<array-key, mixed>> $pageRows */
+        $pageRows = \array_values(\array_filter($value, static fn(mixed $page): bool => \is_array($page)));
+        foreach ($pageRows as $page) {
+            $pages[] = self::toStringKeyMap($page);
+        }
+
+        return $pages;
     }
 
     public static function setUpBeforeClass(): void
@@ -64,6 +88,7 @@ class HTMLRealPageCorpusTest extends TestUtil
      *   severity_levels: array<int, string>,
      *   pages: array<int, array<string, mixed>>
      * }
+     * @throws \Throwable
      */
     private static function loadCorpus(): array
     {
@@ -89,10 +114,11 @@ class HTMLRealPageCorpusTest extends TestUtil
             'version' => \is_int($data['version'] ?? null) ? $data['version'] : 0,
             'failure_tags' => self::toStringList($data['failure_tags'] ?? []),
             'severity_levels' => self::toStringList($data['severity_levels'] ?? []),
-            'pages' => \array_values((array) ($data['pages'] ?? [])),
+            'pages' => self::toPageList($data['pages'] ?? []),
         ];
     }
 
+    /** @throws \Throwable */
     public function testRealPageCorpusManifestHasRequiredArchetypesAndSeverityTaggedFailures(): void
     {
         $corpus = self::loadCorpus();
@@ -115,10 +141,6 @@ class HTMLRealPageCorpusTest extends TestUtil
         $totalFailures = 0;
 
         foreach ($corpus['pages'] as $page) {
-            if (!\is_array($page)) {
-                continue;
-            }
-
             $pageId = self::scalarToString($page['id'] ?? '');
             $fixture = self::scalarToString($page['fixture'] ?? '');
             $archetype = self::scalarToString($page['archetype'] ?? '');
@@ -132,13 +154,19 @@ class HTMLRealPageCorpusTest extends TestUtil
 
             $archetypes[$archetype] = true;
 
-            $failures = (array) ($page['failures'] ?? []);
-            foreach ($failures as $failure) {
-                if (!\is_array($failure)) {
-                    continue;
-                }
-                $tag = self::scalarToString($failure['tag'] ?? '');
-                $severity = self::scalarToString($failure['severity'] ?? '');
+            $failures = [];
+            if (isset($page['failures']) && \is_array($page['failures'])) {
+                $failures = $page['failures'];
+            }
+
+            /** @var array<int, array<array-key, mixed>> $failureRows */
+            $failureRows = \array_values(\array_filter($failures, static fn(mixed $failure): bool => \is_array(
+                $failure,
+            )));
+            foreach ($failureRows as $failure) {
+                $typedFailure = self::toStringKeyMap($failure);
+                $tag = self::scalarToString($typedFailure['tag'] ?? '');
+                $severity = self::scalarToString($typedFailure['severity'] ?? '');
 
                 $this->assertContains($tag, $corpus['failure_tags']);
                 $this->assertContains($severity, $corpus['severity_levels']);
@@ -154,16 +182,16 @@ class HTMLRealPageCorpusTest extends TestUtil
         $this->assertGreaterThanOrEqual(0, $totalFailures, 'Corpus should track severity-tagged failures.');
     }
 
-    /** @return array<string, array{0: string, 1: string}> */
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     * @throws \Throwable
+     */
     public static function corpusPageProvider(): array
     {
         $corpus = self::loadCorpus();
         $dataset = [];
 
         foreach ($corpus['pages'] as $page) {
-            if (!\is_array($page)) {
-                continue;
-            }
             $pageId = self::scalarToString($page['id'] ?? 'unknown');
             $fixture = self::scalarToString($page['fixture'] ?? '');
             $dataset[$pageId] = [$pageId, $fixture];
@@ -172,6 +200,7 @@ class HTMLRealPageCorpusTest extends TestUtil
         return $dataset;
     }
 
+    /** @throws \Throwable */
     #[DataProvider('corpusPageProvider')]
     public function testRealPageCorpusFixturesRenderWithoutFatal(string $pageId, string $fixture): void
     {

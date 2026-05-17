@@ -56,6 +56,7 @@ class ImporterTest extends TestCase
         return new Importer($xobjects, $pon);
     }
 
+    /** @throws \Throwable */
     public function testSetImportSourceDataReturnsSha256Id(): void
     {
         $data = $this->fixtureData();
@@ -64,6 +65,7 @@ class ImporterTest extends TestCase
         $this->assertSame(hash('sha256', $data), $srcId);
     }
 
+    /** @throws \Throwable */
     public function testSetImportSourceFileReturnsSourceId(): void
     {
         $path = __DIR__ . '/../fixtures/simple_import.pdf';
@@ -72,6 +74,7 @@ class ImporterTest extends TestCase
         $this->assertNotEmpty($srcId);
     }
 
+    /** @throws \Throwable */
     public function testSetImportSourceFileThrowsForMissingFile(): void
     {
         $importer = $this->makeImporter();
@@ -79,6 +82,7 @@ class ImporterTest extends TestCase
         $importer->setImportSourceFile('/nonexistent/path/to/file.pdf');
     }
 
+    /** @throws \Throwable */
     public function testSetImportSourceDataIsIdempotent(): void
     {
         $data = $this->fixtureData();
@@ -88,6 +92,7 @@ class ImporterTest extends TestCase
         $this->assertSame($id1, $id2);
     }
 
+    /** @throws \Throwable */
     public function testSetImportSourceDataAcceptsPasswordOptionForUnencryptedPdf(): void
     {
         $data = $this->fixtureData();
@@ -96,6 +101,7 @@ class ImporterTest extends TestCase
         $this->assertNotEmpty($srcId);
     }
 
+    /** @throws \Throwable */
     public function testSetImportSourceDataThrowsForEncryptedPdf(): void
     {
         $data = $this->encryptedFixtureData();
@@ -105,6 +111,7 @@ class ImporterTest extends TestCase
         $importer->setImportSourceData($data);
     }
 
+    /** @throws \Throwable */
     public function testSetImportSourceDataWithPasswordStillThrowsForEncryptedPdf(): void
     {
         $data = $this->encryptedFixtureData();
@@ -114,6 +121,7 @@ class ImporterTest extends TestCase
         $importer->setImportSourceData($data, ['password' => 'secret']);
     }
 
+    /** @throws \Throwable */
     public function testGetSourcePageCountReturnsOne(): void
     {
         $data = $this->fixtureData();
@@ -122,6 +130,7 @@ class ImporterTest extends TestCase
         $this->assertSame(1, $importer->getSourcePageCount($srcId));
     }
 
+    /** @throws \Throwable */
     public function testGetSourcePageCountThrowsForUnknownSource(): void
     {
         $importer = $this->makeImporter();
@@ -129,6 +138,7 @@ class ImporterTest extends TestCase
         $importer->getSourcePageCount('invalid-source-id');
     }
 
+    /** @throws \Throwable */
     public function testImportPageReturnsPageTemplate(): void
     {
         $data = $this->fixtureData();
@@ -140,6 +150,7 @@ class ImporterTest extends TestCase
         $this->assertInstanceOf(PageTemplate::class, $tpl);
     }
 
+    /** @throws \Throwable */
     public function testImportPageRegistersXobject(): void
     {
         $data = $this->fixtureData();
@@ -151,6 +162,7 @@ class ImporterTest extends TestCase
         $this->assertArrayHasKey($tpl->getXobjId(), $xobjects);
     }
 
+    /** @throws \Throwable */
     public function testImportPageXobjectHasCorrectObjectNumber(): void
     {
         $data = $this->fixtureData();
@@ -160,12 +172,17 @@ class ImporterTest extends TestCase
         $srcId = $importer->setImportSourceData($data);
         $tpl = $importer->importPage($srcId, 1);
         // The xobject's object number must be a positive integer allocated from pon.
-        $xobj = $xobjects[$tpl->getXobjId()];
+        $xobjId = $tpl->getXobjId();
+        $xobj = [];
+        if (isset($xobjects[$xobjId]) && \is_array($xobjects[$xobjId])) {
+            $xobj = $xobjects[$xobjId];
+        }
         $this->assertIsArray($xobj);
         $this->assertArrayHasKey('n', $xobj);
-        $this->assertGreaterThan(0, $xobj['n']);
+        $this->assertGreaterThan(0, $xobj['n'] ?? 0);
     }
 
+    /** @throws \Throwable */
     public function testImportPageTemplateHasExpectedDimensions(): void
     {
         $data = $this->fixtureData();
@@ -179,6 +196,7 @@ class ImporterTest extends TestCase
         $this->assertEqualsWithDelta(792.0, $tpl->getHeight(), 0.01);
     }
 
+    /** @throws \Throwable */
     public function testImportPageCacheReturnsIdenticalTemplate(): void
     {
         $data = $this->fixtureData();
@@ -191,6 +209,7 @@ class ImporterTest extends TestCase
         $this->assertSame($tpl1->getXobjId(), $tpl2->getXobjId());
     }
 
+    /** @throws \Throwable */
     public function testImportPageThrowsForOutOfRangePage(): void
     {
         $data = $this->fixtureData();
@@ -200,6 +219,7 @@ class ImporterTest extends TestCase
         $importer->importPage($srcId, 999);
     }
 
+    /** @throws \Throwable */
     public function testImportPageThrowsForUnknownSourceId(): void
     {
         $importer = $this->makeImporter();
@@ -207,6 +227,7 @@ class ImporterTest extends TestCase
         $importer->importPage('unknown-id', 1);
     }
 
+    /** @throws \Throwable */
     public function testGetOutImportedObjectsReturnsNonEmptyString(): void
     {
         $data = $this->fixtureData();
@@ -221,6 +242,7 @@ class ImporterTest extends TestCase
         $this->assertStringContainsString('endobj', $out);
     }
 
+    /** @throws \Throwable */
     public function testGetOutImportedObjectsClearsQueue(): void
     {
         $data = $this->fixtureData();
@@ -233,6 +255,7 @@ class ImporterTest extends TestCase
         $this->assertSame('', $importer->getOutImportedObjects());
     }
 
+    /** @throws \Throwable */
     public function testCleanUpReleasesState(): void
     {
         $data = $this->fixtureData();
@@ -247,6 +270,7 @@ class ImporterTest extends TestCase
     // importPages
     // -------------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testImportPagesWithNullRangeImportsAllPages(): void
     {
         $data = $this->fixtureData();
@@ -255,9 +279,11 @@ class ImporterTest extends TestCase
         $templates = $importer->importPages($srcId);
         // Fixture has one page.
         $this->assertCount(1, $templates);
+        assert(isset($templates[0]), "\$templates[0] must be set");
         $this->assertInstanceOf(PageTemplate::class, $templates[0]);
     }
 
+    /** @throws \Throwable */
     public function testImportPagesWithExplicitRange(): void
     {
         $data = $this->fixtureData();
@@ -265,9 +291,11 @@ class ImporterTest extends TestCase
         $srcId = $importer->setImportSourceData($data);
         $templates = $importer->importPages($srcId, [1]);
         $this->assertCount(1, $templates);
+        assert(isset($templates[0]), "\$templates[0] must be set");
         $this->assertInstanceOf(PageTemplate::class, $templates[0]);
     }
 
+    /** @throws \Throwable */
     public function testImportPagesMatchesImportPageResult(): void
     {
         $data = $this->fixtureData();
@@ -279,10 +307,12 @@ class ImporterTest extends TestCase
         $single = $importer->importPage($srcId, 1);
         $batch = $importer->importPages($srcId, [1]);
 
+        assert(isset($batch[0]), "\$batch[0] must be set");
         // Same page imported again (cache hit) — must return the exact same template.
         $this->assertSame($single->getXobjId(), $batch[0]->getXobjId());
     }
 
+    /** @throws \Throwable */
     public function testImportPagesThrowsForUnknownSource(): void
     {
         $importer = $this->makeImporter();
@@ -290,6 +320,7 @@ class ImporterTest extends TestCase
         $importer->importPages('unknown-id');
     }
 
+    /** @throws \Throwable */
     public function testImportPagesThrowsForOutOfRangePage(): void
     {
         $data = $this->fixtureData();
@@ -303,6 +334,7 @@ class ImporterTest extends TestCase
     // Dedup: repeated import without cache must not inflate pon
     // -------------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testRepeatedImportNoCacheUsesSharedObjectMap(): void
     {
         $data = $this->fixtureData();
@@ -326,6 +358,7 @@ class ImporterTest extends TestCase
         $this->assertSame(1, $ponAfterSecond - $ponAfterFirst);
     }
 
+    /** @throws \Throwable */
     public function testRepeatedImportNoCacheDoesNotDuplicateAuxObjects(): void
     {
         $data = $this->fixtureData();
@@ -352,6 +385,7 @@ class ImporterTest extends TestCase
     // Multi-page fixture tests
     // -------------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testGetSourcePageCountMultipage(): void
     {
         $data = $this->multipageFixtureData();
@@ -360,6 +394,7 @@ class ImporterTest extends TestCase
         $this->assertSame(2, $importer->getSourcePageCount($srcId));
     }
 
+    /** @throws \Throwable */
     public function testImportPagesNullRangeImportsAllMultipagePages(): void
     {
         $data = $this->multipageFixtureData();
@@ -369,10 +404,13 @@ class ImporterTest extends TestCase
         $srcId = $importer->setImportSourceData($data);
         $templates = $importer->importPages($srcId);
         $this->assertCount(2, $templates);
+        assert(isset($templates[0]), "\$templates[0] must be set");
         $this->assertInstanceOf(PageTemplate::class, $templates[0]);
+        assert(isset($templates[1]), "\$templates[1] must be set");
         $this->assertInstanceOf(PageTemplate::class, $templates[1]);
     }
 
+    /** @throws \Throwable */
     public function testImportPagesMultipagePartialRange(): void
     {
         $data = $this->multipageFixtureData();
@@ -380,9 +418,11 @@ class ImporterTest extends TestCase
         $srcId = $importer->setImportSourceData($data);
         $templates = $importer->importPages($srcId, [2]);
         $this->assertCount(1, $templates);
+        assert(isset($templates[0]), "\$templates[0] must be set");
         $this->assertEqualsWithDelta(612.0, $templates[0]->getWidth(), 0.01);
     }
 
+    /** @throws \Throwable */
     public function testImportAllPagesMultipageSharedFontNotDuplicated(): void
     {
         $data = $this->multipageFixtureData();

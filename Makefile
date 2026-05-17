@@ -223,7 +223,7 @@ format:
 .PHONY: lint
 lint:
 	./vendor/bin/mago --config ./mago.src.toml analyze src
-	./vendor/bin/mago --config ./mago.test.toml analyze --baseline ./analysis-baseline.test.toml test
+	./vendor/bin/mago --config ./mago.test.toml analyze test
 	./vendor/bin/mago --config ./mago.src.toml lint src
 	./vendor/bin/mago --config ./mago.test.toml lint test
 

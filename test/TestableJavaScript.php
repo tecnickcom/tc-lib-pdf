@@ -21,12 +21,14 @@ class TestableJavaScript extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @param array<string, mixed> $prp
      * @return array<string, mixed>
+     * @throws \Throwable
      */
     public function exposeGetAnnotOptFromJSProp(array $prp = []): array
     {
         return $this->getAnnotOptFromJSProp($prp);
     }
 
+    /** @throws \Throwable */
     public function exposeGetPDFDefFillColor(): string
     {
         return $this->getPDFDefFillColor();
@@ -36,6 +38,7 @@ class TestableJavaScript extends \Com\Tecnick\Pdf\Tcpdf
      * @param array<string, mixed> $opt
      * @param array<string, mixed> $jsp
      * @return array<string, mixed>
+     * @throws \Throwable
      */
     public function exposeMergeAnnotOptions(
         array $opt = ['subtype' => 'text'],
@@ -43,6 +46,9 @@ class TestableJavaScript extends \Com\Tecnick\Pdf\Tcpdf
         string $color = '',
     ): array {
         $opt = \array_merge(['subtype' => 'text'], $opt);
-        return $this->mergeAnnotOptions($opt, $jsp, $color);
+
+        $method = new \ReflectionMethod($this, 'mergeAnnotOptions');
+        /** @var array<string, mixed> */
+        return $method->invokeArgs($this, [$opt, $jsp, $color]);
     }
 }

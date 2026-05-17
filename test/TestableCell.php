@@ -32,7 +32,10 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
         return $this->adjustMinCellPadding($styles, $cell);
     }
 
-    /** @phpstan-param TCellDef|null $cell */
+    /**
+     * @phpstan-param TCellDef|null $cell
+     * @throws \Throwable
+     */
     public function exposeCellMinHeight(float $pheight = 0, string $align = 'C', ?array $cell = null): float
     {
         return $this->cellMinHeight($pheight, $align, $cell);
@@ -56,7 +59,10 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
         return $this->cellHPos($pntx, $pwidth, $align, $cell);
     }
 
-    /** @phpstan-param TCellDef|null $cell */
+    /**
+     * @phpstan-param TCellDef|null $cell
+     * @throws \Throwable
+     */
     public function exposeCellTextVAlign(
         float $cellpheight,
         float $txtpheight = 0,
@@ -76,7 +82,10 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
         return $this->cellTextHAlign($pwidth, $txtpwidth, $align, $cell);
     }
 
-    /** @phpstan-param TCellDef|null $cell */
+    /**
+     * @phpstan-param TCellDef|null $cell
+     * @throws \Throwable
+     */
     public function exposeCellVPosFromText(
         float $txty,
         float $cellpheight,
@@ -98,7 +107,10 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
         return $this->cellHPosFromText($txtx, $pwidth, $txtpwidth, $align, $cell);
     }
 
-    /** @phpstan-param TCellDef|null $cell */
+    /**
+     * @phpstan-param TCellDef|null $cell
+     * @throws \Throwable
+     */
     public function exposeTextVPosFromCell(
         float $pnty,
         float $cellpheight,
@@ -120,7 +132,10 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
         return $this->textHPosFromCell($pntx, $pwidth, $txtpwidth, $align, $cell);
     }
 
-    /** @phpstan-param TCellDef|null $cell */
+    /**
+     * @phpstan-param TCellDef|null $cell
+     * @throws \Throwable
+     */
     public function exposeCellMaxWidth(float $pntx = 0, ?array $cell = null): float
     {
         return $this->cellMaxWidth($pntx, $cell);
@@ -132,7 +147,10 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
         return $this->textMaxWidth($pwidth, $cell);
     }
 
-    /** @phpstan-param TCellDef|null $cell */
+    /**
+     * @phpstan-param TCellDef|null $cell
+     * @throws \Throwable
+     */
     public function exposeTextMaxHeight(float $pheight, string $align = 'T', ?array $cell = null): float
     {
         return $this->textMaxHeight($pheight, $align, $cell);
@@ -141,6 +159,7 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param array<int|string, StyleDataOpt> $styles
      * @phpstan-param TCellDef|null $cell
+     * @throws \Throwable
      */
     public function exposeDrawCell(
         float $pntx,
@@ -153,6 +172,7 @@ class TestableCell extends \Com\Tecnick\Pdf\Tcpdf
         return $this->drawCell($pntx, $pnty, $pwidth, $pheight, $styles, $cell);
     }
 
+    /** @throws \Throwable */
     public function exposeGetOutTextString(string $str, int $oid, bool $bom = false): string
     {
         return $this->getOutTextString($str, $oid, $bom);

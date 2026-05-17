@@ -52,7 +52,7 @@ class TestUtil extends TestCase
     /**
      * @param class-string<\Throwable> $exception
      */
-    public function bcExpectException($exception): void
+    public function bcExpectException(string $exception): void
     {
         parent::expectException($exception);
     }
@@ -96,6 +96,7 @@ class TestUtil extends TestCase
         $this->fail('Property not found: ' . $name);
     }
 
+    /** @throws \Throwable */
     protected function initFont(\Com\Tecnick\Pdf\Tcpdf $obj): void
     {
         self::setUpFontsPath();
@@ -110,11 +111,19 @@ class TestUtil extends TestCase
 
     /**
      * @phpstan-return array{pid: int, height: float}
+     * @throws \Throwable
      */
     protected function initFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): array
     {
         $this->initFont($obj);
-        /** @var array{pid: int, height: float} $page */
-        return $obj->addPage();
+        $page = $obj->addPage();
+        if (!isset($page['pid'], $page['height']) || !\is_int($page['pid']) || !\is_float($page['height'])) {
+            $this->fail('Unexpected addPage() return shape.');
+        }
+
+        $pid = $page['pid'];
+        $height = $page['height'];
+
+        return ['pid' => $pid, 'height' => $height];
     }
 }

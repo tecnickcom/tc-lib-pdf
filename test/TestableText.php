@@ -29,11 +29,13 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOutUTOLine($pntx, $pnty, $pwidth, $psize);
     }
 
+    /** @throws \Throwable */
     public function exposeCleanupText(string $txt): string
     {
         return $this->cleanupText($txt);
     }
 
+    /** @throws \Throwable */
     public function exposeGetOutTextPosXY(string $raw, float $posx = 0, float $posy = 0, string $mode = 'Td'): string
     {
         return $this->getOutTextPosXY($raw, $posx, $posy, $mode);
@@ -85,7 +87,12 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         if (\count($matrix) !== 6) {
             return '';
         }
-        /** @var TTMatrix $textMatrix */
+        assert(isset($matrix[0]), "\$matrix[0] must be set");
+        assert(isset($matrix[1]), "\$matrix[1] must be set");
+        assert(isset($matrix[2]), "\$matrix[2] must be set");
+        assert(isset($matrix[3]), "\$matrix[3] must be set");
+        assert(isset($matrix[4]), "\$matrix[4] must be set");
+        assert(isset($matrix[5]), "\$matrix[5] must be set");
         $textMatrix = [
             (float) $matrix[0],
             (float) $matrix[1],
@@ -100,8 +107,23 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     /** @phpstan-param array<int, int|float> $matrix */
     public function exposeRawGetOutTextPosMatrix(string $raw, array $matrix): string
     {
-        /** @var array{float, float, float, float, float, float}|array<int, int|float> $matrix */
-        return $this->getOutTextPosMatrix($raw, $matrix);
+        if (\count($matrix) !== 6) {
+            return '';
+        }
+        if (!isset($matrix[0], $matrix[1], $matrix[2], $matrix[3], $matrix[4], $matrix[5])) {
+            return '';
+        }
+
+        $textMatrix = [
+            (float) $matrix[0],
+            (float) $matrix[1],
+            (float) $matrix[2],
+            (float) $matrix[3],
+            (float) $matrix[4],
+            (float) $matrix[5],
+        ];
+
+        return $this->getOutTextPosMatrix($raw, $textMatrix);
     }
 
     public function exposeGetOutTextShowing(string $str, string $mode = 'Tj'): string
@@ -141,6 +163,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->addOrdArrBreakPoints($ordarr);
     }
 
+    /** @throws \Throwable */
     public function exposeSetPageContext(int $pid = -1): void
     {
         $this->setPageContext($pid);
@@ -151,12 +174,16 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->escapePerc($str);
     }
 
+    /** @throws \Throwable */
     public function exposeGetStringWidth(string $str): float
     {
         return $this->getStringWidth($str);
     }
 
-    /** @phpstan-return array{0: string, 1: array<int, int>, 2: TTextDims} */
+    /**
+     * @phpstan-return array{0: string, 1: array<int, int>, 2: TTextDims}
+     * @throws \Throwable
+     */
     public function exposePrepareText(string $txt, string $forcedir = ''): array
     {
         $ordarr = [];
@@ -169,6 +196,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims $dim
      * @phpstan-return array<int, TextLinePos>
+     * @throws \Throwable
      */
     public function exposeSplitLines(array $ordarr, array $dim, float $pwidth, float $poffset = 0): array
     {
@@ -179,6 +207,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims|array{} $dim
      * @phpstan-param TextShadow|null $shadow
+     * @throws \Throwable
      */
     public function exposeGetOutTextLine(
         string $txt,
@@ -229,6 +258,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims|array{} $dim
      * @phpstan-param TextShadow|null $shadow
+     * @throws \Throwable
      */
     public function exposeRawGetOutTextLine(
         string $txt,
@@ -278,6 +308,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims|array{} $dim
+     * @throws \Throwable
      */
     public function exposeOutTextLine(
         string $txt,
@@ -325,6 +356,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims|array{} $dim
+     * @throws \Throwable
      */
     public function exposeRawOutTextLine(
         string $txt,
@@ -373,6 +405,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param array<int, TextLinePos> $lines
      * @phpstan-param TextShadow|null $shadow
+     * @throws \Throwable
      */
     public function exposeOutTextLines(
         array $ordarr,
@@ -429,6 +462,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param array<int, TextLinePos> $lines
      * @phpstan-param TextShadow|null $shadow
+     * @throws \Throwable
      */
     public function exposeRawOutTextLines(
         array $ordarr,
@@ -481,6 +515,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims $dim
+     * @throws \Throwable
      */
     public function exposeGetJustifiedString(string $txt, array $ordarr, array $dim, float $width = 0): string
     {
@@ -490,6 +525,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-return TTextDims
+     * @throws \Throwable
      */
     public function exposeGetOrdArrDims(array $ordarr): array
     {
@@ -500,6 +536,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<string, string> $phyphens
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-return array<int, int>
+     * @throws \Throwable
      */
     public function exposeHyphenateTextOrdArr(array $phyphens, array $ordarr): array
     {
@@ -510,6 +547,7 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<string, string> $phyphens
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-return array<int, int>
+     * @throws \Throwable
      */
     public function exposeHyphenateWordOrdArr(
         array $phyphens,
@@ -522,7 +560,10 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->hyphenateWordOrdArr($phyphens, $ordarr, $leftmin, $rightmin, $charmin, $charmax);
     }
 
-    /** @phpstan-return array<int, int> */
+    /**
+     * @phpstan-return array<int, int>
+     * @throws \Throwable
+     */
     public function exposeStrToOrdArr(string $txt): array
     {
         $ords = [];
@@ -534,7 +575,10 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $ords;
     }
 
-    /** @phpstan-param array<int, int> $ordarr */
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @throws \Throwable
+     */
     public function exposeGetActualTextForOrdarr(array $ordarr): string
     {
         return $this->getActualTextForOrdarr($ordarr);

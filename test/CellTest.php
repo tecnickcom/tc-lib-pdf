@@ -21,16 +21,19 @@ namespace Test;
  */
 class CellTest extends TestUtil
 {
+    /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /** @throws \Throwable */
     protected function getInternalTestObject(): TestableCell
     {
         return new TestableCell();
     }
 
+    /** @throws \Throwable */
     public function testSetDefaultCellMarginStoresPointValues(): void
     {
         $obj = $this->getTestObject();
@@ -44,6 +47,7 @@ class CellTest extends TestUtil
         $this->bcAssertEqualsWithDelta($obj->toPoints(4.0), $defcell['margin']['L']);
     }
 
+    /** @throws \Throwable */
     public function testSetDefaultCellPaddingStoresPointValues(): void
     {
         $obj = $this->getTestObject();
@@ -57,6 +61,7 @@ class CellTest extends TestUtil
         $this->bcAssertEqualsWithDelta($obj->toPoints(3.5), $defcell['padding']['L']);
     }
 
+    /** @throws \Throwable */
     public function testSetDefaultCellBorderPosStoresValidValueAndDefaultsInvalid(): void
     {
         $obj = $this->getTestObject();
@@ -72,6 +77,7 @@ class CellTest extends TestUtil
         $this->assertSame(\Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT, $defcell['borderpos']);
     }
 
+    /** @throws \Throwable */
     public function testAdjustMinCellPaddingIncreasesPaddingWithBorderStyle(): void
     {
         $obj = $this->getInternalTestObject();
@@ -86,6 +92,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThanOrEqual(0.0, $out['padding']['R']);
     }
 
+    /** @throws \Throwable */
     public function testAdjustMinCellPaddingSupportsSideSpecificWidths(): void
     {
         $obj = $this->getInternalTestObject();
@@ -108,6 +115,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['padding']['L']);
     }
 
+    /** @throws \Throwable */
     public function testAdjustMinCellPaddingUsesCurrentStyleAndInvalidStyleFallback(): void
     {
         $obj = $this->getInternalTestObject();
@@ -121,6 +129,7 @@ class CellTest extends TestUtil
         $this->assertSame($cell, $outInvalid);
     }
 
+    /** @throws \Throwable */
     public function testCellMinHeightReturnsPositiveForCenterAlign(): void
     {
         $obj = $this->getInternalTestObject();
@@ -131,6 +140,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(0.0, $out);
     }
 
+    /** @throws \Throwable */
     public function testCellMinWidthHandlesCenterAlignment(): void
     {
         $obj = $this->getInternalTestObject();
@@ -140,6 +150,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThanOrEqual(20.0, $out);
     }
 
+    /** @throws \Throwable */
     public function testCellPositionHelpersReturnFloats(): void
     {
         $obj = $this->getInternalTestObject();
@@ -153,6 +164,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(-1000000.0, $horizontalPos);
     }
 
+    /** @throws \Throwable */
     public function testCellTextAlignHelpersReturnFloats(): void
     {
         $obj = $this->getInternalTestObject();
@@ -167,6 +179,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(-1000000.0, $horizontalAlign);
     }
 
+    /** @throws \Throwable */
     public function testCellAlignmentBranchesHandleAllVariants(): void
     {
         $obj = $this->getInternalTestObject();
@@ -212,6 +225,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(-1000000.0, $obj->exposeTextMaxHeight(50.0, 'C', $cell));
     }
 
+    /** @throws \Throwable */
     public function testCellAndTextPositionConversionsAreCallable(): void
     {
         $obj = $this->getInternalTestObject();
@@ -230,6 +244,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(-1000000.0, $textHorizontalPos);
     }
 
+    /** @throws \Throwable */
     public function testCellAndTextMaxHelpersReturnPositiveValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -246,6 +261,7 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(0.0, $txtH);
     }
 
+    /** @throws \Throwable */
     public function testDrawCellReturnsEmptyWhenNoFillOrBorder(): void
     {
         $obj = $this->getInternalTestObject();
@@ -256,6 +272,7 @@ class CellTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    /** @throws \Throwable */
     public function testDrawCellHandlesFillAndBorderBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -286,6 +303,7 @@ class CellTest extends TestUtil
         $this->assertNotSame('', $fallbackAdjustBorder);
     }
 
+    /** @throws \Throwable */
     public function testDrawCellIgnoresZeroWidthSideBorders(): void
     {
         $obj = $this->getInternalTestObject();
@@ -308,6 +326,7 @@ class CellTest extends TestUtil
         $this->assertSame($rightSideOnly, $rightWithZeroSides);
     }
 
+    /** @throws \Throwable */
     public function testGetOutTextStringReturnsEscapedStringAndBomChangesOutput(): void
     {
         $obj = $this->getInternalTestObject();

@@ -20,16 +20,19 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class BaseTest extends TestUtil
 {
+    /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /** @throws \Throwable */
     protected function getInternalTestObject(): TestableBase
     {
         return new TestableBase();
     }
 
+    /** @throws \Throwable */
     public function testToPointsAndToUnitRoundTrip(): void
     {
         $obj = $this->getTestObject();
@@ -40,6 +43,7 @@ class BaseTest extends TestUtil
         $this->bcAssertEqualsWithDelta($usr, $obj->toUnit($pnt), 0.0001);
     }
 
+    /** @throws \Throwable */
     public function testToYPointsAndToYUnitWithExplicitPageHeight(): void
     {
         $obj = $this->getTestObject();
@@ -53,6 +57,7 @@ class BaseTest extends TestUtil
         $this->bcAssertEqualsWithDelta($usr, $yUnit, 0.0001);
     }
 
+    /** @throws \Throwable */
     public function testEnableDefaultPageContentTogglesFlag(): void
     {
         $obj = $this->getTestObject();
@@ -63,6 +68,7 @@ class BaseTest extends TestUtil
         $this->assertTrue($this->getObjectProperty($obj, 'defPageContentEnabled'));
     }
 
+    /** @throws \Throwable */
     public function testSetRTLReturnsSameInstanceAndSetsProperty(): void
     {
         $obj = $this->getTestObject();
@@ -75,6 +81,7 @@ class BaseTest extends TestUtil
         $this->assertFalse($this->getObjectProperty($obj, 'rtl'));
     }
 
+    /** @throws \Throwable */
     #[DataProvider('unitValueConversionProvider')]
     public function testGetUnitValuePointsConvertsCommonUnits(string $input, float $expected, float $delta): void
     {
@@ -85,6 +92,7 @@ class BaseTest extends TestUtil
         $this->bcAssertEqualsWithDelta($expected, $result, $delta);
     }
 
+    /** @throws \Throwable */
     public function testGetUnitValuePointsConvertsRelativeAndViewportUnits(): void
     {
         $obj = $this->getInternalTestObject();
@@ -107,6 +115,7 @@ class BaseTest extends TestUtil
         $this->bcAssertEqualsWithDelta(20.0, $obj->exposeGetUnitValuePoints('10vmin', $ref), 0.0001);
     }
 
+    /** @throws \Throwable */
     public function testGetUnitValuePointsConvertsNumericDefault(): void
     {
         $obj = $this->getInternalTestObject();
@@ -116,6 +125,7 @@ class BaseTest extends TestUtil
         $this->assertGreaterThan(0, $result);
     }
 
+    /** @throws \Throwable */
     public function testGetUnitValuePointsThrowsForInvalidValue(): void
     {
         $obj = $this->getInternalTestObject();
@@ -124,6 +134,7 @@ class BaseTest extends TestUtil
         $obj->exposeGetUnitValuePoints('invalid!!!');
     }
 
+    /** @throws \Throwable */
     public function testGetFontValuePointsConvertsNamedFontSize(): void
     {
         $obj = $this->getInternalTestObject();
@@ -140,6 +151,7 @@ class BaseTest extends TestUtil
         $this->assertGreaterThan($ref['parent'], $result);
     }
 
+    /** @throws \Throwable */
     public function testGetFontValuePointsDelegatesUnknownUnitToGetUnitValuePoints(): void
     {
         $obj = $this->getInternalTestObject();
@@ -150,6 +162,7 @@ class BaseTest extends TestUtil
         $this->bcAssertEqualsWithDelta(28.35, $result, 0.1);
     }
 
+    /** @throws \Throwable */
     #[DataProvider('tmpRtlModeProvider')]
     public function testSetTmpRTLWithMode(string $mode, bool $expectedRtl): void
     {
@@ -160,6 +173,7 @@ class BaseTest extends TestUtil
         $this->assertSame($expectedRtl, $obj->exposeIsRTL());
     }
 
+    /** @throws \Throwable */
     #[DataProvider('isRtlStateProvider')]
     public function testIsRTLReturnsExpectedState(bool $globalRtl, bool $expected): void
     {

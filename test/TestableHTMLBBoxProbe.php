@@ -99,17 +99,23 @@ class TestableHTMLBBoxProbe extends TestableHTML
         );
 
         $bbox = $this->getLastBBox();
+        /** @var array<string, mixed> $curfont */
         $curfont = $this->font->getCurrentFont();
+        $bboxX = isset($bbox['x']) && \is_numeric($bbox['x']) ? (float) $bbox['x'] : 0.0;
+        $bboxY = isset($bbox['y']) && \is_numeric($bbox['y']) ? (float) $bbox['y'] : 0.0;
+        $bboxW = isset($bbox['w']) && \is_numeric($bbox['w']) ? (float) $bbox['w'] : 0.0;
+        $bboxH = isset($bbox['h']) && \is_numeric($bbox['h']) ? (float) $bbox['h'] : 0.0;
+        $fontSize = isset($curfont['size']) && \is_numeric($curfont['size']) ? (float) $curfont['size'] : 0.0;
         $this->bboxTrace[] = [
             'txt' => $txt,
             'in_x' => $posx,
             'in_y' => $posy,
-            'bbox_x' => $bbox['x'],
-            'bbox_y' => $bbox['y'],
-            'bbox_w' => $bbox['w'],
-            'bbox_h' => $bbox['h'],
-            'bbox_end_x' => $bbox['x'] + $bbox['w'],
-            'font_size' => $curfont['size'] ?? 0.0,
+            'bbox_x' => $bboxX,
+            'bbox_y' => $bboxY,
+            'bbox_w' => $bboxW,
+            'bbox_h' => $bboxH,
+            'bbox_end_x' => $bboxX + $bboxW,
+            'font_size' => $fontSize,
         ];
 
         return $out;

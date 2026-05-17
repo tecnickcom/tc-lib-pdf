@@ -19,7 +19,10 @@ namespace Test;
 /** @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base */
 class TestableBase extends \Com\Tecnick\Pdf\Tcpdf
 {
-    /** @phpstan-param TRefUnitValues $ref */
+    /**
+     * @phpstan-param TRefUnitValues $ref
+     * @throws \Throwable
+     */
     public function exposeGetUnitValuePoints(
         string|float|int $val,
         array $ref = self::REFUNITVAL,
@@ -28,7 +31,10 @@ class TestableBase extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getUnitValuePoints($val, $ref, $defunit);
     }
 
-    /** @phpstan-param TRefUnitValues $ref */
+    /**
+     * @phpstan-param TRefUnitValues $ref
+     * @throws \Throwable
+     */
     public function exposeGetFontValuePoints(
         string|float|int $val,
         array $ref = self::REFUNITVAL,

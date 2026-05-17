@@ -169,7 +169,9 @@ class SpecificityTest extends TestUtil
 
         // After string sort, low < medium < high
         $this->assertSame($low->toSortKey(0), $sorted[0]);
+        assert(isset($sorted[1]), "\$sorted[1] must be set");
         $this->assertSame($medium->toSortKey(0), $sorted[1]);
+        assert(isset($sorted[2]), "\$sorted[2] must be set");
         $this->assertSame($high->toSortKey(0), $sorted[2]);
     }
 

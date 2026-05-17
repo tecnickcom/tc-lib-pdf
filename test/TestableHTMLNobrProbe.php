@@ -35,10 +35,14 @@ class TestableHTMLNobrProbe extends TestableHTML
         float &$tpw,
         float &$tph,
     ): string {
-        $elm = $hrc['dom'][$key];
+        if (!isset($hrc['dom'][$key])) {
+            return parent::parseHTMLTagOPENdiv($hrc, $key, $tpx, $tpy, $tpw, $tph);
+        }
+
         $state = '';
-        if (!empty($elm['attribute']['nobr']) && \is_string($elm['attribute']['nobr'])) {
-            $state = $elm['attribute']['nobr'];
+        $candidate = $hrc['dom'][$key]['attribute']['nobr'] ?? null;
+        if (\is_string($candidate) && $candidate !== '') {
+            $state = $candidate;
         }
         $this->nobrOpenStates[] = $state;
 

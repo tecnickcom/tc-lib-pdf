@@ -25,22 +25,34 @@ class OutputTest extends TestUtil
         self::setUpFontsPath();
     }
 
+    /**
+     * @throws \Throwable
+     */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /**
+     * @throws \Throwable
+     */
     protected function getInternalTestObject(): TestableOutput
     {
         return new TestableOutput();
     }
 
+    /**
+     * @throws \Throwable
+     */
     protected function getInternalUncompressedTestObject(): TestableOutput
     {
         return new TestableOutput('mm', true, false, false);
     }
 
-    /** @return array{pid:int,n:int,content:array<int,string>} */
+    /**
+     * @return array{pid:int,n:int,content:array<int,string>}
+     * @throws \Throwable
+     */
     protected function addRawPageWithObjectNumber(\Com\Tecnick\Pdf\Tcpdf $obj, int $objectNumber): array
     {
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
@@ -51,8 +63,25 @@ class OutputTest extends TestUtil
         $pages = $this->getObjectProperty($page, 'page');
         $pages[$data['pid']]['n'] = $objectNumber;
         $this->setObjectProperty($page, 'page', $pages);
-        /** @var array{pid:int,n:int,content:array<int,string>} $pageData */
-        return $page->getPage($data['pid']);
+        /** @var array<string, mixed> $pageData */
+        $pageData = $page->getPage($data['pid']);
+        if (
+            !isset($pageData['pid'], $pageData['n'], $pageData['content'])
+            || !\is_int($pageData['pid'])
+            || !\is_int($pageData['n'])
+            || !\is_array($pageData['content'])
+        ) {
+            $this->fail('Unexpected page data shape.');
+        }
+
+        $pid = $pageData['pid'];
+        $n = $pageData['n'];
+        $rawContent = $pageData['content'];
+
+        /** @var array<int, string> $content */
+        $content = \array_values(\array_filter($rawContent, 'is_string'));
+
+        return ['pid' => $pid, 'n' => $n, 'content' => $content];
     }
 
     /** @param list<string> $fragments */
@@ -75,14 +104,23 @@ class OutputTest extends TestUtil
             2 => ['pipe', 'w'],
         ];
 
+        if ($cwd === '') {
+            $this->fail('runExternalCommand requires a non-empty cwd');
+        }
+
+        /** @var array<int, resource> $pipes */
+        $pipes = [];
         $proc = \proc_open($cmd, $desc, $pipes, $cwd);
         if (!\is_resource($proc)) {
             return ['code' => 127, 'stdout' => '', 'stderr' => 'Unable to start process'];
         }
 
+        assert(isset($pipes[0]), "\$pipes[0] must be set");
         \fclose($pipes[0]);
+        assert(isset($pipes[1]), "\$pipes[1] must be set");
         $stdout = (string) \stream_get_contents($pipes[1]);
         \fclose($pipes[1]);
+        assert(isset($pipes[2]), "\$pipes[2] must be set");
         $stderr = (string) \stream_get_contents($pipes[2]);
         \fclose($pipes[2]);
         $code = \proc_close($proc);
@@ -90,12 +128,18 @@ class OutputTest extends TestUtil
         return ['code' => $code, 'stdout' => $stdout, 'stderr' => $stderr];
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function isCommandAvailable(string $name): bool
     {
         $res = $this->runExternalCommand(['sh', '-lc', 'command -v ' . \escapeshellarg($name)], __DIR__ . '/..');
         return $res['code'] === 0 && \trim($res['stdout']) !== '';
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSubsetFontPdfHasReaderCompatibleFontObjects(): void
     {
         $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, true, true);
@@ -119,6 +163,7 @@ class OutputTest extends TestUtil
         // Embedded subset streams should be non-trivial font payloads, not tiny/broken stubs.
         $matches = [];
         \preg_match_all('/\\/Length1\\s+(\\d+)/', $raw, $matches);
+        assert(isset($matches[1]), "\$matches[1] must be set");
         $lengths = \array_map('intval', $matches[1]);
         if ($lengths === []) {
             $this->fail('Expected at least one Length1 entry in generated PDF.');
@@ -172,6 +217,9 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFStringReturnsRawPdfDocument(): void
     {
         $obj = $this->getTestObject();
@@ -185,6 +233,9 @@ class OutputTest extends TestUtil
         $this->assertStringEndsWith("%%EOF\n", $raw);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testRenderPDFInCliEchoesRawString(): void
     {
         $obj = $this->getTestObject();
@@ -196,6 +247,9 @@ class OutputTest extends TestUtil
         $this->assertSame('raw-pdf-data', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testRenderPDFInCliPreservesBinaryPdfBytes(): void
     {
         $script = \sys_get_temp_dir() . '/tc-lib-pdf-render-' . \bin2hex(\random_bytes(6)) . '.php';
@@ -231,15 +285,20 @@ class OutputTest extends TestUtil
             2 => ['pipe', 'w'],
         ];
 
+        /** @var array<int, resource> $pipes */
+        $pipes = [];
         $proc = \proc_open($cmd, $desc, $pipes, __DIR__ . '/..');
         if (!\is_resource($proc)) {
             \unlink($script);
             $this->fail('Unable to start PHP subprocess for renderPDF regression test.');
         }
 
+        assert(isset($pipes[0]), "\$pipes[0] must be set");
         \fclose($pipes[0]);
+        assert(isset($pipes[1]), "\$pipes[1] must be set");
         $stdout = (string) \stream_get_contents($pipes[1]);
         \fclose($pipes[1]);
+        assert(isset($pipes[2]), "\$pipes[2] must be set");
         $stderr = (string) \stream_get_contents($pipes[2]);
         \fclose($pipes[2]);
         $exitCode = \proc_close($proc);
@@ -249,6 +308,9 @@ class OutputTest extends TestUtil
         $this->assertSame($stderr, \md5($stdout));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testDownloadPDFRejectsExistingOutputBufferContent(): void
     {
         $obj = $this->getTestObject();
@@ -269,6 +331,9 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testDownloadPDFOutputsRawDataWhenBufferIsClean(): void
     {
         $obj = $this->getTestObject();
@@ -280,6 +345,9 @@ class OutputTest extends TestUtil
         $this->assertSame('raw-pdf-data', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSavePDFWritesRawPdfToDisk(): void
     {
         $obj = $this->getTestObject();
@@ -303,6 +371,9 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetMIMEAttachmentPDFReturnsBase64Attachment(): void
     {
         $obj = $this->getTestObject();
@@ -316,6 +387,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(\chunk_split(\base64_encode('raw-pdf-data'), 76, "\r\n"), $mime);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetPDFObjectOffsetsReturnsSortedPositions(): void
     {
         $obj = $this->getInternalTestObject();
@@ -333,6 +407,9 @@ class OutputTest extends TestUtil
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFXrefFormatsPresentAndMissingObjects(): void
     {
         $obj = $this->getInternalTestObject();
@@ -356,6 +433,9 @@ class OutputTest extends TestUtil
         $this->assertSame($expected, $xref);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFTrailerIncludesCatalogInfoAndFileId(): void
     {
         $obj = $this->getInternalTestObject();
@@ -369,6 +449,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString(' /Encrypt ', $trailer);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFTrailerIncludesEncryptReferenceWhenPresent(): void
     {
         $obj = $this->getInternalTestObject();
@@ -379,6 +462,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Encrypt 12 0 R', $trailer);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetColorStringFromPercArrayFormatsSupportedColorSpaces(): void
     {
         $obj = $this->getInternalTestObject();
@@ -394,6 +480,9 @@ class OutputTest extends TestUtil
         $this->assertSame('[]', $obj->exposeGetColorStringFromPercArray([]));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationFlagsCodeAndOutputHandlePdfa(): void
     {
         $obj = $this->getInternalTestObject();
@@ -405,6 +494,9 @@ class OutputTest extends TestUtil
         $this->assertSame(' /F 6', $obj->exposeGetOutAnnotationFlags(['opt' => ['f' => ['hidden']]]));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationBorderFormatsBorderStyleAndEffect(): void
     {
         $obj = $this->getInternalTestObject();
@@ -421,6 +513,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /BE << /S /C /I  1.500000>>', $border);
     }
 
+    /**
+     * @throws \Throwable
+     */
     #[DataProvider('onOffProvider')]
     public function testGetOnOffMapsTruthyAndFalsyValues(mixed $input, string $expected): void
     {
@@ -429,6 +524,9 @@ class OutputTest extends TestUtil
         $this->assertSame($expected, $obj->exposeGetOnOff($input));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutDestinationsSerializesNamedDestinationCoordinates(): void
     {
         $obj = $this->getInternalTestObject();
@@ -444,6 +542,9 @@ class OutputTest extends TestUtil
         $this->assertSame('#Section#20One', $dest);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSortBookmarksOrdersByPageThenOriginalIndex(): void
     {
         $obj = $this->getInternalTestObject();
@@ -458,11 +559,17 @@ class OutputTest extends TestUtil
         $obj->exposeSortBookmarks();
         $outlines = $obj->getOutlinesState();
 
+        assert(isset($outlines[0]), "\$outlines[0] must be set");
         $this->assertSame('Earlier on page 1', $outlines[0]['t']);
+        assert(isset($outlines[1]), "\$outlines[1] must be set");
         $this->assertSame('Later on page 2', $outlines[1]['t']);
+        assert(isset($outlines[2]), "\$outlines[2] must be set");
         $this->assertSame('Also on page 2', $outlines[2]['t']);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testProcessPrevNextBookmarksAssignsHierarchyLinks(): void
     {
         $obj = $this->getInternalTestObject();
@@ -477,15 +584,21 @@ class OutputTest extends TestUtil
         $outlines = $obj->getOutlinesState();
 
         $this->assertSame(2, $root);
+        assert(isset($outlines[0]), "\$outlines[0] must be set");
         $this->assertSame(3, $outlines[0]['parent']);
         $this->assertSame(1, $outlines[0]['first']);
         $this->assertSame(1, $outlines[0]['last']);
+        assert(isset($outlines[1]), "\$outlines[1] must be set");
         $this->assertSame(0, $outlines[1]['parent']);
         $this->assertSame(2, $outlines[0]['next']);
+        assert(isset($outlines[2]), "\$outlines[2] must be set");
         $this->assertSame(0, $outlines[2]['prev']);
         $this->assertSame(3, $outlines[2]['parent']);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksSerializesOutlineObjectsAndRoot(): void
     {
         $obj = $this->getInternalTestObject();
@@ -509,6 +622,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutJavascriptBuildsObjectsAndNameTree(): void
     {
         $obj = $this->getInternalTestObject();
@@ -525,6 +641,9 @@ class OutputTest extends TestUtil
         $this->assertSame('<< /Names [ (EmbeddedJS) 3 0 R (JS0) 1 0 R ] >>', $obj->getJavascriptTree());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetXObjectDictEmptyWhenNoImagesOrXObjects(): void
     {
         $obj = $this->getInternalTestObject();
@@ -534,6 +653,9 @@ class OutputTest extends TestUtil
         $this->assertSame(' /XObject << >>', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetLayerDictEmptyWhenNoLayers(): void
     {
         $obj = $this->getInternalTestObject();
@@ -543,6 +665,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetXObjectDictIncludesCustomObjectEntries(): void
     {
         $obj = $this->getInternalTestObject();
@@ -557,6 +682,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/XO2 22 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetLayerDictIncludesLayerReferences(): void
     {
         $obj = $this->getInternalTestObject();
@@ -571,6 +699,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/L2 32 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutResourcesDictIncludesProcSetAndEmptyFontDict(): void
     {
         $obj = $this->getInternalTestObject();
@@ -594,6 +725,9 @@ class OutputTest extends TestUtil
         $this->assertStringEndsWith(" >>\nendobj\n", $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutResourcesDictAddsSvgMaskExtGStateWhenGraphHasNoExtGState(): void
     {
         $obj = $this->getInternalTestObject();
@@ -623,6 +757,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/MSK_ONLY 42 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutResourcesDictMergesSvgMaskEntriesWithExistingExtGState(): void
     {
         $obj = $this->getInternalTestObject();
@@ -658,6 +795,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/MSK_MERGE 43 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testPatternStreamResourcesKeepOnlyReferencedFontAndSpotAliases(): void
     {
         $obj = $this->getInternalTestObject();
@@ -694,6 +834,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString(' /CS2 ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testPatternStreamResourcesHandleEmptyFontDictionary(): void
     {
         $obj = $this->getInternalTestObject();
@@ -708,6 +851,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPatternsSkipsEntriesWithEmptyStreamData(): void
     {
         $obj = $this->getInternalTestObject();
@@ -727,6 +873,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testPatternStreamResourcesFilterMixedCategoriesByStreamUsage(): void
     {
         $obj = $this->getInternalTestObject();
@@ -780,6 +929,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString(' /XO1 201 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testPatternStreamResourcesParseGradientAndImageDoTokens(): void
     {
         $obj = $this->getInternalTestObject();
@@ -809,6 +961,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /XObject <<', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testImplementedAnnotationSubtypeHelpersReturnExpectedFragments(): void
     {
         $obj = $this->getInternalTestObject();
@@ -905,6 +1060,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Open true', $popupOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAdvancedAnnotationSubtypeHelpersReturnExpectedFragments(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1004,6 +1162,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /V 0.750000', $watermarkOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testLineAndQuadpointAnnotationHelpersIgnoreInvalidValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1037,6 +1198,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $highlightOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testMovieSubtypeSupportsAdditionalPosterAndActionVariants(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1070,6 +1234,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /FWScale [2 3]', $movieActionOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testLineSubtypeIncludesExtendedLineAndMeasureOptions(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1092,6 +1259,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Measure << /Type /Measure /Subtype /RL >>', $lineOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testPolygonAndInkSubtypeAdditionalBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1119,6 +1289,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $inkOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testMovieSubtypeCoversStartDurationAndFwPositionVariants(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1165,6 +1338,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /FWPosition [0.250000 0.750000]', $arrayNumericOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testIntentionallyUnsupportedAdvancedSubtypeHelpersReturnEmptyString(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1174,6 +1350,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutAnnotationOptSubtype3D([]));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationRadioButtonsReturnsEmptyWhenNoKids(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1183,6 +1362,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationAppearanceStreamWithoutApReturnsOnlyAsFlag(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1193,6 +1375,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $apx);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationMarkupsReturnsMarkupFieldsForTextSubtype(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1214,6 +1399,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Subj ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeTextReturnsDefaultsAndState(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1233,6 +1421,7 @@ class OutputTest extends TestUtil
     /**
      * @param array<string, mixed> $annot
      * @param list<string>         $expectedFragments
+     * @throws \Throwable
      */
     #[DataProvider('annotationSubtypeLinkSimpleProvider')]
     public function testGetOutAnnotationOptSubtypeLinkSimpleTargets(
@@ -1251,6 +1440,9 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeLinkHandlesInternalAndEmbeddedTargets(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1273,6 +1465,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /H /I', $embeddedFile);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeLinkSkipsEmbeddedFileJavascriptInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1287,6 +1482,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /H /I', $embeddedFile);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeLinkSkipsEmbeddedFileJavascriptInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1301,6 +1499,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /H /I', $embeddedFile);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeLinkSuppressesGotoeAndGotorInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1334,6 +1535,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /H /I', $relativePdf);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeLinkSuppressesExternalUriInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1350,6 +1554,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /H /I', $externalUri);
     }
 
+    /**
+     * @throws \Throwable
+     */
     #[DataProvider('pdfxModeProvider')]
     public function testPdfxModeMatrixSuppressesInteractiveLinkActions(string $mode): void
     {
@@ -1383,6 +1590,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /H /I', $relativePdf);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeFreetextFormatsKnownOptions(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1406,6 +1616,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /LE /Square', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeFileattachmentHandlesPdfaAndEmbeddedFile(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1422,6 +1635,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Name /Tag', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeSoundReturnsExpectedNameAndReference(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1435,6 +1651,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Name /Mic', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetIncludesBasicWidgetEntries(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1463,6 +1682,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /DA ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetIncludesAppearanceAndChoiceOptions(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1512,6 +1734,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /I [0 2 ]', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetOmitsJavascriptActionsInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1532,6 +1757,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString(' /AA << /E << /S /JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetOmitsJavascriptActionsInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1552,6 +1780,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString(' /AA << /E << /S /JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetOmitsNonJavascriptActionsInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1572,6 +1803,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString(' /AA << /E << /S /URI /URI', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeDispatcherRoutesKnownAndUnknownSubtypes(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1583,6 +1817,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $unkOut);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeDispatcherCoversRemainingKnownSubtypes(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1621,6 +1858,9 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFHeaderReturnsVersionedHeader(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1631,6 +1871,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString("%\xE2\xE3\xCF\xD3\n", $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyBuildsPageTreeResourcesAndCatalog(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1643,6 +1886,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Type /Page', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyIncludesStructTreeRootInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1666,6 +1912,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/StructTreeRoot ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyWrapsFirstPageContentInMarkedContentForPdfuaMode(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -1680,6 +1929,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Type /MCR', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyIncludesMultipleMcidsForMultipleTextCellsInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1696,6 +1948,9 @@ class OutputTest extends TestUtil
         $this->assertMatchesRegularExpression('/\/Type \/StructElem \/S \/P.*\/MCID 1/s', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyBracketedTextCellsShareOneStructElem(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1718,6 +1973,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/Type /StructElem /S /P', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyBracketedContentUsesStructRoleInBdcTag(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -1735,6 +1993,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/P <</MCID 0>> BDC', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyTagsHtmlTextInPdfuaMode(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -1752,6 +2013,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Type /StructElem /S /P', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyPreservesNestedStructElemHierarchy(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -1776,8 +2040,10 @@ class OutputTest extends TestUtil
             $docMatch,
         ));
 
+        assert(isset($docMatch[2]), "\$docMatch[2] must be set");
         $sectOid = $docMatch[2];
         $sectMatch = [];
+        assert(isset($docMatch[1]), "\$docMatch[1] must be set");
         $this->assertSame(1, \preg_match(
             '/'
             . $sectOid
@@ -1788,16 +2054,21 @@ class OutputTest extends TestUtil
             $sectMatch,
         ));
 
+        assert(isset($sectMatch[1]), "\$sectMatch[1] must be set");
         $this->assertMatchesRegularExpression(
             '/' . $sectMatch[1] . ' 0 obj\\s*<< \/Type \/StructElem \/S \/H1 \/P ' . $sectOid . ' 0 R/s',
             $out,
         );
+        assert(isset($sectMatch[2]), "\$sectMatch[2] must be set");
         $this->assertMatchesRegularExpression(
             '/' . $sectMatch[2] . ' 0 obj\\s*<< \/Type \/StructElem \/S \/P \/P ' . $sectOid . ' 0 R/s',
             $out,
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyTagsHtmlImageAsFigureWithAltInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
@@ -1825,6 +2096,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Alt ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyTagsHtmlTableStructRolesInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
@@ -1847,6 +2121,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Type /StructElem /S /TD', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyTagsHtmlListStructRolesInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
@@ -1866,6 +2143,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Type /StructElem /S /LBody', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyTagsManualFigureContentWithAltInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
@@ -1900,6 +2180,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Alt ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyTagsHtmlFigureWithFigcaptionInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
@@ -1936,6 +2219,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Type /StructElem /S /Caption', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodySerializesStructElemAttributes(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -1952,6 +2238,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/A << /Scope /Column >>', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyPromotesStructElemIdAttributeToIdEntry(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -1968,6 +2257,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/A << /ID /note-1 >>', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyTagsHtmlLinkWithObjrAndStructParent(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -1985,6 +2277,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Tabs /S', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogIncludesRequiredEntries(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2017,6 +2312,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogIncludesDssReferenceWhenAvailable(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2028,6 +2326,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/DSS 12 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyIncludesDssWhenLtvDssEnabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2066,6 +2367,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutICCRespectsPdfaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2078,6 +2382,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('endobj', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testOutputIntentsHelpersHandleCatalogAndModes(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2125,6 +2432,9 @@ class OutputTest extends TestUtil
         );
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetPDFLayersAndGetOutOCGDefaultAndNonEmpty(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2146,6 +2456,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/OCProperties << /OCGs [', $layers);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAPXObjectsAndXObjectsEmptyPaths(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2160,6 +2473,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $xobj);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutEmbeddedFilesAndAnnotationsDefaultEmpty(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2168,6 +2484,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutAnnotations());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSignatureHelpersDefaultPathsAndInfoFormatting(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2193,6 +2512,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureEmitsUserRightsSignatureForCertTypeZero(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2238,6 +2560,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureSkipsSignatureReferenceForApprovalMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2280,6 +2605,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/Reference [ << /Type /SigRef', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureIncludesCustomAppearanceStream(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -2329,6 +2657,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureIncludesFittedXObjectAppearance(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
@@ -2397,6 +2728,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testConvertBinarySignatureToHexPadsToSigMaxLen(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2409,6 +2743,9 @@ class OutputTest extends TestUtil
         $this->assertMatchesRegularExpression('/^[0-9a-f]+$/', $hex);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testPrepareDocumentForSignatureComputesByteRangeAndStripsSlot(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2433,6 +2770,9 @@ class OutputTest extends TestUtil
         $this->assertSame(\strlen($suffix), $result['byte_range'][3]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testBuildTimestampRequestContainsSha256OidWhenNonceDisabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2455,6 +2795,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('608648016503040201', \bin2hex($request));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testApplySignatureTimestampWithMockedTsaResponse(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2479,6 +2822,9 @@ class OutputTest extends TestUtil
         $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testExtractTimestampTokenFromResponseRejectsFailureStatus(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2488,6 +2834,9 @@ class OutputTest extends TestUtil
         $obj->exposeExtractTimestampTokenFromResponse((string) \hex2bin('30053003020102'));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testCollectValidationMaterialReturnsEmptyWhenLtvDisabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2499,6 +2848,9 @@ class OutputTest extends TestUtil
         $this->assertSame([], $material['vri']);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testCollectValidationMaterialLoadsAndDeduplicatesCertificates(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2525,6 +2877,9 @@ class OutputTest extends TestUtil
         $this->assertSame(1, \count($material['vri']));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testCollectValidationMaterialCollectsOcspAndCrlWhenEnabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2555,11 +2910,16 @@ class OutputTest extends TestUtil
         $this->assertNotSame('', $obj->getCapturedOcspRequest());
         $this->assertSame(1, \count($material['vri']));
 
-        $vri = \array_values($material['vri'])[0];
+        $vriList = \array_values($material['vri']);
+        assert(isset($vriList[0]), "\$vriList[0] must be set");
+        $vri = $vriList[0];
         $this->assertSame([0], $vri['ocsp']);
         $this->assertSame([0, 0], $vri['crls']);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testCollectValidationMaterialFallsBackToCrlWhenOcspFails(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2587,11 +2947,16 @@ class OutputTest extends TestUtil
         $this->assertSame(1, \count($material['crls']));
         $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
 
-        $vri = \array_values($material['vri'])[0];
+        $vriList = \array_values($material['vri']);
+        assert(isset($vriList[0]), "\$vriList[0] must be set");
+        $vri = $vriList[0];
         $this->assertSame([], $vri['ocsp']);
         $this->assertSame([0, 0], $vri['crls']);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationFlagsCodeWithIntegerInput(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2600,6 +2965,9 @@ class OutputTest extends TestUtil
         $this->assertSame(0, $obj->exposeGetAnnotationFlagsCode(0));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationFlagsCodeCoversAllIndividualFlags(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2613,6 +2981,9 @@ class OutputTest extends TestUtil
         $this->assertSame(0, $obj->exposeGetAnnotationFlagsCode(['unknown-flag']));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutICCWithSRGBFlagGeneratesBlock(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2625,6 +2996,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('endobj', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationBorderWithBorderArrayFallback(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2636,6 +3010,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Border [0 0 0]', $defaultBorder);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationBorderBeUsesDefaultStyleWhenInvalidS(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2644,6 +3021,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /BE << /S /S>>', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationBorderBeSkipsInvalidIntensity(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2653,6 +3033,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/I', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationAppearanceStreamWithStringAp(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2663,6 +3046,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $apx);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationAppearanceStreamWithArrayApStringDef(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2673,6 +3059,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Subtype /Form', $apx);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationAppearanceStreamWithArrayApArrayDef(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2688,6 +3077,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Subtype /Form', $apx);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationRadioButtonsWithKidsAndReadonly(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2711,6 +3103,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/F 68', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationRadioButtonsReadonlyFlag(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2729,6 +3124,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/F 68 /Ff 49153', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotationRadioButtonsWithTuField(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2751,6 +3149,7 @@ class OutputTest extends TestUtil
     /**
      * @param array<string, mixed> $opt
      * @param list<string>         $expectedFragments
+     * @throws \Throwable
      */
     #[DataProvider('annotationSubtypeTextProvider')]
     public function testGetOutAnnotationOptSubtypeTextVariants(array $opt, array $expectedFragments): void
@@ -2823,6 +3222,9 @@ class OutputTest extends TestUtil
         ];
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeLinkWithAtInternalLink(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2837,6 +3239,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/XYZ 0 ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeFreetextDsAndCl(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2857,6 +3262,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /CL [', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetImageLookupsWithMkIcons(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2878,6 +3286,9 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetWithTuTmAndScalarValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2901,6 +3312,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /RV ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetWithParent(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2916,6 +3330,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Parent 99 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetOptChoiceStrings(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2936,6 +3353,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /Opt [', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogWithEmbeddedFilesAndJavascriptTree(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2978,6 +3398,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogOmitsJavascriptTreeInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -2991,6 +3414,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogOmitsJavascriptTreeInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3004,6 +3430,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogIncludesMarkInfoAndDefaultLanguageInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3018,6 +3447,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString("\x00e\x00n\x00-\x00U\x00S", $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogIncludesStructTreeRootReferenceWhenAvailable(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3031,6 +3463,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/StructTreeRoot 42 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyResetsStructureObjectIdsOutsidePdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3040,15 +3475,16 @@ class OutputTest extends TestUtil
         $this->setObjectProperty($obj, 'pagestructmcids', [9 => 1]);
 
         $method = new \ReflectionMethod($obj, 'getOutStructTreeRoot');
-        $out = $method->invoke($obj);
-
-        $this->assertSame('', $out);
+        $this->assertSame('', $method->invoke($obj));
         $this->assertSame([], $this->getObjectProperty($obj, 'pagestructparents'));
         $this->assertSame([], $this->getObjectProperty($obj, 'pagestructmcids'));
         $this->assertSame(0, $this->getObjectProperty($obj, 'parenttreeoid'));
         $this->assertSame(0, $this->getObjectProperty($obj, 'structtreerootoid'));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogUsesConfiguredLanguageInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3065,6 +3501,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString("\x00e\x00n\x00-\x00U\x00S", $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     #[DataProvider('catalogZoomModeProvider')]
     public function testGetOutCatalogZoomModes(string|int $zoom, string $expectedFragment): void
     {
@@ -3088,6 +3527,9 @@ class OutputTest extends TestUtil
         ];
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogWithOutlinesAutoSetsDisplayMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3105,6 +3547,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogWithFormFields(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3128,6 +3573,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutCatalogWithSignatureAcroformVariants(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3179,6 +3627,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetPDFLayersWithViewFalseAndLockTrue(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3211,6 +3662,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutOCGWithPrintAndIntent(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3232,6 +3686,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutXObjectsWithNonEmptyOutdata(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3277,6 +3734,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutXObjectsWithTransparencyGroup(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3323,6 +3783,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutXObjectsSuppressesTransparencyGroupInPdfx3(): void
     {
         $obj = new TestableOutput('mm', true, false, true, 'pdfx3');
@@ -3364,6 +3827,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/Group << /Type /Group /S /Transparency', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutEmbeddedFilesWithContent(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3378,6 +3844,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutEmbeddedFilesSkippedInPdfa1And2(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3388,6 +3857,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationsWithTextAnnotation(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3425,6 +3897,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationsWithLinkAnnotation(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3458,6 +3933,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/Contents ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationsLinkAnnotationIncludesContentsInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3492,6 +3970,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Contents ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationsWithFormFieldAnnotation(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3504,7 +3985,16 @@ class OutputTest extends TestUtil
         $pgdata[$pageInfo['pid']]['num'] = 1;
         $this->setObjectProperty($pageObj, 'page', $pgdata);
 
-        $aoid = $obj->setAnnotation(5.0, 10.0, 80.0, 12.0, 'myfield', ['subtype' => 'Widget', 'ft' => 'Tx']);
+        $setAnnotation = new \ReflectionMethod($obj, 'setAnnotation');
+        /** @var int $aoid */
+        $aoid = $setAnnotation->invokeArgs($obj, [
+            5.0,
+            10.0,
+            80.0,
+            12.0,
+            'myfield',
+            ['subtype' => 'Widget', 'ft' => 'Tx'],
+        ]);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
@@ -3524,6 +4014,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/FT /Tx', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationsWithColorOption(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3536,7 +4029,16 @@ class OutputTest extends TestUtil
         $pgdata[$pageInfo['pid']]['num'] = 1;
         $this->setObjectProperty($pageObj, 'page', $pgdata);
 
-        $aoid = $obj->setAnnotation(5.0, 10.0, 80.0, 12.0, 'Colored note', ['subtype' => 'text', 'c' => '#FF0000']);
+        $setAnnotation = new \ReflectionMethod($obj, 'setAnnotation');
+        /** @var int $aoid */
+        $aoid = $setAnnotation->invokeArgs($obj, [
+            5.0,
+            10.0,
+            80.0,
+            12.0,
+            'Colored note',
+            ['subtype' => 'text', 'c' => '#FF0000'],
+        ]);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
@@ -3556,6 +4058,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/C [', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithAtLinkType(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3571,6 +4076,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/XYZ 0 ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithStarEmbeddedFileLink(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3598,6 +4106,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/S /JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithStarEmbeddedFileLinkOmitsJavascriptInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3626,6 +4137,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/S /JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithStarEmbeddedFileLinkOmitsJavascriptInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3654,6 +4168,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/S /JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithPercentEmbeddedPdfLink(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3682,6 +4199,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/A 5', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithPercentEmbeddedPdfLinkOmitsGotoeInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3711,6 +4231,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/A 5', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithExternalUriLink(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3725,6 +4248,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/URI ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithExternalUriLinkOmitsUriActionInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3740,6 +4266,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/URI ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     #[DataProvider('pdfxModeProvider')]
     public function testPdfxModeMatrixSuppressesInteractiveBookmarkActions(string $mode): void
     {
@@ -3772,6 +4301,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/S /GoToE', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksWithNoUrlUsesPageDest(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3786,6 +4318,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/XYZ ', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutBookmarksIncludesFirstAndLastForParentsWithChildren(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3814,6 +4349,9 @@ class OutputTest extends TestUtil
         ];
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutJavascriptWithAddFieldTriggersWrapper(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3828,6 +4366,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/S /JavaScript', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutJavascriptReturnsEmptyInPdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3842,6 +4383,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutJavascript());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutJavascriptReturnsEmptyInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3856,6 +4400,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutJavascript());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureUserRightsWithAllFields(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3881,6 +4428,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureFieldsWithAppearanceEntries(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3907,6 +4457,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureFieldsReturnsEmptyWithEmptySignatureArray(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3915,6 +4468,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutSignatureFields());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureWithDocMdpAndApprovalModes(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3955,6 +4511,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/Reference [ << /Type /SigRef', $outApproval);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureWithUserRightsReferenceWhenCertTypeZero(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3978,6 +4537,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/TransformMethod /UR3', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureDocMDPReturnsEmptyWhenCertTypeMissing(): void
     {
         $obj = $this->getInternalTestObject();
@@ -3986,6 +4548,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutSignatureDocMDP());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureUserRightsWithFormExField(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4004,6 +4569,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/FormEX[/BarcodePlaintext]', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutSignatureInfoWithAllOptionalFields(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4026,6 +4594,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testEndToEndOutputIncludesSignatureTsaAndDssInSingleRevision(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4098,6 +4669,9 @@ class OutputTest extends TestUtil
         $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSavePDFThrowsWhenDirectoryDoesNotExist(): void
     {
         $obj = $this->getTestObject();
@@ -4107,6 +4681,9 @@ class OutputTest extends TestUtil
         $obj->savePDF('/path/that/does/not/exist/at/all', 'data');
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationMarkupsWithRcAndCa(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4126,6 +4703,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationMarkupsIgnoresNonMarkupSubtype(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4137,6 +4717,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testOutputAdditionalAnnotationBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4210,6 +4793,9 @@ class OutputTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testOutputAdditionalEmbeddedFileBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4260,6 +4846,9 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutEmbeddedFilesSkipsEmptyFiles(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4291,14 +4880,20 @@ class OutputTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutEmbeddedFilesSkipsUnreadableSourceFiles(): void
     {
         $obj = $this->getInternalTestObject();
 
         $throwingFile = new class() extends \Com\Tecnick\File\File {
-            public function fileGetContents(string $path): string
+            /**
+             * @throws \Throwable
+             */
+            public function fileGetContents(string $file): string
             {
-                throw new \Com\Tecnick\Pdf\Exception('mock unreadable file: ' . $path);
+                throw new \Com\Tecnick\Pdf\Exception('mock unreadable file: ' . $file);
             }
         };
         $this->setObjectProperty($obj, 'file', $throwingFile);
@@ -4321,6 +4916,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $obj->exposeGetOutEmbeddedFiles());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutXObjectsIncludesNestedXObjectReferences(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4380,6 +4978,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/XO2 102 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationsSkipsFormRegistrationForKnownRadioButtonGroup(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4434,6 +5035,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Parent 88 0 R', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFTrailerSuppressesEncryptInPdfxMode(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4445,6 +5049,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/Encrypt', $trailer);
     }
 
+    /**
+     * @throws \Throwable
+     */
     private function setPdfaModeOnObject(TestableOutput $obj, int $pdfa): void
     {
         $obj->setPdfaMode($pdfa);
@@ -4457,6 +5064,7 @@ class OutputTest extends TestUtil
     /**
      * getOutSVGMasks emits Form XObject + SMask + ExtGState for a registered mask
      * and records the ExtGState object number in gs_n.
+     * @throws \Throwable
      */
     public function testGetOutSVGMasksEmitsThreePdfObjectsAndSetsGsN(): void
     {
@@ -4494,15 +5102,20 @@ class OutputTest extends TestUtil
 
         // gs_n must be set to the ExtGState object number.
         $masks = $obj->getSvgMasks();
-        $this->assertArrayHasKey('MSK_AABBCCDD', $masks);
-        $this->assertIsArray($masks['MSK_AABBCCDD']);
+        if (!isset($masks['MSK_AABBCCDD']) || !\is_array($masks['MSK_AABBCCDD'])) {
+            $this->fail('Expected MSK_AABBCCDD mask entry.');
+        }
+
         $mask = $masks['MSK_AABBCCDD'];
-        $this->assertArrayHasKey('gs_n', $mask);
+        if (!isset($mask['gs_n']) || !\is_int($mask['gs_n'])) {
+            $this->fail('Expected integer gs_n in MSK_AABBCCDD mask.');
+        }
         $this->assertGreaterThan(0, $mask['gs_n']);
     }
 
     /**
      * getSVGMaskExtGStateEntries returns an entry for each mask with gs_n > 0.
+     * @throws \Throwable
      */
     public function testGetSVGMaskExtGStateEntriesReturnsResourceEntries(): void
     {
@@ -4522,6 +5135,7 @@ class OutputTest extends TestUtil
 
     /**
      * getOutSVGMasks skips masks with empty streams.
+     * @throws \Throwable
      */
     public function testGetOutSVGMasksSkipsEmptyStreamMasks(): void
     {
@@ -4536,10 +5150,14 @@ class OutputTest extends TestUtil
 
         $this->assertSame('', $out);
         $masks = $obj->getSvgMasks();
-        $this->assertArrayHasKey('MSK_EMPTY', $masks);
-        $this->assertIsArray($masks['MSK_EMPTY']);
+        if (!isset($masks['MSK_EMPTY']) || !\is_array($masks['MSK_EMPTY'])) {
+            $this->fail('Expected MSK_EMPTY mask entry.');
+        }
+
         $mask = $masks['MSK_EMPTY'];
-        $this->assertArrayHasKey('gs_n', $mask);
+        if (!isset($mask['gs_n']) || !\is_int($mask['gs_n'])) {
+            $this->fail('Expected integer gs_n in MSK_EMPTY mask.');
+        }
         $this->assertSame(0, $mask['gs_n']);
     }
 
@@ -4547,6 +5165,9 @@ class OutputTest extends TestUtil
     // Widget MK appearance image object references
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWidgetMkImageRefsWithRegisteredImages(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4618,6 +5239,9 @@ class OutputTest extends TestUtil
     // extractNamedResourceRefs empty-name skip
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testExtractNamedResourceRefsSkipsEmptyAndNonStringNames(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4636,6 +5260,9 @@ class OutputTest extends TestUtil
     // getOutStructTreeRoot with pdfuaMode set but empty structLog
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutStructTreeRootReturnsEmptyWhenStructLogIsEmpty(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4657,6 +5284,9 @@ class OutputTest extends TestUtil
     // getOutAnnotationOptSubtypeRedact: /RO branch
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeRedactIncludesRoField(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4675,6 +5305,9 @@ class OutputTest extends TestUtil
     // getOutAnnotationOptSubtypeWatermark: empty fixedprint returns ''
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationOptSubtypeWatermarkReturnsEmptyWhenFixedprintProducesNoOutput(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4697,6 +5330,9 @@ class OutputTest extends TestUtil
     // getOutAnnotationRectDifferences via exposeGetOutAnnotationRD
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationRectDifferencesWithValidRdArray(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4708,6 +5344,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString(' /RD [', $out);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutAnnotationRectDifferencesReturnsEmptyForInvalidRd(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4730,6 +5369,9 @@ class OutputTest extends TestUtil
     // collectValidationMaterial: empty pemInputs path (lines 4162, 4406)
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testCollectValidationMaterialReturnsEmptyWhenSigncertIsEmpty(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4757,6 +5399,9 @@ class OutputTest extends TestUtil
     // setPageStructParents: skip page without 'n' key (line 1796)
     // -------------------------------------------------------------------------
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetPageStructParentsSkipsPagesWithoutObjectNumber(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4782,6 +5427,9 @@ class OutputTest extends TestUtil
         $this->assertArrayNotHasKey(9999, $structParents);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testBuildTimestampRequestWithPolicyOidAndNonceEnabled(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4806,6 +5454,9 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('608648016503040201', \bin2hex($request));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAsn1EncodeLengthShortForm(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4815,6 +5466,9 @@ class OutputTest extends TestUtil
         $this->assertSame("\x7f", $encoded);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAsn1EncodeLengthLongForm(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4825,6 +5479,9 @@ class OutputTest extends TestUtil
         $this->assertSame("\x82\x01\x00", $encoded);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAsn1EncodeIntegerZeroProducesZeroByte(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4834,6 +5491,9 @@ class OutputTest extends TestUtil
         $this->assertSame("\x02\x01\x00", $encoded);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAsn1EncodeIntegerHighBitSetPrependsPaddingByte(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4844,6 +5504,9 @@ class OutputTest extends TestUtil
         $this->assertSame("\x02\x02\x00\x80", $encoded);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testPostTimestampRequestThrowsOnEmptyHost(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4864,6 +5527,9 @@ class OutputTest extends TestUtil
         $obj->exposeParentPostTimestampRequest('req');
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetCertificateSourceContentWithEmptySourceReturnsEmpty(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4873,6 +5539,9 @@ class OutputTest extends TestUtil
         $this->assertSame('', $result);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetCertificateSourceContentWithInlinePemReturnsAsIs(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4883,6 +5552,9 @@ class OutputTest extends TestUtil
         $this->assertSame($pemContent, $result);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testExtractPemCertificatesWithNoPemBlocksReturnsEmptyArray(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4892,6 +5564,9 @@ class OutputTest extends TestUtil
         $this->assertSame([], $result);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetPatternDictSkipsPatternWithoutNKey(): void
     {
         $obj = $this->getInternalTestObject();
@@ -4908,6 +5583,9 @@ class OutputTest extends TestUtil
         $this->assertStringNotContainsString('/P2', $result);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSavePdfThrowsOnInvalidDirectory(): void
     {
         $obj = $this->getInternalTestObject();

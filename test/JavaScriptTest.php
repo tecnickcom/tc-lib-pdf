@@ -24,25 +24,89 @@ class JavaScriptTest extends TestUtil
         self::setUpFontsPath();
     }
 
+    /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /** @throws \Throwable */
     protected function getInternalTestObject(): TestableJavaScript
     {
         return new TestableJavaScript();
     }
 
-    /** @return array{pid: int} */
+    /**
+     * @return array{pid: int}
+     * @throws \Throwable
+     */
     private function addRawPage(\Com\Tecnick\Pdf\Tcpdf $obj): array
     {
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
         $page = $this->getObjectProperty($obj, 'page');
-        /** @var array{pid: int} $rawPage */
-        return $page->add([]);
+        $rawPage = $page->add([]);
+
+        return ['pid' => (int) $rawPage['pid']];
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $annotations
+     * @return array<string, mixed>
+     */
+    private function getAnnotationEntry(array $annotations, int $oid): array
+    {
+        $entry = $annotations[$oid] ?? null;
+        if ($entry === null) {
+            $this->fail('Missing annotation entry: ' . (string) $oid);
+        }
+
+        return $entry;
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $map
+     * @return array<string, mixed>
+     */
+    private function getStringMapEntry(array $map, string $key, string $label): array
+    {
+        $entry = $map[$key] ?? null;
+        if ($entry === null) {
+            $this->fail('Missing ' . $label . ' entry: ' . $key);
+        }
+
+        return $entry;
+    }
+
+    /**
+     * @param array<string, mixed> $map
+     */
+    private function getRequiredString(array $map, string $key, string $label): string
+    {
+        if (!isset($map[$key]) || !\is_string($map[$key])) {
+            $this->fail('Missing string value for ' . $label . ': ' . $key);
+        }
+
+        return $map[$key];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $annotations
+     * @return array<string, mixed>
+     */
+    private function getAnnotationOpt(array $annotations, int $oid): array
+    {
+        $entry = $this->getAnnotationEntry($annotations, $oid);
+        if (!isset($entry['opt']) || !\is_array($entry['opt'])) {
+            $this->fail('Missing annotation options: ' . (string) $oid);
+        }
+
+        /** @var array<string, mixed> */
+        return $entry['opt'];
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testAppendRawJavaScriptAppendsScript(): void
     {
         $obj = $this->getTestObject();
@@ -54,6 +118,9 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('var a = 1;var b = 2;', $javascript);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddRawJavaScriptObjAddsObjectAndReturnsId(): void
     {
         $obj = $this->getTestObject();
@@ -63,11 +130,15 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{n:int, js:string, onload:bool}> $list */
         $list = $this->getObjectProperty($obj, 'jsobjects');
         $this->assertCount(1, $list);
+        assert(isset($list[0]), "\$list[0] must be set");
         $this->assertSame($objectId, $list[0]['n']);
         $this->assertSame('app.alert("ok");', $list[0]['js']);
         $this->assertTrue($list[0]['onload']);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddRawJavaScriptObjReturnsMinusOneInPdfaMode(): void
     {
         $obj = $this->getTestObject();
@@ -80,6 +151,9 @@ class JavaScriptTest extends TestUtil
         $this->assertCount(0, $jsobjects);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAppendRawJavaScriptIsIgnoredInPdfuaMode(): void
     {
         $obj = $this->getTestObject();
@@ -91,6 +165,9 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('', $javascript);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddRawJavaScriptObjReturnsMinusOneInPdfuaMode(): void
     {
         $obj = $this->getTestObject();
@@ -103,6 +180,9 @@ class JavaScriptTest extends TestUtil
         $this->assertCount(0, $jsobjects);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAppendRawJavaScriptIsIgnoredInPdfxMode(): void
     {
         $obj = $this->getTestObject();
@@ -114,6 +194,9 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('', $javascript);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddRawJavaScriptObjReturnsMinusOneInPdfxMode(): void
     {
         $obj = $this->getTestObject();
@@ -126,6 +209,9 @@ class JavaScriptTest extends TestUtil
         $this->assertCount(0, $jsobjects);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetAndGetDefaultAnnotationProperties(): void
     {
         $obj = $this->getTestObject();
@@ -135,6 +221,9 @@ class JavaScriptTest extends TestUtil
         $this->assertSame($props, $obj->getDefJSAnnotProp());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddInternalLinkStoresLinkData(): void
     {
         $obj = $this->getTestObject();
@@ -144,10 +233,14 @@ class JavaScriptTest extends TestUtil
         /** @var array<string, array{p:int, y:float}> $links */
         $links = $this->getObjectProperty($obj, 'links');
         $this->assertSame('@1', $lnk);
-        $this->assertSame($page['pid'], $links[$lnk]['p']);
-        $this->bcAssertEqualsWithDelta(12.5, $links[$lnk]['y']);
+        $link = $this->getStringMapEntry($links, $lnk, 'link');
+        $this->assertSame($page['pid'], $link['p'] ?? null);
+        $this->assertEqualsWithDelta(12.5, $link['y'] ?? 0.0, 0.0001);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetNamedDestinationStoresEncodedDestination(): void
     {
         $obj = $this->getTestObject();
@@ -159,11 +252,15 @@ class JavaScriptTest extends TestUtil
         /** @var array<string, array{p:int, x:float, y:float}> $dests */
         $dests = $this->getObjectProperty($obj, 'dests');
         $this->assertArrayHasKey($key, $dests);
-        $this->assertSame($page['pid'], $dests[$key]['p']);
-        $this->bcAssertEqualsWithDelta(10.0, $dests[$key]['x']);
-        $this->bcAssertEqualsWithDelta(20.0, $dests[$key]['y']);
+        $dest = $this->getStringMapEntry($dests, $key, 'destination');
+        $this->assertSame($page['pid'], $dest['p'] ?? null);
+        $this->assertEqualsWithDelta(10.0, $dest['x'] ?? 0.0, 0.0001);
+        $this->assertEqualsWithDelta(20.0, $dest['y'] ?? 0.0, 0.0001);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetBookmarkClampsLevelAndUppercasesStyle(): void
     {
         $obj = $this->getTestObject();
@@ -174,12 +271,17 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{l:int, s:string}> $outlines */
         $outlines = $this->getObjectProperty($obj, 'outlines');
         $this->assertCount(2, $outlines);
+        assert(isset($outlines[0]), "\$outlines[0] must be set");
         $this->assertSame(0, $outlines[0]['l']);
         $this->assertSame('B', $outlines[0]['s']);
+        assert(isset($outlines[1]), "\$outlines[1] must be set");
         $this->assertSame(1, $outlines[1]['l']);
         $this->assertSame('IU', $outlines[1]['s']);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testXObjectTemplateLifecycleAndMutators(): void
     {
         $obj = $this->getTestObject();
@@ -197,13 +299,14 @@ class JavaScriptTest extends TestUtil
         /** @var array<string, TXOBject> $xobjects */
         $xobjects = $this->getObjectProperty($obj, 'xobjects');
         $this->assertArrayHasKey($tid, $xobjects);
-        $this->assertSame('q Q', $xobjects[$tid]['outdata']);
-        $this->assertSame(['XT999'], $xobjects[$tid]['xobject']);
-        $this->assertSame([7], $xobjects[$tid]['image']);
-        $this->assertSame(['F1'], $xobjects[$tid]['font']);
-        $this->assertSame([8], $xobjects[$tid]['gradient']);
-        $this->assertSame([9], $xobjects[$tid]['extgstate']);
-        $this->assertSame(['SC1'], $xobjects[$tid]['spot_colors']);
+        $xobject = $this->getStringMapEntry($xobjects, $tid, 'xobject');
+        $this->assertSame('q Q', $xobject['outdata'] ?? null);
+        $this->assertSame(['XT999'], $xobject['xobject'] ?? null);
+        $this->assertSame([7], $xobject['image'] ?? null);
+        $this->assertSame(['F1'], $xobject['font'] ?? null);
+        $this->assertSame([8], $xobject['gradient'] ?? null);
+        $this->assertSame([9], $xobject['extgstate'] ?? null);
+        $this->assertSame(['SC1'], $xobject['spot_colors'] ?? null);
 
         $obj->exitXObjectTemplate();
         /** @var string $xobjtid */
@@ -215,6 +318,9 @@ class JavaScriptTest extends TestUtil
         $this->assertStringContainsString('/' . $tid . ' Do', $draw);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddEmbeddedFileStoresDataAndIgnoresDuplicates(): void
     {
         $obj = $this->getTestObject();
@@ -228,9 +334,13 @@ class JavaScriptTest extends TestUtil
         $key = \basename($path);
         $this->assertArrayHasKey($key, $files);
         $this->assertCount(1, $files);
-        $this->assertSame('desc', $files[$key]['description']);
+        $fileData = $this->getStringMapEntry($files, $key, 'embedded file');
+        $this->assertSame('desc', $fileData['description'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddEmbeddedFileThrowsInPdfa1(): void
     {
         $obj = $this->getTestObject();
@@ -240,6 +350,9 @@ class JavaScriptTest extends TestUtil
         $obj->addEmbeddedFile('file.bin');
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddContentAsEmbeddedFileStoresContent(): void
     {
         $obj = $this->getTestObject();
@@ -248,10 +361,14 @@ class JavaScriptTest extends TestUtil
         /** @var array<string, array{content:string, description:string}> $files */
         $files = $this->getObjectProperty($obj, 'embeddedfiles');
         $this->assertArrayHasKey('payload.txt', $files);
-        $this->assertSame('abc123', $files['payload.txt']['content']);
-        $this->assertSame('payload', $files['payload.txt']['description']);
+        $payload = $this->getStringMapEntry($files, 'payload.txt', 'embedded content');
+        $this->assertSame('abc123', $payload['content'] ?? null);
+        $this->assertSame('payload', $payload['description'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddContentAsEmbeddedFileThrowsOnEmptyContent(): void
     {
         $obj = $this->getTestObject();
@@ -260,6 +377,9 @@ class JavaScriptTest extends TestUtil
         $obj->addContentAsEmbeddedFile('payload.txt', '');
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddContentAsEmbeddedFileThrowsInPdfaMode(): void
     {
         $obj = $this->getTestObject();
@@ -273,6 +393,9 @@ class JavaScriptTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotOptFromJSPropCoversDensePropertyMapping(): void
     {
         $obj = $this->getInternalTestObject();
@@ -285,7 +408,7 @@ class JavaScriptTest extends TestUtil
 
         $this->setObjectProperty($obj, 'rtl', true);
         $rtlOpt = $obj->exposeGetAnnotOptFromJSProp(['alignment' => 'weird']);
-        $this->assertSame(2, $rtlOpt['q']);
+        $this->assertSame(2, $rtlOpt['q'] ?? null);
 
         $opt = $obj->exposeGetAnnotOptFromJSProp([
             'alignment' => 'center',
@@ -332,40 +455,43 @@ class JavaScriptTest extends TestUtil
         ]);
 
         /** @var array<string, mixed> $markerOptions */
-        $markerOptions = $opt['mk'];
+        $markerOptions = $opt['mk'] ?? [];
         /** @var array<string, mixed> $iconFit */
-        $iconFit = $markerOptions['if'];
+        $iconFit = \is_array($markerOptions['if'] ?? null) ? $markerOptions['if'] : [];
 
-        $this->assertSame(1, $opt['q']);
-        $this->assertSame([0, 0, 2, [3, 2]], $opt['border']);
-        $this->assertSame(['w' => 2, 's' => 'D', 'd' => [3, 2]], $opt['bs']);
-        $this->assertSame([0.25, 0.75], $iconFit['a']);
-        $this->assertTrue($iconFit['fb']);
-        $this->assertSame('A', $iconFit['s']);
-        $this->assertSame('S', $iconFit['sw']);
-        $this->assertSame(6, $markerOptions['tp']);
+        $this->assertSame(1, $opt['q'] ?? null);
+        $this->assertSame([0, 0, 2, [3, 2]], $opt['border'] ?? null);
+        $this->assertSame(['w' => 2, 's' => 'D', 'd' => [3, 2]], $opt['bs'] ?? null);
+        $this->assertSame([0.25, 0.75], $iconFit['a'] ?? null);
+        $this->assertTrue(($iconFit['fb'] ?? null) === true);
+        $this->assertSame('A', $iconFit['s'] ?? null);
+        $this->assertSame('S', $iconFit['sw'] ?? null);
+        $this->assertSame(6, $markerOptions['tp'] ?? null);
         $this->assertArrayHasKey('bg', $markerOptions);
         $this->assertArrayHasKey('bc', $markerOptions);
-        $this->assertSame(90, $markerOptions['r']);
-        $this->assertSame(5, $opt['maxlen']);
-        $this->assertGreaterThan(0, $opt['ff']);
-        $this->assertSame('dv', $opt['dv']);
-        $this->assertSame(100, $opt['f']);
-        $this->assertSame([1, 2], $opt['i']);
+        $this->assertSame(90, $markerOptions['r'] ?? null);
+        $this->assertSame(5, $opt['maxlen'] ?? null);
+        $this->assertGreaterThan(0, (int) ($opt['ff'] ?? 0));
+        $this->assertSame('dv', $opt['dv'] ?? null);
+        $this->assertSame(100, $opt['f'] ?? null);
+        $this->assertSame([1, 2], $opt['i'] ?? null);
         $this->assertSame(
             [
                 ['Export A', 'Visible A'],
                 ['Export B', 'Visible B'],
             ],
-            $opt['opt'],
+            $opt['opt'] ?? null,
         );
-        $this->assertSame('<b>visible</b>', $opt['rv']);
-        $this->assertSame('submit-field', $opt['tm']);
-        $this->assertSame('field-name', $opt['t']);
-        $this->assertSame('Field Name', $opt['tu']);
-        $this->assertSame('O', $opt['h']);
+        $this->assertSame('<b>visible</b>', $opt['rv'] ?? null);
+        $this->assertSame('submit-field', $opt['tm'] ?? null);
+        $this->assertSame('field-name', $opt['t'] ?? null);
+        $this->assertSame('Field Name', $opt['tu'] ?? null);
+        $this->assertSame('O', $opt['h'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testEmbeddedFileValidationCoversEmptyNameAndPdfa3Relationship(): void
     {
         $obj = $this->getTestObject();
@@ -387,6 +513,9 @@ class JavaScriptTest extends TestUtil
         }
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetAnnotationAndSetLinkCreateAnnotationEntries(): void
     {
         $obj = $this->getTestObject();
@@ -397,10 +526,15 @@ class JavaScriptTest extends TestUtil
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($textAnnotationId, $ann);
         $this->assertArrayHasKey($linkAnnotationId, $ann);
-        $this->assertSame('note', $ann[$textAnnotationId]['txt']);
-        $this->assertSame('Link', $ann[$linkAnnotationId]['opt']['subtype']);
+        $textAnn = $this->getAnnotationEntry($ann, $textAnnotationId);
+        $linkOpt = $this->getAnnotationOpt($ann, $linkAnnotationId);
+        $this->assertSame('note', $textAnn['txt'] ?? null);
+        $this->assertSame('Link', $linkOpt['subtype'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetAnnotationInsideXObjectIsDeferred(): void
     {
         $obj = $this->getTestObject();
@@ -412,24 +546,31 @@ class JavaScriptTest extends TestUtil
         $this->assertSame(0, $oid);
         /** @var array<string, array{annotations:array<int, mixed>}> $xobjects */
         $xobjects = $this->getObjectProperty($obj, 'xobjects');
-        $this->assertCount(1, $xobjects[$tid]['annotations']);
+        $this->assertCount(1, $xobjects[$tid]['annotations'] ?? []);
         $obj->exitXObjectTemplate();
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFTextCreatesWidgetAnnotation(): void
     {
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
-        $oid = $obj->addFFText('field1', 1, 2, 40, 8, ['v' => 'hello']);
+        $oid = $obj->addFFText('field1', 1, 2, 40, 8, ['subtype' => 'Widget', 'v' => 'hello']);
 
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertSame('Widget', $ann[$oid]['opt']['Subtype']);
-        $this->assertSame('Tx', $ann[$oid]['opt']['ft']);
-        $this->assertSame('field1', $ann[$oid]['opt']['t']);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Tx', $opt['ft'] ?? null);
+        $this->assertSame('field1', $opt['t'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetAnnotationWidgetIsSuppressedInPdfxMode(): void
     {
         $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
@@ -443,6 +584,9 @@ class JavaScriptTest extends TestUtil
         $this->assertSame([], $ann);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetAnnotationLinkStillWorksInPdfxMode(): void
     {
         $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
@@ -454,9 +598,13 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertSame('Link', $ann[$oid]['opt']['subtype']);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('Link', $opt['subtype'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testSetAnnotationInteractiveSubtypesAreSuppressedInPdfxMode(): void
     {
         $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfx3');
@@ -484,6 +632,9 @@ class JavaScriptTest extends TestUtil
         $this->assertSame([], $embeddedfiles);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFButtonCreatesButtonWidgetWithAction(): void
     {
         $obj = $this->getTestObject();
@@ -493,15 +644,18 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertSame('Widget', $ann[$oid]['opt']['Subtype']);
-        $this->assertSame('Btn', $ann[$oid]['opt']['ft']);
-        $this->assertSame('Caption', $ann[$oid]['opt']['t']);
-        $this->assertSame('btnField', $ann[$oid]['opt']['v']);
-        $this->assertArrayHasKey('a', $ann[$oid]['opt']);
-        $this->assertIsString($ann[$oid]['opt']['a']);
-        $this->assertStringContainsString('/S /JavaScript /JS', $ann[$oid]['opt']['a']);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Btn', $opt['ft'] ?? null);
+        $this->assertSame('Caption', $opt['t'] ?? null);
+        $this->assertSame('btnField', $opt['v'] ?? null);
+        $this->assertArrayHasKey('a', $opt);
+        $this->assertStringContainsString('/S /JavaScript /JS', $this->getRequiredString($opt, 'a', 'button action'));
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFButtonSupportsStructuredFormActionOptions(): void
     {
         $obj = $this->getTestObject();
@@ -516,9 +670,8 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertIsString($ann[$oid]['opt']['a']);
-        /** @var string $actionString */
-        $actionString = $ann[$oid]['opt']['a'];
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $actionString = $this->getRequiredString($opt, 'a', 'structured action');
         $this->assertStringContainsString('/S /SubmitForm', $actionString);
         $this->assertStringContainsString('/Fields [', $actionString);
         $this->assertStringContainsString('/Flags 8450', $actionString);
@@ -541,6 +694,9 @@ class JavaScriptTest extends TestUtil
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFCheckBoxCreatesCheckboxWidget(): void
     {
         $obj = $this->getTestObject();
@@ -550,12 +706,16 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertSame('Widget', $ann[$oid]['opt']['Subtype']);
-        $this->assertSame('Btn', $ann[$oid]['opt']['ft']);
-        $this->assertSame('Yes', $ann[$oid]['opt']['as']);
-        $this->assertSame(['Yes'], $ann[$oid]['opt']['opt']);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Btn', $opt['ft'] ?? null);
+        $this->assertSame('Yes', $opt['as'] ?? null);
+        $this->assertSame(['Yes'], $opt['opt'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFComboBoxCreatesChoiceWidget(): void
     {
         $obj = $this->getTestObject();
@@ -566,12 +726,16 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertSame('Widget', $ann[$oid]['opt']['Subtype']);
-        $this->assertSame('Ch', $ann[$oid]['opt']['ft']);
-        $this->assertSame('cmbField', $ann[$oid]['opt']['t']);
-        $this->assertSame($vals, $ann[$oid]['opt']['opt']);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Ch', $opt['ft'] ?? null);
+        $this->assertSame('cmbField', $opt['t'] ?? null);
+        $this->assertSame($vals, $opt['opt'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFListBoxCreatesChoiceWidget(): void
     {
         $obj = $this->getTestObject();
@@ -582,12 +746,16 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertSame('Widget', $ann[$oid]['opt']['Subtype']);
-        $this->assertSame('Ch', $ann[$oid]['opt']['ft']);
-        $this->assertSame('lstField', $ann[$oid]['opt']['t']);
-        $this->assertSame($vals, $ann[$oid]['opt']['opt']);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Ch', $opt['ft'] ?? null);
+        $this->assertSame('lstField', $opt['t'] ?? null);
+        $this->assertSame($vals, $opt['opt'] ?? null);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFRadioButtonCreatesRadioGroupAndWidget(): void
     {
         $obj = $this->getTestObject();
@@ -597,16 +765,20 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
-        $this->assertSame('Widget', $ann[$oid]['opt']['Subtype']);
-        $this->assertSame('Btn', $ann[$oid]['opt']['ft']);
-        $this->assertSame('On', $ann[$oid]['opt']['as']);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Btn', $opt['ft'] ?? null);
+        $this->assertSame('On', $opt['as'] ?? null);
 
         /** @var array<string, array{kids:array<int, mixed>}> $groups */
         $groups = $this->getObjectProperty($obj, 'radiobuttons');
         $this->assertArrayHasKey('radField', $groups);
-        $this->assertNotEmpty($groups['radField']['kids']);
+        $this->assertNotEmpty($groups['radField']['kids'] ?? []);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddJSFieldWrappersAppendExpectedScripts(): void
     {
         $obj = $this->getTestObject();
@@ -639,6 +811,9 @@ class JavaScriptTest extends TestUtil
         $this->assertStringContainsString("ftxt=this.addField('txt','text'", $jsScript);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddJSFieldWrappersHandleArrayValuedSelections(): void
     {
         $obj = $this->getTestObject();
@@ -662,6 +837,9 @@ class JavaScriptTest extends TestUtil
         $this->assertStringContainsString("flst2.\\setItems(['Ex','X'],['Why','Y']);", $jsScript);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testGetAnnotOptFromJSPropCoversAdditionalMappingVariants(): void
     {
         $obj = $this->getInternalTestObject();
@@ -677,17 +855,17 @@ class JavaScriptTest extends TestUtil
         foreach ($styleVariants as $style => $expected) {
             $mapped = $obj->exposeGetAnnotOptFromJSProp(['borderStyle' => $style]);
             /** @var array<string, mixed> $borderSpec */
-            $borderSpec = $mapped['bs'];
-            $this->assertSame($expected, $borderSpec['s']);
+            $borderSpec = \is_array($mapped['bs'] ?? null) ? $mapped['bs'] : [];
+            $this->assertSame($expected, $borderSpec['s'] ?? null);
         }
 
         $numericPos = $obj->exposeGetAnnotOptFromJSProp(['buttonPosition' => 5]);
         /** @var array<string, mixed> $numericMk */
-        $numericMk = $numericPos['mk'];
-        $this->assertSame(5, $numericMk['tp']);
+        $numericMk = \is_array($numericPos['mk'] ?? null) ? $numericPos['mk'] : [];
+        $this->assertSame(5, $numericMk['tp'] ?? null);
         $invalidPos = $obj->exposeGetAnnotOptFromJSProp(['buttonPosition' => 99]);
         /** @var array<string, mixed> $invalidMk */
-        $invalidMk = $invalidPos['mk'];
+        $invalidMk = \is_array($invalidPos['mk'] ?? null) ? $invalidPos['mk'] : [];
         $this->assertArrayNotHasKey('tp', $invalidMk);
 
         $filled = $obj->exposeGetAnnotOptFromJSProp([
@@ -698,24 +876,25 @@ class JavaScriptTest extends TestUtil
             'value' => 'plain-value',
         ]);
         /** @var array<string, mixed> $filledMk */
-        $filledMk = $filled['mk'];
-        $this->assertSame([0.1, 0.2, 0.3], $filledMk['bg']);
-        $this->assertSame([0.4, 0.5, 0.6], $filledMk['bc']);
-        $this->assertSame('P', $filled['h']);
-        $this->assertSame('plain-value', $filled['v']);
-        $this->assertSame(6, $filled['f']);
+        $filledMk = \is_array($filled['mk'] ?? null) ? $filled['mk'] : [];
+        $this->assertSame([0.1, 0.2, 0.3], $filledMk['bg'] ?? null);
+        $this->assertSame([0.4, 0.5, 0.6], $filledMk['bc'] ?? null);
+        $this->assertSame('P', $filled['h'] ?? null);
+        $this->assertSame('plain-value', $filled['v'] ?? null);
+        $this->assertSame(6, $filled['f'] ?? null);
 
         $noPrint = $obj->exposeGetAnnotOptFromJSProp(['display' => 'display.noPrint']);
-        $this->assertSame(0, $noPrint['f']);
+        $this->assertSame(0, $noPrint['f'] ?? null);
         $visible = $obj->exposeGetAnnotOptFromJSProp(['display' => 'display.visible', 'highlight' => 'invert']);
-        $this->assertSame(4, $visible['f']);
-        $this->assertSame('i', $visible['h']);
+        $this->assertSame(4, $visible['f'] ?? null);
+        $this->assertSame('i', $visible['h'] ?? null);
         $defaultHighlight = $obj->exposeGetAnnotOptFromJSProp(['highlight' => 'unknown']);
-        $this->assertSame('N', $defaultHighlight['h']);
+        $this->assertSame('N', $defaultHighlight['h'] ?? null);
         $highlightAlias = $obj->exposeGetAnnotOptFromJSProp(['highlight' => 'highlight.o']);
-        $this->assertSame('O', $highlightAlias['h']);
+        $this->assertSame('O', $highlightAlias['h'] ?? null);
 
-        $this->assertSame([1, 2, 3], $obj->exposeGetAnnotOptFromJSProp(['border' => [1, 2, 3]])['border']);
+        $borderOpt = $obj->exposeGetAnnotOptFromJSProp(['border' => [1, 2, 3]]);
+        $this->assertSame([1, 2, 3], $borderOpt['border'] ?? null);
         $scaleHowMap = [
             'scaleHow.proportional' => 'P',
             'scaleHow.invalid' => 'P',
@@ -723,10 +902,10 @@ class JavaScriptTest extends TestUtil
         foreach ($scaleHowMap as $scaleHow => $expected) {
             $mapped = $obj->exposeGetAnnotOptFromJSProp(['buttonScaleHow' => $scaleHow]);
             /** @var array<string, mixed> $scaleHowMk */
-            $scaleHowMk = $mapped['mk'];
+            $scaleHowMk = \is_array($mapped['mk'] ?? null) ? $mapped['mk'] : [];
             /** @var array<string, mixed> $scaleHowIf */
-            $scaleHowIf = $scaleHowMk['if'];
-            $this->assertSame($expected, $scaleHowIf['s']);
+            $scaleHowIf = \is_array($scaleHowMk['if'] ?? null) ? $scaleHowMk['if'] : [];
+            $this->assertSame($expected, $scaleHowIf['s'] ?? null);
         }
 
         $scaleWhenMap = [
@@ -738,10 +917,10 @@ class JavaScriptTest extends TestUtil
         foreach ($scaleWhenMap as $scaleWhen => $expected) {
             $mapped = $obj->exposeGetAnnotOptFromJSProp(['buttonScaleWhen' => $scaleWhen]);
             /** @var array<string, mixed> $scaleWhenMk */
-            $scaleWhenMk = $mapped['mk'];
+            $scaleWhenMk = \is_array($mapped['mk'] ?? null) ? $mapped['mk'] : [];
             /** @var array<string, mixed> $scaleWhenIf */
-            $scaleWhenIf = $scaleWhenMk['if'];
-            $this->assertSame($expected, $scaleWhenIf['sw']);
+            $scaleWhenIf = \is_array($scaleWhenMk['if'] ?? null) ? $scaleWhenMk['if'] : [];
+            $this->assertSame($expected, $scaleWhenIf['sw'] ?? null);
         }
 
         $positionMap = [
@@ -757,8 +936,8 @@ class JavaScriptTest extends TestUtil
         foreach ($positionMap as $position => $expected) {
             $mapped = $obj->exposeGetAnnotOptFromJSProp(['buttonPosition' => $position]);
             /** @var array<string, mixed> $marker */
-            $marker = $mapped['mk'];
-            $this->assertSame($expected, $marker['tp']);
+            $marker = \is_array($mapped['mk'] ?? null) ? $mapped['mk'] : [];
+            $this->assertSame($expected, $marker['tp'] ?? null);
         }
 
         $highlightMap = [
@@ -769,7 +948,7 @@ class JavaScriptTest extends TestUtil
         ];
         foreach ($highlightMap as $highlight => $expected) {
             $mapped = $obj->exposeGetAnnotOptFromJSProp(['highlight' => $highlight]);
-            $this->assertSame($expected, $mapped['h']);
+            $this->assertSame($expected, $mapped['h'] ?? null);
         }
 
         $fillColorFallback = $this->getInternalTestObject();
@@ -778,8 +957,11 @@ class JavaScriptTest extends TestUtil
         $this->initFontAndPage($fillColorFallback);
         $merged = $fillColorFallback->exposeMergeAnnotOptions(['subtype' => 'text'], []);
         $this->assertArrayHasKey('da', $merged);
-        $this->assertIsString($merged['da']);
-        $this->assertStringContainsString('0.000000 0.000000 0.000000 rg', $merged['da']);
+        $this->assertStringContainsString('0.000000 0.000000 0.000000 rg', $this->getRequiredString(
+            $merged,
+            'da',
+            'default appearance stream',
+        ));
 
         $fillColorFallback->addFFText(
             'disabled_preview',
@@ -811,6 +993,9 @@ class JavaScriptTest extends TestUtil
         $this->assertDoesNotMatchRegularExpression('/\s-\d+\.\d+\s+Td\s+\(input:disabled rule\)\s+Tj/', $apn);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testXObjectTemplateAppliesDeferredAnnotationTransform(): void
     {
         $obj = $this->getTestObject();
@@ -829,6 +1014,9 @@ class JavaScriptTest extends TestUtil
         $this->assertNotEmpty($annotation);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testJsFieldPropertiesAndAnnotationAttachmentsCoverResidualBranches(): void
     {
         $obj = $this->getTestObject();
@@ -881,6 +1069,9 @@ class JavaScriptTest extends TestUtil
         $this->assertArrayHasKey('README.md', $embeddedfiles);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testAddFFButtonSupportsNumericFlagsAndAoptWithoutMk(): void
     {
         $obj = $this->getTestObject();
@@ -901,13 +1092,15 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $annotation */
         $annotation = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $annotation);
-        $this->assertIsString($annotation[$oid]['opt']['a']);
-        /** @var string $actionString */
-        $actionString = $annotation[$oid]['opt']['a'];
+        $opt = $this->getAnnotationOpt($annotation, $oid);
+        $actionString = $this->getRequiredString($opt, 'a', 'numeric flags action');
         $this->assertStringContainsString('/S /ResetForm', $actionString);
         $this->assertStringContainsString('/Flags 1024', $actionString);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function testFFChoiceAndTextVariantsCoverScalarAndAlignmentPaths(): void
     {
         $obj = $this->getTestObject();
@@ -980,8 +1173,10 @@ class JavaScriptTest extends TestUtil
         /** @var array<string, array{kids:array<int, array{def:string}>, '#readonly#': bool}> $radioGroups */
         $radioGroups = $this->getObjectProperty($obj, 'radiobuttons');
         $this->assertArrayHasKey('radioGroup', $radioGroups);
-        $this->assertFalse($radioGroups['radioGroup']['#readonly#']);
-        $this->assertSame('Off', $radioGroups['radioGroup']['kids'][0]['def']);
-        $this->assertSame('On', $radioGroups['radioGroup']['kids'][1]['def']);
+        $radioGroup = $radioGroups['radioGroup'] ?? ['#readonly#' => true, 'kids' => []];
+        $this->assertFalse($radioGroup['#readonly#'] ?? true);
+        $kids = \is_array($radioGroup['kids'] ?? null) ? $radioGroup['kids'] : [];
+        $this->assertSame('Off', $kids[0]['def'] ?? null);
+        $this->assertSame('On', $kids[1]['def'] ?? null);
     }
 }

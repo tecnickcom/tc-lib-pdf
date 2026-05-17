@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 
 class PageResolverTest extends TestCase
 {
+    /** @throws \Throwable */
     private function loadDoc(): SourceDocument
     {
         $path = __DIR__ . '/../fixtures/simple_import.pdf';
@@ -31,6 +32,7 @@ class PageResolverTest extends TestCase
         return new SourceDocument($data);
     }
 
+    /** @throws \Throwable */
     public function testResolvePage1ReturnsExpectedMediaBox(): void
     {
         $resolver = new PageResolver();
@@ -41,6 +43,7 @@ class PageResolverTest extends TestCase
         $this->assertEqualsWithDelta(792.0, $resolved['mediaBox'][3], 0.001);
     }
 
+    /** @throws \Throwable */
     public function testResolvePage1HasResources(): void
     {
         $resolver = new PageResolver();
@@ -48,6 +51,7 @@ class PageResolverTest extends TestCase
         $this->assertArrayHasKey('resources', $resolved);
     }
 
+    /** @throws \Throwable */
     public function testResolvePage1RotateIsZero(): void
     {
         $resolver = new PageResolver();
@@ -55,6 +59,7 @@ class PageResolverTest extends TestCase
         $this->assertSame(0, $resolved['rotate']);
     }
 
+    /** @throws \Throwable */
     public function testResolveThrowsForPageZero(): void
     {
         $resolver = new PageResolver();
@@ -62,6 +67,7 @@ class PageResolverTest extends TestCase
         $resolver->resolve($this->loadDoc(), 0);
     }
 
+    /** @throws \Throwable */
     public function testResolveThrowsForPageOutOfRange(): void
     {
         $resolver = new PageResolver();

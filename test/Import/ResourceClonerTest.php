@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 
 class ResourceClonerTest extends TestCase
 {
+    /** @throws \Throwable */
     private function loadFixture(): SourceDocument
     {
         $path = __DIR__ . '/../fixtures/simple_import.pdf';
@@ -42,6 +43,7 @@ class ResourceClonerTest extends TestCase
         $this->assertSame(10, $cloner->getPon());
     }
 
+    /** @throws \Throwable */
     public function testGetPonUpdatesAfterEnqueue(): void
     {
         $src = $this->loadFixture();
@@ -58,6 +60,7 @@ class ResourceClonerTest extends TestCase
     // getContentStream
     // -------------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testGetContentStreamEmptyPageReturnsEmptyStream(): void
     {
         $src = $this->loadFixture();
@@ -69,6 +72,7 @@ class ResourceClonerTest extends TestCase
         $this->assertSame(0, $result['length']);
     }
 
+    /** @throws \Throwable */
     public function testGetContentStreamSingleRef(): void
     {
         $src = $this->loadFixture();
@@ -83,6 +87,7 @@ class ResourceClonerTest extends TestCase
         $this->assertSame(\strlen($result['bytes']), $result['length']);
     }
 
+    /** @throws \Throwable */
     public function testGetContentStreamArrayWithSingleRef(): void
     {
         $src = $this->loadFixture();
@@ -96,6 +101,7 @@ class ResourceClonerTest extends TestCase
         $this->assertStringContainsString('BT', $result['bytes']);
     }
 
+    /** @throws \Throwable */
     public function testGetContentStreamMultipleRefsAreConcatenated(): void
     {
         $src = $this->loadFixture();
@@ -113,6 +119,7 @@ class ResourceClonerTest extends TestCase
         $this->assertSame('', $result['filter']);
     }
 
+    /** @throws \Throwable */
     public function testGetContentStreamThrowsForInvalidArrayEntry(): void
     {
         $src = $this->loadFixture();
@@ -128,6 +135,7 @@ class ResourceClonerTest extends TestCase
     // cloneResources
     // -------------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testCloneResourcesEmptyDictReturnsEmptyString(): void
     {
         $src = $this->loadFixture();
@@ -137,6 +145,7 @@ class ResourceClonerTest extends TestCase
         $this->assertSame('', $cloner->cloneResources([], $src, $map));
     }
 
+    /** @throws \Throwable */
     public function testCloneResourcesFontRefsAreRemapped(): void
     {
         $src = $this->loadFixture();
@@ -154,6 +163,7 @@ class ResourceClonerTest extends TestCase
         $this->assertMatchesRegularExpression('/\d+ 0 R/', $output);
     }
 
+    /** @throws \Throwable */
     public function testCloneResourcesProcSetSkipped(): void
     {
         $src = $this->loadFixture();
@@ -171,6 +181,7 @@ class ResourceClonerTest extends TestCase
     // enqueueObject — dedup and cycle safety
     // -------------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testEnqueueObjectDedupReturnsSameDestNumber(): void
     {
         $src = $this->loadFixture();
@@ -186,6 +197,7 @@ class ResourceClonerTest extends TestCase
         $this->assertSame(1, $cloner->getPon());
     }
 
+    /** @throws \Throwable */
     public function testEnqueueObjectDedupAfterFlush(): void
     {
         $src = $this->loadFixture();
@@ -202,6 +214,7 @@ class ResourceClonerTest extends TestCase
         $this->assertSame(1, $cloner->getPon());
     }
 
+    /** @throws \Throwable */
     public function testEnqueueObjectForUndefinedRefEmitsNullObject(): void
     {
         $src = $this->loadFixture();
@@ -218,6 +231,7 @@ class ResourceClonerTest extends TestCase
         $this->assertStringContainsString('endobj', $flushed);
     }
 
+    /** @throws \Throwable */
     public function testEnqueueObjectSerializesStreamObject(): void
     {
         $src = $this->loadFixture();
@@ -234,6 +248,7 @@ class ResourceClonerTest extends TestCase
         $this->assertStringContainsString('endobj', $flushed);
     }
 
+    /** @throws \Throwable */
     public function testEnqueueObjectMultipleDistinctRefsIncreasePon(): void
     {
         $src = $this->loadFixture();
@@ -251,6 +266,7 @@ class ResourceClonerTest extends TestCase
     // Shared resources across multiple importPage() calls (integration-level)
     // -------------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testSharedObjectNotDuplicatedInFlushedOutput(): void
     {
         $src = $this->loadFixture();

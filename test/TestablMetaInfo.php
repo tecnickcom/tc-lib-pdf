@@ -28,11 +28,13 @@ class TestablMetaInfo extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getXMPFormattedDate($time);
     }
 
+    /** @throws \Throwable */
     public function exposeGetOutDateTimeString(int $time, int $oid): string
     {
         return $this->getOutDateTimeString($time, $oid);
     }
 
+    /** @throws \Throwable */
     public function exposeGetOutMetaInfo(): string
     {
         return $this->getOutMetaInfo();
@@ -43,6 +45,7 @@ class TestablMetaInfo extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getEscapedXML($str);
     }
 
+    /** @throws \Throwable */
     public function exposeGetOutXMP(): string
     {
         return $this->getOutXMP();

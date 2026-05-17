@@ -24,22 +24,26 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 class CSSTest extends TestUtil
 {
+    /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
     }
 
+    /** @throws \Throwable */
     protected function getInternalTestObject(): TestableCSS
     {
         return new TestableCSS();
     }
 
+    /** @throws \Throwable */
     private function initPageContext(TestableCSS $obj): void
     {
         $this->initFont($obj);
         $obj->addPage();
     }
 
+    /** @throws \Throwable */
     #[DataProvider('cssDefaultSetterProvider')]
     public function testSetDefaultCSSSettersStorePointValues(string $target): void
     {
@@ -85,6 +89,7 @@ class CSSTest extends TestUtil
         ];
     }
 
+    /** @throws \Throwable */
     public function testGetCSSBorderWidthPointsHandlesNamedValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -96,6 +101,7 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $obj->exposeGetCSSBorderWidthPoints('8px'));
     }
 
+    /** @throws \Throwable */
     public function testGetCSSBorderWidthConvertsToUserUnits(): void
     {
         $obj = $this->getInternalTestObject();
@@ -105,6 +111,7 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out);
     }
 
+    /** @throws \Throwable */
     #[DataProvider('cssBorderDashStyleProvider')]
     public function testGetCSSBorderDashStyleMapsKnownStyles(string $style, int $expected): void
     {
@@ -131,6 +138,7 @@ class CSSTest extends TestUtil
         ];
     }
 
+    /** @throws \Throwable */
     public function testGetCSSDefaultBorderStyleProvidesDefaults(): void
     {
         $obj = $this->getInternalTestObject();
@@ -142,6 +150,7 @@ class CSSTest extends TestUtil
         $this->assertSame([], $out['dashArray']);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSBorderStyleParsesWidthStyleColor(): void
     {
         $obj = $this->getInternalTestObject();
@@ -154,6 +163,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('rgba(', $out['lineColor']);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSBorderStyleCoversFallbackBranches(): void
     {
         $obj = $this->getInternalTestObject();
@@ -162,7 +172,6 @@ class CSSTest extends TestUtil
         $this->assertSame(1, $two['dashPhase']);
         $this->assertGreaterThan(0.0, $two['lineWidth']);
         $this->assertIsString($two['lineColor']);
-        /** @var string $twoLineColor */
         $twoLineColor = $two['lineColor'];
         $this->assertStringContainsString('rgba(', $twoLineColor);
 
@@ -170,7 +179,6 @@ class CSSTest extends TestUtil
         $this->assertSame(0, $one['dashPhase']);
         $this->assertGreaterThan(0.0, $one['lineWidth']);
         $this->assertIsString($one['lineColor']);
-        /** @var string $oneLineColor */
         $oneLineColor = $one['lineColor'];
         $this->assertStringContainsString('rgba(', $oneLineColor);
 
@@ -190,11 +198,11 @@ class CSSTest extends TestUtil
         $this->assertSame(0, $importantOnly['dashPhase']);
         $this->assertGreaterThan(0.0, $importantOnly['lineWidth']);
         $this->assertIsString($importantOnly['lineColor']);
-        /** @var string $lineColor */
         $lineColor = $importantOnly['lineColor'];
         $this->assertStringContainsString('rgba(', $lineColor);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSPaddingParsesFourValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -207,6 +215,7 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['L']);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSPaddingCoversRemainingForms(): void
     {
         $obj = $this->getInternalTestObject();
@@ -230,6 +239,7 @@ class CSSTest extends TestUtil
         $this->assertSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $defaults);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSMarginConvertsAutoToZero(): void
     {
         $obj = $this->getInternalTestObject();
@@ -242,6 +252,7 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['L']);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSMarginCoversRemainingForms(): void
     {
         $obj = $this->getInternalTestObject();
@@ -267,6 +278,7 @@ class CSSTest extends TestUtil
         $this->assertSame(['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0], $defaults);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSBorderMarginParsesTwoValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -277,6 +289,7 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['V']);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSBorderMarginCoversSingleValueAndDefault(): void
     {
         $obj = $this->getInternalTestObject();
@@ -290,6 +303,7 @@ class CSSTest extends TestUtil
         $this->assertSame(['H' => 0, 'V' => 0], $defaults);
     }
 
+    /** @throws \Throwable */
     public function testIntToRomanConvertsTypicalNumber(): void
     {
         $obj = $this->getInternalTestObject();
@@ -300,6 +314,7 @@ class CSSTest extends TestUtil
         $this->assertSame('I', $obj->exposeIntToRoman(1));
     }
 
+    /** @throws \Throwable */
     public function testIntToRomanReturnsDecimalAboveLimit(): void
     {
         $obj = $this->getInternalTestObject();
@@ -309,6 +324,7 @@ class CSSTest extends TestUtil
         $this->assertSame('4000000000', $out);
     }
 
+    /** @throws \Throwable */
     public function testUnhtmlentitiesDecodesHtmlEntities(): void
     {
         $obj = $this->getInternalTestObject();
@@ -318,6 +334,7 @@ class CSSTest extends TestUtil
         $this->assertSame('<a&b>', $out);
     }
 
+    /** @throws \Throwable */
     public function testTidyCSSKeepsAllAndPrintMediaOnly(): void
     {
         $obj = $this->getInternalTestObject();
@@ -332,6 +349,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('p{color:blue;}', $out);
     }
 
+    /** @throws \Throwable */
     public function testTidyCSSHandlesEmptyInputAndAllMedia(): void
     {
         $obj = $this->getInternalTestObject();
@@ -343,6 +361,7 @@ class CSSTest extends TestUtil
         $this->assertSame('h2{color:green;}', $out);
     }
 
+    /** @throws \Throwable */
     public function testExtractCSSpropertiesParsesSelectorsAndValues(): void
     {
         $obj = $this->getInternalTestObject();
@@ -355,6 +374,7 @@ class CSSTest extends TestUtil
         $this->assertContains('margin:0;', $vals);
     }
 
+    /** @throws \Throwable */
     public function testExtractCSSpropertiesHandlesEmptyAndOrphanBlocks(): void
     {
         $obj = $this->getInternalTestObject();
@@ -367,6 +387,7 @@ class CSSTest extends TestUtil
         $this->assertContains('color:red;', \array_values($out));
     }
 
+    /** @throws \Throwable */
     public function testExtractCSSpropertiesConformanceEscapedSelectorsFixture(): void
     {
         $obj = $this->getInternalTestObject();
@@ -376,14 +397,15 @@ class CSSTest extends TestUtil
         $bySelector = $this->normalizeSelectorMap($out);
 
         $this->assertCount(3, $bySelector);
-        $this->assertArrayHasKey('.icon\\:warning[data-kind="print-a"]:first-child', $bySelector);
-        $this->assertSame('color:red;', $bySelector['.icon\\:warning[data-kind="print-a"]:first-child']);
-        $this->assertArrayHasKey('#hero\\#title > a.link\\+cta[href*="campaign=42"]', $bySelector);
-        $this->assertSame('margin:0;', $bySelector['#hero\\#title > a.link\\+cta[href*="campaign=42"]']);
-        $this->assertArrayHasKey('nav ul li:nth-child(2) > a[title="A > B"]', $bySelector);
-        $this->assertSame('text-decoration:underline;', $bySelector['nav ul li:nth-child(2) > a[title="A > B"]']);
+        $this->assertSame('color:red;', $bySelector['.icon\\:warning[data-kind="print-a"]:first-child'] ?? null);
+        $this->assertSame('margin:0;', $bySelector['#hero\\#title > a.link\\+cta[href*="campaign=42"]'] ?? null);
+        $this->assertSame(
+            'text-decoration:underline;',
+            $bySelector['nav ul li:nth-child(2) > a[title="A > B"]'] ?? null,
+        );
     }
 
+    /** @throws \Throwable */
     public function testExtractCSSpropertiesConformanceComplexValuesFixture(): void
     {
         $obj = $this->getInternalTestObject();
@@ -393,23 +415,24 @@ class CSSTest extends TestUtil
         $bySelector = $this->normalizeSelectorMap($out);
 
         $this->assertCount(3, $bySelector);
-        $this->assertArrayHasKey('a[href^="mailto:"]::after', $bySelector);
-        $this->assertSame('content:"mailto:user@example.com;subject=test";', $bySelector['a[href^="mailto:"]::after']);
+        $this->assertSame(
+            'content:"mailto:user@example.com;subject=test";',
+            $bySelector['a[href^="mailto:"]::after'] ?? null,
+        );
 
-        $this->assertArrayHasKey('div[data-url*="example.com?a=1&b=2"]', $bySelector);
         $this->assertSame(
             'background-image:url("https://example.com/a;b.png?x=1&y=2");'
             . 'font-family:"Open Sans", "Noto Sans", sans-serif;',
-            $bySelector['div[data-url*="example.com?a=1&b=2"]'],
+            $bySelector['div[data-url*="example.com?a=1&b=2"]'] ?? null,
         );
 
-        $this->assertArrayHasKey('p.note', $bySelector);
         $this->assertSame(
             'background:linear-gradient(90deg, rgba(0,0,0,.1), rgba(255,255,255,.8));',
-            $bySelector['p.note'],
+            $bySelector['p.note'] ?? null,
         );
     }
 
+    /** @throws \Throwable */
     public function testImplodeCSSDataPrefersLastDuplicateCommand(): void
     {
         $obj = $this->getInternalTestObject();
@@ -424,6 +447,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('color:red', $out);
     }
 
+    /** @throws \Throwable */
     public function testImplodeCSSDataSkipsEmptyEntriesAndInvalidCommands(): void
     {
         $obj = $this->getInternalTestObject();
@@ -441,6 +465,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString(';;', $out);
     }
 
+    /** @throws \Throwable */
     public function testImplodeCSSDataImportantShorthandBeatsLaterNonImportantLonghand(): void
     {
         $obj = $this->getInternalTestObject();
@@ -455,7 +480,10 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('margin-top:5px', $out);
     }
 
-    /** @param list<string> $styles */
+    /**
+     * @param list<string> $styles
+     * @throws \Throwable
+     */
     #[DataProvider('cssCascadeImportantSourceOrderProvider')]
     public function testImplodeCSSDataCascadeImportantAndSourceOrder(
         string $name,
@@ -467,9 +495,6 @@ class CSSTest extends TestUtil
         /** @var list<array{c: string}> $css */
         $css = [];
         foreach ($styles as $style) {
-            if (!\is_string($style)) {
-                continue;
-            }
             $css[] = ['c' => $style];
         }
 
@@ -496,6 +521,7 @@ class CSSTest extends TestUtil
         return $out;
     }
 
+    /** @throws \Throwable */
     public function testGetCSSArrayFromHTMLExtractsAndRemovesCssarrayTag(): void
     {
         $obj = $this->getInternalTestObject();
@@ -503,10 +529,11 @@ class CSSTest extends TestUtil
 
         $out = $obj->exposeGetCSSArrayFromHTML($html);
 
-        $this->assertSame('color:red;', $out['h1']);
+        $this->assertSame('color:red;', $out['h1'] ?? null);
         $this->assertStringNotContainsString('<cssarray>', $html);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSArrayFromHTMLExtractsExternalAndInlineCss(): void
     {
         $obj = $this->getInternalTestObject();
@@ -529,6 +556,7 @@ class CSSTest extends TestUtil
         $this->assertNotContains('color:red;', $vals);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSArrayFromHTMLStyleWithoutMediaAttribute(): void
     {
         $obj = $this->getInternalTestObject();
@@ -541,6 +569,7 @@ class CSSTest extends TestUtil
         $this->assertContains('font-size:14pt;', $vals);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSColorNormalizesValidColor(): void
     {
         $obj = $this->getInternalTestObject();
@@ -551,6 +580,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('rgba(', $out);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSColorReturnsEmptyStringForInvalidColor(): void
     {
         $obj = $this->getInternalTestObject();
@@ -558,6 +588,7 @@ class CSSTest extends TestUtil
         $this->assertSame('', $obj->exposeGetCSSColor(''));
     }
 
+    /** @throws \Throwable */
     public function testResolveImportRulesStripsImportAndPrependsContent(): void
     {
         $obj = $this->getInternalTestObject();
@@ -577,6 +608,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('@import', $result);
     }
 
+    /** @throws \Throwable */
     public function testResolveImportRulesHandlesUrlSyntax(): void
     {
         $obj = $this->getInternalTestObject();
@@ -590,6 +622,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('@import', $result);
     }
 
+    /** @throws \Throwable */
     public function testResolveImportRulesSkipsNonPrintMedia(): void
     {
         $obj = $this->getInternalTestObject();
@@ -603,6 +636,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('@import', $result);
     }
 
+    /** @throws \Throwable */
     public function testResolveImportRulesAllowsPrintMedia(): void
     {
         $obj = $this->getInternalTestObject();
@@ -615,6 +649,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('h1', $result);
     }
 
+    /** @throws \Throwable */
     public function testResolveImportRulesDeduplicatesUrls(): void
     {
         $obj = $this->getInternalTestObject();
@@ -628,6 +663,7 @@ class CSSTest extends TestUtil
         $this->assertSame(1, \substr_count($result, 'h1'));
     }
 
+    /** @throws \Throwable */
     public function testResolveImportRulesStopsAtMaxDepth(): void
     {
         $obj = $this->getInternalTestObject();
@@ -642,6 +678,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('@import', $result);
     }
 
+    /** @throws \Throwable */
     public function testExtractCSSpropertiesResolvesImportBeforeParsing(): void
     {
         $obj = $this->getInternalTestObject();
@@ -655,6 +692,7 @@ class CSSTest extends TestUtil
         $this->assertArrayHasKey('h3', $result);
     }
 
+    /** @throws \Throwable */
     public function testGetCSSArrayFromHTMLResolvesImportInStyleTag(): void
     {
         $obj = $this->getInternalTestObject();
@@ -707,6 +745,7 @@ class CSSTest extends TestUtil
         ];
     }
 
+    /** @throws \Throwable */
     #[DataProvider('mediaRelevanceProvider')]
     public function testIsMediaPrintRelevant(string $query, bool $expected): void
     {
@@ -714,6 +753,7 @@ class CSSTest extends TestUtil
         $this->assertSame($expected, $obj->exposeIsMediaPrintRelevant($query));
     }
 
+    /** @throws \Throwable */
     public function testTidyCSSKeepsPrintAndCondition(): void
     {
         $obj = $this->getInternalTestObject();
@@ -725,6 +765,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('p{color:blue;}', $out);
     }
 
+    /** @throws \Throwable */
     public function testTidyCSSKeepsCommaListWithPrint(): void
     {
         $obj = $this->getInternalTestObject();
@@ -735,6 +776,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('h2{font-size:14pt;}', $out);
     }
 
+    /** @throws \Throwable */
     public function testTidyCSSKeepsFeatureOnlyQuery(): void
     {
         $obj = $this->getInternalTestObject();
@@ -745,6 +787,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('p{margin:0;}', $out);
     }
 
+    /** @throws \Throwable */
     public function testTidyCSSDropsNotPrint(): void
     {
         $obj = $this->getInternalTestObject();
@@ -756,6 +799,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('body{color:black;}', $out);
     }
 
+    /** @throws \Throwable */
     public function testTidyCSSKeepsNotScreen(): void
     {
         $obj = $this->getInternalTestObject();
@@ -768,6 +812,7 @@ class CSSTest extends TestUtil
 
     // --- normalizeCharset ---
 
+    /** @throws \Throwable */
     public function testNormalizeCharsetStripsUtf8Declaration(): void
     {
         $obj = $this->getInternalTestObject();
@@ -779,6 +824,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('body', $out);
     }
 
+    /** @throws \Throwable */
     public function testNormalizeCharsetStripsUtf8DeclarationCaseInsensitive(): void
     {
         $obj = $this->getInternalTestObject();
@@ -790,6 +836,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('h1', $out);
     }
 
+    /** @throws \Throwable */
     public function testNormalizeCharsetStripsAsciiDeclaration(): void
     {
         $obj = $this->getInternalTestObject();
@@ -801,6 +848,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('p', $out);
     }
 
+    /** @throws \Throwable */
     public function testNormalizeCharsetStripsWithLeadingBom(): void
     {
         $obj = $this->getInternalTestObject();
@@ -814,6 +862,7 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString("\xEF\xBB\xBF", $out);
     }
 
+    /** @throws \Throwable */
     public function testNormalizeCharsetPassesThroughWhenAbsent(): void
     {
         $obj = $this->getInternalTestObject();
@@ -824,11 +873,14 @@ class CSSTest extends TestUtil
         $this->assertSame($css, $out);
     }
 
+    /** @throws \Throwable */
     public function testNormalizeCharsetTranscodesIso88591(): void
     {
         $obj = $this->getInternalTestObject();
         // "résumé" in ISO-8859-1 encoding
-        $iso = '@charset "ISO-8859-1"; ' . \mb_convert_encoding('p { content:"résumé"; }', 'ISO-8859-1', 'UTF-8');
+        $encoded = \mb_convert_encoding('p { content:"résumé"; }', 'ISO-8859-1', 'UTF-8');
+        $this->assertNotFalse($encoded);
+        $iso = '@charset "ISO-8859-1"; ' . $encoded;
 
         $out = $obj->exposeNormalizeCharset($iso);
 
@@ -838,6 +890,7 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('résumé', $out);
     }
 
+    /** @throws \Throwable */
     public function testExtractCSSpropertiesStripsCharset(): void
     {
         $obj = $this->getInternalTestObject();
@@ -849,6 +902,7 @@ class CSSTest extends TestUtil
         $this->assertArrayHasKey('h2', $result);
     }
 
+    /** @throws \Throwable */
     public function testResolveImportRulesStripsCharsetFromImportedFile(): void
     {
         $obj = $this->getInternalTestObject();

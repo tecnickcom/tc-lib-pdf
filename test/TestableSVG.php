@@ -76,13 +76,19 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         $this->patchSvgObj($soid, ['refunitval' => $ref ?? self::REFUNITVAL]);
     }
 
-    /** @phpstan-param TRefUnitValues|null $ref */
+    /**
+     * @phpstan-param TRefUnitValues|null $ref
+     * @throws \Throwable
+     */
     public function exposeSvgUnitToPoints(string|float|int $val, int $soid = -1, ?array $ref = null): float
     {
         return $this->svgUnitToPoints($val, $soid, $ref);
     }
 
-    /** @phpstan-param TRefUnitValues|null $ref */
+    /**
+     * @phpstan-param TRefUnitValues|null $ref
+     * @throws \Throwable
+     */
     public function exposeSvgUnitToUnit(string|float|int $val, int $soid = -1, ?array $ref = null): float
     {
         return $this->svgUnitToUnit($val, $soid, $ref);
@@ -97,6 +103,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param TTMatrix $trm
      * @phpstan-return TTMatrix
+     * @throws \Throwable
      */
     public function exposeConvertSVGMatrix(array $trm, int $soid = 0): array
     {
@@ -119,11 +126,13 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getSVGPath($soid, $attrd, $mode);
     }
 
+    /** @throws \Throwable */
     public function exposeGetTALetterSpacing(string $spacing, float $parent = 0.0): float
     {
         return $this->getTALetterSpacing($spacing, $parent);
     }
 
+    /** @throws \Throwable */
     public function exposeGetTAFontStretching(string $stretch, float $parent = 100): float
     {
         return $this->getTAFontStretching($stretch, $parent);
@@ -327,6 +336,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $parent
      * @phpstan-return array{0: string, 1: TSVGStyle}
+     * @throws \Throwable
      */
     public function exposeParseSVGStyleFont(array $svgstyle, array $parent): array
     {
@@ -337,6 +347,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-return array{0: string, 1: TSVGStyle}
+     * @throws \Throwable
      */
     public function exposeParseSVGStyleStroke(int $soid, array $svgstyle): array
     {
@@ -357,6 +368,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-return array{0: string, 1: TSVGStyle}
+     * @throws \Throwable
      */
     public function exposeParseSVGStyleClip(
         array $svgstyle,
@@ -372,6 +384,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param array<string, TSVGGradient> $gradients
      * @phpstan-param array<float> $clip_par
+     * @throws \Throwable
      */
     public function exposeParseSVGStyleGradient(
         int $soid,
@@ -392,6 +405,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param array<string, TSVGGradient> $gradients
      * @phpstan-param array<float> $clip_par
      * @phpstan-return array{0: string, 1: TSVGStyle}
+     * @throws \Throwable
      */
     public function exposeParseSVGStyleFill(
         int $soid,
@@ -418,7 +432,10 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return [$out, $svgstyle];
     }
 
-    /** @phpstan-param array<string, TSVGAttribs> $clippaths */
+    /**
+     * @phpstan-param array<string, TSVGAttribs> $clippaths
+     * @throws \Throwable
+     */
     public function exposeParseSVGStyleClipPath(\XMLParser $parser, int $soid, array $clippaths = []): void
     {
         $this->parseSVGStyleClipPath($parser, $soid, $clippaths);
@@ -429,6 +446,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGStyle $prev_svgstyle
      * @phpstan-param array<float> $clip_par
      * @phpstan-return array{0: string, 1: string}
+     * @throws \Throwable
      */
     public function exposeParseSVGStyle(
         \XMLParser $parser,
@@ -503,33 +521,60 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /** @phpstan-param array<string, mixed> $patch */
     public function patchSvgObj(int $soid, array $patch): void
     {
+        if (!isset($this->svgobjs[$soid])) {
+            $this->initSvgObjForHandlers($soid);
+        }
+
+        $current = $this->svgobjs[$soid] ?? null;
+        if (!\is_array($current)) {
+            $this->initSvgObjForHandlers($soid);
+            $current = $this->svgobjs[$soid] ?? [];
+        }
+
         /** @var TSVGObj $svgobj */
-        $svgobj = \array_replace_recursive($this->svgobjs[$soid], $patch);
+        $svgobj = \array_replace_recursive($current, $patch);
         $this->svgobjs[$soid] = $svgobj;
     }
 
-    /** @phpstan-return TSVGObj */
+    /** @return TSVGObj */
     public function getSvgObj(int $soid): array
     {
-        return $this->svgobjs[$soid];
+        if (!isset($this->svgobjs[$soid])) {
+            $this->initSvgObjForHandlers($soid);
+        }
+
+        $svgobj = $this->svgobjs[$soid] ?? null;
+        if (!\is_array($svgobj)) {
+            $this->initSvgObjForHandlers($soid);
+            $svgobj = $this->svgobjs[$soid] ?? [];
+        }
+
+        /** @var TSVGObj */
+        return $svgobj;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     * @throws \Throwable
+     */
     public function exposeGetCurrentPageData(): array
     {
         return $this->page->getPage();
     }
 
+    /** @throws \Throwable */
     public function exposeHandlerSVGCharacter(\XMLParser $parser, string $data): void
     {
         $this->handlerSVGCharacter($parser, $data);
     }
 
+    /** @throws \Throwable */
     public function exposeHandleSVGTagEnd(\XMLParser $parser, string $name): void
     {
         $this->handleSVGTagEnd($parser, $name);
     }
 
+    /** @throws \Throwable */
     public function exposeHandleSVGCharacter(\XMLParser $parser, string $data): void
     {
         $this->handlerSVGCharacter($parser, $data);
@@ -555,11 +600,13 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagENDg($soid);
     }
 
+    /** @throws \Throwable */
     public function exposeParseSVGTagENDtspan(int $soid): string
     {
         return $this->parseSVGTagENDtspan($soid);
     }
 
+    /** @throws \Throwable */
     public function exposeParseSVGTagENDtext(int $soid): string
     {
         return $this->parseSVGTagENDtext($soid);
@@ -568,6 +615,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TTMatrix $ctm
+     * @throws \Throwable
      */
     public function exposeHandleSVGTagStart(
         \XMLParser $parser,
@@ -591,12 +639,16 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTclipPath($soid, $tmx);
     }
 
+    /** @throws \Throwable */
     public function exposeGetRawSVGData(string $img): string
     {
         return $this->getRawSVGData($img);
     }
 
-    /** @phpstan-return TSVGSize */
+    /**
+     * @phpstan-return TSVGSize
+     * @throws \Throwable
+     */
     public function exposeGetSVGSize(string $data): array
     {
         return $this->getSVGSize($data);
@@ -629,6 +681,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTsvg(
         \XMLParser $parser,
@@ -644,6 +697,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTg(
         \XMLParser $parser,
@@ -670,6 +724,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTstop(int $soid, array $attr, array $svgstyle): string
     {
@@ -680,6 +735,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTpath(
         \XMLParser $parser,
@@ -695,6 +751,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTrect(
         \XMLParser $parser,
@@ -710,6 +767,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTcircle(
         \XMLParser $parser,
@@ -725,6 +783,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTellipse(
         \XMLParser $parser,
@@ -740,6 +799,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTline(
         \XMLParser $parser,
@@ -755,6 +815,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTpolygon(
         \XMLParser $parser,
@@ -771,6 +832,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTimage(
         \XMLParser $parser,
@@ -786,6 +848,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTtext(
         \XMLParser $parser,
@@ -802,6 +865,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTtspan(
         \XMLParser $parser,
@@ -817,6 +881,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
      * @phpstan-param TSVGAttributes $attr
      * @phpstan-param TSVGStyle $svgstyle
      * @phpstan-param TSVGStyle $prev_svgstyle
+     * @throws \Throwable
      */
     public function exposeParseSVGTagSTARTtextPath(
         \XMLParser $parser,
@@ -828,12 +893,16 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTtextPath($parser, $soid, $attr, $svgstyle, $prev_svgstyle);
     }
 
+    /** @throws \Throwable */
     public function exposeParseSVGTagENDtextPath(int $soid): string
     {
         return $this->parseSVGTagENDtextPath($soid);
     }
 
-    /** @phpstan-param TSVGAttributes $attr */
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @throws \Throwable
+     */
     public function exposeParseSVGTagSTARTuse(\XMLParser $parser, int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTuse($parser, $soid, $attr);
@@ -871,7 +940,10 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->resolveSVGPatternDef($soid, $patternId);
     }
 
-    /** @phpstan-param TSVGAttributes $attr */
+    /**
+     * @phpstan-param TSVGAttributes $attr
+     * @throws \Throwable
+     */
     public function exposeParseSVGTagSTARTa(int $soid, array $attr): string
     {
         return $this->parseSVGTagSTARTa($soid, $attr);
@@ -895,6 +967,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagSTARTmask($soid, $attr);
     }
 
+    /** @throws \Throwable */
     public function exposeParseSVGTagENDa(int $soid): string
     {
         return $this->parseSVGTagENDa($soid);
@@ -911,7 +984,10 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseSVGTagENDswitch($soid);
     }
 
-    /** @phpstan-param TSVGStyle $svgstyle */
+    /**
+     * @phpstan-param TSVGStyle $svgstyle
+     * @throws \Throwable
+     */
     public function exposeParseSVGStyleMask(int $soid, array $svgstyle): string
     {
         return $this->parseSVGStyleMask($soid, $svgstyle);
@@ -956,7 +1032,10 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getSVGGlyphOrientationRotation($svgstyle, $isVertical);
     }
 
-    /** @phpstan-return array<int, array{0: float, 1: float}>|null */
+    /**
+     * @phpstan-return array<int, array{0: float, 1: float}>|null
+     * @throws \Throwable
+     */
     public function exposeGetTextPathPointsFromPathData(int $soid, string $pathData): ?array
     {
         return $this->getTextPathPointsFromPathData($soid, $pathData);
@@ -965,6 +1044,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param TSVGAttributes $defAttr
      * @phpstan-return array<int, array{0: float, 1: float}>|null
+     * @throws \Throwable
      */
     public function exposeGetTextPathPointsFromDef(int $soid, string $defName, array $defAttr): ?array
     {

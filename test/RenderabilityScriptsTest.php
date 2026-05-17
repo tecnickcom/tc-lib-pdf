@@ -29,14 +29,19 @@ class RenderabilityScriptsTest extends TestUtil
             2 => ['pipe', 'w'],
         ];
 
+        /** @var array<int, resource> $pipes */
+        $pipes = [];
         $proc = \proc_open($cmd, $desc, $pipes, __DIR__ . '/..');
         if (!\is_resource($proc)) {
             return ['code' => 127, 'stdout' => '', 'stderr' => 'Unable to start process'];
         }
 
+        assert(isset($pipes[0]), "\$pipes[0] must be set");
         \fclose($pipes[0]);
+        assert(isset($pipes[1]), "\$pipes[1] must be set");
         $stdout = (string) \stream_get_contents($pipes[1]);
         \fclose($pipes[1]);
+        assert(isset($pipes[2]), "\$pipes[2] must be set");
         $stderr = (string) \stream_get_contents($pipes[2]);
         \fclose($pipes[2]);
         $code = \proc_close($proc);
@@ -44,6 +49,7 @@ class RenderabilityScriptsTest extends TestUtil
         return ['code' => $code, 'stdout' => $stdout, 'stderr' => $stderr];
     }
 
+    /** @throws \Throwable */
     public function testRenderabilityScoreScriptWritesExpectedFilesAndMetrics(): void
     {
         $base = \sys_get_temp_dir() . '/tc-lib-pdf-renderability-' . \bin2hex(\random_bytes(6));
@@ -71,8 +77,10 @@ class RenderabilityScriptsTest extends TestUtil
             /** @var array<string, mixed>|null $report */
             $report = \json_decode($raw, true);
             $this->assertIsArray($report);
-            $this->assertArrayHasKey('page_count', $report);
-            $this->assertIsInt($report['page_count']);
+            if (!isset($report['page_count']) || !\is_int($report['page_count'])) {
+                $this->fail('Expected integer page_count in renderability report');
+            }
+
             $this->assertSame(5, $report['page_count']);
             $this->assertArrayHasKey('overall_score', $report);
             $this->assertArrayHasKey('pass_rate', $report);
@@ -92,6 +100,7 @@ class RenderabilityScriptsTest extends TestUtil
         }
     }
 
+    /** @throws \Throwable */
     public function testRenderabilityTrendScriptAppendsAndCapsHistory(): void
     {
         $base = \sys_get_temp_dir() . '/tc-lib-pdf-trend-' . \bin2hex(\random_bytes(6));
@@ -105,7 +114,9 @@ class RenderabilityScriptsTest extends TestUtil
             'text_flow_rate' => 80.0,
             'high_severity_failures' => 1,
         ];
-        \file_put_contents($score, \json_encode($scorePayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        $scoreJson = \json_encode($scorePayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $this->assertIsString($scoreJson);
+        \file_put_contents($score, $scoreJson . PHP_EOL);
 
         $historyPayload = [
             'history' => [
@@ -133,10 +144,9 @@ class RenderabilityScriptsTest extends TestUtil
                 ],
             ],
         ];
-        \file_put_contents(
-            $history,
-            \json_encode($historyPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL,
-        );
+        $historyJson = \json_encode($historyPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $this->assertIsString($historyJson);
+        \file_put_contents($history, $historyJson . PHP_EOL);
 
         $cmd = [
             'php',
@@ -162,17 +172,33 @@ class RenderabilityScriptsTest extends TestUtil
             /** @var array<string, mixed>|null $trend */
             $trend = \json_decode($rawHistory, true);
             $this->assertIsArray($trend);
-            $entries = \array_values((array) ($trend['history'] ?? []));
+            $entries = [];
+            if (isset($trend['history']) && \is_array($trend['history'])) {
+                $entries = \array_values($trend['history']);
+            }
 
             $this->assertCount(2, $entries);
-            $latest = $entries[1] ?? [];
+            $latest = [];
+            if (isset($entries[1]) && \is_array($entries[1])) {
+                $latest = $entries[1];
+            }
+
             $this->assertIsArray($latest);
             $this->assertArrayHasKey('run_id', $latest);
             $this->assertArrayHasKey('ref', $latest);
             $this->assertArrayHasKey('direction', $latest);
-            $this->assertSame('3', \is_scalar($latest['run_id']) ? (string) $latest['run_id'] : '');
-            $this->assertSame('main', \is_scalar($latest['ref']) ? (string) $latest['ref'] : '');
-            $this->assertSame('up', \is_scalar($latest['direction']) ? (string) $latest['direction'] : '');
+            $this->assertSame(
+                '3',
+                isset($latest['run_id']) && \is_scalar($latest['run_id']) ? (string) $latest['run_id'] : '',
+            );
+            $this->assertSame(
+                'main',
+                isset($latest['ref']) && \is_scalar($latest['ref']) ? (string) $latest['ref'] : '',
+            );
+            $this->assertSame(
+                'up',
+                isset($latest['direction']) && \is_scalar($latest['direction']) ? (string) $latest['direction'] : '',
+            );
 
             $markdown = (string) \file_get_contents($markdownFile);
             $this->assertStringContainsString('CSS Renderability Trend', $markdown);

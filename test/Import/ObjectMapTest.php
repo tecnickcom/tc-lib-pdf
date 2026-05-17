@@ -85,6 +85,7 @@ class ObjectMapTest extends TestCase
         $this->assertSame('', $map->flush());
     }
 
+    /** @throws \Throwable */
     public function testGetThrowsForUnallocatedRef(): void
     {
         $map = new ObjectMap();
@@ -104,6 +105,7 @@ class ObjectMapTest extends TestCase
         $this->assertArrayHasKey('2_0', $full);
     }
 
+    /** @throws \Throwable */
     public function testFlushPreservesMapForDedup(): void
     {
         $map = new ObjectMap();
