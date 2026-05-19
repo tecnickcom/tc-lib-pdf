@@ -76,3 +76,4 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E071_gettextcell_bbox_metrics.php](E071_gettextcell_bbox_metrics.php): Multiline getTextCell block with visible border and printed bbox/textbbox/cellbbox metrics for visual verification.
 - [E072_import_new_font.php](E072_import_new_font.php): Import a custom TTF/OTF font with tc-lib-pdf-font conversion tooling and use it in tc-lib-pdf.
 - [E073_css_supported_categories.php](E073_css_supported_categories.php): Consolidated CSS category showcase covering cascade, selectors, box model, typography, float/clear/position, tables, and paged media.
+- [E074_text_cell_fit_modes.php](E074_text_cell_fit_modes.php): Visual inspection grid for getTextCell() fit modes (T, S, F) including disabled precondition cases.

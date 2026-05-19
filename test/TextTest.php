@@ -292,6 +292,616 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testGetTextCellFitUnknownModeFallsBackToDisabled(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $txt = 'This is a long sentence that should overflow in a small fixed-height box.';
+        $base = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            40,
+            6,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            '',
+        );
+        $fallback = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            40,
+            6,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'x',
+        );
+
+        $this->assertSame($base, $fallback);
+    }
+
+    /** @throws \Throwable */
+    public function testGetTextCellFitDisabledWhenCellSizePreconditionsFail(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $txt = 'Overflow text should keep baseline behavior when width or height is automatic.';
+
+        $baseWidthAuto = $obj->getTextCell($txt, 10, 20, 0, 6, 0, 0, 'T', 'L');
+        $fitWidthAuto = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            0,
+            6,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'F',
+        );
+        $this->assertSame($baseWidthAuto, $fitWidthAuto);
+
+        $baseHeightAuto = $obj->getTextCell($txt, 10, 20, 40, 0, 0, 0, 'T', 'L');
+        $fitHeightAuto = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            40,
+            0,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'T',
+        );
+        $this->assertSame($baseHeightAuto, $fitHeightAuto);
+    }
+
+    /** @throws \Throwable */
+    public function testGetTextCellFitTruncateKeepsTextInsideCellHeight(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $txt = 'Truncation mode must cut content to fit both width and height constraints.';
+        $base = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            35,
+            5,
+            0,
+            0.5,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            '',
+        );
+        $fit = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            35,
+            5,
+            0,
+            0.5,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'T',
+        );
+        $bbox = $obj->getLastTextBBox();
+
+        $this->assertNotSame($base, $fit);
+        $this->assertLessThanOrEqual(5.0 + 0.01, $bbox['h']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetTextCellFitStretchRestoresFontState(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $before = $font->getCurrentFont();
+
+        $txt = 'UNBREAKABLETOKENUNBREAKABLETOKENUNBREAKABLETOKENUNBREAKABLETOKEN';
+        $out = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            30,
+            5,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'S',
+        );
+
+        $after = $font->getCurrentFont();
+        $this->assertSame($before['stretching'], $after['stretching']);
+        $this->assertStringContainsString(' Tz ', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellFitModesMatchGetTextCellAndRestoreFontState(): void
+    {
+        $txt = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
+        $styles = [
+            'all' => [
+                'lineWidth' => 0.3,
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => '#4a5b70',
+                'fillColor' => '#ffffff',
+            ],
+        ];
+
+        foreach (['', 'T', 'S', 'F'] as $fit) {
+            $getObj = $this->getTestObject();
+            $this->initFont($getObj);
+            $getObj->addPage();
+
+            $expected = $getObj->getTextCell(
+                $txt,
+                10,
+                20,
+                80,
+                10,
+                0,
+                0,
+                'T',
+                'L',
+                null,
+                $styles,
+                0,
+                0,
+                0,
+                0,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                '',
+                null,
+                $fit,
+            );
+
+            $addObj = $this->getTestObject();
+            $this->initFont($addObj);
+            $page = $addObj->addPage();
+            $pid = $this->requirePageId($page);
+
+            /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+            $font = $this->getObjectProperty($addObj, 'font');
+            $before = $font->getCurrentFont();
+
+            /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+            $pageObj = $this->getObjectProperty($addObj, 'page');
+            $beforeContent = $pageObj->getPage($pid)['content'];
+            $beforeCount = \count($beforeContent);
+
+            $addObj->addTextCell(
+                $txt,
+                $pid,
+                10,
+                20,
+                80,
+                10,
+                0,
+                0,
+                'T',
+                'L',
+                null,
+                $styles,
+                0,
+                0,
+                0,
+                0,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                '',
+                null,
+                $fit,
+            );
+
+            $after = $font->getCurrentFont();
+            $content = $pageObj->getPage($pid)['content'];
+            $this->assertGreaterThanOrEqual($beforeCount, \count($content));
+            $actual = \implode('', \array_slice($content, $beforeCount));
+
+            $this->assertSame($before['size'], $after['size']);
+            $this->assertSame($before['stretching'], $after['stretching']);
+            $this->assertSame($expected, $actual);
+        }
+
+        $seqObj = $this->getTestObject();
+        $this->initFont($seqObj);
+        $seqPage = $seqObj->addPage();
+        $seqPid = $this->requirePageId($seqPage);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $seqPageObj */
+        $seqPageObj = $this->getObjectProperty($seqObj, 'page');
+
+        $seqObj->addTextCell(
+            $txt,
+            $seqPid,
+            10,
+            20,
+            80,
+            10,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            $styles,
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            '',
+            null,
+            'F',
+        );
+
+        $contentBeforeDisabled = $seqPageObj->getPage($seqPid)['content'];
+        $beforeDisabledCount = \count($contentBeforeDisabled);
+
+        $disabledTxt = 'Disabled mode should use base font.';
+        $seqObj->addTextCell(
+            $disabledTxt,
+            $seqPid,
+            10,
+            40,
+            80,
+            10,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            $styles,
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            '',
+            null,
+            '',
+        );
+
+        $contentAfterDisabled = $seqPageObj->getPage($seqPid)['content'];
+        $this->assertGreaterThan($beforeDisabledCount, \count($contentAfterDisabled));
+        $disabledChunk = \implode('', \array_slice($contentAfterDisabled, $beforeDisabledCount));
+
+        $expectedObj = $this->getTestObject();
+        $this->initFont($expectedObj);
+        $expectedObj->addPage();
+        $expectedDisabled = $expectedObj->getTextCell(
+            $disabledTxt,
+            10,
+            40,
+            80,
+            10,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            $styles,
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            '',
+            null,
+            '',
+        );
+
+        $this->assertSame($expectedDisabled, $disabledChunk);
+    }
+
+    /** @throws \Throwable */
+    public function testGetTextCellFitStretchIgnoredWhenCompressionCannotReduceOverflow(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        // "Short" easily fits in 80mm width, but the 2mm height is too small even for a single
+        // line. Horizontal compression cannot reduce the line count, so fit=S must be a no-op.
+        $txt = 'Short';
+        $out = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            80,
+            2,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'S',
+        );
+
+        $this->assertStringNotContainsString(' Tz ', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testGetTextCellFitStretchAppliesCompressionOnHeightOverflowFromWrapping(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $before = $font->getCurrentFont();
+
+        // Long text that wraps to multiple lines within 160mm but overflows the 6mm height.
+        // fit=S should apply horizontal compression to reduce line count.
+        $txt = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
+        $out = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            160,
+            6,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'S',
+        );
+
+        $after = $font->getCurrentFont();
+        $this->assertSame($before['stretching'], $after['stretching']);
+        $this->assertStringContainsString(' Tz ', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testGetTextCellFitFontSizeRestoresFontState(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $before = $font->getCurrentFont();
+
+        $txt = 'Font-size fitting should reduce the size when needed and restore it after rendering.';
+        $out = $obj->getTextCell(
+            $txt,
+            10,
+            20,
+            40,
+            6,
+            0,
+            0.5,
+            'T',
+            'L',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'F',
+        );
+        $bbox = $obj->getLastTextBBox();
+
+        $after = $font->getCurrentFont();
+        $this->assertSame($before['size'], $after['size']);
+        $this->assertStringContainsString(' Tf', $out);
+        $this->assertGreaterThanOrEqual(2, \substr_count($out, ' Tf'));
+        $this->assertLessThanOrEqual(6.0 + 0.01, $bbox['h']);
+    }
+
+    /** @throws \Throwable */
     public function testAddTextCellAppendsContentToPage(): void
     {
         $obj = $this->getTestObject();

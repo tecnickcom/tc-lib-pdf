@@ -93,6 +93,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected const LINE_FIT_EPSILON = 1.0E-7;
 
     /**
+     * Lower bound for text-cell horizontal compression (percentage).
+     */
+    protected const TEXTCELL_MIN_STRETCH = 50.0;
+
+    /**
+     * Readable lower bound for text-cell auto-fit font size in points.
+     */
+    protected const TEXTCELL_MIN_FONTSIZE = 4.0;
+
+    /**
      * The Unicode character used for hyphenation.
      * (45) '-'
      *  Type: 'ES' (European Number Separator)
@@ -195,6 +205,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $drawcell    If true draw the cell border.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
      * @param ?TextShadow $shadow      Text shadow parameters.
+     * @param string      $fit         Option to fit the overflowing text in the given cell dimensions.
+     *                                 Supported values:
+     *                                 - '': disabled (default)
+     *                                 - 'T': truncate text to fit width and height
+     *                                 - 'S': compress horizontally to best fit width
+     *                                 - 'F': decrease font size only when text is too large
+     *
+     * @return string
+     *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -225,6 +244,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $drawcell = true,
         string $forcedir = '',
         ?array $shadow = null,
+        string $fit = '',
     ): string {
         if ($txt === '') {
             return '';
@@ -245,22 +265,37 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         $txt_pwidth = $this->textMaxWidth($cell_pwidth, $cell);
-        $line_width = $this->toUnit($txt_pwidth);
+
+        $cell_pheight = $this->toPoints($height);
+        $offset_points = $this->toPoints($offset);
+        $linespace_points = $this->toPoints($linespace);
+
+        $fit_state = $this->resolveTextCellFitState(
+            $fit,
+            $ordarr,
+            $dim,
+            $txt_pwidth,
+            $cell_pheight - $cell['padding']['T'] - $cell['padding']['B'],
+            $offset_points,
+            $linespace_points,
+        );
+        $ordarr = $fit_state['ordarr'];
+        $dim = $fit_state['dim'];
+        $lines = $fit_state['lines'];
+        $txt_pheight = $fit_state['txtheight'];
+        $line_width_points = $fit_state['line_width_points'];
+        $fontout_prefix = $fit_state['fontout_prefix'];
+        $restore_font = $fit_state['restore_font'];
+        $restore_font_output = $fit_state['restore_font_output'];
+        $fontout_restore = $fit_state['fontout_restore'];
+        if ($height <= 0 || $width <= 0) {
+            $cell_pheight = $this->cellMinHeight($txt_pheight, $valign, $cell);
+        }
 
         $curfont = $this->font->getCurrentFont();
         $fontAscentVal = $curfont['ascent'];
-        $fontHeightVal = $curfont['height'];
         $fontascent = $this->toUnit($fontAscentVal);
-
-        $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
-
-        $numlines = \count($lines);
-        $txt_pheight = ($numlines * $fontHeightVal) + (($numlines - 1) * $this->toPoints($linespace));
-
-        $cell_pheight = $this->toPoints($height);
-        if ($height <= 0) {
-            $cell_pheight = $this->cellMinHeight($txt_pheight, $valign, $cell);
-        }
+        $line_width = $this->toUnit($line_width_points);
 
         $pnty = $this->toYPoints($posy);
         $cell_pnty = $pnty - $cell['margin']['T'];
@@ -268,46 +303,71 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $txt_pnty = $this->textVPosFromCell($cell_pnty, $cell_pheight, $txt_pheight, $valign, $cell);
 
         $cell_pntx = $this->cellHPos($pntx, $cell_pwidth, 'L', $cell);
-        $txt_pntx = $this->textHPosFromCell($cell_pntx, $cell_pwidth, $txt_pwidth, $halign, $cell);
+        $txt_pntx = $this->textHPosFromCell($cell_pntx, $cell_pwidth, $line_width_points, $halign, $cell);
 
-        $txt_out = $this->outTextLines(
-            $ordarr,
-            $lines,
-            $this->toUnit($txt_pntx),
-            $this->toYUnit($txt_pnty),
-            $line_width,
-            $offset,
-            $fontascent,
-            $linespace,
-            $strokewidth,
-            $wordspacing,
-            $leading,
-            $rise,
-            $halign,
-            $jlast,
-            $fill,
-            $stroke,
-            $underline,
-            $linethrough,
-            $overline,
-            $clip,
-            $shadow,
-        );
+        $txt_out = '';
+        $result = '';
+        $fontout_suffix = '';
 
-        $this->cellbbox[] = [
-            'x' => $this->toUnit($cell_pntx),
-            'y' => $this->toYUnit($cell_pnty),
-            'w' => $this->toUnit($cell_pwidth),
-            'h' => $this->toUnit($cell_pheight),
-        ];
+        try {
+            $txt_out = $this->outTextLines(
+                $ordarr,
+                $lines,
+                $this->toUnit($txt_pntx),
+                $this->toYUnit($txt_pnty),
+                $line_width,
+                $offset,
+                $fontascent,
+                $linespace,
+                $strokewidth,
+                $wordspacing,
+                $leading,
+                $rise,
+                $halign,
+                $jlast,
+                $fill,
+                $stroke,
+                $underline,
+                $linethrough,
+                $overline,
+                $clip,
+                $shadow,
+            );
 
-        if (!$drawcell) {
-            return $txt_out;
+            if ($fontout_prefix !== '') {
+                $txt_out = $fontout_prefix . $txt_out;
+            }
+
+            $this->cellbbox[] = [
+                'x' => $this->toUnit($cell_pntx),
+                'y' => $this->toYUnit($cell_pnty),
+                'w' => $this->toUnit($cell_pwidth),
+                'h' => $this->toUnit($cell_pheight),
+            ];
+
+            if (!$drawcell) {
+                $result = $txt_out;
+            } else {
+                $cell_out = $this->drawCell($cell_pntx, $cell_pnty, $cell_pwidth, $cell_pheight, $styles, $cell);
+                $result = $cell_out . $txt_out;
+            }
+        } finally {
+            if ($restore_font) {
+                $this->font->popLastFont();
+                if ($restore_font_output) {
+                    $fontout_suffix = $fontout_restore;
+                    if ($fontout_suffix === '') {
+                        $fontout_suffix = $this->font->getOutCurrentFont();
+                    }
+                }
+            }
         }
 
-        $cell_out = $this->drawCell($cell_pntx, $cell_pnty, $cell_pwidth, $cell_pheight, $styles, $cell);
+        if ($fontout_suffix !== '') {
+            return $result . $fontout_suffix;
+        }
 
-        return $cell_out . $txt_out;
+        return $result;
     }
 
     /**
@@ -340,6 +400,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $drawcell    If true draw the cell border.
      * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
      * @param ?TextShadow $shadow      Text shadow parameters.
+     * @param string      $fit         Option to fit the overflowing text in the given cell dimensions.
+     *                                 Supported values:
+     *                                 - '': disabled (default)
+     *                                 - 'T': truncate text to fit width and height
+     *                                 - 'S': compress horizontally to best fit width
+     *                                 - 'F': decrease font size only when text is too large
+     *
+     * @return void
+     *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -371,6 +440,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $drawcell = true,
         string $forcedir = '',
         ?array $shadow = null,
+        string $fit = '',
     ): void {
         if ($txt === '') {
             return;
@@ -401,146 +471,196 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $txt_pwidth = $dim['totwidth'];
         $actualText = $this->pdfuaMode !== '' ? $this->getActualTextForOrdarr($ordarr) : '';
 
+        $ocell = $this->adjustMinCellPadding($cstyles, $cell);
+        $cell = $ocell;
+
+        $cell_pntw = $this->toPoints($width);
+        $cell_pnth = $this->toPoints($height);
+        $fit_txt_pwidth = $this->textMaxWidth($cell_pntw, $cell);
+
+        $fit_state = $this->resolveTextCellFitState(
+            $fit,
+            $ordarr,
+            $dim,
+            $fit_txt_pwidth,
+            $cell_pnth - $cell['padding']['T'] - $cell['padding']['B'],
+            $this->toPoints($offset),
+            $this->toPoints($linespace),
+        );
+        $ordarr = $fit_state['ordarr'];
+        $dim = $fit_state['dim'];
+        $txt_pwidth = $dim['totwidth'];
+        $fontout_prefix = $fit_state['fontout_prefix'];
+        $restore_font = $fit_state['restore_font'];
+        $restore_font_output = $fit_state['restore_font_output'];
+        $fontout_restore = $fit_state['fontout_restore'];
+        $line_width_points = $fit_state['line_width_points'];
+        $fit_lines = $fit_state['lines'];
+        $use_prefit_layout = $width > 0 && $height > 0;
+
         $curfont = $this->font->getCurrentFont();
         $fontAscentVal = $curfont['ascent'];
         $fontHeightVal = $curfont['height'];
         $fontascent = $this->toUnit($fontAscentVal);
         $fontheight = $this->toUnit($fontHeightVal);
 
-        $ocell = $this->adjustMinCellPadding($cstyles, $cell);
-        $cell = $ocell;
-
-        $cell_pntw = $this->toPoints($width);
-        $cell_pnth = $this->toPoints($height);
-
         $region_max_lines = 1;
         $num_blocks = 0;
+        $fontout_suffix = '';
 
         // loop through the regions to fit all available text
-        while ($region_max_lines > 0) {
-            $region = $this->page->getRegion($pid);
-            $regionRy = $region['RY'];
-            $regionRx = $region['RX'];
-            $regionRh = $region['RH'];
-            $rposy = $posy + $regionRy;
-            $cell_pnty = $this->toYPoints($rposy) - $cell['margin']['T'];
-            $cell_posy = $this->toYUnit($cell_pnty);
+        try {
+            while ($region_max_lines > 0) {
+                $region = $this->page->getRegion($pid);
+                $regionRy = $region['RY'];
+                $regionRx = $region['RX'];
+                $regionRh = $region['RH'];
+                $rposy = $posy + $regionRy;
+                $cell_pnty = $this->toYPoints($rposy) - $cell['margin']['T'];
+                $cell_posy = $this->toYUnit($cell_pnty);
 
-            $rposx = $posx + $regionRx;
-            $rpntx = $this->toPoints($rposx);
+                $rposx = $posx + $regionRx;
+                $rpntx = $this->toPoints($rposx);
 
-            $cell_pwidth = $cell_pntw;
-            if ($width <= 0) {
-                $cell_pwidth = \min(
-                    $this->cellMaxWidth($rpntx, $cell),
-                    $this->cellMinWidth($txt_pwidth, $halign, $cell),
-                );
-            }
-
-            $txt_pwidth = $this->textMaxWidth($cell_pwidth, $cell);
-            $line_width = $this->toUnit($txt_pwidth);
-
-            $cell_pntx = $rpntx + $cell['margin']['L'];
-            $txt_pntx = $this->textHPosFromCell($cell_pntx, $cell_pwidth, $txt_pwidth, $halign, $cell);
-            $line_posx = $this->toUnit($txt_pntx);
-
-            $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
-            $numlines = \count($lines);
-
-            $vspace = $this->textMaxHeight($regionRh + $cell['margin']['B'] + $cell['padding']['B'] - $cell_posy);
-            $region_max_lines = (int) (($vspace + $linespace) / ($fontheight + $linespace));
-            $lastblock = $numlines <= $region_max_lines;
-
-            $rlines = $lines;
-            if ($numlines > $region_max_lines) {
-                $rlines = \array_slice($lines, 0, $region_max_lines);
-            }
-
-            $txt_pheight = ($numlines * $fontHeightVal) + (($numlines - 1) * $this->toPoints($linespace));
-
-            $cell_pheight = $cell_pnth;
-            if ($height <= 0) {
-                $cell_pheight = $this->cellMinHeight($txt_pheight, $valign, $cell);
-            }
-
-            $txt_pnty = $this->textVPosFromCell($cell_pnty, $cell_pheight, $txt_pheight, $valign, $cell);
-            $line_posy = $this->toYUnit($txt_pnty);
-
-            $this->cellbbox[] = [
-                'x' => $this->toUnit($cell_pntx),
-                'y' => $this->toYUnit($cell_pnty),
-                'w' => $this->toUnit($cell_pwidth),
-                'h' => $this->toUnit($cell_pheight),
-            ];
-
-            $out = $this->outTextLines(
-                $ordarr,
-                $rlines,
-                $line_posx,
-                $line_posy,
-                $line_width,
-                $offset,
-                $fontascent,
-                $linespace,
-                $strokewidth,
-                $wordspacing,
-                $leading,
-                $rise,
-                $halign,
-                $lastblock and $jlast,
-                $fill,
-                $stroke,
-                $underline,
-                $linethrough,
-                $overline,
-                $clip,
-                $shadow,
-            );
-
-            if ($drawcell) {
-                $styles = $cstyles;
-                if ($num_blocks > 0) {
-                    $styles[0]['lineWidth'] = 0;
-                    !isset($styles[0]['fillColor']) || $styles[0]['fillColor'] === ''
-                        ? null
-                        : ($styles[0]['lineColor'] = $styles[0]['fillColor']);
-                    if (!$lastblock) {
-                        $styles[2]['lineWidth'] = 0;
-                        !isset($styles[2]['fillColor']) || $styles[2]['fillColor'] === ''
-                            ? null
-                            : ($styles[2]['lineColor'] = $styles[2]['fillColor']);
-                    }
+                $cell_pwidth = $cell_pntw;
+                if ($width <= 0) {
+                    $cell_pwidth = \min(
+                        $this->cellMaxWidth($rpntx, $cell),
+                        $this->cellMinWidth($txt_pwidth, $halign, $cell),
+                    );
                 }
 
-                $out = $this->drawCell($cell_pntx, $cell_pnty, $cell_pwidth, $cell_pheight, $styles, $cell) . $out;
+                $txt_pwidth = $this->textMaxWidth($cell_pwidth, $cell);
+                $display_pwidth = $txt_pwidth;
+                if ($use_prefit_layout && $num_blocks === 0) {
+                    $display_pwidth = $line_width_points;
+                }
+                $line_width = $this->toUnit($display_pwidth);
+
+                $cell_pntx = $rpntx + $cell['margin']['L'];
+                $txt_pntx = $this->textHPosFromCell($cell_pntx, $cell_pwidth, $display_pwidth, $halign, $cell);
+                $line_posx = $this->toUnit($txt_pntx);
+
+                if ($use_prefit_layout && $num_blocks === 0) {
+                    $lines = $fit_lines;
+                } else {
+                    $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset));
+                }
+                $numlines = \count($lines);
+
+                $vspace = $this->textMaxHeight($regionRh + $cell['margin']['B'] + $cell['padding']['B'] - $cell_posy);
+                $region_max_lines = (int) (($vspace + $linespace) / ($fontheight + $linespace));
+                $lastblock = $numlines <= $region_max_lines;
+
+                $rlines = $lines;
+                if ($numlines > $region_max_lines) {
+                    $rlines = \array_slice($lines, 0, $region_max_lines);
+                }
+
+                $txt_pheight = ($numlines * $fontHeightVal) + (($numlines - 1) * $this->toPoints($linespace));
+
+                $cell_pheight = $cell_pnth;
+                if ($height <= 0) {
+                    $cell_pheight = $this->cellMinHeight($txt_pheight, $valign, $cell);
+                }
+
+                $txt_pnty = $this->textVPosFromCell($cell_pnty, $cell_pheight, $txt_pheight, $valign, $cell);
+                $line_posy = $this->toYUnit($txt_pnty);
+
+                $this->cellbbox[] = [
+                    'x' => $this->toUnit($cell_pntx),
+                    'y' => $this->toYUnit($cell_pnty),
+                    'w' => $this->toUnit($cell_pwidth),
+                    'h' => $this->toUnit($cell_pheight),
+                ];
+
+                $out = $this->outTextLines(
+                    $ordarr,
+                    $rlines,
+                    $line_posx,
+                    $line_posy,
+                    $line_width,
+                    $offset,
+                    $fontascent,
+                    $linespace,
+                    $strokewidth,
+                    $wordspacing,
+                    $leading,
+                    $rise,
+                    $halign,
+                    $lastblock and $jlast,
+                    $fill,
+                    $stroke,
+                    $underline,
+                    $linethrough,
+                    $overline,
+                    $clip,
+                    $shadow,
+                );
+
+                if ($drawcell) {
+                    $styles = $cstyles;
+                    if ($num_blocks > 0) {
+                        $styles[0]['lineWidth'] = 0;
+                        !isset($styles[0]['fillColor']) || $styles[0]['fillColor'] === ''
+                            ? null
+                            : ($styles[0]['lineColor'] = $styles[0]['fillColor']);
+                        if (!$lastblock) {
+                            $styles[2]['lineWidth'] = 0;
+                            !isset($styles[2]['fillColor']) || $styles[2]['fillColor'] === ''
+                                ? null
+                                : ($styles[2]['lineColor'] = $styles[2]['fillColor']);
+                        }
+                    }
+
+                    $out = $this->drawCell($cell_pntx, $cell_pnty, $cell_pwidth, $cell_pheight, $styles, $cell) . $out;
+                }
+
+                if ($fontout_prefix !== '' && $num_blocks === 0) {
+                    $out = $fontout_prefix . $out;
+                }
+
+                $this->page->addContent($this->tagPdfUaTextContent($out, $pid, $actualText), $pid);
+
+                if ($lastblock) {
+                    break;
+                }
+
+                if (!isset($lines[$region_max_lines]['pos'])) {
+                    break;
+                }
+
+                $ordarr = \array_slice($ordarr, $lines[$region_max_lines]['pos']);
+                $dim = $this->font->getOrdArrDims($ordarr);
+                $posy = 0;
+                $offset = 0;
+                $num_blocks++;
+
+                $cell = $ocell;
+                $cell['margin']['T'] = 0;
+                $cell['margin']['B'] = 0;
+
+                $this->page->getNextRegion($pid);
+                $curpid = (int) $this->page->getPageId();
+                if ($curpid > $pid) {
+                    $pid = $curpid;
+                    $this->setPageContext($pid);
+                }
             }
-
-            $this->page->addContent($this->tagPdfUaTextContent($out, $pid, $actualText), $pid);
-
-            if ($lastblock) {
-                return;
+        } finally {
+            if ($restore_font) {
+                $this->font->popLastFont();
+                if ($restore_font_output) {
+                    $fontout_suffix = $fontout_restore;
+                    if ($fontout_suffix === '') {
+                        $fontout_suffix = $this->font->getOutCurrentFont();
+                    }
+                }
             }
+        }
 
-            if (!isset($lines[$region_max_lines]['pos'])) {
-                return;
-            }
-
-            $ordarr = \array_slice($ordarr, $lines[$region_max_lines]['pos']);
-            $dim = $this->font->getOrdArrDims($ordarr);
-            $posy = 0;
-            $offset = 0;
-            $num_blocks++;
-
-            $cell = $ocell;
-            $cell['margin']['T'] = 0;
-            $cell['margin']['B'] = 0;
-
-            $this->page->getNextRegion($pid);
-            $curpid = (int) $this->page->getPageId();
-            if ($curpid > $pid) {
-                $pid = $curpid;
-                $this->setPageContext($pid);
-            }
+        if ($fontout_suffix !== '') {
+            $this->page->addContent($fontout_suffix, $pid);
         }
     }
 
@@ -696,6 +816,566 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         $this->page->addContent($this->tagPdfUaArtifactContent($content, $type, $subtype), $pid);
+    }
+
+    /**
+     * Normalize text-cell fit mode. Unknown values disable auto-fit.
+     */
+    protected function normalizeTextCellFitMode(string $fit): string
+    {
+        $fit = \strtoupper(\trim($fit));
+        return match ($fit) {
+            'T', 'S', 'F' => $fit,
+            default => '',
+        };
+    }
+
+    /**
+     * Returns true when auto-fit can be applied safely.
+     */
+    protected function canApplyTextCellFit(
+        string $fit,
+        float $cellWidth,
+        float $cellHeight,
+        float $textWidth,
+        float $textHeight,
+    ): bool {
+        return $fit !== '' && $cellWidth > 0 && $cellHeight > 0 && $textWidth > 0 && $textHeight > 0;
+    }
+
+    /**
+     * Resolve the fitted text-cell geometry and any temporary font state changes.
+     *
+     * @param array<int, int> $ordarr
+     * @param TTextDims $dim
+     *
+     * @return array{
+     *     ordarr: array<int, int>,
+     *     dim: TTextDims,
+     *     lines: array<int, TextLinePos>,
+     *     txtheight: float,
+     *     line_width_points: float,
+     *     fontout_prefix: string,
+     *     restore_font: bool,
+     *     restore_font_output: bool,
+     *     fontout_restore: string
+     * }
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function resolveTextCellFitState(
+        string $fit,
+        array $ordarr,
+        array $dim,
+        float $txt_pwidth,
+        float $inner_pheight,
+        float $offset_points,
+        float $linespace_points,
+    ): array {
+        $fit = $this->normalizeTextCellFitMode($fit);
+
+        $base_layout = $this->getTextCellLayout(
+            $ordarr,
+            $dim,
+            $txt_pwidth,
+            $txt_pwidth,
+            1.0,
+            $offset_points,
+            $linespace_points,
+        );
+
+        $lines = $base_layout['lines'];
+        $txt_pheight = $base_layout['txtheight'];
+        $line_width_points = $txt_pwidth;
+        $fontout_prefix = '';
+        $restore_font = false;
+        $restore_font_output = false;
+        $fontout_restore = '';
+
+        if (
+            $this->canApplyTextCellFit($fit, $txt_pwidth, $inner_pheight, $txt_pwidth, $txt_pheight)
+            && $this->textCellLayoutOverflows($base_layout, $txt_pwidth, $inner_pheight)
+        ) {
+            switch ($fit) {
+                case 'T':
+                    $ordarr = $this->fitTextCellByTruncation(
+                        $ordarr,
+                        $txt_pwidth,
+                        $inner_pheight,
+                        $offset_points,
+                        $linespace_points,
+                    );
+                    $dim = $this->font->getOrdArrDims($ordarr);
+                    $base_layout = $this->getTextCellLayout(
+                        $ordarr,
+                        $dim,
+                        $txt_pwidth,
+                        $txt_pwidth,
+                        1.0,
+                        $offset_points,
+                        $linespace_points,
+                    );
+                    break;
+                case 'S':
+                    $stretch_fit = $this->fitTextCellByStretch(
+                        $ordarr,
+                        $dim,
+                        $txt_pwidth,
+                        $inner_pheight,
+                        $offset_points,
+                        $linespace_points,
+                    );
+                    $restore_font = $stretch_fit['fontchanged'];
+                    $line_width_points = $stretch_fit['linewidth'];
+                    $base_layout = $stretch_fit['layout'];
+                    break;
+                case 'F':
+                    $font_before_fit = $this->font->getCurrentFont();
+                    $fontout_restore = $font_before_fit['out'];
+                    $font_fit = $this->fitTextCellByFontSize(
+                        $ordarr,
+                        $txt_pwidth,
+                        $inner_pheight,
+                        $offset_points,
+                        $linespace_points,
+                    );
+                    $restore_font = $font_fit['fontchanged'];
+                    $restore_font_output = $font_fit['fontchanged'];
+                    $fontout_prefix = $font_fit['fontout'];
+                    $dim = $font_fit['dim'];
+                    $base_layout = $font_fit['layout'];
+                    break;
+            }
+
+            $lines = $base_layout['lines'];
+            $txt_pheight = $base_layout['txtheight'];
+        }
+
+        return [
+            'ordarr' => $ordarr,
+            'dim' => $dim,
+            'lines' => $lines,
+            'txtheight' => $txt_pheight,
+            'line_width_points' => $line_width_points,
+            'fontout_prefix' => $fontout_prefix,
+            'restore_font' => $restore_font,
+            'restore_font_output' => $restore_font_output,
+            'fontout_restore' => $fontout_restore,
+        ];
+    }
+
+    /**
+     * Compute text layout data for a text cell.
+     *
+     * @param array<int, int> $ordarr
+     * @param TTextDims $dim
+     *
+     * @return array{lines: array<int, TextLinePos>, maxwidth: float, txtheight: float}
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function getTextCellLayout(
+        array $ordarr,
+        array $dim,
+        float $splitWidth,
+        float $displayWidth,
+        float $scale,
+        float $offsetPoints,
+        float $lineSpacePoints,
+    ): array {
+        if ($ordarr === [] || $splitWidth <= 0 || $displayWidth <= 0 || $scale <= 0) {
+            return [
+                'lines' => [],
+                'maxwidth' => 0.0,
+                'txtheight' => 0.0,
+            ];
+        }
+
+        $lines = $this->splitLines($ordarr, $dim, $splitWidth, $offsetPoints);
+        $numlines = \count($lines);
+
+        $maxwidth = 0.0;
+        foreach ($lines as $line) {
+            $linewidth = $line['totwidth'];
+            if ($linewidth > $maxwidth) {
+                $maxwidth = $linewidth;
+            }
+        }
+
+        $curfont = $this->font->getCurrentFont();
+        $txtheight = 0.0;
+        if ($numlines > 0) {
+            $txtheight = ($numlines * $curfont['height']) + (($numlines - 1) * $lineSpacePoints);
+        }
+
+        return [
+            'lines' => $lines,
+            'maxwidth' => $maxwidth * $scale,
+            'txtheight' => $txtheight,
+        ];
+    }
+
+    /**
+     * Returns true when text layout exceeds available inner width or height.
+     *
+     * @param array{maxwidth: float, txtheight: float, lines?: array<int, TextLinePos>} $layout
+     */
+    protected function textCellLayoutOverflows(array $layout, float $maxWidth, float $maxHeight): bool
+    {
+        return (
+            $layout['maxwidth'] > ($maxWidth + self::LINE_FIT_EPSILON)
+            || $layout['txtheight'] > ($maxHeight + self::LINE_FIT_EPSILON)
+        );
+    }
+
+    /**
+     * Returns true when text layout exceeds available inner width.
+     *
+     * @param array{maxwidth: float, txtheight: float, lines?: array<int, TextLinePos>} $layout
+     */
+    protected function textCellLayoutWidthOverflows(array $layout, float $maxWidth): bool
+    {
+        return $layout['maxwidth'] > ($maxWidth + self::LINE_FIT_EPSILON);
+    }
+
+    /**
+     * Fit text by truncation and append a truncation marker.
+     *
+     * @param array<int, int> $ordarr
+     *
+     * @return array<int, int>
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function fitTextCellByTruncation(
+        array $ordarr,
+        float $maxWidth,
+        float $maxHeight,
+        float $offsetPoints,
+        float $lineSpacePoints,
+    ): array {
+        if ($ordarr === [] || $maxWidth <= 0 || $maxHeight <= 0) {
+            return [];
+        }
+
+        $dim = $this->font->getOrdArrDims($ordarr);
+        $layout = $this->getTextCellLayout($ordarr, $dim, $maxWidth, $maxWidth, 1.0, $offsetPoints, $lineSpacePoints);
+        if (!$this->textCellLayoutOverflows($layout, $maxWidth, $maxHeight)) {
+            return $ordarr;
+        }
+
+        $marker = $this->getTextCellTruncationMarkerOrdArr();
+        $marker_dim = $this->font->getOrdArrDims($marker);
+        $marker_layout = $this->getTextCellLayout(
+            $marker,
+            $marker_dim,
+            $maxWidth,
+            $maxWidth,
+            1.0,
+            $offsetPoints,
+            $lineSpacePoints,
+        );
+        if ($this->textCellLayoutOverflows($marker_layout, $maxWidth, $maxHeight)) {
+            return [];
+        }
+
+        $total = \count($ordarr);
+        $low = 0;
+        $high = $total;
+        $best = -1;
+
+        while ($low <= $high) {
+            $mid = \intdiv($low + $high, 2);
+            $candidate = \array_slice($ordarr, 0, $mid);
+            if ($mid < $total) {
+                $candidate = \array_merge($candidate, $marker);
+            }
+
+            $candidate_dim = $this->font->getOrdArrDims($candidate);
+            $candidate_layout = $this->getTextCellLayout(
+                $candidate,
+                $candidate_dim,
+                $maxWidth,
+                $maxWidth,
+                1.0,
+                $offsetPoints,
+                $lineSpacePoints,
+            );
+
+            if (!$this->textCellLayoutOverflows($candidate_layout, $maxWidth, $maxHeight)) {
+                $best = $mid;
+                $low = $mid + 1;
+            } else {
+                $high = $mid - 1;
+            }
+        }
+
+        if ($best < 0) {
+            return [];
+        }
+
+        $trimmed = \array_slice($ordarr, 0, $best);
+        if ($best < $total) {
+            $trimmed = \array_merge($trimmed, $marker);
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * Returns truncation marker ordinals (ellipsis if available, otherwise three dots).
+     *
+     * @return array<int, int>
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function getTextCellTruncationMarkerOrdArr(): array
+    {
+        if ($this->font->isCharDefined(0x2026)) {
+            return [0x2026];
+        }
+
+        return [46, 46, 46];
+    }
+
+    /**
+     * Fit text by horizontal glyph scaling.
+     *
+     * @param array<int, int> $ordarr
+     * @param TTextDims $dim
+     *
+     * @return array{fontchanged: bool, linewidth: float, layout: array{lines: array<int, TextLinePos>, maxwidth: float, txtheight: float}}
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function fitTextCellByStretch(
+        array $ordarr,
+        array $dim,
+        float $maxWidth,
+        float $maxHeight,
+        float $offsetPoints,
+        float $lineSpacePoints,
+    ): array {
+        $base = $this->getTextCellLayout($ordarr, $dim, $maxWidth, $maxWidth, 1.0, $offsetPoints, $lineSpacePoints);
+        if (!$this->textCellLayoutOverflows($base, $maxWidth, $maxHeight)) {
+            return [
+                'fontchanged' => false,
+                'linewidth' => $maxWidth,
+                'layout' => $base,
+            ];
+        }
+
+        $best_stretch = 100.0;
+        $best_layout = $base;
+
+        $probe_stretch = self::TEXTCELL_MIN_STRETCH;
+        $probe_split = $maxWidth * (100.0 / $probe_stretch);
+        $probe_layout = $this->getTextCellLayout(
+            $ordarr,
+            $dim,
+            $probe_split,
+            $maxWidth,
+            $probe_stretch / 100.0,
+            $offsetPoints,
+            $lineSpacePoints,
+        );
+
+        if (!$this->textCellLayoutOverflows($probe_layout, $maxWidth, $maxHeight)) {
+            $low = self::TEXTCELL_MIN_STRETCH;
+            $high = 100.0;
+            $best_stretch = $probe_stretch;
+            $best_layout = $probe_layout;
+
+            for ($iter = 0; $iter < 12; ++$iter) {
+                $mid = ($low + $high) / 2.0;
+                $mid_split = $maxWidth * (100.0 / $mid);
+                $mid_layout = $this->getTextCellLayout(
+                    $ordarr,
+                    $dim,
+                    $mid_split,
+                    $maxWidth,
+                    $mid / 100.0,
+                    $offsetPoints,
+                    $lineSpacePoints,
+                );
+
+                if ($this->textCellLayoutOverflows($mid_layout, $maxWidth, $maxHeight)) {
+                    $high = $mid;
+                    continue;
+                }
+
+                $low = $mid;
+                $best_stretch = $mid;
+                $best_layout = $mid_layout;
+            }
+        } else {
+            // Even at minimum stretch the layout still overflows.
+            // If the overflow is still a width overflow, apply best-effort compression.
+            // If only height overflows (compression cannot reduce line count), skip.
+            if (!$this->textCellLayoutWidthOverflows($probe_layout, $maxWidth)) {
+                return [
+                    'fontchanged' => false,
+                    'linewidth' => $maxWidth,
+                    'layout' => $base,
+                ];
+            }
+
+            $best_stretch = self::TEXTCELL_MIN_STRETCH;
+            $best_layout = $probe_layout;
+        }
+
+        if ($best_stretch >= (100.0 - self::LINE_FIT_EPSILON)) {
+            return [
+                'fontchanged' => false,
+                'linewidth' => $maxWidth,
+                'layout' => $best_layout,
+            ];
+        }
+
+        $curfont = $this->font->getCurrentFont();
+        $this->font->cloneFont($this->pon, $curfont['idx'], null, null, $curfont['spacing'], $best_stretch);
+
+        return [
+            'fontchanged' => true,
+            'linewidth' => $maxWidth * (100.0 / $best_stretch),
+            'layout' => $best_layout,
+        ];
+    }
+
+    /**
+     * Fit text by reducing font size.
+     *
+     * @param array<int, int> $ordarr
+     *
+     * @return array{fontchanged: bool, fontout: string, dim: TTextDims, layout: array{lines: array<int, TextLinePos>, maxwidth: float, txtheight: float}}
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function fitTextCellByFontSize(
+        array $ordarr,
+        float $maxWidth,
+        float $maxHeight,
+        float $offsetPoints,
+        float $lineSpacePoints,
+    ): array {
+        $basedim = $this->font->getOrdArrDims($ordarr);
+        $base = $this->getTextCellLayout($ordarr, $basedim, $maxWidth, $maxWidth, 1.0, $offsetPoints, $lineSpacePoints);
+        if (!$this->textCellLayoutOverflows($base, $maxWidth, $maxHeight)) {
+            return [
+                'fontchanged' => false,
+                'fontout' => '',
+                'dim' => $basedim,
+                'layout' => $base,
+            ];
+        }
+
+        $curfont = $this->font->getCurrentFont();
+        $current_size = $curfont['size'];
+        if ($current_size <= self::TEXTCELL_MIN_FONTSIZE) {
+            return [
+                'fontchanged' => false,
+                'fontout' => '',
+                'dim' => $basedim,
+                'layout' => $base,
+            ];
+        }
+
+        $ratio_w = $base['maxwidth'] > 0 ? $maxWidth / $base['maxwidth'] : 1.0;
+        $ratio_h = $base['txtheight'] > 0 ? $maxHeight / $base['txtheight'] : 1.0;
+        $target_size = $current_size * \min($ratio_w, $ratio_h);
+        $target_size = \max(self::TEXTCELL_MIN_FONTSIZE, \min($current_size, $target_size));
+
+        $low = self::TEXTCELL_MIN_FONTSIZE;
+        $high = $current_size;
+        $best_size = $target_size;
+        $best_dim = $basedim;
+        $best_layout = $base;
+
+        $this->font->cloneFont($this->pon, $curfont['idx'], null, $best_size);
+        try {
+            $probe_dim = $this->font->getOrdArrDims($ordarr);
+            $probe_layout = $this->getTextCellLayout(
+                $ordarr,
+                $probe_dim,
+                $maxWidth,
+                $maxWidth,
+                1.0,
+                $offsetPoints,
+                $lineSpacePoints,
+            );
+        } finally {
+            $this->font->popLastFont();
+        }
+
+        if (!$this->textCellLayoutOverflows($probe_layout, $maxWidth, $maxHeight)) {
+            $best_dim = $probe_dim;
+            $best_layout = $probe_layout;
+            $low = $best_size;
+
+            for ($iter = 0; $iter < 12; ++$iter) {
+                $mid = ($low + $high) / 2.0;
+                $this->font->cloneFont($this->pon, $curfont['idx'], null, $mid);
+                try {
+                    $mid_dim = $this->font->getOrdArrDims($ordarr);
+                    $mid_layout = $this->getTextCellLayout(
+                        $ordarr,
+                        $mid_dim,
+                        $maxWidth,
+                        $maxWidth,
+                        1.0,
+                        $offsetPoints,
+                        $lineSpacePoints,
+                    );
+                } finally {
+                    $this->font->popLastFont();
+                }
+
+                if ($this->textCellLayoutOverflows($mid_layout, $maxWidth, $maxHeight)) {
+                    $high = $mid;
+                    continue;
+                }
+
+                $low = $mid;
+                $best_size = $mid;
+                $best_dim = $mid_dim;
+                $best_layout = $mid_layout;
+            }
+        } else {
+            $best_size = self::TEXTCELL_MIN_FONTSIZE;
+            $this->font->cloneFont($this->pon, $curfont['idx'], null, $best_size);
+            try {
+                $best_dim = $this->font->getOrdArrDims($ordarr);
+                $best_layout = $this->getTextCellLayout(
+                    $ordarr,
+                    $best_dim,
+                    $maxWidth,
+                    $maxWidth,
+                    1.0,
+                    $offsetPoints,
+                    $lineSpacePoints,
+                );
+            } finally {
+                $this->font->popLastFont();
+            }
+        }
+
+        if ($best_size >= ($current_size - self::LINE_FIT_EPSILON)) {
+            return [
+                'fontchanged' => false,
+                'fontout' => '',
+                'dim' => $basedim,
+                'layout' => $base,
+            ];
+        }
+
+        $applied = $this->font->cloneFont($this->pon, $curfont['idx'], null, $best_size);
+
+        return [
+            'fontchanged' => true,
+            'fontout' => $applied['out'],
+            'dim' => $best_dim,
+            'layout' => $best_layout,
+        ];
     }
 
     /**

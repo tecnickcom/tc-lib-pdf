@@ -56,7 +56,7 @@ use Com\Tecnick\Pdf\Import\PageTemplateInterface;
  * @method string defaultPageContent(int $pid = -1)
  * @method array<string, mixed> addPage(array $data = [])
  * @method void setPageContext(int $pid = -1)
- * @method void addTextCell(string $txt, int $pid = -1, float $posx = 0, float $posy = 0, float $width = 0, float $height = 0, float $offset = 0, float $linespace = 0, string $valign = 'T', string $halign = '', ?array $cell = null, array $styles = [], float $strokewidth = 0, float $wordspacing = 0, float $leading = 0, float $rise = 0, bool $jlast = true, bool $fill = true, bool $stroke = false, bool $underline = false, bool $linethrough = false, bool $overline = false, bool $clip = false, bool $drawcell = true, string $forcedir = '', ?array $shadow = null)
+ * @method void addTextCell(string $txt, int $pid = -1, float $posx = 0, float $posy = 0, float $width = 0, float $height = 0, float $offset = 0, float $linespace = 0, string $valign = 'T', string $halign = '', ?array $cell = null, array $styles = [], float $strokewidth = 0, float $wordspacing = 0, float $leading = 0, float $rise = 0, bool $jlast = true, bool $fill = true, bool $stroke = false, bool $underline = false, bool $linethrough = false, bool $overline = false, bool $clip = false, bool $drawcell = true, string $forcedir = '', ?array $shadow = null, string $fit = '')
  * @method array<string, mixed> getLastBBox()
  * @property bool $defPageContentEnabled
  *
