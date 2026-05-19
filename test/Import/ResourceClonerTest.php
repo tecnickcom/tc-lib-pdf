@@ -33,6 +33,31 @@ class ResourceClonerTest extends TestCase
         return new SourceDocument($data);
     }
 
+    /**
+     * @param array<string, mixed> $objects
+     * @throws \Throwable
+     */
+    private function makeMockSourceDocument(array $objects): SourceDocument
+    {
+        $src = $this->createStub(SourceDocument::class);
+
+        $src->method('getObject')->willReturnCallback(static function (string $ref) use ($objects): array {
+            if (!isset($objects[$ref]) || !\is_array($objects[$ref])) {
+                throw new ImportCorruptedSourceException('Object not found in mock source: ' . $ref);
+            }
+
+            /** @var array<int, mixed> */
+            return $objects[$ref];
+        });
+
+        $src->method('findObject')->willReturnCallback(static fn(string $ref): ?array => isset($objects[$ref])
+            && \is_array($objects[$ref])
+                ? $objects[$ref]
+                : null);
+
+        return $src;
+    }
+
     // -------------------------------------------------------------------------
     // getPon
     // -------------------------------------------------------------------------
@@ -260,6 +285,133 @@ class ResourceClonerTest extends TestCase
 
         // Each unique ref increments pon once.
         $this->assertSame(7, $cloner->getPon());
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectSerializesFirstScalarValueWhenNoDictOrStreamExists(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                ['endobj', ''],
+                ['numeric', 123],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $destNum = $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString($destNum . ' 0 obj', $flushed);
+        $this->assertStringContainsString("\n123\n", $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectSerializesFirstArrayValueWhenScalarObjectContainsArrayToken(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '[',
+                    [
+                        ['numeric', 1],
+                        ['numeric', 2],
+                        ['/', 'Name'],
+                    ],
+                ],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString('[1 2 /Name]', $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectScalarObjRefRemapsAndQueuesReferencedObject(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                ['objref', '2 0 R'],
+            ],
+            '2_0' => [
+                ['numeric', 7],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertSame(2, \substr_count($flushed, "endobj\n"));
+        $this->assertMatchesRegularExpression('/\d+ 0 R/', $flushed);
+        $this->assertStringContainsString("\n7\n", $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectScalarFallbackReturnsNullWhenNoSerializableValueExists(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                ['endobj', ''],
+                'junk-token',
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString("\nnull\n", $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectSerializesDictionaryValuesAcrossTokenTypes(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Name'],
+                        ['string', 'Demo'],
+                        ['/', 'Hex'],
+                        ['hex', 'CAFE'],
+                        ['/', 'Nums'],
+                        [
+                            '[',
+                            [
+                                ['numeric', 1],
+                                ['numeric', 2],
+                            ],
+                        ],
+                        ['/', 'Ref'],
+                        ['objref', '2 0 R'],
+                        ['/', 'Kind'],
+                        ['/', 'Subtype'],
+                    ],
+                ],
+            ],
+            '2_0' => [
+                ['numeric', 55],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString('/Name (Demo)', $flushed);
+        $this->assertStringContainsString('/Hex <CAFE>', $flushed);
+        $this->assertStringContainsString('/Nums [1 2]', $flushed);
+        $this->assertStringContainsString('/Kind /Subtype', $flushed);
+        $this->assertMatchesRegularExpression('/\/Ref \d+ 0 R/', $flushed);
     }
 
     // -------------------------------------------------------------------------

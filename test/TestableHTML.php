@@ -743,6 +743,162 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<int, string> $properties
+     */
+    public function exposeIsLastHTMLStyleDeclarationProperty(
+        array &$dom,
+        int $key,
+        string $property,
+        array $properties,
+    ): bool {
+        return $this->isLastHTMLStyleDeclarationProperty($dom, $key, $property, $properties);
+    }
+
+    /**
+     * @phpstan-param THTMLRenderContext $hrc
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    public function exposeGetCurrentHTMLListIndentWidthWithContext(array &$hrc): float
+    {
+        return $this->getCurrentHTMLListIndentWidth($hrc);
+    }
+
+    /**
+     * @param array<string, mixed> $elm
+     */
+    public function exposeGetPdfUaListNumbering(array $elm): string
+    {
+        return $this->getPdfUaListNumbering($elm);
+    }
+
+    /**
+     * @return array{T: string, R: string, B: string, L: string}|array{}
+     */
+    public function exposeExpandHTMLBorderQuadValues(string $value): array
+    {
+        return $this->expandHTMLBorderQuadValues($value);
+    }
+
+    /**
+     * @phpstan-param THTMLTableState $table
+     * @phpstan-param THTMLAttrib $elm
+     * @param array{buffer: string} $cellctx
+     */
+    public function exposeShouldHideHTMLEmptyTableCell(array $table, array $elm, array $cellctx): bool
+    {
+        $fullCellCtx = [
+            'bstyles' => [],
+            'buffer' => $cellctx['buffer'],
+            'cellw' => 0.0,
+            'cellx' => 0.0,
+            'colindex' => 0,
+            'colspan' => 1,
+            'fillstyle' => null,
+            'lineadvance' => 0.0,
+            'lineascent' => 0.0,
+            'linebottom' => 0.0,
+            'linewordspacing' => 0.0,
+            'linewrapped' => false,
+            'maxheight' => 0.0,
+            'maxwidth' => 0.0,
+            'originx' => 0.0,
+            'originy' => 0.0,
+            'rowspan' => 1,
+            'rowtop' => 0.0,
+            'valign' => 'top',
+        ];
+
+        return $this->shouldHideHTMLEmptyTableCell($table, $elm, $fullCellCtx);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Pdf\Exception
+     */
+    public function exposeParseHTMLStyleBorderSpacingProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBorderSpacingProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStylePageBreakInsideProperty(array &$dom, int $key): void
+    {
+        $this->parseHTMLStylePageBreakInsideProperty($dom, $key);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleBreakInsideAliasProperty(array &$dom, int $key): void
+    {
+        $this->parseHTMLStyleBreakInsideAliasProperty($dom, $key);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @throws \Com\Tecnick\Color\Exception
+     */
+    public function exposeParseHTMLStyleBackgroundProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleBackgroundProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleTableLayoutProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleTableLayoutProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleCaptionSideProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleCaptionSideProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleEmptyCellsProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleEmptyCellsProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleFontShorthandProperty(array &$dom, int $key): void
+    {
+        $this->parseHTMLStyleFontShorthandProperty($dom, $key);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleFontFamilyProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleFontFamilyProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleListStyleShorthandProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleListStyleShorthandProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleListStyleTypeProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleListStyleTypeProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleListStylePositionProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleListStylePositionProperty($dom, $key, $parentkey);
+    }
+
+    /** @phpstan-param array<int, THTMLAttrib> $dom */
+    public function exposeParseHTMLStyleListStyleImageProperty(array &$dom, int $key, int $parentkey): void
+    {
+        $this->parseHTMLStyleListStyleImageProperty($dom, $key, $parentkey);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
      * @throws \Throwable
      */
     public function exposeParseHTMLStyleAttributesWithDom(array &$dom, int $key, int $parentkey): void

@@ -69,6 +69,7 @@ class TestableHTMLBBoxProbe extends TestableHTML
         bool $drawcell = true,
         string $forcedir = '',
         ?array $shadow = null,
+        string $fit = '',
     ): string {
         $out = parent::getTextCell(
             $txt,
@@ -96,6 +97,7 @@ class TestableHTMLBBoxProbe extends TestableHTML
             $drawcell,
             $forcedir,
             $shadow,
+            $fit,
         );
 
         $bbox = $this->getLastBBox();

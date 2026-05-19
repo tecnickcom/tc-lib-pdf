@@ -16,6 +16,7 @@
 
 namespace Test\Import;
 
+use Com\Tecnick\Pdf\Import\ImportCorruptedSourceException;
 use Com\Tecnick\Pdf\Import\ImportPageOutOfRangeException;
 use Com\Tecnick\Pdf\Import\PageResolver;
 use Com\Tecnick\Pdf\Import\SourceDocument;
@@ -30,6 +31,36 @@ class PageResolverTest extends TestCase
         $data = file_get_contents($path);
         $this->assertNotFalse($data);
         return new SourceDocument($data);
+    }
+
+    /**
+     * @param array<int, mixed> $pairs
+     * @return array<int, mixed>
+     */
+    private function dictObject(array $pairs): array
+    {
+        return [['<<', $pairs]];
+    }
+
+    /**
+     * @param array<string, array<int, mixed>> $objects
+     * @throws \Throwable
+     */
+    private function mockDoc(array $objects): SourceDocument
+    {
+        $doc = $this->createStub(SourceDocument::class);
+        $doc->method('getTrailer')->willReturn(['root' => '1 0 R']);
+        $doc->method('getObject')->willReturnCallback(static function (string $ref) use ($objects): array {
+            $object = $objects[$ref] ?? null;
+            if ($object === null) {
+                throw new ImportCorruptedSourceException('Missing object in test map: ' . $ref);
+            }
+
+            return $object;
+        });
+        $doc->method('findObject')->willReturnCallback(static fn(string $ref): ?array => $objects[$ref] ?? null);
+
+        return $doc;
     }
 
     /** @throws \Throwable */
@@ -73,5 +104,121 @@ class PageResolverTest extends TestCase
         $resolver = new PageResolver();
         $this->expectException(ImportPageOutOfRangeException::class);
         $resolver->resolve($this->loadDoc(), 999);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveParsesInheritedRotateAndIndirectResources(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+                ['/', 'MediaBox'],
+                [
+                    '[',
+                    [
+                        ['numeric', 0],
+                        ['numeric', 0],
+                        ['numeric', 612],
+                        ['numeric', 792],
+                    ],
+                ],
+                ['/', 'Rotate'],
+                ['numeric', '180'],
+                ['/', 'Resources'],
+                ['objref', '4 0 R'],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+            ]),
+            '4_0' => $this->dictObject([
+                ['/', 'Font'],
+                [
+                    '<<',
+                    [
+                        ['/', 'F1'],
+                        ['objref', '5 0 R'],
+                    ],
+                ],
+            ]),
+            '5_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Font'],
+            ]),
+        ]);
+
+        $resolved = $resolver->resolve($doc, 1);
+
+        $this->assertSame(180, $resolved['rotate']);
+        $this->assertArrayHasKey('Font', $resolved['resources']);
+        if (!isset($resolved['resources']['Font']) || !\is_array($resolved['resources']['Font'])) {
+            $this->fail('Expected Font resources array.');
+        }
+
+        $this->assertArrayHasKey('F1', $resolved['resources']['Font']);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveThrowsForPagesNodeWithoutKidsArray(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessage('/Kids');
+        $resolver->resolve($doc, 1);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveThrowsForUnexpectedPageTreeNodeType(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Catalog'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessage('Unexpected page tree node type');
+        $resolver->resolve($doc, 1);
     }
 }

@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * @phpstan-import-type THTMLAttrib from \Com\Tecnick\Pdf\HTML
+ * @phpstan-import-type THTMLTableState from \Com\Tecnick\Pdf\HTML
  */
 class HTMLTest extends TestUtil
 {
@@ -123,6 +124,45 @@ class HTMLTest extends TestUtil
         ];
         /** @var THTMLAttrib */
         return \array_replace($node, $overrides);
+    }
+
+    /** @return array{buffer: string} */
+    private function makeHtmlCellContext(string $buffer = ''): array
+    {
+        return ['buffer' => $buffer];
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     * @phpstan-return THTMLTableState
+     */
+    private function makeHtmlTableState(array $overrides = []): array
+    {
+        $state = [
+            'cellpadding' => 0.0,
+            'cells' => [],
+            'cellspacingh' => 0.0,
+            'cellspacingv' => 0.0,
+            'colindex' => 0,
+            'collapse' => false,
+            'cols' => 0,
+            'colwidth' => 0.0,
+            'colwidths' => [],
+            'dir' => 'ltr',
+            'hascellborders' => false,
+            'occupied' => [],
+            'originx' => 0.0,
+            'originy' => 0.0,
+            'prevrowbottom' => [],
+            'regionoffset' => 0.0,
+            'rowheight' => 0.0,
+            'rowspans' => [],
+            'rowtop' => 0.0,
+            'width' => 0.0,
+        ];
+
+        /** @var THTMLTableState */
+        return \array_replace($state, $overrides);
     }
 
     /**
@@ -6462,6 +6502,422 @@ class HTMLTest extends TestUtil
         $this->assertStringStartsWith('img|svg|', $markers[0]);
         assert(isset($markers[1]), "\$markers[1] must be set");
         $this->assertStringStartsWith('img|svg|', $markers[1]);
+    }
+
+    /** @throws \Throwable */
+    public function testIsLastHtmlStyleDeclarationPropertyRespectsDeclarationOrder(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'attribute' => [
+                    'style' => 'background-color: #f00; background: #00f;',
+                ],
+            ]),
+        ];
+
+        $this->assertFalse($obj->exposeIsLastHTMLStyleDeclarationProperty(
+            $dom,
+            0,
+            'background-color',
+            ['background-color', 'background'],
+        ));
+        $this->assertTrue($obj->exposeIsLastHTMLStyleDeclarationProperty(
+            $dom,
+            0,
+            'background',
+            ['background-color', 'background'],
+        ));
+
+        $domNoStyle = [0 => $this->makeHtmlNode(['attribute' => []])];
+        $this->assertTrue($obj->exposeIsLastHTMLStyleDeclarationProperty(
+            $domNoStyle,
+            0,
+            'background',
+            ['background-color', 'background'],
+        ));
+    }
+
+    /** @throws \Throwable */
+    public function testCurrentHtmlListIndentWidthPrefersActiveListIndent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $baseCtx = $obj->exposeGetHTMLRenderContext();
+        $baseCtx['liststack'] = [];
+        $baseCtx['dom'] = [];
+        $defaultIndent = $obj->exposeGetCurrentHTMLListIndentWidthWithContext($baseCtx);
+        $this->assertGreaterThan(0.0, $defaultIndent);
+
+        $ctxWithIndent = $baseCtx;
+        $ctxWithIndent['liststack'] = [['count' => 0, 'indent' => 9.75, 'ordered' => false, 'type' => 'disc']];
+        $this->assertSame(9.75, $obj->exposeGetCurrentHTMLListIndentWidthWithContext($ctxWithIndent));
+
+        $ctxWithZeroIndent = $baseCtx;
+        $ctxWithZeroIndent['liststack'] = [['count' => 0, 'indent' => 0.0, 'ordered' => false, 'type' => 'disc']];
+        $this->assertEqualsWithDelta(
+            $defaultIndent,
+            $obj->exposeGetCurrentHTMLListIndentWidthWithContext($ctxWithZeroIndent),
+            0.0001,
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testPdfUaListNumberingMapsKnownValuesAndTagFallbacks(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame('UpperRoman', $obj->exposeGetPdfUaListNumbering([
+            'value' => 'ol',
+            'listtype' => 'upper-roman',
+        ]));
+        $this->assertSame('LowerAlpha', $obj->exposeGetPdfUaListNumbering(['value' => 'ol', 'listtype' => 'a']));
+        $this->assertSame('Circle', $obj->exposeGetPdfUaListNumbering(['value' => 'ul', 'listtype' => 'circle']));
+        $this->assertSame('Disc', $obj->exposeGetPdfUaListNumbering(['value' => 'ul', 'listtype' => '']));
+        $this->assertSame('Decimal', $obj->exposeGetPdfUaListNumbering(['value' => 'ol', 'listtype' => '']));
+        $this->assertSame('', $obj->exposeGetPdfUaListNumbering(['value' => 'div', 'listtype' => 'none']));
+    }
+
+    /** @throws \Throwable */
+    public function testExpandHtmlBorderQuadValuesSupportsTokenGroups(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame(
+            ['T' => '1px', 'R' => '1px', 'B' => '1px', 'L' => '1px'],
+            $obj->exposeExpandHTMLBorderQuadValues('1px'),
+        );
+        $this->assertSame(
+            ['T' => '1px', 'R' => '2px', 'B' => '1px', 'L' => '2px'],
+            $obj->exposeExpandHTMLBorderQuadValues('1px 2px'),
+        );
+        $this->assertSame(
+            ['T' => '1px', 'R' => '2px', 'B' => '3px', 'L' => '2px'],
+            $obj->exposeExpandHTMLBorderQuadValues('1px 2px 3px'),
+        );
+        $this->assertSame(
+            ['T' => '1px', 'R' => '2px', 'B' => '3px', 'L' => '4px'],
+            $obj->exposeExpandHTMLBorderQuadValues('1px 2px 3px 4px'),
+        );
+        $this->assertSame(['T' => '', 'R' => '', 'B' => '', 'L' => ''], $obj->exposeExpandHTMLBorderQuadValues('   '));
+    }
+
+    /** @throws \Throwable */
+    public function testShouldHideEmptyTableCellDependsOnCollapseModeAndBuffer(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $elm = $this->makeHtmlNode(['empty-cells' => 'hide']);
+        $cell = $this->makeHtmlCellContext();
+
+        $this->assertTrue($obj->exposeShouldHideHTMLEmptyTableCell(
+            $this->makeHtmlTableState(['collapse' => false]),
+            $elm,
+            $cell,
+        ));
+        $this->assertFalse($obj->exposeShouldHideHTMLEmptyTableCell(
+            $this->makeHtmlTableState(['collapse' => true]),
+            $elm,
+            $cell,
+        ));
+        $this->assertFalse($obj->exposeShouldHideHTMLEmptyTableCell(
+            $this->makeHtmlTableState(['collapse' => false]),
+            $elm,
+            $this->makeHtmlCellContext('drawn'),
+        ));
+        $this->assertFalse($obj->exposeShouldHideHTMLEmptyTableCell(
+            $this->makeHtmlTableState(['collapse' => false]),
+            $this->makeHtmlNode(['empty-cells' => 'show']),
+            $cell,
+        ));
+    }
+
+    /** @throws \Throwable */
+    public function testParseHtmlStyleBorderSpacingHandlesZeroInheritAndExplicitValues(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'style' => ['border-spacing' => '2 4'],
+                'border-spacing' => ['H' => 2.0, 'V' => 4.0],
+            ]),
+            1 => $this->makeHtmlNode([
+                'style' => ['border-spacing' => 'inherit'],
+                'parent' => 0,
+            ]),
+            2 => $this->makeHtmlNode([
+                'style' => ['border-spacing' => '0'],
+                'parent' => 0,
+            ]),
+            3 => $this->makeHtmlNode([
+                'style' => ['border-spacing' => '3 5'],
+                'parent' => 0,
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleBorderSpacingProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleBorderSpacingProperty($dom, 2, 0);
+        $obj->exposeParseHTMLStyleBorderSpacingProperty($dom, 3, 0);
+
+        if (!isset($dom[1], $dom[2], $dom[3])) {
+            $this->fail('Expected parsed DOM nodes at keys 1, 2 and 3.');
+        }
+
+        $this->assertSame(['H' => 2.0, 'V' => 4.0], $this->getHtmlNodeBorderSpacing($dom[1]));
+        $this->assertSame(['H' => 0.0, 'V' => 0.0], $this->getHtmlNodeBorderSpacing($dom[2]));
+        $this->assertNotSame(['H' => 0.0, 'V' => 0.0], $this->getHtmlNodeBorderSpacing($dom[3]));
+    }
+
+    /** @throws \Throwable */
+    public function testBreakInsidePropertiesSetNobrFlags(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'style' => ['page-break-inside' => 'avoid'],
+                'attribute' => [],
+            ]),
+            1 => $this->makeHtmlNode([
+                'style' => ['break-inside' => 'avoid'],
+                'attribute' => [],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStylePageBreakInsideProperty($dom, 0);
+        $obj->exposeParseHTMLStyleBreakInsideAliasProperty($dom, 1);
+
+        if (!isset($dom[0], $dom[1])) {
+            $this->fail('Expected parsed DOM nodes at keys 0 and 1.');
+        }
+
+        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[0], 'nobr'));
+        $this->assertSame('true', $this->getHtmlNodeAttrString($dom[1], 'nobr'));
+    }
+
+    /** @throws \Throwable */
+    public function testParseHtmlStyleBackgroundPrefersLastDeclaredProperty(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'bgcolor' => '#00ff00',
+                'style' => ['background-color' => '#00ff00'],
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'background-color: #ff0000; background: #0000ff;'],
+                'style' => ['background-color' => '#ff0000', 'background' => '#0000ff'],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'background: #0000ff; background-color: #ff0000;'],
+                'style' => ['background' => '#0000ff', 'background-color' => '#ff0000'],
+            ]),
+            3 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'background: inherit;'],
+                'style' => ['background' => 'inherit'],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleBackgroundProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleBackgroundProperty($dom, 2, 0);
+        $obj->exposeParseHTMLStyleBackgroundProperty($dom, 3, 0);
+
+        if (!isset($dom[1], $dom[2], $dom[3])) {
+            $this->fail('Expected parsed DOM nodes at keys 1, 2 and 3.');
+        }
+
+        $this->assertSame('rgba(0%,0%,100%,1)', $dom[1]['bgcolor']);
+        $this->assertSame('rgba(100%,0%,0%,1)', $dom[2]['bgcolor']);
+        $this->assertSame('#00ff00', $dom[3]['bgcolor']);
+    }
+
+    /** @throws \Throwable */
+    public function testParseHtmlStyleTableLayoutCaptionSideAndEmptyCellsInheritance(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'table-layout' => 'fixed',
+                'caption-side' => 'bottom',
+                'empty-cells' => 'hide',
+                'style' => ['table-layout' => 'fixed', 'caption-side' => 'bottom', 'empty-cells' => 'hide'],
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'style' => ['table-layout' => 'inherit', 'caption-side' => 'inherit', 'empty-cells' => 'inherit'],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'style' => ['table-layout' => 'auto', 'caption-side' => 'top', 'empty-cells' => 'show'],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleTableLayoutProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleCaptionSideProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleEmptyCellsProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleTableLayoutProperty($dom, 2, 0);
+        $obj->exposeParseHTMLStyleCaptionSideProperty($dom, 2, 0);
+        $obj->exposeParseHTMLStyleEmptyCellsProperty($dom, 2, 0);
+
+        if (!isset($dom[1], $dom[2])) {
+            $this->fail('Expected parsed DOM nodes at keys 1 and 2.');
+        }
+
+        $this->assertSame('fixed', $dom[1]['table-layout']);
+        $this->assertSame('bottom', $dom[1]['caption-side']);
+        $this->assertSame('hide', $dom[1]['empty-cells']);
+
+        $this->assertSame('auto', $dom[2]['table-layout']);
+        $this->assertSame('top', $dom[2]['caption-side']);
+        $this->assertSame('show', $dom[2]['empty-cells']);
+    }
+
+    /** @throws \Throwable */
+    public function testParseHtmlStyleInheritFallbackReadsParentStyleWhenFieldUnset(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'style' => ['table-layout' => 'fixed', 'caption-side' => 'bottom', 'empty-cells' => 'hide'],
+                'table-layout' => '',
+                'caption-side' => '',
+                'empty-cells' => '',
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'style' => ['table-layout' => 'inherit', 'caption-side' => 'inherit', 'empty-cells' => 'inherit'],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleTableLayoutProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleCaptionSideProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleEmptyCellsProperty($dom, 1, 0);
+
+        if (!isset($dom[1])) {
+            $this->fail('Expected parsed DOM node at key 1.');
+        }
+
+        $this->assertSame('fixed', $dom[1]['table-layout']);
+        $this->assertSame('bottom', $dom[1]['caption-side']);
+        $this->assertSame('hide', $dom[1]['empty-cells']);
+    }
+
+    /** @throws \Throwable */
+    public function testParseHtmlStyleFontShorthandExtractsStyleWeightStretchSizeAndFamily(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'style' => [
+                    'font' => 'italic 700 condensed 12pt/1.4 "Helvetica Neue", sans-serif',
+                ],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleFontShorthandProperty($dom, 0);
+
+        $style = $dom[0]['style'] ?? [];
+        $this->assertSame('italic', $style['font-style'] ?? '');
+        $this->assertSame('700', $style['font-weight'] ?? '');
+        $this->assertSame('condensed', $style['font-stretch'] ?? '');
+        $this->assertSame('12pt', $style['font-size'] ?? '');
+        $this->assertSame('1.4', $style['line-height'] ?? '');
+        $this->assertSame('"Helvetica Neue", sans-serif', $style['font-family'] ?? '');
+    }
+
+    /** @throws \Throwable */
+    public function testParseHtmlStyleFontFamilyResolvesInheritAndExplicitFamily(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode(['fontname' => 'times']),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'style' => ['font-family' => 'inherit'],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'style' => ['font-family' => 'Courier New, monospace'],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleFontFamilyProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleFontFamilyProperty($dom, 2, 0);
+
+        if (!isset($dom[1], $dom[2])) {
+            $this->fail('Expected parsed DOM nodes at keys 1 and 2.');
+        }
+
+        $this->assertSame('times', $dom[1]['fontname']);
+        $this->assertSame('Courier New, monospace', $dom[2]['fontname']);
+    }
+
+    /** @throws \Throwable */
+    public function testParseHtmlStyleListPropertiesHandleInheritAndExplicitValues(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'listtype' => 'square',
+                'list-style-position' => 'inside',
+                'style' => [
+                    'list-style-type' => 'square',
+                    'list-style-position' => 'inside',
+                    'list-style-image' => 'url(parent.svg)',
+                ],
+                'list-style-image' => 'url(parent.svg)',
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'style' => [
+                    'list-style' => 'inherit',
+                    'list-style-type' => 'inherit',
+                    'list-style-position' => 'inherit',
+                    'list-style-image' => 'inherit',
+                ],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'style' => [
+                    'list-style-type' => 'upper-roman',
+                    'list-style-position' => 'outside',
+                    'list-style-image' => 'url(child.svg)',
+                ],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleListStyleShorthandProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleListStyleTypeProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleListStylePositionProperty($dom, 1, 0);
+        $obj->exposeParseHTMLStyleListStyleImageProperty($dom, 1, 0);
+
+        $obj->exposeParseHTMLStyleListStyleTypeProperty($dom, 2, 0);
+        $obj->exposeParseHTMLStyleListStylePositionProperty($dom, 2, 0);
+        $obj->exposeParseHTMLStyleListStyleImageProperty($dom, 2, 0);
+
+        if (!isset($dom[1], $dom[2])) {
+            $this->fail('Expected parsed DOM nodes at keys 1 and 2.');
+        }
+
+        $this->assertSame('square', $dom[1]['listtype']);
+        $this->assertSame('inside', $dom[1]['list-style-position']);
+        $this->assertSame('url(parent.svg)', $dom[1]['list-style-image'] ?? null);
+
+        $this->assertSame('upper-roman', $dom[2]['listtype']);
+        $this->assertSame('outside', $dom[2]['list-style-position']);
+        $this->assertSame('url(child.svg)', $dom[2]['list-style-image'] ?? null);
     }
 
     /**
