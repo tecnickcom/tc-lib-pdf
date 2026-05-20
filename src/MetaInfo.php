@@ -20,8 +20,6 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf;
 
-use Com\Tecnick\Pdf\Exception as PdfException;
-
 /**
  * Com\Tecnick\Pdf\MetaInfo
  *
@@ -187,71 +185,6 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             $this->keywords = $keywords;
         }
 
-        return $this;
-    }
-
-    /**
-     * Set the PDF version (check PDF reference for valid values).
-     *
-     * @param string $version PDF document version.
-     *
-     * @throws PdfException in case of error.
-     */
-    public function setPDFVersion(string $version = '1.7'): static
-    {
-        // PDF/A-1 is based on and require the PDF 1.4.
-        if ($this->pdfa === 1) {
-            $this->pdfver = '1.4';
-            return $this;
-        }
-
-        // PDF/A-2 (ISO 19005-2:2011) and PDF/A-3 (ISO 19005-3:2012)
-        // are based on and require the PDF 1.7 standard (ISO 32000-1:2008)
-        if ($this->pdfa === 2 || $this->pdfa === 3) {
-            $this->pdfver = '1.7';
-            return $this;
-        }
-
-        // // PDF/A-4 is based on and require the PDF 2.0 (ISO 32000-2)
-        if ($this->pdfa === 4) {
-            $this->pdfver = '2.0';
-            return $this;
-        }
-
-        // PDF/UA-2 uses PDF 2.0.
-        if ($this->pdfuaMode === 'pdfua2') {
-            $this->pdfver = '2.0';
-            return $this;
-        }
-
-        // PDF/UA and PDF/UA-1 use PDF 1.7.
-        if ($this->pdfuaMode !== '') {
-            $this->pdfver = '1.7';
-            return $this;
-        }
-
-        // PDF/X-1a and PDF/X-3 require a minimum of PDF 1.3.
-        // PDF/X-4 and PDF/X-5 require a minimum of PDF 1.6.
-        if ($this->pdfx) {
-            $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
-            if ($isvalid !== 1) {
-                throw new PdfException('Invalid PDF version format');
-            }
-
-            $minVersion = match ($this->pdfxMode) {
-                'pdfx4', 'pdfx5' => '1.6',
-                default => '1.3',
-            };
-            $this->pdfver = \version_compare($version, $minVersion, '<') ? $minVersion : $version;
-            return $this;
-        }
-
-        $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
-        if ($isvalid !== 1) {
-            throw new PdfException('Invalid PDF version format');
-        }
-
-        $this->pdfver = $version;
         return $this;
     }
 

@@ -693,7 +693,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.24.0';
+    protected string $version = '8.25.0';
 
     /**
      * Encrypt object.
@@ -1583,6 +1583,71 @@ abstract class Base
     }
 
     /**
+     * Set the PDF version (check PDF reference for valid values).
+     *
+     * @param string $version PDF document version.
+     *
+     * @throws PdfException in case of error.
+     */
+    public function setPDFVersion(string $version = '1.7'): static
+    {
+        // PDF/A-1 is based on and require the PDF 1.4.
+        if ($this->pdfa === 1) {
+            $this->pdfver = '1.4';
+            return $this;
+        }
+
+        // PDF/A-2 (ISO 19005-2:2011) and PDF/A-3 (ISO 19005-3:2012)
+        // are based on and require the PDF 1.7 standard (ISO 32000-1:2008)
+        if ($this->pdfa === 2 || $this->pdfa === 3) {
+            $this->pdfver = '1.7';
+            return $this;
+        }
+
+        // // PDF/A-4 is based on and require the PDF 2.0 (ISO 32000-2)
+        if ($this->pdfa === 4) {
+            $this->pdfver = '2.0';
+            return $this;
+        }
+
+        // PDF/UA-2 uses PDF 2.0.
+        if ($this->pdfuaMode === 'pdfua2') {
+            $this->pdfver = '2.0';
+            return $this;
+        }
+
+        // PDF/UA and PDF/UA-1 use PDF 1.7.
+        if ($this->pdfuaMode !== '') {
+            $this->pdfver = '1.7';
+            return $this;
+        }
+
+        // PDF/X-1a and PDF/X-3 require a minimum of PDF 1.3.
+        // PDF/X-4 and PDF/X-5 require a minimum of PDF 1.6.
+        if ($this->pdfx) {
+            $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
+            if ($isvalid !== 1) {
+                throw new PdfException('Invalid PDF version format');
+            }
+
+            $minVersion = match ($this->pdfxMode) {
+                'pdfx4', 'pdfx5' => '1.6',
+                default => '1.3',
+            };
+            $this->pdfver = \version_compare($version, $minVersion, '<') ? $minVersion : $version;
+            return $this;
+        }
+
+        $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
+        if ($isvalid !== 1) {
+            throw new PdfException('Invalid PDF version format');
+        }
+
+        $this->pdfver = $version;
+        return $this;
+    }
+
+    /**
      * Initialize dependencies class objects.
      *
      * @param ?ObjEncrypt $objEncrypt  Encryption object.
@@ -1610,11 +1675,29 @@ abstract class Base
      *
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Pdf\Exception
      */
     public function initClassObjects(?ObjEncrypt $objEncrypt = null, ?array $fileOptions = null): void
     {
         if ($objEncrypt instanceof ObjEncrypt) {
             $this->encrypt = $objEncrypt;
+            // Enforce minimum PDF version required by the encryption algorithm.
+            // AES-128 (V=4) requires PDF 1.6 (Acrobat 7.0+).
+            // AES-256 R5 (V=5) requires PDF 1.7 (Acrobat 9+).
+            // AES-256 R6 (V=6) requires PDF 2.0 (Acrobat X+ / ISO 32000-2).
+            $encData = $this->encrypt->getEncryptionData();
+            if ($encData['encrypted']) {
+                $minVer = match (true) {
+                    $encData['V'] >= 6 => '2.0',
+                    $encData['V'] >= 5 => '1.7',
+                    $encData['V'] >= 4 => '1.6',
+                    $encData['V'] >= 2 => '1.4',
+                    default => '1.1',
+                };
+                if (\version_compare($this->pdfver, $minVer, '<')) {
+                    $this->setPDFVersion($minVer);
+                }
+            }
         } else {
             $this->encrypt = new ObjEncrypt();
         }
