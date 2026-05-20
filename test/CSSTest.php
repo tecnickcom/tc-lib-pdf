@@ -433,6 +433,20 @@ class CSSTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testExtractCSSpropertiesPreservesPlannedProperties(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = '.probe{font-size-adjust:0.59;font-variant:small-caps;orphans:5;page:chapter;quotes:"[" "]";widows:4;}';
+
+        $out = $this->normalizeSelectorMap($obj->exposeExtractCSSproperties($css));
+
+        $this->assertSame(
+            'font-size-adjust:0.59;font-variant:small-caps;orphans:5;page:chapter;quotes:"[" "]";widows:4;',
+            $out['.probe'] ?? null,
+        );
+    }
+
+    /** @throws \Throwable */
     public function testImplodeCSSDataPrefersLastDuplicateCommand(): void
     {
         $obj = $this->getInternalTestObject();
@@ -503,6 +517,27 @@ class CSSTest extends TestUtil
         $this->assertSame($expected, $out, $name);
     }
 
+    /** @throws \Throwable */
+    public function testImplodeCSSDataPreservesPlannedPropertiesAndImportance(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = [
+            ['c' => 'font-size-adjust:0.55;font-variant:normal;orphans:2;page:auto;quotes:none;widows:2;'],
+            ['c' => 'font-variant:small-caps !important;orphans:5;page:chapter;quotes:"[" "]";widows:4;'],
+            ['c' => 'font-variant:normal;'],
+        ];
+
+        $out = \str_replace(' ', '', $obj->exposeImplodeCSSData($css));
+
+        $this->assertStringContainsString('font-size-adjust:0.55;', $out);
+        $this->assertStringContainsString('font-variant:small-caps!important;', $out);
+        $this->assertStringNotContainsString('font-variant:normal;', $out);
+        $this->assertStringContainsString('orphans:5;', $out);
+        $this->assertStringContainsString('page:chapter;', $out);
+        $this->assertStringContainsString('quotes:"[""]";', $out);
+        $this->assertStringContainsString('widows:4;', $out);
+    }
+
     /** @return array<string, array{0: string, 1: list<string>, 2: string}> */
     public static function cssCascadeImportantSourceOrderProvider(): array
     {
@@ -567,6 +602,20 @@ class CSSTest extends TestUtil
 
         $this->assertContains('color:blue;', $vals);
         $this->assertContains('font-size:14pt;', $vals);
+    }
+
+    /** @throws \Throwable */
+    public function testGetCSSArrayFromHTMLPreservesPlannedPropertiesFromStyleTag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $html = '<style>.probe{font-size-adjust:0.59;font-variant:small-caps;orphans:5;page:chapter;quotes:"[" "]";widows:4;}</style>';
+
+        $out = $this->normalizeSelectorMap($obj->exposeGetCSSArrayFromHTML($html));
+
+        $this->assertSame(
+            'font-size-adjust:0.59;font-variant:small-caps;orphans:5;page:chapter;quotes:"[" "]";widows:4;',
+            $out['.probe'] ?? null,
+        );
     }
 
     /** @throws \Throwable */

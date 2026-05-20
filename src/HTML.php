@@ -133,7 +133,9 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'elkey': int,
  *     'fgcolor': string,
  *     'fill': bool,
+ *     'font-size-adjust': float|string,
  *     'font-stretch': float,
+ *     'font-variant': string,
  *     'fontname': string,
  *     'fontsize': float,
  *     'fontstyle': string,
@@ -146,7 +148,9 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'float': string,
  *     'margin': array<string, float>,
  *     'opening': bool,
+ *     'orphans': int,
  *     'overflow-wrap'?: string,
+ *     'page': string,
  *     'padding': array<string, float>,
  *     'parent': int,
  *     'pendingcellpadding'?: float,
@@ -154,6 +158,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'pendingcellspacingv'?: float,
  *     'pendingcolwidths'?: array<int, float>,
  *     'position': string,
+ *     'quotes': string,
  *     'rows': int,
  *     'self': bool,
  *     'stroke': float,
@@ -164,6 +169,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'ctxregionoffset'?: float,
  *     'inlineblocknextx'?: float,
  *     'inlineblockrowy'?: float,
+ *     'inlineblockpageid'?: int,
  *     'table-layout': string,
  *     'style': array<string, string>,
  *     'list-style-image'?: string,
@@ -175,6 +181,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *     'valign': string,
  *     'value': string,
  *     'white-space': string,
+ *     'widows': int,
  *     'word-break'?: string,
  *     'word-spacing': float,
  *     'width': float,
@@ -208,6 +215,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *         linewrapped: bool,
  *         textindentapplied: bool,
  *         pendingblockmarginb: float,
+ *         activepage?: string,
  *         regionoffset?: float,
  *         basefont: string
  *     },
@@ -228,6 +236,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  *         maxwidth: float
  *     }>,
  *     'prelevel': int,
+ *     'quotelevel': int,
  *     'dom': array<int, THTMLAttrib>,
  * }
  *
@@ -389,7 +398,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'dir',
         'fgcolor',
         'fill',
+        'font-size-adjust',
         'font-stretch',
+        'font-variant',
         'fontname',
         'fontsize',
         'fontstyle',
@@ -399,12 +410,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'list-style-image',
         'list-style-position',
         'listtype',
+        'orphans',
         'overflow-wrap',
+        'quotes',
         'stroke',
         'strokecolor',
         'text-indent',
         'text-transform',
         'white-space',
+        'widows',
         'word-break',
         'word-spacing',
     ];
@@ -479,6 +493,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'direction' => 'ltr',
         'display' => 'inline',
         'font-family' => 'helvetica',
+        'font-size-adjust' => 'none',
         'list-style' => 'none',
         'list-style-type' => 'disc',
         'list-style-position' => 'outside',
@@ -495,6 +510,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'line-height' => 'normal',
         'font-weight' => 'normal',
         'font-style' => 'normal',
+        'font-variant' => 'normal',
         'color' => 'black',
         'background-color' => 'transparent',
         'background' => 'transparent',
@@ -524,12 +540,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'border-collapse' => 'separate',
         'border-spacing' => '0',
         'overflow' => 'visible',
+        'orphans' => '2',
+        'page' => 'auto',
         'page-break-inside' => 'auto',
         'page-break-before' => 'auto',
         'page-break-after' => 'auto',
+        'quotes' => 'auto',
         'break-inside' => 'auto',
         'break-before' => 'auto',
         'break-after' => 'auto',
+        'widows' => '2',
     ];
 
     /**
@@ -921,41 +941,48 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $defaultDir = $this->rtl ? 'rtl' : 'ltr';
 
+        // CSS declarations are parsed into canonical engine fields
+        // (for example: color -> fgcolor, direction -> dir, text-align -> align).
+        //
+        // NOTE:
+        //   Because PDFs are visual document files,
+        //   properties built for real-time Text-to-Speech (TTS) rendering systems,
+        //   audio cues, or sound spatialisation are completely ignored by PDF layout engines:
+        //   azimuth, speak, speak-header, volume.
+
         return [
             'align' => '',
             'attribute' => [],
-            //'azimuth' => '',//
+            //'azimuth' => '', // unsupported - incompatible
             'bgcolor' => '',
             'block' => false,
             'caption-side' => 'top',
             'border-collapse' => 'separate',
             'border-spacing' => ['H' => 0.0, 'V' => 0.0],
             'border' => [],
-            //'border-collapse' => '',//
-            //'border-spacing' => '',//
             'clip' => false,
             'clear' => 'none',
-            //'color' => '',//
+            //'color' => '', // mapped to fgcolor
             'cols' => 0,
             'content' => '',
             'cssdata' => [],
             'csssel' => [],
-            //'cursor' => '',//
+            //'cursor' => '', // unsupported - incompatible
             'dir' => $defaultDir,
-            //'direction' => '',//
+            //'direction' => '', // mapped to dir
             'display' => 'inline',
             'elkey' => 0,
             'empty-cells' => 'show',
             'fgcolor' => 'black',
             'fill' => true,
-            //'font' => '',//
-            //'font-family' => '',//
-            //'font-size' => $font['size'],//
-            //'font-size-adjust' => '',//
+            //'font' => '', // mapped via font-family/font-size/font-style/font-weight/line-height/font-stretch
+            //'font-family' => '', // mapped to fontname
+            //'font-size' => $font['size'], // mapped to fontsize
+            'font-size-adjust' => 'none',
             'font-stretch' => $fontstretch,
-            //'font-style' => $font['style'],//
-            //'font-variant' => '',//
-            //'font-weight' => '',//
+            //'font-style' => $font['style'], // mapped to fontstyle
+            'font-variant' => 'normal',
+            //'font-weight' => '', // mapped to fontstyle (B flag)
             'fontname' => $fontname,
             'fontsize' => $fontsize,
             'fontstyle' => $fontstyle,
@@ -963,40 +990,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'hide' => false,
             'letter-spacing' => $fontspacing,
             'line-height' => 1.0,
-            //'list-style' => '',//
+            //'list-style' => '', // mapped to listtype/list-style-position/list-style-image
             'list-style-image' => '',
             'list-style-position' => 'outside',
-            //'list-style-type' => '',//
+            //'list-style-type' => '', // mapped to listtype
             'listtype' => '',
             'float' => 'none',
             'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
             'opening' => false,
-            //'orphans' => '',//
+            'orphans' => 2,
             'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
-            //'page' => '',//
-            //'page-break-inside' => '',//
+            'page' => 'auto',
+            //'page-break-inside' => '', // mapped to attribute["nobr"]
             'parent' => 0,
             'position' => 'static',
-            //'quotes' => '',//
+            'quotes' => 'auto',
             'rows' => 0,
             'self' => false,
-            //'speak' => '',//
-            //'speak-header' => '',//
+            //'speak' => '', // unsupported - incompatible
+            //'speak-header' => '', // unsupported - incompatible
             'stroke' => 0.0,
             'strokecolor' => 'black',
             'table-layout' => 'auto',
             'style' => [],
             'tag' => false,
-            //'text-align' => '',//
+            //'text-align' => '', // mapped to align
             'text-indent' => 0.0,
             'text-transform' => '',
             'thead' => '',
             'trids' => [],
             'valign' => 'top',
             'value' => '',
-            //'volume' => '',//
+            //'volume' => '', // unsupported - incompatible
             'white-space' => 'normal',
-            //'widows' => '',//
+            'widows' => 2,
             'word-spacing' => 0.0,
             'width' => 0.0,
             'x' => 0.0,
@@ -2486,12 +2513,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->parseHTMLStyleOverflowWrapProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleWordBreakProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleFontSizeProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontSizeAdjustProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleFontStretchProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleLetterSpacingProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleWordSpacingProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleLineHeightProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleFontWeightProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleFontStyleProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleFontVariantProperty($dom, $key, $parentkey);
 
         // Colors and text decoration.
         $this->parseHTMLStyleColorProperty($dom, $key, $parentkey);
@@ -2531,6 +2560,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Page break properties and modern break aliases.
         $this->parseHTMLStylePageBreakInsideProperty($dom, $key);
         $this->parseHTMLStyleBreakInsideAliasProperty($dom, $key);
+        $this->parseHTMLStyleOrphansProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleWidowsProperty($dom, $key, $parentkey);
+        $this->parseHTMLStylePageProperty($dom, $key, $parentkey);
+        $this->parseHTMLStyleQuotesProperty($dom, $key, $parentkey);
         $this->parseHTMLStylePageBreakBeforeProperty($dom, $key);
         $this->parseHTMLStyleBreakBeforeAliasProperty($dom, $key);
         $this->parseHTMLStylePageBreakAfterProperty($dom, $key);
@@ -3289,6 +3322,39 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Parse font-size-adjust style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontSizeAdjustProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!isset($dom[$key]['style']['font-size-adjust']) || $dom[$key]['style']['font-size-adjust'] === '') {
+            return;
+        }
+
+        $adjustRaw = \trim($dom[$key]['style']['font-size-adjust']);
+        $adjust = \strtolower($adjustRaw);
+        if ($adjust === 'inherit') {
+            if (isset($dom[$parentkey]['font-size-adjust'])) {
+                $dom[$key]['font-size-adjust'] = $dom[$parentkey]['font-size-adjust'];
+            }
+            return;
+        }
+
+        if ($adjust === 'none') {
+            $dom[$key]['font-size-adjust'] = 'none';
+            return;
+        }
+
+        if (\preg_match('/^[+\-]?(?:\d+\.?\d*|\d*\.\d+)$/', $adjustRaw) === 1) {
+            $adjustValue = \filter_var($adjustRaw, FILTER_VALIDATE_FLOAT);
+            if ($adjustValue !== false && $adjustValue >= 0.0) {
+                $dom[$key]['font-size-adjust'] = $adjustValue;
+            }
+        }
+    }
+
+    /**
      * Parse font-stretch style property.
      *
      * @param array<int, THTMLAttrib> $dom
@@ -3528,6 +3594,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (!\str_contains($dom[$key]['fontstyle'], 'I')) {
                 $dom[$key]['fontstyle'] .= 'I';
             }
+        }
+    }
+
+    /**
+     * Parse font-variant style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleFontVariantProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!isset($dom[$key]['style']['font-variant']) || $dom[$key]['style']['font-variant'] === '') {
+            return;
+        }
+
+        $variant = \strtolower(\trim($dom[$key]['style']['font-variant']));
+        if ($variant === 'inherit') {
+            if (isset($dom[$parentkey]['font-variant']) && $dom[$parentkey]['font-variant'] !== '') {
+                $dom[$key]['font-variant'] = $dom[$parentkey]['font-variant'];
+            }
+            return;
+        }
+
+        if (\in_array($variant, ['normal', 'small-caps'], true)) {
+            $dom[$key]['font-variant'] = $variant;
         }
     }
 
@@ -5152,6 +5242,108 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Parse orphans style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleOrphansProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!isset($dom[$key]['style']['orphans']) || $dom[$key]['style']['orphans'] === '') {
+            return;
+        }
+
+        $orphans = \strtolower(\trim($dom[$key]['style']['orphans']));
+        if ($orphans === 'inherit') {
+            if (isset($dom[$parentkey]['orphans'])) {
+                $dom[$key]['orphans'] = \max(1, (int) $dom[$parentkey]['orphans']);
+            }
+            return;
+        }
+
+        if (\preg_match('/^\d+$/', $orphans) === 1) {
+            $dom[$key]['orphans'] = \max(1, (int) $orphans);
+        }
+    }
+
+    /**
+     * Parse widows style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleWidowsProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!isset($dom[$key]['style']['widows']) || $dom[$key]['style']['widows'] === '') {
+            return;
+        }
+
+        $widows = \strtolower(\trim($dom[$key]['style']['widows']));
+        if ($widows === 'inherit') {
+            if (isset($dom[$parentkey]['widows'])) {
+                $dom[$key]['widows'] = \max(1, (int) $dom[$parentkey]['widows']);
+            }
+            return;
+        }
+
+        if (\preg_match('/^\d+$/', $widows) === 1) {
+            $dom[$key]['widows'] = \max(1, (int) $widows);
+        }
+    }
+
+    /**
+     * Parse page style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStylePageProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!isset($dom[$key]['style']['page']) || $dom[$key]['style']['page'] === '') {
+            return;
+        }
+
+        $page = \strtolower(\trim($dom[$key]['style']['page']));
+        if ($page === 'inherit') {
+            if (isset($dom[$parentkey]['page']) && $dom[$parentkey]['page'] !== '') {
+                $dom[$key]['page'] = $dom[$parentkey]['page'];
+            }
+            return;
+        }
+
+        if ($page === 'auto' || \preg_match('/^[-_a-z][-_a-z0-9]*$/i', $page) === 1) {
+            $dom[$key]['page'] = $page;
+        }
+    }
+
+    /**
+     * Parse quotes style property.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function parseHTMLStyleQuotesProperty(array &$dom, int $key, int $parentkey): void
+    {
+        if (!isset($dom[$key]['style']['quotes']) || $dom[$key]['style']['quotes'] === '') {
+            return;
+        }
+
+        $quotes = \trim($dom[$key]['style']['quotes']);
+        $quotesLower = \strtolower($quotes);
+        if ($quotesLower === 'inherit') {
+            if (isset($dom[$parentkey]['quotes']) && $dom[$parentkey]['quotes'] !== '') {
+                $dom[$key]['quotes'] = $dom[$parentkey]['quotes'];
+            }
+            return;
+        }
+
+        if ($quotesLower === 'auto' || $quotesLower === 'none') {
+            $dom[$key]['quotes'] = $quotesLower;
+            return;
+        }
+
+        if (\preg_match('/^(?:"[^"]*"|\'[^\']*\')(?:\s+(?:"[^"]*"|\'[^\']*\'))*$/', $quotes) === 1) {
+            $dom[$key]['quotes'] = $quotes;
+        }
+    }
+
+    /**
      * Parse page-break-before style property.
      *
      * @param array<int, THTMLAttrib> $dom
@@ -6577,6 +6769,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linewrapped' => false,
             'textindentapplied' => false,
             'pendingblockmarginb' => 0.0,
+            'activepage' => 'auto',
             'regionoffset' => 0.0,
             'basefont' => $basefont,
         ];
@@ -6615,6 +6808,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linewrapped' => false,
             'textindentapplied' => false,
             'pendingblockmarginb' => 0.0,
+            'activepage' => 'auto',
             'regionoffset' => 0.0,
             'basefont' => 'helvetica',
         ];
@@ -6828,6 +7022,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linkstack' => [],
             'listack' => [],
             'prelevel' => 0,
+            'quotelevel' => 0,
             'dom' => $dom,
         ];
 
@@ -8369,6 +8564,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
+        $fontsize = $this->resolveHTMLFontSizeAdjust($elm, $fontname, $fontstyle, $fontsize);
+
         $cachekey = $fontname . '|' . $fontstyle . '|' . (string) $fontsize;
         if (isset($hrc['fontcache'][$cachekey])) {
             // Re-insert when cached font differs from the active one.
@@ -8391,6 +8588,44 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['fontcache'][$cachekey] = $metric;
 
         return $metric;
+    }
+
+    /**
+     * Resolve effective font size when CSS font-size-adjust is provided.
+     *
+     * @param THTMLAttrib $elm
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function resolveHTMLFontSizeAdjust(
+        array $elm,
+        string $fontname,
+        string $fontstyle,
+        float $fontsize,
+    ): float {
+        $adjust = $elm['font-size-adjust'];
+        if (!\is_float($adjust)) {
+            return $fontsize;
+        }
+
+        $adjustValue = $adjust;
+        if ($adjustValue <= 0.0 || $fontsize <= 0.0) {
+            return $fontsize;
+        }
+
+        $probe = $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
+        $probeSize = $probe['size'];
+        $probeXHeight = $probe['xheight'];
+        if ($probeSize <= 0.0 || $probeXHeight <= 0.0) {
+            return $fontsize;
+        }
+
+        $actualRatio = $probeXHeight / $probeSize;
+        if ($actualRatio <= 0.0) {
+            return $fontsize;
+        }
+
+        return $fontsize * ($adjustValue / $actualRatio);
     }
 
     /**
@@ -8544,6 +8779,63 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Apply conservative named-page semantics for block-level HTML elements.
+     *
+     * The current engine does not implement full @page templates, but a named
+     * page token can still express a section boundary. We honor that by forcing
+     * a break-before when the requested page name changes and the cursor is not
+     * already at the top of a fresh page/region.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLAttrib $elm Current DOM element.
+     *
+     */
+    protected function applyHTMLNamedPageSemantics(
+        array &$hrc,
+        array $elm,
+        bool $hasExplicitBreakBefore,
+        float $tpx,
+        float $tpy,
+    ): bool {
+        $requestedPage = \strtolower(\trim($elm['page']));
+        if ($requestedPage === '' || $requestedPage === 'auto') {
+            return false;
+        }
+
+        $display = \strtolower(\trim($elm['display']));
+        if ($display === 'none' || $display === 'inline' || $display === 'inline-block') {
+            return false;
+        }
+
+        $isBlockLike = $elm['block'];
+        if (!$isBlockLike && !\in_array($display, ['block', 'list-item', 'table', 'table-row'], true)) {
+            return false;
+        }
+
+        $activePage = \strtolower(\trim($hrc['cellctx']['activepage'] ?? 'auto'));
+        if ($activePage === $requestedPage) {
+            return false;
+        }
+
+        $hrc['cellctx']['activepage'] = $requestedPage;
+
+        if ($hasExplicitBreakBefore) {
+            return false;
+        }
+
+        $atFlowStart =
+            $tpy <= ($hrc['cellctx']['originy'] + self::WIDTH_TOLERANCE)
+            && $tpx <= ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE)
+            && $hrc['cellctx']['lineadvance'] <= self::WIDTH_TOLERANCE
+            && $hrc['cellctx']['linebottom'] <= ($tpy + self::WIDTH_TOLERANCE);
+        if ($atFlowStart) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Return the current HTML line advance, including previously rendered inline fragments.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -8615,6 +8907,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function normalizeHTMLText(array &$hrc, string $text, int $key = -1): string
     {
+        $text = $this->applyHTMLFontVariant($hrc, $text, $key);
+
         $mode = $this->getHTMLWhiteSpaceMode($hrc, $key);
         if ($mode === 'pre' || $mode === 'pre-wrap') {
             return \str_replace("\u{00A0}", ' ', $text);
@@ -8650,6 +8944,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         return $text;
+    }
+
+    /**
+     * Apply font-variant transformations needed by the renderer.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function applyHTMLFontVariant(array &$hrc, string $text, int $key = -1): string
+    {
+        if ($key < 0) {
+            return $text;
+        }
+
+        $elm = $hrc['dom'][$key] ?? null;
+        if (!\is_array($elm)) {
+            return $text;
+        }
+
+        $variant = \strtolower(\trim($elm['font-variant']));
+        if ($variant !== 'small-caps') {
+            return $text;
+        }
+
+        return \mb_convert_case($text, MB_CASE_UPPER, $this->encoding);
     }
 
     /**
@@ -9575,10 +9893,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $lineadvancectx = $hrc['cellctx']['lineadvance'];
+        $linebottomctx = $hrc['cellctx']['linebottom'];
         $hasinlinecontent =
-            $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE) && $lineadvancectx > self::WIDTH_TOLERANCE;
+            $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE)
+            && ($lineadvancectx > self::WIDTH_TOLERANCE || $linebottomctx > ($tpy + self::WIDTH_TOLERANCE));
         $isFloatInActiveRow = \in_array($float, ['left', 'right'], true) && $this->hasActiveHTMLFloatRow($hrc, $tpy);
-        $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
+        $lineadvance = $hasinlinecontent
+            ? \max($this->getCurrentHTMLLineAdvance($hrc, $key), \max(0.0, $linebottomctx - $tpy))
+            : 0.0;
         $collapsed = 0.0;
         if (!$hasinlinecontent && $tpy > $hrc['cellctx']['originy']) {
             $pendingBottom = $hrc['cellctx']['pendingblockmarginb'];
@@ -9666,6 +9988,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $blockX = $cursorX + $marginLeft;
             $elm['inlineblockrowy'] = $tpy;
+            $elm['inlineblockpageid'] = (int) $this->page->getPageId();
             $elm['inlineblocknextx'] = $blockX + $blockWidth + $marginRight;
         }
 
@@ -10008,7 +10331,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
             $tpx = \max($tpx + $marginR, $inlineNextX);
             if (isset($openelm['inlineblockrowy'])) {
-                $tpy = $openelm['inlineblockrowy'];
+                // Only restore tpy to opening position if we're still on the same page.
+                // If a page break occurred during content rendering (e.g., due to orphans/widows),
+                // the stored inlineblockrowy is from a different page and should not be used.
+                $storedPageId = $openelm['inlineblockpageid'] ?? -1;
+                $currentPageId = (int) $this->page->getPageId();
+                if ($storedPageId === $currentPageId) {
+                    $tpy = $openelm['inlineblockrowy'];
+                }
             }
             if ($hrc['cellctx']['maxwidth'] > 0) {
                 $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
@@ -11963,9 +12293,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function decodeHTMLCSSString(string $text): string
     {
         return \preg_replace_callback(
-            '/\\\\(.)/s',
+            '/\\\\([0-9A-Fa-f]{1,6}\s?|.)/us',
             static function (array $match): string {
                 $escaped = $match[1] ?? '';
+
+                $hex = \preg_replace('/\s+$/', '', $escaped) ?? '';
+                if ($hex !== '' && \preg_match('/^[0-9A-Fa-f]{1,6}$/', $hex) === 1) {
+                    $codepoint = (int) \hexdec($hex);
+                    if ($codepoint > 0 && $codepoint <= 0x10_FFFF) {
+                        $chr = \mb_chr($codepoint, 'UTF-8');
+                        return \is_string($chr) ? $chr : '';
+                    }
+
+                    return '';
+                }
 
                 return match ($escaped) {
                     'n' => "\n",
@@ -11979,28 +12320,196 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Extract text-only content declaration from pseudo-element CSS style.
+     * Extract pseudo-element content declaration tokens from CSS style.
+     *
+     * Supported tokens are quoted strings and quote keywords.
+     *
+     * @return array<int, string>
      */
-    protected function getHTMLPseudoTextContent(string $style): string
+    protected function getHTMLPseudoContentTokens(string $style): array
     {
         $match = [];
+        if (\preg_match('/(?:^|;)\\s*content\\s*:\\s*([^;]+?)\\s*(?:;|$)/i', $style, $match) !== 1) {
+            return [];
+        }
+
+        $valueRaw = $match[1] ?? '';
+        $value = \trim($valueRaw);
+        if ($value === '' || \strtolower($value) === 'none') {
+            return [];
+        }
+
+        $tokens = [];
+        $parts = [];
         if (
-            \preg_match(
-                '/(?:^|;)\\s*content\\s*:\\s*("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')\\s*(?:;|$)/i',
-                $style,
-                $match,
-            ) === 1
+            \preg_match_all(
+                '/"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\\b(?:open-quote|close-quote|no-open-quote|no-close-quote)\\b/i',
+                $value,
+                $parts,
+            ) === false
         ) {
-            $quotedMatch = $match[1] ?? '';
-            $quoted = $quotedMatch;
-            if (\strlen($quoted) < 2) {
+            return [];
+        }
+
+        foreach ($parts[0] ?? [] as $part) {
+            if ($part === '') {
+                continue;
+            }
+
+            $part = \trim($part);
+            $plen = \strlen($part);
+            if ($plen >= 2 && ($part[0] === '"' || $part[0] === "'")) {
+                $tokens[] = $this->decodeHTMLCSSString(\substr($part, 1, -1));
+                continue;
+            }
+
+            $tokens[] = \strtolower($part);
+        }
+
+        return $tokens;
+    }
+
+    /**
+     * Return quote pairs for the current element, defaulting to auto quotes.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @return array<int, array{open: string, close: string}>
+     */
+    protected function getHTMLQuotePairs(array &$hrc, int $key): array
+    {
+        $auto = [
+            ['open' => "\u{201C}", 'close' => "\u{201D}"],
+            ['open' => "\u{2018}", 'close' => "\u{2019}"],
+        ];
+
+        $elm = $hrc['dom'][$key] ?? null;
+        if (!\is_array($elm)) {
+            return $auto;
+        }
+
+        $quotes = \strtolower(\trim($elm['quotes']));
+        if ($quotes === 'none') {
+            return [];
+        }
+
+        if ($quotes === 'auto' || $quotes === '') {
+            return $auto;
+        }
+
+        $parts = [];
+        if (\preg_match_all('/"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'/', $elm['quotes'], $parts) === false) {
+            return $auto;
+        }
+
+        $quoted = [];
+        foreach ($parts[0] ?? [] as $part) {
+            if (\strlen($part) < 2) {
+                continue;
+            }
+
+            $quoted[] = $this->decodeHTMLCSSString(\substr($part, 1, -1));
+        }
+
+        if (\count($quoted) < 2) {
+            return $auto;
+        }
+
+        $pairs = [];
+        $count = \count($quoted);
+        for ($idx = 0; ($idx + 1) < $count; $idx += 2) {
+            $open = $quoted[$idx] ?? '';
+            $close = $quoted[$idx + 1] ?? '';
+            $pairs[] = ['open' => $open, 'close' => $close];
+        }
+
+        return $pairs === [] ? $auto : $pairs;
+    }
+
+    /**
+     * Resolve a quote keyword token and update quote nesting.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param array<int, array{open: string, close: string}> $pairs
+     */
+    protected function resolveHTMLQuoteKeyword(
+        array &$hrc,
+        #[\SensitiveParameter]
+        string $token,
+        #[\SensitiveParameter]
+        array $pairs,
+    ): string {
+        $level = $hrc['quotelevel'];
+        $maxidx = \count($pairs) - 1;
+        if ($maxidx < 0) {
+            if ($token === 'open-quote' || $token === 'no-open-quote') {
+                $hrc['quotelevel'] = $level + 1;
+            } elseif ($token === 'close-quote' || $token === 'no-close-quote') {
+                $hrc['quotelevel'] = \max(0, $level - 1);
+            }
+
+            return '';
+        }
+
+        if ($token === 'open-quote') {
+            $idx = \min($level, $maxidx);
+            $hrc['quotelevel'] = $level + 1;
+            $pair = $pairs[$idx] ?? null;
+            if (!\is_array($pair)) {
                 return '';
             }
 
-            return $this->decodeHTMLCSSString(\substr($quoted, 1, -1));
+            return $pair['open'];
         }
 
-        return '';
+        if ($token === 'close-quote') {
+            $next = \max(0, $level - 1);
+            $idx = \min($next, $maxidx);
+            $hrc['quotelevel'] = $next;
+            $pair = $pairs[$idx] ?? null;
+            if (!\is_array($pair)) {
+                return '';
+            }
+
+            return $pair['close'];
+        }
+
+        if ($token === 'no-open-quote') {
+            $hrc['quotelevel'] = $level + 1;
+            return '';
+        }
+
+        if ($token === 'no-close-quote') {
+            $hrc['quotelevel'] = \max(0, $level - 1);
+            return '';
+        }
+
+        return $token;
+    }
+
+    /**
+     * Resolve pseudo-element content declaration into rendered text.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     */
+    protected function getHTMLPseudoTextContent(array &$hrc, int $key, string $style): string
+    {
+        $tokens = $this->getHTMLPseudoContentTokens($style);
+        if ($tokens === []) {
+            return '';
+        }
+
+        $pairs = $this->getHTMLQuotePairs($hrc, $key);
+        $out = '';
+        foreach ($tokens as $token) {
+            if (\in_array($token, ['open-quote', 'close-quote', 'no-open-quote', 'no-close-quote'], true)) {
+                $out .= $this->resolveHTMLQuoteKeyword($hrc, $token, $pairs);
+                continue;
+            }
+
+            $out .= $token;
+        }
+
+        return $out;
     }
 
     /**
@@ -12008,12 +12517,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function stripHTMLPseudoContentDeclaration(string $style): string
     {
-        $withoutContent =
-            \preg_replace(
-                '/(?:^|;)\\s*content\\s*:\\s*(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')\\s*(?:;|$)/i',
-                ';',
-                $style,
-            ) ?? '';
+        $withoutContent = \preg_replace('/(?:^|;)\\s*content\\s*:\\s*[^;]+\\s*(?:;|$)/i', ';', $style) ?? '';
 
         $withoutContent = \preg_replace('/;+/', ';', $withoutContent) ?? '';
         return \trim($withoutContent, " \t\n\r\0\x0B;");
@@ -12055,7 +12559,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $text = $this->getHTMLPseudoTextContent($style);
+        $text = $this->getHTMLPseudoTextContent($hrc, $key, $style);
         if ($text === '') {
             return '';
         }
@@ -12182,14 +12686,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
-                    if (isset($elm['attribute']['pagebreak']) && $elm['attribute']['pagebreak'] !== '') {
+                    $hasExplicitBreakBefore =
+                        isset($elm['attribute']['pagebreak']) && $elm['attribute']['pagebreak'] !== '';
+                    if ($this->applyHTMLNamedPageSemantics($hrc, $elm, $hasExplicitBreakBefore, $tpx, $tpy)) {
+                        if ($hrc['blockbuf'] !== []) {
+                            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                            if ($flush !== '') {
+                                $appendFragment($flush);
+                            }
+                        }
+
+                        $this->pageBreak();
+                        $this->resetHTMLCursorAfterPageBreak($hrc, $tpx, $tpy, $tpw);
+
+                        if ($hrc['blockbuf'] !== []) {
+                            foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+                                $blkEntry['by'] = $tpy;
+                                $hrc['blockbuf'][$bidx] = $blkEntry;
+                            }
+                        }
+
+                        if ($hrc['tablestack'] !== []) {
+                            $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                        }
+
+                        $didpagebreak = true;
+                    }
+
+                    if ($hasExplicitBreakBefore) {
+                        $rawPageBreakBefore = $elm['attribute']['pagebreak'] ?? '';
+                        $pagebreakbefore = \is_string($rawPageBreakBefore) ? $rawPageBreakBefore : '';
                         $pid = $this->pageBreak();
                         $didpagebreak = true;
-                        if ($elm['attribute']['pagebreak'] !== 'true') {
+                        if ($pagebreakbefore !== 'true') {
                             $leftmode = $this->rtl ^ ($pid % 2) === 0;
                             if (
-                                $elm['attribute']['pagebreak'] === 'left' && $leftmode
-                                || $elm['attribute']['pagebreak'] === 'right' && !$leftmode
+                                $pagebreakbefore === 'left' && $leftmode
+                                || $pagebreakbefore === 'right' && !$leftmode
                             ) {
                                 $this->pageBreak();
                                 $didpagebreak = true;
@@ -12711,6 +13244,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linkstack' => [],
             'listack' => [],
             'prelevel' => 0,
+            'quotelevel' => 0,
             'dom' => $dom,
         ];
 
@@ -12824,6 +13358,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linkstack' => [],
             'listack' => [],
             'prelevel' => 0,
+            'quotelevel' => 0,
             'dom' => $dom,
         ];
         $outbypage = [];
@@ -13187,8 +13722,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $probeCount = \count($probeLines);
 
                 if ($probeCount > $maxFitLines && $tpy > ($regiontopMV + self::WIDTH_TOLERANCE)) {
+                    $orphans = \max(1, (int) $elm['orphans']);
+                    $widows = \max(1, (int) $elm['widows']);
+                    $fitLines = $maxFitLines;
+                    $tailLines = $probeCount - $fitLines;
+                    if ($tailLines > 0 && $tailLines < $widows) {
+                        $fitLines = \max(0, $probeCount - $widows);
+                    }
+
+                    if ($fitLines < $orphans) {
+                        if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
+                            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                            if ($flush !== '') {
+                                $appendFragment($flush);
+                            }
+                        }
+
+                        $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
+                        $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
+
+                        if ($hrc['blockbuf'] !== []) {
+                            foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
+                                $blkEntry2['by'] = $tpy;
+                                $hrc['blockbuf'][$bidx2] = $blkEntry2;
+                            }
+                        }
+
+                        if ($hrc['tablestack'] !== []) {
+                            $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                        }
+
+                        return $breakoutPrefix
+                        . $brk
+                        . $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                    }
+
                     $cut = 0;
-                    for ($i = 0; $i < $maxFitLines; ++$i) {
+                    for ($i = 0; $i < $fitLines; ++$i) {
                         $probeLine = $probeLines[$i] ?? null;
                         if (!\is_array($probeLine)) {
                             break;

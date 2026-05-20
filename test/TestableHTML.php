@@ -53,6 +53,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         'linkstack' => [],
         'listack' => [],
         'prelevel' => 0,
+        'quotelevel' => 0,
         'dom' => [],
     ];
 
@@ -731,6 +732,35 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         $this->testhrc['dom'] = [$root];
 
         return $this->normalizeHTMLText($this->testhrc, $text, 0);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @throws \Throwable
+     */
+    public function exposeApplyHTMLFontVariantWithDom(array $dom, int $key, string $text): string
+    {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+
+        return $this->applyHTMLFontVariant($this->testhrc, $text, $key);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @throws \Throwable
+     */
+    public function exposeGetHTMLPseudoTextContentWithDom(
+        array $dom,
+        int $key,
+        string $style,
+        int $quotelevel = 0,
+    ): string {
+        $this->initExposeRenderContextIfNeeded();
+        $this->testhrc['dom'] = $dom;
+        $this->testhrc['quotelevel'] = $quotelevel;
+
+        return $this->getHTMLPseudoTextContent($this->testhrc, $key, $style);
     }
 
     /**
