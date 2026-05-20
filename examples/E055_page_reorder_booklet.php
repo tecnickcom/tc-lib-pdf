@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E055_page_reorder_booklet.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -34,7 +35,14 @@ require(__DIR__ . '/../vendor/autoload.php');
  */
 
 // main TCPDF object
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -56,77 +64,157 @@ $bfontB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 14);
 // Page index 0 – Introduction
 $page0 = $pdf->addPage(['format' => 'A5']);
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('Introduction', 15, 20, 120, 0, 0, 1, 'T', 'L'));
-$pdf->page->addContent($bfont['out']);
-$pdf->page->addContent($pdf->getTextCell('(Draft index 0)', 15, 36, 120, 0, 0, 1, 'T', 'L'));
 $pdf->page->addContent($pdf->getTextCell(
-    'Welcome to the tc-lib-pdf page-reorder demo. This page was authored first'
+    txt: 'Introduction',
+    posx: 15,
+    posy: 20,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($bfont['out']);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: '(Draft index 0)',
+    posx: 15,
+    posy: 36,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Welcome to the tc-lib-pdf page-reorder demo. This page was authored first'
     . ' and will remain in position 0 after reordering.',
-    15,
-    46,
-    120,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    posx: 15,
+    posy: 46,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 // Page index 1 – Appendix (will be moved to the end later)
 $page1 = $pdf->addPage(['format' => 'A5']);
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('Appendix', 15, 20, 120, 0, 0, 1, 'T', 'L'));
-$pdf->page->addContent($bfont['out']);
-$pdf->page->addContent($pdf->getTextCell('(Draft index 1 – will move to index 3)', 15, 36, 120, 0, 0, 1, 'T', 'L'));
 $pdf->page->addContent($pdf->getTextCell(
-    'This Appendix page was authored second but belongs at the end.'
+    txt: 'Appendix',
+    posx: 15,
+    posy: 20,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($bfont['out']);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: '(Draft index 1 – will move to index 3)',
+    posx: 15,
+    posy: 36,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'This Appendix page was authored second but belongs at the end.'
     . ' Page::move() will relocate it after Chapter 2.',
-    15,
-    46,
-    120,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    posx: 15,
+    posy: 46,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 // Page index 2 – Chapter 1
 $page2 = $pdf->addPage(['format' => 'A5']);
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('Chapter 1', 15, 20, 120, 0, 0, 1, 'T', 'L'));
-$pdf->page->addContent($bfont['out']);
-$pdf->page->addContent($pdf->getTextCell('(Draft index 2 – will move to index 1)', 15, 36, 120, 0, 0, 1, 'T', 'L'));
 $pdf->page->addContent($pdf->getTextCell(
-    'Chapter 1 content. After reordering this becomes the second page (index 1),'
+    txt: 'Chapter 1',
+    posx: 15,
+    posy: 20,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($bfont['out']);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: '(Draft index 2 – will move to index 1)',
+    posx: 15,
+    posy: 36,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Chapter 1 content. After reordering this becomes the second page (index 1),'
     . ' immediately after the Introduction.',
-    15,
-    46,
-    120,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    posx: 15,
+    posy: 46,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 // Page index 3 – Chapter 2
 $page3 = $pdf->addPage(['format' => 'A5']);
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('Chapter 2', 15, 20, 120, 0, 0, 1, 'T', 'L'));
-$pdf->page->addContent($bfont['out']);
-$pdf->page->addContent($pdf->getTextCell('(Draft index 3 – will move to index 2)', 15, 36, 120, 0, 0, 1, 'T', 'L'));
 $pdf->page->addContent($pdf->getTextCell(
-    'Chapter 2 content. After reordering this becomes the third page (index 2),'
+    txt: 'Chapter 2',
+    posx: 15,
+    posy: 20,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($bfont['out']);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: '(Draft index 3 – will move to index 2)',
+    posx: 15,
+    posy: 36,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Chapter 2 content. After reordering this becomes the third page (index 2),'
     . ' between Chapter 1 and the Appendix.',
-    15,
-    46,
-    120,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    posx: 15,
+    posy: 46,
+    width: 120,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 // -----------------------------------------------------------------------
@@ -158,15 +246,15 @@ $pdf->page->move(3, 2);
 $summaryPage = $pdf->addPage(['format' => 'A4', 'orientation' => 'L']);
 $pdf->page->addContent($bfontB['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    'Booklet Imposition Summary (saddle-stitch, 4 pages)',
-    15,
-    12,
-    260,
-    0,
-    0,
-    1,
-    'T',
-    'C'
+    txt: 'Booklet Imposition Summary (saddle-stitch, 4 pages)',
+    posx: 15,
+    posy: 12,
+    width: 260,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'C',
 ));
 $pdf->page->addContent($bfont['out']);
 
@@ -181,112 +269,144 @@ $spreadH = 75.0;
 $halfW = $spreadW / 2;
 
 // outer spread box
-$pdf->page->addContent(
-    $graph->getRect($spread1X, $spread1Y, $spreadW, $spreadH, 'D', [], [])
-);
+$pdf->page->addContent($graph->getRect($spread1X, $spread1Y, $spreadW, $spreadH, 'D', [], []));
 // centre fold line
-$pdf->page->addContent(
-    $graph->getLine($spread1X + $halfW, $spread1Y, $spread1X + $halfW, $spread1Y + $spreadH)
-);
+$pdf->page->addContent($graph->getLine($spread1X + $halfW, $spread1Y, $spread1X + $halfW, $spread1Y + $spreadH));
 // labels
 $pdf->page->addContent($pdf->getTextCell(
-    'Spread 1 – Outer sheet',
-    $spread1X,
-    $spread1Y - 6,
-    $spreadW,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Spread 1 – Outer sheet',
+    posx: $spread1X,
+    posy: $spread1Y - 6,
+    width: $spreadW,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 $pdf->page->addContent($pdf->getTextCell(
-    'Page 4  (Appendix)',
-    $spread1X + 2,
-    $spread1Y + 4,
-    $halfW - 4,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Page 4  (Appendix)',
+    posx: $spread1X + 2,
+    posy: $spread1Y + 4,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
-$pdf->page->addContent($pdf->getTextCell('Right side of sheet', $spread1X + 2, $spread1Y + 12, $halfW - 4, 0, 0, 1, 'T', 'L'));
 $pdf->page->addContent($pdf->getTextCell(
-    'Page 1  (Introduction)',
-    $spread1X + $halfW + 2,
-    $spread1Y + 4,
-    $halfW - 4,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Right side of sheet',
+    posx: $spread1X + 2,
+    posy: $spread1Y + 12,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
-$pdf->page->addContent($pdf->getTextCell('Left side of sheet', $spread1X + $halfW + 2, $spread1Y + 12, $halfW - 4, 0, 0, 1, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Page 1  (Introduction)',
+    posx: $spread1X + $halfW + 2,
+    posy: $spread1Y + 4,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Left side of sheet',
+    posx: $spread1X + $halfW + 2,
+    posy: $spread1Y + 12,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 // Spread 2 – inner sheet (pages 2 & 3)
 $spread2X = $spread1X + $spreadW + 20.0;
 
-$pdf->page->addContent(
-    $graph->getRect($spread2X, $spread1Y, $spreadW, $spreadH, 'D', [], [])
-);
-$pdf->page->addContent(
-    $graph->getLine($spread2X + $halfW, $spread1Y, $spread2X + $halfW, $spread1Y + $spreadH)
-);
+$pdf->page->addContent($graph->getRect($spread2X, $spread1Y, $spreadW, $spreadH, 'D', [], []));
+$pdf->page->addContent($graph->getLine($spread2X + $halfW, $spread1Y, $spread2X + $halfW, $spread1Y + $spreadH));
 $pdf->page->addContent($pdf->getTextCell(
-    'Spread 2 – Inner sheet',
-    $spread2X,
-    $spread1Y - 6,
-    $spreadW,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Spread 2 – Inner sheet',
+    posx: $spread2X,
+    posy: $spread1Y - 6,
+    width: $spreadW,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 $pdf->page->addContent($pdf->getTextCell(
-    'Page 2  (Chapter 1)',
-    $spread2X + 2,
-    $spread1Y + 4,
-    $halfW - 4,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Page 2  (Chapter 1)',
+    posx: $spread2X + 2,
+    posy: $spread1Y + 4,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
-$pdf->page->addContent($pdf->getTextCell('Left side of sheet', $spread2X + 2, $spread1Y + 12, $halfW - 4, 0, 0, 1, 'T', 'L'));
 $pdf->page->addContent($pdf->getTextCell(
-    'Page 3  (Chapter 2)',
-    $spread2X + $halfW + 2,
-    $spread1Y + 4,
-    $halfW - 4,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Left side of sheet',
+    posx: $spread2X + 2,
+    posy: $spread1Y + 12,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
-$pdf->page->addContent($pdf->getTextCell('Right side of sheet', $spread2X + $halfW + 2, $spread1Y + 12, $halfW - 4, 0, 0, 1, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Page 3  (Chapter 2)',
+    posx: $spread2X + $halfW + 2,
+    posy: $spread1Y + 4,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Right side of sheet',
+    posx: $spread2X + $halfW + 2,
+    posy: $spread1Y + 12,
+    width: $halfW - 4,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 // Fold / cut annotation
 $pdf->page->addContent($bfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    'Fold along centre fold lines, then saddle-stitch through the fold.'
+    txt: 'Fold along centre fold lines, then saddle-stitch through the fold.'
     . ' The final reading order after binding: Introduction → Chapter 1 → Chapter 2 → Appendix.',
-    15,
-    120,
-    260,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    posx: 15,
+    posy: 120,
+    width: 260,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 // -----------------------------------------------------------------------
 // Output
 // -----------------------------------------------------------------------
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

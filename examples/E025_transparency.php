@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E025_transparency.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -39,12 +40,7 @@ $pdf->setPDFFilename('025_transparency.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
-$setFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    string $family,
-    string $style,
-    int $size,
-): array {
+$setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string $style, int $size): array {
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size, 0.0, 1.0);
     $pdf->page->addContent($font['out']);
     return $font;
@@ -70,34 +66,47 @@ $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);
 $page = $pdf->addPage();
 
 $setFont($pdf, 'helvetica', '', 12);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'You can set the transparency of PDF objects using graph->getAlpha().',
-        15,
-        20,
-        180,
-        0,
-        valign: 'T',
-        halign: 'L',
-        drawcell: false
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'You can set the transparency of PDF objects using graph->getAlpha().',
+    15,
+    20,
+    180,
+    0,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 // Opaque red square.
-$pdf->page->addContent(
-    $pdf->graph->getRect(30.0, 40.0, 60.0, 60.0, 'DF', $getRectStyle('rgb(127,0,0)', 'rgb(255,0,0)'))
-);
+$pdf->page->addContent($pdf->graph->getRect(
+    30.0,
+    40.0,
+    60.0,
+    60.0,
+    'DF',
+    $getRectStyle('rgb(127,0,0)', 'rgb(255,0,0)'),
+));
 
 // Semi-transparent objects.
 $pdf->page->addContent($pdf->graph->getAlpha(0.5));
 
-$pdf->page->addContent(
-    $pdf->graph->getRect(50.0, 60.0, 60.0, 60.0, 'DF', $getRectStyle('rgb(0,127,0)', 'rgb(0,255,0)'))
-);
+$pdf->page->addContent($pdf->graph->getRect(
+    50.0,
+    60.0,
+    60.0,
+    60.0,
+    'DF',
+    $getRectStyle('rgb(0,127,0)', 'rgb(0,255,0)'),
+));
 
-$pdf->page->addContent(
-    $pdf->graph->getRect(70.0, 80.0, 60.0, 60.0, 'DF', $getRectStyle('rgb(0,0,127)', 'rgb(0,0,255)'))
-);
+$pdf->page->addContent($pdf->graph->getRect(
+    70.0,
+    80.0,
+    60.0,
+    60.0,
+    'DF',
+    $getRectStyle('rgb(0,0,127)', 'rgb(0,0,255)'),
+));
 
 $imagePath = __DIR__ . '/images/tcpdf_logo.jpg';
 if (\is_file($imagePath)) {
@@ -109,4 +118,4 @@ if (\is_file($imagePath)) {
 $pdf->page->addContent($pdf->graph->getAlpha(1.0));
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

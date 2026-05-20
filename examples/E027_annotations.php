@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E027_annotations.php
  *
@@ -17,17 +18,17 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -39,12 +40,7 @@ $pdf->setPDFFilename('027_annotations.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
-$setFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    string $family,
-    string $style,
-    int $size,
-): void {
+$setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string $style, int $size): void {
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size, 0.0, 1.0);
     $pdf->page->addContent($font['out']);
 };
@@ -59,7 +55,7 @@ $rowH = 10.0;
 $convertTopToPdfCoordinates = static function (array $coords, float $pageHeight): array {
     $out = [];
     foreach ($coords as $idx => $val) {
-        if (! is_numeric($val)) {
+        if (!is_numeric($val)) {
             continue;
         }
 
@@ -74,13 +70,12 @@ $convertTopToPdfCoordinates = static function (array $coords, float $pageHeight)
     return $out;
 };
 
-$normalizeAnnotationOptionCoordinates = static function (
-    array $opt,
-    float $pageHeight,
-) use ($convertTopToPdfCoordinates): array {
+$normalizeAnnotationOptionCoordinates = static function (array $opt, float $pageHeight) use (
+    $convertTopToPdfCoordinates,
+): array {
     $subtype = strtolower((string) ($opt['subtype'] ?? ''));
 
-    if (($subtype === 'line') && isset($opt['l']) && is_array($opt['l'])) {
+    if ($subtype === 'line' && isset($opt['l']) && is_array($opt['l'])) {
         $opt['l'] = $convertTopToPdfCoordinates($opt['l'], $pageHeight);
     }
 
@@ -92,7 +87,7 @@ $normalizeAnnotationOptionCoordinates = static function (
         if (isset($opt['quadpoints']) && is_array($opt['quadpoints'])) {
             $quadOut = [];
             foreach ($opt['quadpoints'] as $quad) {
-                if (! is_array($quad)) {
+                if (!is_array($quad)) {
                     continue;
                 }
 
@@ -103,10 +98,10 @@ $normalizeAnnotationOptionCoordinates = static function (
         }
     }
 
-    if (($subtype === 'ink') && isset($opt['inklist']) && is_array($opt['inklist'])) {
+    if ($subtype === 'ink' && isset($opt['inklist']) && is_array($opt['inklist'])) {
         $inkOut = [];
         foreach ($opt['inklist'] as $line) {
-            if (! is_array($line)) {
+            if (!is_array($line)) {
                 continue;
             }
 
@@ -129,56 +124,32 @@ $addRow = static function (
     string $preview = '',
 ) use ($leftMargin, $annX, $annW, $rowH, $normalizeAnnotationOptionCoordinates): int {
     $x = $leftMargin;
-    $labelW = ($annX - $x - 1.0);
+    $labelW = $annX - $x - 1.0;
 
-    $pdf->page->addContent(
-        $pdf->getTextCell(
-            $label,
-            $x,
-            $y,
-            $labelW,
-            $rowH,
-            drawcell: true,
-            valign: 'M',
-            halign: 'L',
-        )
-    );
+    $pdf->page->addContent($pdf->getTextCell($label, $x, $y, $labelW, $rowH, drawcell: true, valign: 'M', halign: 'L'));
 
-    $pdf->page->addContent(
-        $pdf->getTextCell(
-            '',
-            $annX,
-            $y,
-            $annW,
-            $rowH,
-            drawcell: true,
-            valign: 'M',
-            halign: 'L',
-        )
-    );
+    $pdf->page->addContent($pdf->getTextCell('', $annX, $y, $annW, $rowH, drawcell: true, valign: 'M', halign: 'L'));
 
     if ($preview !== '') {
-        $pdf->page->addContent(
-            $pdf->getTextCell(
-                $preview,
-                $annX + 0.4,
-                $y + 0.3,
-                $annW - 0.8,
-                $rowH - 0.6,
-                drawcell: false,
-                valign: 'M',
-                halign: 'C',
-            )
-        );
+        $pdf->page->addContent($pdf->getTextCell(
+            $preview,
+            $annX + 0.4,
+            $y + 0.3,
+            $annW - 0.8,
+            $rowH - 0.6,
+            drawcell: false,
+            valign: 'M',
+            halign: 'C',
+        ));
     }
 
     $aid = $pdf->setAnnotation(
-        $annX,
-        $y,
-        $annW,
-        $rowH,
-        $txt,
-        $normalizeAnnotationOptionCoordinates($opt, $pageHeight),
+        posx: $annX,
+        posy: $y,
+        width: $annW,
+        height: $rowH,
+        txt: $txt,
+        opt: $normalizeAnnotationOptionCoordinates($opt, $pageHeight),
     );
     $pdf->page->addAnnotRef($aid);
 
@@ -203,9 +174,16 @@ $soundPath = __DIR__ . '/data/utf8test.txt';
 
 $page1 = $pdf->addPage();
 $setFont($pdf, 'helvetica', 'B', 16);
-$pdf->page->addContent(
-    $pdf->getTextCell('All Supported Annotation Types (page 1/2)', $leftMargin, 10, 190, 9, drawcell: false, valign: 'T', halign: 'L')
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'All Supported Annotation Types (page 1/2)',
+    $leftMargin,
+    10,
+    190,
+    9,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 $setFont($pdf, 'helvetica', '', 10);
 
 $y = 22.0;
@@ -254,13 +232,13 @@ $addRow(
     ],
     $page1['height'],
 );
-    $y += 10.0;
+$y += 10.0;
 
-    $addRow($pdf, 'Square', $y, 'Square annotation', ['subtype' => 'Square', 'ic' => [0.9, 0.9, 0.5]], $page1['height']);
-    $y += 10.0;
+$addRow($pdf, 'Square', $y, 'Square annotation', ['subtype' => 'Square', 'ic' => [0.9, 0.9, 0.5]], $page1['height']);
+$y += 10.0;
 
-    $addRow($pdf, 'Circle', $y, 'Circle annotation', ['subtype' => 'Circle', 'ic' => [0.7, 0.9, 1.0]], $page1['height']);
-    $y += 10.0;
+$addRow($pdf, 'Circle', $y, 'Circle annotation', ['subtype' => 'Circle', 'ic' => [0.7, 0.9, 1.0]], $page1['height']);
+$y += 10.0;
 
 $addRow(
     $pdf,
@@ -305,7 +283,7 @@ $addRow(
     ],
     $page1['height'],
 );
-    $y += 10.0;
+$y += 10.0;
 
 $qp1 = $mkQuadPoints($annX, $y, $annW, $rowH);
 $addRow(
@@ -317,7 +295,7 @@ $addRow(
     $page1['height'],
     'Sample text',
 );
-    $y += 10.0;
+$y += 10.0;
 
 $qp2 = $mkQuadPoints($annX, $y, $annW, $rowH);
 $addRow(
@@ -329,7 +307,7 @@ $addRow(
     $page1['height'],
     'Sample text',
 );
-    $y += 10.0;
+$y += 10.0;
 
 $qp3 = $mkQuadPoints($annX, $y, $annW, $rowH);
 $addRow(
@@ -341,7 +319,7 @@ $addRow(
     $page1['height'],
     'Sample text',
 );
-    $y += 10.0;
+$y += 10.0;
 
 $qp4 = $mkQuadPoints($annX, $y, $annW, $rowH);
 $addRow(
@@ -353,13 +331,13 @@ $addRow(
     $page1['height'],
     'Sample text',
 );
-    $y += 10.0;
+$y += 10.0;
 
 $addRow($pdf, 'Stamp', $y, 'Stamp annotation', ['subtype' => 'Stamp', 'name' => 'Approved'], $page1['height']);
-    $y += 10.0;
+$y += 10.0;
 
 $addRow($pdf, 'Caret', $y, 'Caret annotation', ['subtype' => 'Caret', 'sy' => 'P'], $page1['height']);
-    $y += 10.0;
+$y += 10.0;
 
 $addRow(
     $pdf,
@@ -404,14 +382,27 @@ if (is_file($attachmentPath)) {
         $page1['height'],
     );
 } else {
-    $pdf->page->addContent($pdf->getTextCell('FileAttachment skipped: missing examples/data/utf8test.txt', $leftMargin, $y, 190, 7));
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: 'FileAttachment skipped: missing examples/data/utf8test.txt',
+        posx: $leftMargin,
+        posy: $y,
+        width: 190,
+        height: 7,
+    ));
 }
 
 $page2 = $pdf->addPage();
 $setFont($pdf, 'helvetica', 'B', 16);
-$pdf->page->addContent(
-    $pdf->getTextCell('All Supported Annotation Types (page 2/2)', $leftMargin, 10, 190, 9, drawcell: false, valign: 'T', halign: 'L')
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'All Supported Annotation Types (page 2/2)',
+    $leftMargin,
+    10,
+    190,
+    9,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 $setFont($pdf, 'helvetica', '', 10);
 
 $y = 22.0;
@@ -427,7 +418,13 @@ if (is_file($soundPath)) {
         'Sound icon',
     );
 } else {
-    $pdf->page->addContent($pdf->getTextCell('Sound skipped: missing examples/data/utf8test.txt', $leftMargin, $y, 190, 7));
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: 'Sound skipped: missing examples/data/utf8test.txt',
+        posx: $leftMargin,
+        posy: $y,
+        width: 190,
+        height: 7,
+    ));
 }
 $y += 10.0;
 
@@ -518,18 +515,16 @@ $addRow(
 );
 $y += 12.0;
 
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Notes: PrinterMark, TrapNet, and 3D are currently intentionally unsupported and are not included in this demo.',
-        $leftMargin,
-        $y,
-        190,
-        0,
-        drawcell: false,
-        valign: 'T',
-        halign: 'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'Notes: PrinterMark, TrapNet, and 3D are currently intentionally unsupported and are not included in this demo.',
+    $leftMargin,
+    $y,
+    190,
+    0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

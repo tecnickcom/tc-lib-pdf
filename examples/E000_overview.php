@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E000_overview.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example_overview.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -59,15 +58,13 @@ $subtitleFont = $pdf->font->insert($pdf->pon, 'dejavusans', '', 13);
 $bodyFont = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 $smallFont = $pdf->font->insert($pdf->pon, 'dejavusans', '', 8);
 
-
 $imgdir = __DIR__ . '/images';
-
 
 // ----------
 // Add first page
 
 $page01 = $pdf->addPage();
-$pdf->setBookmark('Visual showcase', '', 0, -1, 0, 0, 'B', 'blue');
+$pdf->setBookmark(name: 'Visual showcase', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'blue');
 
 $pageW = (float) $page01['width'];
 $pageH = (float) $page01['height'];
@@ -110,9 +107,12 @@ $textOnDark = $pdf->color->getPdfColor('rgb(244,250,255)');
 $textOnLight = $pdf->color->getPdfColor('rgb(22,37,61)');
 
 // Background atmosphere.
-$pdf->page->addContent(
-    $pdf->graph->getLinearGradient(0, 0, $pageW, $pageH, 'rgb(10,27,60)', 'rgb(0,171,193)', [0, 0, 1, 1])
-);
+$pdf->page->addContent($pdf->graph->getLinearGradient(0, 0, $pageW, $pageH, 'rgb(10,27,60)', 'rgb(0,171,193)', [
+    0,
+    0,
+    1,
+    1,
+]));
 
 $pdf->page->addContent($pdf->graph->getAlpha(0.12));
 for ($lineY = -20; $lineY <= 330; $lineY += 12) {
@@ -137,18 +137,18 @@ $pdf->page->addContent($pdf->graph->getAlpha(1.0));
 $pdf->page->addContent($textOnDark);
 $pdf->page->addContent($titleFont['out']);
 $pdf->addHTMLCell(
-    '<div style="font-size:30pt; font-weight:bold; color:rgb(244,250,255);">tc-lib-pdf</div>',
-    15,
-    18,
-    120
+    html: '<div style="font-size:30pt; font-weight:bold; color:rgb(244,250,255);">tc-lib-pdf</div>',
+    posx: 15,
+    posy: 18,
+    width: 120,
 );
 
 $pdf->page->addContent($subtitleFont['out']);
 $pdf->addHTMLCell(
-    '<div style="font-size:13pt; line-height:1.3; color:rgb(244,250,255);">Modern PDF generation in pure PHP: vectors, images, barcodes, and rich page composition.</div>',
-    15,
-    34,
-    125
+    html: '<div style="font-size:13pt; line-height:1.3; color:rgb(244,250,255);">Modern PDF generation in pure PHP: vectors, images, barcodes, and rich page composition.</div>',
+    posx: 15,
+    posy: 34,
+    width: 125,
 );
 
 // Left feature card.
@@ -159,14 +159,15 @@ $pdf->page->addContent($pdf->graph->getAlpha(1.0));
 $pdf->page->addContent($textOnLight);
 $pdf->page->addContent($subtitleFont['out']);
 $pdf->addHTMLCell(
-    '<div style="font-size:13pt; color:rgb(22,37,61);">Cool Features</div>',
-    18,
-    64,
-    72
+    html: '<div style="font-size:13pt; color:rgb(22,37,61);">Cool Features</div>',
+    posx: 18,
+    posy: 64,
+    width: 72,
 );
 
 $pdf->page->addContent($bodyFont['out']);
-$features = '<ul style="font-size:10pt; color:rgb(22,37,61); margin:0; padding-left:12pt;">'
+$features =
+    '<ul style="font-size:10pt; color:rgb(22,37,61); margin:0; padding-left:12pt;">'
     . '<li>Native SVG rendering</li>'
     . '<li>JPEG/PNG with transparency</li>'
     . '<li>1D/2D barcodes (QR, DataMatrix)</li>'
@@ -174,7 +175,7 @@ $features = '<ul style="font-size:10pt; color:rgb(22,37,61); margin:0; padding-l
     . '<li>HTML/CSS text layout</li>'
     . '<li>Digital signatures and PDF/X, PDF/UA support</li>'
     . '</ul>';
-$pdf->addHTMLCell($features, 18, 74, 79);
+$pdf->addHTMLCell(html: $features, posx: 18, posy: 74, width: 79);
 
 $logoFile = $imgdir . '/tcpdf_logo.jpg';
 if (\is_file($logoFile)) {
@@ -189,17 +190,17 @@ $pdf->page->addContent($pdf->graph->getAlpha(1.0));
 
 $svgFile = $imgdir . '/testsvgblend.svg';
 if (\is_file($svgFile)) {
-    $svgObj = $pdf->addSVG($svgFile, 111, 76, 82, 108, $pageH);
-    $pdf->page->addContent($pdf->getSetSVG($svgObj));
+    $svgObj = $pdf->addSVG(img: $svgFile, posx: 111, posy: 76, width: 82, height: 108, pageheight: $pageH);
+    $pdf->page->addContent($pdf->getSetSVG(soid: $svgObj));
 }
 
 $pdf->page->addContent($textOnLight);
 $pdf->page->addContent($smallFont['out']);
 $pdf->addHTMLCell(
-    '<div style="font-size:8pt; text-align:center; color:rgb(22,37,61);">SVG graphic rendered directly into PDF vectors</div>',
-    111,
-    182,
-    82
+    html: '<div style="font-size:8pt; text-align:center; color:rgb(22,37,61);">SVG graphic rendered directly into PDF vectors</div>',
+    posx: 111,
+    posy: 182,
+    width: 82,
 );
 
 // QR code panel.
@@ -210,38 +211,36 @@ $pdf->page->addContent($pdf->graph->getAlpha(1.0));
 $pdf->page->addContent($textOnLight);
 $pdf->page->addContent($subtitleFont['out']);
 $pdf->addHTMLCell(
-    '<div style="font-size:13pt; color:rgb(22,37,61);">Scan to Explore</div>',
-    18,
-    206,
-    92
+    html: '<div style="font-size:13pt; color:rgb(22,37,61);">Scan to Explore</div>',
+    posx: 18,
+    posy: 206,
+    width: 92,
 );
 
 $pdf->page->addContent($bodyFont['out']);
 $pdf->addHTMLCell(
-    '<div style="font-size:10pt; line-height:1.25; color:rgb(22,37,61);">This QR code points to the official TCPDF project page:</div>',
-    18,
-    216,
-    118
+    html: '<div style="font-size:10pt; line-height:1.25; color:rgb(22,37,61);">This QR code points to the official TCPDF project page:</div>',
+    posx: 18,
+    posy: 216,
+    width: 118,
 );
 $pdf->addHTMLCell(
-    '<div style="font-size:10pt; color:rgb(22,37,61);"><a href="https://tcpdf.org">https://tcpdf.org</a></div>',
-    18,
-    228,
-    118
+    html: '<div style="font-size:10pt; color:rgb(22,37,61);"><a href="https://tcpdf.org">https://tcpdf.org</a></div>',
+    posx: 18,
+    posy: 228,
+    width: 118,
 );
 
-$pdf->page->addContent(
-    $pdf->getBarcode(
-        'QRCODE,H',
-        'https://tcpdf.org',
-        145,
-        206,
-        45,
-        45,
-        [0, 0, 0, 0],
-        $barcodeStyle
-    )
-);
+$pdf->page->addContent($pdf->getBarcode(
+    type: 'QRCODE,H',
+    code: 'https://tcpdf.org',
+    posx: 145,
+    posy: 206,
+    width: 45,
+    height: 45,
+    padding: [0, 0, 0, 0],
+    style: $barcodeStyle,
+));
 
 // =============================================================
 
@@ -254,6 +253,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

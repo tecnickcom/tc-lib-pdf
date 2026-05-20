@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E064_custom_hyphenation_dictionary.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -77,7 +78,14 @@ if ($patternFile === false) {
 // -----------------------------------------------------------------------
 // Common document setup
 // -----------------------------------------------------------------------
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -95,24 +103,25 @@ $pdf->enableDefaultPageContent();
 // -----------------------------------------------------------------------
 
 // Step 1: parse the .tex file into a pattern array.
-$dutchPatterns = $pdf->loadTexHyphenPatterns($patternFile);
+$dutchPatterns = $pdf->loadTexHyphenPatterns(file: $patternFile);
 
 // Step 2: install as the active dictionary.
-$pdf->setTexHyphenPatterns($dutchPatterns);
+$pdf->setTexHyphenPatterns(patterns: $dutchPatterns);
 
 // -----------------------------------------------------------------------
 // Fonts
 // -----------------------------------------------------------------------
 $fontTitle = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 14);
-$fontH2    = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 11);
-$fontBody  = $pdf->font->insert($pdf->pon, 'times', '', 9);
-$fontCode  = $pdf->font->insert($pdf->pon, 'courier', '', 8);
+$fontH2 = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 11);
+$fontBody = $pdf->font->insert($pdf->pon, 'times', '', 9);
+$fontCode = $pdf->font->insert($pdf->pon, 'courier', '', 8);
 $fontSmall = $pdf->font->insert($pdf->pon, 'helvetica', '', 8);
 
 // -----------------------------------------------------------------------
 // Dutch sample text — a paragraph with long compound words.
 // -----------------------------------------------------------------------
-$dutchPara = 'De Nederlandse taal staat bekend om zijn lange samenstellingen. '
+$dutchPara =
+    'De Nederlandse taal staat bekend om zijn lange samenstellingen. '
     . 'Woorden zoals woordenschatontwikkeling, zelfstandigheidsbewegingen, '
     . 'werkgelegenheidsbeleid, verantwoordelijkheidsgevoelens, '
     . 'maatschappelijkontwikkelingswerk en informatietechnologieonderwijs '
@@ -130,89 +139,101 @@ $page1 = $pdf->addPage();
 
 // --- Title ---
 $pdf->page->addContent($fontTitle['out']);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Custom TeX Hyphenation Dictionary',
-        15.0, 18.0, 180.0, 0.0,
-        drawcell: false, valign: 'T', halign: 'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'Custom TeX Hyphenation Dictionary',
+    15.0,
+    18.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 
 $pdf->page->addContent($fontSmall['out']);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'loadTexHyphenPatterns() + setTexHyphenPatterns() — Dutch sample patterns vs no patterns',
-        15.0, 27.0, 180.0, 0.0,
-        drawcell: false, valign: 'T', halign: 'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'loadTexHyphenPatterns() + setTexHyphenPatterns() — Dutch sample patterns vs no patterns',
+    15.0,
+    27.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 
 // --- Column headers ---
 $pdf->page->addContent($fontH2['out']);
-$pdf->page->addContent(
-    $pdf->getTextCell('Without patterns', 15.0, 37.0, 87.0, 0.0, drawcell: false, valign: 'T', halign: 'C')
-);
-$pdf->page->addContent(
-    $pdf->getTextCell('With Dutch patterns', 108.0, 37.0, 87.0, 0.0, drawcell: false, valign: 'T', halign: 'C')
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'Without patterns',
+    15.0,
+    37.0,
+    87.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'C',
+));
+$pdf->page->addContent($pdf->getTextCell(
+    'With Dutch patterns',
+    108.0,
+    37.0,
+    87.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'C',
+));
 
 // Separator line between header and body
 $sepStyle = [
-    'lineWidth'  => 0.3,
-    'lineCap'    => 'butt',
-    'lineJoin'   => 'miter',
-    'dashArray'  => [],
-    'dashPhase'  => 0,
-    'lineColor'  => '#336699',
-    'fillColor'  => '',
+    'lineWidth' => 0.3,
+    'lineCap' => 'butt',
+    'lineJoin' => 'miter',
+    'dashArray' => [],
+    'dashPhase' => 0,
+    'lineColor' => '#336699',
+    'fillColor' => '',
 ];
-$pdf->page->addContent(
-    $pdf->graph->getLine(15.0, 43.5, 195.0, 43.5, $sepStyle)
-);
+$pdf->page->addContent($pdf->graph->getLine(15.0, 43.5, 195.0, 43.5, $sepStyle));
 
 // Vertical divider between columns
 $divStyle = [
-    'lineWidth'  => 0.2,
-    'lineCap'    => 'butt',
-    'lineJoin'   => 'miter',
-    'dashArray'  => [],
-    'dashPhase'  => 0,
-    'lineColor'  => '#aaaaaa',
-    'fillColor'  => '',
+    'lineWidth' => 0.2,
+    'lineCap' => 'butt',
+    'lineJoin' => 'miter',
+    'dashArray' => [],
+    'dashPhase' => 0,
+    'lineColor' => '#aaaaaa',
+    'fillColor' => '',
 ];
-$pdf->page->addContent(
-    $pdf->graph->getLine(103.0, 44.0, 103.0, 200.0, $divStyle)
-);
+$pdf->page->addContent($pdf->graph->getLine(103.0, 44.0, 103.0, 200.0, $divStyle));
 
 // -----------------------------------------------------------------------
 // Left column — no automatic hyphenation
 // -----------------------------------------------------------------------
 
 // Temporarily disable patterns.
-$pdf->setTexHyphenPatterns([]);
+$pdf->setTexHyphenPatterns(patterns: []);
 
-$leftHtml = '<div style="text-align:justify; font-size:9pt; color:#222222;">'
-    . $dutchPara
-    . '</div>';
+$leftHtml = '<div style="text-align:justify; font-size:9pt; color:#222222;">' . $dutchPara . '</div>';
 
 // Re-insert non-bold font before left column addHTMLCell.
 $pdf->font->insert($pdf->pon, 'helvetica', '', 9);
-$pdf->addHTMLCell($leftHtml, 15.0, 45.0, 87.0);
+$pdf->addHTMLCell(html: $leftHtml, posx: 15.0, posy: 45.0, width: 87.0);
 
 // -----------------------------------------------------------------------
 // Right column — Dutch patterns active
 // -----------------------------------------------------------------------
 
 // Re-enable Dutch patterns.
-$pdf->setTexHyphenPatterns($dutchPatterns);
+$pdf->setTexHyphenPatterns(patterns: $dutchPatterns);
 
-$rightHtml = '<div style="text-align:justify; font-size:9pt; color:#222222;">'
-    . $dutchPara
-    . '</div>';
+$rightHtml = '<div style="text-align:justify; font-size:9pt; color:#222222;">' . $dutchPara . '</div>';
 
 // Reset font stack to non-bold before second addHTMLCell.
 $pdf->font->insert($pdf->pon, 'helvetica', '', 9);
-$pdf->addHTMLCell($rightHtml, 108.0, 45.0, 87.0);
+$pdf->addHTMLCell(html: $rightHtml, posx: 108.0, posy: 45.0, width: 87.0);
 
 // -----------------------------------------------------------------------
 // Pattern statistics block (below columns)
@@ -220,14 +241,17 @@ $pdf->addHTMLCell($rightHtml, 108.0, 45.0, 87.0);
 $pdf->page->addContent($fontSmall['out']);
 
 $patternCount = \count($dutchPatterns);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        "Pattern file: examples/data/hyph-nl-sample.tex  |  Patterns loaded: {$patternCount}"
-        . '  |  Source: CTAN hyph-utf8 (excerpt)',
-        15.0, 205.0, 180.0, 0.0,
-        drawcell: false, valign: 'T', halign: 'C',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    "Pattern file: examples/data/hyph-nl-sample.tex  |  Patterns loaded: {$patternCount}"
+    . '  |  Source: CTAN hyph-utf8 (excerpt)',
+    15.0,
+    205.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'C',
+));
 
 // -----------------------------------------------------------------------
 // Page 2 — API reference and usage guidance
@@ -237,72 +261,72 @@ $page2 = $pdf->addPage();
 $pdf->font->insert($pdf->pon, 'helvetica', '', 8);
 
 $html2 = <<<'HTML'
-<h1 style="font-size:14pt; color:#003366;">API Reference and Usage Guidance</h1>
+    <h1 style="font-size:14pt; color:#003366;">API Reference and Usage Guidance</h1>
 
-<h2 style="font-size:11pt; color:#005599;">loadTexHyphenPatterns(string $file): array</h2>
-<p style="font-size:9pt; color:#333333;">
-Reads a TeX hyphenation pattern file and returns an associative array mapping
-pattern keys to their weighted strings.  The file must contain a
-<code>\patterns{ ... }</code> block in standard TeX format.  Comments
-(lines starting with <code>%</code>) are stripped before parsing.
-</p>
-<p style="font-size:9pt; color:#333333;">
-The returned array can be stored and reused across multiple PDF objects
-without re-reading the file:
-</p>
-<pre style="font-size:8pt; color:#003366; background:#f0f4ff;">
-$patterns = $pdf->loadTexHyphenPatterns('/path/to/hyph-en-us.tex');
-$pdf->setTexHyphenPatterns($patterns);
-</pre>
+    <h2 style="font-size:11pt; color:#005599;">loadTexHyphenPatterns(string $file): array</h2>
+    <p style="font-size:9pt; color:#333333;">
+    Reads a TeX hyphenation pattern file and returns an associative array mapping
+    pattern keys to their weighted strings.  The file must contain a
+    <code>\patterns{ ... }</code> block in standard TeX format.  Comments
+    (lines starting with <code>%</code>) are stripped before parsing.
+    </p>
+    <p style="font-size:9pt; color:#333333;">
+    The returned array can be stored and reused across multiple PDF objects
+    without re-reading the file:
+    </p>
+    <pre style="font-size:8pt; color:#003366; background:#f0f4ff;">
+    $patterns = $pdf->loadTexHyphenPatterns(lang: '/path/to/hyph-en-us.tex');
+    $pdf->setTexHyphenPatterns(lang: $patterns);
+    </pre>
 
-<h2 style="font-size:11pt; color:#005599;">setTexHyphenPatterns(array $patterns): void</h2>
-<p style="font-size:9pt; color:#333333;">
-Installs the pattern array as the active hyphenation dictionary.  Hyphenation
-applies to all subsequent text layout calls.  Pass an empty array
-<code>[]</code> to disable automatic hyphenation.
-</p>
+    <h2 style="font-size:11pt; color:#005599;">setTexHyphenPatterns(array $patterns): void</h2>
+    <p style="font-size:9pt; color:#333333;">
+    Installs the pattern array as the active hyphenation dictionary.  Hyphenation
+    applies to all subsequent text layout calls.  Pass an empty array
+    <code>[]</code> to disable automatic hyphenation.
+    </p>
 
-<h2 style="font-size:11pt; color:#005599;">Obtaining pattern files</h2>
-<p style="font-size:9pt; color:#333333;">
-Full-quality pattern files for approximately 100 languages are available from
-the CTAN hyph-utf8 package:<br />
-<b>https://www.ctan.org/tex-archive/language/hyph-utf8/tex/generic/hyph-utf8/patterns/tex</b><br /><br />
-Notable files:
-</p>
-<table border="0" cellpadding="2">
-  <tr><td style="font-size:8pt; width:55mm; color:#003366; font-weight:bold;">File</td>
-      <td style="font-size:8pt; color:#003366; font-weight:bold;">Language</td></tr>
-  <tr><td style="font-size:8pt;">hyph-en-us.tex</td><td style="font-size:8pt;">English (US)</td></tr>
-  <tr><td style="font-size:8pt;">hyph-de-1996.tex</td><td style="font-size:8pt;">German (1996 reform)</td></tr>
-  <tr><td style="font-size:8pt;">hyph-nl.tex</td><td style="font-size:8pt;">Dutch</td></tr>
-  <tr><td style="font-size:8pt;">hyph-fr.tex</td><td style="font-size:8pt;">French</td></tr>
-  <tr><td style="font-size:8pt;">hyph-pl.tex</td><td style="font-size:8pt;">Polish</td></tr>
-  <tr><td style="font-size:8pt;">hyph-fi.tex</td><td style="font-size:8pt;">Finnish</td></tr>
-  <tr><td style="font-size:8pt;">hyph-pt.tex</td><td style="font-size:8pt;">Portuguese</td></tr>
-  <tr><td style="font-size:8pt;">hyph-sv.tex</td><td style="font-size:8pt;">Swedish</td></tr>
-</table>
+    <h2 style="font-size:11pt; color:#005599;">Obtaining pattern files</h2>
+    <p style="font-size:9pt; color:#333333;">
+    Full-quality pattern files for approximately 100 languages are available from
+    the CTAN hyph-utf8 package:<br />
+    <b>https://www.ctan.org/tex-archive/language/hyph-utf8/tex/generic/hyph-utf8/patterns/tex</b><br /><br />
+    Notable files:
+    </p>
+    <table border="0" cellpadding="2">
+      <tr><td style="font-size:8pt; width:55mm; color:#003366; font-weight:bold;">File</td>
+          <td style="font-size:8pt; color:#003366; font-weight:bold;">Language</td></tr>
+      <tr><td style="font-size:8pt;">hyph-en-us.tex</td><td style="font-size:8pt;">English (US)</td></tr>
+      <tr><td style="font-size:8pt;">hyph-de-1996.tex</td><td style="font-size:8pt;">German (1996 reform)</td></tr>
+      <tr><td style="font-size:8pt;">hyph-nl.tex</td><td style="font-size:8pt;">Dutch</td></tr>
+      <tr><td style="font-size:8pt;">hyph-fr.tex</td><td style="font-size:8pt;">French</td></tr>
+      <tr><td style="font-size:8pt;">hyph-pl.tex</td><td style="font-size:8pt;">Polish</td></tr>
+      <tr><td style="font-size:8pt;">hyph-fi.tex</td><td style="font-size:8pt;">Finnish</td></tr>
+      <tr><td style="font-size:8pt;">hyph-pt.tex</td><td style="font-size:8pt;">Portuguese</td></tr>
+      <tr><td style="font-size:8pt;">hyph-sv.tex</td><td style="font-size:8pt;">Swedish</td></tr>
+    </table>
 
-<h2 style="font-size:11pt; color:#005599;">Soft hyphens vs automatic patterns — when to use each</h2>
-<p style="font-size:9pt; color:#333333;">
-<b>&amp;shy; (soft hyphens in HTML)</b> — best for single documents with known content
-where exact break points matter (e.g. trade-marked compound names, proper nouns
-that patterns would get wrong).  See E028_text_hyphenation.php.<br /><br />
-<b>setTexHyphenPatterns()</b> — best for documents with large amounts of flowing
-text where manual annotation is impractical (articles, books, reports).  Patterns
-are applied automatically to every word during layout without modifying the source
-string.
-</p>
+    <h2 style="font-size:11pt; color:#005599;">Soft hyphens vs automatic patterns — when to use each</h2>
+    <p style="font-size:9pt; color:#333333;">
+    <b>&amp;shy; (soft hyphens in HTML)</b> — best for single documents with known content
+    where exact break points matter (e.g. trade-marked compound names, proper nouns
+    that patterns would get wrong).  See E028_text_hyphenation.php.<br /><br />
+    <b>setTexHyphenPatterns()</b> — best for documents with large amounts of flowing
+    text where manual annotation is impractical (articles, books, reports).  Patterns
+    are applied automatically to every word during layout without modifying the source
+    string.
+    </p>
 
-<h2 style="font-size:11pt; color:#005599;">Switching languages mid-document</h2>
-<p style="font-size:9pt; color:#333333;">
-You can switch the active dictionary between pages or even between HTML cells
-by calling <code>setTexHyphenPatterns()</code> again with a different pattern
-array.  Load all required pattern arrays at startup to avoid disk I/O during
-layout, then swap them as needed.
-</p>
-HTML;
+    <h2 style="font-size:11pt; color:#005599;">Switching languages mid-document</h2>
+    <p style="font-size:9pt; color:#333333;">
+    You can switch the active dictionary between pages or even between HTML cells
+    by calling <code>setTexHyphenPatterns()</code> again with a different pattern
+    array.  Load all required pattern arrays at startup to avoid disk I/O during
+    layout, then swap them as needed.
+    </p>
+    HTML;
 
-$pdf->addHTMLCell($html2, 15.0, 20.0, 180.0);
+$pdf->addHTMLCell(html: $html2, posx: 15.0, posy: 20.0, width: 180.0);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

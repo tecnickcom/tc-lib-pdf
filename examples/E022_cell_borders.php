@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E022_cell_borders.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -39,12 +40,7 @@ $pdf->setPDFFilename('022_cell_borders.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
-$setFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    string $family,
-    string $style,
-    int $size,
-): array {
+$setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string $style, int $size): array {
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size, 0.0, 1.0);
     $pdf->page->addContent($font['out']);
     return $font;
@@ -68,7 +64,7 @@ $buildCellStyles = static function (array $sideStyles, string $fillColor): array
         'lineJoin' => 'miter',
         'dashArray' => [],
         'dashPhase' => 0,
-        'lineColor' => '#000000',//$fillColor,
+        'lineColor' => '#000000', //$fillColor,
         'fillColor' => $fillColor,
     ];
 
@@ -95,9 +91,9 @@ $drawStyledCell = static function (
     float $w,
     float $h,
     array $styles,
-    int $borderPos
+    int $borderPos,
 ): void {
-    $pdf->setDefaultCellBorderPos($borderPos);
+    $pdf->setDefaultCellBorderPos(borderpos: $borderPos);
 
     $pdf->page->addContent($pdf->getTextCell(' ', $x, $y, $w, $h, styles: $styles, drawcell: true));
 
@@ -125,23 +121,14 @@ $w = 30.0;
 $h = 8.0;
 
 foreach ($masks as $mask) {
-    $active = ($mask === '1') ? 'LTRB' : $mask;
+    $active = $mask === '1' ? 'LTRB' : $mask;
     $sideStyles = [];
     foreach ($maskToSide as $side => $idx) {
         if (\strpos($active, $side) !== false) {
             $sideStyles[$idx] = $basicLineStyle;
         }
     }
-    $drawStyledCell(
-        $pdf,
-        $mask,
-        $x,
-        $y,
-        $w,
-        $h,
-        $buildCellStyles($sideStyles, $fillColor),
-        $pdf::BORDERPOS_DEFAULT
-    );
+    $drawStyledCell($pdf, $mask, $x, $y, $w, $h, $buildCellStyles($sideStyles, $fillColor), $pdf::BORDERPOS_DEFAULT);
     $y += 10.0;
 }
 
@@ -161,18 +148,54 @@ $multiBorders = [
 
 $advX = $x;
 $advY = $y + 5.0;
-$drawStyledCell($pdf, 'LTRB', $advX, $advY, 30, 10, $buildCellStyles($normalBorders, $fillColor), $pdf::BORDERPOS_DEFAULT);
+$drawStyledCell(
+    $pdf,
+    'LTRB',
+    $advX,
+    $advY,
+    30,
+    10,
+    $buildCellStyles($normalBorders, $fillColor),
+    $pdf::BORDERPOS_DEFAULT,
+);
 $advY += 15.0;
 
-$drawStyledCell($pdf, 'LTRB', $advX, $advY, 30, 10, $buildCellStyles($multiBorders, $fillColor), $pdf::BORDERPOS_DEFAULT);
+$drawStyledCell(
+    $pdf,
+    'LTRB',
+    $advX,
+    $advY,
+    30,
+    10,
+    $buildCellStyles($multiBorders, $fillColor),
+    $pdf::BORDERPOS_DEFAULT,
+);
 $advY += 15.0;
 
-$drawStyledCell($pdf, 'LTRB EXT', $advX, $advY, 30, 10, $buildCellStyles($normalBorders, $fillColor), $pdf::BORDERPOS_EXTERNAL);
+$drawStyledCell(
+    $pdf,
+    'LTRB EXT',
+    $advX,
+    $advY,
+    30,
+    10,
+    $buildCellStyles($normalBorders, $fillColor),
+    $pdf::BORDERPOS_EXTERNAL,
+);
 $advY += 15.0;
 
-$drawStyledCell($pdf, 'LTRB INT', $advX, $advY, 30, 10, $buildCellStyles($normalBorders, $fillColor), $pdf::BORDERPOS_INTERNAL);
+$drawStyledCell(
+    $pdf,
+    'LTRB INT',
+    $advX,
+    $advY,
+    30,
+    10,
+    $buildCellStyles($normalBorders, $fillColor),
+    $pdf::BORDERPOS_INTERNAL,
+);
 
-$pdf->setDefaultCellBorderPos($pdf::BORDERPOS_DEFAULT);
+$pdf->setDefaultCellBorderPos(borderpos: $pdf::BORDERPOS_DEFAULT);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

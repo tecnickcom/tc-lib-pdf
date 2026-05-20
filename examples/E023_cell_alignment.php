@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E023_cell_alignment.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -39,12 +40,7 @@ $pdf->setPDFFilename('023_cell_alignment.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
-$setFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    string $family,
-    string $style,
-    int $size,
-): array {
+$setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string $style, int $size): array {
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size, 0.0, 1.0);
     $pdf->page->addContent($font['out']);
     return $font;
@@ -66,7 +62,16 @@ $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);
 $pdf->addPage();
 
 $setFont($pdf, 'helvetica', 'B', 20);
-$pdf->page->addContent($pdf->getTextCell('Cell Alignment Example', 15, 15, 180, 8, valign: 'C', halign: 'L', drawcell: false));
+$pdf->page->addContent($pdf->getTextCell(
+    'Cell Alignment Example',
+    15,
+    15,
+    180,
+    8,
+    valign: 'C',
+    halign: 'L',
+    drawcell: false,
+));
 
 $bodyFont = $setFont($pdf, 'helvetica', '', 11);
 
@@ -79,7 +84,7 @@ $cellDef = [
 ];
 
 $cellW = 30.0;
-$cellH = ($pdf->toUnit($bodyFont['size']) * 3.0);
+$cellH = $pdf->toUnit($bodyFont['size']) * 3.0;
 $startX = 15.0;
 $fontHeight = $pdf->toUnit($bodyFont['height']);
 $fontAscent = $pdf->toUnit($bodyFont['ascent']);
@@ -107,22 +112,22 @@ $getCellTopY = static function (
     float $fontAscent,
 ): float {
     return match ($cellAlign) {
-        'C' => ($lineY - ($cellH / 2.0)),
-        'B' => ($lineY - $cellH),
+        'C' => $lineY - ($cellH / 2.0),
+        'B' => $lineY - $cellH,
         'A' => match ($textAlign) {
             'T' => $lineY,
-            'B' => ($lineY - ($cellH - $fontHeight)),
-            default => ($lineY - (($cellH - $fontHeight) / 2.0)),
+            'B' => $lineY - ($cellH - $fontHeight),
+            default => $lineY - (($cellH - $fontHeight) / 2.0),
         },
         'L' => match ($textAlign) {
-            'T' => ($lineY - $fontAscent),
-            'B' => ($lineY - ($cellH - ($fontHeight - $fontAscent))),
-            default => ($lineY - ((($cellH - $fontHeight) / 2.0) + $fontAscent)),
+            'T' => $lineY - $fontAscent,
+            'B' => $lineY - ($cellH - ($fontHeight - $fontAscent)),
+            default => $lineY - ((($cellH - $fontHeight) / 2.0) + $fontAscent),
         },
         'D' => match ($textAlign) {
-            'T' => ($lineY - $fontHeight),
-            'B' => ($lineY - $cellH),
-            default => ($lineY - (($cellH + $fontHeight) / 2.0)),
+            'T' => $lineY - $fontHeight,
+            'B' => $lineY - $cellH,
+            default => $lineY - (($cellH + $fontHeight) / 2.0),
         },
         default => $lineY,
     };
@@ -136,39 +141,32 @@ $drawCellBorder = static function (
     float $h,
     array $style,
 ): string {
-    return $pdf->graph->getLine($x, $y, $x + $w, $y, $style)
+    return (
+        $pdf->graph->getLine($x, $y, $x + $w, $y, $style)
         . $pdf->graph->getLine($x + $w, $y, $x + $w, $y + $h, $style)
         . $pdf->graph->getLine($x + $w, $y + $h, $x, $y + $h, $style)
-        . $pdf->graph->getLine($x, $y + $h, $x, $y, $style);
+        . $pdf->graph->getLine($x, $y + $h, $x, $y, $style)
+    );
 };
 
 foreach ($rows as $row) {
     $pdf->page->addContent($pdf->graph->getLine(15, $row['lineY'], 195, $row['lineY'], $lineStyle));
     foreach ($columns as $idx => $col) {
         $x = $startX + ($idx * $cellW);
-        $y = $getCellTopY(
-            $row['lineY'],
-            $cellH,
-            $col['cellAlign'],
-            $row['textAlign'],
-            $fontHeight,
-            $fontAscent,
-        );
+        $y = $getCellTopY($row['lineY'], $cellH, $col['cellAlign'], $row['textAlign'], $fontHeight, $fontAscent);
         $label = $col['prefix'] . '-' . $row['suffix'];
         $pdf->page->addContent($pdf->color->getPdfColor('black'));
-        $pdf->page->addContent(
-            $pdf->getTextCell(
-                $label,
-                $x,
-                $y,
-                $cellW,
-                $cellH,
-                valign: $row['textAlign'],
-                halign: 'C',
-                cell: $cellDef,
-                drawcell: false
-            )
-        );
+        $pdf->page->addContent($pdf->getTextCell(
+            $label,
+            $x,
+            $y,
+            $cellW,
+            $cellH,
+            valign: $row['textAlign'],
+            halign: 'C',
+            cell: $cellDef,
+            drawcell: false,
+        ));
         $pdf->page->addContent($drawCellBorder($pdf, $x, $y, $cellW, $cellH, $borderStyle['all']));
     }
 }
@@ -180,7 +178,8 @@ if (\is_file($imagePath)) {
     $pdf->page->addContent($pdf->image->getSetImage($imgId, 15, 160, 100, 100, $page['height']));
 }
 
-$legend = "LEGEND:\n\n"
+$legend =
+    "LEGEND:\n\n"
     . "X: cell x top-left origin (top-right for RTL)\n"
     . "Y: cell y top-left origin (top-right for RTL)\n"
     . "CW: cell width\n"
@@ -200,10 +199,10 @@ $legend = "LEGEND:\n\n"
     . "TW: text width\n"
     . "FA: font ascent\n"
     . "FB: font baseline\n"
-    . "FD: font descent";
+    . 'FD: font descent';
 
 $setFont($pdf, 'helvetica', '', 10);
 $pdf->page->addContent($pdf->getTextCell($legend, 125, 160, 70, 100, 0, 1.25, 'T', 'L', drawcell: false));
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

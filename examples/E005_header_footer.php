@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E005_header_footer.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -84,17 +85,17 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
         }
 
         $page = $this->page->getPage($pid);
-        $pw   = $page['width'];
-        $ph   = $page['height'];
+        $pw = $page['width'];
+        $ph = $page['height'];
 
-        $lm   = self::HF_MARGIN;           // left margin x
-        $rm   = $pw - self::HF_MARGIN;     // right margin x
-        $tw   = $pw - (2 * self::HF_MARGIN); // usable band width
+        $lm = self::HF_MARGIN; // left margin x
+        $rm = $pw - self::HF_MARGIN; // right margin x
+        $tw = $pw - (2 * self::HF_MARGIN); // usable band width
 
         $lineStyle = [
             'lineWidth' => 0.25,
-            'lineCap'   => 'butt',
-            'lineJoin'  => 'miter',
+            'lineCap' => 'butt',
+            'lineJoin' => 'miter',
             'dashArray' => [],
             'dashPhase' => 0,
             'lineColor' => '#555555',
@@ -114,15 +115,15 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
             $headerOut .= $bfontBold['out'];
             $headerOut .= $this->color->getPdfColor('#1a3a6b');
             $headerOut .= $this->getTextCell(
-                $this->headerTitle,
-                $lm,
-                $headerY,
-                $tw * 0.65,    // 65 % of the usable width
-                self::HEADER_H,
-                0,
-                0,
-                'C',           // valign: centre inside the band
-                'L',           // halign: left
+                txt: $this->headerTitle,
+                posx: $lm,
+                posy: $headerY,
+                width: $tw * 0.65,
+                height: self::HEADER_H,
+                offset: 0,
+                linespace: 0,
+                valign: 'C',
+                halign: 'L',
             );
             $headerOut .= $this->defaultfont['out'];
         }
@@ -131,15 +132,15 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
         if ($this->headerSubtitle !== '') {
             $headerOut .= $this->color->getPdfColor('#555555');
             $headerOut .= $this->getTextCell(
-                $this->headerSubtitle,
-                $lm + $tw * 0.65,
-                $headerY,
-                $tw * 0.35,    // remaining 35 %
-                self::HEADER_H,
-                0,
-                0,
-                'C',           // valign: centre inside the band
-                'R',           // halign: right
+                txt: $this->headerSubtitle,
+                posx: $lm + ($tw * 0.65),
+                posy: $headerY,
+                width: $tw * 0.35,
+                height: self::HEADER_H,
+                offset: 0,
+                linespace: 0,
+                valign: 'C',
+                halign: 'R',
             );
         }
 
@@ -164,15 +165,15 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
         // Page number – centred
         $footerOut .= $this->color->getPdfColor('#555555');
         $footerOut .= $this->getTextCell(
-            'Page ' . ($pid + 1),
-            $lm,
-            $footerLineY,
-            $tw,
-            self::FOOTER_H,
-            0,
-            0,
-            'C',               // valign: centre inside the band
-            'C',               // halign: centre
+            txt: 'Page ' . ($pid + 1),
+            posx: $lm,
+            posy: $footerLineY,
+            width: $tw,
+            height: self::FOOTER_H,
+            offset: 0,
+            linespace: 0,
+            valign: 'C',
+            halign: 'C',
         );
         $footerOut .= $this->graph->getStopTransform();
 
@@ -188,12 +189,12 @@ class PdfWithHeaderFooter extends \Com\Tecnick\Pdf\Tcpdf
 
 // main PDF object using the custom subclass
 $pdf = new PdfWithHeaderFooter(
-    'mm',  // string $unit = 'mm',
-    true,  // bool $isunicode = true,
+    'mm', // string $unit = 'mm',
+    true, // bool $isunicode = true,
     false, // bool $subsetfont = false,
-    true,  // bool $compress = true,
+    true, // bool $compress = true,
     'pdfua1', // string $mode = 'pdfua1',
-    null,  // ?ObjEncrypt $objEncrypt = null,
+    null, // ?ObjEncrypt $objEncrypt = null,
 );
 
 // ----------
@@ -224,7 +225,7 @@ $bfontB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 13);
 // Add first page
 
 $page01 = $pdf->addPage();
-$pdf->setBookmark('Page 1', '', 0, -1, 0, 0, 'B', 'blue');
+$pdf->setBookmark(name: 'Page 1', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'blue');
 
 // Page content starts below the header band (HF_MARGIN + HEADER_H + separator ≈ 25 mm).
 $contentY = 28.0;
@@ -232,8 +233,15 @@ $contentY = 28.0;
 $pdf->page->addContent($bfontB['out']);
 
 $title1 = $pdf->getTextCell(
-    'Page 1 — Custom Repeating Header & Footer',
-    10, $contentY, 190, 0, 0, 0, 'T', 'L',
+    txt: 'Page 1 — Custom Repeating Header & Footer',
+    posx: 10,
+    posy: $contentY,
+    width: 190,
+    height: 0,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
 );
 $pdf->page->addContent($title1);
 
@@ -248,11 +256,15 @@ This is achieved by subclassing \Com\Tecnick\Pdf\Tcpdf and overriding the public
 Because setPageContext() calls defaultPageContent() automatically every time addPage() is used, the header and footer appear on every page without any additional code in the page-building section.';
 
 $txt1 = $pdf->getTextCell(
-    $body1,
-    10, $contentY + 10, 190, 0,
-    15,  // first-line indent (mm)
-    2,   // extra line spacing (mm)
-    'T', 'J',
+    txt: $body1,
+    posx: 10,
+    posy: $contentY + 10,
+    width: 190,
+    height: 0,
+    offset: 15,
+    linespace: 2,
+    valign: 'T',
+    halign: 'J',
 );
 $pdf->page->addContent($txt1);
 
@@ -260,13 +272,20 @@ $pdf->page->addContent($txt1);
 // Add second page
 
 $page02 = $pdf->addPage();
-$pdf->setBookmark('Page 2', '', 0, -1, 0, 0, 'B', 'green');
+$pdf->setBookmark(name: 'Page 2', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'green');
 
 $pdf->page->addContent($bfontB['out']);
 
 $title2 = $pdf->getTextCell(
-    'Page 2 — Continued Content',
-    10, $contentY, 190, 0, 0, 0, 'T', 'L',
+    txt: 'Page 2 — Continued Content',
+    posx: 10,
+    posy: $contentY,
+    width: 190,
+    height: 0,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
 );
 $pdf->page->addContent($title2);
 
@@ -277,11 +296,15 @@ $body2 = 'This is the second page. The header and footer are present here too wi
 Any further pages added with addPage() would also receive the same header and footer, making the approach suitable for multi-page reports, invoices, or any document type that requires consistent page decoration.';
 
 $txt2 = $pdf->getTextCell(
-    $body2,
-    10, $contentY + 10, 190, 0,
-    15,  // first-line indent (mm)
-    2,   // extra line spacing (mm)
-    'T', 'J',
+    txt: $body2,
+    posx: 10,
+    posy: $contentY + 10,
+    width: 190,
+    height: 0,
+    offset: 15,
+    linespace: 2,
+    valign: 'T',
+    halign: 'J',
 );
 $pdf->page->addContent($txt2);
 
@@ -290,4 +313,4 @@ $pdf->page->addContent($txt2);
 
 $rawpdf = $pdf->getOutPDFString();
 
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

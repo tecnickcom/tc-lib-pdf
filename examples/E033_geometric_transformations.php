@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E033_geometric_transformations.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -60,25 +59,20 @@ $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 8);
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
 
 $page01 = $pdf->addPage();
-$pdf->setBookmark('Transformations', '', 1);
+$pdf->setBookmark(name: 'Transformations', link: '', level: 1);
 
 // Document title and explanation
 $titleHtml = <<<HTML
-<h1 style="font-size:16pt; color:#003366;">Geometric Transformations</h1>
-<p style="font-size:9pt; color:#333333;">
-This example demonstrates the geometric transformation operations available in tc-lib-pdf:
-<b>scaling</b>, <b>translation</b>, <b>rotation</b>, <b>skewing</b>, <b>mirroring</b>,
-and combined <b>affine transformations.</b>
-Each operation is shown with a reference rectangle (black) and the transformed result (red).
-</p>
-HTML;
+    <h1 style="font-size:16pt; color:#003366;">Geometric Transformations</h1>
+    <p style="font-size:9pt; color:#333333;">
+    This example demonstrates the geometric transformation operations available in tc-lib-pdf:
+    <b>scaling</b>, <b>translation</b>, <b>rotation</b>, <b>skewing</b>, <b>mirroring</b>,
+    and combined <b>affine transformations.</b>
+    Each operation is shown with a reference rectangle (black) and the transformed result (red).
+    </p>
+    HTML;
 
-$pdf->addHTMLCell(
-    $titleHtml,
-    15, // float $posx
-    15, // float $posy
-    180, // float $width
-);
+$pdf->addHTMLCell(html: $titleHtml, posx: 15, posy: 15, width: 180);
 
 // Geometric Transformations
 
@@ -102,7 +96,16 @@ $transform_style = [
     'fillColor' => 'red',
 ];
 
-$pdf->page->addContent($pdf->getTextCell('Scaling: 150% around (50, 80)', 50, 60, 65, 6, valign: 'T', halign: 'L', drawcell: false));
+$pdf->page->addContent($pdf->getTextCell(
+    'Scaling: 150% around (50, 80)',
+    50,
+    60,
+    65,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 // Scaling
 $t1 = $pdf->graph->getBasicRect(50, 70, 40, 10, 'D', $rect_style);
@@ -113,9 +116,16 @@ $t1 .= $pdf->graph->getBasicRect(50, 70, 40, 10, 'D', $transform_style);
 $t1 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t1);
 
-
-$pdf->page->addContent($pdf->getTextCell('Translation: +7 x, +5 y', 125, 66, 65, 6, valign: 'T', halign: 'L', drawcell: false));
-
+$pdf->page->addContent($pdf->getTextCell(
+    'Translation: +7 x, +5 y',
+    125,
+    66,
+    65,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 //  Translation
 $t2 = $pdf->graph->getBasicRect(125, 70, 40, 10, 'D');
@@ -126,9 +136,16 @@ $t2 .= $pdf->graph->getBasicRect(125, 70, 40, 10, 'D', $transform_style);
 $t2 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t2);
 
-
-$pdf->page->addContent($pdf->getTextCell('Rotation: 20 degrees around (70, 110)', 50, 112, 70, 6, valign: 'T', halign: 'L', drawcell: false));
-
+$pdf->page->addContent($pdf->getTextCell(
+    'Rotation: 20 degrees around (70, 110)',
+    50,
+    112,
+    70,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 // Rotation
 $t3 = $pdf->graph->getBasicRect(70, 100, 40, 10, 'D');
@@ -139,9 +156,16 @@ $t3 .= $pdf->graph->getBasicRect(70, 100, 40, 10, 'D', $transform_style);
 $t3 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t3);
 
-
-$pdf->page->addContent($pdf->getTextCell('Skewing: 30 degrees on x-axis', 125, 96, 65, 6, valign: 'T', halign: 'L', drawcell: false));
-
+$pdf->page->addContent($pdf->getTextCell(
+    'Skewing: 30 degrees on x-axis',
+    125,
+    96,
+    65,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 // Skewing
 $t4 = $pdf->graph->getBasicRect(125, 100, 40, 10, 'D');
@@ -152,9 +176,16 @@ $t4 .= $pdf->graph->getBasicRect(125, 100, 40, 10, 'D', $transform_style);
 $t4 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t4);
 
-
-$pdf->page->addContent($pdf->getTextCell('Horizontal mirror at x = 70', 50, 126, 65, 6, valign: 'T', halign: 'L', drawcell: false));
-
+$pdf->page->addContent($pdf->getTextCell(
+    'Horizontal mirror at x = 70',
+    50,
+    126,
+    65,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 //  Mirroring Horizontally
 $t5 = $pdf->graph->getBasicRect(70, 130, 40, 10, 'D');
@@ -165,9 +196,16 @@ $t5 .= $pdf->graph->getBasicRect(70, 130, 40, 10, 'D', $transform_style);
 $t5 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t5);
 
-
-$pdf->page->addContent($pdf->getTextCell('Vertical mirror at y = 140', 125, 126, 65, 6, valign: 'T', halign: 'L', drawcell: false));
-
+$pdf->page->addContent($pdf->getTextCell(
+    'Vertical mirror at y = 140',
+    125,
+    126,
+    65,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 //  Mirroring Vertically
 $t6 = $pdf->graph->getBasicRect(125, 130, 40, 10, 'D');
@@ -178,9 +216,16 @@ $t6 .= $pdf->graph->getBasicRect(125, 130, 40, 10, 'D', $transform_style);
 $t6 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t6);
 
-
-$pdf->page->addContent($pdf->getTextCell('Point reflection at (70, 170)', 50, 156, 65, 6, valign: 'T', halign: 'L', drawcell: false));
-
+$pdf->page->addContent($pdf->getTextCell(
+    'Point reflection at (70, 170)',
+    50,
+    156,
+    65,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 //  Point Reflection
 $t7 = $pdf->graph->getBasicRect(70, 160, 40, 10, 'D');
@@ -191,7 +236,16 @@ $t7 .= $pdf->graph->getBasicRect(70, 160, 40, 10, 'D', $transform_style);
 $t7 .= $pdf->graph->getStopTransform();
 $pdf->page->addContent($t7);
 
-$pdf->page->addContent($pdf->getTextCell('Line reflection through (120, 170), angle -20 degrees', 125, 156, 70, 6, valign: 'T', halign: 'L', drawcell: false));
+$pdf->page->addContent($pdf->getTextCell(
+    'Line reflection through (120, 170), angle -20 degrees',
+    125,
+    156,
+    70,
+    6,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+));
 
 //  Mirroring against a straigth line described by a point (120, 120) and an angle -20°
 $angle = -20;
@@ -230,6 +284,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

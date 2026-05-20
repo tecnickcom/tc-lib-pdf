@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E035_registration_marks.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -56,27 +55,23 @@ $pdf->enableDefaultPageContent();
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
-
 
 // ----------
 
 $page01 = $pdf->addPage();
-$pdf->setBookmark('Crop Marks and Color Maps', '', 1);
+$pdf->setBookmark(name: 'Crop Marks and Color Maps', link: '', level: 1);
 
 $html = <<<HTML
-<h1>Registration Marks</h1>
-<p>
-This example shows crop marks, registration targets, and color registration bars,
-including spot-color bars used for print alignment checks.
-</p>
-HTML;
+    <h1>Registration Marks</h1>
+    <p>
+    This example shows crop marks, registration targets, and color registration bars,
+    including spot-color bars used for print alignment checks.
+    </p>
+    HTML;
 
-$pdf->addHTMLCell($html, 15, 15, 180);
-
-
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 15, width: 180);
 
 $style1 = [
     'lineWidth' => 0.5,
@@ -126,9 +121,7 @@ $crpmrk9 = $pdf->graph->getCropMark($posx + 45, $posy + 70, 5, 5, 'TLBR', [
 ]);
 $pdf->page->addContent($crpmrk9);
 
-
 // Registration Marks
-
 
 $regmrk1 = $pdf->graph->getRegistrationMark($posx - 10, $posy - 10, 5, false);
 $pdf->page->addContent($regmrk1);
@@ -148,84 +141,68 @@ $pdf->page->addContent($regmrk5);
 
 // Add Spot Colors
 
-$color_custom_dark_green = new \Com\Tecnick\Color\Model\Cmyk(
-    [
-        'cyan' => 1,
-        'magenta' => 0.5,
-        'yellow' => 0.8,
-        'key' => 0.45,
-        'alpha' => 0,
-    ]
-);
+$color_custom_dark_green = new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 1,
+    'magenta' => 0.5,
+    'yellow' => 0.8,
+    'key' => 0.45,
+    'alpha' => 0,
+]);
 $pdf->color->addSpotColor('Custom Dark Green', $color_custom_dark_green);
 
-$color_custom_light_yellow = new \Com\Tecnick\Color\Model\Cmyk(
-    [
-        'cyan' => 0,
-        'magenta' => 0,
-        'yellow' => 0.55,
-        'key' => 0,
-        'alpha' => 0,
-    ]
-);
+$color_custom_light_yellow = new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0,
+    'magenta' => 0,
+    'yellow' => 0.55,
+    'key' => 0,
+    'alpha' => 0,
+]);
 $pdf->color->addSpotColor('Custom Light Yellow', $color_custom_light_yellow);
 
-$color_custom_black = new \Com\Tecnick\Color\Model\Cmyk(
-    [
-        'cyan' => 0,
-        'magenta' => 0,
-        'yellow' => 0,
-        'key' => 1,
-        'alpha' => 0,
-    ]
-);
+$color_custom_black = new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0,
+    'magenta' => 0,
+    'yellow' => 0,
+    'key' => 1,
+    'alpha' => 0,
+]);
 $pdf->color->addSpotColor('Custom Black', $color_custom_black);
 
-$color_custom_red = new \Com\Tecnick\Color\Model\Cmyk(
-    [
-        'cyan' => 0.3,
-        'magenta' => 1,
-        'yellow' => 0.9,
-        'key' => 0.1,
-        'alpha' => 0,
-    ]
-);
+$color_custom_red = new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0.3,
+    'magenta' => 1,
+    'yellow' => 0.9,
+    'key' => 0.1,
+    'alpha' => 0,
+]);
 $pdf->color->addSpotColor('Custom Red', $color_custom_red);
 
-$color_custom_green = new \Com\Tecnick\Color\Model\Cmyk(
-    [
-        'cyan' => 1,
-        'magenta' => 0.3,
-        'yellow' => 1,
-        'key' => 0,
-        'alpha' => 0,
-    ]
-);
+$color_custom_green = new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 1,
+    'magenta' => 0.3,
+    'yellow' => 1,
+    'key' => 0,
+    'alpha' => 0,
+]);
 $pdf->color->addSpotColor('Custom Green', $color_custom_green);
 
-$color_custom_blue = new \Com\Tecnick\Color\Model\Cmyk(
-    [
-        'cyan' => 1,
-        'magenta' => 0.6,
-        'yellow' => 0.1,
-        'key' => 0.05,
-        'alpha' => 0,
-    ]
-);
+$color_custom_blue = new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 1,
+    'magenta' => 0.6,
+    'yellow' => 0.1,
+    'key' => 0.05,
+    'alpha' => 0,
+]);
 $pdf->color->addSpotColor('Custom Blue', $color_custom_blue);
 
-$color_custom_yellow = new \Com\Tecnick\Color\Model\Cmyk(
-    [
-        'cyan' => 0,
-        'magenta' => 0.2,
-        'yellow' => 1,
-        'key' => 0,
-        'alpha' => 0,
-    ]
-);
+$color_custom_yellow = new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0,
+    'magenta' => 0.2,
+    'yellow' => 1,
+    'key' => 0,
+    'alpha' => 0,
+]);
 $pdf->color->addSpotColor('Custom Yellow', $color_custom_yellow);
-
-
 
 $style2 = [
     'lineWidth' => 0,
@@ -237,34 +214,24 @@ $style2 = [
     'fillColor' => 'white',
 ];
 
-
 $pdf->page->addContent($pdf->graph->getStyleCmd($style2));
-
 
 // Color Registration Bars with spot colors
 
-$colregspot = $pdf->graph->getColorRegistrationBar(
-    $posx - 20,
-    $posy + 80,
-    100,
-    10,
-    true,
-    [
-        ['black'],
-        ['red'],
-        ['green'],
-        ['blue'],
-        ['Custom Dark Green'],
-        ['Custom Light Yellow'],
-        ['Custom Black'],
-        ['Custom Red'],
-        ['Custom Green'],
-        ['Custom Blue'],
-        ['Custom Yellow'],
-    ]
-);
+$colregspot = $pdf->graph->getColorRegistrationBar($posx - 20, $posy + 80, 100, 10, true, [
+    ['black'],
+    ['red'],
+    ['green'],
+    ['blue'],
+    ['Custom Dark Green'],
+    ['Custom Light Yellow'],
+    ['Custom Black'],
+    ['Custom Red'],
+    ['Custom Green'],
+    ['Custom Blue'],
+    ['Custom Yellow'],
+]);
 $pdf->page->addContent($colregspot);
-
 
 $colreg1 = $pdf->graph->getColorRegistrationBar($posx, $posy, 40, 40, false);
 $pdf->page->addContent($colreg1);
@@ -302,6 +269,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E045_encryption_and_permissions.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -26,26 +27,25 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 $fileId = \md5('E045_encryption_and_permissions');
 $encrypt = new \Com\Tecnick\Pdf\Encrypt\Encrypt(
-    true,
-    $fileId,
-    2,
-    ['modify', 'copy', 'annot-forms', 'assemble'],
-    'demo-user',
-    'demo-owner'
+    enabled: true,
+    file_id: $fileId,
+    mode: 2,
+    permissions: ['modify', 'copy', 'annot-forms', 'assemble'],
+    user_pass: 'demo-user',
+    owner_pass: 'demo-owner',
 );
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    $encrypt, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: $encrypt,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -66,22 +66,17 @@ $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 $page01 = $pdf->addPage();
 $pdf->page->addContent($bfont['out']);
 
-$html =  <<<HTML
-<h1>Encryption and Permissions</h1>
-<p>This document demonstrates PDF encryption and permission controls using tc-lib-pdf.
-The file is protected with a user password (<em>demo-user</em>) and an owner password (<em>demo-owner</em>).
-Encryption restricts unauthorized access while the owner password grants full control.
-The allowed permissions for this document are: <strong>modify</strong>, <strong>copy</strong>,
-<strong>annot-forms</strong>, and <strong>assemble</strong>.
-All other operations, such as printing, are denied.</p>
-HTML;
+$html = <<<HTML
+    <h1>Encryption and Permissions</h1>
+    <p>This document demonstrates PDF encryption and permission controls using tc-lib-pdf.
+    The file is protected with a user password (<em>demo-user</em>) and an owner password (<em>demo-owner</em>).
+    Encryption restricts unauthorized access while the owner password grants full control.
+    The allowed permissions for this document are: <strong>modify</strong>, <strong>copy</strong>,
+    <strong>annot-forms</strong>, and <strong>assemble</strong>.
+    All other operations, such as printing, are denied.</p>
+    HTML;
 
-$pdf->addHTMLCell(
-    $html,
-    20,
-    10,
-    180, 
-);
+$pdf->addHTMLCell(html: $html, posx: 20, posy: 10, width: 180);
 
 // ----------
 
@@ -91,6 +86,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

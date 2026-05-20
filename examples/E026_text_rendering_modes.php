@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E026_text_rendering_modes.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -39,12 +40,7 @@ $pdf->setPDFFilename('026_text_rendering_modes.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
-$setFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    string $family,
-    string $style,
-    int $size,
-): array {
+$setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string $style, int $size): array {
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size, 0.0, 1.0);
     $pdf->page->addContent($font['out']);
     return $font;
@@ -65,24 +61,22 @@ $drawTextModeLine = static function (
         $pdf->page->addContent($pdf->graph->getStartTransform());
     }
 
-    $pdf->page->addContent(
-        $pdf->getTextCell(
-            $text,
-            15.0,
-            $y,
-            180.0,
-            0.0,
-            strokewidth: $strokeWidth,
-            fill: $fill,
-            stroke: $stroke,
-            clip: $clip,
-            drawcell: false,
-            valign: 'T',
-            halign: 'L',
-        )
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        $text,
+        15.0,
+        $y,
+        180.0,
+        0.0,
+        strokewidth: $strokeWidth,
+        fill: $fill,
+        stroke: $stroke,
+        clip: $clip,
+        drawcell: false,
+        valign: 'T',
+        halign: 'L',
+    ));
 
-    if ($clip && ($imageId > 0)) {
+    if ($clip && $imageId > 0) {
         $pdf->page->addContent($pdf->image->getSetImage($imageId, 15.0, $y + 2.0, 170.0, 10.0, $pageHeight));
         $pdf->page->addContent($pdf->graph->getStopTransform());
     }
@@ -94,18 +88,16 @@ $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);
 $page = $pdf->addPage();
 
 $setFont($pdf, 'helvetica', '', 11);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Text rendering modes: fill, stroke, fill+stroke, invisible, and clipping.',
-        15.0,
-        20.0,
-        180.0,
-        0.0,
-        drawcell: false,
-        valign: 'T',
-        halign: 'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'Text rendering modes: fill, stroke, fill+stroke, invisible, and clipping.',
+    15.0,
+    20.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 
 $setFont($pdf, 'helvetica', '', 22);
 
@@ -123,10 +115,40 @@ if (\is_file($imagePath)) {
     $imageId = $pdf->image->add($imagePath);
 }
 
-$drawTextModeLine($pdf, 'Fill text and add to path for clipping', 95.0, 0.0, true, false, true, $imageId, $page['height']);
-$drawTextModeLine($pdf, 'Stroke text and add to path for clipping', 107.0, 0.3, false, true, true, $imageId, $page['height']);
-$drawTextModeLine($pdf, 'Fill, then stroke text and add to path for clipping', 119.0, 0.3, true, true, true, $imageId, $page['height']);
+$drawTextModeLine(
+    $pdf,
+    'Fill text and add to path for clipping',
+    95.0,
+    0.0,
+    true,
+    false,
+    true,
+    $imageId,
+    $page['height'],
+);
+$drawTextModeLine(
+    $pdf,
+    'Stroke text and add to path for clipping',
+    107.0,
+    0.3,
+    false,
+    true,
+    true,
+    $imageId,
+    $page['height'],
+);
+$drawTextModeLine(
+    $pdf,
+    'Fill, then stroke text and add to path for clipping',
+    119.0,
+    0.3,
+    true,
+    true,
+    true,
+    $imageId,
+    $page['height'],
+);
 $drawTextModeLine($pdf, 'Add text to path for clipping', 131.0, 0.0, false, false, true, $imageId, $page['height']);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

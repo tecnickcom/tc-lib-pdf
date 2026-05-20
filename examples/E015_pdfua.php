@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E015_pdfua.php
  *
@@ -22,18 +23,18 @@
  *   a           → Link
  */
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfua');
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: true, mode: 'pdfua');
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setTitle('PDF/UA Auto-Tagged HTML');
 $pdf->setSubject('tc-lib-pdf example: 015 — pdfua mode HTML tagging showcase');
 $pdf->setKeywords('TCPDF tc-lib-pdf pdfua tagged PDF accessibility HTML auto-tag structure');
 $pdf->setPDFFilename('E015_pdfua.pdf');
-$pdf->setLanguage('en-US');
+$pdf->setLanguage(code: 'en-US');
 
 $font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 $pdf->addPage();
@@ -41,27 +42,25 @@ $pdf->page->addContent($font['out']);
 
 $imgPath = __DIR__ . '/images/tcpdf_logo.jpg';
 
-$html = '<h1>PDF/UA — Auto-Tagged HTML Showcase</h1>'
+$html =
+    '<h1>PDF/UA — Auto-Tagged HTML Showcase</h1>'
     . '<p>Mode: <strong>pdfua</strong> (generic alias). This document demonstrates every HTML'
     . ' element that <code>addHTMLCell()</code> auto-tags with a PDF structure role.'
     . ' No <code>beginStructElem()</code> calls are required: the library maps each HTML tag'
     . ' to its PDF role automatically when a PDF/UA mode is active. The generic'
     . ' <em>pdfua</em> alias behaves identically to <em>pdfua1</em> for structure-tree'
     . ' output and defaults to PDF 1.7.</p>'
-
     . '<h2>1 — Heading and Paragraph Roles</h2>'
     . '<h3>H3 Sub-heading</h3>'
     . '<p>The <code>h1</code>-<code>h6</code> tags map to PDF roles <strong>H1-H6</strong>.'
     . ' The <code>p</code> tag maps to <strong>P</strong>.'
     . ' Heading levels are clamped to prevent skipped levels in the structure tree,'
     . ' satisfying the PDF/UA requirement that no heading level may be skipped.</p>'
-
     . '<h2>2 — Block Roles</h2>'
     . '<blockquote>&ldquo;Tagged PDF is the foundation of accessible PDF. Without a'
     . ' well-formed structure tree, automated tools and assistive technologies cannot'
     . ' reliably interpret document content.&rdquo; &mdash; ISO&#160;14289-1 rationale</blockquote>'
     . '<p>The <code>blockquote</code> tag maps to <strong>BlockQuote</strong>.</p>'
-
     . '<h2>3 — List Structure (L &gt; LI &gt; Lbl + LBody)</h2>'
     . '<p>Both <code>ul</code> and <code>ol</code> map to the <strong>L</strong> role.'
     . ' Each <code>li</code> auto-generates <strong>LI &gt; {Lbl, LBody}</strong> children:</p>'
@@ -75,16 +74,16 @@ $html = '<h1>PDF/UA — Auto-Tagged HTML Showcase</h1>'
     . '<li>Body text is again auto-wrapped in <strong>LBody</strong></li>'
     . '<li>Nesting: L &gt; LI &gt; {Lbl, LBody}</li>'
     . '</ol>'
-
     . '<h2>4 — Figure, Image Alt-Text, and Caption</h2>'
     . '<figure>'
-    . '<img src="' . $imgPath . '" alt="TCPDF logo: blue text on white background" width="89" height="30" />'
+    . '<img src="'
+    . $imgPath
+    . '" alt="TCPDF logo: blue text on white background" width="89" height="30" />'
     . '<figcaption>Figure 1 &mdash; TCPDF logo. The <code>alt</code> attribute is written as'
     . ' <strong>/Alt</strong> in the Figure structure-element dictionary so screen readers'
     . ' can describe the image. The <code>figcaption</code> tag maps to'
     . ' <strong>Caption</strong>.</figcaption>'
     . '</figure>'
-
     . '<h2>5 — Table Structure (Table &gt; TR &gt; TH/TD)</h2>'
     . '<table border="1" cellspacing="0" cellpadding="3">'
     . '<caption>Table 1 &mdash; HTML tags and their PDF/UA structure roles (auto-tagged by addHTMLCell)</caption>'
@@ -104,14 +103,13 @@ $html = '<h1>PDF/UA — Auto-Tagged HTML Showcase</h1>'
     . '<tr><td>th</td><td>TH</td><td>Table</td></tr>'
     . '<tr><td>a</td><td>Link</td><td>Inline</td></tr>'
     . '</table>'
-
     . '<h2>6 — Hyperlink (Link Role)</h2>'
     . '<p>This sentence contains a'
     . ' <a href="https://github.com/tecnickcom/tc-lib-pdf" style="text-decoration:none;">hyperlink to the tc-lib-pdf repository</a>;'
     . ' the <code>a</code> element is tagged with the <strong>Link</strong> structure role'
     . ' automatically. The link text is accessible to screen readers via the structure tree.</p>';
 
-$pdf->addHTMLCell($html, 15, 20, 180);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

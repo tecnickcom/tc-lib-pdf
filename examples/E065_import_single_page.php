@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E065_import_single_page.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -34,7 +35,7 @@ $bfont = $src->font->insert($src->pon, 'helvetica', '', 14);
 
 $srcPage = $src->addPage();
 $src->page->addContent($bfont['out']);
-$src->addHTMLCell('<h1>Source document</h1><p>This page will be imported.</p>', 15, 20, 160);
+$src->addHTMLCell(html: '<h1>Source document</h1><p>This page will be imported.</p>', posx: 15, posy: 20, width: 160);
 
 $sourcePdfData = $src->getOutPDFString();
 
@@ -57,7 +58,7 @@ $sourceId = $pdf->setImportSourceData($sourcePdfData);
 $pageCount = $pdf->getSourcePageCount($sourceId);
 
 // Import page 1 as a reusable Form XObject template.
-$tpl = $pdf->importPage($sourceId, 1);
+$tpl = $pdf->importPage(sourceId: $sourceId, pageNum: 1);
 
 // Add a new page to the destination document.
 $page = $pdf->addPage();
@@ -65,16 +66,16 @@ $pdf->page->addContent($bfont['out']);
 
 // Place the imported page as a thumbnail (100 mm wide) at (20, 20).
 // The height is computed automatically to preserve the aspect ratio.
-$placed = $pdf->useImportedPage($tpl, 20, 20, 140);
+$placed = $pdf->useImportedPage(tpl: $tpl, xpos: 20, ypos: 20, width: 140);
 
 // Add an annotation below the imported page.
 $pdf->addHTMLCell(
-    '<p>Imported ' . $pageCount . ' page(s). Placed page 1 above (scaled).</p>',
-    15,
-    (float) $placed['y'] + (float) $placed['height'] + 5,
-    160
+    html: '<p>Imported ' . $pageCount . ' page(s). Placed page 1 above (scaled).</p>',
+    posx: 15,
+    posy: (float) $placed['y'] + (float) $placed['height'] + 5,
+    width: 160,
 );
 
 // Get and render the PDF content.
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

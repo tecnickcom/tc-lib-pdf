@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E050_shipping_label_barcodes.php
  *
@@ -18,11 +19,18 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -69,19 +77,19 @@ $headerHtml = '<div style="text-align: left;">
     <p style="font-family: helvetica; font-weight: bold; font-size: 11pt; margin: 0;">EXPRESS SHIPPING</p>
     <p style="font-family: helvetica; font-weight: bold; font-size: 11pt; margin: 0;">PRIORITY</p>
 </div>';
-$pdf->addHTMLCell($headerHtml, 8, 9, 50);
+$pdf->addHTMLCell(html: $headerHtml, posx: 8, posy: 9, width: 50);
 
 // QR code in top-right
 $qrPayload = "TRACK:1Z999AA10123456784\nORDER:SO-2026-05-0018\nSERVICE:EXPRESS-24\nFROM:NL-RTM-W17\nTO:DE-HAM-ACME";
 $pdf->page->addContent($pdf->getBarcode(
-    'QRCODE,M',
-    $qrPayload,
-    72,
-    9,
-    20,
-    20,
-    [1, 1, 1, 1],
-    $barcodeStyle
+    type: 'QRCODE,M',
+    code: $qrPayload,
+    posx: 72,
+    posy: 9,
+    width: 20,
+    height: 20,
+    padding: [1, 1, 1, 1],
+    style: $barcodeStyle,
 ));
 
 // Address section
@@ -100,39 +108,46 @@ $addressHtml = '<table cellpadding="1" cellspacing="0" border="0" width="100%">
 <p style="font-family: helvetica; font-size: 8pt; margin: 1mm 0 0 0; text-align: center;">
     <em>Scan for full shipment payload</em>
 </p>';
-$pdf->addHTMLCell($addressHtml, 8, 37, 84);
+$pdf->addHTMLCell(html: $addressHtml, posx: 8, posy: 37, width: 84);
 
 $tracking = '1Z999AA10123456784';
 $orderRef = 'SO-2026-05-0018';
 $service = 'EXPRESS-24';
 
 // Tracking section
-$trackingHtml = '<div style="font-family: courier; font-weight: bold; font-size: 11pt; margin-bottom: 2mm;">
-    ' . htmlspecialchars($tracking) . '
+$trackingHtml =
+    '<div style="font-family: courier; font-weight: bold; font-size: 11pt; margin-bottom: 2mm;">
+    '
+    . htmlspecialchars($tracking)
+    . '
 </div>
 <ul style="font-family: helvetica; font-size: 8pt;">
-    <li>Order: ' . htmlspecialchars($orderRef) . '</li>
-    <li>Service: ' . htmlspecialchars($service) . '</li>
+    <li>Order: '
+    . htmlspecialchars($orderRef)
+    . '</li>
+    <li>Service: '
+    . htmlspecialchars($service)
+    . '</li>
 </ul>';
-$pdf->addHTMLCell($trackingHtml, 8, 96, 84);
+$pdf->addHTMLCell(html: $trackingHtml, posx: 8, posy: 96, width: 84);
 
 // 1D barcode
 $pdf->page->addContent($pdf->getBarcode(
-    'C128',
-    $tracking,
-    8,
-    115,
-    80,
-    14,
-    [1, 1, 1, 1],
-    $barcodeStyle
+    type: 'C128',
+    code: $tracking,
+    posx: 8,
+    posy: 115,
+    width: 80,
+    height: 14,
+    padding: [1, 1, 1, 1],
+    style: $barcodeStyle,
 ));
 
 // Footer text
 $footerHtml = '<p style="font-family: helvetica; font-size: 8pt; margin: 0; text-align: left; line-height: 1.2;">
     Quiet zones are intentionally reserved around both symbols to improve scanner reliability.
 </p>';
-$pdf->addHTMLCell($footerHtml, 8, 136, 84);
+$pdf->addHTMLCell(html: $footerHtml, posx: 8, posy: 136, width: 84);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

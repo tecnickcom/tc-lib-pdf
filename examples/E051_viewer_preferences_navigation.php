@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E051_viewer_preferences_navigation.php
  *
@@ -26,11 +27,18 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -46,27 +54,27 @@ $pdf->setPDFFilename('051_viewer_preferences_navigation.pdf');
 // the title bar.
 
 $pdf->setViewerPreferences([
-    'DisplayDocTitle'       => true,
-    'CenterWindow'          => true,
-    'FitWindow'             => false,
-    'HideToolbar'           => false,
-    'HideMenubar'           => false,
-    'Duplex'                => 'DuplexFlipLongEdge',
-    'PrintScaling'          => 'none',
-    'NumCopies'             => 1,
-    'PrintPageRange'        => [1, 4],
+    'DisplayDocTitle' => true,
+    'CenterWindow' => true,
+    'FitWindow' => false,
+    'HideToolbar' => false,
+    'HideMenubar' => false,
+    'Duplex' => 'DuplexFlipLongEdge',
+    'PrintScaling' => 'none',
+    'NumCopies' => 1,
+    'PrintPageRange' => [1, 4],
     'NonFullScreenPageMode' => 'UseOutlines',
 ]);
 
 // Display mode: open at full width, single-page layout, with outlines panel.
-$pdf->setDisplayMode('fullwidth', 'SinglePage', 'UseOutlines');
+$pdf->setDisplayMode(zoom: 'fullwidth', layout: 'SinglePage', mode: 'UseOutlines');
 
 $pdf->enableDefaultPageContent();
 
 // ----------
 
 $headFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 16);
-$subFont  = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 11);
+$subFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 11);
 $bodyFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
 // ===| Page 1 – Cover |======================================================
@@ -75,9 +83,18 @@ $page1 = $pdf->addPage(['format' => 'A4']);
 
 // Register a named destination at the top of page 1. External documents or
 // bookmark links can jump here via '#cover'.
-$pdf->setNamedDestination('cover', $page1['pid'], 0, 0);
+$pdf->setNamedDestination(name: 'cover', page: $page1['pid'], posx: 0, posy: 0);
 
-$pdf->setBookmark('Cover', '#cover', 0, $page1['pid'], 0, 0, 'B', 'darkblue');
+$pdf->setBookmark(
+    name: 'Cover',
+    link: '#cover',
+    level: 0,
+    page: $page1['pid'],
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'darkblue',
+);
 
 $coverHtml = '<h1 style="font-family: helvetica; color: #1a3c6e; text-align: center; margin-top: 30mm;">
     Viewer Preferences &amp; Navigation Demo
@@ -100,15 +117,24 @@ $coverHtml = '<h1 style="font-family: helvetica; color: #1a3c6e; text-align: cen
     The navigation buttons on page 4 use <code>setLink</code> and <code>addInternalLink</code>
     to create clickable rectangles that jump to each chapter page.
 </p>';
-$pdf->addHTMLCell($coverHtml, 15, 20, 170);
+$pdf->addHTMLCell(html: $coverHtml, posx: 15, posy: 20, width: 170);
 
 // ===| Page 2 – Chapter 1 |==================================================
 
 $page2 = $pdf->addPage(['format' => 'A4']);
 
-$destChapter1 = $pdf->setNamedDestination('chapter-1', $page2['pid'], 0, 0);
-$pdf->setBookmark('Chapter 1 — Overview', $destChapter1, 0, $page2['pid'], 0, 0, 'B', 'darkgreen');
-$pdf->setBookmark('1.1 Introduction', '', 1, $page2['pid'], 0, 25);
+$destChapter1 = $pdf->setNamedDestination(name: 'chapter-1', page: $page2['pid'], posx: 0, posy: 0);
+$pdf->setBookmark(
+    name: 'Chapter 1 — Overview',
+    link: $destChapter1,
+    level: 0,
+    page: $page2['pid'],
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'darkgreen',
+);
+$pdf->setBookmark(name: '1.1 Introduction', link: '', level: 1, page: $page2['pid'], posx: 0, posy: 25);
 
 $ch1Html = '<h2 style="font-family: helvetica; color: #1a6e3c;">Chapter 1 — Overview</h2>
 <p style="font-family: helvetica; font-size: 10pt;">
@@ -125,15 +151,24 @@ $ch1Html = '<h2 style="font-family: helvetica; color: #1a6e3c;">Chapter 1 — Ov
     Named destinations are stored in the PDF <em>/Dests</em> dictionary and are independent
     of page numbering — they remain stable even if pages are reordered.
 </p>';
-$pdf->addHTMLCell($ch1Html, 15, 20, 170);
+$pdf->addHTMLCell(html: $ch1Html, posx: 15, posy: 20, width: 170);
 
 // ===| Page 3 – Chapter 2 |==================================================
 
 $page3 = $pdf->addPage(['format' => 'A4']);
 
-$destChapter2 = $pdf->setNamedDestination('chapter-2', $page3['pid'], 0, 0);
-$pdf->setBookmark('Chapter 2 — Viewer Preferences', $destChapter2, 0, $page3['pid'], 0, 0, 'B', 'darkred');
-$pdf->setBookmark('2.1 Preference Keys', '', 1, $page3['pid'], 0, 25);
+$destChapter2 = $pdf->setNamedDestination(name: 'chapter-2', page: $page3['pid'], posx: 0, posy: 0);
+$pdf->setBookmark(
+    name: 'Chapter 2 — Viewer Preferences',
+    link: $destChapter2,
+    level: 0,
+    page: $page3['pid'],
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'darkred',
+);
+$pdf->setBookmark(name: '2.1 Preference Keys', link: '', level: 1, page: $page3['pid'], posx: 0, posy: 25);
 
 $prefTable = '<h2 style="font-family: helvetica; color: #6e1a1a;">Chapter 2 — Viewer Preferences</h2>
 <p style="font-family: helvetica; font-size: 10pt;">
@@ -152,13 +187,22 @@ $prefTable = '<h2 style="font-family: helvetica; color: #6e1a1a;">Chapter 2 — 
     <tr><td>PrintPageRange</td><td>1–4</td><td>Default page range in print dialog.</td></tr>
     <tr><td>NonFullScreenPageMode</td><td>UseOutlines</td><td>Show outline panel when exiting full screen.</td></tr>
 </table>';
-$pdf->addHTMLCell($prefTable, 15, 20, 170);
+$pdf->addHTMLCell(html: $prefTable, posx: 15, posy: 20, width: 170);
 
 // ===| Page 4 – Navigation Map |=============================================
 
 $page4 = $pdf->addPage(['format' => 'A4']);
 
-$pdf->setBookmark('Navigation Map', '', 0, $page4['pid'], 0, 0, '', 'gray');
+$pdf->setBookmark(
+    name: 'Navigation Map',
+    link: '',
+    level: 0,
+    page: $page4['pid'],
+    posx: 0,
+    posy: 0,
+    fstyle: '',
+    color: 'gray',
+);
 
 $navHtml = '<h2 style="font-family: helvetica; color: #333333;">Navigation Map</h2>
 <p style="font-family: helvetica; font-size: 10pt;">
@@ -169,11 +213,11 @@ $navHtml = '<h2 style="font-family: helvetica; color: #333333;">Navigation Map</
     Alternatively, the bookmark panel (outline) on the left provides the same navigation
     via the bookmarks registered with <code>setBookmark()</code>.
 </p>';
-$pdf->addHTMLCell($navHtml, 15, 20, 170);
+$pdf->addHTMLCell(html: $navHtml, posx: 15, posy: 20, width: 170);
 
 // Define style for button boxes
-$btnFill  = ['all' => ['lineWidth' => 0.3, 'lineColor' => '#333366', 'fillColor' => '#e8eef8']];
-$btnFont  = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 11);
+$btnFill = ['all' => ['lineWidth' => 0.3, 'lineColor' => '#333366', 'fillColor' => '#e8eef8']];
+$btnFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 11);
 $pdf->page->addContent($btnFont['out']);
 
 // Helper to draw a navigation button and attach a link annotation
@@ -185,19 +229,29 @@ $drawNavButton = static function (
     float $bh,
     string $label,
     int $targetPage,
-    array $btnFill
+    array $btnFill,
 ) use ($page4): void {
     $pdf->page->addContent($pdf->graph->getRect($bx, $by, $bw, $bh, 'DF', $btnFill));
     // Reset fill color to dark text after the rect draw, which left the fill color
     // set to the button background color, making the label text invisible.
     $pdf->page->addContent($pdf->color->getPdfColor('#333366'));
-    $pdf->page->addContent($pdf->getTextCell($label, $bx, $by + 3, $bw, $bh - 3, 0, 1, 'T', 'C'));
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $label,
+        posx: $bx,
+        posy: $by + 3,
+        width: $bw,
+        height: $bh - 3,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'C',
+    ));
     $lnkid = $pdf->addInternalLink($targetPage, 0);
-    $annid = $pdf->setLink($bx, $by, $bw, $bh, $lnkid);
+    $annid = $pdf->setLink(posx: $bx, posy: $by, width: $bw, height: $bh, link: $lnkid);
     $pdf->page->addAnnotRef($annid);
 };
 
-$drawNavButton($pdf, 25, 80, 70, 14, 'Go to Cover (page 1)',      $page1['pid'], $btnFill);
+$drawNavButton($pdf, 25, 80, 70, 14, 'Go to Cover (page 1)', $page1['pid'], $btnFill);
 $drawNavButton($pdf, 25, 100, 70, 14, 'Go to Chapter 1 (page 2)', $page2['pid'], $btnFill);
 $drawNavButton($pdf, 25, 120, 70, 14, 'Go to Chapter 2 (page 3)', $page3['pid'], $btnFill);
 
@@ -212,9 +266,9 @@ $namedNoteHtml = '<p style="font-family: helvetica; font-size: 9pt; color: #5555
     (<code>#cover</code>, <code>#chapter-1</code>, <code>#chapter-2</code>).
     Named destinations survive page renumbering and can be referenced from external documents.
 </p>';
-$pdf->addHTMLCell($namedNoteHtml, 15, 145, 170);
+$pdf->addHTMLCell(html: $namedNoteHtml, posx: 15, posy: 145, width: 170);
 
 // ----------
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

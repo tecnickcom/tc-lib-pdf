@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E071_gettextcell_bbox_metrics.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -49,7 +50,17 @@ $textFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $monoFont = $pdf->font->insert($pdf->pon, 'courier', '', 10);
 
 $pdf->page->addContent($titleFont['out']);
-$pdf->page->addContent($pdf->getTextCell('E071: getTextCell multiline bbox metrics', 20, 20, 170, 0, 0, 0, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'E071: getTextCell multiline bbox metrics',
+    posx: 20,
+    posy: 20,
+    width: 170,
+    height: 0,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+));
 
 $pdf->page->addContent($textFont['out']);
 
@@ -83,37 +94,38 @@ $cellPadding5mm = [
     ],
 ];
 
-$multiline = 'Line 1: This text uses getTextCell with automatic wrapping.' . "\n"
-    . 'Line 2: The border is visible so the cell bounds can be compared.' . "\n"
+$multiline =
+    'Line 1: This text uses getTextCell with automatic wrapping.'
+    . "\n"
+    . 'Line 2: The border is visible so the cell bounds can be compared.'
+    . "\n"
     . 'Line 3: Metrics printed below come from getLastBBox(), getLastTextBBox(), and getLastCellBBox().';
 
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        $multiline,
-        20,
-        35,
-        170,
-        0,
-        0,
-        1.5,
-        'T',
-        'L',
-        $cellPadding5mm,
-        $blockStyles,
-        0,
-        0,
-        0,
-        0,
-        true,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        true,
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: $multiline,
+    posx: 20,
+    posy: 35,
+    width: 170,
+    height: 0,
+    offset: 0,
+    linespace: 1.5,
+    valign: 'T',
+    halign: 'L',
+    cell: $cellPadding5mm,
+    styles: $blockStyles,
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: true,
+));
 
 $bbox = $pdf->getLastBBox();
 $textbbox = $pdf->getLastTextBBox();
@@ -124,34 +136,46 @@ $fmtMetric = static fn(float $value): string => \sprintf('%7.3F', $value);
 $pdf->page->addContent($monoFont['out']);
 
 $metricsText =
-    'bbox     : x=' . $fmtMetric($bbox['x'])
-    . '  y=' . $fmtMetric($bbox['y'])
-    . '  w=' . $fmtMetric($bbox['w'])
-    . '  h=' . $fmtMetric($bbox['h']) . "\n"
-    . 'textbbox : x=' . $fmtMetric($textbbox['x'])
-    . '  y=' . $fmtMetric($textbbox['y'])
-    . '  w=' . $fmtMetric($textbbox['w'])
-    . '  h=' . $fmtMetric($textbbox['h']) . "\n"
-    . 'cellbbox : x=' . $fmtMetric($cellbbox['x'])
-    . '  y=' . $fmtMetric($cellbbox['y'])
-    . '  w=' . $fmtMetric($cellbbox['w'])
-    . '  h=' . $fmtMetric($cellbbox['h']);
+    'bbox     : x='
+    . $fmtMetric($bbox['x'])
+    . '  y='
+    . $fmtMetric($bbox['y'])
+    . '  w='
+    . $fmtMetric($bbox['w'])
+    . '  h='
+    . $fmtMetric($bbox['h'])
+    . "\n"
+    . 'textbbox : x='
+    . $fmtMetric($textbbox['x'])
+    . '  y='
+    . $fmtMetric($textbbox['y'])
+    . '  w='
+    . $fmtMetric($textbbox['w'])
+    . '  h='
+    . $fmtMetric($textbbox['h'])
+    . "\n"
+    . 'cellbbox : x='
+    . $fmtMetric($cellbbox['x'])
+    . '  y='
+    . $fmtMetric($cellbbox['y'])
+    . '  w='
+    . $fmtMetric($cellbbox['w'])
+    . '  h='
+    . $fmtMetric($cellbbox['h']);
 
 $metricsPosY = $cellbbox['y'] + $cellbbox['h'] + 8;
 
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        $metricsText,
-        20,
-        $metricsPosY,
-        170,
-        0,
-        0,
-        1,
-        'T',
-        'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: $metricsText,
+    posx: 20,
+    posy: $metricsPosY,
+    width: 170,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E059_document_javascript.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -52,12 +53,12 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object — plain mode (no PDF/A, PDF/X, PDF/UA constraint)
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',   // unit
-    true,   // unicode
-    false,  // subset fonts
-    true,   // compress
-    '',     // mode — plain PDF, JS allowed
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -76,17 +77,16 @@ $pdf->enableDefaultPageContent();
 // -----------------------------------------------------------------------
 // The JS string is accumulated and emitted as a single named JS object
 // ("EmbeddedJS").  It fires when the document is opened.
-$pdf->appendRawJavaScript(
-    // Greet the user on open.
-    'app.alert("Document opened via appendRawJavaScript.", 3);' . "\n"
-);
+$pdf->appendRawJavaScript(script: 'app.alert("Document opened via appendRawJavaScript.", 3);' . "\n");
 
 // Multiple calls are concatenated in order.
 $pdf->appendRawJavaScript(
-    // Register a WillClose handler.
-    'app.addStateChangeHandler("WillClose", function() {' . "\n"
-    . '  app.alert("Document is closing (WillClose handler).", 3);' . "\n"
-    . '});' . "\n"
+    script: 'app.addStateChangeHandler("WillClose", function() {'
+    . "\n"
+    . '  app.alert("Document is closing (WillClose handler).", 3);'
+    . "\n"
+    . '});'
+    . "\n",
 );
 
 // -----------------------------------------------------------------------
@@ -95,9 +95,12 @@ $pdf->appendRawJavaScript(
 // Returns the PDF object ID so you can cross-reference if needed.
 $onloadObjId = $pdf->addRawJavaScriptObj(
     // Register a WillPrint event to warn the user before printing.
-    'app.addStateChangeHandler("WillPrint", function() {' . "\n"
-    . '  app.alert("Document will be printed.", 3);' . "\n"
-    . '});' . "\n",
+    'app.addStateChangeHandler("WillPrint", function() {'
+    . "\n"
+    . '  app.alert("Document will be printed.", 3);'
+    . "\n"
+    . '});'
+    . "\n",
     true, // onload: execute when the document is opened
 );
 
@@ -108,55 +111,60 @@ $onloadObjId = $pdf->addRawJavaScriptObj(
 // A button field or annotation action can trigger it by name.
 $idleObjId = $pdf->addRawJavaScriptObj(
     // A utility helper function that can be called from other scripts.
-    'function showDocInfo() {' . "\n"
-    . '  var msg = "Title: " + this.info.Title + "\\n"' . "\n"
-    . '          + "Author: " + this.info.Author;' . "\n"
-    . '  app.alert(msg, 3);' . "\n"
-    . '}' . "\n",
+    'function showDocInfo() {'
+    . "\n"
+    . '  var msg = "Title: " + this.info.Title + "\\n"'
+    . "\n"
+    . '          + "Author: " + this.info.Author;'
+    . "\n"
+    . '  app.alert(msg, 3);'
+    . "\n"
+    . '}'
+    . "\n",
     false, // onload: false — NOT executed automatically
 );
 
 // -----------------------------------------------------------------------
 // Page 1 — Explanation
 // -----------------------------------------------------------------------
-$bfont  = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
+$bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 $bfontB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 14);
 
 $page1 = $pdf->addPage();
 
 $html = <<<HTML
-<h1 style="font-size:16pt; color:#003366;">Document-Level JavaScript Actions</h1>
-<p style="font-size:10pt; color:#333333;">
-This PDF demonstrates three distinct ways to attach JavaScript to a document
-using tc-lib-pdf.  The scripts are embedded in the PDF structure; a compatible
-reader with Acrobat JavaScript support is required to execute them.
-</p>
-<h2 style="font-size:13pt; color:#005599;">1. appendRawJavaScript()</h2>
-<p style="font-size:9pt; color:#333333;">
-Appends raw JS to the global script string.  The accumulated string fires when
-the document is opened.  Two separate calls were made in this example: one to
-show an alert on open, and one to register a <code>WillClose</code> handler.
-</p>
-<h2 style="font-size:13pt; color:#005599;">2. addRawJavaScriptObj(\$script, onload: true)</h2>
-<p style="font-size:9pt; color:#333333;">
-Creates a separate JS object (PDF object ID: <b>{$onloadObjId}</b>) and wires it as an
-open action so it executes when the document is opened.  In this example the
-script registers a <code>WillPrint</code> event handler.
-</p>
-<h2 style="font-size:13pt; color:#005599;">3. addRawJavaScriptObj(\$script, onload: false)</h2>
-<p style="font-size:9pt; color:#333333;">
-Creates a JS object (PDF object ID: <b>{$idleObjId}</b>) that is embedded but NOT
-executed automatically.  It defines a helper function <code>showDocInfo()</code>
-that other scripts or button-field actions can invoke.
-</p>
-<h2 style="font-size:13pt; color:#005599;">Suppression in conformance modes</h2>
-<p style="font-size:9pt; color:#333333;">
-All three JS APIs silently return without effect when the PDF is created in
-PDF/A, PDF/X, or PDF/UA mode, because those standards forbid embedded scripts.
-</p>
-HTML;
+    <h1 style="font-size:16pt; color:#003366;">Document-Level JavaScript Actions</h1>
+    <p style="font-size:10pt; color:#333333;">
+    This PDF demonstrates three distinct ways to attach JavaScript to a document
+    using tc-lib-pdf.  The scripts are embedded in the PDF structure; a compatible
+    reader with Acrobat JavaScript support is required to execute them.
+    </p>
+    <h2 style="font-size:13pt; color:#005599;">1. appendRawJavaScript()</h2>
+    <p style="font-size:9pt; color:#333333;">
+    Appends raw JS to the global script string.  The accumulated string fires when
+    the document is opened.  Two separate calls were made in this example: one to
+    show an alert on open, and one to register a <code>WillClose</code> handler.
+    </p>
+    <h2 style="font-size:13pt; color:#005599;">2. addRawJavaScriptObj(\$script, onload: true)</h2>
+    <p style="font-size:9pt; color:#333333;">
+    Creates a separate JS object (PDF object ID: <b>{$onloadObjId}</b>) and wires it as an
+    open action so it executes when the document is opened.  In this example the
+    script registers a <code>WillPrint</code> event handler.
+    </p>
+    <h2 style="font-size:13pt; color:#005599;">3. addRawJavaScriptObj(\$script, onload: false)</h2>
+    <p style="font-size:9pt; color:#333333;">
+    Creates a JS object (PDF object ID: <b>{$idleObjId}</b>) that is embedded but NOT
+    executed automatically.  It defines a helper function <code>showDocInfo()</code>
+    that other scripts or button-field actions can invoke.
+    </p>
+    <h2 style="font-size:13pt; color:#005599;">Suppression in conformance modes</h2>
+    <p style="font-size:9pt; color:#333333;">
+    All three JS APIs silently return without effect when the PDF is created in
+    PDF/A, PDF/X, or PDF/UA mode, because those standards forbid embedded scripts.
+    </p>
+    HTML;
 
-$pdf->addHTMLCell($html, 15, 20, 180);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

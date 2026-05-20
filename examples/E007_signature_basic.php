@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E007_signature_basic.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -39,11 +40,31 @@ $page = $pdf->addPage();
 $pdf->page->addContent($bfont['out']);
 
 $text = 'This document is signed using a detached CMS (PKCS#7) signature.';
-$textCell = $pdf->getTextCell($text, 15, 20, 180, 0, 0, 1, 'T', 'L');
+$textCell = $pdf->getTextCell(
+    txt: $text,
+    posx: 15,
+    posy: 20,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+);
 $pdf->page->addContent($textCell);
 
 $text2 = 'The widget below uses a custom /AP appearance stream so the field is visibly rendered in viewers.';
-$textCell2 = $pdf->getTextCell($text2, 15, 27, 180, 0, 0, 1, 'T', 'L');
+$textCell2 = $pdf->getTextCell(
+    txt: $text2,
+    posx: 15,
+    posy: 27,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+);
 $pdf->page->addContent($textCell2);
 
 $certPath = \realpath(__DIR__ . '/data/cert/tcpdf.crt');
@@ -67,7 +88,7 @@ $pdf->setSignature([
 ]);
 
 // Visible signature field plus one extra empty approval signature field.
-$pdf->setSignatureAppearance(15, 35, 75, 20, -1, 'PrimarySignature');
+$pdf->setSignatureAppearance(posx: 15, posy: 35, width: 75, heigth: 20, page: -1, name: 'PrimarySignature');
 
 // Optional custom appearance stream for the signature widget (/AP /N).
 // Coordinate system starts from the lower-left corner of the widget rectangle.
@@ -79,47 +100,57 @@ $sigTopY = $page['height'] - $sigH;
 $sigAppearance = $bfont['out'];
 $sigAppearance .= $pdf->color->getPdfColor('rgb(15%,15%,15%)');
 $sigAppearance .= $pdf->getTextCell(
-    'Digitally signed by tc-lib-pdf',
-    0,
-    $sigTopY,
-    $sigW,
-    $sigH,
-    2.5,
-    0,
-    'C',
-    'L',
-    null,
-    [
+    txt: 'Digitally signed by tc-lib-pdf',
+    posx: 0,
+    posy: $sigTopY,
+    width: $sigW,
+    height: $sigH,
+    offset: 2.5,
+    linespace: 0,
+    valign: 'C',
+    halign: 'L',
+    cell: null,
+    styles: [
         'all' => [
             'fillColor' => 'rgb(92%,96%,100%)',
             'lineColor' => 'rgb(20%,32%,60%)',
             'lineWidth' => 1.2,
         ],
     ],
-    0,
-    0,
-    0,
-    0,
-    true,
-    true,
-    false,
-    false,
-    false,
-    false,
-    false,
-    true
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: true,
 );
 
-$pdf->setSignatureAppearanceStream($sigAppearance);
+$pdf->setSignatureAppearanceStream(stream: $sigAppearance);
 
 // Exposed object ID of the signature widget annotation.
 // This can be useful for low-level workflows or custom QA checks.
 $signatureWidgetObjId = $pdf->getSignatureObjectID();
 $text3 = 'Primary signature widget object ID: ' . $signatureWidgetObjId;
-$textCell3 = $pdf->getTextCell($text3, 95, 35, 100, 0, 0, 1, 'T', 'L');
+$textCell3 = $pdf->getTextCell(
+    txt: $text3,
+    posx: 95,
+    posy: 35,
+    width: 100,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+);
 $pdf->page->addContent($textCell3);
 
-$pdf->addEmptySignatureAppearance(15, 60, 75, 20, -1, 'ApprovalSignature');
+$pdf->addEmptySignatureAppearance(posx: 15, posy: 60, width: 75, heigth: 20, page: -1, name: 'ApprovalSignature');
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

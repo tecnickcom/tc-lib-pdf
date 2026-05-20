@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E019_page_regions.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -26,12 +27,12 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
@@ -91,39 +92,41 @@ $page = $pdf->addPage([
 
 $pdf->page->addContent($titlefont['out']);
 $pdf->addTextCell(
-    'Page Regions: two flowing columns across pages',
-    $page['pid'],
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    'T',
-    'L',
-    null,
-    [],
-    0,
-    0,
-    0,
-    0,
-    true,
-    true,
-    false,
-    false,
-    false,
-    false,
-    false,
-    false,
+    txt: 'Page Regions: two flowing columns across pages',
+    pid: $page['pid'],
+    posx: 0,
+    posy: 0,
+    width: 0,
+    height: 0,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+    cell: null,
+    styles: [],
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: false,
 );
 
 $pdf->page->addContent($textfont['out']);
 
-$leftPrefix = 'LEFT/RIGHT REGION FLOW. This paragraph is rendered using page regions. '
+$leftPrefix =
+    'LEFT/RIGHT REGION FLOW. This paragraph is rendered using page regions. '
     . 'When the first region is full, writing continues in the next region, '
     . 'then on the next page with the same two-region layout. ';
 
-$baseParagraph = 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque '
+$baseParagraph =
+    'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque '
     . 'laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto '
     . 'beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut '
     . 'odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. '
@@ -134,37 +137,36 @@ for ($idx = 1; $idx <= 20; ++$idx) {
     $chunks[] = 'Section ' . $idx . '. ' . $leftPrefix . $baseParagraph;
 }
 
-$content = "Two columns with automatic region/page breaks\n\n"
-    . \implode("\n\n", $chunks);
+$content = "Two columns with automatic region/page breaks\n\n" . \implode("\n\n", $chunks);
 
 $region = $pdf->page->getRegion($page['pid']);
 $regionWidth = (float) $region['RW'];
 
 $pdf->addTextCell(
-    $content,
-    $page['pid'],
-    0, // float $posx = 0,
-    12, // float $posy = 0,
-    $regionWidth, // float $width = 0,
-    0, // float $height = 0,
-    0, // float $offset = 0,
-    1, // float $linespace = 0,
-    'T', // string $valign = 'T',
-    'J', // string $halign = '',
-    null, // ?array $cell = null,
-    [], // array $styles = [],
-    0, // float $strokewidth = 0,
-    0, // float $wordspacing = 0,
-    0, // float $leading = 0,
-    0, // float $rise = 0,
-    true, // bool $jlast = true,
-    true, // bool $fill = true,
-    false, // bool $stroke = false,
-    false, // bool $underline = false,
-    false, // bool $linethrough = false,
-    false, // bool $overline = false,
-    false, // bool $clip = false,
-    false, // bool $drawcell = true,
+    txt: $content,
+    pid: $page['pid'],
+    posx: 0,
+    posy: 12,
+    width: $regionWidth,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'J',
+    cell: null,
+    styles: [],
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: false,
 );
 
 // --- Same example using HTML ---
@@ -192,23 +194,15 @@ $pageH = $pdf->addPage([
     ],
 ]);
 
-$contentHtml = '<p>'
-    . \str_replace(
-        "\n\n",
-        '</p><p>',
-        \htmlspecialchars($content, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8')
-    )
+$contentHtml =
+    '<p>'
+    . \str_replace("\n\n", '</p><p>', \htmlspecialchars($content, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8'))
     . '</p>';
 
-$pdf->addHTMLCell(
-    $contentHtml,
-    12,
-    0,
-    $regionWidth,
-);
+$pdf->addHTMLCell(html: $contentHtml, posx: 12, posy: 0, width: $regionWidth);
 
 // =============================================================
 
 $rawpdf = $pdf->getOutPDFString();
 
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E053_spot_overprint_proof.php
  *
@@ -29,11 +30,18 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -49,35 +57,53 @@ $pdf->enableDefaultPageContent();
 // These simulate industry-standard Pantone-like named inks. In a real press
 // workflow the names would match the RIP spot-color library exactly.
 
-$pdf->color->addSpotColor(
-    'PROOF Cyan',
-    new \Com\Tecnick\Color\Model\Cmyk(['cyan' => 1.0, 'magenta' => 0.0, 'yellow' => 0.0, 'key' => 0.0, 'alpha' => 0.0])
-);
-$pdf->color->addSpotColor(
-    'PROOF Magenta',
-    new \Com\Tecnick\Color\Model\Cmyk(['cyan' => 0.0, 'magenta' => 1.0, 'yellow' => 0.0, 'key' => 0.0, 'alpha' => 0.0])
-);
-$pdf->color->addSpotColor(
-    'PROOF Yellow',
-    new \Com\Tecnick\Color\Model\Cmyk(['cyan' => 0.0, 'magenta' => 0.0, 'yellow' => 1.0, 'key' => 0.0, 'alpha' => 0.0])
-);
-$pdf->color->addSpotColor(
-    'PROOF Black',
-    new \Com\Tecnick\Color\Model\Cmyk(['cyan' => 0.0, 'magenta' => 0.0, 'yellow' => 0.0, 'key' => 1.0, 'alpha' => 0.0])
-);
-$pdf->color->addSpotColor(
-    'PROOF Warm Red',
-    new \Com\Tecnick\Color\Model\Cmyk(['cyan' => 0.0, 'magenta' => 0.85, 'yellow' => 0.9, 'key' => 0.02, 'alpha' => 0.0])
-);
-$pdf->color->addSpotColor(
-    'PROOF Reflex Blue',
-    new \Com\Tecnick\Color\Model\Cmyk(['cyan' => 0.93, 'magenta' => 0.75, 'yellow' => 0.0, 'key' => 0.02, 'alpha' => 0.0])
-);
+$pdf->color->addSpotColor('PROOF Cyan', new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 1.0,
+    'magenta' => 0.0,
+    'yellow' => 0.0,
+    'key' => 0.0,
+    'alpha' => 0.0,
+]));
+$pdf->color->addSpotColor('PROOF Magenta', new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0.0,
+    'magenta' => 1.0,
+    'yellow' => 0.0,
+    'key' => 0.0,
+    'alpha' => 0.0,
+]));
+$pdf->color->addSpotColor('PROOF Yellow', new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0.0,
+    'magenta' => 0.0,
+    'yellow' => 1.0,
+    'key' => 0.0,
+    'alpha' => 0.0,
+]));
+$pdf->color->addSpotColor('PROOF Black', new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0.0,
+    'magenta' => 0.0,
+    'yellow' => 0.0,
+    'key' => 1.0,
+    'alpha' => 0.0,
+]));
+$pdf->color->addSpotColor('PROOF Warm Red', new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0.0,
+    'magenta' => 0.85,
+    'yellow' => 0.9,
+    'key' => 0.02,
+    'alpha' => 0.0,
+]));
+$pdf->color->addSpotColor('PROOF Reflex Blue', new \Com\Tecnick\Color\Model\Cmyk([
+    'cyan' => 0.93,
+    'magenta' => 0.75,
+    'yellow' => 0.0,
+    'key' => 0.02,
+    'alpha' => 0.0,
+]));
 
 // ----------
 
 $labelFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 8);
-$noteFont  = $pdf->font->insert($pdf->pon, 'helvetica', '', 8);
+$noteFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 8);
 
 // ===| Page 1 – Tint Ramps |=================================================
 
@@ -91,34 +117,42 @@ $introHtml = '<h1 style="font-family: helvetica;">Spot Color Proof — Tint Ramp
     and applied using <code>color-&gt;getPdfColor($name, $stroke, $tint)</code>.
     The label column shows the spot name as it would appear in a PDF color dictionary.
 </p>';
-$pdf->addHTMLCell($introHtml, 15, 20, 175);
+$pdf->addHTMLCell(html: $introHtml, posx: 15, posy: 20, width: 175);
 
 // List of spots to render and their display label color
 /** @var array<int, array{name: string, label: string}> $spotRows */
 $spotRows = [
-    ['name' => 'PROOF Cyan',        'label' => '#007799'],
-    ['name' => 'PROOF Magenta',     'label' => '#990077'],
-    ['name' => 'PROOF Yellow',      'label' => '#887700'],
-    ['name' => 'PROOF Black',       'label' => '#222222'],
-    ['name' => 'PROOF Warm Red',    'label' => '#993300'],
+    ['name' => 'PROOF Cyan', 'label' => '#007799'],
+    ['name' => 'PROOF Magenta', 'label' => '#990077'],
+    ['name' => 'PROOF Yellow', 'label' => '#887700'],
+    ['name' => 'PROOF Black', 'label' => '#222222'],
+    ['name' => 'PROOF Warm Red', 'label' => '#993300'],
     ['name' => 'PROOF Reflex Blue', 'label' => '#001177'],
 ];
 
-$tintSteps  = 10;
-$swatchW    = 14.0;
-$swatchH    = 10.0;
-$labelW     = 42.0;
-$rowGap     = 2.0;
-$startX     = 15.0;
-$startY     = 55.0;
+$tintSteps = 10;
+$swatchW = 14.0;
+$swatchH = 10.0;
+$labelW = 42.0;
+$rowGap = 2.0;
+$startX = 15.0;
+$startY = 55.0;
 
 // Draw tint scale header
 $pdf->page->addContent($noteFont['out']);
 for ($t = 1; $t <= $tintSteps; $t++) {
-    $tx = $startX + $labelW + ($t - 1) * $swatchW;
-    $pdf->page->addContent(
-        $pdf->getTextCell((string) ($t * 10) . '%', $tx, $startY - 5, $swatchW, 0, 0, 1, 'T', 'C')
-    );
+    $tx = $startX + $labelW + (($t - 1) * $swatchW);
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: (string) ($t * 10) . '%',
+        posx: $tx,
+        posy: $startY - 5,
+        width: $swatchW,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'C',
+    ));
 }
 
 $rowY = $startY;
@@ -130,14 +164,22 @@ foreach ($spotRows as $row) {
     $pdf->page->addContent($labelFont['out']);
     $pdf->page->addContent($pdf->color->getPdfColor($labelColor, true, 1.0));
     $pdf->page->addContent($pdf->color->getPdfColor($labelColor, false, 1.0));
-    $pdf->page->addContent(
-        $pdf->getTextCell($spotName, $startX, $rowY + 2, $labelW, 0, 0, 1, 'T', 'L')
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $spotName,
+        posx: $startX,
+        posy: $rowY + 2,
+        width: $labelW,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'L',
+    ));
 
     // Draw tint swatches 10%–100%
     for ($t = 1; $t <= $tintSteps; $t++) {
         $tint = $t / $tintSteps;
-        $sx   = $startX + $labelW + ($t - 1) * $swatchW;
+        $sx = $startX + $labelW + (($t - 1) * $swatchW);
 
         // Set fill and stroke to spot color at this tint level
         $pdf->page->addContent($pdf->color->getPdfColor($spotName, true, $tint));
@@ -157,7 +199,7 @@ $footNote = '<p style="font-family: helvetica; font-size: 8pt; color: #555555; m
     Spot colors use the PDF <em>Separation</em> color space with a CMYK alternate.
     Screen rendering uses the CMYK alternate; print output uses the named ink.
 </p>';
-$pdf->addHTMLCell($footNote, 15, 170, 175);
+$pdf->addHTMLCell(html: $footNote, posx: 15, posy: 170, width: 175);
 
 // ===| Page 2 – Stacked Spot Layers (Overprint Simulation) |=================
 
@@ -171,7 +213,7 @@ $overHtml = '<h1 style="font-family: helvetica;">Overprint Simulation — Stacke
     behaviour via the <em>/OP</em> and <em>/op</em> ExtGState flags.
     This page shows the CMYK-alternate screen rendering of the overlap.
 </p>';
-$pdf->addHTMLCell($overHtml, 15, 20, 175);
+$pdf->addHTMLCell(html: $overHtml, posx: 15, posy: 20, width: 175);
 
 // Overprint grid: every combination of Cyan × Magenta at 25/50/75/100% tints
 $ox = 25.0;
@@ -183,20 +225,36 @@ $labelNames = ['25%', '50%', '75%', '100%'];
 // Column headers (Cyan tint)
 $pdf->page->addContent($labelFont['out']);
 foreach ($labelNames as $ci => $clab) {
-    $pdf->page->addContent(
-        $pdf->getTextCell('C ' . $clab, $ox + 12 + $ci * $cellSize, $oy - 7, $cellSize, 0, 0, 1, 'T', 'C')
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: 'C ' . $clab,
+        posx: $ox + 12 + ($ci * $cellSize),
+        posy: $oy - 7,
+        width: $cellSize,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'C',
+    ));
 }
 
 foreach ($tints as $mi => $mTint) {
     // Row header (Magenta tint)
-    $pdf->page->addContent(
-        $pdf->getTextCell('M ' . $labelNames[$mi], $ox, $oy + $mi * $cellSize + 5, 12, 0, 0, 1, 'T', 'L')
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: 'M ' . $labelNames[$mi],
+        posx: $ox,
+        posy: $oy + ($mi * $cellSize) + 5,
+        width: 12,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'L',
+    ));
 
     foreach ($tints as $ci => $cTint) {
-        $cx = $ox + 12 + $ci * $cellSize;
-        $cy = $oy + $mi * $cellSize;
+        $cx = $ox + 12 + ($ci * $cellSize);
+        $cy = $oy + ($mi * $cellSize);
 
         // Draw Cyan layer first, then Magenta layer on top
         $pdf->page->addContent($pdf->color->getPdfColor('PROOF Cyan', false, $cTint));
@@ -217,9 +275,9 @@ $overNote = '<p style="font-family: helvetica; font-size: 8pt; color: #555555; m
     Each cell renders Cyan at the column tint, then Magenta at the row tint with 60% opacity —
     approximating a soft-proof of two overprinted inks on a white substrate.
 </p>';
-$pdf->addHTMLCell($overNote, 15, 165, 175);
+$pdf->addHTMLCell(html: $overNote, posx: 15, posy: 165, width: 175);
 
 // ----------
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

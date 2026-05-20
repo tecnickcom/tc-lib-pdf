@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E048_page_boxes_prepress.php
  *
@@ -18,11 +19,18 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -35,9 +43,9 @@ $pdf->enableDefaultPageContent();
 
 $probe = false;
 if (PHP_SAPI === 'cli') {
-    $probe = (((string) getenv('TC_EXAMPLE_PROBE')) === '1');
+    $probe = (string) getenv('TC_EXAMPLE_PROBE') === '1';
 } else {
-    $probe = isset($_GET['probe']) && ($_GET['probe'] === '1');
+    $probe = isset($_GET['probe']) && $_GET['probe'] === '1';
 }
 
 $titlefont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 13);
@@ -67,29 +75,29 @@ $page = $pdf->addPage([
 
 $pdf->page->addContent($titlefont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    'Page Boxes: Media/Crop/Bleed/Trim/Art',
-    25,
-    14,
-    180,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Page Boxes: Media/Crop/Bleed/Trim/Art',
+    posx: 25,
+    posy: 14,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $pdf->page->addContent($textfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    "This sheet overlays the configured page boxes to verify prepress bounds.\n"
-    . "Coordinates are defined in page-box metadata and rendered here as guides.",
-    25,
-    24,
-    180,
-    0,
-    0,
-    1.2,
-    'T',
-    'L'
+    txt: "This sheet overlays the configured page boxes to verify prepress bounds.\n"
+    . 'Coordinates are defined in page-box metadata and rendered here as guides.',
+    posx: 25,
+    posy: 24,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1.2,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $styles = [
@@ -100,14 +108,15 @@ $styles = [
     'ArtBox' => ['all' => ['lineWidth' => 0.3, 'lineColor' => '#9467bd', 'dashArray' => [3, 1]]],
 ];
 
-$boxes = [
-    'MediaBox' => [
-        'llx' => 0.0,
-        'lly' => 0.0,
-        'urx' => (float) $page['width'],
-        'ury' => (float) $page['height'],
-    ],
-] + $pageBoxesMm;
+$boxes =
+    [
+        'MediaBox' => [
+            'llx' => 0.0,
+            'lly' => 0.0,
+            'urx' => (float) $page['width'],
+            'ury' => (float) $page['height'],
+        ],
+    ] + $pageBoxesMm;
 $pageHeight = (float) $page['height'];
 
 $labelY = 46.0;
@@ -125,31 +134,38 @@ foreach (['MediaBox', 'CropBox', 'BleedBox', 'TrimBox', 'ArtBox'] as $name) {
     $pdf->page->addContent($pdf->graph->getRect($x, $y, $w, $h, 'D', $styles[$name]));
 
     $pdf->page->addContent($pdf->getTextCell(
-        $name . sprintf(' [%.1f, %.1f, %.1f, %.1f]', (float) ($box['llx'] ?? 0.0), (float) ($box['lly'] ?? 0.0), (float) ($box['urx'] ?? 0.0), (float) ($box['ury'] ?? 0.0)),
-        25,
-        $labelY,
-        180,
-        0,
-        0,
-        1,
-        'T',
-        'L'
+        txt: $name
+            . sprintf(
+                ' [%.1f, %.1f, %.1f, %.1f]',
+                (float) ($box['llx'] ?? 0.0),
+                (float) ($box['lly'] ?? 0.0),
+                (float) ($box['urx'] ?? 0.0),
+                (float) ($box['ury'] ?? 0.0),
+            ),
+        posx: 25,
+        posy: $labelY,
+        width: 180,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'L',
     ));
 
     $labelY += 5.0;
 }
 
 $pdf->page->addContent($pdf->getTextCell(
-    "Tip: use TrimBox as the final cut size and keep critical artwork inside ArtBox.\n"
-    . "BleedBox extends beyond trim to avoid white edges after cutting.",
-    25,
-    72,
-    180,
-    0,
-    0,
-    1.2,
-    'T',
-    'L'
+    txt: "Tip: use TrimBox as the final cut size and keep critical artwork inside ArtBox.\n"
+    . 'BleedBox extends beyond trim to avoid white edges after cutting.',
+    posx: 25,
+    posy: 72,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1.2,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $rawpdf = $pdf->getOutPDFString();
@@ -179,8 +195,8 @@ if ($probe) {
                 $ury,
                 $wPt,
                 $hPt,
-                ($pointsPerUnit > 0 ? ($wPt / $pointsPerUnit) : 0.0),
-                ($pointsPerUnit > 0 ? ($hPt / $pointsPerUnit) : 0.0),
+                $pointsPerUnit > 0 ? $wPt / $pointsPerUnit : 0.0,
+                $pointsPerUnit > 0 ? $hPt / $pointsPerUnit : 0.0,
             );
         }
     }
@@ -193,4 +209,4 @@ if ($probe) {
     }
 }
 
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

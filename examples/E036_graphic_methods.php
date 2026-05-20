@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E036_graphic_methods.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -55,7 +54,6 @@ $pdf->enableDefaultPageContent();
 // Insert fonts
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
-
 
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
@@ -180,22 +178,15 @@ $style7 = [
 $page01 = $pdf->addPage();
 
 $titleHtml = <<<HTML
-<h1 style="font-size:16pt; color:#003366;">Graphic Methods</h1>
-<p style="font-size:9pt; color:#333333;">
-This example presents a compact visual overview of the drawing primitives available in tc-lib-pdf,
-including pie sectors, ellipses, lines, rectangles, curves, polygons, regular polygons, star polygons,
-rounded rectangles, and arrow styles.
-</p>
-HTML;
+    <h1 style="font-size:16pt; color:#003366;">Graphic Methods</h1>
+    <p style="font-size:9pt; color:#333333;">
+    This example presents a compact visual overview of the drawing primitives available in tc-lib-pdf,
+    including pie sectors, ellipses, lines, rectangles, curves, polygons, regular polygons, star polygons,
+    rounded rectangles, and arrow styles.
+    </p>
+    HTML;
 
-$pdf->addHTMLCell(
-    $titleHtml,
-    15,
-    15,
-    180,
-);
-
-
+$pdf->addHTMLCell(html: $titleHtml, posx: 15, posy: 15, width: 180);
 
 $xc = 105;
 $yc = 150;
@@ -213,7 +204,7 @@ $pdf->page->addContent($pie3);
 // ----------
 
 $page02 = $pdf->addPage();
-$pdf->setBookmark('Ellipse', '', 1);
+$pdf->setBookmark(name: 'Ellipse', link: '', level: 1);
 
 // center of ellipse
 $xc = 100;
@@ -315,10 +306,21 @@ $pdf->page->addContent($ellipse6);
 $polygon1 = $pdf->graph->getPolygon([5, 135, 45, 135, 15, 165], 's');
 $pdf->page->addContent($polygon1);
 
-$polygon2 = $pdf->graph->getPolygon([60, 135, 80, 135, 80, 155, 70, 165, 50, 155], 'DF', [$style6, $style7, $style7, $style6, $style6]);
+$polygon2 = $pdf->graph->getPolygon([60, 135, 80, 135, 80, 155, 70, 165, 50, 155], 'DF', [
+    $style6,
+    $style7,
+    $style7,
+    $style6,
+    $style6,
+]);
 $pdf->page->addContent($polygon2);
 
-$polygon3 = $pdf->graph->getPolygon([120, 135, 140, 135, 150, 155, 110, 155], 'D', [$style5, $style6, $style7, $style6]);
+$polygon3 = $pdf->graph->getPolygon([120, 135, 140, 135, 150, 155, 110, 155], 'D', [
+    $style5,
+    $style6,
+    $style7,
+    $style6,
+]);
 $pdf->page->addContent($polygon3);
 
 $polygon4 = $pdf->graph->getPolygon([160, 135, 190, 155, 170, 155, 200, 160, 160, 165], 'DF', [
@@ -333,54 +335,134 @@ $pdf->page->addContent($polygon5);
 
 // Regular Polygon
 
-$regpoly1 = $pdf->graph->getRegularPolygon(20, 190, 15, 6, 0, 'b', [
-    'all' => $style6,
-], 's', $style5);
+$regpoly1 = $pdf->graph->getRegularPolygon(
+    20,
+    190,
+    15,
+    6,
+    0,
+    'b',
+    [
+        'all' => $style6,
+    ],
+    's',
+    $style5,
+);
 $pdf->page->addContent($regpoly1);
 
 $regpoly2 = $pdf->graph->getRegularPolygon(55, 190, 15, 6, 0, 's');
 $pdf->page->addContent($regpoly2);
 
-$regpoly3 = $pdf->graph->getRegularPolygon(55, 190, 10, 6, 45, 'DF', [$style6, $style5, $style7, $style5, $style7, $style7]);
+$regpoly3 = $pdf->graph->getRegularPolygon(55, 190, 10, 6, 45, 'DF', [
+    $style6,
+    $style5,
+    $style7,
+    $style5,
+    $style7,
+    $style7,
+]);
 $pdf->page->addContent($regpoly3);
 
-$regpoly4 = $pdf->graph->getRegularPolygon(90, 190, 15, 3, 0, 'b', [
-    'all' => $style5,
-], 'F', $style6);
+$regpoly4 = $pdf->graph->getRegularPolygon(
+    90,
+    190,
+    15,
+    3,
+    0,
+    'b',
+    [
+        'all' => $style5,
+    ],
+    'F',
+    $style6,
+);
 $pdf->page->addContent($regpoly4);
 
-$regpoly5 = $pdf->graph->getRegularPolygon(125, 190, 15, 4, 30, 'b', [
-    'all' => $style5,
-], 's', $style1);
+$regpoly5 = $pdf->graph->getRegularPolygon(
+    125,
+    190,
+    15,
+    4,
+    30,
+    'b',
+    [
+        'all' => $style5,
+    ],
+    's',
+    $style1,
+);
 $pdf->page->addContent($regpoly5);
 
 $regpoly6 = $pdf->graph->getRegularPolygon(160, 190, 15, 10, 0, 's');
 $pdf->page->addContent($regpoly6);
 
-
 // Star Polygon
 
-$startpoly1 = $pdf->graph->getStarPolygon(20, 230, 15, 20, 3, 0, 's', [
-    'all' => $style2,
-], 'b', $style5);
+$startpoly1 = $pdf->graph->getStarPolygon(
+    20,
+    230,
+    15,
+    20,
+    3,
+    0,
+    's',
+    [
+        'all' => $style2,
+    ],
+    'b',
+    $style5,
+);
 $pdf->page->addContent($startpoly1);
 
 $startpoly2 = $pdf->graph->getStarPolygon(55, 230, 15, 12, 5, 15, 's');
 $pdf->page->addContent($startpoly2);
 
-$startpoly3 = $pdf->graph->getStarPolygon(55, 230, 7, 12, 5, 45, 'b', [
-    'all' => $style7,
-], 'F', $style6);
+$startpoly3 = $pdf->graph->getStarPolygon(
+    55,
+    230,
+    7,
+    12,
+    5,
+    45,
+    'b',
+    [
+        'all' => $style7,
+    ],
+    'F',
+    $style6,
+);
 $pdf->page->addContent($startpoly3);
 
-$startpoly4 = $pdf->graph->getStarPolygon(90, 230, 15, 20, 6, 0, 's', [
-    'all' => $style5,
-], 'F', $style6);
+$startpoly4 = $pdf->graph->getStarPolygon(
+    90,
+    230,
+    15,
+    20,
+    6,
+    0,
+    's',
+    [
+        'all' => $style5,
+    ],
+    'F',
+    $style6,
+);
 $pdf->page->addContent($startpoly4);
 
-$startpoly5 = $pdf->graph->getStarPolygon(125, 230, 15, 5, 2, 30, 's', [
-    'all' => $style5,
-], 's', $style6);
+$startpoly5 = $pdf->graph->getStarPolygon(
+    125,
+    230,
+    15,
+    5,
+    2,
+    30,
+    's',
+    [
+        'all' => $style5,
+    ],
+    's',
+    $style6,
+);
 $pdf->page->addContent($startpoly5);
 
 $startpoly6 = $pdf->graph->getStarPolygon(160, 230, 15, 10, 3, 0, 's');
@@ -430,6 +512,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

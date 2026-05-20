@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E072_import_new_font.php
  *
@@ -20,7 +21,7 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require('../vendor/autoload.php');
+require '../vendor/autoload.php';
 
 $defaultFontsDir = (string) \realpath(\dirname(__DIR__) . '/vendor/tecnickcom/tc-lib-pdf-font/target/fonts');
 $sourceFontsDir = \dirname(__DIR__) . '/target/fonts/source';
@@ -103,7 +104,7 @@ try {
             $fontFamily = $import->getFontName();
             $convertedFontPath = $customFontsReal . '/' . $fontFamily . '.json';
         } catch (\Throwable $e) {
-            $alreadyImported = (\strpos($e->getMessage(), 'already imported:') !== false);
+            $alreadyImported = \strpos($e->getMessage(), 'already imported:') !== false;
             if ($alreadyImported && \preg_match('/([a-z0-9_\-]+)\.json$/i', $e->getMessage(), $match) === 1) {
                 $fontFamily = \strtolower((string) $match[1]);
                 $convertedFontPath = $customFontsReal . '/' . $fontFamily . '.json';
@@ -130,16 +131,16 @@ if (empty($fontSetupError) && !empty($customFontsReal)) {
     }
 }
 
-$fontsRoot = (!empty($fontSetupError) || empty($customFontsReal)) ? $defaultFontsDir : $customFontsReal;
+$fontsRoot = !empty($fontSetupError) || empty($customFontsReal) ? $defaultFontsDir : $customFontsReal;
 \define('K_PATH_FONTS', $fontsRoot);
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    true,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: true,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -151,21 +152,42 @@ $pdf->setPDFFilename('072_import_new_font.pdf');
 
 $manualFontFamily = !empty($fontSetupError) ? 'helvetica' : $fontFamily;
 
-$manualInstructions = '<p style="font-family: ' . \htmlspecialchars($manualFontFamily, ENT_QUOTES) . ';">Manual conversion and import commands:</p>'
-    . '<p style="font-family: ' . \htmlspecialchars($manualFontFamily, ENT_QUOTES) . ';">Run these commands from the project root:</p>'
-    . '<pre style="color:darkgreen;font-family: ' . \htmlspecialchars($manualFontFamily, ENT_QUOTES) . '; font-size: 9pt; line-height: 1.35;">'
-    . 'mkdir -p target/fonts/source target/fonts/custom' . "\n\n"
+$manualInstructions =
+    '<p style="font-family: '
+    . \htmlspecialchars($manualFontFamily, ENT_QUOTES)
+    . ';">Manual conversion and import commands:</p>'
+    . '<p style="font-family: '
+    . \htmlspecialchars($manualFontFamily, ENT_QUOTES)
+    . ';">Run these commands from the project root:</p>'
+    . '<pre style="color:darkgreen;font-family: '
+    . \htmlspecialchars($manualFontFamily, ENT_QUOTES)
+    . '; font-size: 9pt; line-height: 1.35;">'
+    . 'mkdir -p target/fonts/source target/fonts/custom'
+    . "\n\n"
     . 'curl -fL --retry 3 -o target/fonts/source/'
-    . \htmlspecialchars($notoFileName, ENT_QUOTES) . ' ' . \htmlspecialchars($notoUrl, ENT_QUOTES) . "\n\n"
-    . 'php vendor/tecnickcom/tc-lib-pdf-font/util/convert.php \\' . "\n"
-    . '  --outpath=target/fonts/custom \\' . "\n"
-    . '  --type=TrueTypeUnicode \\' . "\n"
-    . '  --flags=32 \\' . "\n"
-    . '  --encoding_id=1 \\' . "\n"
-    . '  --fonts=target/fonts/source/' . \htmlspecialchars($notoFileName, ENT_QUOTES)
+    . \htmlspecialchars($notoFileName, ENT_QUOTES)
+    . ' '
+    . \htmlspecialchars($notoUrl, ENT_QUOTES)
+    . "\n\n"
+    . 'php vendor/tecnickcom/tc-lib-pdf-font/util/convert.php \\'
+    . "\n"
+    . '  --outpath=target/fonts/custom \\'
+    . "\n"
+    . '  --type=TrueTypeUnicode \\'
+    . "\n"
+    . '  --flags=32 \\'
+    . "\n"
+    . '  --encoding_id=1 \\'
+    . "\n"
+    . '  --fonts=target/fonts/source/'
+    . \htmlspecialchars($notoFileName, ENT_QUOTES)
     . '</pre>'
-    . '<p style="font-family: ' . \htmlspecialchars($manualFontFamily, ENT_QUOTES) . ';">Then run this example again; it will load the generated '
-    . 'target/fonts/custom/' . \htmlspecialchars($fontFamily, ENT_QUOTES) . '.json.</p>';
+    . '<p style="font-family: '
+    . \htmlspecialchars($manualFontFamily, ENT_QUOTES)
+    . ';">Then run this example again; it will load the generated '
+    . 'target/fonts/custom/'
+    . \htmlspecialchars($fontFamily, ENT_QUOTES)
+    . '.json.</p>';
 
 if (!empty($fontSetupError)) {
     $baseFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
@@ -173,19 +195,25 @@ if (!empty($fontSetupError)) {
     $pdf->addPage(['format' => 'A4']);
     $pdf->page->addContent($baseFont['out']);
 
-    $html = '<h1 style="font-family: helvetica;">Font Setup Failed</h1>'
+    $html =
+        '<h1 style="font-family: helvetica;">Font Setup Failed</h1>'
         . '<p style="font-family: helvetica;">The example could not download or convert Noto Sans automatically.</p>'
-        . '<p style="font-family: helvetica;"><b>Error:</b> ' . \htmlspecialchars($fontSetupError, ENT_QUOTES) . '</p>'
+        . '<p style="font-family: helvetica;"><b>Error:</b> '
+        . \htmlspecialchars($fontSetupError, ENT_QUOTES)
+        . '</p>'
         . '<p style="font-family: helvetica;">If the environment is offline, run once with internet access or pre-populate:</p>'
-        . '<p style="font-family: helvetica;">target/fonts/source/' . \htmlspecialchars($notoFileName, ENT_QUOTES)
-        . ' and target/fonts/custom/' . \htmlspecialchars($fontFamily, ENT_QUOTES) . '.json.</p>'
+        . '<p style="font-family: helvetica;">target/fonts/source/'
+        . \htmlspecialchars($notoFileName, ENT_QUOTES)
+        . ' and target/fonts/custom/'
+        . \htmlspecialchars($fontFamily, ENT_QUOTES)
+        . '.json.</p>'
         . '<hr/>'
         . $manualInstructions;
 
-    $pdf->addHTMLCell($html, 15, 20, 180);
+    $pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
     $rawpdf = $pdf->getOutPDFString();
-    $pdf->renderPDF($rawpdf);
+    $pdf->renderPDF(rawpdf: $rawpdf);
     return;
 }
 
@@ -195,18 +223,35 @@ $notoFont = $pdf->font->insert($pdf->pon, $fontFamily, '', 10);
 $pdf->addPage(['format' => 'A4']);
 $pdf->page->addContent($notoFont['out']);
 
-$html = '<h1 style="font-family: ' . \htmlspecialchars($fontFamily, ENT_QUOTES) . ';">Custom Font Imported Automatically</h1>'
-    . '<p style="font-family: ' . \htmlspecialchars($fontFamily, ENT_QUOTES) . ';">Downloaded from: ' . \htmlspecialchars($notoUrl, ENT_QUOTES) . '</p>'
-    . '<p style="font-family: ' . \htmlspecialchars($fontFamily, ENT_QUOTES) . ';">Converted source: target/fonts/source/' . \htmlspecialchars($notoFileName, ENT_QUOTES) . '</p>'
-    . '<p style="font-family: ' . \htmlspecialchars($fontFamily, ENT_QUOTES) . ';">Imported family: <b>' . \htmlspecialchars($fontFamily, ENT_QUOTES) . '</b></p>'
+$html =
+    '<h1 style="font-family: '
+    . \htmlspecialchars($fontFamily, ENT_QUOTES)
+    . ';">Custom Font Imported Automatically</h1>'
+    . '<p style="font-family: '
+    . \htmlspecialchars($fontFamily, ENT_QUOTES)
+    . ';">Downloaded from: '
+    . \htmlspecialchars($notoUrl, ENT_QUOTES)
+    . '</p>'
+    . '<p style="font-family: '
+    . \htmlspecialchars($fontFamily, ENT_QUOTES)
+    . ';">Converted source: target/fonts/source/'
+    . \htmlspecialchars($notoFileName, ENT_QUOTES)
+    . '</p>'
+    . '<p style="font-family: '
+    . \htmlspecialchars($fontFamily, ENT_QUOTES)
+    . ';">Imported family: <b>'
+    . \htmlspecialchars($fontFamily, ENT_QUOTES)
+    . '</b></p>'
     . '<hr/>'
-    . '<p style="font-family: ' . \htmlspecialchars($fontFamily, ENT_QUOTES) . '; font-size: 16pt;">'
+    . '<p style="font-family: '
+    . \htmlspecialchars($fontFamily, ENT_QUOTES)
+    . '; font-size: 16pt;">'
     . 'The quick brown fox jumps over the lazy dog. 0123456789'
     . '</p>'
     . '<hr/>'
     . $manualInstructions;
 
-$pdf->addHTMLCell($html, 15, 20, 180);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

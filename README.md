@@ -1,4 +1,4 @@
-# tc-lib-pdf
+# tc-lib-pdf (TCPDF)
 
 > **The next generation of [TCPDF](https://tcpdf.org)** - a modern, modular PHP library for programmatically generating PDF documents.
 

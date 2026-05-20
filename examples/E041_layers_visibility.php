@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E041_layers_visibility.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -56,7 +55,6 @@ $pdf->enableDefaultPageContent();
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 14);
 
-
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
 
@@ -66,23 +64,41 @@ $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/image
 
 $page1 = $pdf->addPage();
 
-$pdf->page->addContent($pdf->getTextCell('Layers and Optional Content Groups', 15, 15, 180, 8));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Layers and Optional Content Groups',
+    posx: 15,
+    posy: 15,
+    width: 180,
+    height: 8,
+));
 
-$pdf->page->addContent($pdf->getTextCell('This page contains objects assigned to different visibility layers.', 15, 28, 180, 6));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'This page contains objects assigned to different visibility layers.',
+    posx: 15,
+    posy: 28,
+    width: 180,
+    height: 6,
+));
 
 $pdf->page->addContent($pdf->getTextCell('Always visible text', 15, 40, 120, 7, 0, 0, 'T', 'L', drawcell: true));
 
-$lyrScreen = $pdf->newLayer('screen_only', ['view' => true], false, true, false);
+$lyrScreen = $pdf->newLayer(name: 'screen_only', intent: ['view' => true], print: false, view: true, lock: false);
 $pdf->page->addContent($lyrScreen);
 $pdf->page->addContent($pdf->getTextCell('Screen-only layer content', 15, 54, 120, 7, 0, 0, 'T', 'L', drawcell: true));
 $pdf->page->addContent($pdf->closeLayer());
 
-$lyrPrint = $pdf->newLayer('print_only', ['design' => true], true, false, false);
+$lyrPrint = $pdf->newLayer(name: 'print_only', intent: ['design' => true], print: true, view: false, lock: false);
 $pdf->page->addContent($lyrPrint);
 $pdf->page->addContent($pdf->getTextCell('Print-only layer content', 15, 66, 120, 7, 0, 0, 'T', 'L', drawcell: true));
 $pdf->page->addContent($pdf->closeLayer());
 
-$pdf->page->addContent($pdf->getTextCell('Viewer support for layer toggles varies by PDF reader.', 15, 82, 180, 6));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Viewer support for layer toggles varies by PDF reader.',
+    posx: 15,
+    posy: 82,
+    width: 180,
+    height: 6,
+));
 
 // =============================================================
 
@@ -95,6 +111,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

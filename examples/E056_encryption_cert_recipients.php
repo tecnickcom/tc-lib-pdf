@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E056_encryption_cert_recipients.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -46,30 +47,30 @@ if ($certPath === false) {
 
 $certUri = 'file://' . $certPath;
 
-$mode = (PHP_SAPI === 'cli') ? 'encrypted' : 'preview';
+$mode = PHP_SAPI === 'cli' ? 'encrypted' : 'preview';
 if (PHP_SAPI === 'cli') {
-  $mode = (string) ($argv[1] ?? 'encrypted');
+    $mode = (string) ($argv[1] ?? 'encrypted');
 } elseif (isset($_GET['mode']) && \is_string($_GET['mode'])) {
-  $mode = $_GET['mode'];
+    $mode = $_GET['mode'];
 }
 
 $mode = \strtolower(\trim($mode));
-if (! \in_array($mode, ['encrypted', 'preview'], true)) {
-  $mode = (PHP_SAPI === 'cli') ? 'encrypted' : 'preview';
+if (!\in_array($mode, ['encrypted', 'preview'], true)) {
+    $mode = PHP_SAPI === 'cli' ? 'encrypted' : 'preview';
 }
 
-$useEncryption = ($mode === 'encrypted');
+$useEncryption = $mode === 'encrypted';
 
 // Build recipient list:
 //   Each entry has 'c' (certificate path/URI) and 'p' (allowed permissions array).
 $pubkeys = [
     [
         'c' => $certUri,
-        'p' => ['print'],           // Recipient A: print-only
+        'p' => ['print'], // Recipient A: print-only
     ],
     [
         'c' => $certUri,
-        'p' => ['print', 'annot-forms'],  // Recipient B: print + annotate
+        'p' => ['print', 'annot-forms'], // Recipient B: print + annotate
     ],
 ];
 
@@ -77,28 +78,28 @@ $fileId = \md5('E056_encryption_cert_recipients');
 
 $encrypt = null;
 if ($useEncryption) {
-  // AES-128 (mode 2) with certificate recipients – no shared password needed.
-  $encrypt = new \Com\Tecnick\Pdf\Encrypt\Encrypt(
-    true,          // enabled
-    $fileId,
-    2,             // mode: AES-128
-    [],            // global permissions (empty – controlled per-recipient)
-    '',            // no user password
-    '',            // no owner password
-    $pubkeys,      // certificate recipients
-    true,          // encryptMetadata
-    true           // encryptEmbeddedFiles
-  );
+    // AES-128 (mode 2) with certificate recipients – no shared password needed.
+    $encrypt = new \Com\Tecnick\Pdf\Encrypt\Encrypt(
+        true, // enabled
+        $fileId,
+        2, // mode: AES-128
+        [], // global permissions (empty – controlled per-recipient)
+        '', // no user password
+        '', // no owner password
+        $pubkeys, // certificate recipients
+        true, // encryptMetadata
+        true, // encryptEmbeddedFiles
+    );
 }
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    $encrypt
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: $encrypt,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -120,93 +121,111 @@ $bfontB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 12);
 // -----------------------------------------------------------------------
 $page1 = $pdf->addPage();
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('Certificate-Based Recipient Encryption', 15, 15, 180, 0, 0, 1, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Certificate-Based Recipient Encryption',
+    posx: 15,
+    posy: 15,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
 $html = <<<HTML
-<p><b>How it works</b></p>
-<p>Certificate-based encryption (also called <em>public-key encryption</em>) wraps the
-document encryption key using each recipient's X.509 public-key certificate.
-No shared password is distributed; only the holder of the matching private key can
-open the document.</p>
+    <p><b>How it works</b></p>
+    <p>Certificate-based encryption (also called <em>public-key encryption</em>) wraps the
+    document encryption key using each recipient's X.509 public-key certificate.
+    No shared password is distributed; only the holder of the matching private key can
+    open the document.</p>
 
-<p><b>Recipient permission matrix</b></p>
-<table border="1" cellpadding="4" cellspacing="0">
-  <tr>
-    <th>Recipient</th>
-    <th>Certificate</th>
-    <th>Allowed permissions</th>
-  </tr>
-  <tr>
-    <td>Recipient A (read-only)</td>
-    <td>tcpdf.crt (demo)</td>
-    <td>print</td>
-  </tr>
-  <tr>
-    <td>Recipient B (reviewer)</td>
-    <td>tcpdf.crt (demo)</td>
-    <td>print, annot-forms</td>
-  </tr>
-</table>
+    <p><b>Recipient permission matrix</b></p>
+    <table border="1" cellpadding="4" cellspacing="0">
+      <tr>
+        <th>Recipient</th>
+        <th>Certificate</th>
+        <th>Allowed permissions</th>
+      </tr>
+      <tr>
+        <td>Recipient A (read-only)</td>
+        <td>tcpdf.crt (demo)</td>
+        <td>print</td>
+      </tr>
+      <tr>
+        <td>Recipient B (reviewer)</td>
+        <td>tcpdf.crt (demo)</td>
+        <td>print, annot-forms</td>
+      </tr>
+    </table>
 
-<p><b>Encryption parameters</b></p>
-<ul>
-  <li>Output mode: MODE_PLACEHOLDER</li>
-  <li>Algorithm: AES-128 (mode 2) when mode is <em>encrypted</em></li>
-  <li>Metadata encrypted: yes (encrypted mode)</li>
-  <li>Embedded files encrypted: yes (encrypted mode)</li>
-  <li>User/owner password: none (certificate recipients only, encrypted mode)</li>
-</ul>
+    <p><b>Encryption parameters</b></p>
+    <ul>
+      <li>Output mode: MODE_PLACEHOLDER</li>
+      <li>Algorithm: AES-128 (mode 2) when mode is <em>encrypted</em></li>
+      <li>Metadata encrypted: yes (encrypted mode)</li>
+      <li>Embedded files encrypted: yes (encrypted mode)</li>
+      <li>User/owner password: none (certificate recipients only, encrypted mode)</li>
+    </ul>
 
-<p><b>Creating your own certificate</b></p>
-<p>Use the following OpenSSL command to generate a self-signed certificate suitable for
-recipient encryption:</p>
-<p><em>openssl req -x509 -nodes -days 365000 -newkey rsa:2048 -keyout cert.pem -out cert.pem</em></p>
-HTML;
+    <p><b>Creating your own certificate</b></p>
+    <p>Use the following OpenSSL command to generate a self-signed certificate suitable for
+    recipient encryption:</p>
+    <p><em>openssl req -x509 -nodes -days 365000 -newkey rsa:2048 -keyout cert.pem -out cert.pem</em></p>
+    HTML;
 
-$modeLabel = $useEncryption
-  ? 'encrypted (certificate recipients)'
-  : 'preview (unencrypted for browser compatibility)';
+$modeLabel = $useEncryption ? 'encrypted (certificate recipients)' : 'preview (unencrypted for browser compatibility)';
 
 $html = \str_replace('MODE_PLACEHOLDER', $modeLabel, $html);
 
-$pdf->addHTMLCell($html, 15, 30, 180);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 30, width: 180);
 
 // -----------------------------------------------------------------------
 // Page 2 – Permissions reference
 // -----------------------------------------------------------------------
 $page2 = $pdf->addPage();
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('PDF Permission Flags Reference', 15, 15, 180, 0, 0, 1, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'PDF Permission Flags Reference',
+    posx: 15,
+    posy: 15,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
 $html2 = <<<HTML
-<p><b>Available permission identifiers</b></p>
-<table border="1" cellpadding="4" cellspacing="0">
-  <tr><th>Identifier</th><th>Description</th></tr>
-  <tr><td>print</td><td>Print the document (low-quality).</td></tr>
-  <tr><td>modify</td><td>Modify document content (not covered by more specific flags).</td></tr>
-  <tr><td>copy</td><td>Copy or extract text and graphics.</td></tr>
-  <tr><td>annot-forms</td><td>Add/modify annotations and fill interactive forms.</td></tr>
-  <tr><td>fill-forms</td><td>Fill in existing interactive form fields.</td></tr>
-  <tr><td>extract</td><td>Extract content for accessibility.</td></tr>
-  <tr><td>assemble</td><td>Insert/rotate/delete pages, create bookmarks and thumbnails.</td></tr>
-  <tr><td>print-high</td><td>Print at high quality (faithful digital reproduction).</td></tr>
-</table>
+    <p><b>Available permission identifiers</b></p>
+    <table border="1" cellpadding="4" cellspacing="0">
+      <tr><th>Identifier</th><th>Description</th></tr>
+      <tr><td>print</td><td>Print the document (low-quality).</td></tr>
+      <tr><td>modify</td><td>Modify document content (not covered by more specific flags).</td></tr>
+      <tr><td>copy</td><td>Copy or extract text and graphics.</td></tr>
+      <tr><td>annot-forms</td><td>Add/modify annotations and fill interactive forms.</td></tr>
+      <tr><td>fill-forms</td><td>Fill in existing interactive form fields.</td></tr>
+      <tr><td>extract</td><td>Extract content for accessibility.</td></tr>
+      <tr><td>assemble</td><td>Insert/rotate/delete pages, create bookmarks and thumbnails.</td></tr>
+      <tr><td>print-high</td><td>Print at high quality (faithful digital reproduction).</td></tr>
+    </table>
 
-<p><b>Notes</b></p>
-<ul>
-  <li>With certificate recipients, permission flags are embedded inside the CMS enveloped-data
-  structure for each recipient separately.</li>
-  <li>Viewer enforcement of permissions depends on the PDF reader implementation.</li>
-  <li>Combining certificate encryption with a digital signature (E057) provides both
-  access control and document integrity assurance.</li>
-</ul>
-HTML;
+    <p><b>Notes</b></p>
+    <ul>
+      <li>With certificate recipients, permission flags are embedded inside the CMS enveloped-data
+      structure for each recipient separately.</li>
+      <li>Viewer enforcement of permissions depends on the PDF reader implementation.</li>
+      <li>Combining certificate encryption with a digital signature (E057) provides both
+      access control and document integrity assurance.</li>
+    </ul>
+    HTML;
 
-$pdf->addHTMLCell($html2, 15, 30, 180);
+$pdf->addHTMLCell(html: $html2, posx: 15, posy: 30, width: 180);
 
 // -----------------------------------------------------------------------
 // Output
@@ -217,12 +236,12 @@ if (PHP_SAPI !== 'cli') {
     if ($useEncryption) {
         // Most browser-native PDF viewers do not support certificate-based decryption.
         // Force a download so the file can be opened with a compatible PDF reader.
-        $pdf->downloadPDF($rawpdf);
-        exit;
+        $pdf->downloadPDF(rawpdf: $rawpdf);
+        exit();
     }
 
-    $pdf->renderPDF($rawpdf);
-    exit;
+    $pdf->renderPDF(rawpdf: $rawpdf);
+    exit();
 }
 
 echo $rawpdf;

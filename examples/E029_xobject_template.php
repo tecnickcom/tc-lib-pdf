@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E029_xobject_template.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -39,12 +40,7 @@ $pdf->setPDFFilename('029_xobject_template.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
-$setFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    string $family,
-    string $style,
-    int $size,
-): array {
+$setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string $style, int $size): array {
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size, 0.0, 1.0);
     $pdf->page->addContent($font['out']);
     return $font;
@@ -56,32 +52,28 @@ $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);
 $pdf->addPage();
 
 $setFont($pdf, 'helvetica', 'B', 20);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'XObject Templates',
-        15.0,
-        22.0,
-        180.0,
-        0.0,
-        drawcell: false,
-        valign: 'T',
-        halign: 'C',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'XObject Templates',
+    15.0,
+    22.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'C',
+));
 
 $setFont($pdf, 'helvetica', '', 10);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'The same template object is rendered multiple times with different sizes and alpha values.',
-        15.0,
-        34.0,
-        180.0,
-        0.0,
-        drawcell: false,
-        valign: 'T',
-        halign: 'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'The same template object is rendered multiple times with different sizes and alpha values.',
+    15.0,
+    34.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 
 $templateWidth = 60.0;
 $templateHeight = 60.0;
@@ -98,14 +90,7 @@ if (\is_file($imagePath)) {
 $templateContent = $pdf->graph->getStartTransform();
 $templateContent .= $pdf->graph->getStarPolygon(30.0, 30.0, 29.0, 10, 3, 0.0, 'CNZ');
 if ($imageId > 0) {
-    $templateContent .= $pdf->image->getSetImage(
-        $imageId,
-        0.0,
-        0.0,
-        $templateWidth,
-        $templateHeight,
-        $templateHeight,
-    );
+    $templateContent .= $pdf->image->getSetImage($imageId, 0.0, 0.0, $templateWidth, $templateHeight, $templateHeight);
 }
 $templateContent .= $pdf->graph->getStopTransform();
 
@@ -128,9 +113,9 @@ $pdf->addXObjectContent($templateId, $templateContent);
 $pdf->exitXObjectTemplate();
 
 $instances = [
-    [0.4, 15.0, 50.0, 20.0],
-    [0.6, 27.0, 62.0, 40.0],
-    [0.8, 55.0, 85.0, 60.0],
+    [0.4, 15.0, 50.0,  20.0],
+    [0.6, 27.0, 62.0,  40.0],
+    [0.8, 55.0, 85.0,  60.0],
     [1.0, 95.0, 125.0, 80.0],
 ];
 
@@ -142,4 +127,4 @@ foreach ($instances as [$alpha, $x, $y, $size]) {
 $pdf->page->addContent($pdf->graph->getAlpha(1.0));
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

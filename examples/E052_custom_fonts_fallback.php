@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E052_custom_fonts_fallback.php
  *
@@ -28,7 +29,7 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // K_PATH_FONTS must point to the directory holding .z and .php font metric files.
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -38,12 +39,12 @@ define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib
 // but makes the font unsuitable for later editing. Set to false for archival PDFs
 // (PDF/A, PDF/UA) or whenever the full character set must be available.
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',  // unit
-    true,  // isunicode – required for any non-Latin script
-    false, // subsetfont – false = full embed; change to true to see size tradeoff
-    true,  // compress
-    '',    // mode
-    null,  // objEncrypt
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -68,19 +69,19 @@ $fHelvetica = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
 $fHelveticaB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 11);
 
 // Times New Roman (core): serif alternative for body text, Latin only.
-$fTimes     = $pdf->font->insert($pdf->pon, 'times', '', 11);
+$fTimes = $pdf->font->insert($pdf->pon, 'times', '', 11);
 
 // Courier (core): monospaced, Latin only; good for code samples.
-$fCourier   = $pdf->font->insert($pdf->pon, 'courier', '', 10);
+$fCourier = $pdf->font->insert($pdf->pon, 'courier', '', 10);
 
 // DejaVu Sans: TrueType, Latin + Greek + Cyrillic + IPA + many other scripts.
 // Covers most Western European, Eastern European, and Slavic languages.
-$fDejavu    = $pdf->font->insert($pdf->pon, 'dejavusans', '', 11);
+$fDejavu = $pdf->font->insert($pdf->pon, 'dejavusans', '', 11);
 
 // Unifont: TrueType, very broad Unicode BMP (plane 0) coverage including Arabic,
 // Hebrew, Thai, Devanagari, and many additional scripts.
 // File size is large; use subset=true when embedding it in production PDFs.
-$fUnifont   = $pdf->font->insert($pdf->pon, 'unifont', '', 11);
+$fUnifont = $pdf->font->insert($pdf->pon, 'unifont', '', 11);
 
 // ===| Page 1 – Font Coverage Overview |=====================================
 
@@ -116,7 +117,7 @@ $overviewHtml = '<h1 style="font-family: helvetica;">Font Selection &amp; Unicod
 <p style="font-family: courier; font-size: 10pt;">
     <span style="font-family: courier;">Courier — The quick brown fox jumps over the lazy dog.</span>
 </p>';
-$pdf->addHTMLCell($overviewHtml, 15, 20, 175);
+$pdf->addHTMLCell(html: $overviewHtml, posx: 15, posy: 20, width: 175);
 
 // ===| Page 2 – DejaVu Sans: Latin + Greek + Cyrillic |======================
 
@@ -150,7 +151,7 @@ $dejavuHtml = '<h2 style="font-family: dejavusans;">DejaVu Sans — Extended Cov
     only the glyphs used in this page, the embedded subset would be much smaller.
     For documents mixing many scripts across many pages, subset embedding is recommended.
 </p>';
-$pdf->addHTMLCell($dejavuHtml, 15, 20, 175);
+$pdf->addHTMLCell(html: $dejavuHtml, posx: 15, posy: 20, width: 175);
 
 // ===| Page 3 – Unifont: Full BMP |==========================================
 
@@ -181,9 +182,9 @@ $unifontHtml = '<h2 style="font-family: unifont; font-size: 11pt; font-weight: n
     Only escalate to Unifont for code points absent from narrower families.
     This minimises file size while ensuring every glyph is available.
 </p>';
-$pdf->addHTMLCell($unifontHtml, 15, 20, 175);
+$pdf->addHTMLCell(html: $unifontHtml, posx: 15, posy: 20, width: 175);
 
 // ----------
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

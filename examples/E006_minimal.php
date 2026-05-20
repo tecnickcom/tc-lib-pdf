@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E006_minimal.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -44,10 +45,10 @@ $pdf->page->addContent($bfont['out']);
 $html = '<h1>Hello, PDF!</h1><p>Generated with tc-lib-pdf.</p>';
 
 // render the HTML content
-$pdf->addHTMLCell($html, 15, 20, 180);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
 // Get the PDF content
 $rawpdf = $pdf->getOutPDFString();
 
 // Render the PDF content
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

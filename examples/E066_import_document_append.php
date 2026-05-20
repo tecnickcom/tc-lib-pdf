@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E066_import_document_append.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -38,11 +39,17 @@ foreach ($pages as $idx => $label) {
     $srcPage = $src->addPage();
     $src->page->addContent($bfont['out']);
     $src->addHTMLCell(
-        '<h2>Source: ' . \htmlspecialchars($label) . '</h2>'
-        . '<p>Page ' . ($idx + 1) . ' of ' . \count($pages) . ' in the source document.</p>',
-        15,
-        20,
-        160
+        html: '<h2>Source: '
+        . \htmlspecialchars($label)
+        . '</h2>'
+        . '<p>Page '
+        . ($idx + 1)
+        . ' of '
+        . \count($pages)
+        . ' in the source document.</p>',
+        posx: 15,
+        posy: 20,
+        width: 160,
     );
 }
 
@@ -63,11 +70,10 @@ $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($bfont['out']);
 $pdf->addHTMLCell(
-    '<h1>Document append demo</h1>'
-    . '<p>The following pages are imported from a separate source document.</p>',
-    15,
-    20,
-    160
+    html: '<h1>Document append demo</h1>' . '<p>The following pages are imported from a separate source document.</p>',
+    posx: 15,
+    posy: 20,
+    width: 160,
 );
 
 // ---- Step 3: register source and append all its pages ----
@@ -83,13 +89,12 @@ $templates = $pdf->appendDocument($sourceId);
 $pdf->addPage();
 $pdf->page->addContent($bfont['out']);
 $pdf->addHTMLCell(
-    '<p>Appended ' . \count($templates) . ' page(s) from source ('
-    . $pageCount . ' available).</p>',
-    15,
-    20,
-    160
+    html: '<p>Appended ' . \count($templates) . ' page(s) from source (' . $pageCount . ' available).</p>',
+    posx: 15,
+    posy: 20,
+    width: 160,
 );
 
 // Render
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E018_html_page_span.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -56,17 +55,14 @@ $pdf->enableDefaultPageContent();
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
-
 
 $pageV01 = $pdf->addPage();
 
 $bfont6 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 
 $pdf->page->addContent($bfont6['out']);
-
 
 $html = 'Some special characters: &lt; € &euro; &#8364; &amp; è &egrave; &copy; &gt; \\slash \\\\double-slash \\\\\\triple-slash
 <h2>List</h2>
@@ -118,48 +114,51 @@ List example:
 </p>';
 
 $pdf->addHTMLCell(
-    '<h1>HTML page break example</h1>'.$html.$html.$html.$html, // string $html,
-    20, // float $posx = 0,
-    10, // float $posy = 0,
-    150, // float $width = 0,
+    html: '<h1>HTML page break example</h1>' . $html . $html . $html . $html,
+    posx: 20,
+    posy: 10,
+    width: 150,
 );
 
 // =============================================================
 // Styled block (background + border) spanning multiple pages.
 
-$blockchunk = '<p>'
+$blockchunk =
+    '<p>'
     . 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium '
     . 'doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore '
     . 'veritatis et quasi architecto beatae vitae dicta sunt explicabo.'
     . '</p>';
 
-$blockhtml = '<h2>Styled block across pages</h2>'
+$blockhtml =
+    '<h2>Styled block across pages</h2>'
     . '<div style="background-color:#ffeeaa;border:1px solid #888;padding:4px">'
     . '<p><b>Block-level container</b> &mdash; the background and border continue '
     . 'on each page until the content ends.</p>'
     . \str_repeat($blockchunk, 30)
     . '</div>';
 
-$pdf->addHTMLCell(
-    $blockhtml,
-    20, // float $posx
-    100, // float $posy
-    150, // float $width
-);
+$pdf->addHTMLCell(html: $blockhtml, posx: 20, posy: 100, width: 150);
 
 // =============================================================
 // Table spanning multiple pages with header row replay.
 
 $tableRows = '';
 for ($i = 1; $i <= 20; ++$i) {
-    $tableRows .= '<tr>'
-        . '<td>' . $i . '</td>'
+    $tableRows .=
+        '<tr>'
+        . '<td>'
+        . $i
+        . '</td>'
         . '<td>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</td>'
-        . '<td style="text-align:right">' . \number_format($i * 12.34, 2) . '</td>'
+        . '<td style="text-align:right">'
+        . \number_format($i * 12.34, 2)
+        . '</td>'
         . '</tr>';
 }
 
-$tablehtml = '<h2>Table across pages</h2>'
+$tablehtml =
+    '<h2>Table across pages</h2>'
     . '<table border="1" cellpadding="3" cellspacing="0">'
     . '<thead>'
     . '<tr style="background-color:#cccccc">'
@@ -169,12 +168,7 @@ $tablehtml = '<h2>Table across pages</h2>'
     . $tableRows
     . '</table>';
 
-$pdf->addHTMLCell(
-    $tablehtml,
-    20, // float $posx
-    220, // float $posy
-    150, // float $width
-);
+$pdf->addHTMLCell(html: $tablehtml, posx: 20, posy: 220, width: 150);
 
 // =============================================================
 
@@ -184,6 +178,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

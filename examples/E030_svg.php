@@ -22,7 +22,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example_svg.pdf');
 
@@ -39,12 +39,7 @@ $svgdir = __DIR__ . '/images';
 // ---------------------------------------------------------------------------
 // PDF object
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',   // string $unit
-    true,   // bool $isunicode
-    false,  // bool $subsetfont
-    true,   // bool $compress
-);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: true);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -68,22 +63,68 @@ $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 // ---------------------------------------------------------------------------
 
 $page01 = $pdf->addPage();
-$pdf->setBookmark('tcpdf_box.svg', '', 0, -1, 0, 0, 'B', 'blue');
+$pdf->setBookmark(name: 'tcpdf_box.svg', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'blue');
 
 $pdf->page->addContent($bfont['out']);
 
 // Label
-$pdf->addTextCell('tcpdf_box.svg — paths, fill, stroke, fill-rule', -1, 10, 10, 190, 6, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
+$pdf->addTextCell(
+    txt: 'tcpdf_box.svg — paths, fill, stroke, fill-rule',
+    pid: -1,
+    posx: 10,
+    posy: 10,
+    width: 190,
+    height: 6,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+    cell: null,
+    styles: [],
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: false,
+);
 
 // Render at two different sizes to check scaling
-$svg01a = $pdf->addSVG($svgdir . '/tcpdf_box.svg', 10, 20, 180, 120, $page01['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg01a));
+$svg01a = $pdf->addSVG(
+    img: $svgdir . '/tcpdf_box.svg',
+    posx: 10,
+    posy: 20,
+    width: 180,
+    height: 120,
+    pageheight: $page01['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg01a));
 
-$svg01b = $pdf->addSVG($svgdir . '/tcpdf_box.svg', 10, 148, 90, 60, $page01['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg01b));
+$svg01b = $pdf->addSVG(
+    img: $svgdir . '/tcpdf_box.svg',
+    posx: 10,
+    posy: 148,
+    width: 90,
+    height: 60,
+    pageheight: $page01['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg01b));
 
-$svg01c = $pdf->addSVG($svgdir . '/tcpdf_box.svg', 105, 148, 45, 30, $page01['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg01c));
+$svg01c = $pdf->addSVG(
+    img: $svgdir . '/tcpdf_box.svg',
+    posx: 105,
+    posy: 148,
+    width: 45,
+    height: 30,
+    pageheight: $page01['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg01c));
 
 // ---------------------------------------------------------------------------
 // Page 2 — testsvg.svg
@@ -93,22 +134,68 @@ $pdf->page->addContent($pdf->getSetSVG($svg01c));
 // ---------------------------------------------------------------------------
 
 $page02 = $pdf->addPage();
-$pdf->setBookmark('testsvg.svg', '', 0, -1, 0, 0, 'B', 'green');
+$pdf->setBookmark(name: 'testsvg.svg', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'green');
 
 $pdf->page->addContent($bfont['out']);
 
-$pdf->addTextCell('testsvg.svg — gradients, clip-paths, text, embedded image', -1, 10, 10, 190, 6, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
+$pdf->addTextCell(
+    txt: 'testsvg.svg — gradients, clip-paths, text, embedded image',
+    pid: -1,
+    posx: 10,
+    posy: 10,
+    width: 190,
+    height: 6,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+    cell: null,
+    styles: [],
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: false,
+);
 
 // Full-width render
-$svg02a = $pdf->addSVG($svgdir . '/testsvg.svg', 10, 20, 190, 95, $page02['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg02a));
+$svg02a = $pdf->addSVG(
+    img: $svgdir . '/testsvg.svg',
+    posx: 10,
+    posy: 20,
+    width: 190,
+    height: 95,
+    pageheight: $page02['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg02a));
 
 // Smaller render to verify scaling
-$svg02b = $pdf->addSVG($svgdir . '/testsvg.svg', 10, 120, 95, 47, $page02['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg02b));
+$svg02b = $pdf->addSVG(
+    img: $svgdir . '/testsvg.svg',
+    posx: 10,
+    posy: 120,
+    width: 95,
+    height: 47,
+    pageheight: $page02['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg02b));
 
-$svg02c = $pdf->addSVG($svgdir . '/testsvg.svg', 110, 120, 47, 23, $page02['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg02c));
+$svg02c = $pdf->addSVG(
+    img: $svgdir . '/testsvg.svg',
+    posx: 110,
+    posy: 120,
+    width: 47,
+    height: 23,
+    pageheight: $page02['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg02c));
 
 // ---------------------------------------------------------------------------
 // Page 3 — testsvgblend.svg
@@ -117,21 +204,67 @@ $pdf->page->addContent($pdf->getSetSVG($svg02c));
 // ---------------------------------------------------------------------------
 
 $page03 = $pdf->addPage();
-$pdf->setBookmark('testsvgblend.svg', '', 0, -1, 0, 0, 'B', 'red');
+$pdf->setBookmark(name: 'testsvgblend.svg', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'red');
 
 $pdf->page->addContent($bfont['out']);
 
-$pdf->addTextCell('testsvgblend.svg — blend modes, opacity', -1, 10, 10, 190, 6, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
+$pdf->addTextCell(
+    txt: 'testsvgblend.svg — blend modes, opacity',
+    pid: -1,
+    posx: 10,
+    posy: 10,
+    width: 190,
+    height: 6,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+    cell: null,
+    styles: [],
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: false,
+);
 
-$svg03a = $pdf->addSVG($svgdir . '/testsvgblend.svg', 10, 20, 190, 127, $page03['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg03a));
+$svg03a = $pdf->addSVG(
+    img: $svgdir . '/testsvgblend.svg',
+    posx: 10,
+    posy: 20,
+    width: 190,
+    height: 127,
+    pageheight: $page03['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg03a));
 
 // Side-by-side scaled copies
-$svg03b = $pdf->addSVG($svgdir . '/testsvgblend.svg', 10, 155, 90, 60, $page03['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg03b));
+$svg03b = $pdf->addSVG(
+    img: $svgdir . '/testsvgblend.svg',
+    posx: 10,
+    posy: 155,
+    width: 90,
+    height: 60,
+    pageheight: $page03['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg03b));
 
-$svg03c = $pdf->addSVG($svgdir . '/testsvgblend.svg', 105, 155, 90, 60, $page03['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg03c));
+$svg03c = $pdf->addSVG(
+    img: $svgdir . '/testsvgblend.svg',
+    posx: 105,
+    posy: 155,
+    width: 90,
+    height: 60,
+    pageheight: $page03['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg03c));
 
 // ---------------------------------------------------------------------------
 // Page 4 — tux.svg
@@ -143,50 +276,165 @@ $pdf->page->addContent($pdf->getSetSVG($svg03c));
 // ---------------------------------------------------------------------------
 
 $page04 = $pdf->addPage();
-$pdf->setBookmark('tux.svg', '', 0, -1, 0, 0, 'B', 'black');
+$pdf->setBookmark(name: 'tux.svg', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'black');
 
 $pdf->page->addContent($bfont['out']);
 
-$pdf->addTextCell('tux.svg — complex multi-path illustration (The copyright holder of the Tux image is Larry Ewing)', -1, 10, 10, 190, 6, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
+$pdf->addTextCell(
+    txt: 'tux.svg — complex multi-path illustration (The copyright holder of the Tux image is Larry Ewing)',
+    pid: -1,
+    posx: 10,
+    posy: 10,
+    width: 190,
+    height: 6,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+    cell: null,
+    styles: [],
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: false,
+);
 
 // Large centred render
-$svg04a = $pdf->addSVG($svgdir . '/tux.svg', 55, 20, 100, 121, $page04['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg04a));
+$svg04a = $pdf->addSVG(
+    img: $svgdir . '/tux.svg',
+    posx: 55,
+    posy: 20,
+    width: 100,
+    height: 121,
+    pageheight: $page04['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg04a));
 
 // Three scaled thumbnails
-$svg04b = $pdf->addSVG($svgdir . '/tux.svg', 10, 148, 55, 66, $page04['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg04b));
+$svg04b = $pdf->addSVG(
+    img: $svgdir . '/tux.svg',
+    posx: 10,
+    posy: 148,
+    width: 55,
+    height: 66,
+    pageheight: $page04['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg04b));
 
-$svg04c = $pdf->addSVG($svgdir . '/tux.svg', 70, 148, 40, 48, $page04['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg04c));
+$svg04c = $pdf->addSVG(
+    img: $svgdir . '/tux.svg',
+    posx: 70,
+    posy: 148,
+    width: 40,
+    height: 48,
+    pageheight: $page04['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg04c));
 
-$svg04d = $pdf->addSVG($svgdir . '/tux.svg', 115, 148, 25, 30, $page04['height']);
-$pdf->page->addContent($pdf->getSetSVG($svg04d));
+$svg04d = $pdf->addSVG(
+    img: $svgdir . '/tux.svg',
+    posx: 115,
+    posy: 148,
+    width: 25,
+    height: 30,
+    pageheight: $page04['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg04d));
 
 // ---------------------------------------------------------------------------
 // Page 5 — all four images together (overview grid)
 // ---------------------------------------------------------------------------
 
 $page05 = $pdf->addPage();
-$pdf->setBookmark('SVG overview grid', '', 0, -1, 0, 0, 'B', 'purple');
+$pdf->setBookmark(
+    name: 'SVG overview grid',
+    link: '',
+    level: 0,
+    page: -1,
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'purple',
+);
 
 $pdf->page->addContent($bfont['out']);
 
-$pdf->addTextCell('SVG overview grid — all four images at equal size', -1, 10, 10, 190, 6, 0, 0, 'T', 'L', null, [], 0, 0, 0, 0, true, true, false, false, false, false, false, false);
+$pdf->addTextCell(
+    txt: 'SVG overview grid — all four images at equal size',
+    pid: -1,
+    posx: 10,
+    posy: 10,
+    width: 190,
+    height: 6,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+    cell: null,
+    styles: [],
+    strokewidth: 0,
+    wordspacing: 0,
+    leading: 0,
+    rise: 0,
+    jlast: true,
+    fill: true,
+    stroke: false,
+    underline: false,
+    linethrough: false,
+    overline: false,
+    clip: false,
+    drawcell: false,
+);
 
 // Row 1
-$s1 = $pdf->addSVG($svgdir . '/tcpdf_box.svg', 10, 20, 90, 60, $page05['height']);
-$pdf->page->addContent($pdf->getSetSVG($s1));
+$s1 = $pdf->addSVG(
+    img: $svgdir . '/tcpdf_box.svg',
+    posx: 10,
+    posy: 20,
+    width: 90,
+    height: 60,
+    pageheight: $page05['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $s1));
 
-$s2 = $pdf->addSVG($svgdir . '/testsvg.svg', 105, 20, 90, 60, $page05['height']);
-$pdf->page->addContent($pdf->getSetSVG($s2));
+$s2 = $pdf->addSVG(
+    img: $svgdir . '/testsvg.svg',
+    posx: 105,
+    posy: 20,
+    width: 90,
+    height: 60,
+    pageheight: $page05['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $s2));
 
 // Row 2
-$s3 = $pdf->addSVG($svgdir . '/testsvgblend.svg', 10, 88, 90, 60, $page05['height']);
-$pdf->page->addContent($pdf->getSetSVG($s3));
+$s3 = $pdf->addSVG(
+    img: $svgdir . '/testsvgblend.svg',
+    posx: 10,
+    posy: 88,
+    width: 90,
+    height: 60,
+    pageheight: $page05['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $s3));
 
-$s4 = $pdf->addSVG($svgdir . '/tux.svg', 105, 88, 90, 109, $page05['height']);
-$pdf->page->addContent($pdf->getSetSVG($s4));
+$s4 = $pdf->addSVG(
+    img: $svgdir . '/tux.svg',
+    posx: 105,
+    posy: 88,
+    width: 90,
+    height: 109,
+    pageheight: $page05['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $s4));
 
 // ---------------------------------------------------------------------------
 // Page 6 — abstract_a4_features.svg (full-page portrait)
@@ -196,21 +444,30 @@ $pdf->page->addContent($pdf->getSetSVG($s4));
 // ---------------------------------------------------------------------------
 
 $page06 = $pdf->addPage();
-$pdf->setBookmark('abstract_a4_features.svg', '', 0, -1, 0, 0, 'B', 'orange');
+$pdf->setBookmark(
+    name: 'abstract_a4_features.svg',
+    link: '',
+    level: 0,
+    page: -1,
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'orange',
+);
 
 $svg06a = $pdf->addSVG(
-    $svgdir . '/abstract_a4_features.svg',
-    0,
-    0,
-    $page06['width'],
-    $page06['height'],
-    $page06['height'],
+    img: $svgdir . '/abstract_a4_features.svg',
+    posx: 0,
+    posy: 0,
+    width: $page06['width'],
+    height: $page06['height'],
+    pageheight: $page06['height'],
 );
-$pdf->page->addContent($pdf->getSetSVG($svg06a));
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg06a));
 
 // ---------------------------------------------------------------------------
 // Output
 // ---------------------------------------------------------------------------
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

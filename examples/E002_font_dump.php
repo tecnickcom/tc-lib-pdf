@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E002_font_dump.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -26,12 +27,12 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
@@ -76,7 +77,16 @@ foreach ($corefonts as $fontcfg) {
     $fontname = $family . ($style !== '' ? ' ' . $style : '');
 
     $page = $pdf->addPage();
-    $pdf->setBookmark('Font: ' . $fontname, '', 0, -1, 0, 0, 'B', '');
+    $pdf->setBookmark(
+        name: 'Font: ' . $fontname,
+        link: '',
+        level: 0,
+        page: -1,
+        posx: 0,
+        posy: 0,
+        fstyle: 'B',
+        color: '',
+    );
 
     // title
     $pdf->page->addContent($titlefont['out']);
@@ -115,4 +125,4 @@ foreach ($corefonts as $fontcfg) {
 
 $rawpdf = $pdf->getOutPDFString();
 
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

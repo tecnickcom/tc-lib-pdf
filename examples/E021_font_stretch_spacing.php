@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E021_font_stretch_spacing.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -51,12 +52,7 @@ $style = [
     ],
 ];
 
-$applyFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    float $spacing,
-    float $stretching,
-    int $size = 11
-): array {
+$applyFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, float $spacing, float $stretching, int $size = 11): array {
     $font = $pdf->font->insert($pdf->pon, 'times', '', $size, $spacing, $stretching);
     $pdf->page->addContent($font['out']);
     return $font;
@@ -77,12 +73,12 @@ $drawBoxedLine = static function (
     float $w,
     float $h,
     float $spacing,
-    float $stretching
+    float $stretching,
 ) use ($applyFont): void {
     $font = $applyFont($pdf, $spacing, $stretching, 11);
     $pdf->page->addContent($pdf->graph->getRect($x, $y, $w, $h, 'D', $style));
     $baseline = $y + 1.5 + $pdf->toUnit($font['ascent']);
-    $pdf->page->addContent($pdf->getTextLine($text, $x + 1.5, $baseline));
+    $pdf->page->addContent($pdf->getTextLine(txt: $text, posx: $x + 1.5, posy: $baseline));
 };
 
 $setNeutralTitleFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf): void {
@@ -101,24 +97,30 @@ $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);
 $pdf->addPage();
 
 $setNeutralTitleFont($pdf);
-$pdf->page->addContent(
-    $pdf->getTextCell('Example 021 - Font stretching, scaling and spacing', 15, 15, 180, 0, 0, 1, 'T', 'L')
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Example 021 - Font stretching, scaling and spacing',
+    posx: 15,
+    posy: 15,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 $setNeutralTextFont($pdf);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'This mirrors the legacy cell stretch sample using tc-lib-pdf font spacing/stretching controls.',
-        15,
-        23,
-        180,
-        0,
-        0,
-        1,
-        'T',
-        'L'
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'This mirrors the legacy cell stretch sample using tc-lib-pdf font spacing/stretching controls.',
+    posx: 15,
+    posy: 23,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 $sample = 'TEST CELL STRETCH: scaling and spacing';
 $left = 15;
@@ -132,10 +134,10 @@ $applyFont($pdf, 0.0, 1.0, 11);
 $textChars = \count($ordarr);
 $targetWidthPoints = $pdf->toPoints($cellw - 3);
 
-$scaleFitRatio = ($baseWidthPoints > $targetWidthPoints) ? ($targetWidthPoints / $baseWidthPoints) : 1.0;
+$scaleFitRatio = $baseWidthPoints > $targetWidthPoints ? $targetWidthPoints / $baseWidthPoints : 1.0;
 $scaleForceRatio = $targetWidthPoints / $baseWidthPoints;
-$scaleFit = (100.0 * $scaleFitRatio);
-$scaleForce = (100.0 * $scaleForceRatio);
+$scaleFit = 100.0 * $scaleFitRatio;
+$scaleForce = 100.0 * $scaleForceRatio;
 
 $spacingFit = 0.0;
 if ($baseWidthPoints > $targetWidthPoints && $textChars > 1) {
@@ -148,10 +150,10 @@ if ($textChars > 1) {
 }
 
 $modes = [
-    ['no stretch', 0.0, 100.0],
-    ['scaling (fit)', 0.0, $scaleFit],
-    ['force scaling', 0.0, $scaleForce],
-    ['spacing (fit)', $spacingFit, 100.0],
+    ['no stretch',    0.0,           100.0],
+    ['scaling (fit)', 0.0,           $scaleFit],
+    ['force scaling', 0.0,           $scaleForce],
+    ['spacing (fit)', $spacingFit,   100.0],
     ['force spacing', $spacingForce, 100.0],
 ];
 
@@ -161,7 +163,7 @@ foreach ($modes as $mode) {
     $y = $top + ($row * ($cellh + 1.5));
     $label = \sprintf('%s  [stretch=%.1f%%, spacing=%.3fpt]', $mode[0], $mode[2], $mode[1]);
     $setNeutralTextFont($pdf);
-    $pdf->page->addContent($pdf->getTextLine($label, $left, $y + 5.5));
+    $pdf->page->addContent($pdf->getTextLine(txt: $label, posx: $left, posy: $y + 5.5));
     $drawBoxedLine($pdf, $style, $sample, $left + $labelw, $y, $cellw, $cellh, $mode[1], $mode[2]);
     $firstBlockEndY = \max($firstBlockEndY, $y + $cellh, $y + 6.5);
     ++$row;
@@ -172,22 +174,30 @@ $secondTitleY = $secondIntroY + 8.0;
 $secondRowsStartY = $secondTitleY + 9.0;
 
 $setNeutralTextFont($pdf);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Second section: global font stretching and spacing combinations (legacy example style).',
-        15,
-        $secondIntroY,
-        180,
-        0,
-        0,
-        1,
-        'T',
-        'L'
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Second section: global font stretching and spacing combinations (legacy example style).',
+    posx: 15,
+    posy: $secondIntroY,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 $setNeutralTitleFont($pdf);
-$pdf->page->addContent($pdf->getTextCell('Global stretching/spacing matrix', 15, $secondTitleY, 180, 0, 0, 1, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Global stretching/spacing matrix',
+    posx: 15,
+    posy: $secondTitleY,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 $stretchVals = [90.0, 100.0, 110.0];
 $spacingVals = [-0.72, 0.0, 0.72]; // ~ -0.254, 0, +0.254 mm expressed in points.
@@ -196,13 +206,9 @@ $sample2 = 'Stretching and spacing test text';
 $y = $secondRowsStartY;
 foreach ($stretchVals as $stretching) {
     foreach ($spacingVals as $spacing) {
-        $line = \sprintf(
-            'Stretching %3.0f%%, Spacing %+.3fpt',
-            $stretching,
-            $spacing
-        );
+        $line = \sprintf('Stretching %3.0f%%, Spacing %+.3fpt', $stretching, $spacing);
         $setNeutralTextFont($pdf);
-        $pdf->page->addContent($pdf->getTextLine($line, 15, $y + 5.5));
+        $pdf->page->addContent($pdf->getTextLine(txt: $line, posx: 15, posy: $y + 5.5));
         $drawBoxedLine($pdf, $style, $sample2, 95, $y, 100, 8, $spacing, $stretching);
         $y += 9.5;
     }
@@ -210,4 +216,4 @@ foreach ($stretchVals as $stretching) {
 }
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

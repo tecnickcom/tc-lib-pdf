@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E074_text_cell_fit_modes.php
  *
@@ -19,7 +20,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -37,15 +38,7 @@ $titleFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 14);
 
 $pdf->addPage();
 $pdf->page->addContent($titleFont['out']);
-$pdf->page->addContent($pdf->getTextCell(
-    txt: 'getTextCell() fit mode',
-    posx: 15,
-    posy: 15,
-    valign: 'T',
-    halign: 'L',
-));
-
-
+$pdf->page->addContent($pdf->getTextCell(txt: 'getTextCell() fit mode', posx: 15, posy: 15, valign: 'T', halign: 'L'));
 
 $baseFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
 
@@ -71,8 +64,6 @@ $pdf->page->addContent($pdf->getTextCell(
     halign: 'L',
 ));
 
-
-
 $longSample = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
 $modesL = ['T', 'S', 'F', ''];
 $modeY = 40;
@@ -80,64 +71,50 @@ $modeY = 40;
 foreach ($modesL as $mode) {
     $label = $mode === '' ? 'fit=(disabled)' : 'fit=' . $mode;
 
-    $pdf->page->addContent(
-        $pdf->getTextCell(
-            txt: $label,
-            posx: 15,
-            posy: $modeY,
-            width: 24,
-            height: 6,
-            valign: 'T',
-            halign: 'R',
-        )
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $label,
+        posx: 15,
+        posy: $modeY,
+        width: 24,
+        height: 6,
+        valign: 'T',
+        halign: 'R',
+    ));
 
     // one line
-    $pdf->page->addContent(
-        $pdf->getTextCell(
-            txt: $longSample,
-            posx: 41,
-            posy: $modeY,
-            width: 160,
-            height: 5,
-            valign: 'T',
-            halign: 'L',
-            styles: $cellStyle,
-            fit: $mode,
-        )
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $longSample,
+        posx: 41,
+        posy: $modeY,
+        width: 160,
+        height: 5,
+        valign: 'T',
+        halign: 'L',
+        styles: $cellStyle,
+        fit: $mode,
+    ));
 
     // multiple lines
-    $pdf->page->addContent(
-        $pdf->getTextCell(
-            txt: $longSample,
-            posx: 41,
-            posy: $modeY+8,
-            width: 80,
-            height: 10,
-            valign: 'T',
-            halign: 'L',
-            styles: $cellStyle,
-            fit: $mode,
-        )
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $longSample,
+        posx: 41,
+        posy: $modeY + 8,
+        width: 80,
+        height: 10,
+        valign: 'T',
+        halign: 'L',
+        styles: $cellStyle,
+        fit: $mode,
+    ));
 
     $modeY += 25;
 }
-
 
 $page = $pdf->addPage();
 $pid = $page['pid'];
 
 $pdf->page->addContent($titleFont['out']);
-$pdf->page->addContent($pdf->getTextCell(
-    txt: 'addTextCell() fit mode',
-    posx: 15,
-    posy: 15,
-    valign: 'T',
-    halign: 'L',
-));
-
+$pdf->page->addContent($pdf->getTextCell(txt: 'addTextCell() fit mode', posx: 15, posy: 15, valign: 'T', halign: 'L'));
 
 $pdf->page->addContent($baseFont['out']);
 
@@ -154,17 +131,15 @@ $modeY = 40;
 foreach ($modesL as $mode) {
     $label = $mode === '' ? 'fit=(disabled)' : 'fit=' . $mode;
 
-    $pdf->page->addContent(
-        $pdf->getTextCell(
-            txt: $label,
-            posx: 15,
-            posy: $modeY,
-            width: 24,
-            height: 6,
-            valign: 'T',
-            halign: 'R',
-        )
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $label,
+        posx: 15,
+        posy: $modeY,
+        width: 24,
+        height: 6,
+        valign: 'T',
+        halign: 'R',
+    ));
 
     // one line
     $pdf->addTextCell(
@@ -198,4 +173,4 @@ foreach ($modesL as $mode) {
 }
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

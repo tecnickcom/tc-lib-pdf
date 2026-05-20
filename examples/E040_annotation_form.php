@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E040_annotation_form.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -56,15 +55,12 @@ $pdf->enableDefaultPageContent();
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
-
 
 // ----------
 
 // Annotation Form Fields
-
 
 $page1 = $pdf->addPage();
 
@@ -72,20 +68,15 @@ $bfont1 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
 $pdf->page->addContent($bfont1['out']);
 
 $html = <<<HTML
-<h1 style="font-size:16pt; color:#003366;">Annotation Form Example</h1>
-<p style="font-size:9pt; color:#333333;">
-This page demonstrates interactive PDF form fields including text input,
-radio buttons, a checkbox, combo and list boxes, plus reset, print, and
-submit actions.
-</p>
-HTML;
+    <h1 style="font-size:16pt; color:#003366;">Annotation Form Example</h1>
+    <p style="font-size:9pt; color:#333333;">
+    This page demonstrates interactive PDF form fields including text input,
+    radio buttons, a checkbox, combo and list boxes, plus reset, print, and
+    submit actions.
+    </p>
+    HTML;
 
-$pdf->addHTMLCell(
-    $html,
-    15,
-    15,
-    180,
-);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 15, width: 180);
 
 $posx = 80;
 $posy = 100;
@@ -95,110 +86,185 @@ $labelX = 15;
 $labelStyle = 'font-size:9pt; color:#333333; text-align:right;';
 
 // text
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">Text Input:</p>', $labelX, $posy, $labelWidth, 5);
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">Text Input:</p>',
+    posx: $labelX,
+    posy: $posy,
+    width: $labelWidth,
+    height: 5,
+);
 $fftextid = $pdf->addFFText('test_text', $posx, $posy, 50, 5);
 $pdf->page->addAnnotRef($fftextid);
 
 // radiobuttons
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">Radio – Option One:</p>', $labelX, $posy + 10, $labelWidth, 5);
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">Radio – Option Two:</p>', $labelX, $posy + 15, $labelWidth, 5);
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">Radio – Option Three:</p>', $labelX, $posy + 20, $labelWidth, 5);
-$ffrbid1 = $pdf->addFFRadioButton('test_radiobutton', $posx, $posy + 10, 5, 'one');
-$ffrbid2 = $pdf->addFFRadioButton('test_radiobutton', $posx, $posy + 15, 5, 'two', true);
-$ffrbid3 = $pdf->addFFRadioButton('test_radiobutton', $posx, $posy + 20, 5, 'three');
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">Radio – Option One:</p>',
+    posx: $labelX,
+    posy: $posy + 10,
+    width: $labelWidth,
+    height: 5,
+);
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">Radio – Option Two:</p>',
+    posx: $labelX,
+    posy: $posy + 15,
+    width: $labelWidth,
+    height: 5,
+);
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">Radio – Option Three:</p>',
+    posx: $labelX,
+    posy: $posy + 20,
+    width: $labelWidth,
+    height: 5,
+);
+$ffrbid1 = $pdf->addFFRadioButton(name: 'test_radiobutton', posx: $posx, posy: $posy + 10, width: 5, onvalue: 'one');
+$ffrbid2 = $pdf->addFFRadioButton(
+    name: 'test_radiobutton',
+    posx: $posx,
+    posy: $posy + 15,
+    width: 5,
+    onvalue: 'two',
+    checked: true,
+);
+$ffrbid3 = $pdf->addFFRadioButton(name: 'test_radiobutton', posx: $posx, posy: $posy + 20, width: 5, onvalue: 'three');
 $pdf->page->addAnnotRef($ffrbid1);
 $pdf->page->addAnnotRef($ffrbid2);
 $pdf->page->addAnnotRef($ffrbid3);
 
 // checkbox
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">Checkbox:</p>', $labelX, $posy + 30, $labelWidth, 5);
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">Checkbox:</p>',
+    posx: $labelX,
+    posy: $posy + 30,
+    width: $labelWidth,
+    height: 5,
+);
 $ffckbxid1 = $pdf->addFFCheckBox('test_checkbox', $posx, $posy + 30, 5);
 $pdf->page->addAnnotRef($ffckbxid1);
 
 // combobox
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">Combo Box:</p>', $labelX, $posy + 40, $labelWidth, 5);
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">Combo Box:</p>',
+    posx: $labelX,
+    posy: $posy + 40,
+    width: $labelWidth,
+    height: 5,
+);
 $ffcmbxid1 = $pdf->addFFComboBox('test_combobox', $posx, $posy + 40, 50, 5, [
-    ['0','one'],
-    ['1','two'],
-    ['2','three'],
+    ['0', 'one'],
+    ['1', 'two'],
+    ['2', 'three'],
 ]);
 $pdf->page->addAnnotRef($ffcmbxid1);
 
 // listbox
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">List Box:</p>', $labelX, $posy + 50, $labelWidth, 5);
-$fflsbxid1 = $pdf->addFFListBox('test_listbox', $posx, $posy + 50, 50, 15,
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">List Box:</p>',
+    posx: $labelX,
+    posy: $posy + 50,
+    width: $labelWidth,
+    height: 5,
+);
+$fflsbxid1 = $pdf->addFFListBox(
+    'test_listbox',
+    $posx,
+    $posy + 50,
+    50,
+    15,
     ['one', 'two', 'three'],
     ['subtype' => 'Widget'],
-    ['multipleSelection'=>'true'],
+    ['multipleSelection' => 'true'],
 );
 $pdf->page->addAnnotRef($fflsbxid1);
 
 // button - reset form
-$pdf->addHTMLCell('<p style="' . $labelStyle . '">Actions:</p>', $labelX, $posy + 70, $labelWidth, 5);
-$ffbtnid1 = $pdf->addFFButton('reset', $posx, $posy + 70, 20, 5, 
-    "Reset", 
-    ['S'=>'ResetForm'],
-    ['subtype' => 'Widget'],
-    [
-        'lineWidth'=>2,
-        'borderStyle'=>'beveled',
-        'fillColor'=>'#80c4ff',
-        'strokeColor'=>'#404040',
+$pdf->addHTMLCell(
+    html: '<p style="' . $labelStyle . '">Actions:</p>',
+    posx: $labelX,
+    posy: $posy + 70,
+    width: $labelWidth,
+    height: 5,
+);
+$ffbtnid1 = $pdf->addFFButton(
+    name: 'reset',
+    posx: $posx,
+    posy: $posy + 70,
+    width: 20,
+    height: 5,
+    caption: 'Reset',
+    action: ['S' => 'ResetForm'],
+    opt: ['subtype' => 'Widget'],
+    jsp: [
+        'lineWidth' => 2,
+        'borderStyle' => 'beveled',
+        'fillColor' => '#80c4ff',
+        'strokeColor' => '#404040',
     ],
 );
 $pdf->page->addAnnotRef($ffbtnid1);
 
 // button - print document
-$ffbtnid2 = $pdf->addFFButton('print', $posx + 20, $posy + 70, 20, 5, 
-    'Print', 
-    'Print()',
-    ['subtype' => 'Widget'],
-    [
-        'lineWidth'=>2,
-        'borderStyle'=>'beveled',
-        'fillColor'=>'#80c4ff',
-        'strokeColor'=>'#404040',
+$ffbtnid2 = $pdf->addFFButton(
+    name: 'print',
+    posx: $posx + 20,
+    posy: $posy + 70,
+    width: 20,
+    height: 5,
+    caption: 'Print',
+    action: 'Print()',
+    opt: ['subtype' => 'Widget'],
+    jsp: [
+        'lineWidth' => 2,
+        'borderStyle' => 'beveled',
+        'fillColor' => '#80c4ff',
+        'strokeColor' => '#404040',
     ],
 );
 $pdf->page->addAnnotRef($ffbtnid2);
 
 // button - submit form
-$ffbtnid3 = $pdf->addFFButton('submit', $posx + 40, $posy + 70, 20, 5, 
-    'Submit', 
-    [
-        'S'=>'SubmitForm',
-        'F'=>'http://localhost/printvars.php',
-        'Flags'=>['ExportFormat'],
+$ffbtnid3 = $pdf->addFFButton(
+    name: 'submit',
+    posx: $posx + 40,
+    posy: $posy + 70,
+    width: 20,
+    height: 5,
+    caption: 'Submit',
+    action: [
+        'S' => 'SubmitForm',
+        'F' => 'http://localhost/printvars.php',
+        'Flags' => ['ExportFormat'],
     ],
-    ['subtype' => 'Widget'],
-    [
-        'lineWidth'=>2,
-        'borderStyle'=>'beveled',
-        'fillColor'=>'#80c4ff',
-        'strokeColor'=>'#404040',
+    opt: ['subtype' => 'Widget'],
+    jsp: [
+        'lineWidth' => 2,
+        'borderStyle' => 'beveled',
+        'fillColor' => '#80c4ff',
+        'strokeColor' => '#404040',
     ],
 );
 $pdf->page->addAnnotRef($ffbtnid3);
 
 // JavaScript form validation functions
 $formjs = <<<EOD
-function CheckField(name,message) {
-	var f = getField(name);
-	if(f.value == '') {
-	    app.alert(message);
-	    f.setFocus();
-	    return false;
-	}
-	return true;
-}
-function Print() {
-	if(!CheckField('test_text','test_text is mandatory')) {return;}
-	print();
-}
-EOD;
+    function CheckField(name,message) {
+    	var f = getField(name);
+    	if(f.value == '') {
+    	    app.alert(message);
+    	    f.setFocus();
+    	    return false;
+    	}
+    	return true;
+    }
+    function Print() {
+    	if(!CheckField('test_text','test_text is mandatory')) {return;}
+    	print();
+    }
+    EOD;
 
 // Add raw JavaScript code
-$pdf->appendRawJavaScript($formjs);
+$pdf->appendRawJavaScript(script: $formjs);
 
 // =============================================================
 
@@ -211,6 +277,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

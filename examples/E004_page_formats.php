@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E004_page_formats.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -26,12 +27,12 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
@@ -79,18 +80,16 @@ foreach ($formats as $formatName => $dimensions) {
     $w = 50;
 
     // Define multiline HTML text to display.
-    $html = '<h2>'.$formatName.'</h2>';
+    $html = '<h2>' . $formatName . '</h2>';
 
-    if ($page['width'] > $w + (2*$x)) {
+    if ($page['width'] > ($w + (2 * $x))) {
         $html .= '<table border="1" cellspacing="0" cellpadding="2" style="text-align:right">
         <tr><th>unit</th><th>width</th><th>height</th></tr>';
         $html .= \sprintf('<tr><td>mm</td><td>%.3f</td><td>%.3f</td></tr>', $widthMm, $heightMm);
         $html .= \sprintf('<tr><td>in</td><td>%.3f</td><td>%.3f</td></tr>', $widthIn, $heightIn);
         $html .= \sprintf('<tr><td>pt</td><td>%.3f</td><td>%.3f</td></tr>', $widthPt, $heightPt);
-        $html .= "</table>";
+        $html .= '</table>';
     }
-
-
 
     $pdf->page->addContent($bfont['out']);
     $pdf->page->addContent($pdf->getHTMLCell($html, $x, $y, $w));
@@ -100,4 +99,4 @@ foreach ($formats as $formatName => $dimensions) {
 
 $rawpdf = $pdf->getOutPDFString();
 
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

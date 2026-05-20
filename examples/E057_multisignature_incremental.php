@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E057_multisignature_incremental.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -53,7 +54,14 @@ if ($certPath === false) {
 $cert = 'file://' . $certPath;
 
 // main TCPDF object
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -72,65 +80,117 @@ $bfontB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 12);
 // -----------------------------------------------------------------------
 $page1 = $pdf->addPage();
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('SERVICE AGREEMENT EXAMPLE', 15, 15, 180, 0, 0, 1, 'T', 'C'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'SERVICE AGREEMENT EXAMPLE',
+    posx: 15,
+    posy: 15,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'C',
+));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
 $html1 = <<<HTML
-<p>This Service Agreement ("Agreement") is entered into as of the date of the last signature below
-between <strong>Client</strong> and <strong>Service Provider</strong>.</p>
+    <p>This Service Agreement ("Agreement") is entered into as of the date of the last signature below
+    between <strong>Client</strong> and <strong>Service Provider</strong>.</p>
 
-<p><b>1. Services.</b> Service Provider agrees to deliver software development services as described
-in Schedule A attached hereto.</p>
+    <p><b>1. Services.</b> Service Provider agrees to deliver software development services as described
+    in Schedule A attached hereto.</p>
 
-<p><b>2. Payment.</b> Client agrees to pay the fees set forth in Schedule B within 30 days of invoice.</p>
+    <p><b>2. Payment.</b> Client agrees to pay the fees set forth in Schedule B within 30 days of invoice.</p>
 
-<p><b>3. Term.</b> This Agreement commences on the Effective Date and continues for 12 months unless
-earlier terminated by either party upon 30 days written notice.</p>
+    <p><b>3. Term.</b> This Agreement commences on the Effective Date and continues for 12 months unless
+    earlier terminated by either party upon 30 days written notice.</p>
 
-<p><b>4. Confidentiality.</b> Each party agrees to keep the other party's confidential information
-strictly confidential and not to disclose it to any third party without prior written consent.</p>
+    <p><b>4. Confidentiality.</b> Each party agrees to keep the other party's confidential information
+    strictly confidential and not to disclose it to any third party without prior written consent.</p>
 
-<p><b>5. Governing Law.</b> This Agreement shall be governed by the laws of the applicable jurisdiction.</p>
+    <p><b>5. Governing Law.</b> This Agreement shall be governed by the laws of the applicable jurisdiction.</p>
 
-<p>The parties have executed this Agreement as of the dates indicated in the signature fields on
-the following page.</p>
-HTML;
+    <p>The parties have executed this Agreement as of the dates indicated in the signature fields on
+    the following page.</p>
+    HTML;
 
-$pdf->addHTMLCell($html1, 15, 30, 180);
+$pdf->addHTMLCell(html: $html1, posx: 15, posy: 30, width: 180);
 
 // -----------------------------------------------------------------------
 // Page 2 – Approval / signature form
 // -----------------------------------------------------------------------
 $page2 = $pdf->addPage();
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('SIGNATURE PAGE EXAMPLE', 15, 15, 180, 0, 0, 1, 'T', 'C'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'SIGNATURE PAGE EXAMPLE',
+    posx: 15,
+    posy: 15,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'C',
+));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
-$pdf->page->addContent(
-    $pdf->getTextCell('The following parties have reviewed and approved this Agreement:', 15, 30, 180, 0, 0, 1, 'T', 'L')
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'The following parties have reviewed and approved this Agreement:',
+    posx: 15,
+    posy: 30,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 // Signature box helper labels (rendered as PDF text cells)
 $labels = [
-    ['role' => 'Author / Certifier',  'name' => 'John Doe',         'y' => 45],
-    ['role' => 'Reviewer',            'name' => '(awaiting sig.)',  'y' => 90],
-    ['role' => 'Manager',             'name' => '(awaiting sig.)',  'y' => 135],
+    ['role' => 'Author / Certifier', 'name' => 'John Doe', 'y' => 45],
+    ['role' => 'Reviewer', 'name' => '(awaiting sig.)', 'y' => 90],
+    ['role' => 'Manager', 'name' => '(awaiting sig.)', 'y' => 135],
 ];
 
 foreach ($labels as $lbl) {
     $pdf->page->addContent($bfontB['out']);
-    $pdf->page->addContent(
-        $pdf->getTextCell($lbl['role'], 15, (float) $lbl['y'], 85, 0, 0, 1, 'T', 'L')
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: $lbl['role'],
+        posx: 15,
+        posy: (float) $lbl['y'],
+        width: 85,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'L',
+    ));
     $pdf->page->addContent($bfont['out']);
-    $pdf->page->addContent(
-        $pdf->getTextCell('Name: ' . $lbl['name'], 15, (float) ($lbl['y'] + 7), 85, 0, 0, 1, 'T', 'L')
-    );
-    $pdf->page->addContent(
-        $pdf->getTextCell('Date: ___________________', 15, (float) ($lbl['y'] + 14), 85, 0, 0, 1, 'T', 'L')
-    );
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: 'Name: ' . $lbl['name'],
+        posx: 15,
+        posy: (float) ($lbl['y'] + 7),
+        width: 85,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'L',
+    ));
+    $pdf->page->addContent($pdf->getTextCell(
+        txt: 'Date: ___________________',
+        posx: 15,
+        posy: (float) ($lbl['y'] + 14),
+        width: 85,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'L',
+    ));
 }
 
 // -----------------------------------------------------------------------
@@ -141,71 +201,81 @@ $pdf->setSignature([
     'cert_type' => 2,
     'info' => [
         'ContactInfo' => 'https://github.com/tecnickcom/tc-lib-pdf',
-        'Location'    => 'Demo Office',
-        'Name'        => 'John Doe',
-        'Reason'      => 'Author / certifier signature – approval workflow example',
+        'Location' => 'Demo Office',
+        'Name' => 'John Doe',
+        'Reason' => 'Author / certifier signature – approval workflow example',
     ],
-    'password'  => '',
-    'privkey'   => $cert,
-    'signcert'  => $cert,
+    'password' => '',
+    'privkey' => $cert,
+    'signcert' => $cert,
 ]);
 
 // Primary signature appearance – placed on page 2 at the first slot.
-$pdf->setSignatureAppearance(100, 45, 90, 35, $page2['pid'], 'Author');
+$pdf->setSignatureAppearance(posx: 100, posy: 45, width: 90, heigth: 35, page: $page2['pid'], name: 'Author');
 
 // Empty approval fields for the remaining approvers.
-$pdf->addEmptySignatureAppearance(100, 90,  90, 35, $page2['pid'], 'Reviewer');
-$pdf->addEmptySignatureAppearance(100, 135, 90, 35, $page2['pid'], 'Manager');
+$pdf->addEmptySignatureAppearance(posx: 100, posy: 90, width: 90, heigth: 35, page: $page2['pid'], name: 'Reviewer');
+$pdf->addEmptySignatureAppearance(posx: 100, posy: 135, width: 90, heigth: 35, page: $page2['pid'], name: 'Manager');
 
 // -----------------------------------------------------------------------
 // Page 3 – Workflow guide
 // -----------------------------------------------------------------------
 $page3 = $pdf->addPage();
 $pdf->page->addContent($bfontB['out']);
-$pdf->page->addContent($pdf->getTextCell('Multi-Signature Workflow Guide', 15, 15, 180, 0, 0, 1, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Multi-Signature Workflow Guide',
+    posx: 15,
+    posy: 15,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
 $html3 = <<<HTML
-<p><b>How incremental multi-signature works in tc-lib-pdf</b></p>
+    <p><b>How incremental multi-signature works in tc-lib-pdf</b></p>
 
-<p>A PDF approval workflow typically progresses through these steps:</p>
-<ol>
-  <li><b>Author creates and certifies the document.</b>
-  The primary signature (Author field) is applied by <code>setSignature()</code> with
-  <em>cert_type 2</em> (MDP). This locks the document against structural changes
-  while reserving the empty approval fields for subsequent signers.</li>
+    <p>A PDF approval workflow typically progresses through these steps:</p>
+    <ol>
+      <li><b>Author creates and certifies the document.</b>
+      The primary signature (Author field) is applied by <code>setSignature()</code> with
+      <em>cert_type 2</em> (MDP). This locks the document against structural changes
+      while reserving the empty approval fields for subsequent signers.</li>
 
-  <li><b>Reviewer opens the document, validates the Author signature, and applies their
-  signature to the Reviewer field.</b> In a PDF viewer (e.g. Acrobat) the reviewer
-  uses the reserved empty widget.  Each subsequent signature is appended to the file
-  as an incremental update, preserving all prior signature data.</li>
+      <li><b>Reviewer opens the document, validates the Author signature, and applies their
+      signature to the Reviewer field.</b> In a PDF viewer (e.g. Acrobat) the reviewer
+      uses the reserved empty widget.  Each subsequent signature is appended to the file
+      as an incremental update, preserving all prior signature data.</li>
 
-  <li><b>Manager repeats the same process for the Manager field.</b></li>
-</ol>
+      <li><b>Manager repeats the same process for the Manager field.</b></li>
+    </ol>
 
-<p><b>tc-lib-pdf API summary</b></p>
-<table border="1" cellpadding="4" cellspacing="0">
-  <tr><th>Method</th><th>Purpose</th></tr>
-  <tr><td>setSignature()</td><td>Register the primary signing certificate and options.</td></tr>
-  <tr><td>setSignatureAppearance()</td><td>Visible widget for the primary signature.</td></tr>
-  <tr><td>addEmptySignatureAppearance()</td><td>Reserve an empty widget for a future approver.</td></tr>
-  <tr><td>setSignTimeStamp()</td><td>Optionally attach an RFC 3161 TSA timestamp (see E008).</td></tr>
-</table>
+    <p><b>tc-lib-pdf API summary</b></p>
+    <table border="1" cellpadding="4" cellspacing="0">
+      <tr><th>Method</th><th>Purpose</th></tr>
+      <tr><td>setSignature()</td><td>Register the primary signing certificate and options.</td></tr>
+      <tr><td>setSignatureAppearance()</td><td>Visible widget for the primary signature.</td></tr>
+      <tr><td>addEmptySignatureAppearance()</td><td>Reserve an empty widget for a future approver.</td></tr>
+      <tr><td>setSignTimeStamp()</td><td>Optionally attach an RFC 3161 TSA timestamp (see E008).</td></tr>
+    </table>
 
-<p><b>Certification levels (cert_type)</b></p>
-<table border="1" cellpadding="4" cellspacing="0">
-  <tr><th>cert_type</th><th>Meaning</th></tr>
-  <tr><td>1</td><td>No changes permitted after signing.</td></tr>
-  <tr><td>2</td><td>Form fills and approval signatures permitted (MDP).</td></tr>
-  <tr><td>3</td><td>Annotations and form fills permitted.</td></tr>
-</table>
-HTML;
+    <p><b>Certification levels (cert_type)</b></p>
+    <table border="1" cellpadding="4" cellspacing="0">
+      <tr><th>cert_type</th><th>Meaning</th></tr>
+      <tr><td>1</td><td>No changes permitted after signing.</td></tr>
+      <tr><td>2</td><td>Form fills and approval signatures permitted (MDP).</td></tr>
+      <tr><td>3</td><td>Annotations and form fills permitted.</td></tr>
+    </table>
+    HTML;
 
-$pdf->addHTMLCell($html3, 15, 30, 180);
+$pdf->addHTMLCell(html: $html3, posx: 15, posy: 30, width: 180);
 
 // -----------------------------------------------------------------------
 // Output
 // -----------------------------------------------------------------------
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

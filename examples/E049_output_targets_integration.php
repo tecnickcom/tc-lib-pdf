@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E049_output_targets_integration.php
  *
@@ -18,11 +19,18 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -53,54 +61,56 @@ if (!in_array($mode, $allowedModes, true)) {
 
 $pdf->page->addContent($titlefont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    'Output Targets Integration',
-    15,
-    16,
-    180,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Output Targets Integration',
+    posx: 15,
+    posy: 16,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $pdf->page->addContent($textfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    "This example creates one raw PDF payload and sends it through different targets.\n"
-    . "Current mode: " . strtoupper($mode) . "\n"
+    txt: "This example creates one raw PDF payload and sends it through different targets.\n"
+    . 'Current mode: '
+    . strtoupper($mode)
+    . "\n"
     . "Browser usage: ?mode=render|download|save|mime\n"
-    . "CLI usage: php examples/E049_output_targets_integration.php render",
-    15,
-    30,
-    180,
-    0,
-    0,
-    1.35,
-    'T',
-    'L'
+    . 'CLI usage: php examples/E049_output_targets_integration.php render',
+    posx: 15,
+    posy: 30,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1.35,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $rawpdf = $pdf->getOutPDFString();
 
 if ($mode === 'download') {
-    $pdf->downloadPDF($rawpdf);
-    exit;
+    $pdf->downloadPDF(rawpdf: $rawpdf);
+    exit();
 }
 
 if ($mode === 'save') {
     $targetDir = (string) realpath(__DIR__ . '/../target');
-    $pdf->savePDF($targetDir, $rawpdf);
+    $pdf->savePDF(path: $targetDir, rawpdf: $rawpdf);
 
     if (PHP_SAPI !== 'cli') {
         header('Content-Type: text/plain; charset=utf-8');
     }
 
-    echo "Saved PDF to: " . $targetDir . '/' . '049_output_targets_integration.pdf' . "\n";
-    exit;
+    echo 'Saved PDF to: ' . $targetDir . '/' . '049_output_targets_integration.pdf' . "\n";
+    exit();
 }
 
 if ($mode === 'mime') {
-    $mimeAttachment = $pdf->getMIMEAttachmentPDF($rawpdf);
+    $mimeAttachment = $pdf->getMIMEAttachmentPDF(rawpdf: $rawpdf);
 
     if (PHP_SAPI !== 'cli') {
         header('Content-Type: text/plain; charset=utf-8');
@@ -110,7 +120,7 @@ if ($mode === 'mime') {
     $lines = explode("\n", str_replace("\r\n", "\n", $mimeAttachment));
     echo implode("\n", array_slice($lines, 0, 20));
     echo "\n\nTotal MIME length: " . strlen($mimeAttachment) . " bytes\n";
-    exit;
+    exit();
 }
 
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

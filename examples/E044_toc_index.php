@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E044_toc_index.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -58,10 +57,8 @@ $bfont1 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 12);
 $bfont2 = $pdf->font->insert($pdf->pon, 'dejavusans', 'B', 18);
 $bfont3 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 
-
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
-
 
 // ----------
 
@@ -94,44 +91,112 @@ $sections = [
 
 foreach ($sections as $index => $section) {
     $page = $pdf->addPage();
-    $pdf->setBookmark($section['title'], '', 0, -1, 0, 0, 'B', $section['color']);
-    $pdf->setBookmark($section['title'] . ' notes', '', 1, -1, 0, 0, '', 'black');
+    $pdf->setBookmark(
+        name: $section['title'],
+        link: '',
+        level: 0,
+        page: -1,
+        posx: 0,
+        posy: 0,
+        fstyle: 'B',
+        color: $section['color'],
+    );
+    $pdf->setBookmark(
+        name: $section['title'] . ' notes',
+        link: '',
+        level: 1,
+        page: -1,
+        posx: 0,
+        posy: 0,
+        fstyle: '',
+        color: 'black',
+    );
 
     $pdf->page->addContent($bfont2['out'], $page['pid']);
     $pdf->page->addContent(
-        $pdf->getTextCell('Example 044 - ' . $section['title'], 15, 20, 180, 0, 0, 1, 'T', 'L'),
-        $page['pid']
+        $pdf->getTextCell(
+            txt: 'Example 044 - ' . $section['title'],
+            posx: 15,
+            posy: 20,
+            width: 180,
+            height: 0,
+            offset: 0,
+            linespace: 1,
+            valign: 'T',
+            halign: 'L',
+        ),
+        $page['pid'],
     );
 
     $pdf->page->addContent($bfont3['out'], $page['pid']);
     $pdf->page->addContent(
-        $pdf->getTextCell('Page ' . ($index + 1) . ' of 4', 15, 34, 180, 0, 0, 1, 'T', 'L'),
-        $page['pid']
+        $pdf->getTextCell(
+            txt: 'Page ' . ($index + 1) . ' of 4',
+            posx: 15,
+            posy: 34,
+            width: 180,
+            height: 0,
+            offset: 0,
+            linespace: 1,
+            valign: 'T',
+            halign: 'L',
+        ),
+        $page['pid'],
     );
     $pdf->page->addContent(
-        $pdf->getTextCell($section['summary'], 15, 48, 180, 0, 0, 1, 'T', 'L'),
-        $page['pid']
+        $pdf->getTextCell(
+            txt: $section['summary'],
+            posx: 15,
+            posy: 48,
+            width: 180,
+            height: 0,
+            offset: 0,
+            linespace: 1,
+            valign: 'T',
+            halign: 'L',
+        ),
+        $page['pid'],
     );
     $pdf->page->addContent(
-        $pdf->getTextCell($section['topic'], 15, 62, 180, 0, 0, 1, 'T', 'L'),
-        $page['pid']
+        $pdf->getTextCell(
+            txt: $section['topic'],
+            posx: 15,
+            posy: 62,
+            width: 180,
+            height: 0,
+            offset: 0,
+            linespace: 1,
+            valign: 'T',
+            halign: 'L',
+        ),
+        $page['pid'],
     );
 }
 
 // ----------
 
 $pageTOC = $pdf->addPage();
-$pdf->setBookmark('TOC', '', 0, -1, 0, 0, 'B', 'black');
+$pdf->setBookmark(name: 'TOC', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'black');
 
 $pdf->page->addContent($bfont2['out'], $pageTOC['pid']);
 $pdf->page->addContent(
-    $pdf->getTextCell('Table of contents', 15, 18, 180, 0, 0, 1, 'T', 'L'),
-    $pageTOC['pid']
+    $pdf->getTextCell(
+        txt: 'Table of contents',
+        posx: 15,
+        posy: 18,
+        width: 180,
+        height: 0,
+        offset: 0,
+        linespace: 1,
+        valign: 'T',
+        halign: 'L',
+    ),
+    $pageTOC['pid'],
 );
 $pdf->page->addContent($bfont1['out'], $pageTOC['pid']);
 
-$pdf->setDefaultCellMargin(0,0,0,0);
-$pdf->setDefaultCellPadding(1,1,1,1);
+$pdf->setDefaultCellMargin(top: 0, right: 0, bottom: 0, left: 0);
+$pdf->setDefaultCellPadding(top: 1, right: 1, bottom: 1, left: 1);
 
 $style_cell_toc = [
     'all' => [
@@ -147,8 +212,7 @@ $style_cell_toc = [
 
 $pdf->graph->add($style_cell_toc);
 
-$pdf->addTOC(-1, 15, 30, 170, false);
-
+$pdf->addTOC(page: -1, posx: 15, posy: 30, width: 170, rtl: false);
 
 // =============================================================
 
@@ -161,6 +225,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

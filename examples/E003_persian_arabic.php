@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E003_persian_arabic.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -26,12 +27,12 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    false, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: false,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
@@ -61,15 +62,17 @@ $html .= '<div><span color="#0000ff">Hi, At last Problem of Persian PDF Solved c
 
 $html .= '<div style="text-align:right">بِسْمِ اللهِ الرَّحْمنِ الرَّحِيمِ</div><hr />';
 
-$html .= '<div style="text-align:right">'.'تمَّ بِحمد الله حلّ مشكلة الكتابة باللغة العربية في ملفات الـ<span color="#FF0000">PDF</span> مع دعم الكتابة <span color="#0000FF">من اليمين إلى اليسار</span> و<span color="#009900">الحركَات</span> .<br />تم الحل بواسطة <span color="#993399">صالح المطرفي و Asuni Nicola</span>  . '.'</div><hr />';
+$html .=
+    '<div style="text-align:right">'
+    . 'تمَّ بِحمد الله حلّ مشكلة الكتابة باللغة العربية في ملفات الـ<span color="#FF0000">PDF</span> مع دعم الكتابة <span color="#0000FF">من اليمين إلى اليسار</span> و<span color="#009900">الحركَات</span> .<br />تم الحل بواسطة <span color="#993399">صالح المطرفي و Asuni Nicola</span>  . '
+    . '</div><hr />';
 
 $html .= '<div color="#0000ff">This is Arabic "العربية" Example With TCPDF.</div>';
 
-
-$pdf->addHTMLCell($html, 10, 10, 160);
+$pdf->addHTMLCell(html: $html, posx: 10, posy: 10, width: 160);
 
 // =============================================================
 
 $rawpdf = $pdf->getOutPDFString();
 
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E070_default_page_content_import.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -44,13 +45,12 @@ class PdfWithImportedDefaultPage extends \Com\Tecnick\Pdf\Tcpdf
         $sourceId = $this->setImportSourceData($sourcePdfData);
         $pageCount = $this->getSourcePageCount($sourceId);
 
-        if (($sourcePageNum < 1) || ($sourcePageNum > $pageCount)) {
-            throw new \InvalidArgumentException(
-                'Requested source page is out of range. Available pages: ' . $pageCount
-            );
+        if ($sourcePageNum < 1 || $sourcePageNum > $pageCount) {
+            throw new \InvalidArgumentException('Requested source page is out of range. Available pages: '
+            . $pageCount);
         }
 
-        $this->defaultTpl = $this->importPage($sourceId, $sourcePageNum, [
+        $this->defaultTpl = $this->importPage(sourceId: $sourceId, pageNum: $sourcePageNum, options: [
             'box' => 'CropBox',
             'cache' => true,
         ]);
@@ -77,16 +77,16 @@ class PdfWithImportedDefaultPage extends \Com\Tecnick\Pdf\Tcpdf
 
         // Fill the whole destination page with the imported source page.
         $this->useImportedPage(
-            $this->defaultTpl,
-            0.0,
-            0.0,
-            (float) $page['width'],
-            (float) $page['height'],
-            [
+            tpl: $this->defaultTpl,
+            xpos: 0.0,
+            ypos: 0.0,
+            width: (float) $page['width'],
+            height: (float) $page['height'],
+            options: [
                 'keepAspectRatio' => true,
                 'align' => 'CC',
                 'clip' => true,
-            ]
+            ],
         );
 
         return '';
@@ -101,25 +101,18 @@ $srcFont = $src->font->insert($src->pon, 'helvetica', '', 14);
 $src->addPage();
 $src->page->addContent($srcFont['out']);
 $src->addHTMLCell(
-    '<h1>Imported default page (source)</h1>'
+    html: '<h1>Imported default page (source)</h1>'
     . '<p>This page is imported and reused as defaultPageContent() in E070.</p>',
-    20,
-    30,
-    170
+    posx: 20,
+    posy: 30,
+    width: 170,
 );
 
 $sourcePdfData = $src->getOutPDFString();
 
 // ---- Step 2: create destination PDF using the custom subclass ----
 
-$pdf = new PdfWithImportedDefaultPage(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
-);
+$pdf = new PdfWithImportedDefaultPage('mm', true, false, true, '', null);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -140,42 +133,58 @@ $titleFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 13);
 // Page 1
 $pdf->addPage();
 $pdf->page->addContent($titleFont['out']);
-$pdf->page->addContent($pdf->getTextCell('Page 1 - Foreground content', 20, 85, 170, 0, 0, 0, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Page 1 - Foreground content',
+    posx: 20,
+    posy: 85,
+    width: 170,
+    height: 0,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+));
 
 $pdf->page->addContent($bodyFont['out']);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'The page background comes from an imported PDF page loaded via setImportSourceData() and importPage(), then applied in defaultPageContent().',
-        20,
-        95,
-        170,
-        0,
-        0,
-        2,
-        'T',
-        'J'
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'The page background comes from an imported PDF page loaded via setImportSourceData() and importPage(), then applied in defaultPageContent().',
+    posx: 20,
+    posy: 95,
+    width: 170,
+    height: 0,
+    offset: 0,
+    linespace: 2,
+    valign: 'T',
+    halign: 'J',
+));
 
 // Page 2
 $pdf->addPage();
 $pdf->page->addContent($titleFont['out']);
-$pdf->page->addContent($pdf->getTextCell('Page 2 - Same imported default content', 20, 85, 170, 0, 0, 0, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Page 2 - Same imported default content',
+    posx: 20,
+    posy: 85,
+    width: 170,
+    height: 0,
+    offset: 0,
+    linespace: 0,
+    valign: 'T',
+    halign: 'L',
+));
 
 $pdf->page->addContent($bodyFont['out']);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Because defaultPageContent() runs whenever addPage() is called, the imported source page is automatically placed on every new page.',
-        20,
-        95,
-        170,
-        0,
-        0,
-        2,
-        'T',
-        'J'
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'Because defaultPageContent() runs whenever addPage() is called, the imported source page is automatically placed on every new page.',
+    posx: 20,
+    posy: 95,
+    width: 170,
+    height: 0,
+    offset: 0,
+    linespace: 2,
+    valign: 'T',
+    halign: 'J',
+));
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

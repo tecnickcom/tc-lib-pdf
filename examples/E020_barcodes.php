@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E020_barcodes.php
  *
@@ -16,19 +17,19 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -368,7 +369,7 @@ function formatSampleDataForText(string $sample): string
             continue;
         }
 
-        if (($byte >= 32) && ($byte <= 126)) {
+        if ($byte >= 32 && $byte <= 126) {
             $out .= \chr($byte);
             continue;
         }
@@ -388,7 +389,7 @@ function renderBarcodeSection(
     array $textfont,
     array $smallfont,
     array $style,
-    bool $square = false
+    bool $square = false,
 ): void {
     $marginLeft = 12.0;
     $marginRight = 12.0;
@@ -409,31 +410,39 @@ function renderBarcodeSection(
     $contentWidth = $pageWidth - $marginLeft - $marginRight;
     $maxY = $pageHeight - $marginBottom;
 
-    $drawHeader = static function () use ($pdf, $titlefont, $smallfont, $title, $sectionIndex, $marginLeft, $contentWidth): float {
+    $drawHeader = static function () use (
+        $pdf,
+        $titlefont,
+        $smallfont,
+        $title,
+        $sectionIndex,
+        $marginLeft,
+        $contentWidth,
+    ): float {
         $pdf->page->addContent($titlefont['out']);
         $pdf->page->addContent($pdf->getTextCell(
-            'Barcode Types Catalog (' . $sectionIndex . '/2): ' . $title,
-            $marginLeft,
-            10,
-            $contentWidth,
-            0,
-            0,
-            1,
-            'T',
-            'L'
+            txt: 'Barcode Types Catalog (' . $sectionIndex . '/2): ' . $title,
+            posx: $marginLeft,
+            posy: 10,
+            width: $contentWidth,
+            height: 0,
+            offset: 0,
+            linespace: 1,
+            valign: 'T',
+            halign: 'L',
         ));
 
         $pdf->page->addContent($smallfont['out']);
         $pdf->page->addContent($pdf->getTextCell(
-            'Source type list: tc-lib-barcode example/index.php',
-            $marginLeft,
-            16,
-            $contentWidth,
-            0,
-            0,
-            1,
-            'T',
-            'L'
+            txt: 'Source type list: tc-lib-barcode example/index.php',
+            posx: $marginLeft,
+            posy: 16,
+            width: $contentWidth,
+            height: 0,
+            offset: 0,
+            linespace: 1,
+            valign: 'T',
+            halign: 'L',
         ));
 
         return 22.0;
@@ -442,9 +451,7 @@ function renderBarcodeSection(
     $cursorY = $drawHeader();
     foreach ($items as $item) {
         $sampleText = formatSampleDataForText($item['code']);
-        $desc = 'Standard: ' . $item['standard'] . "\n"
-            . 'Use: ' . $item['use'] . "\n"
-            . 'Sample data: ' . $sampleText;
+        $desc = 'Standard: ' . $item['standard'] . "\n" . 'Use: ' . $item['use'] . "\n" . 'Sample data: ' . $sampleText;
 
         $descTopOffset = 4.5;
         $descLineSpace = 1.0;
@@ -453,13 +460,23 @@ function renderBarcodeSection(
 
         while (true) {
             $descTopY = $cursorY + $descTopOffset;
-            $descOut = $pdf->getTextCell($desc, $marginLeft, $descTopY, $contentWidth, 0, 0, $descLineSpace, 'T', 'L');
+            $descOut = $pdf->getTextCell(
+                txt: $desc,
+                posx: $marginLeft,
+                posy: $descTopY,
+                width: $contentWidth,
+                height: 0,
+                offset: 0,
+                linespace: $descLineSpace,
+                valign: 'T',
+                halign: 'L',
+            );
             $descBBox = $pdf->getLastBBox();
-            $barcodePosY = ((float) $descBBox['y'] + (float) $descBBox['h'] + $barcodeGap);
+            $barcodePosY = (float) $descBBox['y'] + (float) $descBBox['h'] + $barcodeGap;
             $barcodeWidth = -1;
             $barcodeHeight = $square ? -1 : 10;
 
-            if (! $square) {
+            if (!$square) {
                 $ncols = (int) $pdf->barcode->getBarcodeObj($item['type'], $item['code'])->getArray()['ncols'];
                 $targetMinBarWidth = 0.65;
                 $barcodeWidth = (int) \max(1, \round($ncols * $targetMinBarWidth));
@@ -471,7 +488,7 @@ function renderBarcodeSection(
                 $barcodeWidth,
                 $barcodeHeight,
                 'black',
-                [0, 0, 0, 0]
+                [0, 0, 0, 0],
             );
             $barcodeData = $barcodeModel->getArray();
             $itemBottomY = $barcodePosY + (float) $barcodeData['full_height'];
@@ -495,20 +512,30 @@ function renderBarcodeSection(
 
         $pdf->page->addContent($textfont['out']);
         $head = '[' . $item['type'] . '] ' . $item['name'];
-        $pdf->page->addContent($pdf->getTextCell($head, $marginLeft, $cursorY, $contentWidth, 0, 0, 1, 'T', 'L'));
+        $pdf->page->addContent($pdf->getTextCell(
+            txt: $head,
+            posx: $marginLeft,
+            posy: $cursorY,
+            width: $contentWidth,
+            height: 0,
+            offset: 0,
+            linespace: 1,
+            valign: 'T',
+            halign: 'L',
+        ));
 
         $pdf->page->addContent($smallfont['out']);
         $pdf->page->addContent($descOut);
 
         $pdf->page->addContent($pdf->getBarcode(
-            $item['type'],
-            $item['code'],
-            $marginLeft,
-            $barcodePosY,
-            $barcodeWidth,
-            $barcodeHeight,
-            [0, 0, 0, 0],
-            $style
+            type: $item['type'],
+            code: $item['code'],
+            posx: $marginLeft,
+            posy: $barcodePosY,
+            width: $barcodeWidth,
+            height: $barcodeHeight,
+            padding: [0, 0, 0, 0],
+            style: $style,
         ));
 
         $cursorY = $nextCursorY;
@@ -519,4 +546,4 @@ renderBarcodeSection($pdf, $linear, 'Linear', 1, $titlefont, $textfont, $smallfo
 renderBarcodeSection($pdf, $square, 'Square / 2D', 2, $titlefont, $textfont, $smallfont, $style, true);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E038_image_clipping.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -56,29 +55,21 @@ $pdf->enableDefaultPageContent();
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
-
 
 // ----------
 
 $page10 = $pdf->addPage();
 
-
 $html = <<<HTML
-<h1 style="font-size:16pt; color:#003366;">Image Clipping</h1>
-<p style="font-size:9pt; color:#333333;">
-Demonstrates how to apply a clipping mask to an image using a star polygon path.
-</p>
-HTML;
+    <h1 style="font-size:16pt; color:#003366;">Image Clipping</h1>
+    <p style="font-size:9pt; color:#333333;">
+    Demonstrates how to apply a clipping mask to an image using a star polygon path.
+    </p>
+    HTML;
 
-$pdf->addHTMLCell(
-    $html,
-    15,
-    15,
-    180,
-);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 15, width: 180);
 
 // Clipping Mask
 
@@ -93,7 +84,6 @@ $cnz .= $pdf->graph->getStopTransform();
 
 $pdf->page->addContent($cnz);
 
-
 // =============================================================
 
 // ----------
@@ -105,6 +95,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

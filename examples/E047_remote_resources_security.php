@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E047_remote_resources_security.php
  *
@@ -18,7 +19,7 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
@@ -42,18 +43,18 @@ if (defined('CURLOPT_SSL_VERIFYPEER')) {
 }
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
-    [
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
+    fileOptions: [
         'allowedHosts' => ['assets.example.com'],
         'maxRemoteSize' => 1024 * 1024,
         'curlopts' => $curlopts,
         'fixedCurlOpts' => $fixedCurlOpts,
-    ]
+    ],
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -73,30 +74,30 @@ $page = $pdf->addPage(['format' => 'A4']);
 
 $pdf->page->addContent($titlefont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    'Remote Resources and fileOptions Security',
-    15,
-    14,
-    180,
-    0,
-    0,
-    1,
-    'T',
-    'L'
+    txt: 'Remote Resources and fileOptions Security',
+    posx: 15,
+    posy: 14,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $pdf->page->addContent($textfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    "This example configures host allowlisting and transfer limits for remote resources.\n"
+    txt: "This example configures host allowlisting and transfer limits for remote resources.\n"
     . "It renders local assets by default for deterministic runs.\n"
-    . "Optional remote probe can be enabled with ?probe=1 in browser mode.",
-    15,
-    26,
-    180,
-    0,
-    0,
-    1.3,
-    'T',
-    'L'
+    . 'Optional remote probe can be enabled with ?probe=1 in browser mode.',
+    posx: 15,
+    posy: 26,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1.3,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $imgdir = (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images');
@@ -112,11 +113,21 @@ try {
 }
 
 $pdf->page->addContent($smallfont['out']);
-$pdf->page->addContent($pdf->getTextCell($localStatus, 90, $statusY, 105, 0, 0, 1, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: $localStatus,
+    posx: 90,
+    posy: $statusY,
+    width: 105,
+    height: 0,
+    offset: 0,
+    linespace: 1,
+    valign: 'T',
+    halign: 'L',
+));
 
 $probe = false;
 if (PHP_SAPI !== 'cli') {
-    $probe = isset($_GET['probe']) && ($_GET['probe'] === '1');
+    $probe = isset($_GET['probe']) && $_GET['probe'] === '1';
 }
 
 $remoteStatus = 'Remote probe: skipped (add ?probe=1 to run a blocked-host fetch attempt).';
@@ -129,24 +140,34 @@ if ($probe) {
     }
 }
 
-$pdf->page->addContent($pdf->getTextCell($remoteStatus, 15, 96, 180, 0, 0, 1.2, 'T', 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: $remoteStatus,
+    posx: 15,
+    posy: 96,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1.2,
+    valign: 'T',
+    halign: 'L',
+));
 
 $pdf->page->addContent($textfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    "Configured policy:\n"
+    txt: "Configured policy:\n"
     . "- allowedHosts: assets.example.com\n"
     . "- maxRemoteSize: 1 MiB\n"
     . "- curlopts: short connect/transfer timeout\n"
-    . "- fixedCurlOpts: TLS peer+host verification",
-    15,
-    112,
-    180,
-    0,
-    0,
-    1.35,
-    'T',
-    'L'
+    . '- fixedCurlOpts: TLS peer+host verification',
+    posx: 15,
+    posy: 112,
+    width: 180,
+    height: 0,
+    offset: 0,
+    linespace: 1.35,
+    valign: 'T',
+    halign: 'L',
 ));
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

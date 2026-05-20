@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E028_text_hyphenation.php
  *
@@ -16,18 +17,18 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm',
-    true,
-    false,
-    true,
-    '',
-    null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 $pdf->setCreator('tc-lib-pdf');
@@ -39,12 +40,7 @@ $pdf->setPDFFilename('028_text_hyphenation.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
-$setFont = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    string $family,
-    string $style,
-    int $size,
-): void {
+$setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string $style, int $size): void {
     $font = $pdf->font->insert($pdf->pon, $family, $style, $size, 0.0, 1.0);
     $pdf->page->addContent($font['out']);
 };
@@ -55,36 +51,33 @@ $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);
 $pdf->addPage();
 
 $setFont($pdf, 'helvetica', 'B', 20);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'Example of Text Hyphenation',
-        15.0,
-        22.0,
-        180.0,
-        0.0,
-        drawcell: false,
-        valign: 'T',
-        halign: 'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'Example of Text Hyphenation',
+    15.0,
+    22.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 
 $setFont($pdf, 'helvetica', '', 10);
-$pdf->page->addContent(
-    $pdf->getTextCell(
-        'The text below uses explicit soft hyphens (&shy;) inside words and is rendered in a narrow left-aligned column.',
-        15.0,
-        34.0,
-        180.0,
-        0.0,
-        drawcell: false,
-        valign: 'T',
-        halign: 'L',
-    )
-);
+$pdf->page->addContent($pdf->getTextCell(
+    'The text below uses explicit soft hyphens (&shy;) inside words and is rendered in a narrow left-aligned column.',
+    15.0,
+    34.0,
+    180.0,
+    0.0,
+    drawcell: false,
+    valign: 'T',
+    halign: 'L',
+));
 
 $setFont($pdf, 'times', '', 10);
 
-$html = '<div style="color:#003f7f;text-align:justify">'
+$html =
+    '<div style="color:#003f7f;text-align:justify">'
     . 'On the other hand, we de&shy;nounce with righ&shy;teous in&shy;dig&shy;na&shy;tion '
     . 'and dis&shy;like men who are so be&shy;guiled and de&shy;mo&shy;r&shy;al&shy;ized by the charms '
     . 'of plea&shy;sure of the mo&shy;ment, so blind&shy;ed by de&shy;sire, that they can&shy;not fore&shy;see '
@@ -113,15 +106,7 @@ $cellBorderStyles = [
     ],
 ];
 
-$pdf->addHTMLCell(
-    $html,
-    15.0,
-    45.0,
-    42.0,
-    0.0,
-    null,
-    $cellBorderStyles,
-);
+$pdf->addHTMLCell(html: $html, posx: 15.0, posy: 45.0, width: 42.0, height: 0.0, cell: null, styles: $cellBorderStyles);
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);

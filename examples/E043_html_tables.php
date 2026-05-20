@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E043_html_tables.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -55,7 +54,6 @@ $pdf->enableDefaultPageContent();
 // Insert fonts
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
-
 
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
@@ -80,7 +78,7 @@ $html1 = '<h2>HTML TABLES (A)</h2>
 		<td>4B</td>
 	</tr>
 	<tr>
-		<td>'.$subtable.'</td>
+		<td>' . $subtable . '</td>
 		<td bgcolor="#0000FF" color="yellow" align="center">A2 € &euro; &#8364; &amp; è &egrave;<br/>A2 € &euro; &#8364; &amp; è &egrave;</td>
 		<td bgcolor="#FFFF00" align="left"><span color="#FF0000">Red</span> Yellow BG</td>
 		<td>4C</td>
@@ -102,185 +100,169 @@ $html1 = '<h2>HTML TABLES (A)</h2>
 	</tr>
 </table>';
 
-$pdf->addHTMLCell(
-    $html1,
-    20,
-    10,
-    170,
-);
+$pdf->addHTMLCell(html: $html1, posx: 20, posy: 10, width: 170);
 
 // ----------
 
 $page2 = $pdf->addPage();
 
 $html2 = <<<EOF
-<!-- EXAMPLE OF CSS STYLE -->
-<style>
-	table.first {
-		color: #003300;
-		font-family: helvetica;
-		font-size: 8pt;
-		border-left: 3px solid red;
-		border-right: 3px solid #FF00FF;
-		border-top: 3px solid green;
-		border-bottom: 3px solid blue;
-		background-color: #ccffcc;
-	}
-	td {
-		border: 2px solid blue;
-		background-color: #ffffee;
-	}
-	td.second {
-		border: 2px dashed green;
-	}
-</style>
+    <!-- EXAMPLE OF CSS STYLE -->
+    <style>
+    	table.first {
+    		color: #003300;
+    		font-family: helvetica;
+    		font-size: 8pt;
+    		border-left: 3px solid red;
+    		border-right: 3px solid #FF00FF;
+    		border-top: 3px solid green;
+    		border-bottom: 3px solid blue;
+    		background-color: #ccffcc;
+    	}
+    	td {
+    		border: 2px solid blue;
+    		background-color: #ffffee;
+    	}
+    	td.second {
+    		border: 2px dashed green;
+    	}
+    </style>
 
-<h2>HTML TABLES (B)</h2>
-<table class="first" cellpadding="4" cellspacing="6">
- <tr>
-  <td width="30" align="center"><b>No.</b></td>
-  <td width="140" align="center" bgcolor="#FFFF00"><b>XXXX</b></td>
-  <td width="140" align="center"><b>XXXX</b></td>
-  <td width="80" align="center"> <b>XXXX</b></td>
-  <td width="80" align="center"><b>XXXX</b></td>
-  <td width="45" align="center"><b>XXXX</b></td>
- </tr>
- <tr>
-  <td width="30" align="center">1.</td>
-  <td width="140" rowspan="6" class="second">BRDD<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX</td>
-  <td width="140">XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td width="80">XXXX</td>
-  <td align="center" width="45">XXXX<br />XXXX</td>
- </tr>
- <tr>
-  <td width="30" align="center" rowspan="3">2.</td>
-  <td width="140" rowspan="3">XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td align="center" width="45">XXXX<br />XXXX</td>
- </tr>
- <tr>
-  <td width="80">XXXX<br />XXXX<br />XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td align="center" width="45">XXXX<br />XXXX</td>
- </tr>
- <tr>
-  <td width="80" rowspan="2" >XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td align="center" width="45">XXXX<br />XXXX</td>
- </tr>
- <tr>
-  <td width="30" align="center">3.</td>
-  <td width="140">XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td align="center" width="45">XXXX<br />XXXX</td>
- </tr>
- <tr bgcolor="#FFFF80">
-  <td width="30" align="center">4.</td>
-  <td width="140" bgcolor="#00CC00" color="#FFFF00">XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td width="80">XXXX<br />XXXX</td>
-  <td align="center" width="45">XXXX<br />XXXX</td>
- </tr>
-</table>
-EOF;
+    <h2>HTML TABLES (B)</h2>
+    <table class="first" cellpadding="4" cellspacing="6">
+     <tr>
+      <td width="30" align="center"><b>No.</b></td>
+      <td width="140" align="center" bgcolor="#FFFF00"><b>XXXX</b></td>
+      <td width="140" align="center"><b>XXXX</b></td>
+      <td width="80" align="center"> <b>XXXX</b></td>
+      <td width="80" align="center"><b>XXXX</b></td>
+      <td width="45" align="center"><b>XXXX</b></td>
+     </tr>
+     <tr>
+      <td width="30" align="center">1.</td>
+      <td width="140" rowspan="6" class="second">BRDD<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX</td>
+      <td width="140">XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td width="80">XXXX</td>
+      <td align="center" width="45">XXXX<br />XXXX</td>
+     </tr>
+     <tr>
+      <td width="30" align="center" rowspan="3">2.</td>
+      <td width="140" rowspan="3">XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td align="center" width="45">XXXX<br />XXXX</td>
+     </tr>
+     <tr>
+      <td width="80">XXXX<br />XXXX<br />XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td align="center" width="45">XXXX<br />XXXX</td>
+     </tr>
+     <tr>
+      <td width="80" rowspan="2" >XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td align="center" width="45">XXXX<br />XXXX</td>
+     </tr>
+     <tr>
+      <td width="30" align="center">3.</td>
+      <td width="140">XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td align="center" width="45">XXXX<br />XXXX</td>
+     </tr>
+     <tr bgcolor="#FFFF80">
+      <td width="30" align="center">4.</td>
+      <td width="140" bgcolor="#00CC00" color="#FFFF00">XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td width="80">XXXX<br />XXXX</td>
+      <td align="center" width="45">XXXX<br />XXXX</td>
+     </tr>
+    </table>
+    EOF;
 
-$pdf->addHTMLCell(
-    $html2,
-    20,
-    10,
-    180,
-);
+$pdf->addHTMLCell(html: $html2, posx: 20, posy: 10, width: 180);
 
 // ----------
-
 
 $page3 = $pdf->addPage();
 
 $html3 = <<<EOD
-<h2>HTML TABLES (C)</h2>
-<table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
-	<tr>
-		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3</td>
-		<td>COL 2 - ROW 1</td>
-		<td>COL 3 - ROW 1</td>
-	</tr>
-	<tr>
-		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
-		<td>COL 3 - ROW 2</td>
-	</tr>
-	<tr>
-		<td>COL 3 - ROW 3</td>
-	</tr>
-</table>
-<hr />
-<table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
-	<tr>
-		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3<br />text line<br />text line<br />text line<br />text line<br />text line<br />text line</td>
-		<td>COL 2 - ROW 1</td>
-		<td>COL 3 - ROW 1</td>
-	</tr>
-	<tr>
-		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
-		<td>COL 3 - ROW 2</td>
-	</tr>
-	<tr>
-		<td>COL 3 - ROW 3</td>
-	</tr>
-</table>
-<hr />
-<table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
-	<tr>
-		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3<br />text line<br />text line<br />text line<br />text line<br />text line<br />text line</td>
-		<td>COL 2 - ROW 1</td>
-		<td>COL 3 - ROW 1</td>
-	</tr>
-	<tr>
-		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
-		<td>COL 3 - ROW 2<br />text line<br />text line</td>
-	</tr>
-	<tr>
-		<td>COL 3 - ROW 3</td>
-	</tr>
-</table>
-<hr />
-<table border="1" style="font-size:x-small;">
-	<tr>
-		<th rowspan="3">Left column</th>
-		<th colspan="5">Heading Column Span 5</th>
-		<th colspan="9">Heading Column Span 9</th>
-	</tr>
-	<tr>
-		<th rowspan="2">Rowspan 2<br />This is some text that fills the table cell.</th>
-		<th colspan="2">span 2</th>
-		<th colspan="2">span 2</th>
-		<th rowspan="2">2 rows</th>
-		<th colspan="8">Colspan 8</th>
-	</tr>
-	<tr>
-		<th>1a</th>
-		<th>2a</th>
-		<th>1b</th>
-		<th>2b</th>
-		<th>1</th>
-		<th>2</th>
-		<th>3</th>
-		<th>4</th>
-		<th>5</th>
-		<th>6</th>
-		<th>7</th>
-		<th>8</th>
-	</tr>
-</table>
-EOD;
+    <h2>HTML TABLES (C)</h2>
+    <table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
+    	<tr>
+    		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3</td>
+    		<td>COL 2 - ROW 1</td>
+    		<td>COL 3 - ROW 1</td>
+    	</tr>
+    	<tr>
+    		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
+    		<td>COL 3 - ROW 2</td>
+    	</tr>
+    	<tr>
+    		<td>COL 3 - ROW 3</td>
+    	</tr>
+    </table>
+    <hr />
+    <table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
+    	<tr>
+    		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3<br />text line<br />text line<br />text line<br />text line<br />text line<br />text line</td>
+    		<td>COL 2 - ROW 1</td>
+    		<td>COL 3 - ROW 1</td>
+    	</tr>
+    	<tr>
+    		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
+    		<td>COL 3 - ROW 2</td>
+    	</tr>
+    	<tr>
+    		<td>COL 3 - ROW 3</td>
+    	</tr>
+    </table>
+    <hr />
+    <table cellspacing="0" cellpadding="1" border="1" style="font-size:x-small;">
+    	<tr>
+    		<td rowspan="3">COL 1 - ROW 1<br />COLSPAN 3<br />text line<br />text line<br />text line<br />text line<br />text line<br />text line</td>
+    		<td>COL 2 - ROW 1</td>
+    		<td>COL 3 - ROW 1</td>
+    	</tr>
+    	<tr>
+    		<td rowspan="2">COL 2 - ROW 2 - COLSPAN 2<br />text line<br />text line<br />text line<br />text line</td>
+    		<td>COL 3 - ROW 2<br />text line<br />text line</td>
+    	</tr>
+    	<tr>
+    		<td>COL 3 - ROW 3</td>
+    	</tr>
+    </table>
+    <hr />
+    <table border="1" style="font-size:x-small;">
+    	<tr>
+    		<th rowspan="3">Left column</th>
+    		<th colspan="5">Heading Column Span 5</th>
+    		<th colspan="9">Heading Column Span 9</th>
+    	</tr>
+    	<tr>
+    		<th rowspan="2">Rowspan 2<br />This is some text that fills the table cell.</th>
+    		<th colspan="2">span 2</th>
+    		<th colspan="2">span 2</th>
+    		<th rowspan="2">2 rows</th>
+    		<th colspan="8">Colspan 8</th>
+    	</tr>
+    	<tr>
+    		<th>1a</th>
+    		<th>2a</th>
+    		<th>1b</th>
+    		<th>2b</th>
+    		<th>1</th>
+    		<th>2</th>
+    		<th>3</th>
+    		<th>4</th>
+    		<th>5</th>
+    		<th>6</th>
+    		<th>7</th>
+    		<th>8</th>
+    	</tr>
+    </table>
+    EOD;
 
-$pdf->addHTMLCell(
-    $html3,
-    20,
-    10,
-    180,
-);
+$pdf->addHTMLCell(html: $html3, posx: 20, posy: 10, width: 180);
 
 // ----------
 
@@ -331,12 +313,7 @@ $html4 = '<h2>HTML TABLES (D)</h2>
 	</tr>
 </table>';
 
-$pdf->addHTMLCell(
-    $html4,
-    20,
-    10,
-    180,
-);
+$pdf->addHTMLCell(html: $html4, posx: 20, posy: 10, width: 180);
 
 // ----------
 
@@ -351,6 +328,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

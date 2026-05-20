@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E034_color_gradient_mesh.php
  *
@@ -16,8 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
-
+require __DIR__ . '/../vendor/autoload.php';
 
 \define('OUTPUT_FILE', \realpath(__DIR__ . '/../target') . '/example.pdf');
 
@@ -29,16 +29,15 @@ require(__DIR__ . '/../vendor/autoload.php');
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    'mm', // string $unit = 'mm',
-    true, // bool $isunicode = true,
-    false, // bool $subsetfont = false,
-    true, // bool $compress = true,
-    '', // string $mode = '',
-    null, // ?ObjEncrypt $objEncrypt = null,
+    unit: 'mm',
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: '',
+    objEncrypt: null,
 );
 
 // ----------
-
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -56,21 +55,18 @@ $pdf->enableDefaultPageContent();
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-
 // test images directory
 $imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
 
 // ----------
 
 $page01 = $pdf->addPage();
-$pdf->setBookmark('Color Gradients', '', 1);
+$pdf->setBookmark(name: 'Color Gradients', link: '', level: 1);
 
-$html = '<h1>Color Gradients and Meshes</h1>'
+$html =
+    '<h1>Color Gradients and Meshes</h1>'
     . '<p>This page demonstrates linear and radial gradients together with Coons patch meshes rendered by tc-lib-pdf.</p>';
-$pdf->addHTMLCell($html, 15, 20, 180);
-
-
-
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
 // Linear gradient
 $lingrad = $pdf->graph->getLinearGradient(20, 80, 80, 80, 'red', 'blue', [0, 0, 1, 0]);
@@ -80,11 +76,9 @@ $pdf->page->addContent($lingrad);
 $radgrad = $pdf->graph->getRadialGradient(110, 80, 80, 80, 'white', 'black', [0.5, 0.5, 1, 1, 1.2]);
 $pdf->page->addContent($radgrad);
 
-
 // CoonsPatchMesh
 $coonspatchmesh1 = $pdf->graph->getCoonsPatchMeshWithCoords(20, 180, 80, 80, 'yellow', 'blue', 'green', 'red');
 $pdf->page->addContent($coonspatchmesh1);
-
 
 // set the coordinates for the cubic Bézier points x1,y1 ... x12, y12 of the patch
 $coords = [
@@ -116,21 +110,57 @@ $coords = [
     //upper left
     0.00,
     0.33,
-];                       //lower left
+]; //lower left
 
 // paint a coons patch gradient with the above coordinates
-$coonspatchmesh2 = $pdf->graph->getCoonsPatchMeshWithCoords(110, 180, 80, 80, 'yellow', 'blue', 'green', 'red', $coords, 0, 1);
+$coonspatchmesh2 = $pdf->graph->getCoonsPatchMeshWithCoords(
+    110,
+    180,
+    80,
+    80,
+    'yellow',
+    'blue',
+    'green',
+    'red',
+    $coords,
+    0,
+    1,
+);
 $pdf->page->addContent($coonspatchmesh2);
-
 
 // ----------
 
 $page02 = $pdf->addPage();
-$pdf->setBookmark('Color gradient mesh', '', 1);
+$pdf->setBookmark(name: 'Color gradient mesh', link: '', level: 1);
 
 // first patch: f = 0
 $patch_array[0]['f'] = 0;
-$patch_array[0]['points'] = [0.00, 0.00, 0.33, 0.00, 0.67, 0.00, 1.00, 0.00, 1.00, 0.33, 0.8, 0.67, 1.00, 1.00, 0.67, 0.8, 0.33, 1.80, 0.00, 1.00, 0.00, 0.67, 0.00, 0.33];
+$patch_array[0]['points'] = [
+    0.00,
+    0.00,
+    0.33,
+    0.00,
+    0.67,
+    0.00,
+    1.00,
+    0.00,
+    1.00,
+    0.33,
+    0.8,
+    0.67,
+    1.00,
+    1.00,
+    0.67,
+    0.8,
+    0.33,
+    1.80,
+    0.00,
+    1.00,
+    0.00,
+    0.67,
+    0.00,
+    0.33,
+];
 $patch_array[0]['colors'][0] = [
     'red' => 1,
     'green' => 1,
@@ -158,7 +188,24 @@ $patch_array[0]['colors'][3] = [
 
 // second patch - above the other: f = 2
 $patch_array[1]['f'] = 2;
-$patch_array[1]['points'] = [0.00, 1.33, 0.00, 1.67, 0.00, 2.00, 0.33, 2.00, 0.67, 2.00, 1.00, 2.00, 1.00, 1.67, 1.5, 1.33];
+$patch_array[1]['points'] = [
+    0.00,
+    1.33,
+    0.00,
+    1.67,
+    0.00,
+    2.00,
+    0.33,
+    2.00,
+    0.67,
+    2.00,
+    1.00,
+    2.00,
+    1.00,
+    1.67,
+    1.5,
+    1.33,
+];
 $patch_array[1]['colors'][0] = [
     'red' => 0,
     'green' => 0,
@@ -174,7 +221,24 @@ $patch_array[1]['colors'][1] = [
 
 // third patch - right of the above: f = 3
 $patch_array[2]['f'] = 3;
-$patch_array[2]['points'] = [1.33, 0.80, 1.67, 1.50, 2.00, 1.00, 2.00, 1.33, 2.00, 1.67, 2.00, 2.00, 1.67, 2.00, 1.33, 2.00];
+$patch_array[2]['points'] = [
+    1.33,
+    0.80,
+    1.67,
+    1.50,
+    2.00,
+    1.00,
+    2.00,
+    1.33,
+    2.00,
+    1.67,
+    2.00,
+    2.00,
+    1.67,
+    2.00,
+    1.33,
+    2.00,
+];
 $patch_array[2]['colors'][0] = [
     'red' => 0,
     'green' => 1,
@@ -190,7 +254,24 @@ $patch_array[2]['colors'][1] = [
 
 // fourth patch - below the above, which means left(?) of the above: f = 1
 $patch_array[3]['f'] = 1;
-$patch_array[3]['points'] = [2.00, 0.67, 2.00, 0.33, 2.00, 0.00, 1.67, 0.00, 1.33, 0.00, 1.00, 0.00, 1.00, 0.33, 0.8, 0.67];
+$patch_array[3]['points'] = [
+    2.00,
+    0.67,
+    2.00,
+    0.33,
+    2.00,
+    0.00,
+    1.67,
+    0.00,
+    1.33,
+    0.00,
+    1.00,
+    0.00,
+    1.00,
+    0.33,
+    0.8,
+    0.67,
+];
 $patch_array[3]['colors'][0] = [
     'red' => 0,
     'green' => 0,
@@ -218,6 +299,7 @@ $rawpdf = $pdf->getOutPDFString();
 // Various output modes:
 
 //$pdf->savePDF(\dirname(__DIR__).'/target', $rawpdf);
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
+
 //$pdf->downloadPDF($rawpdf);
 //echo $pdf->getMIMEAttachmentPDF($rawpdf);

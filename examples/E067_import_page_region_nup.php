@@ -1,4 +1,5 @@
 <?php
+
 /**
  * E067_import_page_region_nup.php
  *
@@ -16,7 +17,7 @@
 // NOTE: run make deps fonts in the project root to generate dependencies and example fonts.
 
 // autoloader when using Composer
-require(__DIR__ . '/../vendor/autoload.php');
+require __DIR__ . '/../vendor/autoload.php';
 
 // define fonts directory
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
@@ -47,8 +48,8 @@ foreach ($cards as $idx => $card) {
     $bgStyle = [
         'all' => [
             'lineWidth' => 0,
-            'lineCap'   => 'butt',
-            'lineJoin'  => 'miter',
+            'lineCap' => 'butt',
+            'lineJoin' => 'miter',
             'dashArray' => [],
             'dashPhase' => 0,
             'lineColor' => $card['color'],
@@ -60,12 +61,20 @@ foreach ($cards as $idx => $card) {
     // Render page content.
     $src->page->addContent($srcFont['out']);
     $src->addHTMLCell(
-        '<h2>' . \htmlspecialchars($card['title']) . '</h2>'
-        . '<p>' . \htmlspecialchars($card['text']) . '</p>'
-        . '<p>Page ' . ($idx + 1) . ' of ' . \count($cards) . '</p>',
-        20,
-        40,
-        170
+        html: '<h2>'
+        . \htmlspecialchars($card['title'])
+        . '</h2>'
+        . '<p>'
+        . \htmlspecialchars($card['text'])
+        . '</p>'
+        . '<p>Page '
+        . ($idx + 1)
+        . ' of '
+        . \count($cards)
+        . '</p>',
+        posx: 20,
+        posy: 40,
+        width: 170,
     );
 }
 
@@ -105,8 +114,8 @@ $positions = [
 $borderStyle = [
     'all' => [
         'lineWidth' => 0.3,
-        'lineCap'   => 'butt',
-        'lineJoin'  => 'miter',
+        'lineCap' => 'butt',
+        'lineJoin' => 'miter',
         'dashArray' => [],
         'dashPhase' => 0,
         'lineColor' => '#404040',
@@ -115,9 +124,9 @@ $borderStyle = [
 ];
 
 foreach ($positions as $idx => [$x, $y]) {
-    $tpl = $pdf->importPage($sourceId, $idx + 1, ['box' => 'CropBox', 'cache' => true]);
+    $tpl = $pdf->importPage(sourceId: $sourceId, pageNum: $idx + 1, options: ['box' => 'CropBox', 'cache' => true]);
 
-    $pdf->useImportedPage($tpl, $x, $y, $cellWidth, $cellHeight, [
+    $pdf->useImportedPage(tpl: $tpl, xpos: $x, ypos: $y, width: $cellWidth, height: $cellHeight, options: [
         'keepAspectRatio' => true,
         'align' => 'CC',
         'clip' => true,
@@ -128,12 +137,12 @@ foreach ($positions as $idx => [$x, $y]) {
 
     $pdf->page->addContent($labelFont['out']);
     $pdf->addHTMLCell(
-        '<span style="font-size:9px">Imported page ' . ($idx + 1) . '</span>',
-        $x + 2,
-        $y + 2,
-        40
+        html: '<span style="font-size:9px">Imported page ' . ($idx + 1) . '</span>',
+        posx: $x + 2,
+        posy: $y + 2,
+        width: 40,
     );
 }
 
 $rawpdf = $pdf->getOutPDFString();
-$pdf->renderPDF($rawpdf);
+$pdf->renderPDF(rawpdf: $rawpdf);
