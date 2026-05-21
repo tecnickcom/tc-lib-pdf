@@ -18,25 +18,25 @@ Requires:  php(language) >= 8.2.0
 Requires:  php-date
 Requires:  php-pcre
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.5.0
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.6.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.6.0
+Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.7.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 2.3.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 2.4.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 2.13.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 2.14.0
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 2.6.0
+Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 2.7.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.3.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.4.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 2.1.0
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 2.2.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.2.0
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.3.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 5.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.4.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.5.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.5.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.6.0
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}

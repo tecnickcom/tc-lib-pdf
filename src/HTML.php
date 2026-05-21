@@ -19,6 +19,7 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
+use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
 
 /**
  * Com\Tecnick\Pdf\HTML
@@ -9120,10 +9121,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function cleanupText(string $txt): string
     {
         $txt = \str_replace("\r", ' ', $txt);
-        $txt = \str_replace($this->uniconv->chr(self::ORD_NO_BREAK_SPACE), ' ', $txt);
+        $txt = \str_replace($this->uniconv->chr(UnicodeConstant::NO_BREAK_SPACE), ' ', $txt);
 
         if (!$this->htmlRenderSoftHyphen) {
-            return \str_replace($this->uniconv->chr(self::ORD_SOFT_HYPHEN), '', $txt);
+            return \str_replace($this->uniconv->chr(UnicodeConstant::SOFT_HYPHEN), '', $txt);
         }
 
         return $txt;
@@ -9141,16 +9142,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $keeplast = false;
         $lastidx = \array_key_last($ordarr);
         if ($lastidx !== null && isset($ordarr[$lastidx])) {
-            $keeplast = $ordarr[$lastidx] === self::ORD_SOFT_HYPHEN;
+            $keeplast = $ordarr[$lastidx] === UnicodeConstant::SOFT_HYPHEN;
         }
 
         $retarr = \array_values(\array_filter(
             $ordarr,
-            static fn($ord) => $ord !== self::ORD_SOFT_HYPHEN && $ord !== self::ORD_ZERO_WIDTH_SPACE,
+            static fn($ord) => $ord !== UnicodeConstant::SOFT_HYPHEN && $ord !== UnicodeConstant::ZERO_WIDTH_SPACE,
         ));
 
         if ($keeplast) {
-            $retarr[] = $this->htmlRenderSoftHyphen ? self::ORD_HYPHEN : self::ORD_SOFT_HYPHEN;
+            $retarr[] = $this->htmlRenderSoftHyphen ? UnicodeConstant::HYPHEN : UnicodeConstant::SOFT_HYPHEN;
         }
 
         return $retarr;

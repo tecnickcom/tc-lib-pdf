@@ -20,6 +20,7 @@ namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Unicode\Bidi;
+use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
 use Com\Tecnick\Unicode\Data\Type as UnicodeType;
 use Com\Tecnick\Unicode\Substitution;
 
@@ -101,34 +102,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Readable lower bound for text-cell auto-fit font size in points.
      */
     protected const TEXTCELL_MIN_FONTSIZE = 4.0;
-
-    /**
-     * The Unicode character used for hyphenation.
-     * (45) '-'
-     *  Type: 'ES' (European Number Separator)
-     */
-    protected const ORD_HYPHEN = 0x002D;
-
-    /*
-     * The Unicode character used for non-breaking space.
-     * (160) 'NO-BREAK SPACE'
-     * Type: 'CS' (Common Separator)
-     */
-    protected const ORD_NO_BREAK_SPACE = 0x00A0;
-
-    /*
-     * The Unicode character used for soft hyphen.
-     * (173) 'SHY' (SOFT HYPHEN)
-     * Type: 'BN' (Boundary Neutral)
-     */
-    protected const ORD_SOFT_HYPHEN = 0x00AD;
-
-    /*
-     * The Unicode character used for zero width space.
-     * (8203) 'ZERO WIDTH SPACE'
-     * Type: 'BN' (Boundary Neutral)
-     */
-    protected const ORD_ZERO_WIDTH_SPACE = 0x200B;
 
     /**
      * Unicode ligature codepoints that require /ActualText in PDF/UA mode,
@@ -2045,7 +2018,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $dimWords = $dim['words'];
         $split = $dim['split'];
 
-        if ($dimTotWidth <= ($line_width + self::LINE_FIT_EPSILON)) {
+        $hasExplicitLineBreak = false;
+        foreach ($split as $splitData) {
+            if ($splitData['septype'] !== 'B') {
+                continue;
+            }
+
+            $hasExplicitLineBreak = true;
+            break;
+        }
+
+        if (!$hasExplicitLineBreak && $dimTotWidth <= ($line_width + self::LINE_FIT_EPSILON)) {
             // the input text fits in a single line
             return [[
                 'pos' => 0,
@@ -2066,7 +2049,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $prev_totspacewidth = 0;
         $prev_words = 0;
         $num_words = \count($split);
-        $soft_hyphen_width = $this->font->getCharWidth(static::ORD_HYPHEN);
+        $soft_hyphen_width = $this->font->getCharWidth(UnicodeConstant::HYPHEN);
 
         for ($word = 0; $word < $num_words; $word++) {
             $data = $split[$word] ?? null;
@@ -2100,7 +2083,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $sepend = 0;
                 $sepwidth = 0;
                 $ord = $data['ord'];
-                if ($ord === static::ORD_SOFT_HYPHEN) {
+                if ($ord === UnicodeConstant::SOFT_HYPHEN) {
                     $sepend = 1;
                     $sepwidth = $soft_hyphen_width;
                 }
@@ -2367,8 +2350,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected function cleanupText(string $txt): string
     {
         $txt = \str_replace("\r", ' ', $txt);
-        $txt = \str_replace($this->uniconv->chr(self::ORD_NO_BREAK_SPACE), ' ', $txt);
-        return \str_replace($this->uniconv->chr(self::ORD_SOFT_HYPHEN), '', $txt);
+        $txt = \str_replace($this->uniconv->chr(UnicodeConstant::NO_BREAK_SPACE), ' ', $txt);
+        return \str_replace($this->uniconv->chr(UnicodeConstant::SOFT_HYPHEN), '', $txt);
     }
 
     /**
@@ -2731,14 +2714,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $keeplast = false;
         $lastidx = \array_key_last($ordarr);
         if ($lastidx !== null && isset($ordarr[$lastidx])) {
-            $keeplast = $ordarr[$lastidx] === self::ORD_SOFT_HYPHEN;
+            $keeplast = $ordarr[$lastidx] === UnicodeConstant::SOFT_HYPHEN;
         }
         $retarr = \array_values(\array_filter(
             $ordarr,
-            static fn($ord) => $ord !== self::ORD_SOFT_HYPHEN && $ord !== self::ORD_ZERO_WIDTH_SPACE,
+            static fn($ord) => $ord !== UnicodeConstant::SOFT_HYPHEN && $ord !== UnicodeConstant::ZERO_WIDTH_SPACE,
         ));
         if ($keeplast) {
-            $retarr[] = self::ORD_SOFT_HYPHEN;
+            $retarr[] = UnicodeConstant::SOFT_HYPHEN;
         }
         return $retarr;
     }
@@ -2806,7 +2789,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 case 'BN':
                 case 'ON':
                     $txtarr[] = $ord;
-                    $txtarr[] = self::ORD_ZERO_WIDTH_SPACE;
+                    $txtarr[] = UnicodeConstant::ZERO_WIDTH_SPACE;
                     break;
                 default:
                     $txtarr[] = $ord;
@@ -2893,7 +2876,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 continue;
             }
 
-            \array_splice($ordarr, $i + $inserted, 0, self::ORD_SOFT_HYPHEN);
+            \array_splice($ordarr, $i + $inserted, 0, UnicodeConstant::SOFT_HYPHEN);
             ++$inserted;
         }
 

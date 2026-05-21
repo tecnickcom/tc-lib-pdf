@@ -49,4 +49,46 @@ class BaseInitClassObjectsTest extends TestUtil
 
         $this->assertSame($enc, $this->getObjectProperty($obj, 'encrypt'));
     }
+
+    /** @throws \Throwable */
+    public function testInitClassObjectsRaisesVersionForEncryptionV2(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfver', '1.3');
+
+        $enc = new class() extends \Com\Tecnick\Pdf\Encrypt\Encrypt {
+            public function getEncryptionData(): array
+            {
+                $data = parent::getEncryptionData();
+                $data['encrypted'] = true;
+                $data['V'] = 2;
+                return $data;
+            }
+        };
+
+        $obj->initClassObjects($enc);
+
+        $this->assertSame('1.4', $this->getObjectProperty($obj, 'pdfver'));
+    }
+
+    /** @throws \Throwable */
+    public function testInitClassObjectsRaisesVersionForEncryptionLegacyMode(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfver', '1.0');
+
+        $enc = new class() extends \Com\Tecnick\Pdf\Encrypt\Encrypt {
+            public function getEncryptionData(): array
+            {
+                $data = parent::getEncryptionData();
+                $data['encrypted'] = true;
+                $data['V'] = 1;
+                return $data;
+            }
+        };
+
+        $obj->initClassObjects($enc);
+
+        $this->assertSame('1.1', $this->getObjectProperty($obj, 'pdfver'));
+    }
 }

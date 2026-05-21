@@ -141,6 +141,25 @@ class ImportanceNormalizerTest extends TestUtil
         $this->assertStringContainsString('!important', $result);
     }
 
+    public function testNormalizeSkipsMalformedDeclarationSegments(): void
+    {
+        $input = 'broken; :12px; color: red;';
+        $result = ImportanceNormalizer::normalize($input);
+
+        $normalized = \str_replace(' ', '', $result);
+        $this->assertSame('color:red;', $normalized);
+    }
+
+    public function testNormalizePromotesExistingLonghandWhenShorthandImportantAppearsLater(): void
+    {
+        $input = 'margin-top: 2px; margin: 10px !important;';
+        $result = ImportanceNormalizer::normalize($input);
+
+        $normalized = \str_replace(' ', '', $result);
+        $this->assertStringContainsString('margin-top:2px!important;', $normalized);
+        $this->assertStringContainsString('margin:10px!important;', $normalized);
+    }
+
     #[DataProvider('realWorldDeclarationsProvider')]
     public function testNormalizeRealWorldDeclarations(string $input, string $expectedProperty): void
     {

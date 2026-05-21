@@ -1083,6 +1083,88 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testIsHTMLNodeInsideTheadHandlesMissingAndCyclicParents(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'isHTMLNodeInsideThead');
+        $root = $obj->exposeGetHTMLRootProperties();
+
+        $dom = [
+            0 => $root,
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'opening' => true,
+                'tag' => true,
+                'value' => 'thead',
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 1,
+                'opening' => true,
+                'tag' => true,
+                'value' => 'tr',
+            ]),
+            3 => $this->makeHtmlNode([
+                'parent' => 2,
+                'opening' => true,
+                'tag' => true,
+                'value' => 'td',
+            ]),
+            4 => $this->makeHtmlNode([
+                'parent' => 4,
+                'opening' => true,
+                'tag' => true,
+                'value' => 'tbody',
+            ]),
+        ];
+
+        /** @var bool $insideThead */
+        $insideThead = $method->invokeArgs($obj, [&$dom, 3]);
+        /** @var bool $missingNode */
+        $missingNode = $method->invokeArgs($obj, [&$dom, 99]);
+        /** @var bool $cyclicParent */
+        $cyclicParent = $method->invokeArgs($obj, [&$dom, 4]);
+
+        $this->assertTrue($insideThead);
+        $this->assertFalse($missingNode);
+        $this->assertFalse($cyclicParent);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testRecomputeHTMLDOMCSSAgainstFinalTreeHandlesMissingRootAndSparseNodes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\HTML::class, 'recomputeHTMLDOMCSSAgainstFinalTree');
+
+        /** @var array<int, mixed> $domWithoutRoot */
+        $domWithoutRoot = [1 => $this->makeHtmlNode(['value' => 'div'])];
+        $method->invokeArgs($obj, [&$domWithoutRoot, ['div' => 'color:#f00;']]);
+        $domWithoutRoot = $this->requireMixedArray($domWithoutRoot, 'Expected rootless DOM array.');
+        $this->assertCount(1, $domWithoutRoot);
+
+        $root = $obj->exposeGetHTMLRootProperties();
+        /** @var array<int, mixed> $dom */
+        $dom = [
+            0 => $root,
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'tag' => true,
+                'opening' => true,
+                'value' => 'div',
+            ]),
+            2 => 'invalid-node',
+        ];
+
+        $method->invokeArgs($obj, [&$dom, []]);
+        $dom = $this->requireMixedArray($dom, 'Expected sparse DOM array.');
+
+        $this->assertSame('invalid-node', $dom[2] ?? null);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testParseHTMLStyleAttributesPositionModesAndInherit(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1115,6 +1197,30 @@ class HTMLTest extends TestUtil
         $this->assertSame('fixed', $dom[2]['position']);
         assert(isset($dom[3]), "\$dom[3] must be set");
         $this->assertSame('static', $dom[3]['position']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testParseHTMLStyleAttributesPositionInheritFallsBackToParentStyle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'position' => '',
+                'style' => ['position' => 'absolute'],
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'position:inherit;'],
+                'position' => 'static',
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        assert(isset($dom[1]), "\$dom[1] must be set");
+        $this->assertSame('absolute', $dom[1]['position']);
     }
 
     /**
@@ -1157,6 +1263,69 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testParseHTMLStyleAttributesPositionOffsetsRespectInheritedAndAutoValues(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'style' => ['left' => '4mm', 'top' => 'auto'],
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'position:absolute;left:inherit;top:inherit;'],
+                'margin' => [],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'position:relative;left:auto;top:auto;'],
+            ]),
+            3 => $this->makeHtmlNode(),
+            4 => $this->makeHtmlNode([
+                'parent' => 3,
+                'attribute' => ['style' => 'position:fixed;left:inherit;top:inherit;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $obj->parseHTMLStyleAttributes($dom, 2, 0);
+        $obj->parseHTMLStyleAttributes($dom, 4, 3);
+
+        assert(isset($dom[1]), "\$dom[1] must be set");
+        $this->assertGreaterThan(0.0, $this->getHtmlNodeMargin($dom[1], 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[1], 'T'));
+        assert(isset($dom[2]), "\$dom[2] must be set");
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[2], 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[2], 'T'));
+        assert(isset($dom[4]), "\$dom[4] must be set");
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[4], 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[4], 'T'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testParseHTMLStyleAttributesPositionOffsetsIgnoreImplicitStaticNodes(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'position' => '',
+                'attribute' => ['style' => 'left:2mm;top:3mm;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        assert(isset($dom[1]), "\$dom[1] must be set");
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[1], 'L'));
+        $this->assertSame(0.0, $this->getHtmlNodeMargin($dom[1], 'T'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testParseHTMLStyleAttributesFloatModesAndInherit(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1191,6 +1360,29 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testParseHTMLStyleAttributesFloatInheritFallsBackToParentStyle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'float' => '',
+                'style' => ['float' => 'left'],
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'float:inherit;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        assert(isset($dom[1]), "\$dom[1] must be set");
+        $this->assertSame('left', $dom[1]['float']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testParseHTMLStyleAttributesClearModesAndInherit(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1220,6 +1412,29 @@ class HTMLTest extends TestUtil
         $this->assertSame('both', $dom[2]['clear']);
         assert(isset($dom[3]), "\$dom[3] must be set");
         $this->assertSame('none', $dom[3]['clear']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testParseHTMLStyleAttributesClearInheritFallsBackToParentStyle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'clear' => '',
+                'style' => ['clear' => 'right'],
+            ]),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'attribute' => ['style' => 'clear:inherit;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+
+        assert(isset($dom[1]), "\$dom[1] must be set");
+        $this->assertSame('right', $dom[1]['clear']);
     }
 
     /**
@@ -12729,6 +12944,43 @@ class HTMLTest extends TestUtil
         $this->assertSame($dom[1]['fgcolor'], $dom[2]['fgcolor']);
         $this->assertStringContainsString('B', $dom[2]['fontstyle']);
         $this->assertSame('Hello', $dom[2]['value']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMRecomputePreservesInlineStyleWithoutMatchingSelector(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<style>.other{color:red;}</style><div style="font-weight:bold">Hello</div>');
+
+        assert(isset($dom[1]), "\$dom[1] must be set");
+        $style = $this->getHtmlNodeAttrString($dom[1], 'style');
+
+        $this->assertIsString($style);
+        $this->assertStringContainsString('font-weight:bold', $style);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMRecomputeMergesMatchedCssWithInlineStyle(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<style>.demo{color:red;text-align:center;}</style>'
+        . '<div class="demo" style="font-weight:bold">Hello</div>');
+
+        assert(isset($dom[1]), "\$dom[1] must be set");
+        $style = $this->getHtmlNodeAttrString($dom[1], 'style');
+
+        $this->assertIsString($style);
+        $this->assertStringContainsString('color:red', $style);
+        $this->assertStringContainsString('text-align:center', $style);
+        $this->assertStringContainsString('font-weight:bold', $style);
     }
 
     /**

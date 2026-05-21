@@ -1077,6 +1077,11 @@ class TextTest extends TestUtil
         $this->assertCount(1, $linesWide);
         $this->assertGreaterThan(1, \count($linesNarrow));
         $this->assertSame([], $obj->exposeSplitLines([], $dim, 10));
+
+        [$textWithNewline, $ordarrWithNewline, $dimWithNewline] = $obj->exposePrepareText("Cell Borders\nnextline");
+        $newlineLines = $obj->exposeSplitLines($ordarrWithNewline, $dimWithNewline, 1000);
+        $this->assertSame("Cell Borders\nnextline", $textWithNewline);
+        $this->assertCount(2, $newlineLines);
     }
 
     /** @throws \Throwable */

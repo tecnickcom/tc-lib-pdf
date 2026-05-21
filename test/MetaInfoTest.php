@@ -118,6 +118,18 @@ class MetaInfoTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSetPDFVersionThrowsOnInvalidFormatWhenPdfxEnabled(): void
+    {
+        $obj = $this->getTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $this->expectExceptionMessage('Invalid PDF version format');
+
+        $obj->setPDFVersion('1.A');
+    }
+
+    /** @throws \Throwable */
     public function testSetSRGBTogglesFlag(): void
     {
         $obj = $this->getTestObject();

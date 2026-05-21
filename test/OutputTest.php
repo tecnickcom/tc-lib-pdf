@@ -20,6 +20,16 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class OutputTest extends TestUtil
 {
+    /** @param array<string, mixed> $updates */
+    private function setEncryptData(\Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt, array $updates): void
+    {
+        $ref = new \ReflectionObject($encrypt);
+        $prop = $ref->getProperty('encryptdata');
+        /** @var array<string, mixed> $data */
+        $data = $prop->getValue($encrypt);
+        $prop->setValue($encrypt, \array_replace($data, $updates));
+    }
+
     public static function setUpBeforeClass(): void
     {
         self::setUpFontsPath();
@@ -1884,6 +1894,31 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/Type /Pages', $out);
         $this->assertStringContainsString('/Type /Catalog', $out);
         $this->assertStringContainsString('/Type /Page', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutPDFBodyIncludesEncryptionObjectWhenEnabledAndNotPdfx(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        $this->setEncryptData($encrypt, [
+            'encrypted' => true,
+            'Filter' => 'Standard',
+            'V' => 2,
+            'Length' => 40,
+            'P' => -4,
+            'O' => 'owner',
+            'U' => 'user',
+        ]);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Filter /Standard', $out);
     }
 
     /**
@@ -4976,6 +5011,50 @@ class OutputTest extends TestUtil
 
         $this->assertStringContainsString('/XObject <<', $out);
         $this->assertStringContainsString('/XO2 102 0 R', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutXObjectsSkipsMissingNestedXObjectReference(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $encrypt */
+        $encrypt = $this->getObjectProperty($obj, 'encrypt');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $outfont = new \Com\Tecnick\Pdf\Font\Output($font->getFonts(), $pon, $encrypt);
+        $this->setObjectProperty($obj, 'outfont', $outfont);
+
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XO1' => [
+                'n' => 101,
+                'x' => 0,
+                'y' => 0,
+                'w' => 10,
+                'h' => 10,
+                'outdata' => 'q Q',
+                'spot_colors' => [],
+                'extgstate' => [],
+                'gradient' => [],
+                'font' => [],
+                'image' => [],
+                'xobject' => ['DOES_NOT_EXIST'],
+                'annotations' => [],
+                'id' => 'XO1',
+                'pheight' => 0,
+                'gheight' => 0,
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutXObjects();
+
+        $this->assertStringContainsString('/Type /XObject', $out);
+        $this->assertStringNotContainsString('/DOES_NOT_EXIST ', $out);
     }
 
     /**

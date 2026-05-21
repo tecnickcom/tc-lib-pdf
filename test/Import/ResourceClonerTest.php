@@ -202,6 +202,116 @@ class ResourceClonerTest extends TestCase
         $this->assertStringContainsString('/ProcSet', $output);
     }
 
+    /** @throws \Throwable */
+    public function testCloneResourcesSkipsNestedEntriesAndPreservesInlineScalars(): void
+    {
+        $src = $this->loadFixture();
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $output = $cloner->cloneResources(
+            [
+                'ColorSpace' => [
+                    'CS1' => '/DeviceRGB',
+                    'Broken' => ['nested'],
+                ],
+            ],
+            $src,
+            $map,
+        );
+
+        $this->assertStringContainsString('/CS1 /DeviceRGB', $output);
+        $this->assertStringNotContainsString('/Broken', $output);
+    }
+
+    /** @throws \Throwable */
+    public function testCloneResourcesSupportsScalarResourceValues(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '5_0' => [
+                ['numeric', 99],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $indirectOutput = $cloner->cloneResources(['XObject' => '5 0 R'], $src, $map);
+        $inlineOutput = $cloner->cloneResources(['ColorSpace' => '/DeviceCMYK'], $src, $map);
+        $nullOutput = $cloner->cloneResources(['Pattern' => 123], $src, $map);
+
+        $this->assertMatchesRegularExpression('/\/XObject \d+ 0 R/', $indirectOutput);
+        $this->assertStringContainsString('/ColorSpace /DeviceCMYK', $inlineOutput);
+        $this->assertStringContainsString('/Pattern null', $nullOutput);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamRejectsUnexpectedContentsType(): void
+    {
+        $src = $this->loadFixture();
+        $cloner = new ResourceCloner(0);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $cloner->getContentStream(['Contents' => 42], $src);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamMultipleRefsSkipsInvalidEntriesAndReturnsNamedFilter(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        ['/', 'FlateDecode'],
+                    ],
+                ],
+                ['stream', 'alpha'],
+            ],
+            '2_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Length'],
+                        ['numeric', 4],
+                    ],
+                ],
+                ['stream', 'beta'],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $single = $cloner->getContentStream(['Contents' => '1_0'], $src);
+        $combined = $cloner->getContentStream(['Contents' => ['1_0', 99, '2_0']], $src);
+
+        $this->assertSame('/FlateDecode', $single['filter']);
+        $this->assertSame('alpha beta', $combined['bytes']);
+        $this->assertSame('', $combined['filter']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamReturnsEmptyResultWhenStreamObjectHasNoBytes(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['not-a-name', 'Filter'],
+                        ['/',          'FlateDecode'],
+                    ],
+                ],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $result = $cloner->getContentStream(['Contents' => '1_0'], $src);
+
+        $this->assertSame('', $result['bytes']);
+        $this->assertSame('', $result['filter']);
+        $this->assertSame(0, $result['length']);
+    }
+
     // -------------------------------------------------------------------------
     // enqueueObject — dedup and cycle safety
     // -------------------------------------------------------------------------
@@ -254,6 +364,22 @@ class ResourceClonerTest extends TestCase
         $this->assertStringContainsString($destNum . ' 0 obj', $flushed);
         $this->assertStringContainsString('null', $flushed);
         $this->assertStringContainsString('endobj', $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectReturnsAllocatedNumberWhenSourceIsPending(): void
+    {
+        $src = $this->makeMockSourceDocument([]);
+        $map = $this->createStub(ObjectMap::class);
+        $cloner = new ResourceCloner(0);
+
+        $map->method('has')->willReturnCallback(static fn(string $srcRef): bool => $srcRef !== '7_0');
+        $map->method('isInProgress')->willReturnCallback(static fn(string $srcRef): bool => $srcRef === '7_0');
+        $map->method('get')->willReturnCallback(static fn(string $srcRef): int => $srcRef === '7_0' ? 7 : 0);
+
+        $result = $cloner->enqueueObject('7_0', $src, $map);
+
+        $this->assertSame(7, $result);
     }
 
     /** @throws \Throwable */
@@ -412,6 +538,106 @@ class ResourceClonerTest extends TestCase
         $this->assertStringContainsString('/Nums [1 2]', $flushed);
         $this->assertStringContainsString('/Kind /Subtype', $flushed);
         $this->assertMatchesRegularExpression('/\/Ref \d+ 0 R/', $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectSerializesStreamFilterAndSkipsMalformedDictPairs(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        ['/', 'ASCIIHexDecode'],
+                        ['/', 'Length'],
+                        ['numeric', 999],
+                        ['not-a-name', 'IgnoreMe'],
+                        ['numeric', 77],
+                        ['/', []],
+                        ['string', 'skip'],
+                    ],
+                ],
+                ['stream', 'ABCD'],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString('/Filter /ASCIIHexDecode', $flushed);
+        $this->assertStringContainsString('/Length 4', $flushed);
+        $this->assertStringNotContainsString('999', $flushed);
+        $this->assertStringNotContainsString('IgnoreMe', $flushed);
+        $this->assertStringNotContainsString('skip', $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectSerializesNestedDictionariesAndFallbackTokens(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Nested'],
+                        [
+                            '<<',
+                            [
+                                ['/', 'Flag'],
+                                ['numeric', 1],
+                            ],
+                        ],
+                        ['/', 'Literal'],
+                        ['token', ['not-scalar']],
+                        ['/', 'Unknown'],
+                        [null, ['still-not-scalar']],
+                    ],
+                ],
+            ],
+            '2_0' => [
+                [
+                    '[',
+                    [
+                        5,
+                        ['numeric', 2],
+                    ],
+                ],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $cloner->enqueueObject('2_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString('/Nested << /Flag 1>>', $flushed);
+        $this->assertStringContainsString('/Literal token', $flushed);
+        $this->assertStringContainsString('/Unknown null', $flushed);
+        $this->assertStringContainsString('[5 2]', $flushed);
+    }
+
+    /** @throws \Throwable */
+    public function testEnqueueObjectSkipsNonArrayEntriesBeforeReturningNullFallback(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                'junk-token',
+                123,
+                ['endobj', ''],
+                ['<<', null],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString("\nnull\n", $flushed);
     }
 
     // -------------------------------------------------------------------------

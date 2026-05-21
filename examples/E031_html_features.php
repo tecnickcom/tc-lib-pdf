@@ -275,13 +275,26 @@ $pageV02 = $pdf->addPage();
 
 $textcolors = '<h2>Text</h1>';
 $bgcolors = '<h2>Background</h2>';
+$csscolortypes =
+    '<h2>CSS Color Types</h2>'
+    . '<table border="1" cellpadding="2" cellspacing="0" style="width:100%; font-size:9pt;">'
+    . '<tr><th style="width:30%">Type</th><th style="width:70%">Example</th></tr>'
+    . '<tr><td>named</td><td><span style="background-color: navy; color: #ffffff;">background-color: navy</span></td></tr>'
+    . '<tr><td>hex short</td><td><span style="background-color: #0f0; color: #000000;">background-color: #0f0</span></td></tr>'
+    . '<tr><td>hex long</td><td><span style="background-color: #1e90ff; color: #ffffff;">background-color: #1e90ff</span></td></tr>'
+    . '<tr><td>rgb</td><td><span style="background-color: rgb(255, 99, 71); color: #000000;">background-color: rgb(255, 99, 71)</span></td></tr>'
+    . '<tr><td>rgba</td><td><span style="background-color: rgba(30, 144, 255, 0.25); color: #000000;">background-color: rgba(30, 144, 255, 0.25)</span></td></tr>'
+    . '<tr><td>hsl</td><td><span style="background-color: hsl(120, 100%, 25%); color: #ffffff;">background-color: hsl(120, 100%, 25%)</span></td></tr>'
+    . '<tr><td>hsla</td><td><span style="background-color: hsla(300, 100%, 50%, 0.20); color: #000000;">background-color: hsla(300, 100%, 50%, 0.20)</span></td></tr>'
+    . '<tr><td>cmyk</td><td><span style="background-color: cmyk(67, 33, 0, 25); color: #ffffff;">background-color: cmyk(67, 33, 0, 25)</span></td></tr>'
+    . '</table>';
 
 foreach ($pdf->color::WEBHEX as $k => $v) {
     $textcolors .= '<span color="#' . $v . '">' . $k . '</span> ';
     $bgcolors .= '<span bgcolor="#' . $v . '" color="#333333">' . $k . '</span> ';
 }
 
-$html_02 = '<h1>HTML Colors</h1>' . $textcolors . '<hr />' . $bgcolors;
+$html_02 = '<h1>HTML Colors</h1>' . $csscolortypes . '<hr />' . $textcolors . '<hr />' . $bgcolors;
 
 $pdf->addHTMLCell(html: $html_02, posx: 20, posy: 10, width: 180);
 

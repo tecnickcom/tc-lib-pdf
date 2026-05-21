@@ -549,6 +549,23 @@ $pdf->addTextCell(
     shadow: null,
 );
 
+$pdf->addTextCell(
+    txt: 'addTextCell()' . PHP_EOL . 'First line.' . PHP_EOL . 'Second Line.',
+    posx: 15,
+    posy: 70,
+    valign: 'T',
+    halign: 'L',
+    drawcell: false,
+);
+
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'getTextCell()' . PHP_EOL . 'First line.' . PHP_EOL . 'Second Line.',
+    posx: 15,
+    posy: 90,
+    valign: 'T',
+    halign: 'L',
+));
+
 // =============================================================
 
 // ----------

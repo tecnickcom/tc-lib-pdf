@@ -20,6 +20,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class BaseTest extends TestUtil
 {
+    private function invokeBaseMethod(object $obj, string $method, mixed ...$args): mixed
+    {
+        $ref = new \ReflectionClass($obj);
+        return $ref->getMethod($method)->invokeArgs($obj, $args);
+    }
+
     /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
@@ -183,6 +189,52 @@ class BaseTest extends TestUtil
         $result = $obj->exposeIsRTL();
 
         $this->assertSame($expected, $result);
+    }
+
+    /** @throws \Throwable */
+    public function testIsTransparencyAllowedReturnsTrueWhenPdfxDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', false);
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
+
+        $this->assertTrue($this->invokeBaseMethod($obj, 'isTransparencyAllowed') === true);
+    }
+
+    /** @throws \Throwable */
+    public function testIsTransparencyAllowedDependsOnPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
+        $this->assertTrue($this->invokeBaseMethod($obj, 'isTransparencyAllowed'));
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx3');
+        $this->assertFalse($this->invokeBaseMethod($obj, 'isTransparencyAllowed'));
+    }
+
+    /** @throws \Throwable */
+    public function testRequiresPdfxDeviceCmykReturnsFalseWhenPdfxDisabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', false);
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
+
+        $this->assertFalse($this->invokeBaseMethod($obj, 'requiresPdfxDeviceCmyk'));
+    }
+
+    /** @throws \Throwable */
+    public function testRequiresPdfxDeviceCmykDependsOnPdfxMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx3');
+        $this->assertTrue($this->invokeBaseMethod($obj, 'requiresPdfxDeviceCmyk'));
+
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx5');
+        $this->assertFalse($this->invokeBaseMethod($obj, 'requiresPdfxDeviceCmyk'));
     }
 
     /** @return array<string, array{0: string, 1: float, 2: float}> */

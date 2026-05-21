@@ -16,15 +16,53 @@
 
 namespace Test\Import;
 
+use Com\Tecnick\Pdf\Import\ImportCorruptedSourceException;
 use Com\Tecnick\Pdf\Import\Importer;
 use Com\Tecnick\Pdf\Import\ImportPageOutOfRangeException;
 use Com\Tecnick\Pdf\Import\ImportSourceNotFoundException;
 use Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException;
+use Com\Tecnick\Pdf\Import\ObjectMap;
 use Com\Tecnick\Pdf\Import\PageTemplate;
+use Com\Tecnick\Pdf\Import\SourceDocument;
 use PHPUnit\Framework\TestCase;
 
 class ImporterTest extends TestCase
 {
+    private function getObjectProperty(object $obj, string $name): mixed
+    {
+        $ref = new \ReflectionClass($obj);
+        while ($ref !== false) {
+            if ($ref->hasProperty($name)) {
+                return $ref->getProperty($name)->getValue($obj);
+            }
+
+            $ref = $ref->getParentClass();
+        }
+
+        $this->fail('Property not found: ' . $name);
+    }
+
+    private function setObjectProperty(object $obj, string $name, mixed $value): void
+    {
+        $ref = new \ReflectionClass($obj);
+        while ($ref !== false) {
+            if ($ref->hasProperty($name)) {
+                $ref->getProperty($name)->setValue($obj, $value);
+                return;
+            }
+
+            $ref = $ref->getParentClass();
+        }
+
+        $this->fail('Property not found: ' . $name);
+    }
+
+    private function invokeImporterMethod(Importer $importer, string $method, mixed ...$args): mixed
+    {
+        $ref = new \ReflectionClass($importer);
+        return $ref->getMethod($method)->invokeArgs($importer, $args);
+    }
+
     private function fixtureData(): string
     {
         $path = __DIR__ . '/../fixtures/simple_import.pdf';
@@ -163,6 +201,27 @@ class ImporterTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testImportPageRebuildsMissingObjectMapForKnownSource(): void
+    {
+        $data = $this->fixtureData();
+        $xobjects = [];
+        $pon = 0;
+        $importer = new Importer($xobjects, $pon);
+        $srcId = $importer->setImportSourceData($data);
+
+        $this->setObjectProperty($importer, 'objectMaps', []);
+
+        $tpl = $importer->importPage($srcId, 1, ['cache' => false]);
+        /** @var array<string, ObjectMap> $maps */
+        $maps = $this->getObjectProperty($importer, 'objectMaps');
+
+        $this->assertInstanceOf(PageTemplate::class, $tpl);
+        $this->assertIsArray($maps);
+        $this->assertArrayHasKey($srcId, $maps);
+        $this->assertInstanceOf(ObjectMap::class, $maps[$srcId] ?? null);
+    }
+
+    /** @throws \Throwable */
     public function testImportPageXobjectHasCorrectObjectNumber(): void
     {
         $data = $this->fixtureData();
@@ -264,6 +323,158 @@ class ImporterTest extends TestCase
         $importer->cleanUp();
         $this->expectException(ImportSourceNotFoundException::class);
         $importer->getSourcePageCount($srcId);
+    }
+
+    public function testSelectBoxFallsBackToMediaBoxWhenRequestedBoxIsMissing(): void
+    {
+        $importer = $this->makeImporter();
+
+        /** @var array{0: float, 1: float, 2: float, 3: float} $box */
+        $box = $this->invokeImporterMethod(
+            $importer,
+            'selectBox',
+            [
+                'mediaBox' => [10, 20, 210, 420],
+            ],
+            'BleedBox',
+        );
+
+        $this->assertSame([10.0, 20.0, 210.0, 420.0], $box);
+    }
+
+    public function testSelectBoxReturnsZeroBoxForInvalidCoordinates(): void
+    {
+        $importer = $this->makeImporter();
+
+        /** @var array{0: float, 1: float, 2: float, 3: float} $box */
+        $box = $this->invokeImporterMethod(
+            $importer,
+            'selectBox',
+            [
+                'cropBox' => [0, 1, 2, 'bad'],
+            ],
+            'CropBox',
+        );
+
+        $this->assertSame([0.0, 0.0, 0.0, 0.0], $box);
+    }
+
+    public function testRotationMatrixSupportsHalfAndThreeQuarterTurns(): void
+    {
+        $importer = $this->makeImporter();
+
+        /** @var array<int, float> $halfTurn */
+        $halfTurn = $this->invokeImporterMethod($importer, 'rotationMatrix', 180, 200.0, 400.0);
+        /** @var array<int, float> $threeQuarterTurn */
+        $threeQuarterTurn = $this->invokeImporterMethod($importer, 'rotationMatrix', 270, 200.0, 400.0);
+
+        $this->assertSame([-1.0, 0.0, 0.0, -1.0, 200.0, 400.0], $halfTurn);
+        $this->assertSame([0.0, -1.0, 1.0, 0.0, 0.0, 200.0], $threeQuarterTurn);
+    }
+
+    /** @throws \Throwable */
+    public function testParseSimpleDictSkipsMalformedEntriesAndCollectsScalarValues(): void
+    {
+        $importer = $this->makeImporter();
+
+        /** @var array<string, mixed> $dict */
+        $dict = $this->invokeImporterMethod($importer, 'parseSimpleDict', [
+            'junk-token',
+            ['stream', 'ignored'],
+            [
+                '<<',
+                [
+                    ['not-a-name', 'Skip'],
+                    ['numeric', 1],
+                    ['/'],
+                    ['numeric', 2],
+                    ['/', []],
+                    ['numeric', 3],
+                    ['/', 'MissingInner'],
+                    ['string'],
+                    ['/', 'Pages'],
+                    ['objref', '2 0 R'],
+                    ['/', 'Count'],
+                    2,
+                ],
+            ],
+        ]);
+
+        $this->assertSame(
+            [
+                'Pages' => '2 0 R',
+                'Count' => '2',
+            ],
+            $dict,
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testParseSimpleDictThrowsWhenDictionaryTokenIsMissing(): void
+    {
+        $importer = $this->makeImporter();
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->invokeImporterMethod($importer, 'parseSimpleDict', [
+            'junk-token',
+            ['stream', 'ignored'],
+        ]);
+    }
+
+    /** @throws \Throwable */
+    public function testGetSourcePageCountThrowsWhenRootDictionaryHasNoPagesEntry(): void
+    {
+        $importer = $this->makeImporter();
+        $sourceId = 'stub-source';
+        $src = $this->createStub(SourceDocument::class);
+
+        $src->method('getTrailer')->willReturn(['root' => '1 0 R']);
+        $src->method('getObject')->willReturnCallback(static fn(string $ref): array => match ($ref) {
+            '1_0' => [[
+                '<<',
+                [
+                    ['/', 'Type'],
+                    ['/', 'Catalog'],
+                ],
+            ]],
+            default => [],
+        });
+
+        $this->setObjectProperty($importer, 'sources', [$sourceId => $src]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $importer->getSourcePageCount($sourceId);
+    }
+
+    /** @throws \Throwable */
+    public function testGetSourcePageCountReturnsZeroWhenPagesCountIsMissing(): void
+    {
+        $importer = $this->makeImporter();
+        $sourceId = 'stub-source';
+        $src = $this->createStub(SourceDocument::class);
+
+        $src->method('getTrailer')->willReturn(['root' => '1 0 R']);
+        $src->method('getObject')->willReturnCallback(static fn(string $ref): array => match ($ref) {
+            '1_0' => [[
+                '<<',
+                [
+                    ['/', 'Pages'],
+                    ['objref', '2 0 R'],
+                ],
+            ]],
+            '2_0' => [[
+                '<<',
+                [
+                    ['/', 'Type'],
+                    ['/', 'Pages'],
+                ],
+            ]],
+            default => [],
+        });
+
+        $this->setObjectProperty($importer, 'sources', [$sourceId => $src]);
+
+        $this->assertSame(0, $importer->getSourcePageCount($sourceId));
     }
 
     // -------------------------------------------------------------------------
