@@ -1904,7 +1904,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             }
 
             $out .= $this->graph->getStartTransform();
-            $out .= $this->color->getPdfColor($shadow['color'], false);
+            $out .= $this->color->getPdfFillColor($shadow['color']);
             if ($this->isTransparencyAllowed()) {
                 $out .= $this->graph->getAlpha($shadow['opacity'], $shadow['mode']);
             }
@@ -2967,7 +2967,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // print page number in the footer
         $out = $this->graph->getStartTransform();
         $out .= $deffont['out'];
-        $out .= $this->color->getPdfColor('black');
+        $out .= $this->color->getPdfFillColor('black');
         $prevcell = $this->defcell;
         $this->defcell = $this::ZEROCELL;
 

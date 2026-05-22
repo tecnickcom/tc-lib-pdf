@@ -2156,7 +2156,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         }
 
         if ($svgstyle['text-color'] !== '') {
-            $out .= $this->color->getPdfColor($svgstyle['text-color']);
+            $out .= $this->color->getPdfFillColor($svgstyle['text-color']);
         }
 
         return $out;

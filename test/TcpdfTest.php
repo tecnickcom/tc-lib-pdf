@@ -490,6 +490,35 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testCssColorModelsEmitExpectedPdfOperators(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf();
+
+        $cases = [
+            'named navy' => ['navy', " rg\n"],
+            'gray g()' => ['g(50%)', " g\n"],
+            'hex short' => ['#0f0', " rg\n"],
+            'hex long' => ['#1e90ff', " rg\n"],
+            'rgb' => ['rgb(255, 99, 71)', " rg\n"],
+            'rgba' => ['rgba(30, 144, 255, 0.25)', " rg\n"],
+            'hsl' => ['hsl(120, 100%, 25%)', " rg\n"],
+            'hsla' => ['hsla(300, 100%, 50%, 0.20)', " rg\n"],
+            'lab' => ['lab(54.29% -19.04 38.25)', " scn\n"],
+            'lab alpha' => ['lab(54.29% -19.04 38.25 / 0.35)', " scn\n"],
+            'cmyk' => ['cmyk(67, 33, 0, 25)', " k\n"],
+        ];
+
+        foreach ($cases as $label => [$color, $operator]) {
+            $pdfColor = $obj->color->getPdfColor($color);
+            $this->assertTrue($pdfColor !== '', 'Expected non-empty PDF color output for case: ' . $label);
+            $this->assertStringContainsString($operator, $pdfColor, 'Unexpected PDF operator for case: ' . $label);
+            if ($label === 'lab' || $label === 'lab alpha') {
+                $this->assertStringContainsString('/CS', $pdfColor);
+            }
+        }
+    }
+
+    /** @throws \Throwable */
     public function testSetSignatureSetsDefaultPrivkeyAndSignFlag(): void
     {
         $obj = $this->getTestObject();

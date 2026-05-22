@@ -39,6 +39,13 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
     protected bool $forceDeviceCmyk = false;
 
     /**
+     * Cache normalized spot keys for Lab process colors.
+     *
+     * @var array<string, string>
+     */
+    protected array $labSpotKeys = [];
+
+    /**
      * Enable or disable DeviceCMYK forcing for process colors.
      */
     public function setForceDeviceCmyk(bool $enabled): void
@@ -63,6 +70,11 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
     public function getPdfColor(string $color, bool $stroke = false, float $tint = 1): string
     {
         if (!$this->forceDeviceCmyk) {
+            $labColor = $this->getLabProcessColor($color);
+            if ($labColor instanceof \Com\Tecnick\Color\Model\Lab) {
+                return $this->getPdfLabProcessColor($labColor, $stroke);
+            }
+
             return parent::getPdfColor($color, $stroke, $tint);
         }
 
@@ -87,5 +99,58 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
 
         $cmyk = new \Com\Tecnick\Color\Model\Cmyk($model->toCmykArray());
         return $cmyk->getPdfColor($stroke);
+    }
+
+    /**
+     * Return a Lab model for a CSS Lab process color, if any.
+     */
+    protected function getLabProcessColor(string $color): ?\Com\Tecnick\Color\Model\Lab
+    {
+        $model = $this->tryGetColorObj($color);
+
+        if (!$model instanceof \Com\Tecnick\Color\Model) {
+            return null;
+        }
+
+        if ($model->getType() !== 'LAB') {
+            return null;
+        }
+
+        return new \Com\Tecnick\Color\Model\Lab($model->toLabArray());
+    }
+
+    /**
+     * Emit PDF color command for a Lab process color using a Separation/Lab resource.
+     */
+    protected function getPdfLabProcessColor(\Com\Tecnick\Color\Model\Lab $labColor, bool $stroke): string
+    {
+        $lab = $labColor->toLabArray();
+        $cacheKey = \sprintf('%F|%F|%F', $lab['lstar'] ?? 0.0, $lab['astar'] ?? 0.0, $lab['bstar'] ?? 0.0);
+        $spotKey = $this->labSpotKeys[$cacheKey] ?? '';
+
+        if ($spotKey === '') {
+            $spotName = 'LAB_' . \substr(\sha1($cacheKey), 0, 16);
+            $spotKey = $this->addSpotLabColor(
+                $spotName,
+                $lab['lstar'] ?? 0.0,
+                $lab['astar'] ?? 0.0,
+                $lab['bstar'] ?? 0.0,
+            );
+            $this->labSpotKeys[$cacheKey] = $spotKey;
+        }
+
+        try {
+            $spot = $this->getSpotColor($spotKey);
+        } catch (\Com\Tecnick\Color\Exception $colorException) {
+            unset($colorException);
+            return $labColor->getPdfColor($stroke);
+        }
+
+        $mode = 'cs 1.000000 scn';
+        if ($stroke) {
+            $mode = \strtoupper($mode);
+        }
+
+        return \sprintf('/CS%d %s' . "\n", $spot['i'], $mode);
     }
 }

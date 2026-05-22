@@ -997,7 +997,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             $this->page->addContent($fontOut, $pid);
 
             if ($bmrkColor !== '') {
-                $col = $this->color->getPdfColor($bmrkColor);
+                $col = $this->color->getPdfFillColor($bmrkColor);
                 $this->page->addContent($col, $pid);
             }
 

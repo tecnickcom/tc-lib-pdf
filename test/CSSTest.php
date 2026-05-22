@@ -160,7 +160,7 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $out['lineWidth']);
         $this->assertSame(3, $out['dashPhase']);
         $this->assertIsString($out['lineColor']);
-        $this->assertStringContainsString('rgba(', $out['lineColor']);
+        $this->assertStringContainsString('rgb(', $out['lineColor']);
     }
 
     /** @throws \Throwable */
@@ -173,14 +173,14 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $two['lineWidth']);
         $this->assertIsString($two['lineColor']);
         $twoLineColor = $two['lineColor'];
-        $this->assertStringContainsString('rgba(', $twoLineColor);
+        $this->assertStringContainsString('rgb(', $twoLineColor);
 
         $one = $obj->exposeGetCSSBorderStyle('solid');
         $this->assertSame(0, $one['dashPhase']);
         $this->assertGreaterThan(0.0, $one['lineWidth']);
         $this->assertIsString($one['lineColor']);
         $oneLineColor = $one['lineColor'];
-        $this->assertStringContainsString('rgba(', $oneLineColor);
+        $this->assertStringContainsString('rgb(', $oneLineColor);
 
         $none = $obj->exposeGetCSSBorderStyle('none');
         $this->assertSame(0, $none['lineWidth']);
@@ -199,7 +199,7 @@ class CSSTest extends TestUtil
         $this->assertGreaterThan(0.0, $importantOnly['lineWidth']);
         $this->assertIsString($importantOnly['lineColor']);
         $lineColor = $importantOnly['lineColor'];
-        $this->assertStringContainsString('rgba(', $lineColor);
+        $this->assertStringContainsString('rgb(', $lineColor);
     }
 
     /** @throws \Throwable */
@@ -626,7 +626,7 @@ class CSSTest extends TestUtil
         $out = $obj->exposeGetCSSColor('#ff0000');
 
         $this->assertNotSame('', $out);
-        $this->assertStringContainsString('rgba(', $out);
+        $this->assertStringContainsString('rgb(', $out);
     }
 
     /** @throws \Throwable */

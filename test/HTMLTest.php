@@ -779,7 +779,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('ltr', $dom[1]['dir']);
         $this->assertFalse($dom[1]['hide']);
         $this->assertSame('L', $dom[1]['align']);
-        $this->assertSame('rgba(0%,0%,0%,1)', $dom[1]['fgcolor']);
+        $this->assertSame('rgb(0%,0%,0%)', $dom[1]['fgcolor']);
         $this->assertSame($dom[0]['line-height'], $dom[1]['line-height']);
         $this->assertSame('separate', $dom[1]['border-collapse']);
         $this->assertSame('outside', $dom[1]['list-style-position']);
@@ -829,7 +829,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('ltr', $dom[1]['dir']);
         $this->assertFalse($dom[1]['hide']);
         $this->assertSame('L', $dom[1]['align']);
-        $this->assertSame('rgba(0%,0%,100%,1)', $dom[1]['fgcolor']);
+        $this->assertSame('rgb(0%,0%,100%)', $dom[1]['fgcolor']);
         $this->assertSame($dom[0]['line-height'], $dom[1]['line-height']);
         $this->assertSame('separate', $dom[1]['border-collapse']);
         $this->assertSame('outside', $dom[1]['list-style-position']);
@@ -2743,7 +2743,7 @@ class HTMLTest extends TestUtil
         assert(isset($dom[1]), "\$dom[1] must be set");
         $this->assertNotSame('', $dom[1]['bgcolor']);
         $this->assertIsString($dom[1]['bgcolor']);
-        $this->assertStringContainsString('rgba(', $dom[1]['bgcolor']);
+        $this->assertStringContainsString('rgb(', $dom[1]['bgcolor']);
         $this->assertSame($dom[4]['bgcolor'], $dom[2]['bgcolor']);
         $this->assertSame('', $dom[3]['bgcolor']);
     }
@@ -2851,9 +2851,9 @@ class HTMLTest extends TestUtil
         assert(isset($dom[1]), "\$dom[1] must be set");
         $this->assertTrue($dom[1]['hide']);
         $this->assertSame('rtl', $dom[1]['dir']);
-        $this->assertStringContainsString('rgba(', $dom[1]['fgcolor']);
+        $this->assertStringContainsString('rgb(', $dom[1]['fgcolor']);
         $this->assertNotSame('', $dom[1]['bgcolor']);
-        $this->assertStringContainsString('rgba(', $dom[1]['strokecolor']);
+        $this->assertStringContainsString('rgb(', $dom[1]['strokecolor']);
         $this->assertGreaterThan(0.0, $dom[1]['width']);
         $this->assertGreaterThan(0.0, $dom[1]['height']);
         $this->assertSame('C', $dom[1]['align']);
@@ -7180,8 +7180,8 @@ class HTMLTest extends TestUtil
             $this->fail('Expected parsed DOM nodes at keys 1, 2 and 3.');
         }
 
-        $this->assertSame('rgba(0%,0%,100%,1)', $dom[1]['bgcolor']);
-        $this->assertSame('rgba(100%,0%,0%,1)', $dom[2]['bgcolor']);
+        $this->assertSame('rgb(0%,0%,100%)', $dom[1]['bgcolor']);
+        $this->assertSame('rgb(100%,0%,0%)', $dom[2]['bgcolor']);
         $this->assertSame('#00ff00', $dom[3]['bgcolor']);
     }
 
@@ -13534,9 +13534,9 @@ class HTMLTest extends TestUtil
             }
         }
 
-        $this->assertSame('rgba(4%,48%,4%,1)', $firstTextColor);
+        $this->assertSame('rgb(4%,48%,4%)', $firstTextColor);
         $this->assertSame('black', $middleTextColor);
-        $this->assertSame('rgba(67%,13%,13%,1)', $lastTextColor);
+        $this->assertSame('rgb(67%,13%,13%)', $lastTextColor);
     }
 
     /**

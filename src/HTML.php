@@ -8358,7 +8358,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (isset($markerStyles['color']) && \is_string($markerStyles['color'])) {
             $color = \trim($markerStyles['color']);
             if ($color !== '') {
-                $out .= $this->color->getPdfColor($color);
+                $out .= $this->color->getPdfFillColor($color);
             }
         }
 
@@ -8428,7 +8428,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $fillColor = $markerState['fillColor'];
         }
 
-        $out = $this->color->getPdfColor($fillColor);
+        $out = $this->color->getPdfFillColor($fillColor);
         if (
             isset($markerState['font'])
             && \is_array($markerState['font'])
@@ -8648,7 +8648,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $color = $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'];
         $fontout = isset($font['out']) && \is_string($font['out']) ? $font['out'] : '';
 
-        return $fontout . $this->color->getPdfColor($color);
+        return $fontout . $this->color->getPdfFillColor($color);
     }
 
     /**
