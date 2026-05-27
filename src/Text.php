@@ -1258,77 +1258,84 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $target_size = $current_size * \min($ratio_w, $ratio_h);
         $target_size = \max(self::TEXTCELL_MIN_FONTSIZE, \min($current_size, $target_size));
 
-        $low = self::TEXTCELL_MIN_FONTSIZE;
-        $high = $current_size;
-        $best_size = $target_size;
-        $best_dim = $basedim;
-        $best_layout = $base;
+        $probe = $this->probeTextCellFontSizeFit(
+            $ordarr,
+            $target_size,
+            $maxWidth,
+            $maxHeight,
+            $offsetPoints,
+            $lineSpacePoints,
+        );
+        $best_size = $probe['size'];
+        $best_dim = $probe['dim'];
+        $best_layout = $probe['layout'];
 
-        $this->font->cloneFont($this->pon, $curfont['idx'], null, $best_size);
-        try {
-            $probe_dim = $this->font->getOrdArrDims($ordarr);
-            $probe_layout = $this->getTextCellLayout(
-                $ordarr,
-                $probe_dim,
-                $maxWidth,
-                $maxWidth,
-                1.0,
-                $offsetPoints,
-                $lineSpacePoints,
-            );
-        } finally {
-            $this->font->popLastFont();
-        }
-
-        if (!$this->textCellLayoutOverflows($probe_layout, $maxWidth, $maxHeight)) {
-            $best_dim = $probe_dim;
-            $best_layout = $probe_layout;
+        if ($probe['fits']) {
             $low = $best_size;
+            $high = $current_size;
 
             for ($iter = 0; $iter < 12; ++$iter) {
                 $mid = ($low + $high) / 2.0;
-                $this->font->cloneFont($this->pon, $curfont['idx'], null, $mid);
-                try {
-                    $mid_dim = $this->font->getOrdArrDims($ordarr);
-                    $mid_layout = $this->getTextCellLayout(
-                        $ordarr,
-                        $mid_dim,
-                        $maxWidth,
-                        $maxWidth,
-                        1.0,
-                        $offsetPoints,
-                        $lineSpacePoints,
-                    );
-                } finally {
-                    $this->font->popLastFont();
-                }
+                $mid_eval = $this->probeTextCellFontSizeFit(
+                    $ordarr,
+                    $mid,
+                    $maxWidth,
+                    $maxHeight,
+                    $offsetPoints,
+                    $lineSpacePoints,
+                );
 
-                if ($this->textCellLayoutOverflows($mid_layout, $maxWidth, $maxHeight)) {
+                if (!$mid_eval['fits']) {
                     $high = $mid;
                     continue;
                 }
 
                 $low = $mid;
-                $best_size = $mid;
-                $best_dim = $mid_dim;
-                $best_layout = $mid_layout;
+                $best_size = $mid_eval['size'];
+                $best_dim = $mid_eval['dim'];
+                $best_layout = $mid_eval['layout'];
             }
         } else {
-            $best_size = self::TEXTCELL_MIN_FONTSIZE;
-            $this->font->cloneFont($this->pon, $curfont['idx'], null, $best_size);
-            try {
-                $best_dim = $this->font->getOrdArrDims($ordarr);
-                $best_layout = $this->getTextCellLayout(
-                    $ordarr,
-                    $best_dim,
-                    $maxWidth,
-                    $maxWidth,
-                    1.0,
-                    $offsetPoints,
-                    $lineSpacePoints,
-                );
-            } finally {
-                $this->font->popLastFont();
+            $min_eval = $this->probeTextCellFontSizeFit(
+                $ordarr,
+                self::TEXTCELL_MIN_FONTSIZE,
+                $maxWidth,
+                $maxHeight,
+                $offsetPoints,
+                $lineSpacePoints,
+            );
+            if (!$min_eval['fits']) {
+                $best_size = $min_eval['size'];
+                $best_dim = $min_eval['dim'];
+                $best_layout = $min_eval['layout'];
+            } else {
+                $low = $min_eval['size'];
+                $high = $best_size;
+                $best_size = $min_eval['size'];
+                $best_dim = $min_eval['dim'];
+                $best_layout = $min_eval['layout'];
+
+                for ($iter = 0; $iter < 12; ++$iter) {
+                    $mid = ($low + $high) / 2.0;
+                    $mid_eval = $this->probeTextCellFontSizeFit(
+                        $ordarr,
+                        $mid,
+                        $maxWidth,
+                        $maxHeight,
+                        $offsetPoints,
+                        $lineSpacePoints,
+                    );
+
+                    if (!$mid_eval['fits']) {
+                        $high = $mid;
+                        continue;
+                    }
+
+                    $low = $mid;
+                    $best_size = $mid_eval['size'];
+                    $best_dim = $mid_eval['dim'];
+                    $best_layout = $mid_eval['layout'];
+                }
             }
         }
 
@@ -1348,6 +1355,48 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             'fontout' => $applied['out'],
             'dim' => $best_dim,
             'layout' => $best_layout,
+        ];
+    }
+
+    /**
+     * Probe a candidate font size and return the resulting layout.
+     *
+     * @param array<int, int> $ordarr
+     *
+     * @return array{size: float, dim: TTextDims, layout: array{lines: array<int, TextLinePos>, maxwidth: float, txtheight: float}, fits: bool}
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function probeTextCellFontSizeFit(
+        array $ordarr,
+        float $size,
+        float $maxWidth,
+        float $maxHeight,
+        float $offsetPoints,
+        float $lineSpacePoints,
+    ): array {
+        $curfont = $this->font->getCurrentFont();
+        $this->font->cloneFont($this->pon, $curfont['idx'], null, $size);
+        try {
+            $dim = $this->font->getOrdArrDims($ordarr);
+            $layout = $this->getTextCellLayout(
+                $ordarr,
+                $dim,
+                $maxWidth,
+                $maxWidth,
+                1.0,
+                $offsetPoints,
+                $lineSpacePoints,
+            );
+        } finally {
+            $this->font->popLastFont();
+        }
+
+        return [
+            'size' => $size,
+            'dim' => $dim,
+            'layout' => $layout,
+            'fits' => !$this->textCellLayoutOverflows($layout, $maxWidth, $maxHeight),
         ];
     }
 
@@ -2755,6 +2804,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     $txtarr[] = $ord;
                     break;
             }
+        }
+
+        if ($word !== []) {
+            $txtarr = \array_merge($txtarr, $this->hyphenateWordOrdArr($phyphens, $word));
         }
 
         return $txtarr;

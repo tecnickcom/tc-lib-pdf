@@ -46,6 +46,21 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getTextRenderingMode($fill, $stroke, $clip);
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-return array{fontchanged: bool, fontout: string, dim: TTextDims, layout: array{lines: array<int, TextLinePos>, maxwidth: float, txtheight: float}}
+     * @throws \Throwable
+     */
+    public function exposeFitTextCellByFontSize(
+        array $ordarr,
+        float $maxWidth,
+        float $maxHeight,
+        float $offsetPoints,
+        float $lineSpacePoints,
+    ): array {
+        return $this->fitTextCellByFontSize($ordarr, $maxWidth, $maxHeight, $offsetPoints, $lineSpacePoints);
+    }
+
     public function exposeGetOutTextStateOperatorTc(string $raw, int|float $value = 0): string
     {
         return $this->getOutTextStateOperatorTc($raw, $value);

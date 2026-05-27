@@ -432,6 +432,51 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testGetTextCellFitFontSizeUsesHeuristicSearchForHyphenatedLongWord(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+        $obj->setTexHyphenPatterns([
+            'a' => 'a1',
+            'b' => 'b1',
+            'c' => 'c1',
+            'd' => 'd1',
+            'e' => 'e1',
+            'f' => 'f1',
+            'g' => 'g1',
+            'h' => 'h1',
+            'i' => 'i1',
+            'j' => 'j1',
+            'k' => 'k1',
+            'l' => 'l1',
+            'm' => 'm1',
+            'n' => 'n1',
+            'o' => 'o1',
+            'p' => 'p1',
+            'q' => 'q1',
+            'r' => 'r1',
+            's' => 's1',
+            't' => 't1',
+            'u' => 'u1',
+            'v' => 'v1',
+            'w' => 'w1',
+            'x' => 'x1',
+            'y' => 'y1',
+            'z' => 'z1',
+        ]);
+
+        [, $ordarr] = $obj->exposePrepareText(
+            'Loremipsumdolorsitametconsecteturadipiscingelitseddoeiusmodtemporincididuntutlaboreetdoloremagnaaliqua.',
+        );
+        $fit = $obj->exposeFitTextCellByFontSize($ordarr, 160.0, 5.0, 0.0, 0.0);
+
+        $this->assertTrue($fit['fontchanged']);
+        $this->assertGreaterThan(150.0, $fit['layout']['maxwidth']);
+        $this->assertStringContainsString('4.000000 Tf', $fit['fontout']);
+    }
+
+    /** @throws \Throwable */
     public function testGetTextCellFitTruncateKeepsTextInsideCellHeight(): void
     {
         $obj = $this->getTestObject();
@@ -1142,11 +1187,14 @@ class TextTest extends TestUtil
         $patterns = ['hyphen' => 'hy4phen'];
         $word = $obj->exposeStrToOrdArr('hyphen');
         $text = $obj->exposeStrToOrdArr('hyphen,test');
+        $trailingWordText = $obj->exposeStrToOrdArr('hyphen,word');
         $hypWord = $obj->exposeHyphenateWordOrdArr($patterns, $word);
         $hypText = $obj->exposeHyphenateTextOrdArr($patterns, $text);
+        $hypTrailingWordText = $obj->exposeHyphenateTextOrdArr($patterns, $trailingWordText);
 
         $this->assertNotEmpty($hypWord);
         $this->assertNotEmpty($hypText);
+        $this->assertSame($obj->exposeStrToOrdArr('word'), \array_slice($hypTrailingWordText, -4));
         $this->assertSame($word, $obj->exposeHyphenateWordOrdArr([], $word));
     }
 
