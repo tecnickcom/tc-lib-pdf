@@ -351,62 +351,75 @@ class ResourceCloner
      */
     private function serializeValue(mixed $raw, SourceDocument $src, ObjectMap $map): string
     {
-        if (!\is_array($raw)) {
-            return \is_scalar($raw) ? (string) $raw : '';
+        return match (true) {
+            !\is_array($raw) => \is_scalar($raw) ? (string) $raw : '',
+            \is_string($raw[0] ?? null) && $raw[0] === 'objref' && \is_string($raw[1] ?? null) => $this->enqueueObject(
+                SourceDocument::refToKey($raw[1]),
+                $src,
+                $map,
+            ) . ' 0 R',
+            \is_string($raw[0] ?? null) && $raw[0] === '<<' && \is_array($raw[1] ?? null)
+                => $this->serializeNestedDictValue($raw[1], $src, $map),
+            \is_string($raw[0] ?? null) && $raw[0] === '[' && \is_array($raw[1] ?? null) => $this->serializeArrayValue(
+                $raw[1],
+                $src,
+                $map,
+            ),
+            \is_string($raw[0] ?? null) && $raw[0] === '/' => '/' . (\is_string($raw[1] ?? null) ? $raw[1] : ''),
+            \is_string($raw[0] ?? null) && ($raw[0] === '(' || $raw[0] === 'string') => '('
+                . \addslashes(\is_string($raw[1] ?? null) ? $raw[1] : '')
+                . ')',
+            \is_string($raw[0] ?? null) && ($raw[0] === '<' || $raw[0] === 'hex') => '<'
+                . (\is_string($raw[1] ?? null) ? $raw[1] : '')
+                . '>',
+            \is_scalar($raw[1] ?? null) => (string) $raw[1],
+            \is_string($raw[0] ?? null) && $raw[0] !== '' => $raw[0],
+            default => 'null',
+        };
+    }
+
+    /**
+     * Serialize a nested dictionary token as a PDF dictionary string.
+     *
+     * @param array<array-key, mixed> $raw Nested dictionary token payload.
+     * @param SourceDocument    $src Source document.
+     * @param ObjectMap         $map Object map.
+     *
+     * @return string Serialized PDF dictionary.
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
+     */
+    private function serializeNestedDictValue(array $raw, SourceDocument $src, ObjectMap $map): string
+    {
+        /** @var array<string, string> $unused */
+        $unused = [];
+
+        return '<<' . $this->serializeDictArray(\array_values($raw), $src, $map, $unused) . '>>';
+    }
+
+    /**
+     * Serialize a nested array token as a PDF array string.
+     *
+     * @param array<array-key, mixed> $raw Nested array token payload.
+     * @param SourceDocument          $src Source document.
+     * @param ObjectMap               $map Object map.
+     *
+     * @return string Serialized PDF array.
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
+     */
+    private function serializeArrayValue(array $raw, SourceDocument $src, ObjectMap $map): string
+    {
+        $parts = [];
+        $values = \array_values($raw);
+        $itemCount = \count($values);
+        for ($itemIdx = 0; $itemIdx < $itemCount; ++$itemIdx) {
+            $parts[] = $this->serializeValue($values[$itemIdx] ?? null, $src, $map);
         }
 
-        $type = \is_string($raw[0] ?? null) ? $raw[0] : '';
-
-        if ($type === 'objref' && \is_string($raw[1] ?? null)) {
-            $destNum = $this->enqueueObject(SourceDocument::refToKey($raw[1]), $src, $map);
-            return $destNum . ' 0 R';
-        }
-
-        if ($type === '<<' && \is_array($raw[1] ?? null)) {
-            /** @var array<string, string> $unused */
-            $unused = [];
-            $inner = $this->serializeDictArray(\array_values($raw[1]), $src, $map, $unused);
-            return '<<' . $inner . '>>';
-        }
-
-        if ($type === '[' && \is_array($raw[1] ?? null)) {
-            $parts = [];
-            $itemCount = \count($raw[1]);
-            for ($itemIdx = 0; $itemIdx < $itemCount; ++$itemIdx) {
-                $parts[] = $this->serializeValue($raw[1][$itemIdx] ?? null, $src, $map);
-            }
-            return '[' . \implode(' ', $parts) . ']';
-        }
-
-        if ($type === '/') {
-            return '/' . (\is_string($raw[1] ?? null) ? $raw[1] : '');
-        }
-
-        // Literal string: tc-lib-pdf-parser tags this as `(` (the open-paren byte
-        // itself), not `'string'`. The original `'string'` check never matched any
-        // real parser output, so literal-string values fell through to the bare
-        // scalar path below and were emitted without their surrounding parens —
-        // producing malformed PDF dictionaries (e.g. `/FontFamily Futura PT Book`
-        // instead of `/FontFamily (Futura PT Book)`). The legacy `'string'` branch
-        // is retained for any internal caller that supplies the older tag.
-        if ($type === '(' || $type === 'string') {
-            return '(' . \addslashes(\is_string($raw[1] ?? null) ? $raw[1] : '') . ')';
-        }
-
-        // Hex string: parser tags as `<`, not `'hex'` — same root cause as above.
-        if ($type === '<' || $type === 'hex') {
-            return '<' . (\is_string($raw[1] ?? null) ? $raw[1] : '') . '>';
-        }
-
-        if (\is_scalar($raw[1] ?? null)) {
-            return (string) $raw[1];
-        }
-
-        if ($type !== '') {
-            return $type;
-        }
-
-        return 'null';
+        return '[' . \implode(' ', $parts) . ']';
     }
 
     /**
