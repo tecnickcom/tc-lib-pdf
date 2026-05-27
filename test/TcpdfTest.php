@@ -888,6 +888,59 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testAddPagePartialMarginsKeepBottomFooterMarginsWhenCtCbMissing(): void
+    {
+        $obj = $this->getTestObject();
+
+        $margin = [
+            'PT' => 7,
+            'PR' => 7,
+            'PB' => 7,
+            'PL' => 7,
+            'HB' => 15,
+            'FT' => 15,
+        ];
+
+        $landscape = $obj->addPage([
+            'orientation' => 'L',
+            'format' => 'A4',
+            'margin' => $margin,
+        ]);
+        /** @var array{margin: array{CB: float, CT: float, FT: float, HB: float, PB: float}, FooterHeight: float, region: array<int, array{RB: float}>} $landscape */
+        $this->bcAssertEqualsWithDelta(15.0, $landscape['margin']['CB']);
+        $this->bcAssertEqualsWithDelta(15.0, $landscape['margin']['CT']);
+        $this->bcAssertEqualsWithDelta(15.0, $landscape['margin']['FT']);
+        $this->bcAssertEqualsWithDelta(15.0, $landscape['margin']['HB']);
+        $this->bcAssertEqualsWithDelta(7.0, $landscape['margin']['PB']);
+        $this->bcAssertEqualsWithDelta(8.0, $landscape['FooterHeight']);
+        $landscapeRegion0 = $landscape['region'][0] ?? null;
+        if (!\is_array($landscapeRegion0)) {
+            $this->fail('Unexpected addPage() region payload for landscape page.');
+        }
+
+        $this->bcAssertEqualsWithDelta(15.0, $landscapeRegion0['RB']);
+
+        $portrait = $obj->addPage([
+            'orientation' => 'P',
+            'format' => 'A4',
+            'margin' => $margin,
+        ]);
+        /** @var array{margin: array{CB: float, CT: float, FT: float, HB: float, PB: float}, FooterHeight: float, region: array<int, array{RB: float}>} $portrait */
+        $this->bcAssertEqualsWithDelta(15.0, $portrait['margin']['CB']);
+        $this->bcAssertEqualsWithDelta(15.0, $portrait['margin']['CT']);
+        $this->bcAssertEqualsWithDelta(15.0, $portrait['margin']['FT']);
+        $this->bcAssertEqualsWithDelta(15.0, $portrait['margin']['HB']);
+        $this->bcAssertEqualsWithDelta(7.0, $portrait['margin']['PB']);
+        $this->bcAssertEqualsWithDelta(8.0, $portrait['FooterHeight']);
+        $portraitRegion0 = $portrait['region'][0] ?? null;
+        if (!\is_array($portraitRegion0)) {
+            $this->fail('Unexpected addPage() region payload for portrait page.');
+        }
+
+        $this->bcAssertEqualsWithDelta(15.0, $portraitRegion0['RB']);
+    }
+
+    /** @throws \Throwable */
     public function testPdfColorGetterAndInvalidColorFallback(): void
     {
         $default = $this->getTestObject();
