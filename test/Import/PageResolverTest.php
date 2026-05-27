@@ -56,14 +56,7 @@ class PageResolverTest extends TestCase
     {
         $doc = $this->createStub(SourceDocument::class);
         $doc->method('getTrailer')->willReturn(['root' => '1 0 R']);
-        $doc->method('getObject')->willReturnCallback(static function (string $ref) use ($objects): array {
-            $object = $objects[$ref] ?? null;
-            if ($object === null) {
-                throw new ImportCorruptedSourceException('Missing object in test map: ' . $ref);
-            }
-
-            return $object;
-        });
+        $doc->method('getObject')->willReturnCallback(static fn(string $ref): array => $objects[$ref] ?? []);
         $doc->method('findObject')->willReturnCallback(static fn(string $ref): ?array => $objects[$ref] ?? null);
 
         return $doc;

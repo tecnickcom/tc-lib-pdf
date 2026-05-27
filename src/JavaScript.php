@@ -1467,13 +1467,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 }
                 if (isset($action['Fields']) && \is_array($action['Fields']) && $action['Fields'] !== []) {
                     $opt['a'] .= ' /Fields [';
-                    $opt['a'] .= \array_reduce(
-                        $action['Fields'],
-                        fn(string $carry, mixed $field): string => !\is_string($field)
-                            ? $carry
-                            : $carry . ' ' . $this->getOutTextString($field, $oid),
-                        '',
-                    );
+                    /** @var array<int, string> $fields */
+                    $fields = \array_values(\array_filter($action['Fields'], 'is_string'));
+                    foreach ($fields as $field) {
+                        $opt['a'] .= ' ' . $this->getOutTextString($field, $oid);
+                    }
                     $opt['a'] .= ']';
                 }
                 if (isset($action['Flags'])) {

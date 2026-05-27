@@ -1545,23 +1545,50 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $parentTreeMap = [];
         $annotParentMap = [];
         $structElemsOut = '';
-        $buildStructElem = function (int $entryIdx, int $parentOid) use (
-            &$buildStructElem,
-            &$elemOids,
-            &$parentTreeMap,
-            &$annotParentMap,
-            &$pidToOid,
-            &$structElemsOut,
-            $structLog,
-        ): void {
+        $entryParentOid = [];
+        $entryOrder = [];
+        $entryStack = [];
+        $parentStack = [];
+        foreach (\array_reverse($rootEntryIdx) as $rootIdx) {
+            $entryStack[] = $rootIdx;
+            $parentStack[] = $documentStructElemOid;
+        }
+
+        while ($entryStack !== []) {
+            $entryIdx = \array_pop($entryStack);
+            $parentOid = \array_pop($parentStack);
+            if (isset($entryParentOid[$entryIdx])) {
+                continue;
+            }
+
+            $entryParentOid[$entryIdx] = $parentOid;
+            $entryOrder[] = $entryIdx;
             $entry = $structLog[$entryIdx];
+            $entryOid = $elemOids[$entryIdx] ?? 0;
+            $childElemIdx = [];
+            foreach ($entry['kids'] as $kid) {
+                if ($kid['type'] !== 'elem') {
+                    continue;
+                }
+
+                $childElemIdx[] = $kid['id'];
+            }
+
+            foreach (\array_reverse($childElemIdx) as $kidIdx) {
+                $entryStack[] = $kidIdx;
+                $parentStack[] = $entryOid;
+            }
+        }
+
+        foreach ($entryOrder as $entryIdx) {
+            $entry = $structLog[$entryIdx];
+            $entry += ['annots' => [], 'alt' => '', 'attr' => []];
             $entryPageOid = $pidToOid[$entry['pid']] ?? 0;
             $kidsOut = '';
             foreach ($entry['kids'] as $kid) {
                 if ($kid['type'] === 'elem') {
                     $childIdx = $kid['id'];
                     $kidsOut .= ' ' . ($elemOids[$childIdx] ?? 0) . ' 0 R';
-                    $buildStructElem($childIdx, $elemOids[$entryIdx] ?? 0);
                     continue;
                 }
 
@@ -1573,7 +1600,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $kidsOut .= ' << /Type /MCR /Pg ' . $entryPageOid . ' 0 R /MCID ' . $mcid . ' >>';
             }
 
-            if (isset($entry['annots']) && $entry['annots'] !== []) {
+            if ($entry['annots'] !== []) {
                 foreach ($entry['annots'] as $annotOid) {
                     if ($annotOid <= 0) {
                         continue;
@@ -1585,13 +1612,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
 
             $altOut = '';
-            if (isset($entry['alt']) && $entry['alt'] !== '') {
+            if ($entry['alt'] !== '') {
                 $altOut = ' /Alt ' . $this->getOutTextString($entry['alt'], $elemOids[$entryIdx] ?? 0, true);
             }
 
             $attrOut = '';
             $idOut = '';
-            if (isset($entry['attr']) && $entry['attr'] !== []) {
+            if ($entry['attr'] !== []) {
                 $attrPairs = '';
                 foreach ($entry['attr'] as $akey => $aval) {
                     if ($akey === '' || $aval === '') {
@@ -1632,6 +1659,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
             }
 
+            $parentOid = $entryParentOid[$entryIdx] ?? $documentStructElemOid;
             $structElemsOut .=
                 ($elemOids[$entryIdx] ?? 0)
                 . ' 0 obj'
@@ -1653,10 +1681,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . "\n"
                 . 'endobj'
                 . "\n";
-        };
-
-        foreach ($rootEntryIdx as $entryIdx) {
-            $buildStructElem($entryIdx, $documentStructElemOid);
         }
 
         $parentNums = '';

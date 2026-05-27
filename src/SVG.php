@@ -2113,10 +2113,12 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 // unit suffixes (px, pt, mm, %, …) produce correct dash lengths.
                 $dashRef = $ref;
                 $dashRef['parent'] = 0.0;
-                $strokestyle['dashArray'] = \array_map(
-                    fn(string $tok): int => (int) \round($this->svgUnitToUnit(\trim($tok), -1, $dashRef)),
-                    \explode(' ', $svgstyle['stroke-dasharray'], 100),
-                );
+                $dashArray = [];
+                foreach (\explode(' ', $svgstyle['stroke-dasharray'], 100) as $tok) {
+                    $dashArray[] = (int) \round($this->svgUnitToUnit(\trim($tok), -1, $dashRef));
+                }
+
+                $strokestyle['dashArray'] = $dashArray;
             }
             // $strokestyle['dashPhase'] = 0,
             $strokestyle['lineColor'] = $svgstyle['stroke'];
@@ -7998,22 +8000,28 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             unset($xmlParser);
             $attr = $this->getSVGPrescanAttributes($attr);
             $name = $this->removeTagNamespace($name);
-            switch ($name) {
-                case 'linearGradient':
-                    $this->parseSVGTagSTARTlinearGradient($soid, $attr);
-                    $gradientDepth = 1;
-                    break;
-                case 'radialGradient':
-                    $this->parseSVGTagSTARTradialGradient($soid, $attr);
-                    $gradientDepth = 1;
-                    break;
-                case 'stop':
-                    if ($gradientDepth === 0) {
+            try {
+                switch ($name) {
+                    case 'linearGradient':
+                        $this->parseSVGTagSTARTlinearGradient($soid, $attr);
+                        $gradientDepth = 1;
                         break;
-                    }
-                    $svgstyle = $this->getSVGPrescanStopStyle($attr);
-                    $this->parseSVGTagSTARTstop($soid, $attr, $svgstyle);
-                    break;
+                    case 'radialGradient':
+                        $this->parseSVGTagSTARTradialGradient($soid, $attr);
+                        $gradientDepth = 1;
+                        break;
+                    case 'stop':
+                        if ($gradientDepth === 0) {
+                            break;
+                        }
+                        $svgstyle = $this->getSVGPrescanStopStyle($attr);
+                        $this->parseSVGTagSTARTstop($soid, $attr, $svgstyle);
+                        break;
+                }
+            } catch (\Com\Tecnick\Color\Exception|PdfException $exc) {
+                // Prescan is only an optimization for forward gradient references.
+                // If it fails, keep parsing the SVG with the regular parser.
+                unset($exc);
             }
         };
         $endHandler = function (\XMLParser $xmlParser, string $name) use (&$gradientDepth): void {

@@ -2352,45 +2352,80 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * @return array{count:int, markerPage:int}
+     *
+     * @throws \Throwable
+     */
+    private function renderNestedBreakBeforeScenario(string $breakSide, string $marker): array
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<div>INTRO</div>'
+            . '<div><section><p style="break-before:'
+            . $breakSide
+            . '">'
+            . $marker
+            . '</p></section></div>'
+            . '<div>OUTRO</div>';
+
+        $obj->addHTMLCell($html, 0, 0, 60, 0);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $pages = $page->getPages();
+        $markerPage = 0;
+        foreach ($pages as $idx => $pdata) {
+            $content = \implode("\n", $pdata['content']);
+            if (\strpos($content, $marker) !== false) {
+                $markerPage = $idx + 1;
+                break;
+            }
+        }
+
+        return [
+            'count' => \count($pages),
+            'markerPage' => $markerPage,
+        ];
+    }
+
+    /** @throws \Throwable */
+    private function measureWrappedLineHeightDelta(string $text, string $lineHeight): float
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeResetBBoxTrace();
+
+        $html = '<p style="line-height:' . $lineHeight . ';">' . $text . '</p>';
+        $obj->getHTMLCell($html, 20, 30, 20, 0);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        assert(isset($trace[0]), "\$trace[0] must be set");
+        $first = $trace[0];
+        $this->assertGreaterThan(0.0, $first['bbox_h']);
+
+        // getTextCell reports the bbox of the last visual line when wrapping;
+        // use vertical delta from input y to that last line to measure run height.
+        $deltaY = $first['bbox_y'] - $first['in_y'];
+        $this->assertGreaterThan(
+            $first['font_size'] + 0.1,
+            $deltaY,
+            'Expected wrapped text sample to span multiple lines.',
+        );
+
+        return $deltaY;
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetHTMLCellNestedBreakBeforeLeftRightConsistency(): void
     {
-        $render = function (string $breakSide, string $marker): array {
-            $obj = $this->getTestObject();
-            $this->initFontAndPage($obj);
-
-            $html =
-                '<div>INTRO</div>'
-                . '<div><section><p style="break-before:'
-                . $breakSide
-                . '">'
-                . $marker
-                . '</p></section></div>'
-                . '<div>OUTRO</div>';
-
-            $obj->addHTMLCell($html, 0, 0, 60, 0);
-
-            /** @var \Com\Tecnick\Pdf\Page\Page $page */
-            $page = $this->getObjectProperty($obj, 'page');
-            $pages = $page->getPages();
-            $markerPage = 0;
-            foreach ($pages as $idx => $pdata) {
-                $content = \implode("\n", $pdata['content']);
-                if (\strpos($content, $marker) !== false) {
-                    $markerPage = $idx + 1;
-                    break;
-                }
-            }
-
-            return [
-                'count' => \count($pages),
-                'markerPage' => $markerPage,
-            ];
-        };
-
-        $left = $render('left', 'LEFT-NESTED-MARK');
-        $right = $render('right', 'RIGHT-NESTED-MARK');
+        $left = $this->renderNestedBreakBeforeScenario('left', 'LEFT-NESTED-MARK');
+        $right = $this->renderNestedBreakBeforeScenario('right', 'RIGHT-NESTED-MARK');
 
         $this->assertGreaterThan(1, $left['count']);
         $this->assertGreaterThan(1, $right['count']);
@@ -5521,35 +5556,8 @@ class HTMLTest extends TestUtil
             'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa '
             . 'Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike November Oscar Papa';
 
-        $measureHeight = function (string $lineHeight) use ($text): float {
-            $obj = $this->getBBoxProbeTestObject();
-            $this->initFontAndPage($obj);
-            $obj->exposeResetBBoxTrace();
-
-            $html = '<p style="line-height:' . $lineHeight . ';">' . $text . '</p>';
-            $obj->getHTMLCell($html, 20, 30, 20, 0);
-
-            $trace = $obj->exposeGetBBoxTrace();
-            $this->assertNotSame([], $trace);
-
-            assert(isset($trace[0]), "\$trace[0] must be set");
-            $first = $trace[0];
-            $this->assertGreaterThan(0.0, $first['bbox_h']);
-
-            // getTextCell reports the bbox of the last visual line when wrapping;
-            // use vertical delta from input y to that last line to measure run height.
-            $deltaY = $first['bbox_y'] - $first['in_y'];
-            $this->assertGreaterThan(
-                $first['font_size'] + 0.1,
-                $deltaY,
-                'Expected wrapped text sample to span multiple lines.',
-            );
-
-            return $deltaY;
-        };
-
-        $height100 = $measureHeight('100%');
-        $height200 = $measureHeight('200%');
+        $height100 = $this->measureWrappedLineHeightDelta($text, '100%');
+        $height200 = $this->measureWrappedLineHeightDelta($text, '200%');
 
         $this->assertGreaterThan(
             $height100 + 1.0,

@@ -370,7 +370,11 @@ class ResourceCloner
         }
 
         if ($type === '[' && \is_array($raw[1] ?? null)) {
-            $parts = \array_map(fn($item) => $this->serializeValue($item, $src, $map), $raw[1]);
+            $parts = [];
+            $itemCount = \count($raw[1]);
+            for ($itemIdx = 0; $itemIdx < $itemCount; ++$itemIdx) {
+                $parts[] = $this->serializeValue($raw[1][$itemIdx] ?? null, $src, $map);
+            }
             return '[' . \implode(' ', $parts) . ']';
         }
 

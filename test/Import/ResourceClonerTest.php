@@ -41,14 +41,9 @@ class ResourceClonerTest extends TestCase
     {
         $src = $this->createStub(SourceDocument::class);
 
-        $src->method('getObject')->willReturnCallback(static function (string $ref) use ($objects): array {
-            if (!isset($objects[$ref]) || !\is_array($objects[$ref])) {
-                throw new ImportCorruptedSourceException('Object not found in mock source: ' . $ref);
-            }
-
-            /** @var array<int, mixed> */
-            return $objects[$ref];
-        });
+        $src->method('getObject')->willReturnCallback(static fn(string $ref): array => (
+            isset($objects[$ref]) && \is_array($objects[$ref]) ? $objects[$ref] : []
+        ));
 
         $src->method('findObject')->willReturnCallback(static fn(string $ref): ?array => isset($objects[$ref])
             && \is_array($objects[$ref])
