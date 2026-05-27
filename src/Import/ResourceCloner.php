@@ -378,11 +378,19 @@ class ResourceCloner
             return '/' . (\is_string($raw[1] ?? null) ? $raw[1] : '');
         }
 
-        if ($type === 'string') {
+        // Literal string: tc-lib-pdf-parser tags this as `(` (the open-paren byte
+        // itself), not `'string'`. The original `'string'` check never matched any
+        // real parser output, so literal-string values fell through to the bare
+        // scalar path below and were emitted without their surrounding parens —
+        // producing malformed PDF dictionaries (e.g. `/FontFamily Futura PT Book`
+        // instead of `/FontFamily (Futura PT Book)`). The legacy `'string'` branch
+        // is retained for any internal caller that supplies the older tag.
+        if ($type === '(' || $type === 'string') {
             return '(' . \addslashes(\is_string($raw[1] ?? null) ? $raw[1] : '') . ')';
         }
 
-        if ($type === 'hex') {
+        // Hex string: parser tags as `<`, not `'hex'` — same root cause as above.
+        if ($type === '<' || $type === 'hex') {
             return '<' . (\is_string($raw[1] ?? null) ? $raw[1] : '') . '>';
         }
 
