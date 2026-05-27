@@ -550,6 +550,61 @@ $pdf->addHTMLCell(html: $html_01, posx: 20, posy: 10, width: 150, height: 0, cel
 
 // ----------
 
+$pageVC = $pdf->addPage();
+
+$pdf->page->addContent($bfont6['out']);
+
+$html_vc1 = <<<HTML
+    <style>
+      .vc-box {
+        width: 150mm;
+        height: 90mm;
+        border: 0.6mm solid #003366;
+        background-color: #e9f2ff;
+      }
+      .vc-fill {
+        width: 100%;
+        height: 100%;
+      }
+      .vc-content {
+        vertical-align: middle;
+        text-align: center;
+        color: #002244;
+      }
+    </style>
+    <div class="vc-box">
+      <table class="vc-fill" border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td class="vc-content">
+            <h1>Vertically Centered Block</h1>
+            <p>This content is centered in the middle of the box.</p>
+            <p><b>HTML:</b> headings, paragraphs, and inline formatting.</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+    HTML;
+
+$pdf->addHTMLCell(html: $html_vc1, posx: 20, posy: 20);
+
+// ----------
+
+$html_vc2 = <<<HTML
+    <table border="1" cellpadding="0" cellspacing="0" style="width:150mm; height:100mm; background-color:blue; border-color:#003366;">
+      <tr>
+        <td style="height:100mm; vertical-align:middle; text-align:center; color:cmyk(100,0,0,0);">
+          <h1>Vertically Centered Block</h1>
+          <p>This content is centered in the middle of the box.</p>
+          <p><b>HTML:</b> headings, paragraphs, and inline formatting.</p>
+        </td>
+      </tr>
+    </table>
+    HTML;
+
+$pdf->addHTMLCell(html: $html_vc2, posx: 20, posy: 120, width: 150, height: 100);
+
+// ----------
+
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 

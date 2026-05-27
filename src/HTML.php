@@ -83,6 +83,8 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *     prevrowbottom: array<int, BorderStyle>,
  *     rowtop: float,
  *     rowheight: float,
+ *     minheight: float,
+ *     domkey: int,
  *     colindex: int,
  *     cells: array<int, THTMLTableCell>,
  *     occupied: array<int, int>,
@@ -10236,6 +10238,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineadvance = $hasinlinecontent
             ? \max($this->getCurrentHTMLLineAdvance($hrc, $key), \max(0.0, $linebottomctx - $tpy))
             : 0.0;
+        $minBlockHeight = 0.0;
+        if (isset($openelm['height']) && $openelm['height'] > 0.0) {
+            $paddingT = $openPadding['T'] ?? 0.0;
+            $minBlockHeight = $openelm['height'] + $paddingT + $paddingB;
+        }
+        $blockHeightExtra = 0.0;
 
         $out = '';
         $restoreOriginX = $hrc['cellctx']['originx'];
@@ -10261,6 +10269,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $blkBx = $blk['bx'] ?? $tpx;
                 $blkBuffer = $blk['buffer'] ?? '';
                 $blockHeight = $tpy + $lineadvance + $paddingB - $blkBy;
+                if ($minBlockHeight > 0.0 && $blockHeight < $minBlockHeight) {
+                    $blockHeightExtra = $minBlockHeight - $blockHeight;
+                    $blockHeight = $minBlockHeight;
+                }
                 if ($blkBw > 0.0 && $blockHeight > 0.0) {
                     $bstyles = $openkey >= 0 ? $this->getHTMLTableCellBorderStyles($hrc, $openkey) : [];
                     $fillstyle = $openkey >= 0 ? $this->getHTMLTableCellFillStyle($hrc, $openkey) : null;
@@ -10358,7 +10370,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['originx'] = $restoreOriginX;
         $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-        $tpy += $lineadvance + $marginB + $paddingB + $this->getHTMLTagVSpace($hrc, $key, 1);
+        $tpy += $lineadvance + $blockHeightExtra + $marginB + $paddingB + $this->getHTMLTagVSpace($hrc, $key, 1);
         $hrc['cellctx']['pendingblockmarginb'] = $marginB;
 
         $roleElm = $hrc['dom'][$key] ?? [];
@@ -12199,10 +12211,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             default => 0.0,
         };
         if ($offset > self::WIDTH_TOLERANCE && $buffer !== '') {
+            $offsetPt = $this->toPoints($offset);
             $buffer = \sprintf(
                 "%s1 0 0 1 0 %F cm\n%s%s",
                 $this->graph->getStartTransform(),
-                -$offset,
+                -$offsetPt,
                 $buffer,
                 $this->graph->getStopTransform(),
             );
@@ -16319,6 +16332,35 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpy = $captpy;
         }
 
+        $tableMinHeight = $elm['height'] > 0.0 ? $elm['height'] : 0.0;
+        $rawTableHeight = '';
+        if (isset($elm['style']['height']) && $elm['style']['height'] !== '') {
+            $rawTableHeight = \trim($elm['style']['height']);
+        } elseif (
+            isset($elm['attribute']['height'])
+            && $elm['attribute']['height'] !== ''
+            && \is_string($elm['attribute']['height'])
+        ) {
+            $rawTableHeight = \trim($elm['attribute']['height']);
+        }
+
+        $heightPctMatch = [];
+        if ($rawTableHeight !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawTableHeight, $heightPctMatch) === 1) {
+            $parentKey = $elm['parent'];
+            $parentHeight = 0.0;
+            if ($parentKey >= 0 && isset($hrc['dom'][$parentKey])) {
+                $parentNode = $hrc['dom'][$parentKey];
+                if (isset($parentNode['height']) && $parentNode['height'] > 0.0) {
+                    $parentHeight = $parentNode['height'];
+                }
+            }
+
+            $pctValue = $heightPctMatch[1] ?? null;
+            if (\is_numeric($pctValue) && $parentHeight > 0.0) {
+                $tableMinHeight = \max($tableMinHeight, ($parentHeight * (float) $pctValue) / 100.0);
+            }
+        }
+
         // Track regionoffset to account for region/page breaks after table creation.
         // When table cells are rendered later, their X positions must account for any
         // RX shifts that occurred after this table was opened (e.g., multi-column layout).
@@ -16340,6 +16382,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'prevrowbottom' => [],
             'rowtop' => $tpy + $cellspacingv,
             'rowheight' => 0.0,
+            'minheight' => $tableMinHeight,
+            'domkey' => $key,
             'colindex' => 0,
             'cells' => [],
             'occupied' => \array_fill(0, $cols, 0),
@@ -18585,7 +18629,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hasinlinecontent = $tpx > ($lineOriginX + self::WIDTH_TOLERANCE);
         $lineAdvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
         $cellbottom = $tpy + $lineAdvance + $cellPaddingB + $cellMarginB;
-        $rowheight = \max(0.0, $cellbottom - $cellctx['rowtop']);
+        $contenth = \max(0.0, $cellbottom - $cellctx['rowtop']);
+        $rowheight = $contenth;
         if ($elm['height'] > 0) {
             $rowheight = \max($rowheight, $elm['height']);
         }
@@ -18622,7 +18667,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 'cellw' => $cellctx['cellw'],
                 'colindex' => $cellctx['colindex'],
                 'colspan' => $cellctx['colspan'],
-                'contenth' => $rowheight,
+                'contenth' => $contenth,
                 'valign' => $cellctx['valign'],
                 'bstyles' => $cellctx['bstyles'],
                 'fillstyle' => $cellctx['fillstyle'],
@@ -18774,7 +18819,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpw,
         float &$tph,
     ): string {
-        unset($key, $tph);
+        unset($tph);
 
         $tableidx = \count($hrc['tablestack']) - 1;
         $table = $hrc['tablestack'][$tableidx] ?? null;
@@ -18792,6 +18837,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $curfont = $this->font->getCurrentFont();
             $fontHeight = $curfont['height'];
             $rowheight = $this->toUnit($fontHeight);
+        }
+
+        // Enforce explicit table height by expanding the final row when needed.
+        // This gives vertical-align (e.g. middle/bottom) usable free space.
+        $tableDomKey = $table['domkey'];
+        $tableMinHeight = $table['minheight'];
+        if ($tableMinHeight > 0.0 && isset($hrc['dom'][$tableDomKey])) {
+            $rowOpenKey = $hrc['dom'][$key]['parent'] ?? null;
+            if (\is_int($rowOpenKey) && $rowOpenKey > 0) {
+                $trids = $hrc['dom'][$tableDomKey]['trids'] ?? [];
+                if ($trids !== []) {
+                    $lastTrKey = \array_pop($trids);
+                    if ($lastTrKey === $rowOpenKey) {
+                        $currentHeight = $table['rowtop'] + $rowheight + $table['cellspacingv'] - $table['originy'];
+                        if ($currentHeight < $tableMinHeight) {
+                            $rowheight += $tableMinHeight - $currentHeight;
+                        }
+                    }
+                }
+            }
         }
 
         $tpy = $table['rowtop'] + $rowheight + $table['cellspacingv'];
