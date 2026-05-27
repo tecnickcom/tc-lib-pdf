@@ -82,7 +82,8 @@ class SourceDocument
             throw new ImportCorruptedSourceException('Failed to parse PDF: ' . $exc->getMessage(), 0, $exc);
         }
 
-        if (isset($this->xref['trailer']['encrypt'])) {
+        $encryptRef = $this->xref['trailer']['encrypt'] ?? null;
+        if (\is_string($encryptRef) && $encryptRef !== '') {
             if ($passwordProvided) {
                 throw new ImportUnsupportedFeatureException('Cannot import encrypted PDF documents: '
                 . 'password-based import is not supported by the current parser.');
@@ -90,6 +91,15 @@ class SourceDocument
 
             throw new ImportUnsupportedFeatureException(
                 'Cannot import encrypted PDF documents: password support is not available in the current parser.',
+            );
+        }
+
+        $rootRef = $this->xref['trailer']['root'];
+        if (isset($this->objects[$rootRef]) && $this->isNullObject($this->objects[$rootRef])) {
+            throw new ImportCorruptedSourceException(
+                'Failed to resolve PDF trailer /Root object: parser returned a null object for '
+                . $rootRef
+                . '. This source likely requires parser fixes for xref/object-stream resolution.',
             );
         }
     }
@@ -129,6 +139,16 @@ class SourceDocument
     }
 
     /**
+     * Return true when parser resolved an object reference to the explicit PDF null object.
+     *
+     * @param array<int, mixed> $obj
+     */
+    private function isNullObject(array $obj): bool
+    {
+        return \count($obj) === 1 && \is_array($obj[0] ?? null) && ($obj[0][0] ?? null) === 'null';
+    }
+
+    /**
      * Return the unique document identifier.
      *
      * @return string SHA-256 hash of the raw PDF data.
@@ -152,7 +172,7 @@ class SourceDocument
     /**
      * Return all xref entries.
      *
-     * @return array<string, int>
+     * @return array<string, int|string>
      */
     public function getXref(): array
     {
