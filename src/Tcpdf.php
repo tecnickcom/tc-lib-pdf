@@ -44,6 +44,7 @@ use Com\Tecnick\Pdf\Import\PageTemplateInterface;
  * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
  *
  * @phpstan-import-type TSignature from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TSignDocPrepared from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TSignTimeStamp from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TUserRights from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TFileOptions from Base
@@ -551,6 +552,142 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $this->setSignAnnotRefs();
 
         $this->sign = true;
+    }
+
+    /**
+     * Enable a signature placeholder for a remote signing workflow.
+     *
+     * This reserves the signature widget and placeholder bytes without requiring
+     * a local private key. The actual CMS/PKCS#7 value can be embedded later
+     * with applyExternalSignature().
+     *
+     * @param TSignature $data Signature data.
+     *
+     * @throws PdfException
+     */
+    public function setSignatureForExternalSigning(array $data): void
+    {
+        if ($data['signcert'] === '') {
+            $data['signcert'] = '__external_signing__';
+        }
+
+        if ($data['privkey'] === '') {
+            $data['privkey'] = $data['signcert'];
+        }
+
+        $this->setSignature($data);
+    }
+
+    /**
+     * Build the document for external signing and compute the digest over ByteRange data.
+     *
+     * @param string $algorithm Hash algorithm accepted by hash() (default: sha256).
+     *
+     * @return array{
+     *          algorithm: string,
+     *          byte_range: array{int,int,int,int},
+     *          prepared_pdf: string,
+     *          hash_raw: string,
+     *          hash_hex: string,
+     *          hash_base64: string,
+     *        }
+     *
+     * @throws PdfException
+     * @throws \Throwable
+     */
+    public function getExternalSignaturePreparation(string $algorithm = 'sha256'): array
+    {
+        if (!$this->sign || $this->signature['cert_type'] < 0) {
+            throw new PdfException('External signature placeholder is not configured');
+        }
+
+        $algorithm = \strtolower(\trim($algorithm));
+        if ($algorithm === '' || !\in_array($algorithm, \hash_algos(), true)) {
+            throw new PdfException('Invalid hash algorithm');
+        }
+
+        $pdfdoc = $this->getOutPDFHeader() . $this->getOutPDFBody();
+        $startxref = \strlen($pdfdoc);
+        $offset = $this->getPDFObjectOffsets($pdfdoc);
+        $pdfdoc .=
+            $this->getOutPDFXref($offset)
+            . $this->getOutPDFTrailer()
+            . 'startxref'
+            . "\n"
+            . $startxref
+            . "\n"
+            . '%%EOF'
+            . "\n";
+
+        $prepared = $this->prepareDocumentForSignature($pdfdoc);
+
+        $hashRaw = \hash($algorithm, $prepared['pdfdoc'], true);
+
+        return [
+            'algorithm' => $algorithm,
+            'byte_range' => $prepared['byte_range'],
+            'prepared_pdf' => $prepared['pdfdoc'],
+            'hash_raw' => $hashRaw,
+            'hash_hex' => \bin2hex($hashRaw),
+            'hash_base64' => \base64_encode($hashRaw),
+        ];
+    }
+
+    /**
+     * Inject an externally generated CMS/PKCS#7 signature into a prepared document.
+     *
+     * @param string $preparedPdf Prepared PDF returned by getExternalSignaturePreparation().
+     * @param array{int,int,int,int} $byteRange ByteRange returned by getExternalSignaturePreparation().
+     * @param string $signature External signature data.
+     * @param string $encoding Signature encoding: binary, base64, or hex.
+     *
+     * @return string Fully signed PDF document.
+     *
+     * @throws PdfException
+     */
+    public function applyExternalSignature(
+        string $preparedPdf,
+        array $byteRange,
+        string $signature,
+        string $encoding = 'binary',
+    ): string {
+        $rangeCount = \count($byteRange);
+        if ($rangeCount !== 4) {
+            throw new PdfException('Invalid ByteRange data');
+        }
+
+        $pos = (int) $byteRange[1];
+        if ($pos < 0 || $pos > \strlen($preparedPdf)) {
+            throw new PdfException('Invalid ByteRange insertion position');
+        }
+
+        $encoding = \strtolower(\trim($encoding));
+        $hexSignature = '';
+
+        if ($encoding === 'hex') {
+            $hexSignature = \preg_replace('/\s+/', '', $signature) ?? '';
+            if ($hexSignature === '' || \preg_match('/^[0-9a-fA-F]+$/', $hexSignature) !== 1) {
+                throw new PdfException('Invalid hexadecimal signature');
+            }
+        } elseif ($encoding === 'base64') {
+            $binarySignature = \base64_decode($signature, true);
+            if ($binarySignature === false) {
+                throw new PdfException('Invalid base64 signature');
+            }
+
+            $hexSignature = \bin2hex($binarySignature);
+        } elseif ($encoding === 'binary') {
+            $hexSignature = \bin2hex($signature);
+        } else {
+            throw new PdfException('Invalid signature encoding');
+        }
+
+        if (\strlen($hexSignature) > $this::SIGMAXLEN) {
+            throw new PdfException('Signature is too large for the reserved PDF placeholder');
+        }
+
+        $hexSignature = \str_pad(\strtolower($hexSignature), $this::SIGMAXLEN, '0');
+        return \substr($preparedPdf, 0, $pos) . '<' . $hexSignature . '>' . \substr($preparedPdf, $pos);
     }
 
     /**

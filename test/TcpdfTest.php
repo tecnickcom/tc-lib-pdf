@@ -554,6 +554,96 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSetSignatureForExternalSigningUsesPlaceholderCertificate(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+
+        $obj->setSignatureForExternalSigning([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'MainSig',
+                'page' => $page['pid'],
+                'rect' => '0 0 10 5',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => '',
+        ]);
+
+        /** @var array{signcert: string, privkey: string} $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertSame('__external_signing__', $signature['signcert']);
+        $this->assertSame('__external_signing__', $signature['privkey']);
+        $this->assertTrue($this->getObjectProperty($obj, 'sign'));
+    }
+
+    /** @throws \Throwable */
+    public function testGetExternalSignaturePreparationReturnsHashAndPreparedPdf(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+
+        $obj->setSignatureForExternalSigning([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'MainSig',
+                'page' => $page['pid'],
+                'rect' => '0 0 10 5',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => '',
+        ]);
+
+        $prepared = $obj->getExternalSignaturePreparation('sha256');
+
+        $this->assertSame('sha256', $prepared['algorithm']);
+        $this->assertCount(4, $prepared['byte_range']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $prepared['hash_hex']);
+        $this->assertNotSame('', $prepared['prepared_pdf']);
+        $this->assertStringContainsString('/ByteRange[0 ', $prepared['prepared_pdf']);
+        $this->assertStringNotContainsString('**********', $prepared['prepared_pdf']);
+    }
+
+    /** @throws \Throwable */
+    public function testApplyExternalSignatureInjectsProvidedCmsData(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+
+        $obj->setSignatureForExternalSigning([
+            'appearance' => [
+                'empty' => [],
+                'name' => 'MainSig',
+                'page' => $page['pid'],
+                'rect' => '0 0 10 5',
+            ],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => '',
+            'signcert' => '',
+        ]);
+
+        $prepared = $obj->getExternalSignaturePreparation('sha256');
+        $signedPdf = $obj->applyExternalSignature($prepared['prepared_pdf'], $prepared['byte_range'], 'ABC', 'binary');
+
+        $this->assertStringContainsString('/Contents<414243', $signedPdf);
+        $this->assertMatchesRegularExpression('#/ByteRange\[0 \d+ \d+ \d+\]#', $signedPdf);
+    }
+
+    /** @throws \Throwable */
     public function testSetSignAnnotRefsReturnsWhenNoEmptySignaturesAreDefined(): void
     {
         $obj = new TestableTcpdf();

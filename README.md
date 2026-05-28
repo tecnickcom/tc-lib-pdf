@@ -441,6 +441,7 @@ Signature-focused runnable examples:
 - [examples/E007_signature_basic.php](examples/E007_signature_basic.php) : basic detached CMS signature with visible signature fields.
 - [examples/E008_signature_timestamp.php](examples/E008_signature_timestamp.php) : detached CMS signature with RFC 3161 TSA timestamp configuration.
 - [examples/E009_signature_ltv.php](examples/E009_signature_ltv.php) : detached CMS signature with LTV validation material embedding.
+- [examples/E075_external_signature_injection.php](examples/E075_external_signature_injection.php) : external/remote signing workflow with ByteRange digest export and later CMS (PKCS#7) signature injection.
 
 ### Basic signature
 
