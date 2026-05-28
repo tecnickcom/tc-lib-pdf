@@ -1116,7 +1116,35 @@ $html = <<<HTML
     </div>
 
     <div class="page-break"></div>
-    <h2>24) Paged Media (Printing) Properties</h2>
+    <h2>24) Spot color via CSS</h2>
+    <p>
+      Example of custom <code>@spot</code> palette declarations with <code>spot(name, tint)</code>
+      in foreground, background, and border properties.
+    </p>
+    <style>
+    @spot "Brand Orange" { cmyk: 0 62 100 0; }
+    @spot "Varnish Clear" { lab: 92 0.5 3.0; }
+
+    .spot-wrap { border: 0.4pt solid #b0b9c4; background: #fafbfd; padding: 6pt; }
+    .spot-row { border: 0.4pt solid #ccd4de; background: #fff; padding: 5pt; margin-bottom: 5pt; }
+    .spot-text { color: spot("Brand Orange"); }
+    .spot-bg { background-color: spot("Brand Orange", 0.30); }
+    .spot-border { border: 1.2pt solid spot("Brand Orange", 0.80); }
+    .spot-lab { color: spot("Varnish Clear", 0.75); }
+    </style>
+
+    <div class="spot-wrap">
+      <div class="spot-row spot-text"><strong>spot text:</strong> color: spot("Brand Orange");</div>
+      <div class="spot-row spot-bg"><strong>spot background:</strong> background-color: spot("Brand Orange", 0.30);</div>
+      <div class="spot-row spot-border"><strong>spot border:</strong> border-color from spot("Brand Orange", 0.80);</div>
+      <div class="spot-row spot-lab"><strong>Lab spot:</strong> color: spot("Varnish Clear", 0.75);</div>
+      <p style="font-size:8pt; color:#666; margin:2pt 0 0 0;">
+        Visual goal: spot styles render normally while preserving spot operators in PDF output.
+      </p>
+    </div>
+
+    <div class="page-break"></div>
+    <h2>25) Paged Media (Printing) Properties</h2>
     <h3>orphans</h3>
     <p>Example of <code>orphans</code>: Sets the minimum number of lines in a block container that must be left at the bottom of a page or column.</p>
     <style>

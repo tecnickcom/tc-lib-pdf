@@ -17678,6 +17678,29 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testParseHTMLStyleAttributesPreservesSpotColorToken(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $dom = [
+            0 => $this->makeHtmlNode(['value' => 'root']),
+            1 => $this->makeHtmlNode([
+                'value' => 'span',
+                'parent' => 0,
+                'attribute' => [
+                    'style' => 'color: spot(cyan, 0.5);',
+                ],
+            ]),
+        ];
+
+        $obj->exposeParseHTMLStyleAttributesWithDom($dom, 1, 0);
+
+        $node = $dom[1] ?? [];
+        $this->assertSame('spot(cyan,0.500000)', $node['fgcolor'] ?? '');
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testParseHTMLStyleAttributesSkipsNodeWithNoStyleAttribute(): void
     {
         $obj = $this->getInternalTestObject();

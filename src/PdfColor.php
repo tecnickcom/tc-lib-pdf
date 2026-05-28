@@ -46,6 +46,83 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
     protected array $labSpotKeys = [];
 
     /**
+     * Parse CSS spot(name[, tint]) and return [name, tint] when valid.
+     *
+     * @return array{0: string, 1: float}|null
+     */
+    protected function parseSpotCssFunction(string $color): ?array
+    {
+        $trimmed = \trim($color);
+        if (!\str_starts_with(\strtolower($trimmed), 'spot(')) {
+            return null;
+        }
+
+        $match = [];
+        $ok = \preg_match(
+            '/^spot\(\s*("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|[^,\)]+?)\s*(?:,\s*([^\)]+?)\s*)?\)$/i',
+            $trimmed,
+            $match,
+        );
+        if ($ok !== 1) {
+            return null;
+        }
+
+        $nameToken = \trim($match[1] ?? '');
+        $name = $this->parseSpotNameToken($nameToken);
+        if ($name === '') {
+            return null;
+        }
+
+        $tintToken = \trim($match[2] ?? '');
+        $tint = $tintToken === '' ? 1.0 : $this->parseSpotTintToken($tintToken);
+        if ($tint === null) {
+            return null;
+        }
+
+        return [$name, $tint];
+    }
+
+    protected function parseSpotNameToken(#[\SensitiveParameter] string $token): string
+    {
+        $token = \trim($token);
+        if ($token === '') {
+            return '';
+        }
+
+        $first = $token[0];
+        $last = $token[\strlen($token) - 1];
+        if ($first === '"' && $last === '"' || $first === '\'' && $last === '\'') {
+            $token = \substr($token, 1, -1);
+            $token = \stripcslashes($token);
+        }
+
+        return \trim($token);
+    }
+
+    protected function parseSpotTintToken(#[\SensitiveParameter] string $token): ?float
+    {
+        $token = \trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $percent = \str_ends_with($token, '%');
+        $num = $percent ? \substr($token, 0, -1) : $token;
+        if (!\is_numeric($num)) {
+            return null;
+        }
+
+        $tint = (float) $num;
+        if ($percent) {
+            $tint /= 100.0;
+        } elseif ($tint > 1.0 && $tint <= 100.0) {
+            $tint /= 100.0;
+        }
+
+        return \max(0.0, \min(1.0, $tint));
+    }
+
+    /**
      * Enable or disable DeviceCMYK forcing for process colors.
      */
     public function setForceDeviceCmyk(bool $enabled): void
@@ -69,6 +146,12 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
      */
     public function getPdfColor(string $color, bool $stroke = false, float $tint = 1): string
     {
+        $spotFromCss = $this->parseSpotCssFunction($color);
+        if ($spotFromCss !== null) {
+            $color = $spotFromCss[0];
+            $tint *= $spotFromCss[1];
+        }
+
         if (!$this->forceDeviceCmyk) {
             $labColor = $this->getLabProcessColor($color);
             if ($labColor instanceof \Com\Tecnick\Color\Model\Lab) {

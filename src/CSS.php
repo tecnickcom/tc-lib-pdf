@@ -163,6 +163,11 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     ];
 
     /**
+     * Internal canonical format for CSS spot color tokens.
+     */
+    protected const CSS_SPOT_PREFIX = 'spot(';
+
+    /**
      * Set the default CSS margin in user units.
      *
      * @param float $top    Top.
@@ -327,8 +332,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     protected function getCSSBorderStyle(string $cssborder): array
     {
         $border = $this->getCSSDefaultBorderStyle();
-        $bpropSplit = \preg_split('/[\s]+/', \trim($cssborder));
-        $bprop = $bpropSplit === false ? [] : $bpropSplit;
+        $bprop = $this->splitCSSWhitespaceTokens($cssborder);
 
         $count = \count($bprop);
         $lastBprop = $bprop[$count - 1] ?? '';
@@ -364,8 +368,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             return $border;
         }
         $border['lineWidth'] = $this->getCSSBorderWidth($width);
-        $colobj = $this->color->getColorObj($color);
-        $border['lineColor'] = $colobj === null ? 'black' : $colobj->getCssColor();
+        $resolved = $this->getCSSColor($color);
+        $border['lineColor'] = $resolved === '' ? 'black' : $resolved;
         return $border;
     }
 
@@ -631,6 +635,71 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                 $out .= '!important';
             }
             $out .= ';';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Split whitespace-separated CSS tokens preserving quoted strings
+     * and parenthesized function arguments.
+     *
+     * @return list<string>
+     */
+    protected function splitCSSWhitespaceTokens(string $value): array
+    {
+        $out = [];
+        $token = '';
+        $quote = '';
+        $parenDepth = 0;
+        $slen = \strlen($value);
+
+        for ($idx = 0; $idx < $slen; ++$idx) {
+            $chr = $value[$idx];
+
+            if ($quote !== '') {
+                $token .= $chr;
+                if ($chr === $quote && ($idx === 0 || $value[$idx - 1] !== '\\')) {
+                    $quote = '';
+                }
+
+                continue;
+            }
+
+            if ($chr === '"' || $chr === "'") {
+                $quote = $chr;
+                $token .= $chr;
+                continue;
+            }
+
+            if ($chr === '(') {
+                ++$parenDepth;
+                $token .= $chr;
+                continue;
+            }
+
+            if ($chr === ')') {
+                $parenDepth = \max(0, $parenDepth - 1);
+                $token .= $chr;
+                continue;
+            }
+
+            if (\ctype_space($chr) && $parenDepth === 0) {
+                $trimmed = \trim($token);
+                if ($trimmed !== '') {
+                    $out[] = $trimmed;
+                }
+
+                $token = '';
+                continue;
+            }
+
+            $token .= $chr;
+        }
+
+        $trimmed = \trim($token);
+        if ($trimmed !== '') {
+            $out[] = $trimmed;
         }
 
         return $out;
@@ -918,6 +987,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $css = $this->normalizeCharset($css);
         $seen = [];
         $css = $this->resolveImportRules($css, 0, $seen);
+        $css = $this->stripAndRegisterCSSSpotRules($css);
         $css = $this->tidyCSS($css);
         if ($css === '') {
             return [];
@@ -1153,10 +1223,288 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      */
     protected function getCSSColor(string $color): string
     {
+        $spot = $this->parseSpotCssColorFunction($color);
+        if ($spot !== null) {
+            return $spot;
+        }
+
         $colobj = $this->color->getColorObj($color);
         if ($colobj === null) {
             return '';
         }
         return $colobj->getCssColor();
+    }
+
+    /**
+     * Register custom @spot rules and remove them from the CSS source.
+     */
+    protected function stripAndRegisterCSSSpotRules(string $css): string
+    {
+        if (!\str_contains(\strtolower($css), '@spot')) {
+            return $css;
+        }
+
+        $pattern = '/@spot\s+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|[a-z0-9_.-]+)\s*\{([^}]*)\}/i';
+        $matches = [];
+        $matchCount = \preg_match_all($pattern, $css, $matches, \PREG_SET_ORDER);
+        if ($matchCount !== false && $matchCount > 0) {
+            foreach ($matches as $match) {
+                $nameToken = \trim($match[1] ?? '');
+                $ruleBody = \trim($match[2] ?? '');
+                $name = $this->parseSpotColorNameToken($nameToken);
+                if ($name === '' || $ruleBody === '') {
+                    continue;
+                }
+
+                $this->registerCSSSpotRule($name, $ruleBody);
+            }
+        }
+
+        return \preg_replace($pattern, '', $css) ?? $css;
+    }
+
+    /**
+     * Register a single @spot rule body against the color engine.
+     */
+    protected function registerCSSSpotRule(string $name, string $ruleBody): void
+    {
+        $declMap = [];
+        foreach ($this->splitCSSDeclarations($ruleBody) as $cmd) {
+            $cmd = \trim($cmd);
+            if ($cmd === '') {
+                continue;
+            }
+
+            $sepPos = \strpos($cmd, ':');
+            if ($sepPos === false) {
+                continue;
+            }
+
+            $propName = \strtolower(\trim(\substr($cmd, 0, $sepPos)));
+            $propValue = \trim(\substr($cmd, $sepPos + 1));
+            if ($propName === '' || $propValue === '') {
+                continue;
+            }
+
+            $declMap[$propName] = $propValue;
+        }
+
+        $cmykValue = $declMap['cmyk'] ?? '';
+        if ($cmykValue !== '') {
+            $parts = $this->parseSpotComponentList($cmykValue);
+            if ($parts !== null) {
+                $this->color->addSpotColorFromArray($name, [
+                    'cyan' => $parts[0],
+                    'magenta' => $parts[1],
+                    'yellow' => $parts[2],
+                    'key' => $parts[3],
+                ]);
+            }
+
+            return;
+        }
+
+        $labValue = $declMap['lab'] ?? '';
+        if ($labValue !== '') {
+            $parts = $this->parseLabComponentList($labValue);
+            if ($parts !== null) {
+                $this->color->addSpotLabColor($name, $parts[0], $parts[1], $parts[2]);
+            }
+
+            return;
+        }
+
+        if (!isset($declMap['cyan'], $declMap['magenta'], $declMap['yellow'], $declMap['key'])) {
+            return;
+        }
+
+        $cyan = $this->parseSpotTintValue($declMap['cyan']);
+        $magenta = $this->parseSpotTintValue($declMap['magenta']);
+        $yellow = $this->parseSpotTintValue($declMap['yellow']);
+        $key = $this->parseSpotTintValue($declMap['key']);
+        if ($cyan === null || $magenta === null || $yellow === null || $key === null) {
+            return;
+        }
+
+        $this->color->addSpotColorFromArray($name, [
+            'cyan' => $cyan,
+            'magenta' => $magenta,
+            'yellow' => $yellow,
+            'key' => $key,
+        ]);
+    }
+
+    /**
+     * Parse CSS spot(name[, tint]) function and return canonical token.
+     */
+    protected function parseSpotCssColorFunction(string $color): ?string
+    {
+        $trimmed = \trim($color);
+        if (!\str_starts_with(\strtolower($trimmed), self::CSS_SPOT_PREFIX)) {
+            return null;
+        }
+
+        $match = [];
+        $ok = \preg_match(
+            '/^spot\(\s*("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|[^,\)]+?)\s*(?:,\s*([^\)]+?)\s*)?\)$/i',
+            $trimmed,
+            $match,
+        );
+        if ($ok !== 1) {
+            return null;
+        }
+
+        $name = $this->parseSpotColorNameToken($match[1] ?? '');
+        if ($name === '') {
+            return null;
+        }
+
+        $tintToken = \trim($match[2] ?? '');
+        $tint = $tintToken === '' ? 1.0 : $this->parseSpotTintValue($tintToken);
+        if ($tint === null) {
+            return null;
+        }
+
+        $quotedName = $this->formatSpotColorNameToken($name);
+        return \sprintf('spot(%s,%F)', $quotedName, $tint);
+    }
+
+    protected function parseSpotColorNameToken(#[\SensitiveParameter] string $token): string
+    {
+        $token = \trim($token);
+        if ($token === '') {
+            return '';
+        }
+
+        $first = $token[0];
+        $last = $token[\strlen($token) - 1];
+        if ($first === '"' && $last === '"' || $first === '\'' && $last === '\'') {
+            $token = \substr($token, 1, -1);
+            $token = \stripcslashes($token);
+        }
+
+        return \trim($token);
+    }
+
+    protected function formatSpotColorNameToken(string $name): string
+    {
+        if (\preg_match('/^[a-z0-9_.-]+$/i', $name) === 1) {
+            return $name;
+        }
+
+        return '"' . \addcslashes($name, '"\\') . '"';
+    }
+
+    /**
+     * @return array{0: float, 1: float, 2: float, 3: float}|null
+     */
+    protected function parseSpotComponentList(string $value): ?array
+    {
+        $parts = \preg_split('/[\s,\/]+/', \trim($value));
+        if ($parts === false || \count($parts) !== 4) {
+            return null;
+        }
+
+        if (!isset($parts[0], $parts[1], $parts[2], $parts[3])) {
+            return null;
+        }
+
+        $part0 = $parts[0];
+        $part1 = $parts[1];
+        $part2 = $parts[2];
+        $part3 = $parts[3];
+
+        $v0 = $this->parseSpotTintValue($part0);
+        $v1 = $this->parseSpotTintValue($part1);
+        $v2 = $this->parseSpotTintValue($part2);
+        $v3 = $this->parseSpotTintValue($part3);
+        if ($v0 === null || $v1 === null || $v2 === null || $v3 === null) {
+            return null;
+        }
+
+        return [$v0, $v1, $v2, $v3];
+    }
+
+    /**
+     * @return array{0: float, 1: float, 2: float}|null
+     */
+    protected function parseLabComponentList(string $value): ?array
+    {
+        $parts = \preg_split('/[\s,\/]+/', \trim($value));
+        if ($parts === false || \count($parts) !== 3) {
+            return null;
+        }
+
+        if (!isset($parts[0], $parts[1], $parts[2])) {
+            return null;
+        }
+
+        $part0 = $parts[0];
+        $part1 = $parts[1];
+        $part2 = $parts[2];
+
+        $lstar = $this->parseLabLstarValue($part0);
+        $astar = $this->parseLabAxisValue($part1);
+        $bstar = $this->parseLabAxisValue($part2);
+        if ($lstar === null || $astar === null || $bstar === null) {
+            return null;
+        }
+
+        return [$lstar, $astar, $bstar];
+    }
+
+    protected function parseSpotTintValue(string $value): ?float
+    {
+        $value = \trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        $percent = \str_ends_with($value, '%');
+        $num = $percent ? \substr($value, 0, -1) : $value;
+        if (!\is_numeric($num)) {
+            return null;
+        }
+
+        $flt = (float) $num;
+        if ($percent) {
+            $flt /= 100.0;
+        } elseif ($flt > 1.0 && $flt <= 100.0) {
+            $flt /= 100.0;
+        }
+
+        return \max(0.0, \min(1.0, $flt));
+    }
+
+    protected function parseLabLstarValue(string $value): ?float
+    {
+        $value = \trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        $percent = \str_ends_with($value, '%');
+        $num = $percent ? \substr($value, 0, -1) : $value;
+        if (!\is_numeric($num)) {
+            return null;
+        }
+
+        $flt = (float) $num;
+        if ($percent) {
+            return \max(0.0, \min(100.0, $flt));
+        }
+
+        return \max(0.0, \min(100.0, $flt));
+    }
+
+    protected function parseLabAxisValue(string $value): ?float
+    {
+        $value = \trim($value);
+        if (!\is_numeric($value)) {
+            return null;
+        }
+
+        $flt = (float) $value;
+        return \max(-128.0, \min(127.0, $flt));
     }
 }

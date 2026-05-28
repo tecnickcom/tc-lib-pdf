@@ -506,13 +506,14 @@ class TcpdfTest extends TestUtil
             'lab' => ['lab(54.29% -19.04 38.25)', " scn\n"],
             'lab alpha' => ['lab(54.29% -19.04 38.25 / 0.35)', " scn\n"],
             'cmyk' => ['cmyk(67, 33, 0, 25)', " k\n"],
+            'spot function' => ['spot(cyan, 35%)', " scn\n"],
         ];
 
         foreach ($cases as $label => [$color, $operator]) {
             $pdfColor = $obj->color->getPdfColor($color);
             $this->assertTrue($pdfColor !== '', 'Expected non-empty PDF color output for case: ' . $label);
             $this->assertStringContainsString($operator, $pdfColor, 'Unexpected PDF operator for case: ' . $label);
-            if ($label === 'lab' || $label === 'lab alpha') {
+            if ($label === 'lab' || $label === 'lab alpha' || $label === 'spot function') {
                 $this->assertStringContainsString('/CS', $pdfColor);
             }
         }

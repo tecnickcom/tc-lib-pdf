@@ -630,6 +630,45 @@ class CSSTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testGetCSSColorParsesSpotFunction(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $out = $obj->exposeGetCSSColor('spot(cyan, 40%)');
+
+        $this->assertSame('spot(cyan,0.400000)', $out);
+        $this->assertStringContainsString('/CS', $obj->color->getPdfColor($out));
+        $this->assertStringContainsString('scn', $obj->color->getPdfColor($out));
+    }
+
+    /** @throws \Throwable */
+    public function testExtractCSSPropertiesRegistersSpotRuleAndStripsAtRule(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = '@spot "Brand Orange" { cmyk: 0 62 100 0; } .brand { color: spot("Brand Orange", 0.5); }';
+
+        $out = $obj->exposeExtractCSSproperties($css);
+        $joined = \implode(' ', \array_values($out));
+
+        $this->assertStringContainsString('spot("Brand Orange", 0.5)', $joined);
+        $this->assertStringNotContainsString('@spot', $joined);
+        $this->assertStringContainsString('/CS', $obj->color->getPdfColor('spot("Brand Orange",0.500000)'));
+    }
+
+    /** @throws \Throwable */
+    public function testGetCSSBorderStyleParsesSpotColorToken(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = '@spot quality-black { cmyk: 0 0 0 100; }';
+        $obj->exposeExtractCSSproperties($css);
+
+        $out = $obj->exposeGetCSSBorderStyle('1px solid spot(quality-black, 75%)');
+
+        $this->assertSame('spot(quality-black,0.750000)', $out['lineColor']);
+        $this->assertStringContainsString('/CS', $obj->color->getPdfColor($out['lineColor']));
+    }
+
+    /** @throws \Throwable */
     public function testGetCSSColorReturnsEmptyStringForInvalidColor(): void
     {
         $obj = $this->getInternalTestObject();
