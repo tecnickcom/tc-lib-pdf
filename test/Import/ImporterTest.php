@@ -367,9 +367,12 @@ class ImporterTest extends TestCase
         $halfTurn = $this->invokeImporterMethod($importer, 'rotationMatrix', 180, 200.0, 400.0);
         /** @var array<int, float> $threeQuarterTurn */
         $threeQuarterTurn = $this->invokeImporterMethod($importer, 'rotationMatrix', 270, 200.0, 400.0);
+        /** @var array<int, float> $negativeQuarterTurn */
+        $negativeQuarterTurn = $this->invokeImporterMethod($importer, 'rotationMatrix', -90, 200.0, 400.0);
 
         $this->assertSame([-1.0, 0.0, 0.0, -1.0, 200.0, 400.0], $halfTurn);
-        $this->assertSame([0.0, -1.0, 1.0, 0.0, 0.0, 200.0], $threeQuarterTurn);
+        $this->assertSame([0.0, 1.0, -1.0, 0.0, 400.0, 0.0], $threeQuarterTurn);
+        $this->assertSame($threeQuarterTurn, $negativeQuarterTurn);
     }
 
     /** @throws \Throwable */

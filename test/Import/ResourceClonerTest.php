@@ -198,7 +198,7 @@ class ResourceClonerTest extends TestCase
     }
 
     /** @throws \Throwable */
-    public function testCloneResourcesSkipsNestedEntriesAndPreservesInlineScalars(): void
+    public function testCloneResourcesSerializesNestedEntriesAndPreservesInlineScalars(): void
     {
         $src = $this->loadFixture();
         $map = new ObjectMap();
@@ -208,7 +208,7 @@ class ResourceClonerTest extends TestCase
             [
                 'ColorSpace' => [
                     'CS1' => '/DeviceRGB',
-                    'Broken' => ['nested'],
+                    'CS2' => ['/DeviceCMYK'],
                 ],
             ],
             $src,
@@ -216,7 +216,7 @@ class ResourceClonerTest extends TestCase
         );
 
         $this->assertStringContainsString('/CS1 /DeviceRGB', $output);
-        $this->assertStringNotContainsString('/Broken', $output);
+        $this->assertStringContainsString('/CS2 [ /DeviceCMYK ]', $output);
     }
 
     /** @throws \Throwable */
@@ -237,6 +237,32 @@ class ResourceClonerTest extends TestCase
         $this->assertMatchesRegularExpression('/\/XObject \d+ 0 R/', $indirectOutput);
         $this->assertStringContainsString('/ColorSpace /DeviceCMYK', $inlineOutput);
         $this->assertStringContainsString('/Pattern null', $nullOutput);
+    }
+
+    /** @throws \Throwable */
+    public function testCloneResourcesPreservesNumericResourceNames(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '9_0' => [
+                ['numeric', 1],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $output = $cloner->cloneResources(
+            [
+                'Font' => [
+                    9 => '9_0',
+                    'n' => '9_0',
+                ],
+            ],
+            $src,
+            $map,
+        );
+
+        $this->assertStringContainsString('/Font << /9 ', $output);
+        $this->assertStringContainsString('/n ', $output);
     }
 
     /** @throws \Throwable */
@@ -282,6 +308,87 @@ class ResourceClonerTest extends TestCase
         $this->assertSame('/FlateDecode', $single['filter']);
         $this->assertSame('alpha beta', $combined['bytes']);
         $this->assertSame('', $combined['filter']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamParsesArrayFilterToken(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        [
+                            '[',
+                            [
+                                ['/', 'FlateDecode'],
+                            ],
+                        ],
+                    ],
+                ],
+                ['stream', 'alpha'],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $single = $cloner->getContentStream(['Contents' => '1_0'], $src);
+
+        $this->assertSame('/FlateDecode', $single['filter']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetContentStreamParsesArrayFilterTokenWithMultipleNames(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        [
+                            '[',
+                            [
+                                ['/', 'ASCII85Decode'],
+                                ['/', 'FlateDecode'],
+                            ],
+                        ],
+                    ],
+                ],
+                ['stream', 'alpha'],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $single = $cloner->getContentStream(['Contents' => '1_0'], $src);
+
+        $this->assertSame('[ /ASCII85Decode /FlateDecode ]', $single['filter']);
+    }
+
+    /** @throws \Throwable */
+    public function testCloneResourcesPreservesNestedNumericResourceNames(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '11_0' => [
+                ['numeric', 7],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $output = $cloner->cloneResources(
+            [
+                'ExtGState' => [
+                    'GS1' => [
+                        9 => '11_0',
+                    ],
+                ],
+            ],
+            $src,
+            $map,
+        );
+
+        $this->assertStringContainsString('/ExtGState << /GS1 << /9 ', $output);
     }
 
     /** @throws \Throwable */

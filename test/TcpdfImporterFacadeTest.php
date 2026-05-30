@@ -247,6 +247,9 @@ class TcpdfImporterFacadeTest extends TestCase
         $srcId = $pdf->setImportSourceFile($this->rotatedPdf);
         $tpl = $pdf->importPage($srcId, 1);
         $this->assertSame(90, $tpl->getRotation());
+        $this->assertGreaterThan($tpl->getHeight(), $tpl->getWidth());
+        $this->assertEqualsWithDelta(500.0, $tpl->getWidth(), 0.01);
+        $this->assertEqualsWithDelta(300.0, $tpl->getHeight(), 0.01);
     }
 
     /**
@@ -258,6 +261,9 @@ class TcpdfImporterFacadeTest extends TestCase
         $srcId = $pdf->setImportSourceFile($this->rotatedPdf);
         $tpl = $pdf->importPage($srcId, 1, ['respectRotation' => false]);
         $this->assertSame(0, $tpl->getRotation());
+        $this->assertGreaterThan($tpl->getWidth(), $tpl->getHeight());
+        $this->assertEqualsWithDelta(300.0, $tpl->getWidth(), 0.01);
+        $this->assertEqualsWithDelta(500.0, $tpl->getHeight(), 0.01);
     }
 
     /**

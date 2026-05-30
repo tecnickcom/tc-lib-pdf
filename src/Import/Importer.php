@@ -260,9 +260,17 @@ class Importer implements ImporterInterface
 
         // Compute BBox and Matrix.
         [$xMin, $yMin, $xMax, $yMax] = $box;
-        $bboxW = $xMax - $xMin;
-        $bboxH = $yMax - $yMin;
-        $matrix = $this->rotationMatrix($rotate, $bboxW, $bboxH);
+        $rawW = $xMax - $xMin;
+        $rawH = $yMax - $yMin;
+        $bboxW = $rawW;
+        $bboxH = $rawH;
+        $normRotate = (($rotate % 360) + 360) % 360;
+        if ($normRotate === 90 || $normRotate === 270) {
+            $bboxW = $rawH;
+            $bboxH = $rawW;
+        }
+
+        $matrix = $this->rotationMatrix($rotate, $rawW, $rawH);
         $matrixStr = \implode(' ', $matrix);
 
         // Serialize the Form XObject.
@@ -461,10 +469,10 @@ class Importer implements ImporterInterface
      * Compute the CTM matrix for a given rotation angle (0/90/180/270).
      *
      * Rotation matrix
-     * 0:   [1  0  0  1  0  0]
-     * 90:  [0  1 -1  0  H  0]
-     * 180: [-1 0  0 -1  W  H]
-     * 270: [0 -1  1  0  0  W]
+     * 0:   [ 1  0  0  1  0  0]
+     * 90:  [ 0 -1  1  0  0  W]
+     * 180: [-1  0  0 -1  W  H]
+     * 270: [ 0  1 -1  0  H  0]
      *
      * @param int   $rotate Page rotation in degrees.
      * @param float $wid    Page width in points.
@@ -474,10 +482,12 @@ class Importer implements ImporterInterface
      */
     private function rotationMatrix(int $rotate, float $wid, float $hgt): array
     {
-        return match ($rotate % 360) {
-            90 => [0.0, 1.0, -1.0, 0.0, $hgt, 0.0],
+        $normRotate = (($rotate % 360) + 360) % 360;
+
+        return match ($normRotate) {
+            90 => [0.0, -1.0, 1.0, 0.0, 0.0, $wid],
             180 => [-1.0, 0.0, 0.0, -1.0, $wid, $hgt],
-            270 => [0.0, -1.0, 1.0, 0.0, 0.0, $wid],
+            270 => [0.0, 1.0, -1.0, 0.0, $hgt, 0.0],
             default => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
         };
     }

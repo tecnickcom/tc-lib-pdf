@@ -161,18 +161,16 @@ class ResourceCloner
         if (\is_array($resVal)) {
             $out = '<< ';
             foreach (\array_keys($resVal) as $name) {
-                if (!\is_string($name) || !isset($resVal[$name]) || !\is_string($resVal[$name])) {
-                    // Skip non-string (nested array) values.
+                if (!\array_key_exists($name, $resVal)) {
                     continue;
                 }
 
-                if ($this->isIndirectRef($resVal[$name])) {
-                    $destNum = $this->enqueueObject(SourceDocument::refToKey($resVal[$name]), $src, $map);
-                    $out .= '/' . $name . ' ' . $destNum . ' 0 R ';
-                } else {
-                    // Inline scalar value.
-                    $out .= '/' . $name . ' ' . $resVal[$name] . ' ';
-                }
+                $out .=
+                    '/'
+                    . (string) $name
+                    . ' '
+                    . $this->serializeResourceValue($resVal[$name] ?? null, $src, $map)
+                    . ' ';
             }
 
             $out .= '>>';
@@ -186,6 +184,70 @@ class ResourceCloner
             }
 
             return $resVal;
+        }
+
+        return 'null';
+    }
+
+    /**
+     * Serialize a parsed resource value while remapping indirect references.
+     *
+     * @param mixed          $value Resource value.
+     * @param SourceDocument $src   Source document.
+     * @param ObjectMap      $map   Object map.
+     *
+     * @return string PDF token string.
+     *
+     * @throws ImportCorruptedSourceException
+     * @throws ImportException
+     */
+    private function serializeResourceValue(mixed $value, SourceDocument $src, ObjectMap $map): string
+    {
+        if (\is_string($value)) {
+            if ($this->isIndirectRef($value)) {
+                $destNum = $this->enqueueObject(SourceDocument::refToKey($value), $src, $map);
+                return $destNum . ' 0 R';
+            }
+
+            return $value;
+        }
+
+        if (\is_array($value)) {
+            if (\array_is_list($value)) {
+                $parts = [];
+                $items = \array_values($value);
+                $itemCount = \count($items);
+                for ($idx = 0; $idx < $itemCount; ++$idx) {
+                    $itemSlice = \array_slice($items, $idx, 1);
+                    if (\count($itemSlice) !== 1) {
+                        continue;
+                    }
+
+                    $parts[] = $this->serializeResourceValue($itemSlice[0], $src, $map);
+                }
+
+                return '[ ' . \implode(' ', $parts) . ' ]';
+            }
+
+            $out = '<< ';
+            foreach (\array_keys($value) as $key) {
+                if (!\array_key_exists($key, $value)) {
+                    continue;
+                }
+
+                $out .=
+                    '/' . (string) $key . ' ' . $this->serializeResourceValue($value[$key] ?? null, $src, $map) . ' ';
+            }
+
+            return $out . '>>';
+        }
+
+        if (\is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (\is_int($value) || \is_float($value)) {
+            return (string) $value;
         }
 
         return 'null';
@@ -493,10 +555,7 @@ class ResourceCloner
 
                 $key = \ltrim($keyEl[1], '/');
                 if ($key === 'Filter') {
-                    $vType = isset($vArr[0]) ? $vArr[0] : '';
-                    $vArrVal = $vArr[1] ?? '';
-                    $vVal = \is_string($vArrVal) ? $vArrVal : '';
-                    $filter = $vType === '/' ? '/' . $vVal : $vVal;
+                    $filter = $this->extractFilterToken($vArr);
                     break 2;
                 }
             }
@@ -513,6 +572,59 @@ class ResourceCloner
         }
 
         return ['bytes' => '', 'filter' => '', 'length' => 0];
+    }
+
+    /**
+     * Serialize a parsed Filter token into a valid PDF /Filter value.
+     *
+     * Supports:
+     * - name token: ['/', 'FlateDecode'] => '/FlateDecode'
+     * - array token: ['[', [ ['/', 'FlateDecode'], ['/', 'ASCII85Decode'] ]]
+     *
+     * @param array<int, mixed> $token Raw parser token.
+     */
+    private function extractFilterToken(#[\SensitiveParameter] array $token): string
+    {
+        if (!\array_key_exists(0, $token) || !\is_string($token[0])) {
+            return '';
+        }
+
+        $type = $token[0];
+
+        if ($type === '/' && \array_key_exists(1, $token) && \is_string($token[1])) {
+            return '/' . $token[1];
+        }
+
+        if ($type !== '[' || !\array_key_exists(1, $token) || !\is_array($token[1])) {
+            return '';
+        }
+
+        $names = [];
+        $items = \array_values($token[1]);
+        $itemCount = \count($items);
+        for ($idx = 0; $idx < $itemCount; ++$idx) {
+            $itemSlice = \array_slice($items, $idx, 1);
+            if (\count($itemSlice) !== 1 || !\is_array($itemSlice[0])) {
+                continue;
+            }
+
+            $item = $itemSlice[0];
+            if (($item[0] ?? '') !== '/' || !\is_string($item[1] ?? null)) {
+                continue;
+            }
+
+            $names[] = '/' . $item[1];
+        }
+
+        if ($names === []) {
+            return '';
+        }
+
+        if (\count($names) === 1) {
+            return $names[0];
+        }
+
+        return '[ ' . \implode(' ', $names) . ' ]';
     }
 
     /**

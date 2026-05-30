@@ -284,6 +284,153 @@ class PageResolverTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testResolveAcceptsIndirectMediaBoxReference(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+                ['/', 'MediaBox'],
+                ['objref', '8 0 R'],
+            ]),
+            '8_0' => [
+                [
+                    '[',
+                    [
+                        ['numeric', 0],
+                        ['numeric', 0],
+                        ['numeric', 612],
+                        ['numeric', 792],
+                    ],
+                ],
+            ],
+        ]);
+
+        $resolved = $resolver->resolve($doc, 1);
+
+        $this->assertSame([0.0, 0.0, 612.0, 792.0], $resolved['mediaBox']);
+        $this->assertSame($resolved['mediaBox'], $resolved['cropBox']);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveMergesParentAndChildResourceDictionaries(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+                ['/', 'MediaBox'],
+                [
+                    '[',
+                    [
+                        ['numeric', 0],
+                        ['numeric', 0],
+                        ['numeric', 200],
+                        ['numeric', 300],
+                    ],
+                ],
+                ['/', 'Resources'],
+                [
+                    '<<',
+                    [
+                        ['/', 'Font'],
+                        [
+                            '<<',
+                            [
+                                ['/', 'F1'],
+                                ['objref', '10 0 R'],
+                            ],
+                        ],
+                        ['/', 'XObject'],
+                        [
+                            '<<',
+                            [
+                                ['/', 'Im1'],
+                                ['objref', '11 0 R'],
+                            ],
+                        ],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+                ['/', 'Resources'],
+                [
+                    '<<',
+                    [
+                        ['/', 'Font'],
+                        [
+                            '<<',
+                            [
+                                ['/', 'F2'],
+                                ['objref', '12 0 R'],
+                            ],
+                        ],
+                    ],
+                ],
+            ]),
+            '10_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Font'],
+            ]),
+            '11_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'XObject'],
+            ]),
+            '12_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Font'],
+            ]),
+        ]);
+
+        $resolved = $resolver->resolve($doc, 1);
+
+        $resources = $resolved['resources'];
+        $this->assertIsArray($resources);
+
+        if (!isset($resources['Font']) || !\is_array($resources['Font'])) {
+            $this->fail('Expected merged Font dictionary.');
+        }
+
+        if (!isset($resources['XObject']) || !\is_array($resources['XObject'])) {
+            $this->fail('Expected inherited XObject dictionary.');
+        }
+
+        $this->assertArrayHasKey('F1', $resources['Font']);
+        $this->assertArrayHasKey('F2', $resources['Font']);
+        $this->assertArrayHasKey('Im1', $resources['XObject']);
+    }
+
+    /** @throws \Throwable */
     public function testResolveThrowsForPagesNodeWithoutKidsArray(): void
     {
         $resolver = new PageResolver();

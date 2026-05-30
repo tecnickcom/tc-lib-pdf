@@ -118,13 +118,29 @@ class PageResolver
             $nodeType = $nodeDict['Type'];
         }
 
-        // merge inherited from parent into this node
         $merged = \array_merge($inherited, $this->extractInheritable($nodeDict));
+        if (
+            isset($inherited['Resources'], $nodeDict['Resources'])
+            && \is_array($inherited['Resources'])
+            && \is_array($nodeDict['Resources'])
+        ) {
+            $merged['Resources'] = \array_replace_recursive($inherited['Resources'], $nodeDict['Resources']);
+        }
 
         if ($nodeType === 'Page') {
             --$remaining;
             if ($remaining === 0) {
-                return \array_merge($merged, $nodeDict);
+                $effective = \array_merge($merged, $nodeDict);
+
+                if (
+                    isset($merged['Resources'], $nodeDict['Resources'])
+                    && \is_array($merged['Resources'])
+                    && \is_array($nodeDict['Resources'])
+                ) {
+                    $effective['Resources'] = \array_replace_recursive($merged['Resources'], $nodeDict['Resources']);
+                }
+
+                return $effective;
             }
 
             return null;
@@ -172,16 +188,16 @@ class PageResolver
      */
     private function buildResolved(array $dict, SourceDocument $src): array
     {
-        $mediaBox = $this->parseBox($dict['MediaBox'] ?? null);
+        $mediaBox = $this->resolveBox($dict['MediaBox'] ?? null, $src);
 
         if ($mediaBox === null) {
             throw new ImportCorruptedSourceException('Page is missing /MediaBox.');
         }
 
-        $cropBox = $this->parseBox($dict['CropBox'] ?? null) ?? $mediaBox;
-        $bleedBox = $this->parseBox($dict['BleedBox'] ?? null) ?? $cropBox;
-        $trimBox = $this->parseBox($dict['TrimBox'] ?? null) ?? $cropBox;
-        $artBox = $this->parseBox($dict['ArtBox'] ?? null) ?? $cropBox;
+        $cropBox = $this->resolveBox($dict['CropBox'] ?? null, $src) ?? $mediaBox;
+        $bleedBox = $this->resolveBox($dict['BleedBox'] ?? null, $src) ?? $cropBox;
+        $trimBox = $this->resolveBox($dict['TrimBox'] ?? null, $src) ?? $cropBox;
+        $artBox = $this->resolveBox($dict['ArtBox'] ?? null, $src) ?? $cropBox;
         if (isset($dict['Rotate']) && \is_int($dict['Rotate'])) {
             $rotate = $dict['Rotate'];
         } elseif (isset($dict['Rotate']) && \is_numeric($dict['Rotate'])) {
@@ -268,6 +284,49 @@ class PageResolver
             \is_numeric($vals[2]) ? (float) $vals[2] : 0.0,
             \is_numeric($vals[3]) ? (float) $vals[3] : 0.0,
         ];
+    }
+
+    /**
+     * Resolve a page box that may be inline or an indirect reference.
+     *
+     * @param mixed          $raw Raw value from page dictionary.
+     * @param SourceDocument $src Source document.
+     *
+     * @phpstan-return PageBox|null
+     * @return array<int, float>|null
+     */
+    private function resolveBox(mixed $raw, SourceDocument $src): ?array
+    {
+        $box = $this->parseBox($raw);
+        if ($box !== null) {
+            return $box;
+        }
+
+        if (!\is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        try {
+            $ref = SourceDocument::refToKey($raw);
+        } catch (ImportCorruptedSourceException) {
+            return null;
+        }
+
+        $obj = $src->findObject($ref);
+        if ($obj === null) {
+            return null;
+        }
+
+        foreach (\array_values($obj) as $element) {
+            if ($element[0] !== '[' || !\is_array($element[1])) {
+                continue;
+            }
+
+            $values = \array_map($this->parseValue(...), \array_values($element[1]));
+            return $this->parseBox($values);
+        }
+
+        return null;
     }
 
     /**

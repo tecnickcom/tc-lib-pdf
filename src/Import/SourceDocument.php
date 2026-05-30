@@ -79,7 +79,32 @@ class SourceDocument
             $parser = new Parser($parserCfg);
             [$this->xref, $this->objects] = $parser->parse($data);
         } catch (\Exception $exc) {
-            throw new ImportCorruptedSourceException('Failed to parse PDF: ' . $exc->getMessage(), 0, $exc);
+            $retried = false;
+            $retryExc = null;
+            $msg = \strtolower($exc->getMessage());
+            if (!($parserCfg['ignore_filter_errors'] ?? false) && \str_contains($msg, 'invalid code')) {
+                $retryCfg = $parserCfg;
+                $retryCfg['ignore_filter_errors'] = true;
+                try {
+                    $parser = new Parser($retryCfg);
+                    [$this->xref, $this->objects] = $parser->parse($data);
+                    $retried = true;
+                } catch (\Exception $retryFailure) {
+                    $retryExc = $retryFailure;
+                }
+            }
+
+            if (!$retried) {
+                if ($retryExc instanceof \Exception) {
+                    throw new ImportCorruptedSourceException(
+                        'Failed to parse PDF: ' . $retryExc->getMessage(),
+                        0,
+                        $exc,
+                    );
+                }
+
+                throw new ImportCorruptedSourceException('Failed to parse PDF: ' . $exc->getMessage(), 0, $exc);
+            }
         }
 
         $encryptRef = $this->xref['trailer']['encrypt'] ?? null;
