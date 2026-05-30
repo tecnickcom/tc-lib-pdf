@@ -1,5 +1,7 @@
 # tc-lib-pdf (TCPDF)
 
+<img src="resources/img/tcpdf_logo.svg" alt="TCPDF logo" width="150" />
+
 > **The next generation of [TCPDF](https://tcpdf.org)** - a modern, modular PHP library for programmatically generating PDF documents.
 
 [![Latest Stable Version](https://poser.pugx.org/tecnickcom/tc-lib-pdf/version)](https://packagist.org/packages/tecnickcom/tc-lib-pdf)

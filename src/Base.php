@@ -693,7 +693,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.30.0';
+    protected string $version = '8.30.1';
 
     /**
      * Encrypt object.
