@@ -466,9 +466,10 @@ class TextTest extends TestUtil
             'z' => 'z1',
         ]);
 
-        [, $ordarr] = $obj->exposePrepareText(
+        $prepared = $obj->exposePrepareText(
             'Loremipsumdolorsitametconsecteturadipiscingelitseddoeiusmodtemporincididuntutlaboreetdoloremagnaaliqua.',
         );
+        $ordarr = $prepared[1];
         $fit = $obj->exposeFitTextCellByFontSize($ordarr, 160.0, 5.0, 0.0, 0.0);
 
         $this->assertTrue($fit['fontchanged']);
@@ -969,6 +970,123 @@ class TextTest extends TestUtil
         $lastValue = $after[$lastKey] ?? null;
         $this->assertIsString($lastValue);
         $this->assertNotSame('', $lastValue);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellXYForwardsRegionRelativeCoordinates(): void
+    {
+        $obj = new class extends TestableText {
+            /** @var array<string, mixed> */
+            public array $captured = [];
+
+            public function addTextCell(
+                string $txt,
+                int $pid = -1,
+                float $posx = 0,
+                float $posy = 0,
+                float $width = 0,
+                float $height = 0,
+                float $offset = 0,
+                float $linespace = 0,
+                string $valign = 'T',
+                string $halign = '',
+                ?array $cell = null,
+                array $styles = [],
+                float $strokewidth = 0,
+                float $wordspacing = 0,
+                float $leading = 0,
+                float $rise = 0,
+                bool $jlast = true,
+                bool $fill = true,
+                bool $stroke = false,
+                bool $underline = false,
+                bool $linethrough = false,
+                bool $overline = false,
+                bool $clip = false,
+                bool $drawcell = true,
+                string $forcedir = '',
+                ?array $shadow = null,
+                string $fit = '',
+            ): void {
+                $this->captured = [
+                    'txt' => $txt,
+                    'pid' => $pid,
+                    'posx' => $posx,
+                    'posy' => $posy,
+                    'width' => $width,
+                    'height' => $height,
+                    'offset' => $offset,
+                    'linespace' => $linespace,
+                    'valign' => $valign,
+                    'halign' => $halign,
+                    'cell' => $cell,
+                    'styles' => $styles,
+                    'strokewidth' => $strokewidth,
+                    'wordspacing' => $wordspacing,
+                    'leading' => $leading,
+                    'rise' => $rise,
+                    'jlast' => $jlast,
+                    'fill' => $fill,
+                    'stroke' => $stroke,
+                    'underline' => $underline,
+                    'linethrough' => $linethrough,
+                    'overline' => $overline,
+                    'clip' => $clip,
+                    'drawcell' => $drawcell,
+                    'forcedir' => $forcedir,
+                    'shadow' => $shadow,
+                    'fit' => $fit,
+                ];
+            }
+        };
+
+        $this->initFont($obj);
+        $page = $obj->addPage([
+            'region' => [
+                [
+                    'RX' => 15.0,
+                    'RY' => 20.0,
+                    'RW' => 120.0,
+                    'RH' => 80.0,
+                ],
+            ],
+        ]);
+        $pid = $this->requirePageId($page);
+
+        $obj->addTextCellXY('Hello', $pid, 40.0, 55.0, 20.0, 6.0, 1.5, 2.5, 'B', 'R');
+
+        $this->assertSame(
+            [
+                'txt' => 'Hello',
+                'pid' => $pid,
+                'posx' => 25.0,
+                'posy' => 35.0,
+                'width' => 20.0,
+                'height' => 6.0,
+                'offset' => 1.5,
+                'linespace' => 2.5,
+                'valign' => 'B',
+                'halign' => 'R',
+                'cell' => null,
+                'styles' => [],
+                'strokewidth' => 0.0,
+                'wordspacing' => 0.0,
+                'leading' => 0.0,
+                'rise' => 0.0,
+                'jlast' => true,
+                'fill' => true,
+                'stroke' => false,
+                'underline' => false,
+                'linethrough' => false,
+                'overline' => false,
+                'clip' => false,
+                'drawcell' => true,
+                'forcedir' => '',
+                'shadow' => null,
+                'fit' => '',
+            ],
+            $obj->captured,
+        );
     }
 
     /** @throws \Throwable */

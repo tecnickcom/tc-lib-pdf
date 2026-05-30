@@ -94,7 +94,7 @@ $pdf->page->addContent($titlefont['out']);
 $pdf->addTextCell(
     txt: 'Page Regions: two flowing columns across pages',
     pid: $page['pid'],
-    posx: 0,
+    posx: 0, // NOTE: addTextCell() coordinates are relative to the current page region
     posy: 0,
     width: 0,
     height: 0,
@@ -199,7 +199,40 @@ $contentHtml =
     . \str_replace("\n\n", '</p><p>', \htmlspecialchars($content, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8'))
     . '</p>';
 
-$pdf->addHTMLCell(html: $contentHtml, posx: 12, posy: 0, width: $regionWidth);
+$pdf->page->selectRegion(0, $pageH['pid']);
+$regionH = $pdf->page->getRegion($pageH['pid']);
+
+$pdf->addHTMLCell(
+    html: $contentHtml,
+    posx: (float) $regionH['RX'],
+    posy: (float) $regionH['RY'],
+    width: (float) $regionH['RW'],
+);
+
+// --- Test add addTextCellXY() for absolute page coordinates ---
+
+$page = $pdf->addPage([
+    'margin' => [
+        'PL' => 15.0,
+        'PR' => 15.0,
+        'CT' => 15.0,
+        'CB' => 15.0,
+    ],
+]);
+
+$pdf->addTextCellXY(
+    txt: 'addTextCellXY() uses absolute page coordinates [X=0, Y=0].',
+    posx: 0,
+    posy: 0,
+    drawcell: false,
+);
+
+$pdf->addTextCell(
+    txt: 'addTextCell() uses relative page region coordinates [x=0, y=0] => [X=15, Y=15].',
+    posx: 0,
+    posy: 0,
+    drawcell: false,
+);
 
 // =============================================================
 

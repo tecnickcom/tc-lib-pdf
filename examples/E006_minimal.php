@@ -45,7 +45,7 @@ $pdf->page->addContent($bfont['out']);
 $html = '<h1>Hello, PDF!</h1><p>Generated with tc-lib-pdf.</p>';
 
 // render the HTML content
-$pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 15, width: 180);
 
 // Get the PDF content
 $rawpdf = $pdf->getOutPDFString();

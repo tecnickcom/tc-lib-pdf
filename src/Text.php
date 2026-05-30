@@ -344,7 +344,113 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Adds a text block inside a rectangular cell.
+     * Adds a text block inside a rectangular cell using absolute page coordinates.
+     * Accounts for automatic line, page and region breaks.
+     *
+     * @param string      $txt         Text string to be processed.
+     * @param int         $pid         Page index. Omit or set it to -1 for the current page ID.
+     * @param float       $posx        Abscissa of upper-left corner.
+     * @param float       $posy        Ordinate of upper-left corner.
+     * @param float       $width       Width.
+     * @param float       $height      Height.
+     * @param float       $offset      Horizontal offset to apply to the line start.
+     * @param float       $linespace   Additional space to add between lines.
+     * @param string      $valign      Text vertical alignment inside the cell: T=top; C=center; B=bottom.
+     * @param string      $halign      Text horizontal alignment inside the cell: L=left; C=center; R=right; J=justify.
+     * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     * @param TextCellStylesInput $styles Cell border styles (see: getCurrentStyleArray).
+     * @param float       $strokewidth Stroke width.
+     * @param float       $wordspacing Word spacing (use it only when justify == false).
+     * @param float       $leading     Leading.
+     * @param float       $rise        Text rise.
+     * @param bool        $jlast       If true does not justify the last line when $halign == J.
+     * @param bool        $fill        If true fills the text.
+     * @param bool        $stroke      If true stroke the text.
+     * @param bool        $underline   If true underline the text.
+     * @param bool        $linethrough If true line through the text.
+     * @param bool        $overline    If true overline the text.
+     * @param bool        $clip        If true activate clipping mode.
+     * @param bool        $drawcell    If true draw the cell border.
+     * @param string      $forcedir    If 'R' forces RTL, if 'L' forces LTR.
+     * @param ?TextShadow $shadow      Text shadow parameters.
+     * @param string      $fit         Option to fit the overflowing text in the given cell dimensions.
+     *                                 Supported values:
+     *                                 - '': disabled (default)
+     *                                 - 'T': truncate text to fit width and height
+     *                                 - 'S': compress horizontally to best fit width
+     *                                 - 'F': decrease font size only when text is too large
+     *
+     * @return void
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    public function addTextCellXY(
+        string $txt,
+        int $pid = -1,
+        float $posx = 0,
+        float $posy = 0,
+        float $width = 0,
+        float $height = 0,
+        float $offset = 0,
+        float $linespace = 0,
+        string $valign = 'T',
+        string $halign = '',
+        ?array $cell = null,
+        array $styles = [],
+        float $strokewidth = 0,
+        float $wordspacing = 0,
+        float $leading = 0,
+        float $rise = 0,
+        bool $jlast = true,
+        bool $fill = true,
+        bool $stroke = false,
+        bool $underline = false,
+        bool $linethrough = false,
+        bool $overline = false,
+        bool $clip = false,
+        bool $drawcell = true,
+        string $forcedir = '',
+        ?array $shadow = null,
+        string $fit = '',
+    ): void {
+        $region = $this->page->getRegion($pid);
+        $rposx = $posx - $region['RX'];
+        $rposy = $posy - $region['RY'];
+        $this->addTextCell(
+            $txt,
+            $pid,
+            $rposx,
+            $rposy,
+            $width,
+            $height,
+            $offset,
+            $linespace,
+            $valign,
+            $halign,
+            $cell,
+            $styles,
+            $strokewidth,
+            $wordspacing,
+            $leading,
+            $rise,
+            $jlast,
+            $fill,
+            $stroke,
+            $underline,
+            $linethrough,
+            $overline,
+            $clip,
+            $drawcell,
+            $forcedir,
+            $shadow,
+            $fit,
+        );
+    }
+
+    /**
+     * Adds a text block inside a rectangular cell using relative coordinates.
      * Accounts for automatic line, page and region breaks.
      *
      * @param string      $txt         Text string to be processed.
