@@ -329,6 +329,75 @@ class PageResolverTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testResolveThrowsWhenIndirectMediaBoxReferenceIsMissing(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+                ['/', 'MediaBox'],
+                ['objref', '999 0 R'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessage('missing /MediaBox');
+        $resolver->resolve($doc, 1);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveThrowsWhenIndirectMediaBoxObjectIsMalformed(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+                ['/', 'MediaBox'],
+                ['objref', '8 0 R'],
+            ]),
+            '8_0' => [
+                ['keyword', 'invalid-box-token'],
+            ],
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessage('missing /MediaBox');
+        $resolver->resolve($doc, 1);
+    }
+
+    /** @throws \Throwable */
     public function testResolveMergesParentAndChildResourceDictionaries(): void
     {
         $resolver = new PageResolver();

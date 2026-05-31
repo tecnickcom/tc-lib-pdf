@@ -87,6 +87,14 @@ class ImporterTest extends TestCase
         return $data;
     }
 
+    private function rotatedFixtureData(): string
+    {
+        $path = __DIR__ . '/../fixtures/rotated_import.pdf';
+        $data = file_get_contents($path);
+        $this->assertNotFalse($data);
+        return $data;
+    }
+
     private function makeImporter(): Importer
     {
         $xobjects = [];
@@ -239,6 +247,38 @@ class ImporterTest extends TestCase
         $this->assertIsArray($xobj);
         $this->assertArrayHasKey('n', $xobj);
         $this->assertGreaterThan(0, $xobj['n'] ?? 0);
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageSwapsDimensionsForQuarterTurnRotation(): void
+    {
+        $data = $this->rotatedFixtureData();
+        $xobjects = [];
+        $pon = 0;
+        $importer = new Importer($xobjects, $pon);
+        $srcId = $importer->setImportSourceData($data);
+
+        $tpl = $importer->importPage($srcId, 1);
+
+        $this->assertSame(90, $tpl->getRotation());
+        $this->assertSame(500.0, $tpl->getWidth());
+        $this->assertSame(300.0, $tpl->getHeight());
+    }
+
+    /** @throws \Throwable */
+    public function testImportPageCanIgnoreRotationWhenRequested(): void
+    {
+        $data = $this->rotatedFixtureData();
+        $xobjects = [];
+        $pon = 0;
+        $importer = new Importer($xobjects, $pon);
+        $srcId = $importer->setImportSourceData($data);
+
+        $tpl = $importer->importPage($srcId, 1, ['respectRotation' => false, 'cache' => false]);
+
+        $this->assertSame(0, $tpl->getRotation());
+        $this->assertSame(300.0, $tpl->getWidth());
+        $this->assertSame(500.0, $tpl->getHeight());
     }
 
     /** @throws \Throwable */

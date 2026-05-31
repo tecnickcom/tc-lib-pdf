@@ -158,6 +158,21 @@ class MetaInfoTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSetCustomXMPIgnoresEmptyKeyOrPayload(): void
+    {
+        $obj = $this->getTestObject();
+        /** @var array<string, string> $before */
+        $before = $this->getObjectProperty($obj, 'custom_xmp');
+
+        $this->assertSame($obj, $obj->setCustomXMP('', '<custom/>'));
+        $this->assertSame($obj, $obj->setCustomXMP('x:xmpmeta', ''));
+
+        /** @var array<string, string> $after */
+        $after = $this->getObjectProperty($obj, 'custom_xmp');
+        $this->assertSame($before, $after);
+    }
+
+    /** @throws \Throwable */
     public function testSetViewerPreferencesStoresPreferences(): void
     {
         $obj = $this->getTestObject();
