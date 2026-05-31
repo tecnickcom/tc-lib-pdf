@@ -681,6 +681,30 @@ class ResourceClonerTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testEnqueueObjectDoesNotDoubleEscapeParserLiteralStrings(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Lookup'],
+                        ['(', '\\001\\002\\003'],
+                    ],
+                ],
+            ],
+        ]);
+        $map = new ObjectMap();
+        $cloner = new ResourceCloner(0);
+
+        $cloner->enqueueObject('1_0', $src, $map);
+        $flushed = $map->flush();
+
+        $this->assertStringContainsString('/Lookup (\\001\\002\\003)', $flushed);
+        $this->assertStringNotContainsString('/Lookup (\\\\001\\\\002\\\\003)', $flushed);
+    }
+
+    /** @throws \Throwable */
     public function testEnqueueObjectSerializesStreamFilterAndSkipsMalformedDictPairs(): void
     {
         $src = $this->makeMockSourceDocument([

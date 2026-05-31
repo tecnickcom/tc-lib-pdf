@@ -428,8 +428,11 @@ class ResourceCloner
                 $map,
             ),
             \is_string($raw[0] ?? null) && $raw[0] === '/' => '/' . (\is_string($raw[1] ?? null) ? $raw[1] : ''),
-            \is_string($raw[0] ?? null) && ($raw[0] === '(' || $raw[0] === 'string') => '('
-                . \addslashes(\is_string($raw[1] ?? null) ? $raw[1] : '')
+            // Parser literal-string token `(` already carries PDF string escapes; preserve bytes verbatim.
+            \is_string($raw[0] ?? null) && $raw[0] === '(' => '(' . (\is_string($raw[1] ?? null) ? $raw[1] : '') . ')',
+            // Legacy synthetic token `string` is plain text and must be escaped for PDF literal syntax.
+            \is_string($raw[0] ?? null) && $raw[0] === 'string' => '('
+                . $this->escapePdfLiteralString(\is_string($raw[1] ?? null) ? $raw[1] : '')
                 . ')',
             \is_string($raw[0] ?? null) && ($raw[0] === '<' || $raw[0] === 'hex') => '<'
                 . (\is_string($raw[1] ?? null) ? $raw[1] : '')
@@ -482,6 +485,14 @@ class ResourceCloner
         }
 
         return '[' . \implode(' ', $parts) . ']';
+    }
+
+    /**
+     * Escape a plain-text value for use inside a PDF literal string `( ... )`.
+     */
+    private function escapePdfLiteralString(string $value): string
+    {
+        return (string) \preg_replace('/([\\\\()])/', '\\\\$1', $value);
     }
 
     /**
