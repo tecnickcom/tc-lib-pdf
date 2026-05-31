@@ -660,10 +660,138 @@ class ResourceCloner
             }
 
             $stream = $this->extractSingleStream(SourceDocument::refToKey($refSlice[0]), $src);
-            $combined .= $stream['bytes'] . ' ';
+            // When /Contents is an array, each stream can carry its own filter.
+            // Concatenate decoded bytes so the resulting Form stream is valid plain content.
+            $combined .= $this->decodeMultiContentStream($stream['bytes'], $stream['filter']) . ' ';
         }
 
         return ['bytes' => \rtrim($combined), 'filter' => '', 'length' => \strlen(\rtrim($combined))];
+    }
+
+    /**
+     * Decode one content stream for multi-stream concatenation.
+     *
+     * For single-stream imports we preserve original bytes and /Filter metadata.
+     * For array /Contents we need plain bytes, so we best-effort decode known filters.
+     * If decoding fails we keep the original bytes to avoid dropping content entirely.
+     */
+    private function decodeMultiContentStream(string $bytes, string $filter): string
+    {
+        $filters = $this->parseFilterChain($filter);
+        if ($filters === []) {
+            return $bytes;
+        }
+
+        $decoded = $bytes;
+        foreach ($filters as $name) {
+            if ($name !== 'FlateDecode' && $name !== 'Fl') {
+                return $bytes;
+            }
+
+            $next = $this->tryDecodeZlib($decoded);
+            if (!\is_string($next)) {
+                $next = $this->tryGzUncompress($decoded);
+            }
+
+            if (!\is_string($next)) {
+                $next = $this->tryGzInflate($decoded);
+            }
+
+            if (!\is_string($next)) {
+                return $bytes;
+            }
+
+            $decoded = $next;
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * Attempt zlib decode without emitting runtime warnings.
+     */
+    private function tryDecodeZlib(string $data): string|false
+    {
+        \set_error_handler(static fn(): bool => true);
+        try {
+            $decoded = \zlib_decode($data);
+        } finally {
+            \restore_error_handler();
+        }
+
+        return \is_string($decoded) ? $decoded : false;
+    }
+
+    /**
+     * Attempt gzuncompress without emitting runtime warnings.
+     */
+    private function tryGzUncompress(string $data): string|false
+    {
+        \set_error_handler(static fn(): bool => true);
+        try {
+            $decoded = \gzuncompress($data);
+        } finally {
+            \restore_error_handler();
+        }
+
+        return \is_string($decoded) ? $decoded : false;
+    }
+
+    /**
+     * Attempt gzinflate without emitting runtime warnings.
+     */
+    private function tryGzInflate(string $data): string|false
+    {
+        \set_error_handler(static fn(): bool => true);
+        try {
+            $decoded = \gzinflate($data);
+        } finally {
+            \restore_error_handler();
+        }
+
+        return \is_string($decoded) ? $decoded : false;
+    }
+
+    /**
+     * Parse a serialized /Filter token into an ordered list of filter names.
+     *
+     * @return array<int, string>
+     */
+    private function parseFilterChain(string $filter): array
+    {
+        $trimmed = \trim($filter);
+        if ($trimmed === '') {
+            return [];
+        }
+
+        if ($trimmed[0] === '/') {
+            return [\ltrim($trimmed, '/')];
+        }
+
+        if ($trimmed[0] !== '[' || \substr($trimmed, -1) !== ']') {
+            return [];
+        }
+
+        $matches = [];
+        if (\preg_match_all('/\/([A-Za-z0-9]+)/', $trimmed, $matches) !== 1) {
+            return [];
+        }
+
+        $names = $matches[1] ?? [];
+        if ($names === []) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($names as $name) {
+            if ($name === '') {
+                continue;
+            }
+
+            $out[] = $name;
+        }
+
+        return $out;
     }
 
     /**

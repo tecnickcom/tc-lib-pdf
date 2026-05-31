@@ -366,6 +366,45 @@ class ResourceClonerTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testGetContentStreamMultipleFlateRefsAreDecodedBeforeConcatenation(): void
+    {
+        $streamA = \gzcompress('q 1 0 0 1 10 20 cm');
+        $streamB = \gzcompress('BT /F1 12 Tf ET');
+        $this->assertNotFalse($streamA);
+        $this->assertNotFalse($streamB);
+
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        ['/', 'FlateDecode'],
+                    ],
+                ],
+                ['stream', $streamA],
+            ],
+            '2_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        ['/', 'FlateDecode'],
+                    ],
+                ],
+                ['stream', $streamB],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $combined = $cloner->getContentStream(['Contents' => ['1_0', '2_0']], $src);
+
+        $this->assertSame('', $combined['filter']);
+        $this->assertStringContainsString('q 1 0 0 1 10 20 cm', $combined['bytes']);
+        $this->assertStringContainsString('BT /F1 12 Tf ET', $combined['bytes']);
+    }
+
+    /** @throws \Throwable */
     public function testCloneResourcesPreservesNestedNumericResourceNames(): void
     {
         $src = $this->makeMockSourceDocument([

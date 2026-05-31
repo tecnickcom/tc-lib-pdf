@@ -111,6 +111,69 @@ class TcpdfImporterFacadeTest extends TestCase
         return \is_string($value) ? $value : '';
     }
 
+    /**
+     * Build a minimal one-page PDF whose /Contents is an array of two Flate streams.
+     */
+    private function buildMultiContentFlatePdf(): string
+    {
+        $streamA = \gzcompress("BT /F1 12 Tf 20 160 Td (A) Tj ET\n");
+        $streamB = \gzcompress("BT /F1 12 Tf 20 140 Td (B) Tj ET\n");
+        self::assertNotFalse($streamA);
+        self::assertNotFalse($streamB);
+
+        $objects = [];
+        $objects[] = '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj' . "\n";
+        $objects[] = '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj' . "\n";
+        $objects[] =
+            '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] '
+            . '/Resources << /Font << /F1 6 0 R >> >> /Contents [4 0 R 5 0 R] >> endobj'
+            . "\n";
+        $objects[] =
+            '4 0 obj << /Length '
+            . \strlen($streamA)
+            . ' /Filter /FlateDecode >> stream'
+            . "\n"
+            . $streamA
+            . "\n"
+            . 'endstream endobj'
+            . "\n";
+        $objects[] =
+            '5 0 obj << /Length '
+            . \strlen($streamB)
+            . ' /Filter /FlateDecode >> stream'
+            . "\n"
+            . $streamB
+            . "\n"
+            . 'endstream endobj'
+            . "\n";
+        $objects[] = '6 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj' . "\n";
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0 => 0];
+
+        foreach ($objects as $idx => $obj) {
+            $objNum = $idx + 1;
+            $offsets[$objNum] = \strlen($pdf);
+            $pdf .= $obj;
+        }
+
+        $xrefOffset = \strlen($pdf);
+        $pdf .= 'xref' . "\n";
+        $pdf .= '0 7' . "\n";
+        $pdf .= '0000000000 65535 f ' . "\n";
+        for ($objNum = 1; $objNum <= 6; ++$objNum) {
+            $offset = $offsets[$objNum] ?? 0;
+            $pdf .= \sprintf('%010d 00000 n ' . "\n", $offset);
+        }
+
+        $pdf .= 'trailer << /Size 7 /Root 1 0 R >>' . "\n";
+        $pdf .= 'startxref' . "\n";
+        $pdf .= $xrefOffset . "\n";
+        $pdf .= '%%EOF' . "\n";
+
+        return $pdf;
+    }
+
     // ------------------------------------------------------------------ setImportSourceFile / setImportSourceData
 
     /**
@@ -476,6 +539,22 @@ class TcpdfImporterFacadeTest extends TestCase
         $srcId = $pdf->setImportSourceFile($this->multipagePdf);
         $tpls = $pdf->appendDocument($srcId);
         $this->assertCount(2, $tpls);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAppendDocumentConcatenatesDecodedMultiStreamContents(): void
+    {
+        $pdf = $this->makePdf();
+        $srcId = $pdf->setImportSourceData($this->buildMultiContentFlatePdf());
+
+        $tpls = $pdf->appendDocument($srcId);
+        $this->assertCount(1, $tpls);
+
+        $raw = $pdf->getOutPDFString();
+        $this->assertStringContainsString('(A) Tj ET', $raw);
+        $this->assertStringContainsString('(B) Tj ET', $raw);
     }
 
     /**
