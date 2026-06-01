@@ -34,7 +34,7 @@ Depends: php (>= 8.2.0), php-date,
  php-tecnickcom-tc-lib-unicode-data (<< 3.0.0),
  php-tecnickcom-tc-lib-unicode-data (>= 2.3.0),
  php-tecnickcom-tc-lib-pdf-parser (<< 4.0.0),
- php-tecnickcom-tc-lib-pdf-parser (>= 3.9.0),
+ php-tecnickcom-tc-lib-pdf-parser (>= 3.10.0),
  ${misc:Depends}
 Description: PHP library for PDF document generation
  This package provides tc-lib-pdf, a modular PHP library to compose PDF

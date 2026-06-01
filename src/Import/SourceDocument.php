@@ -155,9 +155,13 @@ class SourceDocument
         }
 
         /** @var array<string, bool> $parserCfg */
-        $parserCfg = [];
+        $parserCfg = ['decode_streams' => false];
         if (isset($cfg['ignore_filter_errors']) && \is_bool($cfg['ignore_filter_errors'])) {
             $parserCfg['ignore_filter_errors'] = $cfg['ignore_filter_errors'];
+        }
+
+        if (isset($cfg['decode_streams']) && \is_bool($cfg['decode_streams'])) {
+            $parserCfg['decode_streams'] = $cfg['decode_streams'];
         }
 
         return $parserCfg;

@@ -289,12 +289,12 @@ class SourceDocumentTest extends TestCase
 
         $passwordProvided = false;
         $cfg = $this->callNormalizeParserConfig($doc, ['ignore_filter_errors' => true], $passwordProvided);
-        $this->assertSame(['ignore_filter_errors' => true], $cfg);
+        $this->assertSame(['decode_streams' => false, 'ignore_filter_errors' => true], $cfg);
         $this->assertFalse($passwordProvided);
 
         $passwordProvided = false;
         $cfg = $this->callNormalizeParserConfig($doc, ['ignore_filter_errors' => 'yes'], $passwordProvided);
-        $this->assertSame([], $cfg);
+        $this->assertSame(['decode_streams' => false], $cfg);
         $this->assertFalse($passwordProvided);
     }
 
@@ -309,7 +309,7 @@ class SourceDocumentTest extends TestCase
         $cfg = $this->callNormalizeParserConfig($doc, [$userPasswordKey => $passwordVal], $passwordProvided);
 
         $this->assertTrue($passwordProvided);
-        $this->assertSame([], $cfg);
+        $this->assertSame(['decode_streams' => false], $cfg);
     }
 
     /** @throws \Throwable */
