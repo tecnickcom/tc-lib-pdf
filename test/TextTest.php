@@ -478,6 +478,209 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testFitTextCellByFontSizeReturnsBaseWhenLayoutAlreadyFits(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        [, $ordarr] = $obj->exposePrepareText('fit');
+        $fit = $obj->exposeFitTextCellByFontSize($ordarr, 200.0, 200.0, 0.0, 0.0);
+
+        $this->assertFalse($fit['fontchanged']);
+        $this->assertSame('', $fit['fontout']);
+    }
+
+    /** @throws \Throwable */
+    public function testFitTextCellByFontSizeStopsWhenCurrentSizeIsMinimum(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $curfont = $font->getCurrentFont();
+        $font->cloneFont($pon, $curfont['idx'], null, 4.0);
+
+        [, $ordarr] = $obj->exposePrepareText('A long word that cannot fit inside a tiny box');
+        $fit = $obj->exposeFitTextCellByFontSize($ordarr, 5.0, 2.0, 0.0, 0.0);
+
+        $this->assertFalse($fit['fontchanged']);
+        $this->assertSame('', $fit['fontout']);
+    }
+
+    /** @throws \Throwable */
+    public function testFitTextCellByStretchReturnsBaseForNoOverflowAndHeightOnlyOverflow(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        [, $ordarr, $dim] = $obj->exposePrepareText('short text');
+
+        $noOverflow = $obj->exposeFitTextCellByStretch($ordarr, $dim, 300.0, 300.0, 0.0, 0.0);
+        $heightOnlyOverflow = $obj->exposeFitTextCellByStretch($ordarr, $dim, 300.0, 0.1, 0.0, 0.0);
+
+        $this->assertFalse($noOverflow['fontchanged']);
+        $this->assertFalse($heightOnlyOverflow['fontchanged']);
+        $this->assertSame(300.0, $noOverflow['linewidth']);
+        $this->assertSame(300.0, $heightOnlyOverflow['linewidth']);
+    }
+
+    /** @throws \Throwable */
+    public function testFitTextCellByFontSizeFallbackProbeBranchWithTestDouble(): void
+    {
+        $obj = new class extends TestableText {
+            private int $probeCalls = 0;
+
+            /** @phpstan-return array{lines: array<int, array{pos:int, chars:int, spaces:int, septype:string, totwidth:float, totspacewidth:float, words:int}>, maxwidth: float, txtheight: float} */
+            protected function getTextCellLayout(
+                array $ordarr,
+                array $dim,
+                float $splitWidth,
+                float $displayWidth,
+                float $scale,
+                float $offsetPoints,
+                float $lineSpacePoints,
+            ): array {
+                return [
+                    'lines' => [[
+                        'pos' => 0,
+                        'chars' => 1,
+                        'spaces' => 0,
+                        'septype' => 'BN',
+                        'totwidth' => 100.0,
+                        'totspacewidth' => 0.0,
+                        'words' => 1,
+                    ]],
+                    'maxwidth' => 100.0,
+                    'txtheight' => 100.0,
+                ];
+            }
+
+            /** @phpstan-return array{size: float, dim: array{chars: int, spaces: int, words: int, totwidth: float, totspacewidth: float, split: array<int, array{pos: int, ord: int, septype: string, spaces: int, totwidth: float, totspacewidth: float, wordwidth: float}>}, layout: array{lines: array<int, array{pos:int, chars:int, spaces:int, septype:string, totwidth:float, totspacewidth:float, words:int}>, maxwidth: float, txtheight: float}, fits: bool} */
+            protected function probeTextCellFontSizeFit(
+                array $ordarr,
+                float $size,
+                float $maxWidth,
+                float $maxHeight,
+                float $offsetPoints,
+                float $lineSpacePoints,
+            ): array {
+                ++$this->probeCalls;
+                if ($this->probeCalls === 1) {
+                    return [
+                        'size' => $size,
+                        'dim' => self::DIM_DEFAULT,
+                        'layout' => ['lines' => [], 'maxwidth' => 100.0, 'txtheight' => 100.0],
+                        'fits' => false,
+                    ];
+                }
+
+                if ($this->probeCalls === 2) {
+                    return [
+                        'size' => $size,
+                        'dim' => self::DIM_DEFAULT,
+                        'layout' => ['lines' => [], 'maxwidth' => 1.0, 'txtheight' => 1.0],
+                        'fits' => true,
+                    ];
+                }
+
+                $fits = ($this->probeCalls % 2) === 0;
+                return [
+                    'size' => $size,
+                    'dim' => self::DIM_DEFAULT,
+                    'layout' => ['lines' => [], 'maxwidth' => $fits ? 1.0 : 100.0, 'txtheight' => $fits ? 1.0 : 100.0],
+                    'fits' => $fits,
+                ];
+            }
+
+            /**
+             * @phpstan-param array<int, int> $ordarr
+             * @phpstan-return array{fontchanged: bool, fontout: string, dim: array{chars: int, spaces: int, words: int, totwidth: float, totspacewidth: float, split: array<int, array{pos: int, ord: int, septype: string, spaces: int, totwidth: float, totspacewidth: float, wordwidth: float}>}, layout: array{lines: array<int, array{pos:int, chars:int, spaces:int, septype:string, totwidth:float, totspacewidth:float, words:int}>, maxwidth: float, txtheight: float}}
+             * @throws \Com\Tecnick\Pdf\Font\Exception
+             */
+            public function runFit(array $ordarr): array
+            {
+                return $this->fitTextCellByFontSize($ordarr, 10.0, 10.0, 0.0, 0.0);
+            }
+        };
+
+        $this->initFont($obj);
+        $obj->addPage();
+        $result = $obj->runFit([65]);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('fontchanged', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testFitTextCellByFontSizeNoChangeBranchWithTestDouble(): void
+    {
+        $obj = new class extends TestableText {
+            /** @phpstan-return array{lines: array<int, array{pos:int, chars:int, spaces:int, septype:string, totwidth:float, totspacewidth:float, words:int}>, maxwidth: float, txtheight: float} */
+            protected function getTextCellLayout(
+                array $ordarr,
+                array $dim,
+                float $splitWidth,
+                float $displayWidth,
+                float $scale,
+                float $offsetPoints,
+                float $lineSpacePoints,
+            ): array {
+                return [
+                    'lines' => [[
+                        'pos' => 0,
+                        'chars' => 1,
+                        'spaces' => 0,
+                        'septype' => 'BN',
+                        'totwidth' => 100.0,
+                        'totspacewidth' => 0.0,
+                        'words' => 1,
+                    ]],
+                    'maxwidth' => 100.0,
+                    'txtheight' => 100.0,
+                ];
+            }
+
+            /** @phpstan-return array{size: float, dim: array{chars: int, spaces: int, words: int, totwidth: float, totspacewidth: float, split: array<int, array{pos: int, ord: int, septype: string, spaces: int, totwidth: float, totspacewidth: float, wordwidth: float}>}, layout: array{lines: array<int, array{pos:int, chars:int, spaces:int, septype:string, totwidth:float, totspacewidth:float, words:int}>, maxwidth: float, txtheight: float}, fits: bool} */
+            protected function probeTextCellFontSizeFit(
+                array $ordarr,
+                float $size,
+                float $maxWidth,
+                float $maxHeight,
+                float $offsetPoints,
+                float $lineSpacePoints,
+            ): array {
+                return [
+                    'size' => 10.0,
+                    'dim' => self::DIM_DEFAULT,
+                    'layout' => ['lines' => [], 'maxwidth' => 100.0, 'txtheight' => 100.0],
+                    'fits' => true,
+                ];
+            }
+
+            /**
+             * @phpstan-param array<int, int> $ordarr
+             * @phpstan-return array{fontchanged: bool, fontout: string, dim: array{chars: int, spaces: int, words: int, totwidth: float, totspacewidth: float, split: array<int, array{pos: int, ord: int, septype: string, spaces: int, totwidth: float, totspacewidth: float, wordwidth: float}>}, layout: array{lines: array<int, array{pos:int, chars:int, spaces:int, septype:string, totwidth:float, totspacewidth:float, words:int}>, maxwidth: float, txtheight: float}}
+             * @throws \Com\Tecnick\Pdf\Font\Exception
+             */
+            public function runFit(array $ordarr): array
+            {
+                return $this->fitTextCellByFontSize($ordarr, 10.0, 10.0, 0.0, 0.0);
+            }
+        };
+
+        $this->initFont($obj);
+        $obj->addPage();
+        $result = $obj->runFit([65]);
+        $this->assertFalse($result['fontchanged']);
+        $this->assertSame('', $result['fontout']);
+    }
+
+    /** @throws \Throwable */
     public function testGetTextCellFitTruncateKeepsTextInsideCellHeight(): void
     {
         $obj = $this->getTestObject();
@@ -1317,6 +1520,162 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testOutTextLinesLowercaseAlignAndInlineWordSpacingBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        [, $ordarr] = $obj->exposePrepareText('a b c d');
+
+        /** @var array<int, array{pos:int, chars:int, spaces:int, totwidth:float, totspacewidth:float, words:int, septype:string}> $lines */
+        $lines = [
+            [
+                'pos' => 0,
+                'chars' => 3,
+                'spaces' => 1,
+                'totwidth' => 10.0,
+                'totspacewidth' => 2.0,
+                'words' => 2,
+                'septype' => 'S',
+            ],
+            [
+                'pos' => 4,
+                'chars' => 3,
+                'spaces' => 1,
+                'totwidth' => 10.0,
+                'totspacewidth' => 2.0,
+                'words' => 2,
+                'septype' => 'S',
+            ],
+        ];
+
+        $center = $obj->exposeOutTextLines(
+            $ordarr,
+            $lines,
+            1.0,
+            1.0,
+            40.0,
+            0.0,
+            1.5,
+            0.0,
+            0.0,
+            0.6,
+            0.0,
+            0.0,
+            'c',
+            false,
+        );
+        $right = $obj->exposeOutTextLines(
+            $ordarr,
+            $lines,
+            1.0,
+            1.0,
+            40.0,
+            0.0,
+            1.5,
+            0.0,
+            0.0,
+            0.6,
+            0.0,
+            0.0,
+            'r',
+            false,
+        );
+        $auto = $obj->exposeOutTextLines($ordarr, $lines, 1.0, 1.0, 40.0, 0.0, 1.5, 0.0, 0.0, 0.6, 0.0, 0.0, '', false);
+
+        $this->assertStringContainsString('BT ', $center);
+        $this->assertStringContainsString('BT ', $right);
+        $this->assertStringContainsString('BT ', $auto);
+    }
+
+    /** @throws \Throwable */
+    public function testLastBBoxHelpersFallbackToZeroForSparseArrayIndexes(): void
+    {
+        $obj = $this->getTestObject();
+
+        /** @var array<string, float> $box */
+        $box = ['x' => 1.0, 'y' => 2.0, 'w' => 3.0, 'h' => 4.0];
+        $this->setObjectProperty($obj, 'bbox', [5 => $box]);
+        $this->setObjectProperty($obj, 'textbbox', [7 => $box]);
+        $this->setObjectProperty($obj, 'cellbbox', [9 => $box]);
+
+        $zero = ['x' => 0.0, 'y' => 0.0, 'w' => 0.0, 'h' => 0.0];
+        $this->assertSame($zero, $obj->getLastBBox());
+        $this->assertSame($zero, $obj->getLastTextBBox());
+        $this->assertSame($zero, $obj->getLastCellBBox());
+
+        $this->setObjectProperty($obj, 'bbox', []);
+        $this->setObjectProperty($obj, 'textbbox', []);
+        $this->setObjectProperty($obj, 'cellbbox', []);
+        $this->assertSame($zero, $obj->getLastBBox());
+        $this->assertSame($zero, $obj->getLastTextBBox());
+        $this->assertSame($zero, $obj->getLastCellBBox());
+    }
+
+    /** @throws \Throwable */
+    public function testSplitLinesHandlesMissingSplitEntriesDefensively(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        /** @var array{chars:int, spaces:int, totwidth:float, totspacewidth:float, words:int, split:array<int, array{pos:int, ord:int, septype:string, spaces:int, totwidth:float, totspacewidth:float, wordwidth:float}>} $dim */
+        $dim = [
+            'chars' => 10,
+            'spaces' => 1,
+            'totwidth' => 20.0,
+            'totspacewidth' => 2.0,
+            'words' => 2,
+            'split' => [
+                0 => [
+                    'pos' => 0,
+                    'ord' => 32,
+                    'septype' => 'WS',
+                    'spaces' => 0,
+                    'totwidth' => 5.0,
+                    'totspacewidth' => 1.0,
+                    'wordwidth' => 4.0,
+                ],
+            ],
+        ];
+
+        $lines = $obj->exposeSplitLines([65, 32, 66], $dim, 8.0);
+        $this->assertIsArray($lines);
+    }
+
+    /** @throws \Throwable */
+    public function testRawTextLineMethodsReturnEmptyOnEmptyOrdinalArray(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        /** @var array{chars:int, spaces:int, totwidth:float, totspacewidth:float, words:int, split:array<int, array{pos:int, ord:int, septype:string, spaces:int, totwidth:float, totspacewidth:float, wordwidth:float}>} $dim */
+        $dim = [
+            'chars' => 1,
+            'spaces' => 0,
+            'totwidth' => 1.0,
+            'totspacewidth' => 0.0,
+            'words' => 1,
+            'split' => [],
+        ];
+
+        $this->assertSame('', $obj->exposeRawGetOutTextLine('X', [], $dim));
+        $this->assertSame('', $obj->exposeRawOutTextLine('X', [], $dim));
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutTextPosMatrixReturnsEmptyForInvalidMatrixSizeViaReflection(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'getOutTextPosMatrix');
+        /** @var array{float, float, float, float, float, float} $invalid */
+        $invalid = [1.0, 0.0, 0.0, 1.0, 0.0];
+        $this->assertSame('', $method->invoke($obj, 'X', $invalid));
+    }
+
+    /** @throws \Throwable */
     public function testTextAdditionalBranchesForCoverage(): void
     {
         $obj = $this->getInternalTestObject();
@@ -1551,5 +1910,414 @@ class TextTest extends TestUtil
 
         $this->assertSame(2, \substr_count($shadowOut, 'BT '));
         $this->assertStringNotContainsString('/GS', $shadowOut);
+    }
+
+    /** @throws \Throwable */
+    public function testPdfUaStructElementLifecycleAndNesting(): void
+    {
+        $plain = $this->getInternalTestObject();
+        $plain->beginStructElem('P', 0, 'ignored');
+        $plain->endStructElem();
+        $this->assertSame([], $this->getObjectProperty($plain, 'pdfuaStructStack'));
+
+        $obj = new TestableText('mm', true, false, true, 'pdfua');
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $obj->beginStructElem('Figure', $pid, 'Parent alt', ['Lang' => 'en-US']);
+        $obj->beginStructElem('P', $pid);
+        $obj->exposeTagPdfUaTextContent("BT (nested) Tj ET\n", $pid);
+        $obj->endStructElem();
+        $obj->endStructElem();
+
+        /** @var array<int, array<string, mixed>> $log */
+        $log = $this->getObjectProperty($obj, 'pdfuaStructLog');
+        $this->assertCount(2, $log);
+        $this->assertSame('P', $log[0]['role'] ?? null);
+        $this->assertSame('Figure', $log[1]['role'] ?? null);
+        $this->assertSame('Parent alt', $log[1]['alt'] ?? null);
+        $this->assertSame(['Lang' => 'en-US'], $log[1]['attr'] ?? null);
+
+        /** @var array<int, mixed> $kids */
+        $kids = \is_array($log[1]['kids'] ?? null) ? $log[1]['kids'] : [];
+        $this->assertNotEmpty($kids);
+    }
+
+    /** @throws \Throwable */
+    public function testPdfUaFigureTaggingAndAnnotationRegistrationBranches(): void
+    {
+        $obj = new TestableText('mm', true, false, true, 'pdfua');
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $beforeContent = $pageObj->getPage($pid)['content'];
+        $beforeCount = \count($beforeContent);
+        $obj->addTaggedFigureContent('', $pid, '');
+        $afterEmpty = $pageObj->getPage($pid)['content'];
+        $this->assertCount($beforeCount, $afterEmpty);
+
+        $wrapped = $obj->exposeTagPdfUaFigureContent("q\nQ\n", $pid, 'Standalone figure');
+        $this->assertStringContainsString('/Figure <</MCID', $wrapped);
+        $this->assertStringContainsString('EMC', $wrapped);
+
+        $obj->beginStructElem('Figure', $pid, 'Open figure');
+        $obj->addTaggedFigureContent("q\nQ\n", $pid, 'ignored alt');
+        $obj->exposeRegisterPdfUaAnnotation(42, $pid);
+
+        /** @var array<int, array<string, mixed>> $stack */
+        $stack = $this->getObjectProperty($obj, 'pdfuaStructStack');
+        $topKey = \array_key_last($stack);
+        $top = \is_int($topKey) && isset($stack[$topKey]) ? $stack[$topKey] : null;
+        $this->assertIsArray($top);
+        $this->assertSame([42], $top['annots'] ?? null);
+        $this->assertSame('Open figure', $top['alt'] ?? null);
+
+        $obj->endStructElem();
+
+        $obj->exposeRegisterPdfUaAnnotation(77, $pid);
+
+        /** @var array<int, array<string, mixed>> $log */
+        $log = $this->getObjectProperty($obj, 'pdfuaStructLog');
+        $lastKey = \array_key_last($log);
+        $last = \is_int($lastKey) && isset($log[$lastKey]) ? $log[$lastKey] : null;
+        $this->assertIsArray($last);
+        $this->assertSame('Link', $last['role'] ?? null);
+        $this->assertSame([77], $last['annots'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testRemoveOrdArrSoftHyphensKeepsTrailingSoftHyphenOnlyWhenPresent(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $withoutTrailing = $obj->exposeRemoveOrdArrSoftHyphens([65, 173, 8203, 66]);
+        $withTrailing = $obj->exposeRemoveOrdArrSoftHyphens([65, 8203, 173]);
+
+        $this->assertSame([65, 66], $withoutTrailing);
+        $this->assertSame([65, 173], $withTrailing);
+    }
+
+    /** @throws \Throwable */
+    public function testTextBaseCleanupAndSoftHyphenRemovalImplementationsAreCallable(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $cleanupMethod = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'cleanupText');
+        $this->assertSame('A B C', $cleanupMethod->invoke($obj, "A\rB\u{00A0}C\u{00AD}"));
+
+        $removeMethod = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'removeOrdArrSoftHyphens');
+        $this->assertSame([65, 66], $removeMethod->invoke($obj, [65, 173, 8203, 66]));
+        $this->assertSame([65, 173], $removeMethod->invoke($obj, [65, 8203, 173]));
+    }
+
+    /** @throws \Throwable */
+    public function testLoadTexHyphenPatternsSkipsEmptyPatternTokens(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $tmp = \tempnam(\sys_get_temp_dir(), 'tc-hyp-empty-');
+        $this->assertNotFalse($tmp);
+
+        \file_put_contents($tmp, "\\patterns{\n\n hy4phen      test1ing   \n}");
+        $patterns = $obj->loadTexHyphenPatterns($tmp);
+        if (\file_exists($tmp)) {
+            \unlink($tmp);
+        }
+
+        $this->assertSame('hy4phen', $patterns['hyphen'] ?? null);
+        $this->assertSame('test1ing', $patterns['testing'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testFitTextCellByTruncationGuardBranchesViaReflection(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'fitTextCellByTruncation');
+        $this->assertSame([], $method->invoke($obj, [], 20.0, 10.0, 0.0, 0.0));
+
+        [, $shortOrdarr] = $obj->exposePrepareText('fit');
+        $this->assertSame($shortOrdarr, $method->invoke($obj, $shortOrdarr, 300.0, 300.0, 0.0, 0.0));
+
+        [, $longOrdarr] = $obj->exposePrepareText(
+            'This sentence is intentionally long to force truncation checks inside tiny cells.',
+        );
+        $this->assertSame([], $method->invoke($obj, $longOrdarr, 20.0, 0.1, 0.0, 0.0));
+    }
+
+    /** @throws \Throwable */
+    public function testPdfUaTaggingGuardsAndArtifactBranches(): void
+    {
+        $plain = $this->getInternalTestObject();
+        $this->assertSame('q Q', $plain->exposeTagPdfUaFigureContent('q Q', 0, 'alt'));
+
+        $obj = new TestableText('mm', true, false, true, 'pdfua');
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $this->assertSame('/Artifact BMC' . "\n", $obj->beginArtifact());
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $beforeCount = \count($pageObj->getPage($pid)['content']);
+        $obj->addArtifactContent('', $pid, 'Pagination', 'Footer');
+        $afterEmptyCount = \count($pageObj->getPage($pid)['content']);
+        $this->assertSame($beforeCount, $afterEmptyCount);
+
+        $obj->addArtifactContent('q 0 0 1 rg Q', $pid, 'Pagination', 'Footer');
+        $artifactContent = \implode("\n", $pageObj->getPage($pid)['content']);
+        $this->assertStringContainsString('/Artifact << /Type /Pagination /Subtype /Footer >> BDC', $artifactContent);
+        $this->assertStringContainsString('q 0 0 1 rg Q' . "\n", $artifactContent);
+
+        $taggedInvalid = $obj->exposeTagPdfUaTextContent('q 1 0 0 1 0 0 cm Q', $pid, 'fi');
+        $this->assertSame('q 1 0 0 1 0 0 cm Q', $taggedInvalid);
+
+        $logBefore = \json_encode($this->getObjectProperty($obj, 'pdfuaStructLog'), \JSON_THROW_ON_ERROR);
+        $obj->exposeRegisterPdfUaAnnotation(0, $pid);
+        $logAfter = \json_encode($this->getObjectProperty($obj, 'pdfuaStructLog'), \JSON_THROW_ON_ERROR);
+        $this->assertSame($logBefore, $logAfter);
+    }
+
+    /** @throws \Throwable */
+    public function testPdfUaFigureTaggingAddsAltOnOpenFigureAndParentKid(): void
+    {
+        $obj = new TestableText('mm', true, false, true, 'pdfua');
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $obj->beginStructElem('Figure', $pid);
+        $obj->exposeTagPdfUaFigureContent("q\nQ\n", $pid, 'late alt');
+        /** @var array<int, array<string, mixed>> $stack */
+        $stack = $this->getObjectProperty($obj, 'pdfuaStructStack');
+        $figureKey = \array_key_last($stack);
+        $figureTop = \is_int($figureKey) && isset($stack[$figureKey]) ? $stack[$figureKey] : null;
+        $this->assertIsArray($figureTop);
+        $this->assertSame('late alt', $figureTop['alt'] ?? null);
+        $obj->endStructElem();
+
+        $obj->beginStructElem('P', $pid);
+        $obj->exposeTagPdfUaFigureContent("q\nQ\n", $pid, 'child figure');
+        /** @var array<int, array<string, mixed>> $stack */
+        $stack = $this->getObjectProperty($obj, 'pdfuaStructStack');
+        $parentKey = \array_key_last($stack);
+        $parent = \is_int($parentKey) && isset($stack[$parentKey]) ? $stack[$parentKey] : null;
+        $this->assertIsArray($parent);
+        /** @var array<int, mixed> $kids */
+        $kids = \is_array($parent['kids'] ?? null) ? $parent['kids'] : [];
+        $this->assertNotEmpty($kids);
+
+        $inlineNoNl = $obj->exposeTagPdfUaFigureContent('q Q', $pid, 'inline');
+        $this->assertStringContainsString("q Q\nEMC\n", $inlineNoNl);
+        $obj->endStructElem();
+    }
+
+    /** @throws \Throwable */
+    public function testEndStructElemReturnsWhenTopIndexIsMissing(): void
+    {
+        $obj = new TestableText('mm', true, false, true, 'pdfua');
+        /** @var array<int, array<string, mixed>|null> $sparse */
+        $sparse = [
+            5 => null,
+        ];
+        $this->setObjectProperty($obj, 'pdfuaStructStack', $sparse);
+        $obj->endStructElem();
+        $this->assertSame([], $this->getObjectProperty($obj, 'pdfuaStructLog'));
+    }
+
+    /** @throws \Throwable */
+    public function testSplitLinesSkipsMissingWordEntriesViaReflection(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'splitLines');
+        /** @var array<int, int> $ordarr */
+        $ordarr = [65, 32, 66];
+        /** @var array<string, mixed> $dim */
+        $dim = [
+            'chars' => 3,
+            'spaces' => 1,
+            'words' => 2,
+            'totwidth' => 12.0,
+            'totspacewidth' => 2.0,
+            'split' => [
+                1 => [
+                    'pos' => 1,
+                    'ord' => 32,
+                    'septype' => 'WS',
+                    'spaces' => 1,
+                    'totwidth' => 6.0,
+                    'totspacewidth' => 2.0,
+                    'wordwidth' => 4.0,
+                ],
+            ],
+        ];
+
+        $this->assertIsArray($method->invoke($obj, $ordarr, $dim, 8.0, 0.0));
+    }
+
+    /** @throws \Throwable */
+    public function testUnicodeJustifiedStringHandlesZeroFontSizeGuard(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        $markerMethod = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'getTextCellTruncationMarkerOrdArr');
+        $this->assertSame([0x2026], $markerMethod->invoke($obj));
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $cur = $font->getCurrentFont();
+        $font->cloneFont($pon, $cur['idx'], null, 0.0);
+
+        [, $ordarr, $dim] = $obj->exposePrepareText("A \u{05D0} B", 'R');
+        $just = $obj->exposeGetJustifiedString("A \u{05D0} B", $ordarr, $dim, 20.0);
+        $this->assertStringContainsString('TJ', $just);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellMultiBlockDrawCellUsesFillColorOnContinuationBorders(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage([
+            'region' => [
+                ['RX' => 0.0, 'RY' => 0.0, 'RW' => 60.0, 'RH' => 4.0],
+                ['RX' => 0.0, 'RY' => 6.0, 'RW' => 60.0, 'RH' => 4.0],
+                ['RX' => 0.0, 'RY' => 12.0, 'RW' => 60.0, 'RH' => 4.0],
+            ],
+        ]);
+        $pid = $this->requirePageId($page);
+
+        $styles = [
+            'all' => [
+                'lineWidth' => 0.4,
+                'lineColor' => '#111111',
+                'fillColor' => '#00ff00',
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'dashArray' => [],
+                'dashPhase' => 0,
+            ],
+        ];
+
+        $obj->addTextCell(
+            'Long long long long long long long long long long long long long long long long long long long text',
+            $pid,
+            1,
+            1,
+            25,
+            0,
+            0,
+            0,
+            'T',
+            'L',
+            null,
+            $styles,
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+        );
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $content = \implode("\n", $pageObj->getPage($pid)['content']);
+        $this->assertStringContainsString('0.000000 1.000000 0.000000 rg', $content);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellSpansRegionsAndRestoresFontOutputSuffix(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage([
+            'region' => [
+                ['RX' => 0.0, 'RY' => 0.0, 'RW' => 80.0, 'RH' => 6.0],
+                ['RX' => 0.0, 'RY' => 8.0, 'RW' => 80.0, 'RH' => 6.0],
+            ],
+        ]);
+        $pid = $this->requirePageId($page);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $before = $pageObj->getPage($pid)['content'];
+        $beforeCount = \count($before);
+
+        $styles = [
+            'all' => [
+                'lineWidth' => 0.4,
+                'lineCap' => 'butt',
+                'lineJoin' => 'miter',
+                'dashArray' => [],
+                'dashPhase' => 0,
+                'lineColor' => '#3a4a5a',
+                'fillColor' => '#dddddd',
+            ],
+        ];
+
+        $txt =
+            'This is a long text block that must wrap across tiny regions to exercise multi-block handling.'
+            . ' The renderer should continue to the next region and still close with restored font output.';
+
+        $obj->addTextCell(
+            $txt,
+            $pid,
+            1,
+            1,
+            78,
+            0,
+            0,
+            0,
+            'T',
+            'J',
+            null,
+            $styles,
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            '',
+            null,
+            'F',
+        );
+
+        /** @var array<int, string> $after */
+        $after = $pageObj->getPage($pid)['content'];
+        $this->assertGreaterThan($beforeCount, \count($after));
+        $chunk = \implode('', \array_slice($after, $beforeCount));
+        $this->assertStringContainsString('BT ', $chunk);
+
+        /** @var array<int, array{x: float, y: float, w: float, h: float}> $cellBoxes */
+        $cellBoxes = $this->getObjectProperty($obj, 'cellbbox');
+        $this->assertGreaterThan(1, \count($cellBoxes));
     }
 }

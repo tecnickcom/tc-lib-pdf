@@ -1003,4 +1003,171 @@ class CSSTest extends TestUtil
         $this->assertStringNotContainsString('@charset', $result);
         $this->assertStringContainsString('h1', $result);
     }
+
+    /** @throws \Throwable */
+    public function testImplodeCSSDataHandlesEmptyPropertyNameAndImportantReplacement(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = [
+            ['c' => ':oops;color:red;'],
+            ['c' => 'margin:1px;'],
+            ['c' => 'margin:2px !important;'],
+            ['c' => 'margin-top:3px;'],
+        ];
+
+        $out = \str_replace(' ', '', $obj->exposeImplodeCSSData($css));
+
+        $this->assertStringContainsString('color:red;', $out);
+        $this->assertStringContainsString('margin:2px!important;', $out);
+        $this->assertStringNotContainsString('margin-top:3px;', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testSplitCSSWhitespaceTokensPreservesQuotedAndFunctionContent(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $tokens = $obj->exposeSplitCSSWhitespaceTokens('url("a b") "hello world" plain');
+
+        $this->assertSame(['url("a b")', '"hello world"', 'plain'], $tokens);
+    }
+
+    /** @throws \Throwable */
+    public function testSplitCSSDeclarationsPreservesQuotedAndFunctionSemicolons(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $decls = $obj->exposeSplitCSSDeclarations('content:"a;b";background:url("x;y");color:red;');
+
+        $this->assertSame(['content:"a;b"', 'background:url("x;y")', 'color:red'], $decls);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveImportRulesSkipsUnreadableImports(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = '@import "/definitely/not/here.css"; h7{margin:0;}';
+        $seen = [];
+
+        $result = $obj->exposeResolveImportRules($css, 0, $seen);
+
+        $this->assertStringContainsString('h7{margin:0;}', $result);
+        $this->assertStringNotContainsString('@import', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testIsMediaPrintRelevantNegatedFeatureOnlyQueryIsNotRelevant(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertFalse($obj->exposeIsMediaPrintRelevant('not (min-width:600px)'));
+    }
+
+    /** @throws \Throwable */
+    public function testTidyCssSkipsEmptyMediaBlocks(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $out = $obj->exposeTidyCSS('@media print{} body{color:black;}');
+
+        $this->assertSame('body{color:black;}', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testTidyCssSkipsEmptyMediaEntriesWhenBlocksAreParsed(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $out = $obj->exposeTidyCSS('@media print{h1{}}@media print{h2{color:red;}}');
+
+        $this->assertStringContainsString('h2{color:red;}', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testTidyCssHandlesPreTokenizedEmptyMediaEntry(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $out = $obj->exposeTidyCSS('@media print§§@media print§h9{color:blue;}§');
+
+        $this->assertStringContainsString('h9', $out);
+        $this->assertStringContainsString('color:blue', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testDecodeCssMapGuardsAgainstInvalidShapes(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame([], $obj->exposeDecodeCSSMap('null'));
+        $this->assertSame([], $obj->exposeDecodeCSSMap('["x"]'));
+        $this->assertSame(['h2' => 'color:red;'], $obj->exposeDecodeCSSMap('{"h1":1,"h2":"color:red;"}'));
+    }
+
+    /** @throws \Throwable */
+    public function testSpotRuleParsingCoversLabAndComponentDeclarations(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css =
+            '@spot "" { cmyk: 0 0 0 0; }'
+            . '@spot sep { ;broken;:x;cyan:10;magenta:20;yellow:30;key:40; }'
+            . '@spot labone { lab: 50 10 -20; }'
+            . '@spot badlab { lab: a 2 3; }'
+            . '@spot badcmyk { cmyk: 1 2 3; }'
+            . '@spot incomplete { cyan:10; magenta:20; }'
+            . '@spot badcomponents { cyan:10;magenta:20;yellow:30;key:oops; }'
+            . '.x{color:spot(sep,50%);}';
+
+        $stripped = $obj->exposeStripAndRegisterCSSSpotRules($css);
+
+        $this->assertStringNotContainsString('@spot', $stripped);
+        $this->assertStringContainsString('/CS', $obj->color->getPdfColor('spot(sep,0.500000)'));
+        $this->assertStringContainsString('/CS', $obj->color->getPdfColor('spot(labone,0.500000)'));
+    }
+
+    /** @throws \Throwable */
+    public function testGetCssArrayFromHtmlLoadsStylesheetWithoutMediaAttribute(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $cssfile = (string) \realpath(__DIR__ . '/fixtures/css/external.css');
+        $html = '<link rel="stylesheet" type="text/css" href="' . $cssfile . '">';
+
+        $out = $obj->exposeGetCSSArrayFromHTML($html);
+
+        $this->assertContains('color:green;', \array_values($out));
+    }
+
+    /** @throws \Throwable */
+    public function testSpotAndLabLowLevelParsersCoverInvalidAndClampPaths(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertNull($obj->exposeParseSpotCssColorFunction('spot('));
+        $this->assertNull($obj->exposeParseSpotCssColorFunction('spot("",20%)'));
+        $this->assertNull($obj->exposeParseSpotCssColorFunction('spot(cyan,abc)'));
+        $this->assertSame('spot(cyan,1.000000)', $obj->exposeParseSpotCssColorFunction('spot(cyan)'));
+
+        $this->assertSame('', $obj->exposeParseSpotColorNameToken('   '));
+        $this->assertSame('"Brand Name"', $obj->exposeFormatSpotColorNameToken('Brand Name'));
+
+        $this->assertNull($obj->exposeParseSpotComponentList('1 2 3'));
+        $this->assertNull($obj->exposeParseSpotComponentList('1 2 x 4'));
+        $this->assertSame([0.1, 0.2, 0.3, 0.4], $obj->exposeParseSpotComponentList('10 20 30 40'));
+
+        $this->assertNull($obj->exposeParseLabComponentList('10 20'));
+        $this->assertNull($obj->exposeParseLabComponentList('x 20 30'));
+        $this->assertSame([50.0, 10.0, -20.0], $obj->exposeParseLabComponentList('50 10 -20'));
+
+        $this->assertNull($obj->exposeParseSpotTintValue(''));
+        $this->assertNull($obj->exposeParseSpotTintValue('abc'));
+        $this->assertSame(0.75, $obj->exposeParseSpotTintValue('75%'));
+
+        $this->assertNull($obj->exposeParseLabLstarValue(''));
+        $this->assertNull($obj->exposeParseLabLstarValue('abc'));
+        $this->assertSame(100.0, $obj->exposeParseLabLstarValue('120'));
+        $this->assertSame(25.0, $obj->exposeParseLabLstarValue('25%'));
+
+        $this->assertNull($obj->exposeParseLabAxisValue('abc'));
+        $this->assertSame(-128.0, $obj->exposeParseLabAxisValue('-999'));
+        $this->assertSame(127.0, $obj->exposeParseLabAxisValue('999'));
+    }
 }

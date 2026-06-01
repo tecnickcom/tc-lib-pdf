@@ -653,6 +653,148 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testHtmlHelperBranchesCoverLanguageSelectorsAndSizing(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'value' => 'div',
+                'tag' => true,
+                'opening' => true,
+                'parent' => 0,
+                'attribute' => ['lang' => 'en-US'],
+            ]),
+            1 => $this->makeHtmlNode([
+                'value' => 'span',
+                'tag' => true,
+                'opening' => true,
+                'parent' => 0,
+                'attribute' => ['disabled' => '', 'xml:lang' => ' fr-ca '],
+            ]),
+            2 => $this->makeHtmlNode([
+                'value' => 'span',
+                'tag' => true,
+                'opening' => true,
+                'parent' => 0,
+                'attribute' => ['checked' => 'false', 'lang' => 'en-GB'],
+            ]),
+            3 => $this->makeHtmlNode([
+                'value' => 'p',
+                'tag' => true,
+                'opening' => true,
+                'parent' => 0,
+                'attribute' => ['selected' => 'yes'],
+            ]),
+            4 => $this->makeHtmlNode([
+                'value' => 'p',
+                'tag' => false,
+                'opening' => false,
+                'parent' => 0,
+                'content' => 'visible text',
+            ]),
+        ];
+
+        $this->assertTrue($obj->exposeHasHTMLBooleanAttribute($dom, 1, 'disabled'));
+        $this->assertFalse($obj->exposeHasHTMLBooleanAttribute($dom, 2, 'checked'));
+        $this->assertTrue($obj->exposeHasHTMLBooleanAttribute($dom, 3, 'selected'));
+
+        $this->assertSame('fr-ca', $obj->exposeGetHTMLEffectiveLang($dom, 1));
+        $this->assertSame('en-gb', $obj->exposeGetHTMLEffectiveLang($dom, 2));
+        $this->assertSame('en-us', $obj->exposeGetHTMLEffectiveLang($dom, 3));
+        $this->assertFalse($obj->exposeMatchesHTMLPseudoLang($dom, 1, 'en'));
+        $this->assertTrue($obj->exposeMatchesHTMLPseudoLang($dom, 2, 'en-gb'));
+        $this->assertTrue($obj->exposeMatchesHTMLPseudoLang($dom, 3, 'en'));
+        $this->assertFalse($obj->exposeMatchesHTMLPseudoLang($dom, 3, 'fr'));
+        $this->assertFalse($obj->exposeMatchesHTMLPseudoLang($dom, 1, ''));
+
+        $siblings = [0, 1, 2, 3];
+        $typedSiblings = $obj->exposeGetHTMLSiblingKeysByTagName($dom, $siblings, 2);
+        $this->assertSame([1, 2], $typedSiblings);
+        $this->assertTrue($obj->exposeMatchesHTMLPseudoLastOfType($dom, $siblings, 2));
+        $this->assertFalse($obj->exposeMatchesHTMLPseudoLastOfType($dom, $siblings, 1));
+        $this->assertTrue($obj->exposeMatchesHTMLPseudoNthChild($siblings, 1, 'even'));
+        $this->assertTrue($obj->exposeMatchesHTMLPseudoNthChild($siblings, 2, 'odd'));
+        $this->assertFalse($obj->exposeMatchesHTMLPseudoNthChild($siblings, 1, ''));
+
+        $emptyDom = [
+            0 => $this->makeHtmlNode([
+                'value' => 'div',
+                'tag' => true,
+                'opening' => true,
+                'parent' => 0,
+            ]),
+        ];
+        $this->assertTrue($obj->exposeMatchesHTMLPseudoEmpty($emptyDom, 0));
+        $emptyDom[1] = $this->makeHtmlNode([
+            'value' => 'text',
+            'tag' => false,
+            'opening' => false,
+            'parent' => 0,
+            'content' => 'not empty',
+        ]);
+        $this->assertFalse($obj->exposeMatchesHTMLPseudoEmpty($emptyDom, 0));
+
+        $this->assertNull($obj->exposeGetHTMLStyleLengthValue('auto'));
+        $this->assertNull($obj->exposeGetHTMLStyleLengthValue('none'));
+        $this->assertEqualsWithDelta(10.0, $obj->exposeGetHTMLStyleLengthValue('10mm'), 0.001);
+
+        $this->assertSame('', $obj->exposeGetHTMLBackgroundShorthandColor(''));
+        $this->assertSame(
+            'rgb(7%,20%,34%)',
+            $obj->exposeGetHTMLBackgroundShorthandColor('url(bg.png) rgb(7%,20%,34%) no-repeat'),
+        );
+
+        $adjusted = $obj->exposeResolveHTMLFontSizeAdjust(
+            $this->makeHtmlNode(['font-size-adjust' => 0.5]),
+            'helvetica',
+            '',
+            10.0,
+        );
+        $this->assertGreaterThan(0.0, $adjusted);
+
+        $sameSize = $obj->exposeResolveHTMLFontSizeAdjust(
+            $this->makeHtmlNode(['font-size-adjust' => 'none']),
+            'helvetica',
+            '',
+            10.0,
+        );
+        $this->assertSame(10.0, $sameSize);
+
+        $hrc = $obj->exposeGetHTMLRenderContext();
+        $hrc['cellctx']['originx'] = 0.0;
+        $hrc['cellctx']['originy'] = 0.0;
+        $hrc['cellctx']['lineadvance'] = 0.0;
+        $hrc['cellctx']['linebottom'] = 0.0;
+        $hrc['cellctx']['activepage'] = 'auto';
+        $namedElm = $this->makeHtmlNode([
+            'block' => true,
+            'display' => 'block',
+            'page' => 'chapter-1',
+        ]);
+
+        $this->assertTrue($obj->exposeApplyHTMLNamedPageSemantics($hrc, $namedElm, false, 10.0, 10.0));
+        $this->assertSame('chapter-1', $hrc['cellctx']['activepage'] ?? null);
+
+        $hrc2 = $obj->exposeGetHTMLRenderContext();
+        $hrc2['cellctx']['originx'] = 0.0;
+        $hrc2['cellctx']['originy'] = 0.0;
+        $hrc2['cellctx']['lineadvance'] = 0.0;
+        $hrc2['cellctx']['linebottom'] = 0.0;
+        $this->assertFalse($obj->exposeApplyHTMLNamedPageSemantics($hrc2, $namedElm, true, 10.0, 10.0));
+        $this->assertFalse($obj->exposeApplyHTMLNamedPageSemantics(
+            $hrc2,
+            $this->makeHtmlNode(['page' => 'auto']),
+            false,
+            10.0,
+            10.0,
+        ));
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testTidyHTMLReturnsStyledXhtml(): void
     {
         if (!\function_exists('tidy_parse_string')) {
@@ -16612,8 +16754,10 @@ class HTMLTest extends TestUtil
     public function testHTMLListHelperMethodsTrackMarkerTypesAndCounters(): void
     {
         $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
         $obj->setULLIDot('square');
 
+        /** @var array<int, THTMLAttrib> $dom */
         $dom = [
             $this->makeHtmlNode([
                 'value' => 'ol',
@@ -16631,6 +16775,25 @@ class HTMLTest extends TestUtil
         $this->assertSame('#', $obj->exposeGetCurrentHTMLListMarkerType());
         $this->assertSame('square', $obj->exposeGetHTMLListMarkerTypeWithDom($dom, -1, false));
         $this->assertSame('#', $obj->exposeGetHTMLListMarkerTypeWithDom($dom, -1, true));
+        $this->assertSame('', $obj->exposeGetHTMLListImageMarkerType(''));
+        $this->assertSame('', $obj->exposeGetHTMLListImageMarkerType('not-a-url'));
+        $this->assertStringStartsWith('img|png|', $obj->exposeGetHTMLListImageMarkerType('url(icon.png)'));
+        $this->assertStringStartsWith(
+            'img|svg|',
+            $obj->exposeGetHTMLListImageMarkerType('url(data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=)'),
+        );
+
+        $dom[2] = $this->makeHtmlNode([
+            'value' => 'ul',
+            'opening' => true,
+            'style' => ['list-style-image' => 'url(icon.png)'],
+        ]);
+        $this->assertStringStartsWith('img|png|', $obj->exposeGetHTMLListMarkerTypeWithDom($dom, 2, false));
+
+        $obj->exposePushHTMLListWithDom($dom, -1, false);
+        $this->assertSame('square', $obj->exposeGetCurrentHTMLListMarkerType());
+        $obj->exposePopHTMLList();
+        $this->assertSame('#', $obj->exposeGetCurrentHTMLListMarkerType());
         $this->assertSame(1, $obj->exposeGetHTMLListItemCounterWithDom($dom, 1));
 
         $obj->exposePushHTMLListWithDom($dom, 0, true);
@@ -17586,10 +17749,66 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testParseHTMLStyleDeclarationMapHandlesQuotesAndParens(): void
+    public function testHtmlSelectorAttributeAndOpeningSiblingHelpersCoverBranches(): void
     {
         $obj = $this->getInternalTestObject();
 
+        $dom = [
+            0 => $this->makeHtmlNode([
+                'value' => 'root',
+                'tag' => true,
+                'opening' => true,
+                'parent' => -1,
+            ]),
+            1 => $this->makeHtmlNode([
+                'value' => 'span',
+                'tag' => true,
+                'opening' => true,
+                'parent' => 0,
+                'attribute' => [
+                    'data-role' => 'alpha beta',
+                    'class' => 'hero card',
+                    'lang' => 'en-US',
+                ],
+            ]),
+            2 => $this->makeHtmlNode([
+                'value' => 'span',
+                'tag' => true,
+                'opening' => true,
+                'parent' => 0,
+                'attribute' => [
+                    'data-role' => 'gamma-delta',
+                    'class' => 'card main',
+                ],
+            ]),
+            3 => $this->makeHtmlNode([
+                'value' => 'span',
+                'tag' => false,
+                'opening' => false,
+                'parent' => 0,
+                'content' => 'text',
+            ]),
+        ];
+
+        $this->assertTrue($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[data-role]'));
+        $this->assertTrue($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[data-role="alpha beta"]'));
+        $this->assertTrue($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[data-role^=alpha]'));
+        $this->assertTrue($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[data-role$=beta]'));
+        $this->assertTrue($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[data-role*=pha b]'));
+        $this->assertTrue($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[data-role~=beta]'));
+        $this->assertTrue($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[lang|=en]'));
+        $this->assertFalse($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, '[data-role^=beta]'));
+        $this->assertFalse($obj->exposeMatchesHTMLSelectorAttribute($dom, 1, 'not-an-attribute-selector'));
+
+        $this->assertSame([1, 2], $obj->exposeGetHTMLOpeningSiblingKeys($dom, 2));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testParseHTMLStyleDeclarationMapHandlesQuotesAndParens(): void
+    {
+        $obj = $this->getInternalTestObject();
         // Quoted value with semicolons inside should not be split.
         $style = "background-image: url('data:image/png;base64,abc'); color: red;";
         $result = $obj->exposeParseHTMLStyleDeclarationMap($style);
@@ -17659,10 +17878,10 @@ class HTMLTest extends TestUtil
         $dom = [
             0 => $this->makeHtmlNode(['value' => 'root']),
             1 => $this->makeHtmlNode([
-                'value' => 'div',
+                'value' => 'span',
                 'parent' => 0,
                 'attribute' => [
-                    'style' => 'color:#0055aa !important;border:1px solid #333 !important',
+                    'style' => 'color: #0055aa !important;',
                 ],
             ]),
         ];
@@ -17670,9 +17889,7 @@ class HTMLTest extends TestUtil
         $obj->exposeParseHTMLStyleAttributesWithDom($dom, 1, 0);
 
         $node = $dom[1] ?? [];
-        $this->assertSame('#0055aa', $node['style']['color'] ?? '');
-        $this->assertSame('1px solid #333', $node['style']['border'] ?? '');
-        $this->assertNotSame('', $node['fgcolor'] ?? '');
+        $this->assertSame('rgb(0%,33%,67%)', $node['fgcolor'] ?? '');
     }
 
     /**

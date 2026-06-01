@@ -61,6 +61,23 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         return $this->fitTextCellByFontSize($ordarr, $maxWidth, $maxHeight, $offsetPoints, $lineSpacePoints);
     }
 
+    /**
+     * @phpstan-param array<int, int> $ordarr
+     * @phpstan-param TTextDims $dim
+     * @phpstan-return array{fontchanged: bool, linewidth: float, layout: array{lines: array<int, TextLinePos>, maxwidth: float, txtheight: float}}
+     * @throws \Throwable
+     */
+    public function exposeFitTextCellByStretch(
+        array $ordarr,
+        array $dim,
+        float $maxWidth,
+        float $maxHeight,
+        float $offsetPoints,
+        float $lineSpacePoints,
+    ): array {
+        return $this->fitTextCellByStretch($ordarr, $dim, $maxWidth, $maxHeight, $offsetPoints, $lineSpacePoints);
+    }
+
     public function exposeGetOutTextStateOperatorTc(string $raw, int|float $value = 0): string
     {
         return $this->getOutTextStateOperatorTc($raw, $value);
@@ -607,5 +624,15 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeTagPdfUaTextContent(string $content, int $pid, string $actualText = ''): string
     {
         return $this->tagPdfUaTextContent($content, $pid, $actualText);
+    }
+
+    public function exposeRegisterPdfUaAnnotation(int $oid, int $pid): void
+    {
+        $this->registerPdfUaAnnotation($oid, $pid);
+    }
+
+    public function exposeTagPdfUaFigureContent(string $content, int $pid, string $alt = ''): string
+    {
+        return $this->tagPdfUaFigureContent($content, $pid, $alt);
     }
 }

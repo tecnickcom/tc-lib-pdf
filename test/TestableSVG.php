@@ -940,6 +940,40 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->resolveSVGPatternDef($soid, $patternId);
     }
 
+    public function exposeNormalizeSVGStyleFloatValue(mixed $value, float $default): float
+    {
+        return $this->normalizeSVGStyleFloatValue($value, $default);
+    }
+
+    public function exposeNormalizeSVGBoolLike(mixed $value): bool
+    {
+        return $this->normalizeSVGBoolLike($value);
+    }
+
+    public function exposeGetSVGMarkerId(string $marker): string
+    {
+        return $this->getSVGMarkerId($marker);
+    }
+
+    /**
+     * @phpstan-param array<array-key, mixed> $clipPar
+     * @throws \Throwable
+     */
+    public function exposeApplySVGClipFunction(string $clipFnc, array $clipPar): string
+    {
+        return $this->applySVGClipFunction($clipFnc, $clipPar);
+    }
+
+    /** @throws \Throwable */
+    public function exposeResolveSVGMarkerRefCoordinate(
+        string $raw,
+        float $viewBoxMin,
+        float $viewBoxSize,
+        int $soid,
+    ): float {
+        return $this->resolveSVGMarkerRefCoordinate($raw, $viewBoxMin, $viewBoxSize, $soid);
+    }
+
     /**
      * @phpstan-param TSVGAttributes $attr
      * @throws \Throwable

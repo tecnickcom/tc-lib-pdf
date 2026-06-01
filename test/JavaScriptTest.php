@@ -282,6 +282,23 @@ class JavaScriptTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testSetBookmarkClampsNegativeLevelToZero(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->addRawPage($obj);
+
+        $obj->setBookmark('Negative', '', -5, $page['pid']);
+
+        /** @var array<int, array{l:int}> $outlines */
+        $outlines = $this->getObjectProperty($obj, 'outlines');
+        $this->assertCount(1, $outlines);
+        assert(isset($outlines[0]), "\$outlines[0] must be set");
+        $this->assertSame(0, $outlines[0]['l']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testXObjectTemplateLifecycleAndMutators(): void
     {
         $obj = $this->getTestObject();
@@ -316,6 +333,27 @@ class JavaScriptTest extends TestUtil
         $this->assertSame('', $obj->getXObjectTemplate('UNKNOWN'));
         $draw = $obj->getXObjectTemplate($tid, 1, 2, 10, 20);
         $this->assertStringContainsString('/' . $tid . ' Do', $draw);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testXObjectMutatorsGracefullyIgnoreUnknownTemplateId(): void
+    {
+        $obj = $this->getTestObject();
+
+        $obj->exitXObjectTemplate();
+        $obj->addXObjectContent('UNKNOWN', 'q Q');
+        $obj->addXObjectXObjectID('UNKNOWN', 'XT1');
+        $obj->addXObjectImageID('UNKNOWN', 1);
+        $obj->addXObjectFontID('UNKNOWN', 'F1');
+        $obj->addXObjectGradientID('UNKNOWN', 2);
+        $obj->addXObjectExtGStateID('UNKNOWN', 3);
+        $obj->addXObjectSpotColorID('UNKNOWN', 'SC1');
+
+        /** @var array<string, TXOBject> $xobjects */
+        $xobjects = $this->getObjectProperty($obj, 'xobjects');
+        $this->assertSame([], $xobjects);
     }
 
     /**
@@ -689,6 +727,7 @@ class JavaScriptTest extends TestUtil
                 'CanonicalFormat',
                 'ExclNonUserAnnots',
                 'ExclFKey',
+                123,
                 'UnknownFlag',
             ],
         ]);
@@ -1178,5 +1217,74 @@ class JavaScriptTest extends TestUtil
         $kids = \is_array($radioGroup['kids'] ?? null) ? $radioGroup['kids'] : [];
         $this->assertSame('Off', $kids[0]['def'] ?? null);
         $this->assertSame('On', $kids[1]['def'] ?? null);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testSetAnnotationDefaultsEmptySubtypeToText(): void
+    {
+        $obj = $this->getTestObject();
+        $oid = $obj->setAnnotation(1, 2, 3, 4, 'note', ['subtype' => '']);
+
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertArrayHasKey($oid, $ann);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertSame('text', \strtolower((string) ($opt['subtype'] ?? '')));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetAnnotOptFromJSPropCastsBooleanValuesToStrings(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $opt = $obj->exposeGetAnnotOptFromJSProp(['value' => [true, false]]);
+
+        $this->assertSame(['true', 'false'], $opt['opt'] ?? null);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddFFButtonAppliesStyleOverridesFromJsProperties(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $oid = $obj->addFFButton(
+            'styledField',
+            2,
+            3,
+            28,
+            10,
+            'Styled',
+            '',
+            ['subtype' => 'Widget'],
+            [
+                'strokeColor' => ' #112233 ',
+                'fillColor' => ' #ddeeff ',
+                'lineWidth' => 2,
+                'borderStyle' => 'DaShEd',
+            ],
+        );
+
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+        $this->assertArrayHasKey($oid, $ann);
+        $opt = $this->getAnnotationOpt($ann, $oid);
+        $this->assertArrayHasKey('ap', $opt);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetPdfDefaultFillColorReturnsEmptyWhenNoFillIsSet(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertMatchesRegularExpression('/(rg\\n|^$)/', $obj->exposeGetPDFDefFillColor());
     }
 }

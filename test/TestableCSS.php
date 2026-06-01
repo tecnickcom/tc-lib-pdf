@@ -159,4 +159,69 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
     {
         return $this->getCSSColor($color);
     }
+
+    /** @return list<string> */
+    public function exposeSplitCSSWhitespaceTokens(string $value): array
+    {
+        return $this->splitCSSWhitespaceTokens($value);
+    }
+
+    /** @return list<string> */
+    public function exposeSplitCSSDeclarations(string $style): array
+    {
+        return $this->splitCSSDeclarations($style);
+    }
+
+    /** @return array<string, string> */
+    public function exposeDecodeCSSMap(string $payload): array
+    {
+        return $this->decodeCSSMap($payload);
+    }
+
+    public function exposeStripAndRegisterCSSSpotRules(string $css): string
+    {
+        return $this->stripAndRegisterCSSSpotRules($css);
+    }
+
+    public function exposeParseSpotCssColorFunction(string $color): ?string
+    {
+        return $this->parseSpotCssColorFunction($color);
+    }
+
+    public function exposeParseSpotColorNameToken(#[\SensitiveParameter] string $token): string
+    {
+        return $this->parseSpotColorNameToken($token);
+    }
+
+    public function exposeFormatSpotColorNameToken(string $name): string
+    {
+        return $this->formatSpotColorNameToken($name);
+    }
+
+    /** @return array{0: float, 1: float, 2: float, 3: float}|null */
+    public function exposeParseSpotComponentList(string $value): ?array
+    {
+        return $this->parseSpotComponentList($value);
+    }
+
+    /** @return array{0: float, 1: float, 2: float}|null */
+    public function exposeParseLabComponentList(string $value): ?array
+    {
+        return $this->parseLabComponentList($value);
+    }
+
+    public function exposeParseSpotTintValue(string $value): ?float
+    {
+        return $this->parseSpotTintValue($value);
+    }
+
+    public function exposeParseLabLstarValue(string $value): ?float
+    {
+        return $this->parseLabLstarValue($value);
+    }
+
+    public function exposeParseLabAxisValue(string $value): ?float
+    {
+        return $this->parseLabAxisValue($value);
+    }
 }

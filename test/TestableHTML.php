@@ -596,6 +596,132 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<int, THTMLAttrib> $dom
+     */
+    public function exposeHasHTMLBooleanAttribute(array &$dom, int $key, string $name): bool
+    {
+        return $this->hasHTMLBooleanAttribute($dom, $key, $name);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     */
+    public function exposeGetHTMLEffectiveLang(array &$dom, int $key): string
+    {
+        return $this->getHTMLEffectiveLang($dom, $key);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     */
+    public function exposeMatchesHTMLPseudoLang(array &$dom, int $key, string $arg): bool
+    {
+        return $this->matchesHTMLPseudoLang($dom, $key, $arg);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<int> $siblings
+     * @return array<int>
+     */
+    public function exposeGetHTMLSiblingKeysByTagName(array &$dom, array $siblings, int $key): array
+    {
+        return $this->getHTMLSiblingKeysByTagName($dom, $siblings, $key);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @phpstan-param array<int> $siblings
+     */
+    public function exposeMatchesHTMLPseudoLastOfType(array &$dom, array $siblings, int $key): bool
+    {
+        return $this->matchesHTMLPseudoLastOfType($dom, $siblings, $key);
+    }
+
+    /**
+     * @phpstan-param array<int> $siblings
+     */
+    public function exposeMatchesHTMLPseudoNthChild(array $siblings, int $key, string $arg): bool
+    {
+        return $this->matchesHTMLPseudoNthChild($siblings, $key, $arg);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     */
+    public function exposeMatchesHTMLPseudoEmpty(array &$dom, int $key): bool
+    {
+        return $this->matchesHTMLPseudoEmpty($dom, $key);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     */
+    public function exposeMatchesHTMLSelectorAttribute(
+        array &$dom,
+        int $key,
+        #[\SensitiveParameter]
+        string $token,
+    ): bool {
+        return $this->matchesHTMLSelectorAttribute($dom, $key, $token);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     * @return array<int>
+     */
+    public function exposeGetHTMLOpeningSiblingKeys(array &$dom, int $key): array
+    {
+        return $this->getHTMLOpeningSiblingKeys($dom, $key);
+    }
+
+    /** @throws \Throwable */
+    public function exposeGetHTMLStyleLengthValue(string $value): ?float
+    {
+        return $this->getHTMLStyleLengthValue($value);
+    }
+
+    /**
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    public function exposeGetHTMLListImageMarkerType(string $listImage): string
+    {
+        return $this->getHTMLListImageMarkerType($listImage);
+    }
+
+    public function exposeGetHTMLBackgroundShorthandColor(string $background): string
+    {
+        return $this->getHTMLBackgroundShorthandColor($background);
+    }
+
+    /**
+     * @phpstan-param THTMLAttrib $elm
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    public function exposeResolveHTMLFontSizeAdjust(
+        array $elm,
+        string $fontname,
+        string $fontstyle,
+        float $fontsize,
+    ): float {
+        return $this->resolveHTMLFontSizeAdjust($elm, $fontname, $fontstyle, $fontsize);
+    }
+
+    /**
+     * @phpstan-param THTMLRenderContext $hrc
+     * @phpstan-param THTMLAttrib $elm
+     */
+    public function exposeApplyHTMLNamedPageSemantics(
+        array &$hrc,
+        array $elm,
+        bool $hasExplicitBreakBefore,
+        float $tpx,
+        float $tpy,
+    ): bool {
+        return $this->applyHTMLNamedPageSemantics($hrc, $elm, $hasExplicitBreakBefore, $tpx, $tpy);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
      *
      * @return array<string, mixed>
      * @throws \Throwable

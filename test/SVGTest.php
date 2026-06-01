@@ -257,6 +257,73 @@ class SVGTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSvgHelperNormalizationAndClipDispatchBranches(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->setSvgRefUnit(4);
+
+        $this->assertSame(4.0, $obj->exposeNormalizeSVGStyleFloatValue(4, 1.5));
+        $this->assertSame(2.5, $obj->exposeNormalizeSVGStyleFloatValue(2.5, 1.5));
+        $this->assertSame(3.75, $obj->exposeNormalizeSVGStyleFloatValue(' 3.75 ', 1.5));
+        $this->assertSame(1.5, $obj->exposeNormalizeSVGStyleFloatValue('not-a-number', 1.5));
+
+        $this->assertTrue($obj->exposeNormalizeSVGBoolLike(true));
+        $this->assertFalse($obj->exposeNormalizeSVGBoolLike(false));
+        $this->assertTrue($obj->exposeNormalizeSVGBoolLike(1));
+        $this->assertFalse($obj->exposeNormalizeSVGBoolLike(0.0));
+        $this->assertTrue($obj->exposeNormalizeSVGBoolLike(' yes '));
+        $this->assertFalse($obj->exposeNormalizeSVGBoolLike('off'));
+
+        $this->assertSame('', $obj->exposeGetSVGMarkerId(''));
+        $this->assertSame('', $obj->exposeGetSVGMarkerId('none'));
+        $this->assertSame('marker1', $obj->exposeGetSVGMarkerId('url(#marker1)'));
+        $this->assertSame('', $obj->exposeGetSVGMarkerId('invalid-marker-value'));
+
+        $this->assertSame('', $obj->exposeApplySVGClipFunction('unknownClip', []));
+        $this->assertStringContainsString('m', $obj->exposeApplySVGClipFunction('getSVGPath', [
+            4,
+            'M 0 0 L 10 10 Z',
+            'S',
+        ]));
+        $this->assertNotSame('', $obj->exposeApplySVGClipFunction('getRoundedRect', [
+            5.0,
+            5.0,
+            10.0,
+            8.0,
+            2.0,
+            2.0,
+            '1111',
+            'DF',
+        ]));
+        $this->assertNotSame('', $obj->exposeApplySVGClipFunction('getCircle', [10.0, 10.0, 5.0, 0.0, 360.0, 'S']));
+        $this->assertNotSame('', $obj->exposeApplySVGClipFunction('getEllipse', [
+            10.0,
+            10.0,
+            6.0,
+            3.0,
+            0.0,
+            0.0,
+            360.0,
+            'S',
+        ]));
+        $this->assertNotSame('', $obj->exposeApplySVGClipFunction('getLine', [0.0, 0.0, 10.0, 10.0]));
+        $this->assertNotSame('', $obj->exposeApplySVGClipFunction('getPolygon', [
+            [0.0, 0.0, 10.0, 0.0, 10.0, 10.0],
+            'S',
+        ]));
+        $this->assertNotSame('', $obj->exposeApplySVGClipFunction('getClippingRect', [0.0, 0.0, 10.0, 10.0, true]));
+
+        $this->assertSame(0.0, $obj->exposeResolveSVGMarkerRefCoordinate('', 10.0, 20.0, 4));
+        $this->assertEqualsWithDelta(20.0, $obj->exposeResolveSVGMarkerRefCoordinate('50%', 10.0, 20.0, 4), 0.001);
+        $this->assertEqualsWithDelta(12.5, $obj->exposeResolveSVGMarkerRefCoordinate('12.5mm', 10.0, 20.0, 4), 0.001);
+
+        $this->assertEqualsWithDelta(100.0, $obj->exposeResolveSVGPatternLength('50%', 200.0, 4), 0.001);
+        $this->assertEqualsWithDelta(25.4, $obj->exposeResolveSVGPatternLength('25.4mm', 200.0, 4), 0.001);
+        $this->assertEqualsWithDelta(0.0, $obj->exposeResolveSVGPatternLength('', 200.0, 4), 0.001);
+    }
+
+    /** @throws \Throwable */
     public function testSvgTextAttributeAndBlendAlphaHelpers(): void
     {
         $obj = $this->getInternalTestObject();

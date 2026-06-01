@@ -143,6 +143,18 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     ];
 
     /**
+     * Default empty bounding box value.
+     *
+     * @var TBBox
+     */
+    protected const BBOX_DEFAULT = [
+        'x' => 0.0,
+        'y' => 0.0,
+        'w' => 0.0,
+        'h' => 0.0,
+    ];
+
+    /**
      * If true, ZERO-WIDTH-SPACE characters are automatically added
      * to the text to allow line breaking after some non-letter characters.
      *
@@ -2416,24 +2428,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     public function getLastBBox(): array
     {
         if ($this->bbox === []) {
-            return [
-                'x' => 0.0,
-                'y' => 0.0,
-                'w' => 0.0,
-                'h' => 0.0,
-            ];
+            return self::BBOX_DEFAULT;
         }
         $idx = \count($this->bbox) - 1;
         $item = $this->bbox[$idx] ?? null;
         if ($item !== null) {
             return $item;
         }
-        return [
-            'x' => 0.0,
-            'y' => 0.0,
-            'w' => 0.0,
-            'h' => 0.0,
-        ];
+        return self::BBOX_DEFAULT;
     }
 
     /**
@@ -2444,24 +2446,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     public function getLastTextBBox(): array
     {
         if ($this->textbbox === []) {
-            return [
-                'x' => 0.0,
-                'y' => 0.0,
-                'w' => 0.0,
-                'h' => 0.0,
-            ];
+            return self::BBOX_DEFAULT;
         }
         $idx = \count($this->textbbox) - 1;
         $item = $this->textbbox[$idx] ?? null;
         if ($item !== null) {
             return $item;
         }
-        return [
-            'x' => 0.0,
-            'y' => 0.0,
-            'w' => 0.0,
-            'h' => 0.0,
-        ];
+        return self::BBOX_DEFAULT;
     }
 
     /**
@@ -2472,24 +2464,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     public function getLastCellBBox(): array
     {
         if ($this->cellbbox === []) {
-            return [
-                'x' => 0.0,
-                'y' => 0.0,
-                'w' => 0.0,
-                'h' => 0.0,
-            ];
+            return self::BBOX_DEFAULT;
         }
         $idx = \count($this->cellbbox) - 1;
         $item = $this->cellbbox[$idx] ?? null;
         if ($item !== null) {
             return $item;
         }
-        return [
-            'x' => 0.0,
-            'y' => 0.0,
-            'w' => 0.0,
-            'h' => 0.0,
-        ];
+        return self::BBOX_DEFAULT;
     }
 
     /**
