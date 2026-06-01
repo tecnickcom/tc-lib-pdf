@@ -270,15 +270,33 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
-     * Set the pdf document base file name.
-     * If the file extension is present, it must be '.pdf' or '.PDF'.
+     * Set the PDF document base file name.
+     * Valid base names may contain Unicode letters, marks, numbers,
+     * underscore (_), comma (,), space, and hyphen (-).
+     * The base name is normalized to Unicode NFC before validation.
+     * The validated filename length is limited to 255 bytes.
+     * If a file extension is present, it must be '.pdf' (case-insensitive).
+     * Any directory path is ignored and only the basename is used.
      *
      * @param string $name File name.
      */
     public function setPDFFilename(string $name): void
     {
         $bname = \basename($name);
-        if (\preg_match('/^[\w,\s-]+(\.pdf)?$/i', $bname) === 1) {
+        if (\class_exists('\\Normalizer')) {
+            $normalized = \Normalizer::normalize($bname, \Normalizer::FORM_C);
+            if ($normalized !== false) {
+                $bname = $normalized;
+            }
+        }
+
+        if (\strlen($bname) > 255) {
+            return;
+        }
+
+        // Enforce combining marks to be attached to a base character and require at least one base char.
+        $regexp = '/^(?=[\\p{L}\\p{N}_, -]*[\\p{L}\\p{N}])(?:[\\p{L}\\p{N}][\\p{M}]*|[_, -])+(?:\\.[Pp][Dd][Ff])?$/u';
+        if (\preg_match($regexp, $bname) === 1) {
             $this->pdffilename = $bname;
             $this->encpdffilename = \rawurlencode($bname);
         }

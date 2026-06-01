@@ -74,6 +74,29 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSetPDFFilenameAcceptsUnicodeName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setPDFFilename('Resume 日本語.pdf');
+
+        $this->assertSame('Resume 日本語.pdf', $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame('Resume%20%E6%97%A5%E6%9C%AC%E8%AA%9E.pdf', $this->getObjectProperty($obj, 'encpdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameNormalizesUnicodeToNfcWhenAvailable(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setPDFFilename("Cafe\u{0301}.pdf");
+
+        $expectedName = \class_exists('\\Normalizer') ? 'Café.pdf' : "Cafe\u{0301}.pdf";
+        $expectedEncoded = \rawurlencode($expectedName);
+
+        $this->assertSame($expectedName, $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame($expectedEncoded, $this->getObjectProperty($obj, 'encpdffilename'));
+    }
+
+    /** @throws \Throwable */
     public function testSetPDFFilenameRejectsInvalidExtension(): void
     {
         $obj = $this->getTestObject();
@@ -82,6 +105,62 @@ class TcpdfTest extends TestUtil
         $obj->setPDFFilename('bad-name.txt');
 
         $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameRejectsControlCharacters(): void
+    {
+        $obj = $this->getTestObject();
+        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
+
+        $obj->setPDFFilename("bad\tname.pdf");
+
+        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameRejectsMarkOnlyStem(): void
+    {
+        $obj = $this->getTestObject();
+        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
+
+        $obj->setPDFFilename("\u{0301}.pdf");
+
+        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameRejectsDetachedMarkAfterSeparator(): void
+    {
+        $obj = $this->getTestObject();
+        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
+
+        $obj->setPDFFilename("a \u{0301}.pdf");
+
+        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameRejectsNamesLongerThan255Bytes(): void
+    {
+        $obj = $this->getTestObject();
+        $before = (string) $this->getObjectProperty($obj, 'pdffilename');
+
+        $obj->setPDFFilename(\str_repeat('a', 252) . '.pdf');
+
+        $this->assertSame($before, $this->getObjectProperty($obj, 'pdffilename'));
+    }
+
+    /** @throws \Throwable */
+    public function testSetPDFFilenameAcceptsNamesUpTo255Bytes(): void
+    {
+        $obj = $this->getTestObject();
+        $name = \str_repeat('a', 251) . '.pdf';
+
+        $obj->setPDFFilename($name);
+
+        $this->assertSame($name, $this->getObjectProperty($obj, 'pdffilename'));
+        $this->assertSame($name, $this->getObjectProperty($obj, 'encpdffilename'));
     }
 
     /** @throws \Throwable */

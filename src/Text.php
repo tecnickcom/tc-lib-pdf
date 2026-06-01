@@ -850,6 +850,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * Typical usage is for repeated page furniture (header/footer/page numbers),
      * decorative graphics, separators, and similar visual-only content.
+     * This method returns the opening PDF operators and does not write them to
+     * the current page automatically. To persist the artifact block, append the
+     * returned string with page->addContent(...) or use addArtifactContent().
      *
      * @param string $type    Optional Artifact /Type name (for example 'Pagination').
      * @param string $subtype Optional Artifact /Subtype name (for example 'Header' or 'Footer').
@@ -880,6 +883,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
     /**
      * Close an Artifact marked-content block opened by beginArtifact().
+     *
+     * Like beginArtifact(), this returns raw PDF operators and must be appended
+     * to the page content explicitly when using the low-level API.
      */
     public function endArtifact(): string
     {
@@ -892,6 +898,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
     /**
      * Add non-semantic content wrapped as Artifact marked-content.
+     *
+     * This is the preferred API for decorative graphics and page furniture
+     * because it writes the wrapped content directly to the selected page.
      *
      * @param string $content Raw PDF operators to wrap.
      * @param int    $pid     Page index.

@@ -5653,7 +5653,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     public function savePDF(string $path = '', string $rawpdf = ''): void
     {
-        $filepath = \implode('/', [\realpath($path), $this->pdffilename]);
+        $realpath = \realpath($path);
+        if ($realpath === false || !\is_dir($realpath) || !\is_writable($realpath)) {
+            throw new FileException('Invalid or not writable output directory: ' . $path);
+        }
+
+        $filepath = \implode('/', [$realpath, $this->pdffilename]);
         $fhd = $this->file->fopenLocal($filepath, 'wb');
 
         \fwrite($fhd, $rawpdf, \strlen($rawpdf));

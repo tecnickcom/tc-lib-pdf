@@ -72,8 +72,10 @@ require __DIR__ . '/../vendor/autoload.php';
  *   Page 4 — Table nesting (Table > TR > TH / TD); Figure with /Alt alternate text
  *
  * Non-semantic decorative content can be emitted as Artifact marked-content
- * with addArtifactContent() / beginArtifact() / endArtifact().  This example
- * adds decorative separator rules as /Artifact with /Type /Layout.
+ * with addArtifactContent() or, at the low level, by writing the strings
+ * returned by beginArtifact() / endArtifact() with page->addContent().
+ * This example uses addArtifactContent() to add decorative separator rules as
+ * /Artifact with /Type /Layout.
  *
  * All content is tagged with addTextCell() inside explicit struct-elem brackets.
  * Compare with E015–E017 which enable pdfua mode via addHTMLCell (auto-tagged).
