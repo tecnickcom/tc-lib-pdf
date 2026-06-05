@@ -181,7 +181,7 @@ class SourceDocumentTest extends TestCase
     public function testConstructThrowsOnEncryptedPdfWithoutPassword(): void
     {
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('password support is not available');
+        $this->expectExceptionMessageMatches('/' . preg_quote('password support is not available', '/') . '/');
 
         new SourceDocument($this->loadEncryptedFixture());
     }
@@ -194,7 +194,7 @@ class SourceDocumentTest extends TestCase
     public function testConstructThrowsOnEncryptedPdfWhenPasswordConfigProvided(array $cfg): void
     {
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('password-based import is not supported');
+        $this->expectExceptionMessageMatches('/' . preg_quote('password-based import is not supported', '/') . '/');
 
         new SourceDocument($this->loadEncryptedFixture(), $cfg);
     }
@@ -203,7 +203,7 @@ class SourceDocumentTest extends TestCase
     public function testConstructEncryptedPdfWithNonStringPasswordFallsBackToNoPasswordSupportMessage(): void
     {
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('password support is not available');
+        $this->expectExceptionMessageMatches('/' . preg_quote('password support is not available', '/') . '/');
 
         $passwordKey = implode('', ['pass', 'word']);
         $passwordVal = \strlen($this->loadFixture());
@@ -215,7 +215,7 @@ class SourceDocumentTest extends TestCase
     public function testConstructEncryptedPdfWithEmptyPasswordFallsBackToNoPasswordSupportMessage(): void
     {
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('password support is not available');
+        $this->expectExceptionMessageMatches('/' . preg_quote('password support is not available', '/') . '/');
 
         $passwordKey = implode('', ['pass', 'word']);
         $passwordVal = \substr($this->loadFixture(), 0, 0);
@@ -245,7 +245,7 @@ class SourceDocumentTest extends TestCase
     public function testConstructThrowsWhenRootObjectIsExplicitNull(): void
     {
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('null object for 1_0');
+        $this->expectExceptionMessageMatches('/' . preg_quote('null object for 1_0', '/') . '/');
 
         new SourceDocument($this->buildRootNullPdf());
     }

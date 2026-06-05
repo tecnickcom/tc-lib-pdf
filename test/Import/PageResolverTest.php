@@ -117,7 +117,7 @@ class PageResolverTest extends TestCase
         ]);
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('missing /Pages entry');
+        $this->expectExceptionMessageMatches('/' . preg_quote('missing /Pages entry', '/') . '/');
         $resolver->resolve($doc, 1);
     }
 
@@ -279,7 +279,7 @@ class PageResolverTest extends TestCase
         ]);
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('missing /MediaBox');
+        $this->expectExceptionMessageMatches('/' . preg_quote('missing /MediaBox', '/') . '/');
         $resolver->resolve($doc, 1);
     }
 
@@ -357,7 +357,7 @@ class PageResolverTest extends TestCase
         ]);
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('missing /MediaBox');
+        $this->expectExceptionMessageMatches('/' . preg_quote('missing /MediaBox', '/') . '/');
         $resolver->resolve($doc, 1);
     }
 
@@ -393,7 +393,7 @@ class PageResolverTest extends TestCase
         ]);
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('missing /MediaBox');
+        $this->expectExceptionMessageMatches('/' . preg_quote('missing /MediaBox', '/') . '/');
         $resolver->resolve($doc, 1);
     }
 
@@ -515,7 +515,7 @@ class PageResolverTest extends TestCase
         ]);
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('/Kids');
+        $this->expectExceptionMessageMatches('/' . preg_quote('/Kids', '/') . '/');
         $resolver->resolve($doc, 1);
     }
 
@@ -546,7 +546,7 @@ class PageResolverTest extends TestCase
         ]);
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('Unexpected page tree node type');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Unexpected page tree node type', '/') . '/');
         $resolver->resolve($doc, 1);
     }
 
@@ -555,7 +555,7 @@ class PageResolverTest extends TestCase
         $resolver = new PageResolver();
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessage('Expected dictionary object');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Expected dictionary object', '/') . '/');
         $this->invokeResolverMethod($resolver, 'objectToDict', ['not-an-array-element']);
     }
 

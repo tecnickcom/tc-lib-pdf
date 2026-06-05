@@ -112,7 +112,7 @@ class MetaInfoTest extends TestUtil
     {
         $obj = $this->getTestObject();
         $this->expectException(\Com\Tecnick\Pdf\Exception::class);
-        $this->expectExceptionMessage('Invalid PDF version format');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Invalid PDF version format', '/') . '/');
 
         $obj->setPDFVersion('1.A');
     }
@@ -124,7 +124,7 @@ class MetaInfoTest extends TestUtil
         $this->setObjectProperty($obj, 'pdfx', true);
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
         $this->expectException(\Com\Tecnick\Pdf\Exception::class);
-        $this->expectExceptionMessage('Invalid PDF version format');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Invalid PDF version format', '/') . '/');
 
         $obj->setPDFVersion('1.A');
     }

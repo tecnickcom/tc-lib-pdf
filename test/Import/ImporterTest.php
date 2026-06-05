@@ -153,7 +153,7 @@ class ImporterTest extends TestCase
         $data = $this->encryptedFixtureData();
         $importer = $this->makeImporter();
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('encrypted PDF');
+        $this->expectExceptionMessageMatches('/' . preg_quote('encrypted PDF', '/') . '/');
         $importer->setImportSourceData($data);
     }
 
@@ -163,7 +163,7 @@ class ImporterTest extends TestCase
         $data = $this->encryptedFixtureData();
         $importer = $this->makeImporter();
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('password-based import is not supported');
+        $this->expectExceptionMessageMatches('/' . preg_quote('password-based import is not supported', '/') . '/');
         $importer->setImportSourceData($data, ['password' => 'secret']);
     }
 

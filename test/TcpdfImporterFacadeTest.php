@@ -214,7 +214,7 @@ class TcpdfImporterFacadeTest extends TestCase
     {
         $pdf = $this->makePdf();
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('encrypted PDF');
+        $this->expectExceptionMessageMatches('/' . preg_quote('encrypted PDF', '/') . '/');
         $pdf->setImportSourceFile($this->encryptedPdf);
     }
 
@@ -225,7 +225,7 @@ class TcpdfImporterFacadeTest extends TestCase
     {
         $pdf = $this->makePdf();
         $this->expectException(ImportUnsupportedFeatureException::class);
-        $this->expectExceptionMessage('password-based import is not supported');
+        $this->expectExceptionMessageMatches('/' . preg_quote('password-based import is not supported', '/') . '/');
         $pdf->setImportSourceFile($this->encryptedPdf, ['password' => 'secret']);
     }
 
