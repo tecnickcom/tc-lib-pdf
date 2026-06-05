@@ -78,3 +78,4 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E073_css_supported_categories.php](E073_css_supported_categories.php): Consolidated CSS category showcase covering cascade, selectors, box model, typography, float/clear/position, tables, and paged media.
 - [E074_text_cell_fit_modes.php](E074_text_cell_fit_modes.php): Visual inspection grid for getTextCell() fit modes (T, S, F) including disabled precondition cases.
 - [E075_external_signature_injection.php](E075_external_signature_injection.php): External/remote signing walkthrough using signature placeholder setup, ByteRange digest export, and injected CMS/PKCS#7 signature bytes.
+- [E076_absolute_position.php](E076_absolute_position.php): Absolute coordinates position inside a give page.
