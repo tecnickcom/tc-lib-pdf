@@ -306,6 +306,97 @@ $pdf->addHTMLCell(html: $html_02, posx: 20, posy: 10, width: 180);
 
 // ----------
 
+// HTML D - Transparency Showcase
+
+$pageV02T = $pdf->addPage();
+
+$pdf->page->addContent($bfont['out']);
+
+$pdf->setBookmark(
+    name: 'Transparency color showcase',
+    link: '',
+    level: 0,
+    page: -1,
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: '',
+);
+
+$baseRectStyle = [
+    'lineWidth' => 0,
+    'lineCap' => 'butt',
+    'lineJoin' => 'miter',
+    'miterLimit' => 10,
+    'dashArray' => [],
+    'dashPhase' => 0,
+    'lineColor' => 'none',
+    'fillColor' => 'rgb(0, 64, 128)',
+];
+
+$pdf->page->addContent($pdf->graph->getRect(20, 24, 170, 96, 'F', ['all' => $baseRectStyle]));
+
+$html_transparency = <<<HTML
+    <style>
+    .alpha-demo {
+      font-size: 10pt;
+      color: #ffffff;
+    }
+    .alpha-demo h2 {
+      margin: 0 0 2mm 0;
+      font-size: 16pt;
+      color: rgba(255, 255, 255, 0.62);
+    }
+    .alpha-demo .line-a {
+      font-size: 12pt;
+      color: rgba(255, 255, 255, 0.48);
+      margin: 0 0 2mm 0;
+    }
+    .alpha-demo .line-b {
+      font-size: 12pt;
+      color: hsla(60, 100%, 86%, 0.58);
+      margin: 0 0 3mm 0;
+    }
+    .alpha-demo .bg-strip {
+      margin-top: 1mm;
+      padding: 1.3mm 1.8mm;
+      background-color: rgba(0, 0, 0, 0.30);
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .alpha-demo .swatch {
+      display: inline-block;
+      margin-right: 2mm;
+      padding: 0.7mm 1.6mm;
+      color: rgba(0, 0, 0, 0.86);
+      font-weight: bold;
+    }
+    .alpha-demo .swatch-rgba {
+      background-color: rgba(30, 144, 255, 0.32);
+    }
+    .alpha-demo .swatch-hsla {
+      background-color: hsla(300, 100%, 60%, 0.30);
+    }
+    .alpha-demo .swatch-rgba2 {
+      background-color: rgba(255, 255, 255, 0.45);
+    }
+    </style>
+    <div class="alpha-demo">
+      <h2>Transparency Color Showcase</h2>
+      <p class="line-a">RGBA text: white alpha at 0.48 over a solid blue rectangle</p>
+      <p class="line-b">HSLA text: warm yellow alpha at 0.58 over the same blue base</p>
+      <div class="bg-strip">Background object with alpha: rgba(0, 0, 0, 0.30)</div>
+      <p>
+        <span class="swatch swatch-rgba">RGBA bg 0.32</span>
+        <span class="swatch swatch-hsla">HSLA bg 0.30</span>
+        <span class="swatch swatch-rgba2">RGBA bg 0.45</span>
+      </p>
+    </div>
+    HTML;
+
+$pdf->addHTMLCell(html: $html_transparency, posx: 24, posy: 28, width: 162);
+
+// ----------
+
 // HTML C
 
 $pageV03 = $pdf->addPage();

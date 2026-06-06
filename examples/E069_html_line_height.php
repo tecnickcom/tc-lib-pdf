@@ -188,6 +188,11 @@ $html = <<<EOF
     <p style="color:blue; line-height:10mm;">(6) 10mm<br/>line<br/>height</p>
     <p style="color:violet; line-height:20mm;">(7) 20mm<br/>line<br/>height</p>
     </div>
+
+    <div style="page-break-before:always;font-size:20mm;">
+    <div style="line-height:20mm; color:green;">check<br/>line<br/>after<br/>BR</div>
+    <div style="line-height:20mm; color:red;">check<br/>line<br/>after<div>DIV</div></div>
+    </div>
     EOF;
 
 $pdf->addHTMLCell(html: $html, posx: 20, posy: 10, width: 150);

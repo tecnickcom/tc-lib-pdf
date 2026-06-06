@@ -8705,7 +8705,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $color = $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'];
         $fontout = isset($font['out']) && \is_string($font['out']) ? $font['out'] : '';
 
-        return $fontout . $this->color->getPdfFillColor($color);
+        // Always set text alpha in transparency-capable modes to keep previous
+        // translucent text states from affecting later opaque text fragments.
+        $alphaCmd = $this->getHTMLColorAlphaCmd($color, true);
+
+        return $fontout . $alphaCmd . $this->color->getPdfFillColor($color);
     }
 
     /**
@@ -9835,6 +9839,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return true when the node uses an explicit compact line-height policy.
+     *
+     * @param THTMLAttrib $elm
+     */
+    protected function isHTMLCompactLineHeightNode(array $elm): bool
+    {
+        $lineHeightAbsolute = $elm['line-height-absolute'] ?? null;
+        if (\is_float($lineHeightAbsolute) && $lineHeightAbsolute > 0.0) {
+            return true;
+        }
+
+        return $elm['line-height-font-size-basis'] ?? false;
+    }
+
+    /**
      * Return true when a text fragment contains break opportunities.
      */
     /**
@@ -9994,9 +10013,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE)
             && ($lineadvancectx > self::WIDTH_TOLERANCE || $linebottomctx > ($tpy + self::WIDTH_TOLERANCE));
         $isFloatInActiveRow = \in_array($float, ['left', 'right'], true) && $this->hasActiveHTMLFloatRow($hrc, $tpy);
-        $lineadvance = $hasinlinecontent
-            ? \max($this->getCurrentHTMLLineAdvance($hrc, $key), \max(0.0, $linebottomctx - $tpy))
-            : 0.0;
+        $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
+        $hasExplicitCompactLineHeight = $this->isHTMLCompactLineHeightNode($elm);
+        if (
+            $hasinlinecontent
+            && !($hasExplicitCompactLineHeight && $linebottomctx > ($tpy + $lineadvance + self::WIDTH_TOLERANCE))
+        ) {
+            $lineadvance = \max($lineadvance, \max(0.0, $linebottomctx - $tpy));
+        }
         $collapsed = 0.0;
         if (!$hasinlinecontent && $tpy > $hrc['cellctx']['originy']) {
             $pendingBottom = $hrc['cellctx']['pendingblockmarginb'];
@@ -10328,9 +10352,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE)
             || $lineadvancectx > self::WIDTH_TOLERANCE
             || $linebottomctx > ($tpy + self::WIDTH_TOLERANCE);
-        $lineadvance = $hasinlinecontent
-            ? \max($this->getCurrentHTMLLineAdvance($hrc, $key), \max(0.0, $linebottomctx - $tpy))
-            : 0.0;
+        $lineadvance = $hasinlinecontent ? $this->getCurrentHTMLLineAdvance($hrc, $key) : 0.0;
+        $hasExplicitCompactLineHeight = $this->isHTMLCompactLineHeightNode($openelm);
+        if (
+            $hasinlinecontent
+            && !($hasExplicitCompactLineHeight && $linebottomctx > ($tpy + $lineadvance + self::WIDTH_TOLERANCE))
+        ) {
+            $lineadvance = \max($lineadvance, \max(0.0, $linebottomctx - $tpy));
+        }
         $minBlockHeight = 0.0;
         if (isset($openelm['height']) && $openelm['height'] > 0.0) {
             $paddingT = $openPadding['T'] ?? 0.0;
@@ -11253,6 +11282,42 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return a PDF alpha (ExtGState) command derived from a CSS color value.
+     *
+     * When $resetOpaque is true, this method always emits an alpha command in
+     * transparent-capable modes so that previously active transparency states do
+     * not leak into subsequent opaque operations.
+     */
+    protected function getHTMLColorAlphaCmd(string $color, bool $resetOpaque = false): string
+    {
+        if (!$this->isTransparencyAllowed() || $color === '') {
+            return '';
+        }
+
+        try {
+            $col = $this->color->getColorObj($color);
+            if ($col === null) {
+                return '';
+            }
+
+            $rgb = $col->toRgbArray();
+            $alpha = $rgb['alpha'] ?? 1.0;
+            if ($alpha < 0.0) {
+                $alpha = 0.0;
+            } elseif ($alpha > 1.0) {
+                $alpha = 1.0;
+            }
+            if (!$resetOpaque && $alpha >= 1.0) {
+                return '';
+            }
+
+            return $this->graph->getAlpha($alpha, 'Normal', $alpha);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
      * Return a PDF alpha (ExtGState) command for a fill style when the fill color
      * carries an alpha channel (RGBA/HSLA) and transparency is allowed.
      *
@@ -11263,33 +11328,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getHTMLFillAlphaCmd(array $fillstyle): string
     {
-        if (!$this->isTransparencyAllowed()) {
-            return '';
-        }
-
         $fillColor = isset($fillstyle['fillColor']) && \is_string($fillstyle['fillColor'])
             ? $fillstyle['fillColor']
             : '';
-        if ($fillColor === '') {
-            return '';
-        }
 
-        try {
-            $col = $this->color->getColorObj($fillColor);
-            if ($col === null) {
-                return '';
-            }
-
-            $rgb = $col->toRgbArray();
-            $alpha = $rgb['alpha'] ?? 1.0;
-            if ($alpha >= 1.0) {
-                return '';
-            }
-
-            return $this->graph->getAlpha($alpha, 'Normal', $alpha);
-        } catch (\Throwable) {
-            return '';
-        }
+        return $this->getHTMLColorAlphaCmd($fillColor);
     }
 
     /**

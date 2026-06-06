@@ -5828,6 +5828,67 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Probe derived from examples/E069_html_line_height.php BR-vs-DIV block.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellLineHeightKeepsDivContinuationAlignedWithBrSteps(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeResetBBoxTrace();
+
+        $html =
+            '<div style="font-size:20mm;">'
+            . '<div style="line-height:20mm;">B1<br/>B2<br/>B3<br/>B4</div>'
+            . '<div style="line-height:20mm;">D1<br/>D2<br/>D3<div>D4</div></div>'
+            . '</div>';
+
+        $out = $obj->getHTMLCell($html, 20, 20, 150, 0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $b1 = $this->getTraceTokenBBoxY($trace, 'B1');
+        $b2 = $this->getTraceTokenBBoxY($trace, 'B2');
+        $b3 = $this->getTraceTokenBBoxY($trace, 'B3');
+        $b4 = $this->getTraceTokenBBoxY($trace, 'B4');
+
+        $d1 = $this->getTraceTokenBBoxY($trace, 'D1');
+        $d2 = $this->getTraceTokenBBoxY($trace, 'D2');
+        $d3 = $this->getTraceTokenBBoxY($trace, 'D3');
+        $d4 = $this->getTraceTokenBBoxY($trace, 'D4');
+
+        $brStep1 = $b2 - $b1;
+        $brStep2 = $b3 - $b2;
+        $brStep3 = $b4 - $b3;
+
+        $divStep1 = $d2 - $d1;
+        $divStep2 = $d3 - $d2;
+        $divStep3 = $d4 - $d3;
+
+        $this->assertEqualsWithDelta(20.0, $brStep1, 0.9, 'BR baseline step should match 20mm line-height.');
+        $this->assertEqualsWithDelta(20.0, $brStep2, 0.9, 'BR baseline step should match 20mm line-height.');
+        $this->assertEqualsWithDelta(20.0, $brStep3, 0.9, 'BR baseline step should match 20mm line-height.');
+
+        $this->assertEqualsWithDelta(20.0, $divStep1, 0.9, 'DIV probe baseline step should match 20mm line-height.');
+        $this->assertEqualsWithDelta(20.0, $divStep2, 0.9, 'DIV probe baseline step should match 20mm line-height.');
+        $this->assertEqualsWithDelta(
+            $divStep2,
+            $divStep3,
+            0.9,
+            'Final line rendered by nested DIV must keep the same vertical step as previous BR-separated lines.',
+        );
+        $this->assertEqualsWithDelta(
+            $brStep3,
+            $divStep3,
+            0.9,
+            'Nested DIV final line step must match BR final-line stepping.',
+        );
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetHTMLCellContinuesPlainTextAfterEmFollowedByLongMultiLineRun(): void
@@ -17271,6 +17332,14 @@ class HTMLTest extends TestUtil
 
         $prefix = $obj->exposeGetHTMLTextPrefixWithDom($dom, 0);
         $this->assertNotSame('', $prefix);
+
+        $dom[0]['fgcolor'] = 'rgba(120,40,200,0.5)';
+        $alphaPrefixRgba = $obj->exposeGetHTMLTextPrefixWithDom($dom, 0);
+        $this->assertStringContainsString(" gs\n", $alphaPrefixRgba);
+
+        $dom[0]['fgcolor'] = 'hsla(300, 60%, 50%, 0.25)';
+        $alphaPrefixHsla = $obj->exposeGetHTMLTextPrefixWithDom($dom, 0);
+        $this->assertStringContainsString(" gs\n", $alphaPrefixHsla);
 
         $lineAdvance = $obj->exposeGetHTMLLineAdvanceWithDom($dom, 0);
         $this->assertGreaterThan(0.0, $lineAdvance);
