@@ -537,8 +537,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return;
         }
 
+        // select the specified page ID
+        $cpid = (int) $this->page->getPageId();
         if ($pid < 0) {
-            $pid = (int) $this->page->getPageId();
+            $pid = $cpid;
+        } else {
+            $this->setCurrentPage($pid);
         }
 
         if ($halign === '') {
@@ -752,6 +756,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         if ($fontout_suffix !== '') {
             $this->page->addContent($fontout_suffix, $pid);
+        }
+
+        // restore previous page ID
+        if ($pid !== $cpid) {
+            $this->setCurrentPage($cpid);
         }
     }
 
@@ -3058,6 +3067,24 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Set the current page number (move to the specified page).
+     *
+     * @param int $pid page index. Omit or set it to -1 for the current page ID.
+     * @return PageData Page data.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    public function setCurrentPage(int $pid = -1): array
+    {
+        $page = $this->page->setCurrentPage($pid);
+
+        $this->graph->setPageWidth($page['width']);
+        $this->graph->setPageHeight($page['height']);
+
+        return $page;
+    }
+
+    /**
      * Sets the page context by adding the previous page font and graphic settings.
      *
      * @param int  $pid Page index. Omit or set it to -1 for the current page ID.
@@ -3092,8 +3119,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function defaultPageContent(int $pid = -1): string
     {
+        // select the specified page ID
+        $cpid = (int) $this->page->getPageId();
         if ($pid < 0) {
-            $pid = (int) $this->page->getPageId();
+            $pid = $cpid;
+        } else {
+            $this->setCurrentPage($pid);
         }
 
         if ($this->defaultfont === null) {
@@ -3135,6 +3166,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out .= $this->graph->getStopTransform();
         $this->defcell = $prevcell;
         $this->font->popLastFont();
+
+        // restore previous page ID
+        if ($pid !== $cpid) {
+            $this->setCurrentPage($cpid);
+        }
 
         // Repeated page-number footer is presentation-only content in tagged output.
         return $this->tagPdfUaArtifactContent($out, 'Pagination', 'Footer');

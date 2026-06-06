@@ -162,6 +162,43 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSetCurrentPageMovesToRequestedPageAndReturnsPageData(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+
+        $first = $obj->addPage([
+            'orientation' => 'P',
+            'format' => 'A4',
+        ]);
+        $second = $obj->addPage([
+            'orientation' => 'L',
+            'format' => 'A4',
+        ]);
+
+        $firstPid = $this->requirePageId($first);
+        $secondPid = $this->requirePageId($second);
+        $this->assertNotSame($firstPid, $secondPid);
+
+        $page = $obj->setCurrentPage($firstPid);
+
+        $this->assertSame($firstPid, $page['pid']);
+        if (!isset($first['width'], $first['height'], $page['width'], $page['height'])) {
+            $this->fail('Expected page width/height to be available after setCurrentPage().');
+        }
+
+        $this->assertSame($first['width'], $page['width']);
+        $this->assertSame($first['height'], $page['height']);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $this->assertSame($firstPid, $pageObj->getPageId());
+
+        $current = $obj->setCurrentPage();
+        $this->assertSame($firstPid, $current['pid']);
+    }
+
+    /** @throws \Throwable */
     public function testDefaultPageContentReturnsPdfCommands(): void
     {
         $obj = $this->getTestObject();

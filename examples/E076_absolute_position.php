@@ -58,11 +58,6 @@ $pdf->page->addContent($bfont['out']);
 $pdf->page->addContent($pdf->graph->getLine(0, 0, $pageP['width'], $pageP['height'], $style1));
 $pdf->page->addContent($pdf->graph->getLine(0, $pageP['height'], $pageP['width'], 0, $style1));
 
-$cxP = $pageP['width'] / 2;
-$cyP = $pageP['height'] / 2;
-
-$pdf->page->addContent($pdf->getTextCell('THIS TEXT TOP-LEFT STARTS AT THE PAGE CENTER POINT', $cxP, $cyP));
-
 // ----------
 
 // Add first page in Landscape mode (L)
@@ -72,10 +67,34 @@ $pageL = $pdf->addPage(['format' => 'A4', 'orientation' => 'L']);
 $pdf->page->addContent($pdf->graph->getLine(0, 0, $pageL['width'], $pageL['height'], $style1));
 $pdf->page->addContent($pdf->graph->getLine(0, $pageL['height'], $pageL['width'], 0, $style1));
 
-$cxL = $pageL['width'] / 2;
-$cyL = $pageL['height'] / 2;
+// /\/\/\/\/\
 
-$pdf->page->addContent($pdf->getTextCell('THIS TEXT TOP-LEFT STARTS AT THE PAGE CENTER POINT', $cxL, $cyL));
+// Add content to previous pages
+
+// ----------
+
+// Select the page to change
+$pgP = $pdf->setCurrentPage($pageP['pid']);
+
+$cxP = $pgP['width'] / 2;
+$cyP = $pgP['height'] / 2;
+
+$pdf->page->addContent(
+    $pdf->getTextCell('THIS TEXT TOP-LEFT STARTS AT THE PAGE CENTER POINT', $cxP, $cyP),
+    $pgP['pid'],
+);
+
+// ----------
+
+$pgL = $pdf->setCurrentPage($pageL['pid']);
+
+$cxL = $pgL['width'] / 2;
+$cyL = $pgL['height'] / 2;
+
+$pdf->page->addContent(
+    $pdf->getTextCell('THIS TEXT TOP-LEFT STARTS AT THE PAGE CENTER POINT', $cxL, $cyL),
+    $pgL['pid'],
+);
 
 // ----------
 
