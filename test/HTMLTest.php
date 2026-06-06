@@ -554,6 +554,25 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * @param array<int, array<string, mixed>> $trace
+     *
+     * @throws \RuntimeException
+     */
+    private function getTraceTokenBBoxY(array $trace, #[\SensitiveParameter] string $token): float
+    {
+        foreach (\array_keys($trace) as $idx) {
+            $row = $this->getTraceRow($trace, $idx);
+            if (!\hash_equals(\trim($row['txt']), $token)) {
+                continue;
+            }
+
+            return $row['bbox_y'];
+        }
+
+        throw new \RuntimeException('Missing trace token: ' . $token);
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testStrTrimHelpers(): void
@@ -5705,6 +5724,106 @@ class HTMLTest extends TestUtil
             $height100 + 1.0,
             $height200,
             'line-height must affect continuation lines created by automatic wraps.',
+        );
+    }
+
+    /**
+     * Probe derived from examples/E069_html_line_height.php selected block.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellLineHeightExampleBlockRendersExpectedLineYPositions(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeResetBBoxTrace();
+
+        $html =
+            '<div style="font-size:10mm;">'
+            . '<p>D1_DEFAULT<br/>D2_DEFAULT<br/>D3_DEFAULT</p>'
+            . '<p style="line-height:normal;">N1_NORMAL<br/><br/>N2_NORMAL<br/>N3_NORMAL</p>'
+            . '<p style="line-height:100%;">H1_100<br/><br/>H2_100<br/>H3_100</p>'
+            . '<p style="line-height:50%;">H1_050<br/><br/>H2_050<br/>H3_050</p>'
+            . '<p style="line-height:150%;">H1_150<br/><br/>H2_150<br/>H3_150</p>'
+            . '</div>';
+
+        $out = $obj->getHTMLCell($html, 20, 20, 150, 0);
+        $this->assertNotSame('', $out);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertNotSame([], $trace);
+
+        $d1 = $this->getTraceTokenBBoxY($trace, 'D1_DEFAULT');
+        $d2 = $this->getTraceTokenBBoxY($trace, 'D2_DEFAULT');
+        $d3 = $this->getTraceTokenBBoxY($trace, 'D3_DEFAULT');
+        $n1 = $this->getTraceTokenBBoxY($trace, 'N1_NORMAL');
+        $n2 = $this->getTraceTokenBBoxY($trace, 'N2_NORMAL');
+        $n3 = $this->getTraceTokenBBoxY($trace, 'N3_NORMAL');
+        $h100_1 = $this->getTraceTokenBBoxY($trace, 'H1_100');
+        $h100_2 = $this->getTraceTokenBBoxY($trace, 'H2_100');
+        $h100_3 = $this->getTraceTokenBBoxY($trace, 'H3_100');
+        $h050_1 = $this->getTraceTokenBBoxY($trace, 'H1_050');
+        $h050_2 = $this->getTraceTokenBBoxY($trace, 'H2_050');
+        $h050_3 = $this->getTraceTokenBBoxY($trace, 'H3_050');
+        $h150_1 = $this->getTraceTokenBBoxY($trace, 'H1_150');
+        $h150_2 = $this->getTraceTokenBBoxY($trace, 'H2_150');
+        $h150_3 = $this->getTraceTokenBBoxY($trace, 'H3_150');
+
+        $defaultStep = $d2 - $d1;
+        $defaultStep2 = $d3 - $d2;
+        $normalDouble = $n2 - $n1;
+        $normalSingle = $n3 - $n2;
+        $h100Double = $h100_2 - $h100_1;
+        $h100Single = $h100_3 - $h100_2;
+        $h050Double = $h050_2 - $h050_1;
+        $h050Single = $h050_3 - $h050_2;
+        $h150Double = $h150_2 - $h150_1;
+        $h150Single = $h150_3 - $h150_2;
+
+        $this->assertGreaterThan(0.1, $defaultStep);
+        $this->assertGreaterThan(0.1, $normalSingle);
+        $this->assertGreaterThan(0.1, $h100Single);
+        $this->assertGreaterThan(0.1, $h050Single);
+        $this->assertGreaterThan(0.1, $h150Single);
+
+        $this->assertEqualsWithDelta($defaultStep, $defaultStep2, 0.25, 'Default paragraph line steps must be stable.');
+        $this->assertGreaterThan($normalSingle, $normalDouble, 'normal + <br/><br/> must add extra vertical distance.');
+        $this->assertGreaterThan($h100Single, $h100Double, '100% + <br/><br/> must add extra vertical distance.');
+        $this->assertGreaterThan($h050Single, $h050Double, '50% + <br/><br/> must add extra vertical distance.');
+        $this->assertGreaterThan($h150Single, $h150Double, '150% + <br/><br/> must add extra vertical distance.');
+
+        $this->assertGreaterThan($h050Single + 0.5, $h100Single, '100% line step must be larger than 50%.');
+        $this->assertGreaterThan($h100Single + 0.5, $h150Single, '150% line step must be larger than 100%.');
+
+        $this->assertEqualsWithDelta(
+            5.0,
+            $h050Single,
+            0.75,
+            'line-height:50% with 10mm font-size should step about 5mm.',
+        );
+        $this->assertEqualsWithDelta(
+            10.0,
+            $h100Single,
+            0.75,
+            'line-height:100% with 10mm font-size should step about 10mm.',
+        );
+        $this->assertEqualsWithDelta(
+            15.0,
+            $h150Single,
+            0.9,
+            'line-height:150% with 10mm font-size should step about 15mm.',
+        );
+
+        $this->assertGreaterThan(
+            $h100Single + 0.2,
+            $defaultStep,
+            'Default step should be larger than explicit 100% step.',
+        );
+        $this->assertEqualsWithDelta(
+            $defaultStep,
+            $normalSingle,
+            0.6,
+            'default and normal should stay visually close.',
         );
     }
 
@@ -17170,6 +17289,50 @@ class HTMLTest extends TestUtil
         $obj->exposeUpdateHTMLLineAdvance(8.0);
         $hrc = $obj->exposeGetHTMLRenderContext();
         $this->assertSame(8.0, $hrc['cellctx']['lineadvance']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testCssLineHeightAbsoluteAndRelativeValuesUseFontSizeSemantics(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 80.0, 0.0);
+
+        /** @var array<int, THTMLAttrib> $dom */
+        $dom = [
+            0 => $this->makeHtmlNode(),
+            1 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontname' => 'helvetica',
+                'fontsize' => 12.0,
+                'attribute' => ['style' => 'line-height:20pt;'],
+            ]),
+            2 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontname' => 'helvetica',
+                'fontsize' => 12.0,
+                'attribute' => ['style' => 'line-height:150%;'],
+            ]),
+            3 => $this->makeHtmlNode([
+                'parent' => 0,
+                'fontname' => 'helvetica',
+                'fontsize' => 12.0,
+                'attribute' => ['style' => 'line-height:1.5;'],
+            ]),
+        ];
+
+        $obj->parseHTMLStyleAttributes($dom, 1, 0);
+        $obj->parseHTMLStyleAttributes($dom, 2, 0);
+        $obj->parseHTMLStyleAttributes($dom, 3, 0);
+
+        $expectedAbsolute = $obj->exposeToUnitPoints($obj->exposeGetUnitValuePoints('20pt'));
+        $expectedRelative = $obj->exposeToUnitPoints(12.0 * 1.5);
+
+        $this->assertEqualsWithDelta($expectedAbsolute, $obj->exposeGetHTMLLineAdvanceWithDom($dom, 1), 0.001);
+        $this->assertEqualsWithDelta($expectedRelative, $obj->exposeGetHTMLLineAdvanceWithDom($dom, 2), 0.001);
+        $this->assertEqualsWithDelta($expectedRelative, $obj->exposeGetHTMLLineAdvanceWithDom($dom, 3), 0.001);
     }
 
     /**

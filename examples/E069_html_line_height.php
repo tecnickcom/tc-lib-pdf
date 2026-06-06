@@ -178,6 +178,16 @@ $html = <<<EOF
     The vertical space is the same as the font size.
     This creates tightly spaced lines with minimal separation.
     </p>
+
+    <div style="page-break-before:always;font-size:5mm;">
+    <p style="color:black;">(1) default<br/>line<br/>height</p>
+    <p style="color:grey; line-height:normal;">(2) normal<br/>line<br/>height</p>
+    <p style="color:orange; line-height:100%;">(3) 100%<br/>line<br/>height</p>
+    <p style="color:red; line-height:50%;">(4) 50%<br/>line<br/>height</p>
+    <p style="color:green; line-height:150%;">(5) 150%<br/>line<br/>height</p>
+    <p style="color:blue; line-height:10mm;">(6) 10mm<br/>line<br/>height</p>
+    <p style="color:violet; line-height:20mm;">(7) 20mm<br/>line<br/>height</p>
+    </div>
     EOF;
 
 $pdf->addHTMLCell(html: $html, posx: 20, posy: 10, width: 150);

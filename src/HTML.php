@@ -146,6 +146,8 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *     'hide': bool,
  *     'letter-spacing': float,
  *     'line-height': float,
+ *     'line-height-absolute'?: float,
+ *     'line-height-font-size-basis'?: bool,
  *     'list-style-position': string,
  *     'listtype': string,
  *     'float': string,
@@ -1324,6 +1326,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             if (!isset($node[$prop]) || $node[$prop] === $defaultValue) {
                 $node[$prop] = $parentValue;
+            }
+        }
+
+        // Keep inherited absolute line-height when no explicit declaration is present.
+        $nodeStyle = isset($node['style']) && \is_array($node['style']) ? $node['style'] : [];
+        $styleLineHeight = isset($nodeStyle['line-height']) && \is_string($nodeStyle['line-height'])
+            ? $nodeStyle['line-height']
+            : '';
+        if ($styleLineHeight === '') {
+            if (isset($parentNode['line-height-absolute'])) {
+                $node['line-height-absolute'] = $parentNode['line-height-absolute'];
+            } elseif (isset($node['line-height-absolute'])) {
+                unset($node['line-height-absolute']);
+            }
+
+            if (isset($parentNode['line-height-font-size-basis'])) {
+                $node['line-height-font-size-basis'] = $parentNode['line-height-font-size-basis'];
+            } elseif (isset($node['line-height-font-size-basis'])) {
+                unset($node['line-height-font-size-basis']);
             }
         }
     }
@@ -3484,34 +3505,68 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineheight = \strtolower(\trim($dom[$key]['style']['line-height']));
         $rootLineHeight = isset($dom[0]['line-height']) ? $dom[0]['line-height'] : 1.0;
         $parentLineHeight = isset($dom[$parentkey]['line-height']) ? $dom[$parentkey]['line-height'] : $rootLineHeight;
+        $parentLineHeightAbsolute = isset($dom[$parentkey]['line-height-absolute'])
+            ? $dom[$parentkey]['line-height-absolute']
+            : null;
+        $parentLineHeightFontSizeBasis = isset($dom[$parentkey]['line-height-font-size-basis'])
+            ? $dom[$parentkey]['line-height-font-size-basis']
+            : null;
 
         switch ($lineheight) {
             // A normal line height. This is default
             case 'normal':
                 $node['line-height'] = $rootLineHeight;
+                if (isset($node['line-height-absolute'])) {
+                    unset($node['line-height-absolute']);
+                }
+                if (isset($node['line-height-font-size-basis'])) {
+                    unset($node['line-height-font-size-basis']);
+                }
                 break;
             case 'inherit':
                 $node['line-height'] = $parentLineHeight;
+                if (\is_float($parentLineHeightAbsolute)) {
+                    $node['line-height-absolute'] = $parentLineHeightAbsolute;
+                } elseif (isset($node['line-height-absolute'])) {
+                    unset($node['line-height-absolute']);
+                }
+                if (\is_bool($parentLineHeightFontSizeBasis)) {
+                    $node['line-height-font-size-basis'] = $parentLineHeightFontSizeBasis;
+                } elseif (isset($node['line-height-font-size-basis'])) {
+                    unset($node['line-height-font-size-basis']);
+                }
                 break;
             default:
                 if (\is_numeric($lineheight)) {
-                    // Unitless number: ratio used directly (e.g. 1.5 means 1.5× font height).
+                    // Unitless number: multiplier applied to the effective font size.
                     $node['line-height'] = \floatval($lineheight);
+                    $node['line-height-font-size-basis'] = true;
+                    if (isset($node['line-height-absolute'])) {
+                        unset($node['line-height-absolute']);
+                    }
 
                     /** @var array<int, THTMLAttrib> $dom */
                 } elseif (\substr($lineheight, -1) === '%') {
-                    // Percentage: store as a dimensionless ratio (150% → 1.5).
+                    // Percentage: store as a dimensionless ratio (150% -> 1.5).
                     $pctMatch = [];
                     if (\preg_match('/^([0-9.+\-]+)\s*%$/', $lineheight, $pctMatch) === 1 && isset($pctMatch[1])) {
                         $node['line-height'] = \floatval($pctMatch[1]) / 100.0;
+                        $node['line-height-font-size-basis'] = true;
+                    }
+                    if (isset($node['line-height-absolute'])) {
+                        unset($node['line-height-absolute']);
                     }
 
                     /** @var array<int, THTMLAttrib> $dom */
                 } else {
-                    // Absolute unit (pt, mm, …): convert to pts and divide by font size in pts.
+                    // Absolute unit (pt, mm, ...): keep explicit length in points.
                     $lhpts = $this->getUnitValuePoints($lineheight);
                     $fontsize = isset($dom[$key]['fontsize']) ? $dom[$key]['fontsize'] : 0.0;
                     $node['line-height'] = $fontsize > 0 ? $lhpts / $fontsize : 1.0;
+                    $node['line-height-absolute'] = $lhpts;
+                    if (isset($node['line-height-font-size-basis'])) {
+                        unset($node['line-height-font-size-basis']);
+                    }
 
                     /** @var array<int, THTMLAttrib> $dom */
                 }
@@ -8668,11 +8723,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 0.0;
         }
 
+        if (isset($elm['line-height-absolute'])) {
+            $lineHeightPoints = $elm['line-height-absolute'];
+            if ($lineHeightPoints > 0.0) {
+                return $this->toUnit($lineHeightPoints);
+            }
+        }
+
         $font = $this->getHTMLFontMetric($hrc, $key);
         $ratio = $elm['line-height'] > 0 ? $elm['line-height'] : 1.0;
-        $fontheight = isset($font['height']) && \is_numeric($font['height']) ? (float) $font['height'] : 0.0;
+        $useFontSizeBasis = isset($elm['line-height-font-size-basis']) && $elm['line-height-font-size-basis'];
 
-        return $this->toUnit($fontheight * $ratio);
+        if (!$useFontSizeBasis) {
+            $fontheight = isset($font['height']) && \is_numeric($font['height']) ? (float) $font['height'] : 0.0;
+
+            return $this->toUnit($fontheight * $ratio);
+        }
+
+        $fontsize = isset($font['size']) && \is_numeric($font['size']) ? (float) $font['size'] : 0.0;
+
+        if ($fontsize <= 0.0) {
+            $fontheight = isset($font['height']) && \is_numeric($font['height']) ? (float) $font['height'] : 0.0;
+
+            return $this->toUnit($fontheight * $ratio);
+        }
+
+        return $this->toUnit($fontsize * $ratio);
     }
 
     /**
@@ -9694,8 +9770,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): void {
         $lineadvance = $this->getCurrentHTMLLineAdvance($hrc, $key) + $extra;
         $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
+        $elm = $hrc['dom'][$key] ?? null;
+        $hasExplicitCompactLineHeight =
+            \is_array($elm)
+            && (
+                isset($elm['line-height-absolute'])
+                || isset($elm['line-height-font-size-basis']) && $elm['line-height-font-size-basis']
+            );
+
         $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-        $tpy = \max($tpy + $lineadvance, $linebottom + $extra);
+
+        $nextByAdvance = $tpy + $lineadvance;
+        if ($hasExplicitCompactLineHeight && $linebottom > ($nextByAdvance + self::WIDTH_TOLERANCE)) {
+            // CSS allows compact line-heights that can overlap glyph boxes;
+            // for explicit values, keep baseline advancement based on line-height.
+            $tpy = $nextByAdvance;
+            return;
+        }
+
+        $tpy = \max($nextByAdvance, $linebottom + $extra);
     }
 
     /**

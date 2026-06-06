@@ -771,6 +771,17 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @throws \Throwable */
+    public function exposeGetUnitValuePoints(string $value): float
+    {
+        return $this->getUnitValuePoints($value);
+    }
+
+    public function exposeToUnitPoints(float $points): float
+    {
+        return $this->toUnit($points);
+    }
+
+    /** @throws \Throwable */
     public function exposeUpdateHTMLLineAdvance(float $lineadvance): void
     {
         $this->initExposeRenderContextIfNeeded();
