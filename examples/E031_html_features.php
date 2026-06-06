@@ -273,6 +273,9 @@ $pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 
 $pageV02 = $pdf->addPage();
 
+$rect = $pdf->graph->getRect(160, 36, 30, 50, 'DF');
+$pdf->page->addContent($rect);
+
 $textcolors = '<h2>Text</h1>';
 $bgcolors = '<h2>Background</h2>';
 $csscolortypes =

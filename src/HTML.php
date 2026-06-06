@@ -9680,7 +9680,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Move the HTML cursor to the next line.
      *
      * @param THTMLRenderContext $hrc HTML render context
-     * @param int    $key DOM array key.
+     * @param int                $key DOM array key.
      *
      * @throws \Throwable
      */
@@ -11160,6 +11160,46 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Return a PDF alpha (ExtGState) command for a fill style when the fill color
+     * carries an alpha channel (RGBA/HSLA) and transparency is allowed.
+     *
+     * Returns an empty string when no alpha override is needed (alpha == 1.0,
+     * transparency is disallowed for the active PDF mode, or color parsing fails).
+     *
+     * @param array<array-key, mixed> $fillstyle Fill style array with optional 'fillColor' key.
+     */
+    protected function getHTMLFillAlphaCmd(array $fillstyle): string
+    {
+        if (!$this->isTransparencyAllowed()) {
+            return '';
+        }
+
+        $fillColor = isset($fillstyle['fillColor']) && \is_string($fillstyle['fillColor'])
+            ? $fillstyle['fillColor']
+            : '';
+        if ($fillColor === '') {
+            return '';
+        }
+
+        try {
+            $col = $this->color->getColorObj($fillColor);
+            if ($col === null) {
+                return '';
+            }
+
+            $rgb = $col->toRgbArray();
+            $alpha = $rgb['alpha'] ?? 1.0;
+            if ($alpha >= 1.0) {
+                return '';
+            }
+
+            return $this->graph->getAlpha($alpha, 'Normal', $alpha);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
      * Determine whether a text background color comes from a block-level ancestor.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -12197,8 +12237,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if ($fillstyle !== null) {
             $graphFillStyle = $this->normalizeHTMLGraphStyleArray($fillstyle);
+            $alphaCmd = $this->getHTMLFillAlphaCmd($fillstyle);
             $decor .=
                 $this->graph->getStartTransform()
+                . $alphaCmd
                 . $this->graph->getBasicRect($cellx, $rowtop, $cellw, $cellh, 'f', $graphFillStyle)
                 . $this->graph->getStopTransform();
         }
@@ -14383,6 +14425,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 $bgout = '';
                 $graphFillStyle = $this->normalizeHTMLGraphStyleArray($fillstyle);
+                $alphaCmd = $this->getHTMLFillAlphaCmd($fillstyle);
                 foreach ($segments as $segment) {
                     $segx = $segment['x'];
                     $segy = $segment['y'];
@@ -14396,14 +14439,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 if ($bgout !== '') {
-                    $background = $this->graph->getStartTransform() . $bgout . $this->graph->getStopTransform();
+                    $background =
+                        $this->graph->getStartTransform() . $alphaCmd . $bgout . $this->graph->getStopTransform();
                 }
             }
 
             if ($background === '' && $bgw > 0.0 && $bgx >= 0.0) {
                 $graphFillStyle = $this->normalizeHTMLGraphStyleArray($fillstyle);
+                $alphaCmd = $this->getHTMLFillAlphaCmd($fillstyle);
                 $background =
                     $this->graph->getStartTransform()
+                    . $alphaCmd
                     . $this->graph->getBasicRect($bgx, $bgy, $bgw, $bgh, 'f', $graphFillStyle)
                     . $this->graph->getStopTransform();
             }
