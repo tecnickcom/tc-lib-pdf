@@ -852,7 +852,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     continue;
                 }
                 $seen[$url] = true;
-                $imported = $this->file->getFileData($url);
+                $imported = $this->markupFile->getFileData($url);
                 if ($imported === false || $imported === '') {
                     continue;
                 }
@@ -1165,7 +1165,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                             $type = [];
                             if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) === 1) {
                                 // read CSS data file
-                                $cssdata = $this->file->getFileData(\trim($type[1] ?? ''));
+                                $cssdata = $this->markupFile->getFileData(\trim($type[1] ?? ''));
                                 if ($cssdata !== false && \strlen($cssdata) > 0) {
                                     $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                                 }
@@ -1175,7 +1175,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                         // no media attribute defaults to "all"
                         $type = [];
                         if (\preg_match('/href[\s]*=[\s]*"([^"]*)"/', $link, $type) === 1) {
-                            $cssdata = $this->file->getFileData(\trim($type[1] ?? ''));
+                            $cssdata = $this->markupFile->getFileData(\trim($type[1] ?? ''));
                             if ($cssdata !== false && \strlen($cssdata) > 0) {
                                 $css = \array_merge($css, $this->extractCSSproperties($cssdata, $cascadeCtx));
                             }

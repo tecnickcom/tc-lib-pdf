@@ -275,6 +275,23 @@ class BaseTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testDefaultMarkupAllowedPathsExcludeSystemTemp(): void
+    {
+        $obj = $this->getTestObject();
+        $paths = $obj->defaultMarkupAllowedPaths();
+
+        $tmpRoot = \realpath(\sys_get_temp_dir());
+        if (\is_string($tmpRoot) && $tmpRoot !== '') {
+            $this->assertNotContains($tmpRoot, $paths);
+        }
+
+        $pkgRoot = \realpath(__DIR__ . '/..');
+        if (\is_string($pkgRoot) && $pkgRoot !== '') {
+            $this->assertContains($pkgRoot, $paths);
+        }
+    }
+
+    /** @throws \Throwable */
     public function testDefaultFileAllowedPathsSkipsUnresolvedCandidates(): void
     {
         $obj = $this->getTestObject();

@@ -243,6 +243,34 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testConstructorUsesMarkupAllowedPathsFallbackAndOverride(): void
+    {
+        $customDir = (string) \realpath(__DIR__ . '/fixtures');
+        $markupDir = (string) \realpath(__DIR__ . '/..');
+
+        $fallback = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null, [
+            'allowedPaths' => [$customDir],
+        ]);
+
+        /** @var \Com\Tecnick\File\File $fallbackMarkupFile */
+        $fallbackMarkupFile = $this->getObjectProperty($fallback, 'markupFile');
+        /** @var array<string> $fallbackMarkupPaths */
+        $fallbackMarkupPaths = $this->getObjectProperty($fallbackMarkupFile, 'allowedPaths');
+        $this->assertSame([$customDir], $fallbackMarkupPaths);
+
+        $override = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', null, [
+            'allowedPaths' => [$customDir],
+            'markupAllowedPaths' => [$markupDir],
+        ]);
+
+        /** @var \Com\Tecnick\File\File $overrideMarkupFile */
+        $overrideMarkupFile = $this->getObjectProperty($override, 'markupFile');
+        /** @var array<string> $overrideMarkupPaths */
+        $overrideMarkupPaths = $this->getObjectProperty($overrideMarkupFile, 'allowedPaths');
+        $this->assertSame([$markupDir], $overrideMarkupPaths);
+    }
+
+    /** @throws \Throwable */
     #[DataProvider('displayModeFixtureProvider')]
     public function testSetDisplayModeStoresExpectedZoom(string|int $inputZoom, string|int $expectedZoom): void
     {

@@ -140,7 +140,8 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *   curlopts?: array<int, bool|int|string>,
  *   defaultCurlOpts?: array<int, bool|int|string>,
  *   fixedCurlOpts?: array<int, bool|int|string>,
- *   allowedPaths?: array<string>
+ *   allowedPaths?: array<string>,
+ *   markupAllowedPaths?: array<string>
  * }
  *
  * @phpstan-type TFourFloat array{
@@ -694,7 +695,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.37.0';
+    protected string $version = '8.38.0';
 
     /**
      * Encrypt object.
@@ -715,6 +716,11 @@ abstract class Base
      * File object.
      */
     public ObjFile $file;
+
+    /**
+     * File object for markup-originated resources.
+     */
+    public ObjFile $markupFile;
 
     /**
      * Cache object.
@@ -1550,13 +1556,33 @@ abstract class Base
      */
     public function defaultFileAllowedPaths(): array
     {
+        return $this->buildDefaultAllowedPaths(true);
+    }
+
+    /**
+     * Returns the default array of allowed file paths for markup-originated resources.
+     *
+     * @return array<string>
+     */
+    public function defaultMarkupAllowedPaths(): array
+    {
+        return $this->buildDefaultAllowedPaths(false);
+    }
+
+    /**
+     * Returns the default array of allowed file paths.
+     *
+     * @return array<string>
+     */
+    protected function buildDefaultAllowedPaths(bool $includeSystemTemp): array
+    {
         $allowedPaths = [];
 
-        $candidatePaths = [
-            \sys_get_temp_dir(),
-            __DIR__ . '/../',
-            __DIR__ . '/../../../vendor/tecnickcom/',
-        ];
+        $candidatePaths = [__DIR__ . '/../', __DIR__ . '/../../../vendor/tecnickcom/'];
+
+        if ($includeSystemTemp) {
+            \array_unshift($candidatePaths, \sys_get_temp_dir());
+        }
 
         if (\defined('K_PATH_FONTS') && \is_string(\constant('K_PATH_FONTS'))) {
             $this->appendResolvedAllowedPath($allowedPaths, \constant('K_PATH_FONTS'));
@@ -1567,6 +1593,44 @@ abstract class Base
         }
 
         return \array_values(\array_unique($allowedPaths));
+    }
+
+    /**
+     * Add an image using the markup resource file helper.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws PdfException
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     */
+    protected function addMarkupImage(string $source): int
+    {
+        return $this->image->withFileHelper(
+            $this->markupFile,
+            /**
+             * @throws \Com\Tecnick\File\Exception
+             * @throws \Com\Tecnick\Pdf\Image\Exception
+             */
+            fn(): int => $this->image->add($source),
+        );
+    }
+
+    /**
+     * Add a resized image using the markup resource file helper.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws PdfException
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     */
+    protected function addMarkupImageResized(string $source, int $width, int $height): int
+    {
+        return $this->image->withFileHelper(
+            $this->markupFile,
+            /**
+             * @throws \Com\Tecnick\File\Exception
+             * @throws \Com\Tecnick\Pdf\Image\Exception
+             */
+            fn(): int => $this->image->add($source, $width, $height),
+        );
     }
 
     /**
@@ -1723,6 +1787,11 @@ abstract class Base
      *                                         prefixes for file:// reads. Defaults are
      *                                         automatically computed from the package location
      *                                         to cover bundled example assets.
+     *                                       - markupAllowedPaths (string[]): Trusted local path
+     *                                         prefixes for resources referenced by rendered
+     *                                         HTML/CSS/SVG markup. Defaults exclude the system
+     *                                         temp directory; when omitted, explicit
+     *                                         allowedPaths values are reused for markup too.
      *
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -1764,6 +1833,15 @@ abstract class Base
             defaultCurlOpts: $fileOptions['defaultCurlOpts'] ?? null,
             fixedCurlOpts: $fileOptions['fixedCurlOpts'] ?? null,
             allowedPaths: $fileOptions['allowedPaths'] ?? $this->defaultFileAllowedPaths(),
+        );
+
+        $this->markupFile = new ObjFile(
+            allowedHosts: $fileOptions['allowedHosts'] ?? [],
+            maxRemoteSize: $fileOptions['maxRemoteSize'] ?? 52_428_800,
+            curlopts: $fileOptions['curlopts'] ?? [],
+            defaultCurlOpts: $fileOptions['defaultCurlOpts'] ?? null,
+            fixedCurlOpts: $fileOptions['fixedCurlOpts'] ?? null,
+            allowedPaths: $fileOptions['markupAllowedPaths'] ?? $fileOptions['allowedPaths'] ?? $this->defaultMarkupAllowedPaths(),
         );
 
         $this->cache = new ObjCache();

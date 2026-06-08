@@ -512,6 +512,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             ],
             'charskip' => 0,
             'text' => '',
+            'markupresources' => false,
             'dir' => '',
             'out' => '',
         ];

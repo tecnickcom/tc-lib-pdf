@@ -6688,15 +6688,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $result = '';
                 switch ($imgtype) {
                     case 'svg':
-                        $svgid = $this->addSVG($imgsrc, $posx, $imgposy, $imgwidth, $imgheight, $pageheight);
+                        $svgid = $this->addSVG($imgsrc, $posx, $imgposy, $imgwidth, $imgheight, $pageheight, true);
                         $result = $this->getSetSVG($svgid);
                         break;
                     default:
                         $importdim = $this->getHTMLRasterImportDimensions($imgsrc, $imgwidth, $imgheight);
                         if ($importdim === null) {
-                            $imgid = $this->image->add($imgsrc);
+                            $imgid = $this->addMarkupImage($imgsrc);
                         } else {
-                            $imgid = $this->image->add($imgsrc, $importdim['width'], $importdim['height']);
+                            $imgid = $this->addMarkupImageResized($imgsrc, $importdim['width'], $importdim['height']);
                         }
                         $result = $this->image->getSetImage(
                             $imgid,
@@ -10938,7 +10938,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if ($this->isHTMLSvgImageSource($src)) {
             try {
-                $svgraw = $this->getRawSVGData($src);
+                $svgraw = $this->getRawSVGData($src, true);
                 if ($svgraw !== '') {
                     $svgsize = $this->getSVGSize($svgraw);
                     $svgwidth = $svgsize['viewBox'][2] > 0.0 ? $svgsize['viewBox'][2] : $svgsize['width'];
@@ -10964,7 +10964,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $imgdata = \substr($src, 1);
         } else {
             try {
-                $filedata = $this->file->getFileData($src);
+                $filedata = $this->markupFile->getFileData($src);
                 if (\is_string($filedata)) {
                     $imgdata = $filedata;
                 }
@@ -11188,14 +11188,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         try {
             $pageheight = $this->page->getPage()['height'];
             if (\str_ends_with(\strtolower($src), '.svg')) {
-                $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight);
+                $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight, true);
                 $out = $this->getSetSVG($svgid);
             } else {
                 $importdim = $this->getHTMLRasterImportDimensions($src, $width, $height);
                 if ($importdim === null) {
-                    $imgid = $this->image->add($src);
+                    $imgid = $this->addMarkupImage($src);
                 } else {
-                    $imgid = $this->image->add($src, $importdim['width'], $importdim['height']);
+                    $imgid = $this->addMarkupImageResized($src, $importdim['width'], $importdim['height']);
                 }
                 $out = $this->image->getSetImage($imgid, $imagex, $imagey, $width, $height, $pageheight);
             }

@@ -13728,6 +13728,63 @@ class HTMLTest extends TestUtil
         $this->assertLessThan($posAppendix, $posChapter);
     }
 
+    /** @throws \Throwable */
+    public function testAddHTMLCellBlocksTempImagesByDefault(): void
+    {
+        $tmpImage = (string) \tempnam(\sys_get_temp_dir(), 'tc-html-img-');
+        \unlink($tmpImage);
+        $tmpImage .= '.png';
+        \copy(__DIR__ . '/../examples/images/tcpdf_cell.png', $tmpImage);
+
+        try {
+            $obj = $this->getTestObject();
+            $this->initFontAndPage($obj);
+
+            $obj->addHTMLCell('<img src="file://' . $tmpImage . '" width="10" height="10"/>', 10, 10, 40, 20);
+
+            /** @var \Com\Tecnick\Pdf\Image\Import $image */
+            $image = $this->getObjectProperty($obj, 'image');
+            /** @var array<int, mixed> $images */
+            $images = $this->getObjectProperty($image, 'image');
+            $this->assertSame([], $images);
+        } finally {
+            if (\file_exists($tmpImage)) {
+                \unlink($tmpImage);
+            }
+        }
+    }
+
+    /** @throws \Throwable */
+    public function testAddHTMLCellAllowsTempImagesWhenMarkupAllowedPathsConfigured(): void
+    {
+        $tmpImage = (string) \tempnam(\sys_get_temp_dir(), 'tc-html-img-');
+        \unlink($tmpImage);
+        $tmpImage .= '.png';
+        \copy(__DIR__ . '/../examples/images/tcpdf_cell.png', $tmpImage);
+
+        try {
+            $tmpRoot = \realpath(\sys_get_temp_dir());
+            $this->assertIsString($tmpRoot);
+
+            $obj = new \Com\Tecnick\Pdf\Tcpdf(fileOptions: [
+                'markupAllowedPaths' => [$tmpRoot],
+            ]);
+            $this->initFontAndPage($obj);
+
+            $obj->addHTMLCell('<img src="file://' . $tmpImage . '" width="10" height="10"/>', 10, 10, 40, 20);
+
+            /** @var \Com\Tecnick\Pdf\Image\Import $image */
+            $image = $this->getObjectProperty($obj, 'image');
+            /** @var array<int, mixed> $images */
+            $images = $this->getObjectProperty($image, 'image');
+            $this->assertCount(1, $images);
+        } finally {
+            if (\file_exists($tmpImage)) {
+                \unlink($tmpImage);
+            }
+        }
+    }
+
     /**
      * @throws \Throwable
      */

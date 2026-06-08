@@ -3816,6 +3816,40 @@ class SVGTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testAddSvgWithMarkupResourcesBlocksTempChildRasterByDefault(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $page = $this->initFontAndPage($obj);
+
+        $tmpImage = (string) \tempnam(\sys_get_temp_dir(), 'tc-svg-markup-');
+        \unlink($tmpImage);
+        $tmpImage .= '.png';
+        \copy(__DIR__ . '/../examples/images/tcpdf_cell.png', $tmpImage);
+
+        try {
+            $svg =
+                '@<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+                . '<image x="0" y="0" width="5" height="5" xlink:href="file://'
+                . $tmpImage
+                . '"/></svg>';
+
+            $id = $obj->addSVG($svg, 1, 1, 10, 10, $page['height'], true);
+            $out = $obj->getSetSVG($id);
+
+            $this->assertNotSame('', $out);
+            /** @var \Com\Tecnick\Pdf\Image\Import $image */
+            $image = $this->getObjectProperty($obj, 'image');
+            /** @var array<int, mixed> $images */
+            $images = $this->getObjectProperty($image, 'image');
+            $this->assertSame([], $images);
+        } finally {
+            if (\file_exists($tmpImage)) {
+                \unlink($tmpImage);
+            }
+        }
+    }
+
+    /** @throws \Throwable */
     public function testSvgFinalFeasibleBranchCoverageBatch(): void
     {
         $obj = $this->getInternalTestObject();

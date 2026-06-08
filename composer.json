@@ -30,7 +30,7 @@
         "ext-pcre": "*",
         "tecnickcom/tc-lib-barcode": "^2.7",
         "tecnickcom/tc-lib-color": "^2.7",
-        "tecnickcom/tc-lib-pdf-image": "^3.1",
+        "tecnickcom/tc-lib-pdf-image": "^3.2",
         "tecnickcom/tc-lib-pdf-font": "^3.1",
         "tecnickcom/tc-lib-file": "^3.1",
         "tecnickcom/tc-lib-pdf-encrypt": "^2.5",

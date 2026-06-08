@@ -436,6 +436,7 @@ use TSVGStyle;
  *    'textmode': TSVGTextMode,
  *    'charskip': int,
  *    'text': string,
+ *    'markupresources': bool,
  *    'dir': string,
  *    'out': string,
  * }
@@ -756,6 +757,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         ],
         'charskip' => 0,
         'text' => '',
+        'markupresources' => false,
         'dir' => '',
         'out' => '',
     ];
@@ -6198,7 +6200,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             )))
         ) {
             try {
-                $child = $this->addSVG($img, $posx, $posy, $width, $height);
+                $child = $this->addSVG(
+                    $img,
+                    $posx,
+                    $posy,
+                    $width,
+                    $height,
+                    0.0,
+                    $this->svgobjs[$soid]['markupresources'] ?? false,
+                );
             } catch (Exception $e) {
                 return '';
             }
@@ -6226,7 +6236,13 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $img = $this->svgobjs[$soid]['dir'] . '/' . $img;
         }
 
-        $imgid = $this->image->add($img);
+        try {
+            $imgid = $this->svgobjs[$soid]['markupresources'] ?? false
+                ? $this->addMarkupImage($img)
+                : $this->image->add($img);
+        } catch (\Throwable) {
+            return '';
+        }
         // R-2: honour preserveAspectRatio for raster images.
         $renderX = $posx;
         $renderY = $posy;
@@ -7865,7 +7881,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @throws \Com\Tecnick\File\Exception
      */
-    protected function getRawSVGData(string $img): string
+    protected function getRawSVGData(string $img, bool $useMarkupResources = false): string
     {
         if ($img === '' || $img[0] === '@' && \strlen($img) === 1) {
             return '';
@@ -7882,7 +7898,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
 
-        $data = $this->file->getFileData($imgpath);
+        $fileHelper = $useMarkupResources ? $this->markupFile : $this->file;
+        $data = $fileHelper->getFileData($imgpath);
 
         return \is_string($data) ? $data : '';
     }
@@ -8156,6 +8173,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         float $width = 0.0,
         float $height = 0.0,
         float $pageheight = 0.0,
+        bool $useMarkupResources = false,
     ): int {
         if ($pageheight <= 0.0) {
             $pageheight = $this->page->getPage()['height'];
@@ -8167,7 +8185,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $imgdir = '';
         }
 
-        $data = $this->getRawSVGData($img);
+        $data = $this->getRawSVGData($img, $useMarkupResources);
         if ($data === '') {
             throw new PdfException('Invalid SVG');
         }
@@ -8268,6 +8286,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
         $this->svgobjs[$soid] = self::SVGDEFOBJ;
         $this->svgobjs[$soid]['dir'] = $imgdir;
+        $this->svgobjs[$soid]['markupresources'] = $useMarkupResources;
         $this->svgobjs[$soid]['refunitval']['page']['height'] = $this->toPoints($pageheight);
 
         $out = '';
