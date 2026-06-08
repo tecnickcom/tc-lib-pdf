@@ -16,6 +16,7 @@
 
 namespace Test\Import;
 
+use Com\Tecnick\File\File as ObjFile;
 use Com\Tecnick\Pdf\Import\ImportCorruptedSourceException;
 use Com\Tecnick\Pdf\Import\Importer;
 use Com\Tecnick\Pdf\Import\ImportPageOutOfRangeException;
@@ -95,11 +96,16 @@ class ImporterTest extends TestCase
         return $data;
     }
 
+    private function makeObjFile(): ObjFile
+    {
+        return new ObjFile(allowedPaths: ['*']);
+    }
+
     private function makeImporter(): Importer
     {
         $xobjects = [];
         $pon = 0;
-        return new Importer($xobjects, $pon);
+        return new Importer($xobjects, $pon, $this->makeObjFile());
     }
 
     /** @throws \Throwable */
@@ -190,7 +196,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $tpl = $importer->importPage($srcId, 1);
         $this->assertInstanceOf(PageTemplate::class, $tpl);
@@ -202,7 +208,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $tpl = $importer->importPage($srcId, 1);
         $this->assertArrayHasKey($tpl->getXobjId(), $xobjects);
@@ -214,7 +220,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
 
         $this->setObjectProperty($importer, 'objectMaps', []);
@@ -235,7 +241,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $tpl = $importer->importPage($srcId, 1);
         // The xobject's object number must be a positive integer allocated from pon.
@@ -255,7 +261,7 @@ class ImporterTest extends TestCase
         $data = $this->rotatedFixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
 
         $tpl = $importer->importPage($srcId, 1);
@@ -271,7 +277,7 @@ class ImporterTest extends TestCase
         $data = $this->rotatedFixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
 
         $tpl = $importer->importPage($srcId, 1, ['respectRotation' => false, 'cache' => false]);
@@ -287,7 +293,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $tpl = $importer->importPage($srcId, 1);
         // fixture mediabox is 612x792; cropbox falls back to mediabox
@@ -301,7 +307,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $tpl1 = $importer->importPage($srcId, 1);
         $tpl2 = $importer->importPage($srcId, 1);
@@ -332,7 +338,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $importer->importPage($srcId, 1);
         $out = $importer->getOutImportedObjects();
@@ -347,7 +353,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $importer->importPage($srcId, 1);
         $importer->getOutImportedObjects();
@@ -442,7 +448,6 @@ class ImporterTest extends TestCase
                 ],
             ],
         ]);
-
         $this->assertSame(
             [
                 'Pages' => '2 0 R',
@@ -555,7 +560,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
 
         $single = $importer->importPage($srcId, 1);
@@ -594,7 +599,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
 
         // First import (no cache): allocates objects from the source.
@@ -618,7 +623,7 @@ class ImporterTest extends TestCase
         $data = $this->fixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
 
         $importer->importPage($srcId, 1, ['cache' => false]);
@@ -654,7 +659,7 @@ class ImporterTest extends TestCase
         $data = $this->multipageFixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $templates = $importer->importPages($srcId);
         $this->assertCount(2, $templates);
@@ -682,7 +687,7 @@ class ImporterTest extends TestCase
         $data = $this->multipageFixtureData();
         $xobjects = [];
         $pon = 0;
-        $importer = new Importer($xobjects, $pon);
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile());
         $srcId = $importer->setImportSourceData($data);
         $importer->importPages($srcId);
         $out = $importer->getOutImportedObjects();

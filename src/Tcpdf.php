@@ -114,6 +114,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *                                         options that are always enforced and cannot be
      *                                         overridden by curlopts (for example to pin TLS
      *                                         settings).
+     *                                       - allowedPaths (string[]): Trusted local path
+     *                                         prefixes for file:// reads. Defaults are
+     *                                         automatically computed from the package location
+     *                                         to cover bundled example assets.
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
@@ -1249,7 +1253,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         if ($this->importer === null) {
             // Pass xobjects by reference so Importer writes directly into this document's registry.
             $xobjects = &$this->xobjects;
-            $this->importer = new ObjImporter($xobjects, $this->pon);
+            $importFile = clone $this->file;
+            $importFile->setAllowedPaths(['*']);
+            $this->importer = new ObjImporter($xobjects, $this->pon, $importFile);
         }
 
         return $this->importer;

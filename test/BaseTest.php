@@ -237,6 +237,64 @@ class BaseTest extends TestUtil
         $this->assertFalse($this->invokeBaseMethod($obj, 'requiresPdfxDeviceCmyk'));
     }
 
+    /** @throws \Throwable */
+    public function testDefaultFileAllowedPathsIncludesKnownRoots(): void
+    {
+        $obj = $this->getTestObject();
+        $paths = $obj->defaultFileAllowedPaths();
+
+        $tmpRoot = \realpath(\sys_get_temp_dir());
+        $pkgRoot = \realpath(__DIR__ . '/..');
+        $fontsRoot = \defined('K_PATH_FONTS') ? \realpath((string) \constant('K_PATH_FONTS')) : false;
+
+        if (\is_string($tmpRoot) && $tmpRoot !== '') {
+            $this->assertContains($tmpRoot, $paths);
+        }
+
+        if (\is_string($pkgRoot) && $pkgRoot !== '') {
+            $this->assertContains($pkgRoot, $paths);
+        }
+
+        if (\is_string($fontsRoot) && $fontsRoot !== '') {
+            $this->assertContains($fontsRoot, $paths);
+        }
+    }
+
+    /** @throws \Throwable */
+    public function testDefaultFileAllowedPathsReturnsUniqueNonEmptyResolvedPaths(): void
+    {
+        $obj = $this->getTestObject();
+        $paths = $obj->defaultFileAllowedPaths();
+
+        foreach ($paths as $path) {
+            $this->assertNotSame('', $path);
+            $this->assertSame($path, \realpath($path));
+        }
+
+        $this->assertCount(\count(\array_unique($paths)), $paths);
+    }
+
+    /** @throws \Throwable */
+    public function testDefaultFileAllowedPathsSkipsUnresolvedCandidates(): void
+    {
+        $obj = $this->getTestObject();
+        $paths = $obj->defaultFileAllowedPaths();
+
+        $baseFileClass = new \ReflectionClass(\Com\Tecnick\Pdf\Base::class);
+        $baseFile = $baseFileClass->getFileName();
+        $this->assertIsString($baseFile);
+
+        $vendorCandidate = \dirname($baseFile) . '/../../../vendor/tecnickcom';
+        $resolvedVendorCandidate = \realpath($vendorCandidate);
+
+        if (!\is_string($resolvedVendorCandidate) || $resolvedVendorCandidate === '') {
+            $this->assertNotContains($vendorCandidate, $paths);
+            return;
+        }
+
+        $this->assertContains($resolvedVendorCandidate, $paths);
+    }
+
     /** @return array<string, array{0: string, 1: float, 2: float}> */
     public static function unitValueConversionProvider(): array
     {

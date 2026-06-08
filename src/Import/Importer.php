@@ -18,6 +18,9 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf\Import;
 
+use Com\Tecnick\File\Exception as FileException;
+use Com\Tecnick\File\File as ObjFile;
+
 /**
  * Com\Tecnick\Pdf\Import\Importer
  *
@@ -90,23 +93,30 @@ class Importer implements ImporterInterface
     private int $pon;
 
     /**
+     * File helper used for validated local file reads.
+     */
+    private ObjFile $file;
+
+    /**
      * Constructor.
      *
      * @param array<string, mixed> $xobjects Reference to the destination document's xobjects array.
      * @param int                  $pon      Reference to the PDF object number counter.
+     * @param ObjFile              $file     Shared file helper instance.
      */
-    public function __construct(array &$xobjects, int &$pon)
+    public function __construct(array &$xobjects, int &$pon, ObjFile $file)
     {
         // Bind by reference so importPage() writes directly into $pdf->xobjects.
 
         $this->xobjects = &$xobjects;
         $this->pon = &$pon;
+        $this->file = $file;
     }
 
     /**
      * Register a source PDF file.
      *
-     * @param string             $path File path to a readable PDF.
+     * @param string               $path File path to a readable PDF.
      * @param array<string, mixed> $cfg  Optional parser configuration.
      *
      * @return string Source document identifier.
@@ -122,7 +132,12 @@ class Importer implements ImporterInterface
             throw new ImportSourceNotFoundException('Source PDF file not found or not readable: ' . $path);
         }
 
-        $data = \file_get_contents($realPath);
+        try {
+            $data = $this->file->getFileData($realPath);
+        } catch (FileException $e) {
+            throw new ImportSourceNotFoundException('Unable to read source PDF file: ' . $realPath, 0, $e);
+        }
+
         if ($data === false) {
             throw new ImportSourceNotFoundException('Unable to read source PDF file: ' . $realPath);
         }

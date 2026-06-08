@@ -1213,6 +1213,55 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testAddTextCellImplicitCurrentPageTracksLastAutoBrokenPage(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $firstPage = $obj->addPage([
+            'region' => [
+                ['RX' => 0.0, 'RY' => 0.0, 'RW' => 80.0, 'RH' => 6.0],
+            ],
+        ]);
+        $firstPid = $this->requirePageId($firstPage);
+
+        $txt = \str_repeat("Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n", 40);
+        $obj->addTextCell(
+            $txt,
+            -1,
+            1,
+            1,
+            78,
+            0,
+            0,
+            0,
+            'T',
+            'J',
+            null,
+            [],
+            0,
+            0,
+            0,
+            0,
+            true,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        );
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $lastPid = $pageObj->getPageId();
+
+        $this->assertGreaterThan($firstPid, $lastPid);
+        $this->assertSame($lastPid, $pageObj->getPage()['pid']);
+        $this->assertSame($lastPid, $obj->setCurrentPage()['pid']);
+    }
+
+    /** @throws \Throwable */
     public function testAddTextCellXYForwardsRegionRelativeCoordinates(): void
     {
         $obj = new class extends TestableText {

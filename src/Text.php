@@ -538,6 +538,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         // select the specified page ID
+        $implicitCurrentPage = $pid < 0;
         $cpid = (int) $this->page->getPageId();
         if ($pid < 0) {
             $pid = $cpid;
@@ -758,8 +759,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $this->page->addContent($fontout_suffix, $pid);
         }
 
-        // restore previous page ID
-        if ($pid !== $cpid) {
+        // Keep the current page on the final auto-broken page when the call
+        // started from the implicit current page. Explicit page-targeted calls
+        // still restore the prior page selection.
+        if (!$implicitCurrentPage && $pid !== $cpid) {
             $this->setCurrentPage($cpid);
         }
     }

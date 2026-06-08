@@ -23,6 +23,12 @@ require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
+$imgdir = (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images');
+$allowedPaths = array_values(array_unique(array_filter([
+    K_PATH_FONTS,
+    $imgdir,
+])));
+
 $curlopts = [];
 $fixedCurlOpts = [];
 
@@ -51,6 +57,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     objEncrypt: null,
     fileOptions: [
         'allowedHosts' => ['assets.example.com'],
+        'allowedPaths' => $allowedPaths,
         'maxRemoteSize' => 1024 * 1024,
         'curlopts' => $curlopts,
         'fixedCurlOpts' => $fixedCurlOpts,
@@ -87,7 +94,7 @@ $pdf->page->addContent($pdf->getTextCell(
 
 $pdf->page->addContent($textfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
-    txt: "This example configures host allowlisting and transfer limits for remote resources.\n"
+    txt: "This example configures host allowlisting, local path allowlisting, and transfer limits.\n"
     . "It renders local assets by default for deterministic runs.\n"
     . 'Optional remote probe can be enabled with ?probe=1 in browser mode.',
     posx: 15,
@@ -100,7 +107,6 @@ $pdf->page->addContent($pdf->getTextCell(
     halign: 'L',
 ));
 
-$imgdir = (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images');
 $localImage = $imgdir . '/200x100_RGB.png';
 $statusY = 60.0;
 
@@ -156,6 +162,7 @@ $pdf->page->addContent($textfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
     txt: "Configured policy:\n"
     . "- allowedHosts: assets.example.com\n"
+    . "- allowedPaths: fonts + image fixture directories\n"
     . "- maxRemoteSize: 1 MiB\n"
     . "- curlopts: short connect/transfer timeout\n"
     . '- fixedCurlOpts: TLS peer+host verification',

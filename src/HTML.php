@@ -574,6 +574,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected array $tagvspaces = [];
 
     /**
+     * Cache of intrinsic image dimensions by resolved image source.
+     *
+     * @var array<string, array{width: float, height: float}|null>
+     */
+    protected array $htmlImageIntrinsicSizeCache = [];
+
+    /**
+     * Enable optional raster downscaling during HTML image import.
+     */
+    protected bool $htmlImageImportResize = false;
+
+    /**
      * Cleanup HTML code (requires HTML Tidy library).
      *
      * @param string $html htmlcode to fix.
@@ -6680,7 +6692,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $result = $this->getSetSVG($svgid);
                         break;
                     default:
-                        $imgid = $this->image->add($imgsrc);
+                        $importdim = $this->getHTMLRasterImportDimensions($imgsrc, $imgwidth, $imgheight);
+                        if ($importdim === null) {
+                            $imgid = $this->image->add($imgsrc);
+                        } else {
+                            $imgid = $this->image->add($imgsrc, $importdim['width'], $importdim['height']);
+                        }
                         $result = $this->image->getSetImage(
                             $imgid,
                             $posx,
@@ -7481,7 +7498,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $inlinewidth = $state['inlinewidth'];
                         $inlineadvance = $state['inlineadvance'];
                         $hasinlinecontent = $state['hasinlinecontent'];
-                        $height += $elm['height'] > 0 ? $elm['height'] : $lineadvance;
+                        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineadvance);
+                        $height += $imgdim['height'];
                         continue;
                     }
 
@@ -7697,7 +7715,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     if ($elm['value'] === 'img') {
-                        $height += $elm['height'] > 0 ? $elm['height'] : $this->getHTMLLineAdvance($hrc, $key);
+                        $lineheight = $this->getHTMLLineAdvance($hrc, $key);
+                        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineheight);
+                        $height += $imgdim['height'];
                         continue;
                     }
 
@@ -8159,6 +8179,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (\str_contains($source, '<svg')) {
                 $source = '@' . $source;
             }
+        }
+
+        if ($source !== '' && $source[0] !== '@' && !\str_contains($source, '://')) {
+            $baseDirs = [];
+            $scriptFilename = $_SERVER['SCRIPT_FILENAME'];
+            $baseDirs[] = \dirname($scriptFilename);
+
+            $cwd = \getcwd();
+            if (\is_string($cwd)) {
+                $baseDirs[] = $cwd;
+            }
+
+            $source = $this->file->resolveLocalPath($source, $baseDirs);
         }
 
         $curfont = $this->font->getCurrentFont();
@@ -9330,7 +9363,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($node['tag']) {
                 if ($node['value'] === 'img' && $node['opening']) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgwidth = $node['width'] > 0 ? $node['width'] : $lineheight;
+                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+                    $imgwidth = $imgdim['width'];
                     if ($imgwidth > 0.0) {
                         $runwidth += $imgwidth;
                     }
@@ -9415,7 +9449,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($node['tag']) {
                 if ($node['value'] === 'img' && $node['opening']) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgwidth = $node['width'] > 0 ? $node['width'] : $lineheight;
+                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+                    $imgwidth = $imgdim['width'];
 
                     if ($imgwidth <= 0.0) {
                         continue;
@@ -9659,7 +9694,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 if ($node['value'] === 'img' && $node['opening']) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgheight = $node['height'] > 0 ? $node['height'] : $lineheight;
+                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+                    $imgheight = $imgdim['height'];
                     if ($imgheight <= 0.0) {
                         continue;
                     }
@@ -10794,6 +10830,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Enable or disable HTML raster image downscaling on import.
+     *
+     * When enabled, raster images rendered smaller than their intrinsic size
+     * are imported at a reduced pixel size before placement.
+     */
+    public function setHtmlImageImportResize(bool $enabled): void
+    {
+        $this->htmlImageImportResize = $enabled;
+    }
+
+    /**
      * Return the extra vertical space (in user units) for the given tag at a specific position.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -10831,6 +10878,212 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Normalize an HTML image source to a resolvable local/remote/data reference.
+     */
+    protected function resolveHTMLImageSource(string $src): string
+    {
+        // Support base64 data URIs: data:<mime>;base64,<data>
+        $matches = [];
+        if (\preg_match('/^data:[^;]+;base64,(.+)$/s', $src, $matches)) {
+            $payload = isset($matches[1]) ? $matches[1] : '';
+            $decoded = \base64_decode($payload, true);
+            if ($decoded !== false) {
+                $src = '@' . $decoded;
+            }
+        }
+
+        if ($src !== '' && $src[0] !== '@' && !\str_contains($src, '://')) {
+            $baseDirs = [];
+            $baseDirs[] = \dirname($_SERVER['SCRIPT_FILENAME']);
+
+            $cwd = \getcwd();
+            if (\is_string($cwd)) {
+                $baseDirs[] = $cwd;
+            }
+
+            $src = $this->file->resolveLocalPath($src, $baseDirs);
+        }
+
+        return $src;
+    }
+
+    /**
+     * Return true if the provided image source is SVG.
+     */
+    protected function isHTMLSvgImageSource(string $src): bool
+    {
+        $lowsrc = \strtolower($src);
+        return (
+            \str_starts_with($lowsrc, 'data:image/svg+xml')
+            || \str_starts_with($src, '@<svg')
+            || \str_contains($lowsrc, '<svg')
+            || \preg_match('/\.svg(?:[?#].*)?$/i', $src) === 1
+        );
+    }
+
+    /**
+     * Get intrinsic image dimensions from source data.
+     *
+     * @return array{width: float, height: float}|null
+     */
+    protected function getHTMLImageIntrinsicDimensions(string $src): ?array
+    {
+        $cached = $this->htmlImageIntrinsicSizeCache[$src] ?? null;
+        if (\is_array($cached)) {
+            return $cached;
+        }
+        if (\array_key_exists($src, $this->htmlImageIntrinsicSizeCache)) {
+            return null;
+        }
+
+        if ($this->isHTMLSvgImageSource($src)) {
+            try {
+                $svgraw = $this->getRawSVGData($src);
+                if ($svgraw !== '') {
+                    $svgsize = $this->getSVGSize($svgraw);
+                    $svgwidth = $svgsize['viewBox'][2] > 0.0 ? $svgsize['viewBox'][2] : $svgsize['width'];
+                    $svgheight = $svgsize['viewBox'][3] > 0.0 ? $svgsize['viewBox'][3] : $svgsize['height'];
+
+                    if ($svgwidth > 0.0 && $svgheight > 0.0) {
+                        $dims = ['width' => $svgwidth, 'height' => $svgheight];
+                        $this->htmlImageIntrinsicSizeCache[$src] = $dims;
+                        return $dims;
+                    }
+                }
+            } catch (\Throwable) {
+                $this->htmlImageIntrinsicSizeCache[$src] = null;
+                return null;
+            }
+
+            $this->htmlImageIntrinsicSizeCache[$src] = null;
+            return null;
+        }
+
+        $imgdata = '';
+        if ($src !== '' && $src[0] === '@') {
+            $imgdata = \substr($src, 1);
+        } else {
+            try {
+                $filedata = $this->file->getFileData($src);
+                if (\is_string($filedata)) {
+                    $imgdata = $filedata;
+                }
+            } catch (\Throwable) {
+                $imgdata = '';
+            }
+        }
+
+        if ($imgdata === '') {
+            $this->htmlImageIntrinsicSizeCache[$src] = null;
+            return null;
+        }
+
+        \set_error_handler(static fn(): bool => true);
+        try {
+            $imagesize = \getimagesizefromstring($imgdata);
+        } finally {
+            \restore_error_handler();
+        }
+
+        if (!\is_array($imagesize)) {
+            $this->htmlImageIntrinsicSizeCache[$src] = null;
+            return null;
+        }
+
+        $intrinsicwidth = (float) $imagesize[0];
+        $intrinsicheight = (float) $imagesize[1];
+
+        if ($intrinsicwidth <= 0.0 || $intrinsicheight <= 0.0) {
+            $this->htmlImageIntrinsicSizeCache[$src] = null;
+            return null;
+        }
+
+        $dims = ['width' => $intrinsicwidth, 'height' => $intrinsicheight];
+        $this->htmlImageIntrinsicSizeCache[$src] = $dims;
+        return $dims;
+    }
+
+    /**
+     * Resolve raster import dimensions in pixels for HTML images.
+     *
+     * Downscale only when rendered size is smaller than intrinsic size.
+     * This enables tc-lib-pdf-image pixel resampling for HTML images while
+     * avoiding unnecessary re-encoding on equal/larger render sizes.
+     *
+     * @return array{width: int, height: int}|null
+     */
+    protected function getHTMLRasterImportDimensions(string $src, float $width, float $height): ?array
+    {
+        if (!$this->htmlImageImportResize || $width <= 0.0 || $height <= 0.0 || $this->isHTMLSvgImageSource($src)) {
+            return null;
+        }
+
+        $intrinsic = $this->getHTMLImageIntrinsicDimensions($src);
+        if ($intrinsic === null || $intrinsic['width'] <= 0.0 || $intrinsic['height'] <= 0.0) {
+            return null;
+        }
+
+        $targetWidthPx = (int) \round($this->toPoints($width) / self::DPI_PIXEL_RATIO);
+        $targetHeightPx = (int) \round($this->toPoints($height) / self::DPI_PIXEL_RATIO);
+        $targetWidthPx = \max(1, $targetWidthPx);
+        $targetHeightPx = \max(1, $targetHeightPx);
+
+        if (
+            $targetWidthPx >= (int) \round($intrinsic['width'])
+            && $targetHeightPx >= (int) \round($intrinsic['height'])
+        ) {
+            return null;
+        }
+
+        return ['width' => $targetWidthPx, 'height' => $targetHeightPx];
+    }
+
+    /**
+     * Resolve rendered image dimensions.
+     *
+     * When only one side is specified, preserve image aspect ratio using intrinsic dimensions.
+     * When no side is specified, fallback to current line height.
+     *
+     * @param THTMLAttrib $elm
+     *
+     * @return array{width: float, height: float}
+     */
+    protected function getHTMLResolvedImageDimensions(array &$elm, float $lineheight): array
+    {
+        $width = $elm['width'] > 0 ? $elm['width'] : 0.0;
+        $height = $elm['height'] > 0 ? $elm['height'] : 0.0;
+
+        $hasSingleExplicitSide = $width > 0.0 && $height <= 0.0 || $height > 0.0 && $width <= 0.0;
+        if (
+            $hasSingleExplicitSide
+            && isset($elm['attribute']['src'])
+            && \is_string($elm['attribute']['src'])
+            && $elm['attribute']['src'] !== ''
+        ) {
+            $src = $this->resolveHTMLImageSource($elm['attribute']['src']);
+            $intrinsic = $this->getHTMLImageIntrinsicDimensions($src);
+            if ($intrinsic !== null && $intrinsic['width'] > 0.0 && $intrinsic['height'] > 0.0) {
+                if ($width > 0.0 && $height <= 0.0) {
+                    $height = ($width * $intrinsic['height']) / $intrinsic['width'];
+                    $elm['height'] = $height;
+                } elseif ($height > 0.0 && $width <= 0.0) {
+                    $width = ($height * $intrinsic['width']) / $intrinsic['height'];
+                    $elm['width'] = $width;
+                }
+            }
+        }
+
+        if ($width <= 0.0) {
+            $width = $lineheight;
+        }
+        if ($height <= 0.0) {
+            $height = $lineheight;
+        }
+
+        return ['width' => $width, 'height' => $height];
+    }
+
+    /**
      * Render an HTML image and advance the inline cursor.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -10858,21 +11111,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $this->renderHTMLLiteralText($hrc, $key, $alt, $tpx, $tpy, $tpw, $lineheight);
         }
 
-        $src = $attr['src'];
-
-        // Support base64 data URIs: data:<mime>;base64,<data>
-        $matches = [];
-        if (\preg_match('/^data:[^;]+;base64,(.+)$/s', $src, $matches)) {
-            $payload = isset($matches[1]) ? $matches[1] : '';
-            $decoded = \base64_decode($payload, true);
-            if ($decoded !== false) {
-                $src = '@' . $decoded;
-            }
-        }
+        $src = $this->resolveHTMLImageSource($attr['src']);
 
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $width = $elm['width'] > 0 ? $elm['width'] : $lineheight;
-        $height = $elm['height'] > 0 ? $elm['height'] : $lineheight;
+        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineheight);
+        $width = $imgdim['width'];
+        $height = $imgdim['height'];
 
         if ($width <= 0 || $height <= 0) {
             return '';
@@ -10947,7 +11191,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight);
                 $out = $this->getSetSVG($svgid);
             } else {
-                $imgid = $this->image->add($src);
+                $importdim = $this->getHTMLRasterImportDimensions($src, $width, $height);
+                if ($importdim === null) {
+                    $imgid = $this->image->add($src);
+                } else {
+                    $imgid = $this->image->add($src, $importdim['width'], $importdim['height']);
+                }
                 $out = $this->image->getSetImage($imgid, $imagex, $imagey, $width, $height, $pageheight);
             }
         } catch (\Throwable) {

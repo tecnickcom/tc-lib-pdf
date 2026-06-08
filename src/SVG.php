@@ -7873,7 +7873,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if ($img[0] === '@') { // image from string
             return \substr($img, 1);
         }
-        $data = $this->file->getFileData($img);
+
+        $imgpath = $img;
+        if (!\str_contains($img, '://')) {
+            $realPath = \realpath($img);
+            if (\is_string($realPath) && $realPath !== '') {
+                $imgpath = $realPath;
+            }
+        }
+
+        $data = $this->file->getFileData($imgpath);
 
         return \is_string($data) ? $data : '';
     }

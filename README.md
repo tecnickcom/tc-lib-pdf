@@ -94,6 +94,7 @@ The fastest way to evaluate the library is to follow the installation and quick-
 
 ### Security & Standards
 - Password and certificate-based document encryption (RC4 and AES, up to 256-bit)
+- Remote resource controls via `fileOptions` with host allowlists and local-path allowlists for external assets
 - **Digital signatures** — detached CMS (PKCS#7) signatures with configurable appearance fields
 - **RFC 3161 TSA timestamps** — embed a trusted timestamp token from any RFC 3161-compliant Time Stamping Authority (TSA) into the CMS signature; configurable digest algorithm (`sha256`, `sha384`, `sha512`), policy OID, nonce, timeout, and TLS peer verification
 - **LTV (Long-Term Validation)** — embed revocation evidence in the same PDF revision as the signature:
@@ -256,7 +257,7 @@ For implementation details, compliance guidance, operational workflows, and adva
 - Font setup, custom fonts, and third-party font licenses: [doc/FONTS.md](doc/FONTS.md)
 - ICC profile details: [doc/ICC_PROFILE.md](doc/ICC_PROFILE.md)
 - PDF import API, examples, and fidelity notes: [doc/PDF_IMPORT.md](doc/PDF_IMPORT.md)
-- Remote resources and `fileOptions`: [doc/REMOTE_RESOURCES.md](doc/REMOTE_RESOURCES.md)
+- Remote resources and `fileOptions` (`allowedHosts`, `allowedPaths`, cURL policy): [doc/REMOTE_RESOURCES.md](doc/REMOTE_RESOURCES.md)
 - Digital signatures, TSA timestamps, and LTV: [doc/DIGITAL_SIGNATURES.md](doc/DIGITAL_SIGNATURES.md)
 - PDF/A, PDF/X, and PDF/UA conformance modes: [doc/STANDARDS.md](doc/STANDARDS.md)
 - Development, QA, preflight, and packaging workflows: [doc/DEVELOPMENT.md](doc/DEVELOPMENT.md)

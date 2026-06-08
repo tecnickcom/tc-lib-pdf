@@ -324,6 +324,12 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $method->invoke($this, $elm);
     }
 
+    /** @return ?array{width: int, height: int} */
+    public function exposeGetHTMLRasterImportDimensions(string $src, float $width, float $height): ?array
+    {
+        return $this->getHTMLRasterImportDimensions($src, $width, $height);
+    }
+
     /**
      * @phpstan-param array<int, THTMLAttrib> $dom
      *

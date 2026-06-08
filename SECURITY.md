@@ -47,7 +47,7 @@ A high-quality report helps us triage and fix issues faster. Please provide:
 `tc-lib-pdf` processes rich content (HTML, CSS, SVG, fonts, images) which may originate from untrusted sources. Integrators are responsible for sanitising input **before** passing it to the library. We recommend:
 
 - **Validate and sanitise all user-supplied HTML/CSS** before rendering. Use a dedicated HTML sanitiser (e.g., [HTML Purifier](http://htmlpurifier.org/)) when accepting content from end users.
-- **Restrict remote resource loading.** If the library is configured to fetch remote images or fonts, apply an allowlist of trusted domains or disable remote fetching entirely in untrusted environments.
+- **Restrict external asset loading.** Use `fileOptions['allowedHosts']` to allow only trusted remote domains, and set `fileOptions['allowedPaths']` when you need to narrow local file reads to specific asset directories. If you override `allowedPaths`, include every required local root because it replaces the defaults.
 - **Limit file-system access.** Run the PDF-generation process with the minimum required filesystem permissions. Never pass raw user input as a file path.
 - **Keep dependencies up to date.** Run `composer update` regularly and monitor advisories via [Packagist Security Advisories](https://packagist.org/packages/tecnickcom/tc-lib-pdf) or tools such as `composer audit`.
 - **Pin versions in production.** Use `composer.lock` and review changes on every update.

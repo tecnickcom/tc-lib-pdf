@@ -370,7 +370,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $oid = ++$this->pon;
         $this->objid['srgbicc'] = $oid;
         $out = $oid . ' 0 obj' . "\n";
-        $icc = \file_get_contents(__DIR__ . '/include/sRGB.icc.z');
+        try {
+            $icc = $this->file->getLocalFileData(__DIR__ . '/include/sRGB.icc.z');
+        } catch (FileException $e) {
+            throw new PdfException('Unable to read sRGB.icc.z file', 0, $e);
+        }
+
         if ($icc === false) {
             throw new PdfException('Unable to read sRGB.icc.z file');
         }
@@ -4790,6 +4795,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 'timeout' => 30,
             ],
         ]);
+        if (!$this->file->isValidURL($url)) {
+            throw new PdfException('invalid OCSP URL');
+        }
         $response = \file_get_contents($url, false, $context);
         if ($response === false) {
             throw new PdfException('OCSP request failed: ' . $url);
@@ -4806,7 +4814,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getCrlData(string $url): string
     {
-        $data = \file_get_contents($url);
+        $data = $this->file->getFileData($url);
         if ($data === false) {
             throw new PdfException('CRL fetch failed: ' . $url);
         }
@@ -4930,6 +4938,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 'cafile' => $this->sigtimestamp['cert'],
             ],
         ]);
+
+        if (!$this->file->isValidURL($host)) {
+            throw new PdfException('invalid URL');
+        }
 
         \set_error_handler(static fn(): bool => true);
         $response = \file_get_contents($host, false, $context);

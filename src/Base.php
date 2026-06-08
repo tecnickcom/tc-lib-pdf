@@ -139,7 +139,8 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *   maxRemoteSize?: int,
  *   curlopts?: array<int, bool|int|string>,
  *   defaultCurlOpts?: array<int, bool|int|string>,
- *   fixedCurlOpts?: array<int, bool|int|string>
+ *   fixedCurlOpts?: array<int, bool|int|string>,
+ *   allowedPaths?: array<string>
  * }
  *
  * @phpstan-type TFourFloat array{
@@ -693,7 +694,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.36.0';
+    protected string $version = '8.37.0';
 
     /**
      * Encrypt object.
@@ -1543,6 +1544,51 @@ abstract class Base
     }
 
     /**
+     * Returns the default array of allowed file paths.
+     *
+     * @return array<string>
+     */
+    public function defaultFileAllowedPaths(): array
+    {
+        $allowedPaths = [];
+
+        $candidatePaths = [
+            \sys_get_temp_dir(),
+            __DIR__ . '/../',
+            __DIR__ . '/../../../vendor/tecnickcom/',
+        ];
+
+        if (\defined('K_PATH_FONTS') && \is_string(\constant('K_PATH_FONTS'))) {
+            $this->appendResolvedAllowedPath($allowedPaths, \constant('K_PATH_FONTS'));
+        }
+
+        foreach ($candidatePaths as $candidatePath) {
+            $this->appendResolvedAllowedPath($allowedPaths, $candidatePath);
+        }
+
+        return \array_values(\array_unique($allowedPaths));
+    }
+
+    /**
+     * Resolve a candidate path and append it when it maps to a non-empty local path.
+     *
+     * @param array<string> $allowedPaths
+     */
+    protected function appendResolvedAllowedPath(array &$allowedPaths, mixed $candidatePath): void
+    {
+        if (!\is_string($candidatePath) || $candidatePath === '') {
+            return;
+        }
+
+        $realPath = \realpath($candidatePath);
+        if (!\is_string($realPath) || $realPath === '') {
+            return;
+        }
+
+        $allowedPaths[] = $realPath;
+    }
+
+    /**
      * Return the current temporary RTL status.
      *
      * @return bool
@@ -1659,7 +1705,8 @@ abstract class Base
      *                                         security reasons remote URL loading is DISABLED by
      *                                         default; you MUST populate this list (for example
      *                                         ['example.com', 'cdn.example.com']) to enable any
-     *                                         remote download. Local file paths are not affected.
+     *                                         remote download. Local file reads are controlled
+     *                                         separately by allowedPaths.
      *                                       - maxRemoteSize (int): Maximum size in bytes accepted
      *                                         for a remote download (default 52428800 = 50 MiB).
      *                                       - curlopts (array<int,bool|int|string>): Per-request
@@ -1672,6 +1719,10 @@ abstract class Base
      *                                         options that are always enforced and cannot be
      *                                         overridden by curlopts (for example to pin TLS
      *                                         settings).
+     *                                       - allowedPaths (string[]): Trusted local path
+     *                                         prefixes for file:// reads. Defaults are
+     *                                         automatically computed from the package location
+     *                                         to cover bundled example assets.
      *
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -1705,13 +1756,16 @@ abstract class Base
         $this->color = new PdfColor();
         $this->color->setForceDeviceCmyk($this->requiresPdfxDeviceCmyk());
         $this->barcode = new ObjBarcode();
+
         $this->file = new ObjFile(
-            $fileOptions['allowedHosts'] ?? [],
-            $fileOptions['maxRemoteSize'] ?? 52_428_800,
-            $fileOptions['curlopts'] ?? [],
-            $fileOptions['defaultCurlOpts'] ?? null,
-            $fileOptions['fixedCurlOpts'] ?? null,
+            allowedHosts: $fileOptions['allowedHosts'] ?? [],
+            maxRemoteSize: $fileOptions['maxRemoteSize'] ?? 52_428_800,
+            curlopts: $fileOptions['curlopts'] ?? [],
+            defaultCurlOpts: $fileOptions['defaultCurlOpts'] ?? null,
+            fixedCurlOpts: $fileOptions['fixedCurlOpts'] ?? null,
+            allowedPaths: $fileOptions['allowedPaths'] ?? $this->defaultFileAllowedPaths(),
         );
+
         $this->cache = new ObjCache();
         $this->uniconv = new ObjUniConvert();
 
@@ -1732,8 +1786,20 @@ abstract class Base
             $this->compress,
         );
 
-        $this->font = new ObjFont($this->kunit, $this->subsetfont, $this->isunicode, $pdfamode, $fileOptions);
+        $this->font = new ObjFont(
+            kunit: $this->kunit,
+            subset: $this->subsetfont,
+            unicode: $this->isunicode,
+            pdfa: $pdfamode,
+            fileHelper: $this->file,
+        );
 
-        $this->image = new ObjImage($this->kunit, $this->encrypt, $pdfamode, $this->compress, $fileOptions);
+        $this->image = new ObjImage(
+            kunit: $this->kunit,
+            encrypt: $this->encrypt,
+            fileHelper: $this->file,
+            pdfa: $pdfamode,
+            compress: $this->compress,
+        );
     }
 }

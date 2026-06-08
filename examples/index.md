@@ -49,7 +49,7 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E044_toc_index.php](E044_toc_index.php): Bookmark outline example with generated table of contents via addTOC.
 - [E045_encryption_and_permissions.php](E045_encryption_and_permissions.php): PDF encryption and permission controls with user and owner passwords.
 - [E046_pangrams.php](E046_pangrams.php): Multilingual pangram showcase covering 14 scripts: Latin, Arabic, Hebrew, Thai, Devanagari, Hangul, Greek, Japanese, Russian, Armenian, Georgian, Tamil, Bengali, Amharic, Khmer, Tibetan, and Chinese.
-- [E047_remote_resources_security.php](E047_remote_resources_security.php): Remote resource security configuration using fileOptions host allowlists, size limits, and cURL controls.
+- [E047_remote_resources_security.php](E047_remote_resources_security.php): Remote resource security configuration using fileOptions host/path allowlists, size limits, and cURL controls.
 - [E048_page_boxes_prepress.php](E048_page_boxes_prepress.php): Prepress page-box guide showing Media/Crop/Bleed/Trim/Art boundaries with visual overlays.
 - [E049_output_targets_integration.php](E049_output_targets_integration.php): Multi-target output example covering render, download, save-to-file, and MIME attachment workflows.
 - [E050_shipping_label_barcodes.php](E050_shipping_label_barcodes.php): Production-style shipping label layout using 1D and 2D barcodes with quiet-zone spacing.
