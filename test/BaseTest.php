@@ -312,6 +312,36 @@ class BaseTest extends TestUtil
         $this->assertContains($resolvedVendorCandidate, $paths);
     }
 
+    /** @throws \Throwable */
+    public function testAllowedRootsMatchWindowsStylePathsWithDriveLetters(): void
+    {
+        $probe = new class extends \Com\Tecnick\File\File {
+            /** @param array<string> $roots */
+            public function probeIsPathWithinAllowedRoots(string $path, array $roots): bool
+            {
+                return $this->isPathWithinAllowedRoots($path, $roots);
+            }
+
+            /**
+             * @param array<string> $roots
+             * @return array<string>
+             */
+            public function probeNormalizeAllowedPaths(array $roots): array
+            {
+                return $this->normalizeAllowedPaths($roots);
+            }
+        };
+
+        $allowedRoot = 'C:\\webdev\\project\\storage\\app\\private\\pdf\\fonts';
+        $allowedPath = 'c:\\webdev\\project\\storage\\app\\private\\pdf\\fonts\\core\\helvetica.json';
+        $blockedPath = 'C:\\webdev\\project\\storage\\app\\private\\pdf\\fontsevil\\core\\helvetica.json';
+        $normalizedRoots = $probe->probeNormalizeAllowedPaths([$allowedRoot]);
+
+        $this->assertSame(['c:/webdev/project/storage/app/private/pdf/fonts'], $normalizedRoots);
+        $this->assertTrue($probe->probeIsPathWithinAllowedRoots($allowedPath, $normalizedRoots));
+        $this->assertFalse($probe->probeIsPathWithinAllowedRoots($blockedPath, $normalizedRoots));
+    }
+
     /** @return array<string, array{0: string, 1: float, 2: float}> */
     public static function unitValueConversionProvider(): array
     {

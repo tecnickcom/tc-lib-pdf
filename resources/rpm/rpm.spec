@@ -22,11 +22,11 @@ Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.7.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.7.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.2.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.3.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 3.1.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 3.2.0
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.1.0
+Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.2.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.5.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 3.0.0

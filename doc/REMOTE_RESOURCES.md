@@ -25,6 +25,8 @@ Only the listed host names are permitted. Any attempt to load a resource from an
 
 `markupAllowedPaths` controls which local path prefixes may be read when resources are referenced by rendered HTML, CSS, or SVG markup. If you omit it, the library reuses an explicit `allowedPaths` value when one is provided; otherwise it computes a stricter default that excludes the system temp directory. The helper that returns those stricter defaults is `Com\\Tecnick\\Pdf\\Base::defaultMarkupAllowedPaths()`.
 
+Windows absolute paths with drive letters are supported as long as they are absolute and match the trusted root after path normalization. You can provide them in native form (`C:\\...`) or normalized form (`C:/...`), but using the same canonical format for both the allowlist and the resource path is safest.
+
 ```php
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     unit: 'mm',
