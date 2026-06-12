@@ -19,6 +19,7 @@ namespace Test;
 /**
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type StyleData from \Com\Tecnick\Pdf\Graph\Base
+ * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSBorderSpacing from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  */
@@ -49,12 +50,11 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-     * @return StyleData
+     * @return BorderStyle
      * @throws \Throwable
      */
     public function exposeGetCSSBorderStyle(string $cssborder): array
     {
-        /** @var StyleData */
         return $this->getCSSBorderStyle($cssborder);
     }
 

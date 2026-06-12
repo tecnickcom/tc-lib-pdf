@@ -4444,9 +4444,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->parseHTMLStyleBorderShorthandProperty($dom, $key, $parentkey);
         $ctx = $this->getHTMLBorderParentContext($dom, $parentkey);
         $brdr = $this->getHTMLDefaultBorderSides();
-        $this->parseHTMLStyleBorderColorProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
-        $this->parseHTMLStyleBorderWidthProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
-        $this->parseHTMLStyleBorderStyleProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
+        $activeColor = $this->isActiveHTMLStyleBorderLonghand($dom, $key, 'border-color');
+        $activeWidth = $this->isActiveHTMLStyleBorderLonghand($dom, $key, 'border-width');
+        $activeStyle = $this->isActiveHTMLStyleBorderLonghand($dom, $key, 'border-style');
+        $globalOverrides = $activeColor || $activeWidth || $activeStyle;
+        if ($globalOverrides) {
+            // Longhand overrides (border-width/style/color) cascade on top of
+            // the element's own border shorthand.
+            $this->seedHTMLBorderSidesFromShorthand($dom, $key, $brdr);
+        }
+
+        if ($activeColor) {
+            $this->parseHTMLStyleBorderColorProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
+        }
+
+        if ($activeWidth) {
+            $this->parseHTMLStyleBorderWidthProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
+        }
+
+        if ($activeStyle) {
+            $this->parseHTMLStyleBorderStyleProperty($dom, $key, $brdr, $ctx['parentBorder'], $ctx['parentLTRB']);
+        }
+
         $cellside = [
             'L' => 'left',
             'R' => 'right',
@@ -4464,7 +4483,61 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $ctx['parentLTRB'],
             $cellside,
             $ref,
+            $globalOverrides,
         );
+    }
+
+    /**
+     * Check whether a border longhand property (border-width/style/color) is
+     * declared and not overridden by a later border shorthand declaration.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    protected function isActiveHTMLStyleBorderLonghand(array &$dom, int $key, string $property): bool
+    {
+        if (!isset($dom[$key]['style'][$property]) || $dom[$key]['style'][$property] === '') {
+            return false;
+        }
+
+        $lastProperty = $this->getLastHTMLStyleDeclarationProperty($dom, $key, ['border', $property]);
+        if ($lastProperty === '') {
+            // Declaration order is unknown: keep the legacy behavior of
+            // applying the longhand on top of the border shorthand.
+            return true;
+        }
+
+        return $lastProperty === $property;
+    }
+
+    /**
+     * Seed all per-side working styles from the element's own border
+     * shorthand so longhand overrides cascade on top of it.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     * @param array<string, BorderStyleOpt> $brdr
+     */
+    protected function seedHTMLBorderSidesFromShorthand(array &$dom, int $key, array &$brdr): void
+    {
+        $keyBorderLTRB = isset($dom[$key]['border']['LTRB']) ? $dom[$key]['border']['LTRB'] : [];
+        if ($keyBorderLTRB === []) {
+            return;
+        }
+
+        foreach (\array_keys($brdr) as $bsk) {
+            if (isset($keyBorderLTRB['lineWidth'])) {
+                $brdr[$bsk]['lineWidth'] = $keyBorderLTRB['lineWidth'];
+            }
+
+            if (isset($keyBorderLTRB['cssBorderStyle'])) {
+                $sideBorder = $brdr[$bsk] ?? null;
+                $sideStyle = \is_array($sideBorder) ? $sideBorder : [];
+                $brdr[$bsk] = $this->applyCSSBorderStyleKeyword($sideStyle, $keyBorderLTRB['cssBorderStyle']);
+            }
+
+            if (isset($keyBorderLTRB['lineColor'])) {
+                $brdr[$bsk]['lineColor'] = $keyBorderLTRB['lineColor'];
+            }
+        }
     }
 
     /**
@@ -4737,6 +4810,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *     viewport: array{width: float, height: float},
      *     page: array{width: float, height: float}
      * } $ref
+     * @param bool $globalOverrides Whether active border-width/style/color longhands already seeded the sides.
      *
      * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
@@ -4750,6 +4824,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $parentLTRB,
         array $cellside,
         array $ref,
+        bool $globalOverrides = false,
     ): void {
         foreach ($cellside as $bsk => $bsv) {
             $keyStyle = isset($dom[$key]['style']) ? $dom[$key]['style'] : [];
@@ -4762,8 +4837,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $borderSide !== '' || $borderSideColor !== '' || $borderSideWidth !== '' || $borderSideStyle !== '';
 
             // Side-only overrides (e.g. border-right-color) must remain renderable
-            // when the base border shorthand supplies width/style.
-            if ($hasSideDecl) {
+            // when the base border shorthand supplies width/style. Skip when the
+            // sides were already seeded for global longhand overrides: re-seeding
+            // here would discard the applied border-width/style/color values.
+            if ($hasSideDecl && !$globalOverrides) {
                 $keyBorderLTRB = isset($dom[$key]['border']['LTRB']) ? $dom[$key]['border']['LTRB'] : [];
                 if (isset($keyBorderLTRB['lineWidth'])) {
                     $brdr[$bsk]['lineWidth'] = $keyBorderLTRB['lineWidth'];
@@ -4786,7 +4863,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->parseHTMLStyleBorderSideColorProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
             $this->parseHTMLStyleBorderSideWidthProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
             $this->parseHTMLStyleBorderSideStyleProperty($dom, $key, $brdr, $parentBorder, $parentLTRB, $bsk, $bsv);
-            $this->commitHTMLRenderableBorderSide($dom, $key, $brdr, $bsk);
+            $this->commitHTMLRenderableBorderSide($dom, $key, $brdr, $bsk, $hasSideDecl || $globalOverrides);
             $this->parseHTMLStylePaddingSideProperty($dom, $key, $parentkey, $ref, $bsk, $bsv);
             $this->parseHTMLStyleMarginSideProperty($dom, $key, $parentkey, $ref, $bsk, $bsv);
         }
@@ -4996,22 +5073,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Commit a border side when renderable.
      *
+     * A side explicitly declared non-renderable (e.g. border-width:0 or
+     * border-left:none) is also committed when a border shorthand exists,
+     * so it shadows the renderable LTRB fallback instead of being dropped.
+     *
      * @param array<int, THTMLAttrib> $dom
      * @param array<string, BorderStyleOpt> $brdr
      */
-    protected function commitHTMLRenderableBorderSide(array &$dom, int $key, array $brdr, string $bsk): void
-    {
-        $borderStyle = $brdr[$bsk] ?? $this->getCSSDefaultBorderStyle();
-        if ($this->isHTMLRenderableBorderStyle($borderStyle)) {
-            if (!\is_array($dom[$key] ?? null)) {
-                return;
-            }
-
-            $node = &$dom[$key];
-            $border = $node['border'];
-            $border[$bsk] = $borderStyle;
-            $node['border'] = $border;
+    protected function commitHTMLRenderableBorderSide(
+        array &$dom,
+        int $key,
+        array $brdr,
+        string $bsk,
+        bool $declared = false,
+    ): void {
+        if (!\is_array($dom[$key] ?? null)) {
+            return;
         }
+
+        $borderStyle = $brdr[$bsk] ?? $this->getCSSDefaultBorderStyle();
+        if (!$this->isHTMLRenderableBorderStyle($borderStyle) && (!$declared || !isset($dom[$key]['border']['LTRB']))) {
+            return;
+        }
+
+        $node = &$dom[$key];
+        $border = $node['border'];
+        $border[$bsk] = $borderStyle;
+        $node['border'] = $border;
     }
 
     /**
@@ -6233,6 +6321,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (
                 (!isset($attributes['border']) || $attributes['border'] === '')
                 && !isset($styles['border'])
+                && !isset($styles['border-width'])
+                && !isset($styles['border-style'])
                 && !isset($styles['border-top'])
                 && !isset($styles['border-right'])
                 && !isset($styles['border-bottom'])
@@ -6979,14 +7069,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if ($inrow && $elm['opening'] && ($elm['value'] === 'td' || $elm['value'] === 'th')) {
-                $padT = isset($elm['padding']['T']) ? $elm['padding']['T'] : 0.0;
-                $padR = isset($elm['padding']['R']) ? $elm['padding']['R'] : 0.0;
-                $padB = isset($elm['padding']['B']) ? $elm['padding']['B'] : 0.0;
-                $padL = isset($elm['padding']['L']) ? $elm['padding']['L'] : 0.0;
-                if ($tablecellpadding > 0.0 && $padT === 0.0 && $padR === 0.0 && $padB === 0.0 && $padL === 0.0) {
-                    $padT = $tablecellpadding;
-                    $padB = $tablecellpadding;
-                }
+                $padding = $this->getHTMLTableCellPaddingWithDefault($elm, $tablecellpadding);
+                $padT = $padding['T'];
+                $padB = $padding['B'];
                 $elmMargin = $elm['margin'];
                 $cellh =
                     $this->getHTMLLineAdvance($hrc, $key)
@@ -7061,6 +7146,100 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Create a fresh HTML render context bound to the given DOM.
+     *
+     * @param array<int, THTMLAttrib> $dom HTML DOM array.
+     *
+     * @return THTMLRenderContext
+     */
+    protected function newHTMLRenderContext(array $dom): array
+    {
+        /** @var THTMLRenderContext $hrc */
+        $hrc = [
+            'cellctx' => [
+                'originx' => 0.0,
+                'originy' => 0.0,
+                'maxwidth' => 0.0,
+                'maxheight' => 0.0,
+                'basefont' => '',
+            ],
+            'fontcache' => [],
+            'liststack' => [],
+            'tablestack' => [],
+            'bcellctx' => [],
+            'blockbuf' => [],
+            'linkstack' => [],
+            'listack' => [],
+            'prelevel' => 0,
+            'quotelevel' => 0,
+            'dom' => [],
+        ];
+        // Attached after the literal: inlining the assignment into the return
+        // statement would drop the THTMLRenderContext coercion above, which is
+        // needed because the seed omits the keys initHTMLCellContext() fills in.
+        $hrc['dom'] = $dom;
+
+        return $hrc;
+    }
+
+    /**
+     * Compute the content-box geometry of an HTML cell in user units.
+     *
+     * Resolves the effective cell width (falling back to the maximum
+     * available width at the given abscissa when not positive) and converts
+     * the cell context margins and paddings (in internal points) into the
+     * offsets that locate and size the content area.
+     *
+     * @param float    $posx    Abscissa of the cell upper-left corner.
+     * @param float    $posy    Ordinate of the cell upper-left corner.
+     * @param float    $width   Cell width (not positive = maximum available width).
+     * @param float    $height  Cell height (not positive = automatic).
+     * @param TCellDef $cellctx Cell parameters for padding, margin etc.
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     *
+     * @return array{
+     *     'cellwidth': float,
+     *     'offseth': float,
+     *     'contentx': float,
+     *     'contenty': float,
+     *     'contentw': float,
+     *     'contenth': float,
+     * } Effective cell width, vertical margin+padding extent and content
+     *   area origin and size, all in user units.
+     */
+    protected function getHTMLCellContentBox(
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $cellctx,
+    ): array {
+        $cellwidth = $width;
+        if ($cellwidth <= 0.0) {
+            $cellwidth = $this->toUnit($this->cellMaxWidth($this->toPoints($posx), $cellctx));
+        }
+
+        $offsetx = $this->toUnit($cellctx['margin']['L'] + $cellctx['padding']['L']);
+        $offsety = $this->toUnit($cellctx['margin']['T'] + $cellctx['padding']['T']);
+        $offsetw = $this->toUnit(
+            $cellctx['margin']['L'] + $cellctx['margin']['R'] + $cellctx['padding']['L'] + $cellctx['padding']['R'],
+        );
+        $offseth = $this->toUnit(
+            $cellctx['margin']['T'] + $cellctx['margin']['B'] + $cellctx['padding']['T'] + $cellctx['padding']['B'],
+        );
+
+        return [
+            'cellwidth' => $cellwidth,
+            'offseth' => $offseth,
+            'contentx' => $posx + $offsetx,
+            'contenty' => $posy + $offsety,
+            'contentw' => \max(0.0, $cellwidth - $offsetw),
+            'contenth' => $height > 0 ? \max(0.0, $height - $offseth) : 0.0,
+        ];
+    }
+
+    /**
      * Measure the actual rendered height consumed by an HTML cell fragment.
      *
      * This mirrors getHTMLCell() rendering flow but discards the output so
@@ -7091,50 +7270,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $dom = $this->getHTMLDOM($html);
 
-        /** @var THTMLRenderContext $hrc */
-        $hrc = [
-            'cellctx' => [
-                'originx' => 0.0,
-                'originy' => 0.0,
-                'maxwidth' => 0.0,
-                'maxheight' => 0.0,
-                'basefont' => '',
-            ],
-            'fontcache' => [],
-            'liststack' => [],
-            'tablestack' => [],
-            'bcellctx' => [],
-            'blockbuf' => [],
-            'linkstack' => [],
-            'listack' => [],
-            'prelevel' => 0,
-            'quotelevel' => 0,
-            'dom' => $dom,
-        ];
+        $hrc = $this->newHTMLRenderContext($dom);
 
         $styles = $this->normalizeCellSideStyles($styles);
         /** @var TCellDef|null $cellForPadding */
         $cellForPadding = $cell;
         $cellctx = $this->adjustMinCellPadding($styles, $cellForPadding);
 
-        $cellwidth = $width;
-        if ($cellwidth <= 0.0) {
-            $cellwidth = $this->toUnit($this->cellMaxWidth($this->toPoints($posx), $cellctx));
-        }
-
-        $offsetx = $this->toUnit($cellctx['margin']['L'] + $cellctx['padding']['L']);
-        $offsety = $this->toUnit($cellctx['margin']['T'] + $cellctx['padding']['T']);
-        $offsetw = $this->toUnit(
-            $cellctx['margin']['L'] + $cellctx['margin']['R'] + $cellctx['padding']['L'] + $cellctx['padding']['R'],
-        );
-        $offseth = $this->toUnit(
-            $cellctx['margin']['T'] + $cellctx['margin']['B'] + $cellctx['padding']['T'] + $cellctx['padding']['B'],
-        );
-
-        $contentx = $posx + $offsetx;
-        $contenty = $posy + $offsety;
-        $contentw = \max(0.0, $cellwidth - $offsetw);
-        $contenth = $height > 0 ? \max(0.0, $height - $offseth) : 0.0;
+        $cbox = $this->getHTMLCellContentBox($posx, $posy, $width, $height, $cellctx);
+        $contentx = $cbox['contentx'];
+        $contenty = $cbox['contenty'];
+        $contentw = $cbox['contentw'];
+        $contenth = $cbox['contenth'];
 
         $tpx = $contentx;
         $tpy = $contenty;
@@ -7362,19 +7509,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 ++$colidx;
 
-                // Determine the cell's content area width for line-wrap measurement.
-                $padL = isset($elm['padding']['L']) ? $elm['padding']['L'] : 0.0;
-                $padR = isset($elm['padding']['R']) ? $elm['padding']['R'] : 0.0;
-                $padT = isset($elm['padding']['T']) ? $elm['padding']['T'] : 0.0;
-                $padB = isset($elm['padding']['B']) ? $elm['padding']['B'] : 0.0;
-                if ($padL <= 0.0 && $padR <= 0.0 && $padT <= 0.0 && $padB <= 0.0) {
-                    // Apply the table's cellpadding HTML attribute fallback when no
-                    // explicit CSS/per-cell padding was set, mirroring parseHTMLTagOPENtd.
-                    $padL = $tableCellPad;
-                    $padR = $tableCellPad;
-                    $padT = $tableCellPad;
-                    $padB = $tableCellPad;
-                }
+                // Determine the cell's content area width for line-wrap measurement,
+                // applying the table's cellpadding HTML attribute fallback on the
+                // sides without explicit CSS padding, mirroring parseHTMLTagOPENtd.
+                $padding = $this->getHTMLTableCellPaddingWithDefault($elm, $tableCellPad);
+                $padL = $padding['L'];
+                $padR = $padding['R'];
+                $padT = $padding['T'];
+                $padB = $padding['B'];
 
                 $colwidth = isset($tableColWidths[$colidx]) ? $tableColWidths[$colidx] : 0.0;
                 $contentWidth = \max(0.0, $colwidth - $padL - $padR);
@@ -8583,6 +8725,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Strip the font-key style suffix from the given font name.
+     *
+     * Font keys are the lowercase family name plus an optional uppercase
+     * 'B' (bold) and/or 'I' (italic) suffix. Underline (U), strikeout (D)
+     * and overline (O) styles are never part of the key, so only trailing
+     * uppercase 'B'/'I' characters are stripped (case-sensitive) to preserve
+     * family names ending in 'b', 'i', 'u', 'd' or 'o'
+     * (e.g. "dejavusanscondensed").
+     *
+     * @param string $fontkey Font key or family name.
+     *
+     * @return string Font name without the style suffix (may be empty).
+     */
+    protected function stripHTMLFontKeyStyleSuffix(string $fontkey): string
+    {
+        return \rtrim($fontkey, 'BI');
+    }
+
+    /**
      * Return a stable base font family name for HTML rendering.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -8590,19 +8751,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLBaseFontName(): string
     {
         $curfont = $this->font->getCurrentFont();
-        $fontname = $curfont['key'];
-        // Font keys are the lowercase family name plus an optional uppercase
-        // 'B' (bold) and/or 'I' (italic) suffix. Underline (U), strikeout (D)
-        // and overline (O) styles are never part of the key, so only the
-        // 'B'/'I' suffix is stripped (case-sensitive) to preserve family
-        // names ending in 'b', 'i', 'u', 'd' or 'o' (e.g. "dejavusanscondensed").
-        $fontname = \preg_replace('/(?:BI|B|I)$/', '', $fontname) ?? $fontname;
+        $fontname = $this->stripHTMLFontKeyStyleSuffix($curfont['key']);
         if ($fontname === '') {
             return 'helvetica';
         }
 
         $family = $this->font->getFontFamilyName($fontname);
-        if ($family !== '' && !\preg_match('/(?:BI|B|I)$/', $family)) {
+        if ($family !== '' && $this->stripHTMLFontKeyStyleSuffix($family) === $family) {
             return $family;
         }
 
@@ -8622,13 +8777,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $fontkey = $curfont['key'];
         $family = $this->font->getFontFamilyName($fontkey);
         // getFontFamilyName may return the full font key (e.g. "helveticaB")
-        // rather than the plain base family name ("helvetica"), because the bold
-        // variant is itself a valid key in the buffer.  Font keys are the
-        // lowercase family name plus an optional uppercase 'B' and/or 'I'
-        // style suffix, so strip only that (case-sensitive) so that
-        // restoreHTMLCallerFontState re-inserts (family, style) correctly
-        // without truncating family names ending in 'b', 'i', 'u', 'd' or 'o'.
-        $family = \preg_replace('/(?:BI|B|I)$/', '', $family) ?? $family;
+        // rather than the plain base family name ("helvetica"), because the
+        // bold variant is itself a valid key in the buffer. Strip the style
+        // suffix so restoreHTMLCallerFontState re-inserts (family, style)
+        // correctly without accumulating extra 'B'/'I' characters in the key.
+        $family = $this->stripHTMLFontKeyStyleSuffix($family);
         if ($family === '') {
             $family = 'helvetica';
         }
@@ -8686,12 +8839,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curfont = $this->font->getCurrentFont();
         $fontname = $elm['fontname'] === '' ? $hrc['cellctx']['basefont'] : $elm['fontname'];
 
-        // Strip only the optional uppercase 'B'/'I' font-key style suffix
-        // (case-sensitive): the style is applied separately via $fontstyle.
-        // Underline/strikeout/overline are never part of the key and family
-        // names may legitimately end in 'b', 'i', 'u', 'd' or 'o'.
-        $stripped = \preg_replace('/(?:BI|B|I)$/', '', $fontname) ?? '';
-        if ($stripped !== '' && $stripped !== $fontname) {
+        // The 'B'/'I' style suffix is applied separately via $fontstyle.
+        $stripped = $this->stripHTMLFontKeyStyleSuffix($fontname);
+        if ($stripped !== '') {
             $fontname = $stripped;
         }
         $fontsize = $elm['fontsize'] > 0 ? $elm['fontsize'] : $curfont['size'];
@@ -11485,6 +11635,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Remove border styles that must not be stroked (zero width, none/hidden).
+     *
+     * @param array<int|string, mixed> $styles
+     *
+     * @return array<int|string, BorderStyleOpt>
+     */
+    protected function filterHTMLRenderableBorderStyles(array $styles): array
+    {
+        $renderable = [];
+        foreach (\array_keys($styles) as $skey) {
+            if (!isset($styles[$skey]) || !\is_array($styles[$skey])) {
+                continue;
+            }
+
+            /** @var BorderStyleOpt $style */
+            $style = $styles[$skey];
+            if ($this->isHTMLRenderableBorderStyle($style)) {
+                $renderable[$skey] = $style;
+            }
+        }
+
+        return $renderable;
+    }
+
+    /**
      * Pick the preferred collapsed-border style between adjacent edges.
      * Prefer hidden, then greater width, then CSS style precedence.
      *
@@ -12760,6 +12935,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $out .= $buffer;
 
+        // Zero-width borders (e.g. border="0" or border-width:0) must not be
+        // stroked: a zero-width PDF stroke still paints a one-device-pixel line.
+        $styles = $this->filterHTMLRenderableBorderStyles($styles);
+
         if ($styles === []) {
             return $out;
         }
@@ -13747,49 +13926,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $dom = $this->getHTMLDOM($html);
 
-        /** @var THTMLRenderContext $hrc */
-        $hrc = [
-            'cellctx' => [
-                'originx' => 0.0,
-                'originy' => 0.0,
-                'maxwidth' => 0.0,
-                'maxheight' => 0.0,
-                'basefont' => '',
-            ],
-            'fontcache' => [],
-            'liststack' => [],
-            'tablestack' => [],
-            'bcellctx' => [],
-            'blockbuf' => [],
-            'linkstack' => [],
-            'listack' => [],
-            'prelevel' => 0,
-            'quotelevel' => 0,
-            'dom' => $dom,
-        ];
+        $hrc = $this->newHTMLRenderContext($dom);
 
         $drawcell = $styles !== [];
         $graphStyles = $this->normalizeHTMLGraphStyleMap($styles);
         $cellctx = $this->adjustMinCellPadding($graphStyles, $cell);
 
-        $cellwidth = $width;
-        if ($cellwidth <= 0.0) {
-            $cellwidth = $this->toUnit($this->cellMaxWidth($this->toPoints($posx), $cellctx));
-        }
-
-        $offsetx = $this->toUnit($cellctx['margin']['L'] + $cellctx['padding']['L']);
-        $offsety = $this->toUnit($cellctx['margin']['T'] + $cellctx['padding']['T']);
-        $offsetw = $this->toUnit(
-            $cellctx['margin']['L'] + $cellctx['margin']['R'] + $cellctx['padding']['L'] + $cellctx['padding']['R'],
-        );
-        $offseth = $this->toUnit(
-            $cellctx['margin']['T'] + $cellctx['margin']['B'] + $cellctx['padding']['T'] + $cellctx['padding']['B'],
-        );
-
-        $contentx = $posx + $offsetx;
-        $contenty = $posy + $offsety;
-        $contentw = \max(0.0, $cellwidth - $offsetw);
-        $contenth = $height > 0 ? \max(0.0, $height - $offseth) : 0.0;
+        $cbox = $this->getHTMLCellContentBox($posx, $posy, $width, $height, $cellctx);
+        $cellwidth = $cbox['cellwidth'];
+        $offseth = $cbox['offseth'];
+        $contentx = $cbox['contentx'];
+        $contenty = $cbox['contenty'];
+        $contentw = $cbox['contentw'];
+        $contenth = $cbox['contenth'];
 
         $tpx = $contentx;
         $tpy = $contenty;
@@ -13861,26 +14010,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ): void {
         $callerfont = $this->captureHTMLCallerFontState();
         $dom = $this->getHTMLDOM($html);
-        /** @var THTMLRenderContext $hrc */
-        $hrc = [
-            'cellctx' => [
-                'originx' => 0.0,
-                'originy' => 0.0,
-                'maxwidth' => 0.0,
-                'maxheight' => 0.0,
-                'basefont' => '',
-            ],
-            'fontcache' => [],
-            'liststack' => [],
-            'tablestack' => [],
-            'bcellctx' => [],
-            'blockbuf' => [],
-            'linkstack' => [],
-            'listack' => [],
-            'prelevel' => 0,
-            'quotelevel' => 0,
-            'dom' => $dom,
-        ];
+        $hrc = $this->newHTMLRenderContext($dom);
         $outbypage = [];
         $startpid = $this->page->getPageId();
 
@@ -13898,24 +14028,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $graphStyles = $this->normalizeHTMLGraphStyleMap($styles);
         $cellctx = $this->adjustMinCellPadding($graphStyles, $cell);
 
-        $cellwidth = $width;
-        if ($cellwidth <= 0.0) {
-            $cellwidth = $this->toUnit($this->cellMaxWidth($this->toPoints($posx), $cellctx));
-        }
-
-        $offsetx = $this->toUnit($cellctx['margin']['L'] + $cellctx['padding']['L']);
-        $offsety = $this->toUnit($cellctx['margin']['T'] + $cellctx['padding']['T']);
-        $offsetw = $this->toUnit(
-            $cellctx['margin']['L'] + $cellctx['margin']['R'] + $cellctx['padding']['L'] + $cellctx['padding']['R'],
-        );
-        $offseth = $this->toUnit(
-            $cellctx['margin']['T'] + $cellctx['margin']['B'] + $cellctx['padding']['T'] + $cellctx['padding']['B'],
-        );
-
-        $contentx = $posx + $offsetx;
-        $contenty = $posy + $offsety;
-        $contentw = \max(0.0, $cellwidth - $offsetw);
-        $contenth = $height > 0 ? \max(0.0, $height - $offseth) : 0.0;
+        $cbox = $this->getHTMLCellContentBox($posx, $posy, $width, $height, $cellctx);
+        $cellwidth = $cbox['cellwidth'];
+        $offseth = $cbox['offseth'];
+        $contentx = $cbox['contentx'];
+        $contenty = $cbox['contenty'];
+        $contentw = $cbox['contentw'];
+        $contenth = $cbox['contenth'];
 
         $tpx = $contentx;
         $tpy = $contenty;
@@ -14674,7 +14793,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $wrapThreshold = \max(self::WIDTH_TOLERANCE, $lineAdvance - self::WIDTH_TOLERANCE);
         $wrapped = ($bbox['y'] - $renderStartY) >= $wrapThreshold;
         if (!$deferWrapDetection) {
-            $wrapped = $wrapped || $bbox['h'] > ($lineAdvance + self::WIDTH_TOLERANCE);
+            // A single-line render still spans the font's natural glyph box,
+            // which exceeds the line advance when a compact CSS line-height is
+            // set; only a height beyond both indicates a multi-line wrap.
+            $wrapped = $wrapped || $bbox['h'] > (\max($lineAdvance, $curHeight) + self::WIDTH_TOLERANCE);
         }
 
         $decorBgcolor = '';
@@ -17119,6 +17241,46 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Resolve the effective padding of a table cell, applying the table
+     * cellpadding attribute as a per-side default.
+     *
+     * The HTML cellpadding attribute acts as a presentational hint: it
+     * provides the default padding for every side of the cell, while each
+     * side explicitly set via CSS (padding shorthand or padding-<side>)
+     * keeps its CSS value, mirroring browser behavior.
+     *
+     * @param THTMLAttrib $elm         DOM element (td/th).
+     * @param float       $cellpadding Table cellpadding value in user units.
+     *
+     * @return array{'T': float, 'R': float, 'B': float, 'L': float}
+     */
+    protected function getHTMLTableCellPaddingWithDefault(array $elm, float $cellpadding): array
+    {
+        $padding = [
+            'T' => isset($elm['padding']['T']) ? $elm['padding']['T'] : 0.0,
+            'R' => isset($elm['padding']['R']) ? $elm['padding']['R'] : 0.0,
+            'B' => isset($elm['padding']['B']) ? $elm['padding']['B'] : 0.0,
+            'L' => isset($elm['padding']['L']) ? $elm['padding']['L'] : 0.0,
+        ];
+        if ($cellpadding <= 0.0) {
+            return $padding;
+        }
+
+        $style = $elm['style'];
+        $hasShorthand = isset($style['padding']) && \trim($style['padding']) !== '';
+        $sides = ['T' => 'padding-top', 'R' => 'padding-right', 'B' => 'padding-bottom', 'L' => 'padding-left'];
+        foreach ($sides as $side => $prop) {
+            if ($hasShorthand || isset($style[$prop]) && \trim($style[$prop]) !== '') {
+                continue;
+            }
+
+            $padding[$side] = $cellpadding;
+        }
+
+        return $padding;
+    }
+
+    /**
      * Process HTML opening tag <td>.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -17286,32 +17448,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        // Apply table cellpadding as default when the cell has no CSS padding.
-        $cellpadding = $table['cellpadding'];
+        // Apply table cellpadding as default on the sides without CSS padding.
         $margin = $elm['margin'];
-        $padding = $elm['padding'];
-        if (
-            $cellpadding > 0.0
-            && ($padding['T'] ?? 0.0) === 0.0
-            && ($padding['R'] ?? 0.0) === 0.0
-            && ($padding['B'] ?? 0.0) === 0.0
-            && ($padding['L'] ?? 0.0) === 0.0
-        ) {
-            $padding = [
-                'T' => $cellpadding,
-                'R' => $cellpadding,
-                'B' => $cellpadding,
-                'L' => $cellpadding,
-            ];
-            $elm['padding'] = $padding;
-        }
+        $padding = $this->getHTMLTableCellPaddingWithDefault($elm, $table['cellpadding']);
+        $elm['padding'] = $padding;
 
         $marginL = $margin['L'] ?? 0.0;
         $marginR = $margin['R'] ?? 0.0;
         $marginT = $margin['T'] ?? 0.0;
-        $paddingL = $padding['L'] ?? 0.0;
-        $paddingR = $padding['R'] ?? 0.0;
-        $paddingT = $padding['T'] ?? 0.0;
+        $paddingL = $padding['L'];
+        $paddingR = $padding['R'];
+        $paddingT = $padding['T'];
 
         $originx = $cellx + $marginL + $paddingL;
         $originy = $rowtop + $marginT + $paddingT;

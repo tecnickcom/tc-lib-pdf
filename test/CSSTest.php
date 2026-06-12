@@ -203,6 +203,31 @@ class CSSTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testGetCSSBorderStyleParsesTokensInAnyOrder(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $zero = $obj->exposeGetCSSBorderStyle('0');
+        $this->assertSame(0.0, $zero['lineWidth']);
+        $this->assertSame('solid', $zero['cssBorderStyle'] ?? '');
+
+        $zeroFull = $obj->exposeGetCSSBorderStyle('0 solid black');
+        $this->assertSame(0.0, $zeroFull['lineWidth']);
+        $this->assertSame('solid', $zeroFull['cssBorderStyle'] ?? '');
+
+        $unordered = $obj->exposeGetCSSBorderStyle('solid red 1px');
+        $this->assertGreaterThan(0.0, $unordered['lineWidth']);
+        $this->assertSame(0, $unordered['dashPhase']);
+        $this->assertIsString($unordered['lineColor']);
+        $unorderedLineColor = $unordered['lineColor'];
+        $this->assertStringContainsString('rgb(', $unorderedLineColor);
+
+        $widthOnly = $obj->exposeGetCSSBorderStyle('2px');
+        $this->assertGreaterThan(0.0, $widthOnly['lineWidth']);
+        $this->assertSame('solid', $widthOnly['cssBorderStyle'] ?? '');
+    }
+
+    /** @throws \Throwable */
     public function testGetCSSPaddingParsesFourValues(): void
     {
         $obj = $this->getInternalTestObject();

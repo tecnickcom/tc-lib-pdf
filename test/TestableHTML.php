@@ -21,6 +21,7 @@ namespace Test;
  * @phpstan-import-type THTMLRenderContext from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type THTMLTableState from \Com\Tecnick\Pdf\HTML
  * @phpstan-import-type BorderStyle from \Com\Tecnick\Pdf\CSS
+ * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Base
  */
 class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
 {
@@ -1088,5 +1089,44 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetHTMLFormFieldJSProperties(array $attr, string $fieldkind, array $elm = []): array
     {
         return $this->getHTMLFormFieldJSProperties($attr, $fieldkind, $elm);
+    }
+
+    /**
+     * @phpstan-param array<int, THTMLAttrib> $dom
+     *
+     * @phpstan-return THTMLRenderContext
+     */
+    public function exposeNewHTMLRenderContext(array $dom): array
+    {
+        return $this->newHTMLRenderContext($dom);
+    }
+
+    public function exposeStripHTMLFontKeyStyleSuffix(string $fontkey): string
+    {
+        return $this->stripHTMLFontKeyStyleSuffix($fontkey);
+    }
+
+    /**
+     * @phpstan-param TCellDef $cellctx
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     *
+     * @return array{
+     *     'cellwidth': float,
+     *     'offseth': float,
+     *     'contentx': float,
+     *     'contenty': float,
+     *     'contentw': float,
+     *     'contenth': float,
+     * }
+     */
+    public function exposeGetHTMLCellContentBox(
+        float $posx,
+        float $posy,
+        float $width,
+        float $height,
+        array $cellctx,
+    ): array {
+        return $this->getHTMLCellContentBox($posx, $posy, $width, $height, $cellctx);
     }
 }

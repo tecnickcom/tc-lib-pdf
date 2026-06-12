@@ -317,6 +317,28 @@ $pdf->addHTMLCell(html: $html4, posx: 20, posy: 10, width: 180);
 
 // ----------
 
+$html5A = '<table border="0" cellpadding="5" cellspacing="0">
+	<tr>
+		<th align="left" style="font-size:32pt; color:rgba(255, 0, 0, 0.5);">
+			TEST
+		</th>
+	</tr>
+</table>';
+
+$pdf->addHTMLCell(html: $html5A, posx: 20, posy: 160, width: 180);
+
+$html5B = '<table border="0" cellpadding="5" cellspacing="0">
+	<tr>
+		<th align="left" style="font-size:32pt; color:rgba(0, 255, 0, 0.5); padding-left:10mm;">
+			TEST
+		</th>
+	</tr>
+</table>';
+
+$pdf->addHTMLCell(html: $html5B, posx: 20, posy: 160, width: 180);
+
+// ----------
+
 // =============================================================
 
 // ----------

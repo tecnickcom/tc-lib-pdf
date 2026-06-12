@@ -5375,6 +5375,126 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testGetHTMLCellTableBorderZeroAttributeDrawsNoBorder(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table border="0" cellspacing="0" cellpadding="2"><tr><td>A</td><td>B</td></tr></table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sre\s+s\b/s', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sl\s+S\b/s', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellTableCSSBorderZeroDrawsNoBorder(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table style="border:0" cellspacing="0" cellpadding="2"><tr><td>A</td><td>B</td></tr></table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sre\s+s\b/s', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sl\s+S\b/s', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellBorderWidthZeroLonghandOverridesShorthand(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table style="border:1px solid black;border-width:0"><tr><td>A</td></tr></table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sre\s+s\b/s', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sl\s+S\b/s', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellBorderStyleNoneLonghandOverridesShorthand(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table style="border:1px solid black;border-style:none"><tr><td>A</td></tr></table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sre\s+s\b/s', $out);
+        $this->assertDoesNotMatchRegularExpression('/\sl\s+S\b/s', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellBorderShorthandAfterLonghandWins(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table style="border-width:0;border:1px solid black"><tr><td>A</td></tr></table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertMatchesRegularExpression('/\sre\s+s\b/s', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellBorderColorLonghandAppliesOverShorthand(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table style="border:1px solid black;border-color:red"><tr><td>A</td></tr></table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        $this->assertMatchesRegularExpression('/\sl\s+S\b/s', $out);
+        $this->assertStringContainsString('1.000000 0.000000 0.000000 RG', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellCellBorderWidthZeroCancelsTableBorderAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '<table border="1" cellspacing="3" cellpadding="2"><tr><td style="border-width:0">A</td></tr></table>';
+
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 30);
+
+        $this->assertNotSame('', $out);
+        // Only the table outer frame must be stroked; the cell border is cancelled.
+        $matches = [];
+        $this->assertSame(1, \preg_match_all('/\sre\s+s\b/s', $out, $matches));
+        $this->assertDoesNotMatchRegularExpression('/\sl\s+S\b/s', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testGetHTMLCellCentersMixedDirectionInlineRunAsOneLine(): void
     {
         $obj = $this->getBBoxProbeTestObject();
@@ -18932,5 +19052,134 @@ class HTMLTest extends TestUtil
             $lblEntry['bbox_x'],
             '"Lbl" must not overlap the preceding plain-text fragment — em-dash width regression',
         );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testStripHTMLFontKeyStyleSuffix(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // The uppercase 'B' (bold) and/or 'I' (italic) suffix is stripped.
+        $this->assertSame('helvetica', $obj->exposeStripHTMLFontKeyStyleSuffix('helveticaB'));
+        $this->assertSame('helvetica', $obj->exposeStripHTMLFontKeyStyleSuffix('helveticaI'));
+        $this->assertSame('helvetica', $obj->exposeStripHTMLFontKeyStyleSuffix('helveticaBI'));
+
+        // Any run of trailing style letters is removed, so style suffixes
+        // accumulated by repeated captures do not survive.
+        $this->assertSame('helvetica', $obj->exposeStripHTMLFontKeyStyleSuffix('helveticaBIB'));
+        $this->assertSame('helvetica', $obj->exposeStripHTMLFontKeyStyleSuffix('helveticaIBBI'));
+
+        // Lowercase trailing letters are part of the family name: they must
+        // be preserved, including 'b', 'i', 'u', 'd' and 'o'.
+        $this->assertSame('helveticab', $obj->exposeStripHTMLFontKeyStyleSuffix('helveticab'));
+        $this->assertSame('dejavusanscondensed', $obj->exposeStripHTMLFontKeyStyleSuffix('dejavusanscondensed'));
+        $this->assertSame('courierbi', $obj->exposeStripHTMLFontKeyStyleSuffix('courierbi'));
+
+        // A bare style suffix or an empty key strips to the empty string.
+        $this->assertSame('', $obj->exposeStripHTMLFontKeyStyleSuffix('BI'));
+        $this->assertSame('', $obj->exposeStripHTMLFontKeyStyleSuffix(''));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testNewHTMLRenderContext(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<p>hello</p>');
+        $hrc = $obj->exposeNewHTMLRenderContext($dom);
+
+        $this->assertSame($dom, $hrc['dom']);
+        $this->assertSame(0.0, $hrc['cellctx']['originx']);
+        $this->assertSame(0.0, $hrc['cellctx']['originy']);
+        $this->assertSame(0.0, $hrc['cellctx']['maxwidth']);
+        $this->assertSame(0.0, $hrc['cellctx']['maxheight']);
+        $this->assertSame('', $hrc['cellctx']['basefont']);
+        $this->assertSame([], $hrc['fontcache']);
+        $this->assertSame([], $hrc['liststack']);
+        $this->assertSame([], $hrc['tablestack']);
+        $this->assertSame([], $hrc['bcellctx']);
+        $this->assertSame([], $hrc['blockbuf']);
+        $this->assertSame([], $hrc['linkstack']);
+        $this->assertSame([], $hrc['listack']);
+        $this->assertSame(0, $hrc['prelevel']);
+        $this->assertSame(0, $hrc['quotelevel']);
+        $this->assertArrayNotHasKey('currentkey', $hrc);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellContentBoxWithExplicitSize(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        // Margins and paddings are expressed in internal points.
+        $cellctx = [
+            'margin' => ['T' => 2.0, 'R' => 3.0, 'B' => 4.0, 'L' => 5.0],
+            'padding' => ['T' => 1.0, 'R' => 2.0, 'B' => 3.0, 'L' => 4.0],
+            'borderpos' => 0.0,
+        ];
+
+        $cbox = $obj->exposeGetHTMLCellContentBox(10.0, 20.0, 100.0, 50.0, $cellctx);
+
+        $this->assertSame(100.0, $cbox['cellwidth']);
+        $this->bcAssertEqualsWithDelta($obj->toUnit(2.0 + 4.0 + 1.0 + 3.0), $cbox['offseth'], 0.000001);
+        $this->bcAssertEqualsWithDelta(10.0 + $obj->toUnit(5.0 + 4.0), $cbox['contentx'], 0.000001);
+        $this->bcAssertEqualsWithDelta(20.0 + $obj->toUnit(2.0 + 1.0), $cbox['contenty'], 0.000001);
+        $this->bcAssertEqualsWithDelta(100.0 - $obj->toUnit(5.0 + 3.0 + 4.0 + 2.0), $cbox['contentw'], 0.000001);
+        $this->bcAssertEqualsWithDelta(50.0 - $obj->toUnit(2.0 + 4.0 + 1.0 + 3.0), $cbox['contenth'], 0.000001);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellContentBoxAutoWidthAndHeight(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $cellctx = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 2.0, 'R' => 2.0, 'B' => 2.0, 'L' => 2.0],
+            'borderpos' => 0.0,
+        ];
+
+        $cbox = $obj->exposeGetHTMLCellContentBox(10.0, 20.0, 0.0, 0.0, $cellctx);
+
+        // Width not positive: fall back to the maximum available width.
+        $this->assertGreaterThan(0.0, $cbox['cellwidth']);
+        $this->bcAssertEqualsWithDelta($cbox['cellwidth'] - $obj->toUnit(4.0), $cbox['contentw'], 0.000001);
+        // Height not positive: automatic (no fixed content height).
+        $this->assertSame(0.0, $cbox['contenth']);
+        $this->bcAssertEqualsWithDelta(10.0 + $obj->toUnit(2.0), $cbox['contentx'], 0.000001);
+        $this->bcAssertEqualsWithDelta(20.0 + $obj->toUnit(2.0), $cbox['contenty'], 0.000001);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellContentBoxClampsContentSize(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        // Paddings larger than the cell box must clamp the content size to zero.
+        $cellctx = [
+            'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            'padding' => ['T' => 50.0, 'R' => 50.0, 'B' => 50.0, 'L' => 50.0],
+            'borderpos' => 0.0,
+        ];
+
+        $cbox = $obj->exposeGetHTMLCellContentBox(0.0, 0.0, 1.0, 1.0, $cellctx);
+
+        $this->assertSame(1.0, $cbox['cellwidth']);
+        $this->assertSame(0.0, $cbox['contentw']);
+        $this->assertSame(0.0, $cbox['contenth']);
     }
 }

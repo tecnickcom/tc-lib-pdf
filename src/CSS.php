@@ -86,6 +86,24 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     ];
 
     /**
+     * CSS border-style keywords.
+     *
+     * @var array<int, string>
+     */
+    protected const CSS_BORDER_STYLE_KEYWORDS = [
+        'none',
+        'hidden',
+        'dotted',
+        'dashed',
+        'solid',
+        'double',
+        'groove',
+        'ridge',
+        'inset',
+        'outset',
+    ];
+
+    /**
      * Default CSS margin.
      *
      * @var TCellBound
@@ -334,35 +352,49 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $border = $this->getCSSDefaultBorderStyle();
         $bprop = $this->splitCSSWhitespaceTokens($cssborder);
 
-        $count = \count($bprop);
-        $lastBprop = $bprop[$count - 1] ?? '';
-        if ($count > 0 && $lastBprop === '!important') {
-            unset($bprop[$count - 1]);
-            $bprop = \array_values($bprop);
-            --$count;
+        // The CSS border shorthand accepts width, style and color in any order.
+        $width = '';
+        $style = '';
+        $color = '';
+        foreach ($bprop as $bpv) {
+            if ($bpv === '' || $bpv === '!important') {
+                continue;
+            }
+
+            $lbpv = \strtolower($bpv);
+            if ($style === '' && \in_array($lbpv, self::CSS_BORDER_STYLE_KEYWORDS, true)) {
+                $style = $lbpv;
+                continue;
+            }
+
+            $isWidth =
+                $lbpv === 'thin'
+                || $lbpv === 'medium'
+                || $lbpv === 'thick'
+                || \preg_match('/^[+-]?[0-9.]/', $lbpv) === 1;
+            if ($width === '' && $isWidth) {
+                $width = $bpv;
+                continue;
+            }
+
+            if ($color === '') {
+                $color = $bpv;
+            }
         }
-        switch ($count) {
-            case 2:
-                $width = 'medium';
-                $style = $bprop[0] ?? '';
-                $color = $bprop[1] ?? '';
-                break;
-            case 1:
-                $width = 'medium';
-                $style = $bprop[0] ?? '';
-                $color = 'black';
-                break;
-            case 0:
-                $width = 'medium';
-                $style = 'solid';
-                $color = 'black';
-                break;
-            default:
-                $width = $bprop[0] ?? '';
-                $style = $bprop[1] ?? '';
-                $color = $bprop[2] ?? '';
-                break;
+
+        if ($width === '') {
+            $width = 'medium';
         }
+
+        if ($style === '') {
+            // Keep legacy behavior: a missing border-style renders as solid.
+            $style = 'solid';
+        }
+
+        if ($color === '') {
+            $color = 'black';
+        }
+
         $border = $this->applyCSSBorderStyleKeyword($border, $style);
         if (($border['cssBorderStyle'] ?? '') === 'none' || ($border['cssBorderStyle'] ?? '') === 'hidden') {
             return $border;
