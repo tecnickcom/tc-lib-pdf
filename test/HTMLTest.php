@@ -17933,6 +17933,57 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Regression test: font family names ending in style-suffix letters
+     * ('b', 'i', 'u', 'd', 'o') must not be truncated when deriving the
+     * HTML base font name. For example "dejavusanscondensed" was returned
+     * as "dejavusanscondense" because the trailing 'd' was treated as the
+     * strikeout style suffix, even though it is part of the family name.
+     *
+     * @throws \Throwable
+     */
+    public function testHtmlBaseFontNamePreservesFamilyNamesEndingInStyleLetters(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusanscondensed.json');
+        $obj->font->insert($obj->pon, 'dejavusanscondensed', '', 12, null, null, $fontfile);
+
+        $this->assertSame('dejavusanscondensed', $obj->exposeGetHTMLBaseFontName());
+
+        // The uppercase 'B'/'I' font-key style suffix must still be stripped.
+        $fontfileb = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusanscondensedb.json');
+        $obj->font->insert($obj->pon, 'dejavusanscondensed', 'B', 12, null, null, $fontfileb);
+
+        $this->assertSame('dejavusanscondensedB', $obj->font->getCurrentFontKey());
+        $this->assertSame('dejavusanscondensed', $obj->exposeGetHTMLBaseFontName());
+
+        // getHTMLFontMetric() must not truncate the family name either,
+        // even when a strikeout (D) style is requested.
+        $obj->exposeInitHTMLCellContext(0.0, 0.0, 80.0, 0.0);
+        $dom = [
+            $this->makeHtmlNode([
+                'tag' => false,
+                'opening' => false,
+                'value' => 'Alpha',
+                'fontname' => 'dejavusanscondensed',
+                'fontstyle' => 'D',
+                'fontsize' => 12.0,
+            ]),
+        ];
+        $metric = $obj->exposeGetHTMLFontMetricWithDom($dom, 0);
+        $this->assertSame('dejavusanscondensed', $metric['key'] ?? null);
+
+        // Rendering HTML captures and restores the caller font state:
+        // captureHTMLCallerFontState() must not truncate the family name.
+        $obj->font->insert($obj->pon, 'dejavusanscondensed', '', 12);
+        $obj->getHTMLCell('<p>Plain <b>bold</b> <s>strike</s></p>', 10.0, 10.0, 100.0, 0.0);
+        $this->assertSame('dejavusanscondensed', $obj->font->getCurrentFontKey());
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testCssLineHeightAbsoluteAndRelativeValuesUseFontSizeSemantics(): void

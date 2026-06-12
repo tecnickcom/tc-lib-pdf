@@ -8591,13 +8591,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         $curfont = $this->font->getCurrentFont();
         $fontname = $curfont['key'];
-        $fontname = \preg_replace('/[biudo]+$/i', '', $fontname) ?? $fontname;
+        // Font keys are the lowercase family name plus an optional uppercase
+        // 'B' (bold) and/or 'I' (italic) suffix. Underline (U), strikeout (D)
+        // and overline (O) styles are never part of the key, so only the
+        // 'B'/'I' suffix is stripped (case-sensitive) to preserve family
+        // names ending in 'b', 'i', 'u', 'd' or 'o' (e.g. "dejavusanscondensed").
+        $fontname = \preg_replace('/(?:BI|B|I)$/', '', $fontname) ?? $fontname;
         if ($fontname === '') {
             return 'helvetica';
         }
 
         $family = $this->font->getFontFamilyName($fontname);
-        if ($family !== '' && !\preg_match('/[biudo]+$/i', $family)) {
+        if ($family !== '' && !\preg_match('/(?:BI|B|I)$/', $family)) {
             return $family;
         }
 
@@ -8616,13 +8621,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curfont = $this->font->getCurrentFont();
         $fontkey = $curfont['key'];
         $family = $this->font->getFontFamilyName($fontkey);
-        // getFontFamilyName may return the full font key (e.g. "helveticab")
+        // getFontFamilyName may return the full font key (e.g. "helveticaB")
         // rather than the plain base family name ("helvetica"), because the bold
-        // variant is itself a valid key in the buffer.  Always strip trailing
-        // bold/italic/underline/strikeout/overline suffixes so that
-        // restoreHTMLCallerFontState re-inserts (family, style) correctly and
-        // does not accumulate extra "B"/"I" characters in the key.
-        $family = \preg_replace('/[biudo]+$/i', '', $family) ?? $family;
+        // variant is itself a valid key in the buffer.  Font keys are the
+        // lowercase family name plus an optional uppercase 'B' and/or 'I'
+        // style suffix, so strip only that (case-sensitive) so that
+        // restoreHTMLCallerFontState re-inserts (family, style) correctly
+        // without truncating family names ending in 'b', 'i', 'u', 'd' or 'o'.
+        $family = \preg_replace('/(?:BI|B|I)$/', '', $family) ?? $family;
         if ($family === '') {
             $family = 'helvetica';
         }
@@ -8680,7 +8686,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curfont = $this->font->getCurrentFont();
         $fontname = $elm['fontname'] === '' ? $hrc['cellctx']['basefont'] : $elm['fontname'];
 
-        $stripped = \preg_replace('/[biudo]+$/i', '', $fontname) ?? '';
+        // Strip only the optional uppercase 'B'/'I' font-key style suffix
+        // (case-sensitive): the style is applied separately via $fontstyle.
+        // Underline/strikeout/overline are never part of the key and family
+        // names may legitimately end in 'b', 'i', 'u', 'd' or 'o'.
+        $stripped = \preg_replace('/(?:BI|B|I)$/', '', $fontname) ?? '';
         if ($stripped !== '' && $stripped !== $fontname) {
             $fontname = $stripped;
         }
