@@ -10068,6 +10068,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if (!$isInlineBlock && !$isFloatInActiveRow && ($hasinlinecontent || $tpy > $hrc['cellctx']['originy'])) {
             $tpy += $lineadvance + $marginTop + $this->getHTMLTagVSpace($hrc, $key, 0) - $collapsed;
+            // The cursor is now below the previous inline line: clear its
+            // metrics so they do not leak into this block's first line
+            // (a stale lineascent would misplace a leading inline image).
+            $hrc['cellctx']['lineadvance'] = 0.0;
+            $hrc['cellctx']['linebottom'] = 0.0;
+            $hrc['cellctx']['lineascent'] = 0.0;
+            $hrc['cellctx']['linewordspacing'] = 0.0;
+            $hrc['cellctx']['linewrapped'] = false;
         }
         $hrc['cellctx']['pendingblockmarginb'] = 0.0;
 
@@ -15976,7 +15984,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $fontAscent = isset($font['ascent']) && \is_numeric($font['ascent']) ? (float) $font['ascent'] : 0.0;
-        $baseline = $tpy + $this->toUnit($fontAscent);
+        // The marker shares the first line box with the item's leading inline
+        // content: a taller-than-font element (e.g. an image) raises the line
+        // ascent and moves the shared baseline down.
+        $runAscent = $this->measureHTMLInlineRunMaxAscent($hrc, $key);
+        $this->getHTMLFontMetric($hrc, $key); // restore the li font selected above
+        $baseline = $tpy + \max($this->toUnit($fontAscent), $runAscent);
         // For 'outside' markers the bullet hangs in the li's padding area (between the
         // list's content edge and the li's content edge). openHTMLBlock() already shifted
         // tpx by li margin+padding into the li's content box, so subtract the li's own
