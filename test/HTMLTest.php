@@ -4578,6 +4578,208 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Build a two-column page layout on the given object and return the
+     * geometry shared by the column-break re-anchor tests.
+     *
+     * @return array{leftMargin: float, topMargin: float, columnWidth: float, contentHeight: float, col2x: float}
+     *
+     * @throws \Throwable
+     */
+    private function addTwoColumnPage(\Com\Tecnick\Pdf\Tcpdf $obj): array
+    {
+        $leftMargin = 15.0;
+        $rightMargin = 15.0;
+        $topMargin = 20.0;
+        $bottomMargin = 20.0;
+        $columnGap = 8.0;
+        $contentWidth = 210.0 - $leftMargin - $rightMargin;
+        $contentHeight = 297.0 - $topMargin - $bottomMargin;
+        $columnWidth = ($contentWidth - $columnGap) / 2.0;
+        $col2x = $leftMargin + $columnWidth + $columnGap;
+
+        $obj->addPage([
+            'margin' => [
+                'PL' => $leftMargin,
+                'PR' => $rightMargin,
+                'CT' => $topMargin,
+                'CB' => $bottomMargin,
+            ],
+            'region' => [
+                [
+                    'RX' => $leftMargin,
+                    'RY' => $topMargin,
+                    'RW' => $columnWidth,
+                    'RH' => $contentHeight,
+                ],
+                [
+                    'RX' => $col2x,
+                    'RY' => $topMargin,
+                    'RW' => $columnWidth,
+                    'RH' => $contentHeight,
+                ],
+            ],
+        ]);
+
+        return [
+            'leftMargin' => $leftMargin,
+            'topMargin' => $topMargin,
+            'columnWidth' => $columnWidth,
+            'contentHeight' => $contentHeight,
+            'col2x' => $col2x,
+        ];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testParseHTMLTextReanchorsLineCursorAfterRegionBreakToSecondColumn(): void
+    {
+        // Regression: when the fragment itself triggers a region break, the
+        // line-local state captured before the break (line origin X, offset,
+        // available width) must be re-read from the updated cell context, or
+        // the fragment renders at the previous region's X origin.
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFont($obj);
+        $geo = $this->addTwoColumnPage($obj);
+
+        $obj->exposeInitHTMLCellContext($geo['leftMargin'], $geo['topMargin'], $geo['columnWidth'], 0.0);
+        $obj->exposeResetBBoxTrace();
+
+        // A single unbreakable word: no line-split opportunity, so the whole
+        // fragment must move to the next region through the willBreak path.
+        $elm = $this->makeHtmlNode([
+            'value' => 'ColumnBreakProbe',
+            'align' => 'L',
+        ]);
+
+        // Cursor at the bottom of the first column: one text line no longer
+        // fits vertically, forcing the break into the second column region.
+        $tpx = $geo['leftMargin'];
+        $tpy = $geo['topMargin'] + $geo['contentHeight'] - 1.0;
+        $tpw = $geo['columnWidth'];
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(1, $trace);
+        assert(isset($trace[0]), "\$trace[0] must be set");
+        $this->assertEqualsWithDelta(
+            $geo['col2x'],
+            $trace[0]['in_x'],
+            0.05,
+            'Fragment must re-anchor to the second column X origin after the region break.',
+        );
+        $this->assertEqualsWithDelta(
+            $geo['topMargin'],
+            $trace[0]['in_y'],
+            0.5,
+            'Fragment must render at the top of the new region.',
+        );
+        $this->assertGreaterThanOrEqual(
+            $geo['col2x'],
+            $tpx,
+            'Cursor must advance from the new line origin, not the stale one.',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testParseHTMLTextReanchorsAfterRegionBreakWithZeroMaxWidth(): void
+    {
+        // Same re-anchor regression as above, exercising the fallback width
+        // branch: with no cell max width the post-break width is recomputed
+        // from the line-local available width instead of the cell context.
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFont($obj);
+        $geo = $this->addTwoColumnPage($obj);
+
+        $obj->exposeInitHTMLCellContext($geo['leftMargin'], $geo['topMargin'], 0.0, 0.0);
+        $obj->exposeResetBBoxTrace();
+
+        $elm = $this->makeHtmlNode([
+            'value' => 'ColumnBreakProbe',
+            'align' => 'L',
+        ]);
+
+        $tpx = $geo['leftMargin'];
+        $tpy = $geo['topMargin'] + $geo['contentHeight'] - 1.0;
+        $tpw = $geo['columnWidth'];
+        $tph = 0.0;
+
+        $obj->exposeParseHTMLText($elm, $tpx, $tpy, $tpw, $tph);
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertCount(1, $trace);
+        assert(isset($trace[0]), "\$trace[0] must be set");
+        $this->assertEqualsWithDelta(
+            $geo['col2x'],
+            $trace[0]['in_x'],
+            0.05,
+            'Fragment must re-anchor to the second column X origin after the region break.',
+        );
+        $this->assertEqualsWithDelta(
+            $geo['topMargin'],
+            $trace[0]['in_y'],
+            0.5,
+            'Fragment must render at the top of the new region.',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellReanchorsBreakingFragmentIntoSecondColumn(): void
+    {
+        // Regression: in a multi-column layout, the unbreakable fragment that
+        // overflows the first column must render at the second column's X
+        // origin, not at the first column's X over already-rendered content.
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFont($obj);
+        $geo = $this->addTwoColumnPage($obj);
+        $obj->exposeResetBBoxTrace();
+
+        // Single-word paragraphs have no line-split opportunity: the one that
+        // hits the first column's bottom moves as a whole to the next region.
+        $html = '';
+        for ($i = 0; $i < 45; ++$i) {
+            $html .= '<p>Word' . \str_pad((string) $i, 3, '0', \STR_PAD_LEFT) . '</p>';
+        }
+
+        $obj->addHTMLCell($html, $geo['leftMargin'], $geo['topMargin'], $geo['columnWidth'], 0);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $this->assertCount(1, $page->getPages(), 'Content must fit in the two column regions of a single page.');
+
+        $trace = $obj->exposeGetBBoxTrace();
+        $this->assertGreaterThan(1, \count($trace));
+
+        // Every fragment placed back at the region top after the first one
+        // belongs to the second column: a fragment at the first column's X at
+        // the region top means the break did not re-anchor the line origin.
+        $foundSecondColumn = false;
+        foreach ($trace as $idx => $row) {
+            if ($row['in_x'] >= ($geo['col2x'] - 0.5)) {
+                $foundSecondColumn = true;
+            }
+
+            if ($idx === 0 || $row['in_y'] > ($geo['topMargin'] + 1.0)) {
+                continue;
+            }
+
+            $this->assertGreaterThanOrEqual(
+                $geo['col2x'] - 0.5,
+                $row['in_x'],
+                'Fragment "' . $row['txt'] . '" rendered at the region top must be in the second column.',
+            );
+        }
+
+        $this->assertTrue($foundSecondColumn, 'Expected content to flow into the second column.');
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testAddHTMLCellAutoFlowSpansMultiplePages(): void

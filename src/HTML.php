@@ -14175,6 +14175,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $breakout = $this->breakHTMLIfNeeded($hrc, $lineAdvance, $tpx, $tpy, $tpw, $tph);
 
+            if ($willBreak) {
+                // The cursor moved to a new region: re-anchor the line-local
+                // state captured above, or the fragment renders at the
+                // previous region's X origin (visible with multi-column
+                // regions, where the next region starts at a different X).
+                $lineOriginX = $hrc['cellctx']['lineoriginx'];
+                $lineOffset = \max(0.0, $tpx - $lineOriginX);
+                $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+                if ($hrc['cellctx']['maxwidth'] > 0) {
+                    $remainingWidth = \max(0.0, $tpw);
+                } elseif ($tpw > 0) {
+                    $remainingWidth = $tpw;
+                } else {
+                    $remainingWidth = $availableWidth;
+                }
+            }
+
             if ($willBreak && $hrc['blockbuf'] !== []) {
                 foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
                     $blkEntry['by'] = $tpy;
