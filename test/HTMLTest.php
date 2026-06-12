@@ -9263,6 +9263,166 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testGetHTMLCellReplaysTableHeadWithSameColumnWidthsOnPxUnitDocument(): void
+    {
+        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/224:
+        // injectHTMLTableHeadColWidths serialized the computed column widths
+        // using the document unit name. CSS pixel lengths are parsed with the
+        // 96dpi ratio (1px = 0.75pt) while the 'px' document unit maps one
+        // user unit to one point, so replayed headers on continuation pages
+        // were rendered at 75% of the table width.
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('px');
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table cellpadding="3" cellspacing="0">'
+            . '<thead><tr style="background-color:#cccccc"><th>H</th><th>HH</th></tr></thead>'
+            . '<tr style="page-break-before:always"><td>A</td><td>B</td></tr></table>',
+            0,
+            0,
+            100,
+            0,
+        );
+
+        $this->assertGreaterThanOrEqual(2, \substr_count($out, '(H)'));
+
+        // The only rectangles in the output are the header background fills:
+        // two columns on the original page and two on the continuation page.
+        // The replayed header must keep the exact column geometry computed
+        // for the original table (100 user units = 100pt split in half).
+        $matches = [];
+        \preg_match_all('/[0-9.+-]+ [0-9.+-]+ ([0-9.+-]+) [0-9.+-]+ re/', $out, $matches);
+        $rectwidths = $matches[1] ?? [];
+        $this->assertIsArray($rectwidths);
+        $widths = [];
+        foreach ($rectwidths as $rectwidth) {
+            $widths[] = \is_numeric($rectwidth) ? \round((float) $rectwidth, 4) : -1.0;
+        }
+
+        $this->assertSame([50.0, 50.0, 50.0, 50.0], $widths);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testMeasureHTMLCellDivExplicitHeightReservesSpaceWithoutBackground(): void
+    {
+        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/225:
+        // an explicit CSS height on a block element was honored only when the
+        // block also declared its own background or border.
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $plain = $obj->exposeMeasureHTMLCellRenderedHeight('<div>x</div>', 0.0, 0.0, 100.0, 0.0);
+        $fixed = $obj->exposeMeasureHTMLCellRenderedHeight('<div style="height:50mm">x</div>', 0.0, 0.0, 100.0, 0.0);
+
+        $this->assertGreaterThan(0.0, $plain);
+        $this->assertGreaterThan($plain, $fixed);
+        $this->assertGreaterThanOrEqual(
+            50.0 - 0.001,
+            $fixed,
+            'A block with an explicit CSS height but no background/border must reserve at least that height.',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellPaintsDivBackgroundBehindTextInsideTableCell(): void
+    {
+        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/225:
+        // the background of a styled DIV inside a table cell was emitted after
+        // the already-captured cell text, covering it.
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<table cellpadding="3" cellspacing="0"><tr>'
+            . '<td><div style="color:blue; background-color:yellow; height:30mm;">Z</div></td>'
+            . '</tr></table>',
+            0,
+            0,
+            100,
+            0,
+        );
+
+        $fillpos = \strpos($out, '1.000000 1.000000 0.000000 rg');
+        $textpos = \strpos($out, '(Z)');
+        $this->assertNotFalse($fillpos, 'The yellow DIV background fill must be present in the output.');
+        $this->assertNotFalse($textpos, 'The DIV text content must be present in the output.');
+        $this->assertLessThan(
+            $textpos,
+            $fillpos,
+            'The DIV background fill must be painted before (behind) its text content.',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testEstimateHTMLTableRowHeightAccountsForNestedDivExplicitHeight(): void
+    {
+        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/225:
+        // row-height estimation ignored the explicit CSS height of block
+        // elements nested in the cells, so rows containing fixed-height DIVs
+        // started near the page bottom and were split across pages.
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<table><tr><td><div style="height:60mm">x</div></td></tr></table>');
+        $trkey = -1;
+        foreach ($dom as $key => $elm) {
+            if (!$elm['tag'] || !$elm['opening'] || $elm['value'] !== 'tr') {
+                continue;
+            }
+
+            $trkey = $key;
+            break;
+        }
+
+        $this->assertGreaterThan(0, $trkey);
+        $rowheight = $obj->exposeEstimateHTMLTableRowHeightWithDom($dom, $trkey);
+        $this->assertGreaterThanOrEqual(
+            60.0 - 0.001,
+            $rowheight,
+            'Row height estimation must account for the explicit CSS height of nested block elements.',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMDoesNotLeakEmptyPseudoClassStylesToSiblings(): void
+    {
+        // The streaming DOM pass evaluates :empty before children are parsed,
+        // so every <p> initially matches; the final-tree recompute pass must
+        // clear the stale style-derived height from the non-empty siblings.
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM(
+            '<style>p:empty { height: 25mm; background-color: #ffee00; }</style>'
+            . '<div><p></p><p class="plain">plain one</p><p class="plain">plain two</p></div>',
+        );
+
+        $heights = [];
+        foreach ($dom as $elm) {
+            if (!$elm['tag'] || !$elm['opening'] || $elm['value'] !== 'p') {
+                continue;
+            }
+
+            $heights[] = $elm['height'];
+        }
+
+        $this->assertCount(3, $heights);
+        $this->assertEqualsWithDelta(25.0, $heights[0] ?? 0.0, 0.01, 'The empty <p> must keep its :empty height.');
+        $this->assertSame(0.0, $heights[1] ?? -1.0, 'Non-empty siblings must not inherit the :empty height.');
+        $this->assertSame(0.0, $heights[2] ?? -1.0, 'Non-empty siblings must not inherit the :empty height.');
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testGetHTMLCellRespectsExplicitTdColumnWidth(): void
     {
         $obj = $this->getTestObject();

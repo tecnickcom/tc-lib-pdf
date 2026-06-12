@@ -171,6 +171,44 @@ $tablehtml =
 $pdf->addHTMLCell(html: $tablehtml, posx: 20, posy: 220, width: 150);
 
 // =============================================================
+// Table rows containing DIV blocks with an explicit CSS height.
+// Odd rows use a styled DIV (text color + background color), even rows
+// use a bare DIV with only the height set: both must produce the same
+// row height, and no row may be split across pages.
+
+$tableRowsB = '';
+for ($i = 1; $i <= 8; ++$i) {
+    $divstyleB = ($i % 2) === 1 ? 'color:blue; background-color:yellow; height:100px;' : 'color:#007700; height:100px;';
+    $tableRowsB .=
+        '<tr>'
+        . '<td>'
+        . $i
+        . '</td>'
+        . '<td><div style="'
+        . $divstyleB
+        . '">DIV block #'
+        . $i
+        . ' (100px high)</div></td>'
+        . '<td style="text-align:right">'
+        . \number_format($i * 12.34, 2)
+        . '</td>'
+        . '</tr>';
+}
+
+$tablehtmlB =
+    '<h2>Fixed-height DIV blocks inside table cells</h2>'
+    . '<table border="1" cellpadding="3" cellspacing="0">'
+    . '<thead>'
+    . '<tr style="background-color:#cccccc">'
+    . '<th>#</th><th>Description</th><th>Amount</th>'
+    . '</tr>'
+    . '</thead>'
+    . $tableRowsB
+    . '</table>';
+
+$pdf->addHTMLCell(html: $tablehtmlB, posx: 20, posy: 170, width: 150);
+
+// =============================================================
 
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();

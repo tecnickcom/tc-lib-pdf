@@ -199,7 +199,9 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *     bx: float,
  *     by: float,
  *     bw: float,
- *     buffer: string
+ *     buffer: string,
+ *     celldepth: int,
+ *     decorate: bool
  * }
  *
  * @phpstan-type THTMLRenderContext array{
@@ -1197,6 +1199,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if (!$node['tag'] || !$node['opening']) {
                 continue;
             }
+
+            // Structural pseudo-classes (e.g. :empty) can mis-match during
+            // streaming DOM construction before children are parsed, leaving
+            // stale style-derived values behind. Reset the non-inherited
+            // style-derived geometry so the final-tree cascade re-derives it
+            // from the recomputed declarations and tag attributes below.
+            $node['style'] = $defaults['style'];
+            $node['height'] = $defaults['height'];
+            $node['width'] = $defaults['width'];
 
             $node['cssdata'] = [];
             $node['csssel'] = [];
@@ -7168,14 +7179,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $thead;
         }
 
-        $unit = \in_array($this->unit, self::VALIDUNITS, true) ? $this->unit : 'mm';
+        // Serialize widths in points: CSS unit ratios (e.g. 1px = 0.75pt) can
+        // differ from the document unit ratio (e.g. 1px user unit = 1pt), so
+        // echoing the document unit name would re-parse user-unit values with
+        // the CSS ratio and shrink the replayed header columns.
         $colgroup = '<colgroup data-tcpdf-colwidths="1">';
         foreach ($colwidths as $width) {
             if ($width <= 0.0) {
                 continue;
             }
 
-            $colgroup .= \sprintf('<col style="width:%.6F%s;" />', $width, $unit);
+            $colgroup .= \sprintf('<col style="width:%.6Fpt;" />', $this->toPoints($width));
         }
 
         $colgroup .= '</colgroup>';
@@ -7418,6 +7432,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $inlinewidth = 0.0;
             $inlineadvance = 0.0;
             $hasinlinecontent = false;
+            // Stack of open nested block elements carrying an explicit CSS
+            // height, mirroring the min-height policy of closeHTMLBlock().
+            /** @var array<int, array{minheight: float, starth: float}> $blockminstack */
+            $blockminstack = [];
 
             for ($key = $cellkey + 1; $key < $endkey; ++$key) {
                 $elm = $dom[$key] ?? null;
@@ -7512,6 +7530,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $elmMargin = $elm['margin'];
                         $elmPadding = $elm['padding'];
                         $height += ($elmMargin['T'] ?? 0.0) + ($elmPadding['T'] ?? 0.0);
+                        if (!$elm['self']) {
+                            $minblockheight = 0.0;
+                            if ($elm['height'] > 0.0) {
+                                $minblockheight =
+                                    $elm['height'] + ($elmPadding['T'] ?? 0.0) + ($elmPadding['B'] ?? 0.0);
+                            }
+                            $blockminstack[] = [
+                                'minheight' => $minblockheight,
+                                'starth' => $height - ($elmPadding['T'] ?? 0.0),
+                            ];
+                        }
                     }
 
                     continue;
@@ -7526,6 +7555,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $hasinlinecontent = $state['hasinlinecontent'];
                     $elmMargin = $elm['margin'];
                     $elmPadding = $elm['padding'];
+                    $blockmin = \array_pop($blockminstack);
+                    if ($blockmin !== null && $blockmin['minheight'] > 0.0) {
+                        // Enforce the explicit CSS height of the closing block
+                        // as a minimum box height (content may exceed it).
+                        $boxheight = $height + ($elmPadding['B'] ?? 0.0) - $blockmin['starth'];
+                        if ($boxheight < $blockmin['minheight']) {
+                            $height += $blockmin['minheight'] - $boxheight;
+                        }
+                    }
                     $height += ($elmMargin['B'] ?? 0.0) + ($elmPadding['B'] ?? 0.0);
                 }
             }
@@ -7907,8 +7945,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $partialHeight = $blockBottom - $blk['by'];
             $content = $blk['buffer'] . $rendered;
             if ($blk['bw'] > 0.0 && $partialHeight > 0.0) {
-                $bstyles = $openkey >= 0 ? $this->getHTMLTableCellBorderStyles($hrc, $openkey) : [];
-                $fillstyle = $openkey >= 0 ? $this->getHTMLTableCellFillStyle($hrc, $openkey) : null;
+                // Height-only buffers (decorate=false) carry no own
+                // background/border to paint on the split rectangle.
+                $decorate = $blk['decorate'];
+                $bstyles = $decorate && $openkey >= 0 ? $this->getHTMLTableCellBorderStyles($hrc, $openkey) : [];
+                $fillstyle = $decorate && $openkey >= 0 ? $this->getHTMLTableCellFillStyle($hrc, $openkey) : null;
                 if ($isTable) {
                     // Keep table border ownership in parseHTMLTagCLOSEtable();
                     // page-split block flush must paint only the background.
@@ -10177,16 +10218,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // be painted by block buffering before cell content.
             $hasBorder = false;
         }
-        if ($hasBorder || $hasBgcolor) {
+        // An explicit CSS height must reserve vertical space even when the
+        // block has no own background or border; closeHTMLBlock() enforces
+        // the minimum box height only through an open block buffer.
+        $hasExplicitHeight = $elm['height'] > 0.0 && $elm['value'] !== 'table' && $elm['value'] !== 'tablehead';
+        if ($hasBorder || $hasBgcolor || $hasExplicitHeight) {
             $bstyles = $this->getHTMLTableCellBorderStyles($hrc, $key);
             $fillstyle = $this->getHTMLTableCellFillStyle($hrc, $key);
-            if ($bstyles !== [] || $fillstyle !== null) {
+            $decorate = $hasBorder || $hasBgcolor;
+            if ($bstyles !== [] || $fillstyle !== null || $hasExplicitHeight) {
                 $hrc['blockbuf'][] = [
                     'openkey' => $key,
                     'bx' => $blockX,
                     'by' => $tpy,
                     'bw' => $blockWidth,
                     'buffer' => '',
+                    'celldepth' => \count($hrc['bcellctx']),
+                    'decorate' => $decorate,
                 ];
             }
         }
@@ -10440,8 +10488,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $blockHeight = $minBlockHeight;
                 }
                 if ($blkBw > 0.0 && $blockHeight > 0.0) {
-                    $bstyles = $openkey >= 0 ? $this->getHTMLTableCellBorderStyles($hrc, $openkey) : [];
-                    $fillstyle = $openkey >= 0 ? $this->getHTMLTableCellFillStyle($hrc, $openkey) : null;
+                    // Buffers opened only to enforce an explicit CSS height
+                    // must not paint inherited backgrounds or borders.
+                    $decorate = $blk['decorate'];
+                    $bstyles = $decorate && $openkey >= 0 ? $this->getHTMLTableCellBorderStyles($hrc, $openkey) : [];
+                    $fillstyle = $decorate && $openkey >= 0 ? $this->getHTMLTableCellFillStyle($hrc, $openkey) : null;
                     $openTag = $openkey >= 0 && isset($hrc['dom'][$openkey]['value'])
                         ? $hrc['dom'][$openkey]['value']
                         : '';
@@ -12126,6 +12177,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Route a rendered fragment to the innermost open capture context
+     * (table-cell buffer or block-level buffer).
+     *
+     * Capture contexts nest while the DOM is walked, so a fragment always
+     * belongs to the most recently opened one. When the top block buffer was
+     * opened inside the currently open table cell (e.g. a styled <div> inside
+     * a <td>), it must capture the fragment so the block background is painted
+     * behind its own content; otherwise the cell buffer captures first.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     *
+     * @return bool True when the fragment was captured by an open buffer.
+     */
+    protected function captureHTMLFragment(array &$hrc, string $fragment): bool
+    {
+        if ($fragment === '') {
+            return false;
+        }
+
+        if ($hrc['blockbuf'] !== []) {
+            $blockidx = \array_key_last($hrc['blockbuf']);
+            $celldepth = $hrc['blockbuf'][$blockidx]['celldepth'] ?? 0;
+            if ($celldepth >= \count($hrc['bcellctx'])) {
+                return $this->appendHTMLTopBlockBuffer($hrc, $fragment);
+            }
+        }
+
+        if ($this->captureHTMLTableCellBuffer($hrc, $fragment)) {
+            return true;
+        }
+
+        return $this->appendHTMLTopBlockBuffer($hrc, $fragment);
+    }
+
+    /**
      * Advance to the next free table column, skipping active row spans.
      *
      * @param THTMLTableState $table
@@ -13462,12 +13548,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul' => $this->parseHTMLTagOPENul($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         default => '',
                     };
-                    $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
-                    $capturedByBlock = false;
-                    if (!$capturedByTableCell) {
-                        $capturedByBlock = $this->appendHTMLTopBlockBuffer($hrc, $fragment);
-                    }
-                    if (!$capturedByTableCell && !$capturedByBlock) {
+                    if (!$this->captureHTMLFragment($hrc, $fragment)) {
                         $appendFragment($fragment);
                     }
 
@@ -13481,12 +13562,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $tph,
                         $appendFragment,
                     );
-                    $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $beforefragment);
-                    $capturedByBlock = false;
-                    if (!$capturedByTableCell) {
-                        $capturedByBlock = $this->appendHTMLTopBlockBuffer($hrc, $beforefragment);
-                    }
-                    if (!$capturedByTableCell && !$capturedByBlock) {
+                    if (!$this->captureHTMLFragment($hrc, $beforefragment)) {
                         $appendFragment($beforefragment);
                     }
 
@@ -13526,12 +13602,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $tph,
                         $appendFragment,
                     );
-                    $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $afterfragment);
-                    $capturedByBlock = false;
-                    if (!$capturedByTableCell) {
-                        $capturedByBlock = $this->appendHTMLTopBlockBuffer($hrc, $afterfragment);
-                    }
-                    if (!$capturedByTableCell && !$capturedByBlock) {
+                    if (!$this->captureHTMLFragment($hrc, $afterfragment)) {
                         $appendFragment($afterfragment);
                     }
 
@@ -13597,12 +13668,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'ul' => $this->parseHTMLTagCLOSEul($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         default => '',
                     };
-                    $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
-                    $capturedByBlock = false;
-                    if (!$capturedByTableCell) {
-                        $capturedByBlock = $this->appendHTMLTopBlockBuffer($hrc, $fragment);
-                    }
-                    if (!$capturedByTableCell && !$capturedByBlock) {
+                    if (!$this->captureHTMLFragment($hrc, $fragment)) {
                         $appendFragment($fragment);
                     }
 
@@ -13623,12 +13689,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } else { // Text Content
                 $hrc['currentkey'] = $key;
                 $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-                $capturedByTableCell = $this->captureHTMLTableCellBuffer($hrc, $fragment);
-                $capturedByBlock = false;
-                if (!$capturedByTableCell) {
-                    $capturedByBlock = $this->appendHTMLTopBlockBuffer($hrc, $fragment);
-                }
-                if (!$capturedByTableCell && !$capturedByBlock) {
+                if (!$this->captureHTMLFragment($hrc, $fragment)) {
                     $appendFragment($fragment);
                 }
             }
@@ -14243,15 +14304,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             // over to the new page along with the tail.
                             $headDispatch = $breakoutPrefix . $headOut;
                             $breakoutPrefix = '';
-                            if ($headDispatch !== '') {
-                                if (!$this->captureHTMLTableCellBuffer($hrc, $headDispatch)) {
-                                    if (
-                                        !$this->appendHTMLTopBlockBuffer($hrc, $headDispatch)
-                                        && $appendFragment !== null
-                                    ) {
-                                        $appendFragment($headDispatch);
-                                    }
-                                }
+                            if (
+                                $headDispatch !== ''
+                                && !$this->captureHTMLFragment($hrc, $headDispatch)
+                                && $appendFragment !== null
+                            ) {
+                                $appendFragment($headDispatch);
                             }
 
                             if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
