@@ -1176,6 +1176,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $defaults = $dom[0];
 
         $domLen = \count($dom);
+
+        // The streaming DOM pass serializes table header rows into each table
+        // node's 'thead' slot so they can be replayed on continuation pages.
+        // The re-cascade below re-runs parseHTMLAttributes(), which clears that
+        // slot via the table defaults, but it never rebuilds the serialization.
+        // Snapshot the stored headers now and restore them after the cascade.
+        $savedThead = [];
+        for ($key = 1; $key < $domLen; ++$key) {
+            $node = $dom[$key] ?? null;
+            if (!\is_array($node) || $node['value'] !== 'table' || $node['thead'] === '') {
+                continue;
+            }
+
+            $savedThead[$key] = $node['thead'];
+        }
+
         for ($key = 1; $key < $domLen; ++$key) {
             if (!\is_array($dom[$key] ?? null)) {
                 continue;
@@ -1251,6 +1267,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->parseHTMLStyleAttributes($dom, $key, $parentkey);
             $this->parseHTMLAttributes($dom, $key, $this->isHTMLNodeInsideThead($dom, $key));
         }
+
+        // Restore the serialized table headers cleared by the re-cascade above.
+        foreach ($savedThead as $key => $thead) {
+            if (!\is_array($dom[$key] ?? null)) {
+                continue;
+            }
+
+            $dom[$key]['thead'] = $thead;
+        }
     }
 
     /**
@@ -1264,23 +1289,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        $parent = $dom[$key]['parent'] ?? null;
-        while (\is_int($parent) && $parent > 0 && isset($dom[$parent])) {
+        $node = $key;
+        while ($node > 0 && isset($dom[$node])) {
+            // The <thead> wrapper is never materialized as a DOM node, so its
+            // rows are flagged with thead === 'true' during the streaming pass.
+            // Rely on that marker (on the row itself or an ancestor row) rather
+            // than searching for a <thead> ancestor that does not exist.
+            if (($dom[$node]['value'] ?? '') === 'tr' && ($dom[$node]['thead'] ?? '') === 'true') {
+                return true;
+            }
+
             if (
-                ($dom[$parent]['tag'] ?? false)
-                && ($dom[$parent]['opening'] ?? false)
-                && isset($dom[$parent]['value'])
-                && $dom[$parent]['value'] === 'thead'
+                ($dom[$node]['tag'] ?? false)
+                && ($dom[$node]['opening'] ?? false)
+                && isset($dom[$node]['value'])
+                && $dom[$node]['value'] === 'thead'
             ) {
                 return true;
             }
 
-            $next = $dom[$parent]['parent'] ?? null;
-            if (!\is_int($next) || $next === $parent) {
+            $next = $dom[$node]['parent'] ?? null;
+            if (!\is_int($next) || $next === $node) {
                 break;
             }
 
-            $parent = $next;
+            $node = $next;
         }
 
         return false;
@@ -6793,12 +6826,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $result = $this->getSetSVG($svgid);
                         break;
                     default:
-                        $importdim = $this->getHTMLRasterImportDimensions($imgsrc, $imgwidth, $imgheight);
-                        if ($importdim === null) {
-                            $imgid = $this->addMarkupImage($imgsrc);
-                        } else {
-                            $imgid = $this->addMarkupImageResized($imgsrc, $importdim['width'], $importdim['height']);
-                        }
+                        $imgid = $this->addMarkupRasterImage($imgsrc, $imgwidth, $imgheight);
                         $result = $this->image->getSetImage(
                             $imgid,
                             $posx,
@@ -11258,6 +11286,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Import a raster markup image, downscaling it to its rendered pixel size when beneficial.
+     *
+     * @param string $src    Resolved image source.
+     * @param float  $width  Rendered width in document units.
+     * @param float  $height Rendered height in document units.
+     *
+     * @return int Image instance ID.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws PdfException
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     */
+    protected function addMarkupRasterImage(string $src, float $width, float $height): int
+    {
+        $importdim = $this->getHTMLRasterImportDimensions($src, $width, $height);
+        if ($importdim === null) {
+            return $this->addMarkupImage($src);
+        }
+
+        return $this->addMarkupImageResized($src, $importdim['width'], $importdim['height']);
+    }
+
+    /**
      * Resolve rendered image dimensions.
      *
      * When only one side is specified, preserve image aspect ratio using intrinsic dimensions.
@@ -11410,12 +11461,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight, true);
                 $out = $this->getSetSVG($svgid);
             } else {
-                $importdim = $this->getHTMLRasterImportDimensions($src, $width, $height);
-                if ($importdim === null) {
-                    $imgid = $this->addMarkupImage($src);
-                } else {
-                    $imgid = $this->addMarkupImageResized($src, $importdim['width'], $importdim['height']);
-                }
+                $imgid = $this->addMarkupRasterImage($src, $width, $height);
                 $out = $this->image->getSetImage($imgid, $imagex, $imagey, $width, $height, $pageheight);
             }
         } catch (\Throwable) {
@@ -11826,6 +11872,38 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             : '';
 
         return $this->getHTMLColorAlphaCmd($fillColor);
+    }
+
+    /**
+     * Return a PDF alpha (ExtGState) command for a border stroke derived from
+     * its line color.
+     *
+     * Border strokes are emitted after the cell content, where a previously
+     * active translucent state (e.g. an RGBA text or fill color) may still be
+     * the current graphics state. This always emits an alpha command in
+     * transparency-capable modes so an opaque border (e.g. "1px solid red") is
+     * painted at full opacity, while still honoring a border color that carries
+     * its own alpha channel.
+     *
+     * @param array<array-key, mixed> $strokestyle Stroke style array with optional 'lineColor' key.
+     */
+    protected function getHTMLStrokeAlphaCmd(array $strokestyle): string
+    {
+        if (!$this->isTransparencyAllowed()) {
+            return '';
+        }
+
+        $lineColor = isset($strokestyle['lineColor']) && \is_string($strokestyle['lineColor'])
+            ? $strokestyle['lineColor']
+            : '';
+
+        if ($lineColor === '') {
+            // No explicit border color: reset to fully opaque so a previously
+            // active translucent state does not leak into the stroke.
+            return $this->graph->getAlpha(1.0, 'Normal', 1.0);
+        }
+
+        return $this->getHTMLColorAlphaCmd($lineColor, true);
     }
 
     /**
@@ -12741,7 +12819,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     && isset($elm['content'])
                     && $elm['content'] !== ''
                 ) {
-                    $plain = \trim(\strip_tags($elm['content']));
+                    // The cell content carries an embedded <cssarray> payload
+                    // (the serialized CSS map used when the cell is re-parsed as
+                    // standalone HTML for nested tables / header replay). Its
+                    // serialized text would otherwise dominate and flatten the
+                    // auto-layout weights when embedded CSS rules are present.
+                    // Collapse it to the empty-map form so the weighting depends
+                    // only on the visible cell text and matches the historical
+                    // baseline (an empty CSS map serializes to "[]") regardless
+                    // of any author CSS.
+                    $rawContent =
+                        \preg_replace('/<cssarray>.*?<\/cssarray>/is', '[]', $elm['content']) ?? $elm['content'];
+                    $plain = \trim(\strip_tags($rawContent));
                     if ($plain !== '') {
                         $plain = \preg_replace('/\s+/u', ' ', $plain) ?? $plain;
                         $weight = \mb_strlen($plain, $this->encoding);
@@ -12947,6 +13036,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $decor = $this->graph->getStartTransform();
         if (isset($graphBorderStyles['all']) && $graphBorderStyles['all'] !== []) {
             $graphStyleAll = $graphBorderStyles['all'];
+            $decor .= $this->getHTMLStrokeAlphaCmd($graphStyleAll);
             $decor .= $this->graph->getBasicRect($cellx, $rowtop, $cellw, $cellh, 's', $graphStyleAll);
         } else {
             $decor .= $this->drawHTMLRectBorderSides($cellx, $rowtop, $cellw, $cellh, $graphBorderStyles);
@@ -12990,22 +13080,30 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         if (isset($styles[0])) {
             $graphStyle = $this->normalizeHTMLGraphStyleArray($styles[0]);
-            $out .= $this->graph->getLine($cellx, $rowtop, $cellx + $cellw, $rowtop, $graphStyle);
+            $out .=
+                $this->getHTMLStrokeAlphaCmd($graphStyle)
+                . $this->graph->getLine($cellx, $rowtop, $cellx + $cellw, $rowtop, $graphStyle);
         }
 
         if (isset($styles[1])) {
             $graphStyle = $this->normalizeHTMLGraphStyleArray($styles[1]);
-            $out .= $this->graph->getLine($cellx + $cellw, $rowtop, $cellx + $cellw, $rowtop + $cellh, $graphStyle);
+            $out .=
+                $this->getHTMLStrokeAlphaCmd($graphStyle)
+                . $this->graph->getLine($cellx + $cellw, $rowtop, $cellx + $cellw, $rowtop + $cellh, $graphStyle);
         }
 
         if (isset($styles[2])) {
             $graphStyle = $this->normalizeHTMLGraphStyleArray($styles[2]);
-            $out .= $this->graph->getLine($cellx + $cellw, $rowtop + $cellh, $cellx, $rowtop + $cellh, $graphStyle);
+            $out .=
+                $this->getHTMLStrokeAlphaCmd($graphStyle)
+                . $this->graph->getLine($cellx + $cellw, $rowtop + $cellh, $cellx, $rowtop + $cellh, $graphStyle);
         }
 
         if (isset($styles[3])) {
             $graphStyle = $this->normalizeHTMLGraphStyleArray($styles[3]);
-            $out .= $this->graph->getLine($cellx, $rowtop + $cellh, $cellx, $rowtop, $graphStyle);
+            $out .=
+                $this->getHTMLStrokeAlphaCmd($graphStyle)
+                . $this->graph->getLine($cellx, $rowtop + $cellh, $cellx, $rowtop, $graphStyle);
         }
 
         return $out;

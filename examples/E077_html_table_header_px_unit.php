@@ -75,10 +75,10 @@ $tableRows = '';
 for ($i = 1; $i <= 100; ++$i) {
     $tableRows .=
         '<tr>'
-        . '<td>'
+        . '<td style="border-bottom: 1px solid red;">'
         . $i
         . '</td>'
-        . '<td>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</td>'
+        . '<td style="color:rgba(0, 170, 255, 0.4); border-bottom: 1px solid red; ">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</td>'
         . '<td style="text-align:right">'
         . \number_format($i * 12.34, 2)
         . '</td>'
@@ -87,6 +87,7 @@ for ($i = 1; $i <= 100; ++$i) {
 
 $tablehtml =
     '<h2>Table across pages (px unit)</h2>'
+    . '<style> .UNUSED { color:red; } </style>'
     . '<table border="1" cellpadding="3" cellspacing="0">'
     . '<thead>'
     . '<tr style="background-color:#cccccc">'

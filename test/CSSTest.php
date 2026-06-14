@@ -644,6 +644,113 @@ class CSSTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSetGlobalCSSReplacesPreviousContent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('p{color:red;}');
+        $obj->setGlobalCSS('h1{color:green;}');
+
+        $this->assertSame('h1{color:green;}', $this->getObjectProperty($obj, 'globalCSS'));
+    }
+
+    /** @throws \Throwable */
+    public function testAddGlobalCSSAppendsWithSeparator(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('p{color:red;}');
+        $obj->addGlobalCSS('h1{color:green;}');
+
+        $this->assertSame("p{color:red;}\nh1{color:green;}", $this->getObjectProperty($obj, 'globalCSS'));
+    }
+
+    /** @throws \Throwable */
+    public function testAddGlobalCSSFromEmptyDoesNotPrependSeparator(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->addGlobalCSS('p{color:red;}');
+
+        $this->assertSame('p{color:red;}', $this->getObjectProperty($obj, 'globalCSS'));
+    }
+
+    /** @throws \Throwable */
+    public function testAddGlobalCSSIgnoresEmptyString(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('p{color:red;}');
+        $obj->addGlobalCSS('');
+
+        $this->assertSame('p{color:red;}', $this->getObjectProperty($obj, 'globalCSS'));
+    }
+
+    /** @throws \Throwable */
+    public function testGlobalCSSInjectedAsBaseStylesheet(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('p{color:red;}');
+        $html = '<p>ok</p>';
+
+        $out = $this->normalizeSelectorMap($obj->exposeGetCSSArrayFromHTML($html));
+
+        $this->assertSame('color:red;', $out['p'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testGlobalCSSIsOverriddenByDocumentStyleOnEqualSpecificity(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('p{color:red;}');
+        $html = '<style>p{color:blue;}</style>';
+
+        // The global rule is injected as the lowest-priority author source, so the
+        // document rule has the higher source order and wins the specificity tie.
+        $out = $this->normalizeSelectorMap($obj->exposeGetCSSArrayFromHTML($html));
+
+        $this->assertSame('color:blue;', $out['p'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testGlobalCSSSupportsMediaAndImportantRules(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('@media print{p{margin:0;}} @media screen{p{margin:9px;}}');
+        $html = '<p>ok</p>';
+
+        $out = $this->normalizeSelectorMap($obj->exposeGetCSSArrayFromHTML($html));
+
+        // Global CSS goes through the same engine as document CSS: the print block is
+        // kept and the screen-only block is discarded.
+        $this->assertSame('margin:0;', $out['p'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testResetGlobalCSSClearsContent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('p{color:red;}');
+        $obj->resetGlobalCSS();
+        $html = '<p>ok</p>';
+
+        $out = $this->normalizeSelectorMap($obj->exposeGetCSSArrayFromHTML($html));
+
+        $this->assertArrayNotHasKey('p', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testGlobalCSSNotReinjectedWhenCssArrayPresent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setGlobalCSS('p{color:red;}');
+        // A <cssarray> tag marks nested table re-processing: the resolved CSS map it
+        // carries already includes the global CSS, so it must not be injected again.
+        $html = '<cssarray>{"h1":"color:blue;"}</cssarray><p>ok</p>';
+
+        $out = $this->normalizeSelectorMap($obj->exposeGetCSSArrayFromHTML($html));
+
+        $this->assertSame('color:blue;', $out['h1'] ?? null);
+        $this->assertArrayNotHasKey('p', $out);
+    }
+
+    /** @throws \Throwable */
     public function testGetCSSColorNormalizesValidColor(): void
     {
         $obj = $this->getInternalTestObject();

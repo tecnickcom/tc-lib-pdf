@@ -6251,9 +6251,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $par = $attr['preserveAspectRatio'] ?? 'xMidYMid meet';
         if ($par !== 'none' && $width > 0.0 && $height > 0.0) {
             try {
-                $imgdata = $this->image->getImageDataByKey($this->image->getKey($img));
-                $intrW = (float) $imgdata['width'];
-                $intrH = (float) $imgdata['height'];
+                $imgdim = $this->image->getImageDimensionsByKey($this->image->getKey($img));
+                $intrW = (float) $imgdim['width'];
+                $intrH = (float) $imgdim['height'];
                 if ($intrW > 0.0 && $intrH > 0.0) {
                     $parTokens = [];
                     \preg_match_all('/[a-zA-Z]+/', $par, $parTokens);

@@ -5,8 +5,9 @@
  *
  * Demonstrates the major CSS feature categories supported by tc-lib-pdf,
  * including table/float/clear interaction, CSS shorthand inherit propagation,
- * fieldset and inline-block element styling, overflow-wrap, and complex
- * CSS selector combinators.
+ * fieldset and inline-block element styling, overflow-wrap, complex
+ * CSS selector combinators, and a global base stylesheet registered once via
+ * setGlobalCSS() and injected into every HTML rendering call.
  *
  * @since       2026-05-08
  * @category    Library
@@ -1270,7 +1271,48 @@ $html = <<<HTML
         Visual goal: all blocks render correctly.
       </p>
     </div>
+
+    <div class="page-break"></div>
+    <h2>26) Global CSS base stylesheet (setGlobalCSS)</h2>
+    <p>The styles applied below are <strong>not</strong> defined anywhere in this document.
+    They come from a global stylesheet registered once via
+    <code>\$pdf-&gt;setGlobalCSS(...)</code>, which is injected into every HTML rendering
+    call as a base (lowest-priority) author stylesheet. <code>addGlobalCSS()</code> appends
+    more rules and <code>resetGlobalCSS()</code> clears them.</p>
+
+    <div class="gcss-card">
+      <span class="gcss-title">Styled entirely by global CSS</span> <span class="gcss-badge">GLOBAL</span>
+      <p style="margin:3pt 0 0 0;">The card border and background, the title color, and the badge
+      are all provided by the global stylesheet. This document only supplies the markup and class names.</p>
+    </div>
+
+    <p>Document rules override global rules on equal specificity. The class
+    <code>.gcss-override</code> is defined in the global CSS as gray, but the local
+    <code>&lt;style&gt;</code> below redefines it, so the document wins the cascade tie:</p>
+    <style>
+    .gcss-override { color: #1a7d1a; font-weight: bold; }
+    </style>
+    <div class="gcss-override">This line should be GREEN (document rule) — not gray (global rule).</div>
+
+    <p style="font-size:8pt; color:#666; margin:3pt 0 0 0;">
+      Visual goal: the card, title and badge render even though their CSS is absent from this
+      document; the override line is green, confirming document rules win over the global base
+      on equal specificity.
+    </p>
     HTML;
+
+// Register a global base stylesheet applied to every HTML rendering call.
+// These rules are intentionally NOT present in the document markup above:
+// section 26 relies on them being injected as the lowest-priority author source.
+$pdf->setGlobalCSS(<<<CSS
+    .gcss-card { border: 0.5pt solid #2f5a8a; background: #eef4fb; padding: 6pt; margin-bottom: 5pt; }
+    .gcss-title { color: #1f3d5a; font-weight: bold; font-size: 11pt; }
+    CSS);
+// addGlobalCSS() appends to the existing global CSS.
+$pdf->addGlobalCSS(<<<CSS
+    .gcss-badge { background: #2f5a8a; color: #ffffff; padding: 1pt 4pt; font-size: 8pt; }
+    .gcss-override { color: #999999; }
+    CSS);
 
 $pdf->addHTMLCell(html: $html, posx: 15, posy: 18, width: 180, height: 0);
 

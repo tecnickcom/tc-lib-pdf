@@ -80,3 +80,4 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E075_external_signature_injection.php](E075_external_signature_injection.php): External/remote signing walkthrough using signature placeholder setup, ByteRange digest export, and injected CMS/PKCS#7 signature bytes.
 - [E076_absolute_position.php](E076_absolute_position.php): Absolute coordinates position inside a give page.
 - [E077_html_table_header_px_unit.php](E077_html_table_header_px_unit.php): HTML table pagination with px document units, verifying replayed header rows keep the same column geometry on continuation pages.
+- [E078_htmlcell_page_margins.php](E078_htmlcell_page_margins.php): Single page with 100mm top and bottom margins, placing getHTMLCell text blocks in the top border, central content area, and bottom border.

@@ -125,6 +125,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     protected array $defCSSBorderSpacing = self::ZEROBORDERSPACE;
 
     /**
+     * User-defined global CSS injected into every HTML rendering call as a
+     * base (lowest-priority) author stylesheet.
+     */
+    protected string $globalCSS = '';
+
+    /**
      * Maximum value that can be represented in Roman notation.
      *
      * @var int
@@ -227,6 +233,46 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     {
         $this->defCSSBorderSpacing['V'] = $this->toPoints($vert);
         $this->defCSSBorderSpacing['H'] = $this->toPoints($horiz);
+    }
+
+    /**
+     * Set the global CSS content applied as a base stylesheet to all HTML rendering calls.
+     *
+     * The global CSS is injected as the lowest-priority author source, so any matching
+     * rule defined in the HTML document (inline style, embedded <style> or linked
+     * stylesheet) overrides it on equal specificity. Use !important within the global
+     * CSS to force precedence. The content is parsed with the same engine as document
+     * CSS, so @import, @media and @spot rules are supported.
+     *
+     * @param string $css CSS content without surrounding <style> tags.
+     *                     Replaces any previously defined global CSS.
+     */
+    public function setGlobalCSS(string $css): void
+    {
+        $this->globalCSS = $css;
+    }
+
+    /**
+     * Append CSS content to the global CSS applied as a base stylesheet to all HTML rendering calls.
+     *
+     * @param string $css CSS content without surrounding <style> tags,
+     *                     appended after the current global CSS.
+     */
+    public function addGlobalCSS(string $css): void
+    {
+        if ($css === '') {
+            return;
+        }
+
+        $this->globalCSS = $this->globalCSS === '' ? $css : "{$this->globalCSS}\n{$css}";
+    }
+
+    /**
+     * Reset (clear) the global CSS so no base stylesheet is applied to HTML rendering calls.
+     */
+    public function resetGlobalCSS(): void
+    {
+        $this->globalCSS = '';
     }
 
     /**
@@ -1172,12 +1218,22 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
         $matches = [];
         $matchCount = \preg_match_all('/<cssarray>([^\<]*?)<\/cssarray>/is', $html, $matches);
-        if ($matchCount !== false && $matchCount > 0) {
+        $hasCssArray = $matchCount !== false && $matchCount > 0;
+        if ($hasCssArray) {
             $cssArrayPayload = $matches[1][0] ?? null;
             if (\is_string($cssArrayPayload)) {
                 $css = \array_merge($css, $this->decodeCSSMap($cssArrayPayload));
             }
             $html = \preg_replace('/<cssarray>(.*?)<\/cssarray>/is', '', $html) ?? '';
+        }
+
+        // Inject the user-defined global CSS as the lowest-priority author source so
+        // document-level styles (inline, <style>, linked) override it on equal
+        // specificity. Skipped during nested table re-processing, where the resolved
+        // CSS map carried in the <cssarray> tag already includes the global CSS.
+        if (!$hasCssArray && $this->globalCSS !== '') {
+            $cascadeCtx->setCurrentSourceType('embedded');
+            $css = \array_merge($css, $this->extractCSSproperties($this->globalCSS, $cascadeCtx));
         }
 
         // extract external CSS files

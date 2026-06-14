@@ -9627,6 +9627,107 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testGetHTMLCellReplaysTableHeadWhenEmbeddedStyleBlockIsPresent(): void
+    {
+        // Regression: an embedded (or external) <style> block makes the CSS map
+        // non-empty, which triggers recomputeHTMLDOMCSSAgainstFinalTree(). That
+        // re-cascade re-runs the table defaults and cleared the serialized
+        // header rows stored on the table node, so the header was no longer
+        // replayed on continuation pages. The stored header must survive the
+        // re-cascade regardless of any unrelated style rules.
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('px');
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<style> .unused { color:red; } </style>'
+            . '<table cellpadding="3" cellspacing="0">'
+            . '<thead><tr style="background-color:#cccccc"><th>H</th><th>HH</th></tr></thead>'
+            . '<tr style="page-break-before:always"><td>A</td><td>B</td></tr></table>',
+            0,
+            0,
+            100,
+            0,
+        );
+
+        // The header must appear twice: once on the original page and once
+        // replayed on the continuation page forced by page-break-before.
+        $this->assertGreaterThanOrEqual(
+            2,
+            \substr_count($out, '(H)'),
+            'Table header must be replayed on continuation pages even when an embedded <style> block is present.',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testEmbeddedStyleBlockDoesNotAlterAutoTableColumnWidths(): void
+    {
+        // Regression: an embedded <style> block makes the CSS map non-empty,
+        // which triggers the final-tree re-cascade. That pass (1) reclassified
+        // the THEAD row as a body row in the table 'trids', and (2) left the
+        // serialized <cssarray> payload inside each cell's content, which the
+        // auto-layout weighting measured as visible text. Both skewed the
+        // computed column widths. The widths must be independent of any
+        // unrelated embedded style rules.
+        $obj = $this->getInternalTestObject();
+
+        $body =
+            '<table border="1" cellpadding="3" cellspacing="0">'
+            . '<thead><tr style="background-color:#cccccc"><th>#</th><th>Description</th><th>Amount</th></tr></thead>'
+            . '<tr><td>1</td><td>Lorem ipsum dolor sit amet</td><td>10</td></tr>'
+            . '<tr><td>2</td><td>Lorem ipsum dolor sit amet</td><td>20</td></tr>'
+            . '</table>';
+
+        $plain = $this->columnWidthsFromHTML($obj, $body);
+        $styled = $this->columnWidthsFromHTML($obj, '<style> .unused { color:red; } </style>' . $body);
+
+        $this->assertSame(
+            $plain,
+            $styled,
+            'Auto table column widths must not change when an unrelated embedded <style> block is present.',
+        );
+
+        // Pin the baseline so the narrow first column cannot silently collapse
+        // again: weights are the visible-text lengths of the first body row
+        // ("1" / "Lorem ipsum dolor sit amet" / "10") on top of the empty CSS
+        // map floor, distributed across the 360pt available width.
+        $this->assertSame([30.8571, 288.0, 41.1429], $plain);
+    }
+
+    /**
+     * Compute the auto-layout column widths for the first table found in $html.
+     *
+     * @return array<int, float>
+     *
+     * @throws \Throwable
+     */
+    private function columnWidthsFromHTML(TestableHTML $obj, string $html): array
+    {
+        $dom = $obj->exposeGetHTMLDOM($html);
+
+        $tablekey = null;
+        $cols = 0;
+        foreach ($dom as $key => $node) {
+            if ($node['value'] !== 'table') {
+                continue;
+            }
+
+            $tablekey = (int) $key;
+            $cols = (int) $node['cols'];
+            break;
+        }
+
+        $this->assertNotNull($tablekey, 'Expected a table node in the DOM.');
+
+        $widths = $obj->exposeComputeHTMLTableColWidths($dom, $tablekey, $cols, 360.0);
+
+        return \array_map(static fn(float $w): float => \round($w, 4), $widths);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testMeasureHTMLCellDivExplicitHeightReservesSpaceWithoutBackground(): void
     {
         // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/225:
@@ -19181,5 +19282,71 @@ class HTMLTest extends TestUtil
         $this->assertSame(1.0, $cbox['cellwidth']);
         $this->assertSame(0.0, $cbox['contentw']);
         $this->assertSame(0.0, $cbox['contenth']);
+    }
+
+    /**
+     * Regression: an opaque table-cell border (e.g. "border-bottom:1px solid
+     * red") must be stroked at full opacity even when the same cell uses a
+     * translucent RGBA text color. Previously the border inherited the text's
+     * alpha (0.4) because the stroke did not reset the graphics-state alpha.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLTableCellBorderIgnoresTranslucentTextAlpha(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table border="1" cellpadding="3" cellspacing="0">'
+            . '<tr>'
+            . '<td style="border-bottom:1px solid red;">A</td>'
+            . '<td style="color:rgba(0,170,255,0.4);border-bottom:1px solid red;">B</td>'
+            . '</tr>'
+            . '</table>';
+
+        $frag = $obj->getHTMLCell($html, 0, 0, 80, 30);
+        $this->assertNotSame('', $frag);
+
+        // The alpha ExtGState (/GSn gs) most recently activated before $needle.
+        $lastAlphaBefore = static function (string $needle) use ($frag): ?string {
+            $pos = \strpos($frag, $needle);
+            if ($pos === false) {
+                return null;
+            }
+
+            $matches = [];
+            \preg_match_all('~/GS\d+ gs~', \substr($frag, 0, $pos), $matches);
+            $found = $matches[0] ?? [];
+
+            return $found === [] ? null : \end($found);
+        };
+
+        // The opaque cell text and the translucent RGBA cell text run under
+        // distinct alpha states, so the leak (if any) is observable.
+        $opaqueGs = $lastAlphaBefore('(A) Tj');
+        $translucentGs = $lastAlphaBefore('(B) Tj');
+        $this->assertNotNull($opaqueGs);
+        $this->assertNotNull($translucentGs);
+        $this->assertNotSame($opaqueGs, $translucentGs);
+
+        // Every red border stroke must be drawn under the opaque alpha state,
+        // never the translucent one carried over from the RGBA text color.
+        $redStroke = '1.000000 0.000000 0.000000 RG';
+        $offset = 0;
+        $strokes = 0;
+        while (($pos = \strpos($frag, $redStroke, $offset)) !== false) {
+            ++$strokes;
+            $matches = [];
+            \preg_match_all('~/GS\d+ gs~', \substr($frag, 0, $pos), $matches);
+            $found = $matches[0] ?? [];
+            $this->assertNotSame([], $found, 'Border stroke is missing an alpha reset.');
+            $activeGs = (string) \end($found);
+            $this->assertSame($opaqueGs, $activeGs);
+            $this->assertNotSame($translucentGs, $activeGs);
+            $offset = $pos + \strlen($redStroke);
+        }
+
+        $this->assertGreaterThanOrEqual(2, $strokes);
     }
 }

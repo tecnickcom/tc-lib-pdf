@@ -75,67 +75,59 @@ $pdf->addHTMLCell(html: $html, posx: 15, posy: 15, width: 180);
 $posx = 5;
 $posy = 100;
 
+// Cell grid geometry: 5 columns, each sample rendered $cellw units wide.
+$cellw = 40;
+$rowh = 20;
+$cols = 5;
+
+// Sample images exercising different color models and transparency.
+$samples = [
+    '200x100_CMYK.jpg', // CMYK JPEG sample.
+    '200x100_GRAY.jpg', // Grayscale JPEG sample.
+    '200x100_GRAY.png', // Grayscale PNG sample.
+    '200x100_INDEX16.png', // Indexed-color PNG with a 16-color palette.
+    '200x100_INDEX256.png', // Indexed-color PNG with a 256-color palette.
+    '200x100_INDEXALPHA.png', // Indexed-color PNG with alpha transparency.
+    '200x100_RGB.jpg', // RGB JPEG sample.
+    '200x100_RGB.png', // RGB PNG sample.
+    '200x100_RGBALPHA.png', // RGB PNG with alpha transparency.
+    '200x100_RGBICC.jpg', // RGB JPEG carrying an ICC color profile.
+    '200x100_RGBICC.png', // RGB PNG carrying an ICC color profile.
+    '200x100_RGBINT.png', // RGB PNG variant (alternate RGB image path).
+];
+
 // Add Images
+//
+// Each sample is rendered preserving its original aspect ratio: only the target
+// width is provided and the matching height is computed directly from the
+// intrinsic image size by image->getImageDimensionsByKey().
+foreach ($samples as $index => $name) {
+    $file = $imgdir . '/' . $name;
 
-// CMYK JPEG sample.
-$iid01 = $pdf->image->add($imgdir . '/200x100_CMYK.jpg');
-$iid01_out = $pdf->image->getSetImage($iid01, $posx + 0, $posy + 0, 40, 20, $page01['height']);
-$pdf->page->addContent($iid01_out);
+    // Import the image; add() returns the image instance ID used for placement.
+    $iid = $pdf->image->add($file);
 
-// Grayscale JPEG sample.
-$iid02 = $pdf->image->add($imgdir . '/200x100_GRAY.jpg');
-$iid02_out = $pdf->image->getSetImage($iid02, $posx + 40, $posy + 0, 40, 20, $page01['height']);
-$pdf->page->addContent($iid02_out);
+    // Resolve the cache key for the imported image.
+    $key = $pdf->image->getKey($file);
 
-// Grayscale PNG sample.
-$iid03 = $pdf->image->add($imgdir . '/200x100_GRAY.png');
-$iid03_out = $pdf->image->getSetImage($iid03, $posx + 80, $posy + 0, 40, 20, $page01['height']);
-$pdf->page->addContent($iid03_out);
+    // Derive the rendered dimensions from the intrinsic image size: a single
+    // target side (width) is given and the other (height) is computed to
+    // preserve the original aspect ratio.
+    $dim = $pdf->image->getImageDimensionsByKey($key, $cellw);
 
-// Indexed-color PNG with a 16-color palette.
-$iid04 = $pdf->image->add($imgdir . '/200x100_INDEX16.png');
-$iid04_out = $pdf->image->getSetImage($iid04, $posx + 120, $posy + 0, 40, 20, $page01['height']);
-$pdf->page->addContent($iid04_out);
+    $col = $index % $cols;
+    $row = \intdiv($index, $cols);
+    $imgx = $posx + ($col * $cellw);
+    $imgy = $posy + ($row * $rowh);
 
-// Indexed-color PNG with a 256-color palette.
-$iid05 = $pdf->image->add($imgdir . '/200x100_INDEX256.png');
-$iid05_out = $pdf->image->getSetImage($iid05, $posx + 160, $posy + 0, 40, 20, $page01['height']);
-$pdf->page->addContent($iid05_out);
+    $out = $pdf->image->getSetImage($iid, $imgx, $imgy, $dim['width'], $dim['height'], $page01['height']);
+    $pdf->page->addContent($out);
+}
 
-// Indexed-color PNG sample with alpha transparency.
-$iid06 = $pdf->image->add($imgdir . '/200x100_INDEXALPHA.png');
-$iid06_out = $pdf->image->getSetImage($iid06, $posx + 0, $posy + 20, 40, 20, $page01['height']);
-$pdf->page->addContent($iid06_out);
-
-// RGB JPEG sample.
-$iid07 = $pdf->image->add($imgdir . '/200x100_RGB.jpg');
-$iid07_out = $pdf->image->getSetImage($iid07, $posx + 40, $posy + 20, 40, 20, $page01['height']);
-$pdf->page->addContent($iid07_out);
-
-// RGB PNG sample.
-$iid08 = $pdf->image->add($imgdir . '/200x100_RGB.png');
-$iid08_out = $pdf->image->getSetImage($iid08, $posx + 80, $posy + 20, 40, 20, $page01['height']);
-$pdf->page->addContent($iid08_out);
-
-// RGB PNG sample with alpha transparency.
-$iid09 = $pdf->image->add($imgdir . '/200x100_RGBALPHA.png');
-$iid09_out = $pdf->image->getSetImage($iid09, $posx + 120, $posy + 20, 40, 20, $page01['height']);
-$pdf->page->addContent($iid09_out);
-
-// RGB JPEG sample carrying an ICC color profile.
-$iid10 = $pdf->image->add($imgdir . '/200x100_RGBICC.jpg');
-$iid10_out = $pdf->image->getSetImage($iid10, $posx + 160, $posy + 20, 40, 20, $page01['height']);
-$pdf->page->addContent($iid10_out);
-
-// RGB PNG sample carrying an ICC color profile.
-$iid11 = $pdf->image->add($imgdir . '/200x100_RGBICC.png');
-$iid11_out = $pdf->image->getSetImage($iid11, $posx + 0, $posy + 40, 40, 20, $page01['height']);
-$pdf->page->addContent($iid11_out);
-
-// RGB PNG variant used to exercise the alternate RGB image path.
-$iid12 = $pdf->image->add($imgdir . '/200x100_RGBINT.png');
-$iid12_out = $pdf->image->getSetImage($iid12, $posx + 40, $posy + 40, 40, 20, $page01['height']);
-$pdf->page->addContent($iid12_out);
+// getImageDimensionsByKey() supports additional resolution modes, for example:
+//   $pdf->image->getImageDimensionsByKey($key);               // original pixel size
+//   $pdf->image->getImageDimensionsByKey($key, 0, 30);        // derive width from height
+//   $pdf->image->getImageDimensionsByKey($key, 40, 40, true); // scale to fit a 40x40 box
 
 // =============================================================
 
