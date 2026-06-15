@@ -17150,6 +17150,88 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Regression: a justified inline run that wraps over several visual lines
+     * must not over-stretch the word gaps on a continuation line.
+     *
+     * A wide inline image followed by mixed bold fragments used to drive one
+     * wrapped line into a runaway word-spacing: the per-line spacing was first
+     * estimated from the greedy (zero-spacing) fill, then the line was
+     * re-measured with that spacing applied. Subtracting the spacing again
+     * shrank the line capacity, dropped several words onto the next line and
+     * inflated the spacing - leaving a heavily under-packed line whose few words
+     * were spread across the full width with gaps many times the natural space.
+     *
+     * The word spacing must now stay a small fraction of the natural space width
+     * on every wrapped line.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellJustifyWrappedInlineRunDoesNotOverstretchWordGaps(): void
+    {
+        $obj = $this->getBBoxProbeTestObject();
+        $this->initFontAndPage($obj);
+
+        $logo = \realpath(__DIR__ . '/../examples/images/tcpdf_logo.jpg');
+        $this->assertNotFalse($logo);
+
+        $html =
+            '<div><span style="text-align:justify;">'
+            . 'a <u>abc</u> abcdefghijkl (abcdef) abcdefg <b>abcdefghi</b> a ((abc)) abcd '
+            . '<img src="'
+            . $logo
+            . '" alt="TCPDF logo" width="89" height="30" border="0" /> '
+            . 'abcdef abcdefg <b>abcdefghi</b> a abc abcd abcdef abcdefg <b>abcdefghi</b> '
+            . 'a abc abcd abcdef abcdefg <b>abcdefghi</b> a <u>abc</u> abcd abcdef abcdefg <b>abcdefghi</b> '
+            . 'a abc \(abcd\) abcdef abcdefg <b>abcdefghi</b> a abc \\\(abcd\\\) abcdef abcdefg <b>abcdefghi</b> '
+            . 'a abc abcd abcdef abcdefg <b>abcdefghi</b> a abc abcd abcdef abcdefg <b>abcdefghi</b> '
+            . 'a abc abcd abcdef abcdefg abcdefghi a abc abcd '
+            . '<a href="https://tcpdf.org">abcdef abcdefg</a> start a abc before '
+            . '<span style="background-color:yellow">yellow color</span> after '
+            . 'a abc abcd abcdef abcdefg abcdefghi a abc abcd end abcdefg abcdefghi '
+            . 'a abc abcd abcdef abcdefg abcdefghi a abc abcd abcdef abcdefg abcdefghi '
+            . 'a abc abcd abcdef abcdefg abcdefghi a abc abcd abcdef abcdefg abcdefghi '
+            . 'a abc abcd abcdef abcdefg abcdefghi a abc abcd abcdef abcdefg abcdefghi '
+            . 'a abc abcd abcdef abcdefg abcdefghi'
+            . '<br />abcd abcdef abcdefg abcdefghi<br />abcd abcde abcdef'
+            . '</span></div>';
+
+        $out = $obj->getHTMLCell($html, 20.0, 10.0, 180.0, 0.0);
+        $this->assertNotSame('', $out);
+
+        // The natural width of a single space; justification adds the Tw
+        // word-spacing on top of it. A correctly packed justified line only needs
+        // a small fraction of the natural space, never a large multiple of it.
+        $naturalSpace = $obj->toPoints($obj->exposeGetStringWidth(' '));
+        $this->assertGreaterThan(0.0, $naturalSpace);
+
+        $matches = [];
+        \preg_match_all('/(-?\d+(?:\.\d+)?) Tw/', $out, $matches, \PREG_SET_ORDER);
+        $wordSpacings = [];
+        foreach ($matches as $match) {
+            if (!isset($match[1]) || !\is_numeric($match[1])) {
+                continue;
+            }
+
+            $wordSpacings[] = (float) $match[1];
+        }
+
+        $this->assertNotSame([], $wordSpacings);
+
+        $positive = \array_filter($wordSpacings, static fn(float $tw): bool => $tw > 1e-4);
+        $this->assertNotSame([], $positive, 'Justified wrapped lines must use positive word spacing.');
+
+        // Before the fix a continuation line reached ~5.2x the natural space; every
+        // line now stays below 1x. Bound at 3x to catch the runaway while
+        // tolerating legitimate per-line variation.
+        $maxWordSpacing = \max($wordSpacings);
+        $this->assertLessThan(
+            3.0 * $naturalSpace,
+            $maxWordSpacing,
+            'A wrapped justified line over-stretched its word gaps (under-packed line).',
+        );
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetHTMLCellRightAlignedMixedInlineLinesReachRightEdge(): void

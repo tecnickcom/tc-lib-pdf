@@ -9883,6 +9883,58 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Split a justified inline text fragment at its first visual line break.
+     *
+     * Returns [head, tail] where head is the portion that fits on the current
+     * line (within $maxwidth) and tail is the remainder, or null when the text
+     * fits on a single line or cannot be split safely. Used so that each
+     * wrapped visual line of a justified paragraph computes its own word
+     * spacing, instead of a single run baking the first line's spacing into
+     * the lines it overflows onto.
+     *
+     * @return array{0: string, 1: string}|null
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function splitHTMLJustifyFirstLine(string $text, string $forcedir, float $maxwidth): ?array
+    {
+        if (\trim($text) === '' || $maxwidth <= 0.0) {
+            return null;
+        }
+
+        $ordarr = [];
+        $dim = $this->getHTMLDefaultTextDims();
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+        $numord = \count($ordarr);
+        if ($numord === 0) {
+            return null;
+        }
+
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth));
+        if (\count($lines) < 2) {
+            // Fits on a single line: nothing to split.
+            return null;
+        }
+
+        $headchars = (int) ($lines[0]['chars'] ?? 0);
+        $tailpos = (int) ($lines[1]['pos'] ?? 0);
+        if ($headchars <= 0 || $tailpos <= 0 || $tailpos >= $numord) {
+            return null;
+        }
+
+        $headord = \array_slice($ordarr, 0, $headchars);
+        $tailord = \array_slice($ordarr, $tailpos);
+        $head = \implode('', $this->uniconv->ordArrToChrArr($this->removeOrdArrSoftHyphens($headord)));
+        $tail = \implode('', $this->uniconv->ordArrToChrArr($tailord));
+        if (\trim($head) === '' || \trim($tail) === '') {
+            return null;
+        }
+
+        return [$head, $tail];
+    }
+
+    /**
      * Measure the maximum ascent among inline text fragments in the current run.
      *
      * The run stops at block boundaries and explicit BR tags.
@@ -14792,6 +14844,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             if ($customJustify) {
                 if ($lineOffset <= self::WIDTH_TOLERANCE) {
+                    // Measure the greedy (zero word-spacing) fill of the line, then
+                    // distribute the leftover over its spaces. The break point is taken
+                    // at zero spacing on purpose: word spacing is derived to fill exactly
+                    // that content to $availableWidth, so applying it never pushes a word
+                    // off the line.
                     $lineMetrics = $this->measureHTMLInlineLineMetrics($hrc, $currentkey, $availableWidth);
                     if (
                         $lineMetrics['wrapped']
@@ -14799,20 +14856,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         && $lineMetrics['width'] < ($availableWidth - self::WIDTH_TOLERANCE)
                     ) {
                         $lineWordSpacing = ($availableWidth - $lineMetrics['width']) / (int) $lineMetrics['spaces'];
-
-                        $lineMetrics = $this->measureHTMLInlineLineMetrics(
-                            $hrc,
-                            $currentkey,
-                            $availableWidth,
-                            $lineWordSpacing,
-                        );
-                        if (
-                            $lineMetrics['wrapped']
-                            && (int) $lineMetrics['spaces'] > 0
-                            && $lineMetrics['width'] < ($availableWidth - self::WIDTH_TOLERANCE)
-                        ) {
-                            $lineWordSpacing = ($availableWidth - $lineMetrics['width']) / (int) $lineMetrics['spaces'];
-                        }
                     }
 
                     $hrc['cellctx']['linewordspacing'] = $lineWordSpacing;
@@ -14821,6 +14864,51 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             } else {
                 $hrc['cellctx']['linewordspacing'] = 0.0;
+            }
+        }
+
+        // Justified inline runs that overflow the current line must not bake the
+        // first line's word spacing into the lines they wrap onto: a single
+        // getTextCell render shares one spacing across all of its visual lines,
+        // so a continuation line (and any inline siblings sharing it) is left
+        // under-justified. Split the run at the first visual line break and
+        // render each part on its own line, where the word spacing is recomputed
+        // for that line's full content (this fragment's tail plus following
+        // inline). Only plain, wrappable text is split; the recursion terminates
+        // because head and tail are both strictly shorter than the input.
+        if (
+            $halign === 'J'
+            && $customJustify
+            && \trim($text) !== ''
+            && $fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE)
+            && $this->getHTMLWhiteSpaceMode($hrc, $key) !== 'nowrap'
+            && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
+            && $this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
+        ) {
+            $justifySplit = $this->splitHTMLJustifyFirstLine($text, $forcedir, $remainingWidth);
+            if ($justifySplit !== null) {
+                $origElm = $hrc['dom'][$key] ?? null;
+                if (!\is_array($origElm)) {
+                    return '';
+                }
+
+                $headElm = $origElm;
+                $headElm['value'] = $justifySplit[0];
+                $hrc['dom'][$key] = $headElm;
+                $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+
+                $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
+                $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
+                $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
+
+                $tailElm = $origElm;
+                $tailElm['value'] = $justifySplit[1];
+                $hrc['dom'][$key] = $tailElm;
+                $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+
+                $hrc['dom'][$key] = $origElm;
+
+                return $breakoutPrefix . $headOut . $tailOut;
             }
         }
 

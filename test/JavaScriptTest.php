@@ -794,12 +794,14 @@ class JavaScriptTest extends TestUtil
         /** @var array<int, array{opt:array<string, mixed>}> $ann */
         $ann = $this->getObjectProperty($obj, 'annotation');
 
+        /** @var int|null $comboFf */
         $comboFf = $this->getAnnotationOpt($ann, $comboId)['ff'] ?? null;
         $this->assertIsInt($comboFf);
         $this->assertSame($comboBit, $comboFf & $comboBit, 'addFFComboBox() must set the Combo field-flag bit.');
 
         // A list box reuses the same choice-widget builder but must NOT set the
         // Combo bit; this guards against the flag being applied unconditionally.
+        /** @var int|null $listFf */
         $listFf = $this->getAnnotationOpt($ann, $listId)['ff'] ?? null;
         $this->assertIsInt($listFf);
         $this->assertSame(0, $listFf & $comboBit, 'addFFListBox() must not set the Combo field-flag bit.');

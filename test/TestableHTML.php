@@ -789,6 +789,12 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @throws \Throwable */
+    public function exposeGetStringWidth(string $txt): float
+    {
+        return $this->getStringWidth($txt);
+    }
+
+    /** @throws \Throwable */
     public function exposeUpdateHTMLLineAdvance(float $lineadvance): void
     {
         $this->initExposeRenderContextIfNeeded();
