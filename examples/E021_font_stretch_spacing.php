@@ -53,6 +53,8 @@ $style = [
 ];
 
 $applyFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, float $spacing, float $stretching, int $size = 11): array {
+    // $stretching is a font-stack ratio (1.0 = 100%); the percent-valued modes
+    // below divide by 100 before calling this helper.
     $font = $pdf->font->insert($pdf->pon, 'times', '', $size, $spacing, $stretching);
     $pdf->page->addContent($font['out']);
     return $font;
@@ -164,7 +166,7 @@ foreach ($modes as $mode) {
     $label = \sprintf('%s  [stretch=%.1f%%, spacing=%.3fpt]', $mode[0], $mode[2], $mode[1]);
     $setNeutralTextFont($pdf);
     $pdf->page->addContent($pdf->getTextLine(txt: $label, posx: $left, posy: $y + 5.5));
-    $drawBoxedLine($pdf, $style, $sample, $left + $labelw, $y, $cellw, $cellh, $mode[1], $mode[2]);
+    $drawBoxedLine($pdf, $style, $sample, $left + $labelw, $y, $cellw, $cellh, $mode[1], $mode[2] / 100.0);
     $firstBlockEndY = \max($firstBlockEndY, $y + $cellh, $y + 6.5);
     ++$row;
 }
@@ -209,7 +211,7 @@ foreach ($stretchVals as $stretching) {
         $line = \sprintf('Stretching %3.0f%%, Spacing %+.3fpt', $stretching, $spacing);
         $setNeutralTextFont($pdf);
         $pdf->page->addContent($pdf->getTextLine(txt: $line, posx: 15, posy: $y + 5.5));
-        $drawBoxedLine($pdf, $style, $sample2, 95, $y, 100, 8, $spacing, $stretching);
+        $drawBoxedLine($pdf, $style, $sample2, 95, $y, 100, 8, $spacing, $stretching / 100.0);
         $y += 9.5;
     }
     $y += 2;

@@ -1345,7 +1345,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         $curfont = $this->font->getCurrentFont();
-        $this->font->cloneFont($this->pon, $curfont['idx'], null, null, $curfont['spacing'], $best_stretch);
+        // $best_stretch is a percentage; the font stack stores stretching as a ratio.
+        $this->font->cloneFont($this->pon, $curfont['idx'], null, null, $curfont['spacing'], $best_stretch / 100.0);
 
         return [
             'fontchanged' => true,
@@ -2556,7 +2557,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $spacesVal = (int) $dim['spaces'];
                 $spaces = $spacesVal !== 0 ? $spacesVal : 1;
                 $totWidth = $dim['totwidth'];
-                $spacewidth = ($pwidth - $totWidth) / $spaces;
+                $bytefont = $this->font->getCurrentFont();
+                $bytestretch = $bytefont['stretching'] > 0.0 ? $bytefont['stretching'] : 1.0;
+                // Tw word spacing is multiplied by the horizontal scale (Tz/100) at
+                // render time, so divide by the stretching ratio to fill exactly to $pwidth.
+                $spacewidth = (($pwidth - $totWidth) / $spaces) / $bytestretch;
                 return $this->getOutTextStateOperatorTw($txt, $spacewidth);
             }
             $totWidth = $dim['totwidth'];
@@ -2580,11 +2585,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $fontsize = 1;
         }
 
+        $stretching = $font['stretching'] > 0.0 ? $font['stretching'] : 1.0;
+
         $spacesVal = (int) $dim['spaces'];
         $spaces = $spacesVal !== 0 ? $spacesVal : 1;
         $totWidth = $dim['totwidth'];
         $totSpaceWidth = $dim['totspacewidth'];
-        $spacewidth = ($pwidth - $totWidth + $totSpaceWidth) / $spaces;
+        // The TJ inter-word adjustment is scaled by the horizontal scale (Tz/100) at
+        // render time, so divide by the stretching ratio to fill exactly to $pwidth.
+        $spacewidth = (($pwidth - $totWidth + $totSpaceWidth) / $spaces) / $stretching;
         $spacewidth = (-1000 * $spacewidth) / $fontsize;
         $txt = \str_replace(\chr(0) . \chr(32), \sprintf(') %F (', $spacewidth), $txt);
 
@@ -2666,7 +2675,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Get the PDF code for the Tz (horizontal scaling) Text State Operator.
      *
      * @param string    $raw   Raw PDf data to be wrapped by this command.
-     * @param int|float $value Raw value to apply in internal units.
+     * @param int|float $value Horizontal stretching ratio (1.0 = 100%, no scaling).
      */
     protected function getOutTextStateOperatorTz(string $raw, int|float $value = 0): string
     {
@@ -2674,7 +2683,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $raw;
         }
 
-        return \sprintf('%F Tz ' . $this->escapePerc($raw) . ' 100 Tz', $value);
+        // $value is a stretching ratio; the PDF Tz operator takes a percentage.
+        return \sprintf('%F Tz ' . $this->escapePerc($raw) . ' 100 Tz', $value * 100.0);
     }
 
     /**

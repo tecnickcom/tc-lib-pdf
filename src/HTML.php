@@ -949,7 +949,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $font = $fontStack->getCurrentFont();
             $fontkey = $font['key'] ?? '';
             if (isset($font['stretching'])) {
-                $fontstretch = (float) $font['stretching'];
+                // The font stack stores stretching as a ratio (1.0 = 100%), but every
+                // parsed CSS font-stretch value is a percentage; normalise to percent.
+                $fontstretch = (float) $font['stretching'] * 100.0;
             }
             if (isset($font['size'])) {
                 $fontsize = (float) $font['size'];
@@ -8729,7 +8731,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        $metric = $this->font->insert($this->pon, $fontstate['family'], $fontstyle, $fontsize);
+        $metric = $this->font->insert(
+            $this->pon,
+            $fontstate['family'],
+            $fontstyle,
+            $fontsize,
+            $fontstate['spacing'],
+            $fontstate['stretching'],
+        );
         if ($metric['out'] !== '') {
             $out .= $metric['out'];
         }
@@ -8767,11 +8776,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && \is_string($markerState['font']['style'])
             && \is_numeric($markerState['font']['size'])
         ) {
+            $markerSpacing = isset($markerState['font']['spacing']) && \is_numeric($markerState['font']['spacing'])
+                ? (float) $markerState['font']['spacing']
+                : 0.0;
+            $markerStretching = isset($markerState['font']['stretching'])
+            && \is_numeric($markerState['font']['stretching'])
+                ? (float) $markerState['font']['stretching']
+                : 1.0;
             $metric = $this->font->insert(
                 $this->pon,
                 $markerState['font']['family'],
                 $markerState['font']['style'],
                 (float) $markerState['font']['size'],
+                $markerSpacing,
+                $markerStretching,
             );
             if ($metric['out'] !== '') {
                 $out = $metric['out'] . $out;
@@ -8824,7 +8842,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Capture the active font state so HTML rendering can restore it afterwards.
      *
-     * @return array{family: string, style: string, size: float}
+     * @return array{family: string, style: string, size: float, spacing: float, stretching: float}
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      */
@@ -8859,19 +8877,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'family' => $family,
             'style' => $style,
             'size' => $size,
+            'spacing' => $curfont['spacing'],
+            'stretching' => $curfont['stretching'],
         ];
     }
 
     /**
      * Restore the font state captured before HTML rendering started.
      *
-     * @param array{family: string, style: string, size: float} $fontstate Captured font state.
+     * @param array{family: string, style: string, size: float, spacing: float, stretching: float} $fontstate Captured font state.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      */
     protected function restoreHTMLCallerFontState(array $fontstate): string
     {
-        $font = $this->font->insert($this->pon, $fontstate['family'], $fontstate['style'], $fontstate['size']);
+        $font = $this->font->insert(
+            $this->pon,
+            $fontstate['family'],
+            $fontstate['style'],
+            $fontstate['size'],
+            $fontstate['spacing'],
+            $fontstate['stretching'],
+        );
 
         return $font['out'];
     }
@@ -8915,25 +8942,49 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $fontsize = $this->resolveHTMLFontSizeAdjust($elm, $fontname, $fontstyle, $fontsize);
 
-        $cachekey = $fontname . '|' . $fontstyle . '|' . (string) $fontsize;
+        // CSS font-stretch is authored as a percentage but the font stack expects a
+        // ratio (1.0 = 100%); CSS letter-spacing is already in points. A non-positive
+        // stretch is treated as the neutral 100%.
+        $stretchPercent = $elm['font-stretch'];
+        $stretching = $stretchPercent > 0.0 ? $stretchPercent / 100.0 : 1.0;
+        $spacing = $elm['letter-spacing'];
+
+        $cachekey =
+            $fontname
+            . '|'
+            . $fontstyle
+            . '|'
+            . (string) $fontsize
+            . '|'
+            . (string) $stretching
+            . '|'
+            . (string) $spacing;
         if (isset($hrc['fontcache'][$cachekey])) {
-            // Re-insert when cached font differs from the active one.
-            // Font key alone is not enough because different font sizes may share the same key.
+            // Re-insert when the active font differs from the cached one. The font key
+            // and size alone are not enough because distinct stretching/spacing values
+            // share the same key, so compare those too.
             $curfont = $this->font->getCurrentFont();
             $cursize = $curfont['size'];
+            $curstretch = $curfont['stretching'];
+            $curspacing = $curfont['spacing'];
             $curkey = $this->font->getCurrentFontKey();
             $cachefontkey = '';
             if (isset($hrc['fontcache'][$cachekey]['key']) && \is_string($hrc['fontcache'][$cachekey]['key'])) {
                 $cachefontkey = $hrc['fontcache'][$cachekey]['key'];
             }
-            if ($curkey !== $cachefontkey || \abs($cursize - $fontsize) > 0.0001) {
-                $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
+            if (
+                $curkey !== $cachefontkey
+                || \abs($cursize - $fontsize) > 0.0001
+                || \abs($curstretch - $stretching) > 0.0001
+                || \abs($curspacing - $spacing) > 0.0001
+            ) {
+                $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize, $spacing, $stretching);
             }
 
             return $hrc['fontcache'][$cachekey];
         }
 
-        $metric = $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize);
+        $metric = $this->font->insert($this->pon, $fontname, $fontstyle, $fontsize, $spacing, $stretching);
         $hrc['fontcache'][$cachekey] = $metric;
 
         return $metric;
@@ -15269,6 +15320,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($hasBlockBgAncestor) {
                 $bgx = $lineOriginX;
                 $bgw = $availableWidth;
+            }
+
+            // A custom-justified inline run is rendered left-aligned with a Tw
+            // word spacing that stretches it to fill the line, but bbox['w'] only
+            // records the natural (unspaced) string width. Extend the fill by the
+            // same amount the cursor advance adds below, so the background covers
+            // the trailing glyphs of the justified line instead of stopping short.
+            if (!$hasBlockBgAncestor && $effectiveWordSpacing > 0.0) {
+                $bgFragmentSpaces = $this->getHTMLTextFirstLineSpaces(
+                    $text,
+                    $forcedir,
+                    \max(0.0, $renderWidth - $renderOffset),
+                );
+                if ($bgFragmentSpaces > 0) {
+                    $bgw += $effectiveWordSpacing * $bgFragmentSpaces;
+                }
             }
 
             if ($wrapped && !$hasBlockBgAncestor) {

@@ -19722,4 +19722,43 @@ class HTMLTest extends TestUtil
         $this->assertSame($resetGs, $activeGs);
         $this->assertNotSame($translucentGs, $activeGs);
     }
+
+    /** @throws \Throwable */
+    public function testGetHTMLCellAppliesCssFontStretchAndLetterSpacing(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<span style="font-stretch:90%;letter-spacing:-0.254mm;">LEFT</span>', 10, 20, 120, 0);
+
+        // CSS font-stretch:90% must reach the page as a 90% Tz; before the fix the
+        // HTML engine never forwarded stretching to font->insert() so it was dropped.
+        $this->assertStringContainsString('90.000000 Tz', $out);
+
+        // CSS letter-spacing must reach the page as a non-zero, negative Tc.
+        $this->assertMatchesRegularExpression('/-\d+\.\d+ Tc/', $out);
+    }
+
+    /** @throws \Throwable */
+    public function testGetHTMLCellRestoresStretchedAndSpacedCallerFontState(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+
+        // Caller font carries non-neutral spacing (0.5pt) and stretching (0.8 ratio).
+        $font->insert($pon, 'helvetica', '', 12, 0.5, 0.8);
+
+        $obj->getHTMLCell('<p>Hello <b>bold</b></p>', 10, 20, 120, 0);
+
+        // After the HTML cell, the caller font is restored with its spacing and
+        // stretching, not silently reset to 0/1.0.
+        $after = $font->getCurrentFont();
+        $this->assertEqualsWithDelta(0.8, $after['stretching'], 1e-9);
+        $this->assertEqualsWithDelta(0.5, $after['spacing'], 1e-9);
+    }
 }
