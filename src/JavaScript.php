@@ -1713,7 +1713,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             }
         }
         $tid = $this->newXObjectTemplate($width, $height);
-        $txtbox = $this->getTextCell($text, $posx, $posy, $width, $height, 0, 0, 'T');
+        $txtbox = $this->getTextCell($text, 0, 0, $width, $height, 0, 0, 'T');
         $this->addXObjectContent($tid, $txtbox);
         $this->exitXObjectTemplate();
         $opt['ap']['n'] .= $this->getXObjectOutDataByID($tid);
