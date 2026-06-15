@@ -39,6 +39,7 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  * @phpstan-import-type TCSSBorderSpacing from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCSSData from \Com\Tecnick\Pdf\CSS
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Cell
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
  * @phpstan-import-type TAnnotOpts from \Com\Tecnick\Pdf\Base
@@ -256,6 +257,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Preserve SHY during HTML text rendering only.
      */
     protected bool $htmlRenderSoftHyphen = false;
+
+    /**
+     * Set to true while rendering an HTML cell once a translucent (alpha < 1)
+     * graphics state has been emitted. It lets addHTMLCell() restore an opaque
+     * alpha at the end of the cell so the transparency does not leak into later
+     * operations (e.g. raw graph primitives that do not manage alpha themselves).
+     */
+    protected bool $htmlTranslucentAlphaEmitted = false;
 
     /**
      * Valid bullet types for list-items
@@ -8050,9 +8059,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $oldRX = $region['RX'];
+        $oldRY = $region['RY'];
+        $oldpid = (int) $this->page->getPageId();
         $this->pageBreak();
         $region = $this->page->getRegion();
+        $newpid = (int) $this->page->getPageId();
         $newRY = $region['RY'];
+
+        // pageBreak() is a no-op when automatic page break is disabled and there
+        // is no further region or page to move to: getNextPage() returns the
+        // same page and region. In that case there is nowhere to break to, so
+        // leave the cursor where it is rather than resetting it to the region
+        // top, which would make the overflowing content overlap whatever is
+        // already on the page. A genuine break always changes the page id or the
+        // region origin (e.g. between multi-column regions, which advance even
+        // with autobreak disabled).
+        if (
+            $newpid === $oldpid
+            && \abs($region['RX'] - $oldRX) <= self::WIDTH_TOLERANCE
+            && \abs($newRY - $oldRY) <= self::WIDTH_TOLERANCE
+        ) {
+            return '';
+        }
+
         $rxDelta = $region['RX'] - $oldRX;
 
         $cellCtx = $hrc['cellctx'];
@@ -11850,6 +11879,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 return '';
             }
 
+            if ($alpha < 1.0) {
+                // A translucent state is now active: flag it so the enclosing
+                // cell can restore an opaque alpha before it ends.
+                $this->htmlTranslucentAlphaEmitted = true;
+            }
+
             return $this->graph->getAlpha($alpha, 'Normal', $alpha);
         } catch (\Throwable) {
             return '';
@@ -13567,7 +13602,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
-                    if ($elm['value'] === 'tr') {
+                    // Skip automatic table-row pagination when the cell has an
+                    // explicit max height: the caller bounded the HTML box (e.g.
+                    // an absolutely-positioned cell placed in a page margin) and
+                    // the table must stay within it rather than being treated as
+                    // overflow and reset to the top of the content region. This
+                    // mirrors the guard applied to plain inline text and <li>.
+                    if ($elm['value'] === 'tr' && $hrc['cellctx']['maxheight'] <= 0.0) {
                         $parent = $elm['parent'];
                         $theadhtml = '';
                         if (isset($dom[$parent], $dom[$parent]['thead']) && $dom[$parent]['thead'] !== '') {
@@ -13990,6 +14031,57 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Returns the PDF code for the border and background box of an HTML cell.
+     *
+     * Shared by getHTMLCell() and addHTMLCell(): both derive an identical box
+     * height fallback when no explicit height is given and draw the cell
+     * border/background through the same point conversions.
+     *
+     * @param float     $posx        Abscissa of upper-left corner.
+     * @param float     $posy        Ordinate of upper-left corner.
+     * @param float     $cellwidth   Cell width.
+     * @param float     $height      Explicit cell height, or <= 0 to derive it.
+     * @param float     $tpy         Current vertical pen position after rendering.
+     * @param float     $contenty    Top ordinate of the content area.
+     * @param float     $offseth     Vertical content offset (padding/border).
+     * @param array<int|string, StyleDataOpt> $graphStyles Normalized cell border styles.
+     * @param TCellDef  $cellctx     Cell parameters for padding, margin etc.
+     *
+     * @return string
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    protected function buildHTMLCellBorderBox(
+        float $posx,
+        float $posy,
+        float $cellwidth,
+        float $height,
+        float $tpy,
+        float $contenty,
+        float $offseth,
+        array $graphStyles,
+        array $cellctx,
+    ): string {
+        $boxheight = $height;
+        if ($boxheight <= 0) {
+            $curfont = $this->font->getCurrentFont();
+            $fontHeight = $curfont['height'];
+            $lineh = $this->toUnit($fontHeight);
+            $boxheight = \max($lineh, $tpy - $contenty + $lineh + $offseth);
+        }
+
+        return $this->drawCell(
+            $this->toPoints($posx),
+            $this->toYPoints($posy),
+            $this->toPoints($cellwidth),
+            $this->toPoints($boxheight),
+            $graphStyles,
+            $cellctx,
+        );
+    }
+
+    /**
      * Returns the PDF code to render an HTML block inside a rectangular cell.
      *
      * @param string      $html        HTML code to be processed.
@@ -14020,6 +14112,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         array $styles = [],
     ): string {
         $out = '';
+        $savedAlphaState = $this->htmlTranslucentAlphaEmitted;
+        $this->htmlTranslucentAlphaEmitted = false;
         $callerfont = $this->captureHTMLCallerFontState();
 
         $dom = $this->getHTMLDOM($html);
@@ -14051,20 +14145,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         });
 
         if ($drawcell) {
-            $boxheight = $height;
-            if ($boxheight <= 0) {
-                $curfont = $this->font->getCurrentFont();
-                $fontHeight = $curfont['height'];
-                $lineh = $this->toUnit($fontHeight);
-                $boxheight = \max($lineh, $tpy - $contenty + $lineh + $offseth);
-            }
-
             $out =
-                $this->drawCell(
-                    $this->toPoints($posx),
-                    $this->toYPoints($posy),
-                    $this->toPoints($cellwidth),
-                    $this->toPoints($boxheight),
+                $this->buildHTMLCellBorderBox(
+                    $posx,
+                    $posy,
+                    $cellwidth,
+                    $height,
+                    $tpy,
+                    $contenty,
+                    $offseth,
                     $graphStyles,
                     $cellctx,
                 ) . $out;
@@ -14072,6 +14161,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $this->clearHTMLCellContext($hrc);
         $out .= $this->restoreHTMLCallerFontState($callerfont);
+
+        if ($this->htmlTranslucentAlphaEmitted && $this->isTransparencyAllowed()) {
+            // Restore an opaque alpha so the translucency used inside this cell
+            // does not leak into operations appended after the returned string
+            // (e.g. raw graph primitives that do not reset alpha themselves).
+            $out .= $this->graph->getAlpha(1.0, 'Normal', 1.0);
+        }
+
+        $this->htmlTranslucentAlphaEmitted = $savedAlphaState;
 
         return $out;
     }
@@ -14106,6 +14204,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         ?array $cell = null,
         array $styles = [],
     ): void {
+        $savedAlphaState = $this->htmlTranslucentAlphaEmitted;
+        $this->htmlTranslucentAlphaEmitted = false;
         $callerfont = $this->captureHTMLCallerFontState();
         $dom = $this->getHTMLDOM($html);
         $hrc = $this->newHTMLRenderContext($dom);
@@ -14144,19 +14244,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $multipage = \count($outbypage) > 1;
         if ($drawcell && !($multipage && $height <= 0)) {
-            $boxheight = $height;
-            if ($boxheight <= 0) {
-                $curfont = $this->font->getCurrentFont();
-                $fontHeight = $curfont['height'];
-                $lineh = $this->toUnit($fontHeight);
-                $boxheight = \max($lineh, $tpy - $contenty + $lineh + $offseth);
-            }
-
-            $cellout = $this->drawCell(
-                $this->toPoints($posx),
-                $this->toYPoints($posy),
-                $this->toPoints($cellwidth),
-                $this->toPoints($boxheight),
+            $cellout = $this->buildHTMLCellBorderBox(
+                $posx,
+                $posy,
+                $cellwidth,
+                $height,
+                $tpy,
+                $contenty,
+                $offseth,
                 $graphStyles,
                 $cellctx,
             );
@@ -14170,6 +14265,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $endpid = $this->page->getPageId();
             $outbypage[$endpid] = ($outbypage[$endpid] ?? '') . $restorefontout;
         }
+
+        if ($this->htmlTranslucentAlphaEmitted && $this->isTransparencyAllowed()) {
+            // A translucent (alpha < 1) state was used while rendering this cell.
+            // Restore an opaque alpha on the current page so the transparency
+            // does not leak into subsequent operations whose output is appended
+            // after this cell (e.g. raw graph primitives that do not reset alpha).
+            $endpid = $this->page->getPageId();
+            $outbypage[$endpid] = ($outbypage[$endpid] ?? '') . $this->graph->getAlpha(1.0, 'Normal', 1.0);
+        }
+
+        $this->htmlTranslucentAlphaEmitted = $savedAlphaState;
 
         foreach ($outbypage as $pid => $pageout) {
             $this->page->addContent($pageout, (int) $pid);

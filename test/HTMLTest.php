@@ -4828,6 +4828,252 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Add an A4 portrait page with 100mm top and bottom margins, leaving a
+     * narrow central content band (y 100..197mm) so that content can be placed
+     * in the bottom margin (below the content region).
+     *
+     * @throws \Throwable
+     */
+    private function addBottomMarginTestPage(\Com\Tecnick\Pdf\Tcpdf $obj, bool $autobreak): void
+    {
+        $this->initFont($obj);
+        $obj->addPage([
+            'format' => 'A4',
+            'orientation' => 'P',
+            'autobreak' => $autobreak,
+            'margin' => [
+                'PT' => 100.0,
+                'PB' => 100.0,
+                'CT' => 100.0,
+                'CB' => 100.0,
+            ],
+        ]);
+    }
+
+    /**
+     * Concatenate the content streams of every page into a single string.
+     *
+     * @throws \Throwable
+     */
+    private function collectPageContent(\Com\Tecnick\Pdf\Page\Page $pageObj): string
+    {
+        $content = '';
+        foreach ($pageObj->getPages() as $pdata) {
+            $pageContent = $pdata['content'];
+            $content .= "\n" . \implode("\n", $pageContent);
+        }
+
+        return $content;
+    }
+
+    /**
+     * Return the top-edge Y coordinate (internal points, origin bottom-left) of
+     * every rectangle emitted with the PDF `re` operator in a content stream.
+     * Table border rectangles are drawn from the top edge with a negative
+     * height, so the top edge is the larger of the two Y endpoints.
+     *
+     * @return list<float>
+     */
+    private function htmlReRectangleTops(string $content): array
+    {
+        $tops = [];
+        $matches = [];
+        $num = '(-?\d+(?:\.\d+)?)';
+        if (\preg_match_all(
+            '/' . $num . '\s+' . $num . '\s+' . $num . '\s+' . $num . '\s+re(?![A-Za-z])/',
+            $content,
+            $matches,
+            \PREG_SET_ORDER,
+        )) {
+            foreach ($matches as $match) {
+                if (!isset($match[2], $match[4]) || !\is_numeric($match[2]) || !\is_numeric($match[4])) {
+                    continue;
+                }
+
+                $posy = (float) $match[2];
+                $rheight = (float) $match[4];
+                $tops[] = \max($posy, $posy + $rheight);
+            }
+        }
+
+        return $tops;
+    }
+
+    /**
+     * Regression: a bounded HTML cell placed in the bottom page margin must
+     * render its table at its absolute position inside the margin, not reset it
+     * to the top of the content region.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellBoundedTableInBottomMarginStaysAtAbsolutePosition(): void
+    {
+        $obj = $this->getTestObject();
+        $this->addBottomMarginTestPage($obj, false);
+
+        $contentBottom = 297.0 - 100.0; // region bottom edge (mm from top)
+        $posy = $contentBottom + 50.0 - 4.0; // ~243mm, inside the bottom margin
+
+        $html =
+            '<div style="text-align:center;">'
+            . '<p><b>BOTTOM BORDER</b><br />text inside the bottom margin.</p>'
+            . '<table border="1"><tr><td>Table Cell BOTTOM</td></tr></table>'
+            . '</div>';
+
+        $out = $obj->getHTMLCell($html, 20.0, $posy, 170.0, 20.0);
+
+        $tops = $this->htmlReRectangleTops($out);
+        $this->assertNotEmpty($tops, 'Expected the table border to be rendered.');
+
+        // In PDF space (origin bottom-left) the content-region bottom edge sits
+        // at this Y; anything in the bottom margin is at or below it (smaller Y).
+        $regionBottomPt = $obj->toYPoints($contentBottom);
+        foreach ($tops as $top) {
+            $this->assertLessThanOrEqual(
+                $regionBottomPt + 1.0,
+                $top,
+                'Table border must stay inside the bottom margin, not reset to the content-region top.',
+            );
+        }
+    }
+
+    /**
+     * Regression: an unbounded HTML cell placed in the bottom margin with
+     * automatic page break disabled must not add a page nor yank the table back
+     * to the content-region top (pageBreak() is a no-op when there is nowhere to
+     * break to, so the cursor must be left untouched).
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellUnboundedTableInBottomMarginWithoutAutoBreakStaysOnPage(): void
+    {
+        $obj = $this->getTestObject();
+        $this->addBottomMarginTestPage($obj, false);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($pageObj->getPages());
+
+        $contentBottom = 297.0 - 100.0;
+        $posy = $contentBottom + 50.0 - 4.0;
+
+        $html = '<div><p>BOTTOM</p><table border="1"><tr><td>Table Cell BOTTOM</td></tr></table></div>';
+        $obj->addHTMLCell($html, 20.0, $posy, 170.0, 0.0);
+
+        $this->assertSame($beforePages, \count($pageObj->getPages()), 'No page must be added when autobreak is off.');
+
+        $tops = $this->htmlReRectangleTops($this->collectPageContent($pageObj));
+        $this->assertNotEmpty($tops);
+        $regionBottomPt = $obj->toYPoints($contentBottom);
+        foreach ($tops as $top) {
+            $this->assertLessThanOrEqual(
+                $regionBottomPt + 1.0,
+                $top,
+                'Table must stay in the bottom margin when autobreak is off.',
+            );
+        }
+    }
+
+    /**
+     * Counterpart to the no-autobreak case: an unbounded cell overflowing the
+     * region with autobreak enabled must still legitimately break to a new page.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellUnboundedTableInBottomMarginWithAutoBreakMovesToNewPage(): void
+    {
+        $obj = $this->getTestObject();
+        $this->addBottomMarginTestPage($obj, true);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($pageObj->getPages());
+
+        $contentBottom = 297.0 - 100.0;
+        $posy = $contentBottom + 50.0 - 4.0;
+
+        $html = '<div><p>BOTTOM</p><table border="1"><tr><td>Table Cell BOTTOM</td></tr></table></div>';
+        $obj->addHTMLCell($html, 20.0, $posy, 170.0, 0.0);
+
+        $this->assertGreaterThan(
+            $beforePages,
+            \count($pageObj->getPages()),
+            'Unbounded overflow with autobreak on must add a page.',
+        );
+    }
+
+    /**
+     * Regression: a bounded cell must not paginate even when autobreak is on -
+     * the explicit height makes it an absolutely-positioned box that stays put.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellBoundedTableInBottomMarginWithAutoBreakDoesNotBreak(): void
+    {
+        $obj = $this->getTestObject();
+        $this->addBottomMarginTestPage($obj, true);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($pageObj->getPages());
+
+        $contentBottom = 297.0 - 100.0;
+        $posy = $contentBottom + 50.0 - 4.0;
+
+        $html = '<div><p>BOTTOM</p><table border="1"><tr><td>Table Cell BOTTOM</td></tr></table></div>';
+        $obj->addHTMLCell($html, 20.0, $posy, 170.0, 20.0);
+
+        $this->assertSame(
+            $beforePages,
+            \count($pageObj->getPages()),
+            'A bounded cell must not break even when autobreak is on.',
+        );
+
+        $tops = $this->htmlReRectangleTops($this->collectPageContent($pageObj));
+        $this->assertNotEmpty($tops);
+        $regionBottomPt = $obj->toYPoints($contentBottom);
+        foreach ($tops as $top) {
+            $this->assertLessThanOrEqual($regionBottomPt + 1.0, $top);
+        }
+    }
+
+    /**
+     * Regression: a bounded box whose height extends past the page edge renders
+     * in place on a single page (overflow is the caller's responsibility for an
+     * absolutely-positioned box) rather than paginating.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellBoundedTableExceedingPageHeightRendersInPlaceOnSinglePage(): void
+    {
+        $obj = $this->getTestObject();
+        $this->addBottomMarginTestPage($obj, true);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $beforePages = \count($pageObj->getPages());
+
+        $contentBottom = 297.0 - 100.0;
+        $posy = $contentBottom + 50.0 - 4.0; // 243mm; with height 80 the box bottom (323mm) exceeds the 297mm page
+
+        $html = '<div><p>BOTTOM</p><table border="1"><tr><td>Table Cell BOTTOM</td></tr></table></div>';
+        $obj->addHTMLCell($html, 20.0, $posy, 170.0, 80.0);
+
+        $this->assertSame(
+            $beforePages,
+            \count($pageObj->getPages()),
+            'A box exceeding the page height must not paginate.',
+        );
+
+        $tops = $this->htmlReRectangleTops($this->collectPageContent($pageObj));
+        $this->assertNotEmpty($tops);
+        $regionBottomPt = $obj->toYPoints($contentBottom);
+        foreach ($tops as $top) {
+            $this->assertLessThanOrEqual($regionBottomPt + 1.0, $top);
+        }
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testAddHTMLCellLongOrderedListSpansMultiplePages(): void
@@ -19348,5 +19594,50 @@ class HTMLTest extends TestUtil
         }
 
         $this->assertGreaterThanOrEqual(2, $strokes);
+    }
+
+    /**
+     * Text using a translucent RGBA color activates an alpha < 1 ExtGState.
+     * The cell must restore an opaque alpha at the end so the transparency
+     * does not leak into operations appended afterwards (e.g. raw graph
+     * primitives that do not reset the graphics-state alpha themselves).
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellRestoresOpaqueAlphaAfterTranslucentText(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $cell = $obj->getHTMLCell('<span style="color:rgba(255,0,0,0.5);">TEST</span>', 0, 0, 80, 20);
+        $this->assertNotSame('', $cell);
+
+        // The alpha ExtGState (/GSn gs) commands emitted while rendering the cell.
+        $matches = [];
+        \preg_match_all('~/GS\d+ gs~', $cell, $matches);
+        $cellGs = $matches[0] ?? [];
+
+        // At least the translucent text alpha and the trailing opaque reset.
+        $this->assertGreaterThanOrEqual(2, \count($cellGs));
+        $translucentGs = $cellGs[0] ?? '';
+        $resetGs = $cellGs === [] ? '' : \end($cellGs);
+        $this->assertNotSame($translucentGs, $resetGs);
+
+        // A raw graph line drawn right after the cell does not manage alpha on
+        // its own, so it must inherit the opaque reset, never the translucent
+        // state carried over from the RGBA text color.
+        $line = $obj->graph->getLine(0, 10, 80, 10, ['lineWidth' => 1, 'lineColor' => 'rgb(255,0,0)']);
+        $frag = $cell . $line;
+
+        $redStroke = '1.000000 0.000000 0.000000 RG';
+        $pos = \strpos($frag, $redStroke);
+        $this->assertNotFalse($pos);
+
+        $before = [];
+        \preg_match_all('~/GS\d+ gs~', \substr($frag, 0, (int) $pos), $before);
+        $found = $before[0] ?? [];
+        $activeGs = $found === [] ? null : \end($found);
+        $this->assertSame($resetGs, $activeGs);
+        $this->assertNotSame($translucentGs, $activeGs);
     }
 }

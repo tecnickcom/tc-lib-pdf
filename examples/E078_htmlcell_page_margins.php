@@ -114,10 +114,11 @@ $cellH = 20.0;
 // 1) Text in the TOP border (inside the top margin area).
 $pdf->page->addContent($pdf->getHTMLCell(
     html: '<div style="text-align:center; color:#008000;">'
-    . '<b>TOP BORDER</b><br />This text is placed inside the 100mm top margin.'
+    . '<p><b>TOP BORDER</b><br />This text is placed inside the 100mm top margin.</p>'
+    . '<table border="1"><tr><td>Table Cell TOP</td></tr></table>'
     . '</div>',
     posx: $cellX,
-    posy: ($topMargin / 2) - 4,
+    posy: ($topMargin / 2) - 10,
     width: $cellW,
     height: $cellH,
 ));
@@ -125,11 +126,12 @@ $pdf->page->addContent($pdf->getHTMLCell(
 // 2) Text in the CENTRAL content area.
 $pdf->page->addContent($pdf->getHTMLCell(
     html: '<div style="text-align:center; color:#000080;">'
-    . '<b>CENTRAL PAGE</b><br />This text is placed in the central content area '
-    . 'between the top and bottom margins.'
+    . '<p><b>CENTRAL PAGE</b><br />This text is placed in the central content area '
+    . 'between the top and bottom margins.</p>'
+    . '<table border="1"><tr><td>Table Cell CENTRAL</td></tr></table>'
     . '</div>',
     posx: $cellX,
-    posy: (($contentTop + $contentBottom) / 2) - 6,
+    posy: (($contentTop + $contentBottom) / 2) - 10,
     width: $cellW,
     height: $cellH,
 ));
@@ -137,10 +139,11 @@ $pdf->page->addContent($pdf->getHTMLCell(
 // 3) Text in the BOTTOM border (inside the bottom margin area).
 $pdf->page->addContent($pdf->getHTMLCell(
     html: '<div style="text-align:center; color:#800000;">'
-    . '<b>BOTTOM BORDER</b><br />This text is placed inside the 100mm bottom margin.'
+    . '<p><b>BOTTOM BORDER</b><br />This text is placed inside the 100mm bottom margin.</p>'
+    . '<table border="1"><tr><td>Table Cell BOTTOM</td></tr></table>'
     . '</div>',
     posx: $cellX,
-    posy: $contentBottom + ($bottomMargin / 2) - 4,
+    posy: $contentBottom + ($bottomMargin / 2) - 10,
     width: $cellW,
     height: $cellH,
 ));

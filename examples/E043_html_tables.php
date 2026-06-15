@@ -339,6 +339,14 @@ $pdf->addHTMLCell(html: $html5B, posx: 20, posy: 160, width: 180);
 
 // ----------
 
+$pdf->page->addContent($pdf->graph->getLine(0, 190, 210, 190, ['lineWidth' => 6, 'lineColor' => 'rgb(255, 0, 0)']));
+
+$pdf->addHTMLCell(
+    '<table border="0"><tr><td style="border-bottom:6mm solid rgb(255, 0, 0);"></td></tr></table>',
+    0,
+    195,
+);
+
 // =============================================================
 
 // ----------

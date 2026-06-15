@@ -73,7 +73,7 @@ $html = <<<HTML
 $pdf->addHTMLCell(html: $html, posx: 15, posy: 15, width: 180);
 
 $posx = 5;
-$posy = 100;
+$posy = 40;
 
 // Cell grid geometry: 5 columns, each sample rendered $cellw units wide.
 $cellw = 40;
