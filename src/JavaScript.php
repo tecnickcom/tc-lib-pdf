@@ -1625,7 +1625,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         ],
         array $jsp = [],
     ): int {
-        $jsp['Combo'] = true;
+        $jsp['Combo'] = 'true';
         $opt = $this->mergeAnnotOptions($opt, $jsp);
         // appearance stream
         $opt['ap'] = [];

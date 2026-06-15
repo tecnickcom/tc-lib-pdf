@@ -296,6 +296,49 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    private function textCellHeight(\Com\Tecnick\Pdf\Tcpdf $obj, string $txt): float
+    {
+        $obj->getTextCell($txt, 10, 20, 60, 0, 0, 0, 'T', 'L');
+
+        return $obj->getLastTextBBox()['h'];
+    }
+
+    /**
+     * Regression: a blank line inside a multi-line text cell must occupy a full
+     * line of vertical space. An empty line renders no glyphs, so getLastBBox()
+     * used to return the stale box of the previously rendered line and the blank
+     * line collapsed (the following line jumped up to overlap it). outTextLines()
+     * now synthesises a zero-width box at the blank line's own position so the
+     * text bounding box grows by one line height per blank line.
+     *
+     * @throws \Throwable
+     */
+    public function testGetTextCellBlankLinesOccupyFullLineHeight(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $oneLine = $this->textCellHeight($obj, 'A');
+        $twoLines = $this->textCellHeight($obj, "A\nB");
+        $threeLines = $this->textCellHeight($obj, "A\nC\nB");
+        $blankMiddle = $this->textCellHeight($obj, "A\n\nB");
+        $twoBlanks = $this->textCellHeight($obj, "A\n\n\nB");
+
+        // Each additional rendered line adds one constant line height.
+        $lineHeight = $twoLines - $oneLine;
+        $this->assertGreaterThan(0.0, $lineHeight);
+
+        // A blank middle line counts as a full line: "A\n\nB" spans three lines,
+        // exactly like "A\nC\nB". Before the fix it collapsed to two lines.
+        $this->assertEqualsWithDelta($threeLines, $blankMiddle, 1.0e-6);
+        $this->assertGreaterThan($twoLines, $blankMiddle);
+
+        // Two consecutive blank lines add two full line heights.
+        $this->assertEqualsWithDelta($twoLines + (2.0 * $lineHeight), $twoBlanks, 1.0e-6);
+    }
+
+    /** @throws \Throwable */
     public function testGetTextCellAcceptsNamedAndNumericBorderStyleSides(): void
     {
         $obj = $this->getTestObject();

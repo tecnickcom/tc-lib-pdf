@@ -1914,6 +1914,21 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $offset = 0;
             $line_posx = $posx;
             $bbox = $this->getLastBBox();
+            if ($line_txt === '') {
+                // An empty line renders no glyphs and therefore pushes no
+                // bounding box, so getLastBBox() returns a stale box from
+                // previously rendered content. Synthesize a zero-width box at
+                // the current line position (matching outTextLine's geometry)
+                // so the next line advances by one line height instead of
+                // jumping to the stale location.
+                $emptyfont = $this->font->getCurrentFont();
+                $bbox = [
+                    'x' => $txt_posx,
+                    'y' => $line_posy - $this->toUnit($emptyfont['ascent']),
+                    'w' => 0.0,
+                    'h' => $this->toUnit($emptyfont['height']),
+                ];
+            }
             if (!$hasTextBBox) {
                 $hasTextBBox = true;
                 $minx = $bbox['x'];

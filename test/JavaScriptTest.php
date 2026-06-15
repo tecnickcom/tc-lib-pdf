@@ -773,6 +773,39 @@ class JavaScriptTest extends TestUtil
     }
 
     /**
+     * Regression: addFFComboBox() must set the "Combo" field-flag bit so the
+     * widget renders as a dropdown combo box and not as a list box.
+     * getAnnotOptFromJSProp() matches the Combo property against the string
+     * 'true'; passing a boolean true left the bit clear (ff === 0).
+     *
+     * @throws \Throwable
+     */
+    public function testAddFFComboBoxSetsComboFieldFlag(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $comboId = $obj->addFFComboBox('cmbFlag', 1, 2, 30, 12, ['One', 'Two']);
+        $listId = $obj->addFFListBox('lstFlag', 1, 2, 30, 12, ['One', 'Two']);
+
+        // "Combo" field flag: bit 18 in the PDF /Ff entry (zero-based bit 17).
+        $comboBit = 1 << 17;
+
+        /** @var array<int, array{opt:array<string, mixed>}> $ann */
+        $ann = $this->getObjectProperty($obj, 'annotation');
+
+        $comboFf = $this->getAnnotationOpt($ann, $comboId)['ff'] ?? null;
+        $this->assertIsInt($comboFf);
+        $this->assertSame($comboBit, $comboFf & $comboBit, 'addFFComboBox() must set the Combo field-flag bit.');
+
+        // A list box reuses the same choice-widget builder but must NOT set the
+        // Combo bit; this guards against the flag being applied unconditionally.
+        $listFf = $this->getAnnotationOpt($ann, $listId)['ff'] ?? null;
+        $this->assertIsInt($listFf);
+        $this->assertSame(0, $listFf & $comboBit, 'addFFListBox() must not set the Combo field-flag bit.');
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testAddFFListBoxCreatesChoiceWidget(): void
