@@ -15159,6 +15159,458 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Split a justified inline run that overflows the current line at its first
+     * visual line break, rendering head and tail on separate lines so each
+     * line's word spacing is computed for its own content. Returns the produced
+     * PDF code, or null when no justified split applies and normal flow should
+     * continue.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param-out THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
+     * @param string $text Normalized fragment text.
+     * @param string $halign Horizontal alignment.
+     * @param bool $customJustify Whether the line uses custom word-spacing justification.
+     * @param float $fragmentWidth Natural width of the fragment.
+     * @param float $remainingWidth Remaining width on the current line.
+     * @param string $forcedir Forced text direction ('R' or '').
+     * @param string $breakoutPrefix PDF code emitted by an earlier page break.
+     * @param float $tpx Abscissa of upper-left corner.
+     * @param float $tpy Ordinate of upper-left corner.
+     * @param float $tpw Width.
+     * @param float $tph Height.
+     * @param ?callable(string):void $appendFragment Optional block-buffer flush sink.
+     *
+     * @return ?string PDF code when handled, or null to continue normal flow.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     * @throws PdfException
+     * @throws \Throwable
+     */
+    protected function splitHTMLTextJustifyOverflow(
+        array &$hrc,
+        int $key,
+        string $text,
+        string $halign,
+        bool $customJustify,
+        float $fragmentWidth,
+        float $remainingWidth,
+        string $forcedir,
+        string $breakoutPrefix,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+        ?callable $appendFragment = null,
+    ): ?string {
+        if (
+            $halign !== 'J'
+            || !$customJustify
+            || \trim($text) === ''
+            || $fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)
+            || $this->getHTMLWhiteSpaceMode($hrc, $key) === 'nowrap'
+            || $this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
+            || !$this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
+        ) {
+            return null;
+        }
+
+        $justifySplit = $this->splitHTMLJustifyFirstLine($text, $forcedir, $remainingWidth);
+        if ($justifySplit === null) {
+            return null;
+        }
+
+        $origElm = $hrc['dom'][$key] ?? null;
+        if (!\is_array($origElm)) {
+            return '';
+        }
+
+        $headElm = $origElm;
+        $headElm['value'] = $justifySplit[0];
+        $hrc['dom'][$key] = $headElm;
+        $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+
+        $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
+        $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
+        $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
+
+        $tailElm = $origElm;
+        $tailElm['value'] = $justifySplit[1];
+        $hrc['dom'][$key] = $tailElm;
+        $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+
+        $hrc['dom'][$key] = $origElm;
+
+        return $breakoutPrefix . $headOut . $tailOut;
+    }
+
+    /**
+     * Generic page/region overflow guard for plain inline text flow: when the
+     * next line would not fit in the remaining region height, break to the next
+     * region and re-anchor the line-local geometry. Skipped while a table cell
+     * is active (table pagination has its own path) or when the cell has an
+     * explicit max height (the caller bounded the box). Open block-level buffers
+     * are flushed onto the current page before the break and re-based to the new
+     * region top. Returns the page-break PDF code (empty when no break occurred).
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param-out THTMLRenderContext $hrc HTML render context.
+     * @param float $lineAdvance Current line advance.
+     * @param float $tpx Abscissa of upper-left corner.
+     * @param float $tpy Ordinate of upper-left corner.
+     * @param float $tpw Width.
+     * @param float $tph Height.
+     * @param float $lineOriginX Line origin abscissa (re-anchored on break).
+     * @param float $lineOffset Fragment offset on the line (re-anchored on break).
+     * @param float $availableWidth Available line width (re-anchored on break).
+     * @param float $remainingWidth Remaining line width (re-anchored on break).
+     * @param ?callable(string):void $appendFragment Optional block-buffer flush sink.
+     *
+     * @return string Page-break PDF code, or an empty string when no break occurred.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws PdfException
+     * @throws \Throwable
+     */
+    protected function breakHTMLTextBeforeLine(
+        array &$hrc,
+        float $lineAdvance,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+        float &$lineOriginX,
+        float &$lineOffset,
+        float &$availableWidth,
+        float &$remainingWidth,
+        ?callable $appendFragment = null,
+    ): string {
+        if (
+            $hrc['tablestack'] !== []
+            || $hrc['bcellctx'] !== []
+            || $hrc['cellctx']['maxheight'] > 0.0
+            || $lineAdvance <= 0.0
+        ) {
+            return '';
+        }
+
+        $region = $this->page->getRegion();
+        $regiontop = $region['RY'];
+        $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
+        $willBreak = $lineAdvance > ($remaining + self::WIDTH_TOLERANCE) && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
+
+        if ($willBreak && $hrc['blockbuf'] !== [] && $appendFragment !== null) {
+            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+            if ($flush !== '') {
+                $appendFragment($flush);
+            }
+        }
+
+        $breakout = $this->breakHTMLIfNeeded($hrc, $lineAdvance, $tpx, $tpy, $tpw, $tph);
+
+        if ($willBreak) {
+            // The cursor moved to a new region: re-anchor the line-local
+            // state captured above, or the fragment renders at the
+            // previous region's X origin (visible with multi-column
+            // regions, where the next region starts at a different X).
+            $lineOriginX = $hrc['cellctx']['lineoriginx'];
+            $lineOffset = \max(0.0, $tpx - $lineOriginX);
+            $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+            if ($hrc['cellctx']['maxwidth'] > 0) {
+                $remainingWidth = \max(0.0, $tpw);
+            } elseif ($tpw > 0) {
+                $remainingWidth = $tpw;
+            } else {
+                $remainingWidth = $availableWidth;
+            }
+        }
+
+        if ($willBreak && $hrc['blockbuf'] !== []) {
+            foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
+                $blkEntry['by'] = $tpy;
+                $hrc['blockbuf'][$bidx] = $blkEntry;
+            }
+        }
+
+        if ($willBreak && $hrc['tablestack'] !== []) {
+            $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+        }
+
+        return $breakout;
+    }
+
+    /**
+     * When a continuation fragment's trailing collapsible whitespace is the
+     * sole cause of overflow, strip it before the wrap check and rendering so
+     * the visible text still fits the current line. The fragment text and its
+     * width are updated in place; the returned advance lets the caller move the
+     * cursor by the stripped width to preserve inter-word spacing.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
+     * @param string $text Fragment text (trimmed in place when stripped).
+     * @param float $fragmentWidth Fragment width (reduced in place when stripped).
+     * @param float $lineOffset Fragment offset on the current line.
+     * @param float $remainingWidth Remaining width on the current line.
+     *
+     * @return float Width of the stripped trailing whitespace (0.0 when nothing stripped).
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function stripHTMLTrailingOverflowSpace(
+        array &$hrc,
+        int $key,
+        string &$text,
+        float &$fragmentWidth,
+        float $lineOffset,
+        float $remainingWidth,
+    ): float {
+        if (
+            $lineOffset <= self::WIDTH_TOLERANCE
+            || $this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
+            || $fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)
+        ) {
+            return 0.0;
+        }
+
+        $trailVisMatch = [];
+        if (\preg_match('/\s+$/u', $text, $trailVisMatch) !== 1) {
+            return 0.0;
+        }
+
+        $strippedText = \rtrim($text);
+        if ($strippedText === '') {
+            return 0.0;
+        }
+
+        $visibleWidth = $this->getStringWidth($strippedText);
+        if ($visibleWidth > ($remainingWidth + self::WIDTH_TOLERANCE)) {
+            return 0.0;
+        }
+
+        $trailSpaceAdvance = $fragmentWidth - $visibleWidth;
+        $text = $strippedText;
+        $fragmentWidth = $visibleWidth;
+        return $trailSpaceAdvance;
+    }
+
+    /**
+     * Resolve whether the current line uses custom word-spacing justification
+     * and, if so, the per-space word spacing to apply. For a justified run that
+     * starts a line, the greedy (zero word-spacing) line fill is measured and
+     * the leftover space distributed over its spaces; the result is cached on
+     * the cell context so continuation fragments reuse the same spacing.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param-out THTMLRenderContext $hrc HTML render context.
+     * @param int $currentkey Current DOM array key.
+     * @param string $halign Horizontal alignment.
+     * @param float $fragmentWidth Natural width of the fragment.
+     * @param float $lineOffset Fragment offset on the current line.
+     * @param float $availableWidth Available line width.
+     *
+     * @return array{custom: bool, spacing: float}
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function resolveHTMLLineJustification(
+        array &$hrc,
+        int $currentkey,
+        string $halign,
+        float $fragmentWidth,
+        float $lineOffset,
+        float $availableWidth,
+    ): array {
+        $lineWordSpacing = 0.0;
+        $customJustify = false;
+        if ($halign === 'J') {
+            $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
+            $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
+            $hasLineWordSpacing = $hrc['cellctx']['linewordspacing'] > 0.0;
+            $customJustify = $hasFollowingInline || $lineOffset > self::WIDTH_TOLERANCE && $hasLineWordSpacing;
+
+            if ($customJustify) {
+                if ($lineOffset <= self::WIDTH_TOLERANCE) {
+                    // Measure the greedy (zero word-spacing) fill of the line, then
+                    // distribute the leftover over its spaces. The break point is taken
+                    // at zero spacing on purpose: word spacing is derived to fill exactly
+                    // that content to $availableWidth, so applying it never pushes a word
+                    // off the line.
+                    $lineMetrics = $this->measureHTMLInlineLineMetrics($hrc, $currentkey, $availableWidth);
+                    if (
+                        $lineMetrics['wrapped']
+                        && (int) $lineMetrics['spaces'] > 0
+                        && $lineMetrics['width'] < ($availableWidth - self::WIDTH_TOLERANCE)
+                    ) {
+                        $lineWordSpacing = ($availableWidth - $lineMetrics['width']) / (int) $lineMetrics['spaces'];
+                    }
+
+                    $hrc['cellctx']['linewordspacing'] = $lineWordSpacing;
+                } else {
+                    $lineWordSpacing = $hrc['cellctx']['linewordspacing'];
+                }
+            } else {
+                $hrc['cellctx']['linewordspacing'] = 0.0;
+            }
+        }
+
+        return ['custom' => $customJustify, 'spacing' => $lineWordSpacing];
+    }
+
+    /**
+     * Resolve the render geometry (origin, width, first-line offset, alignment
+     * token and wrap-detection deferral) for a text fragment. Left/justified
+     * runs render from the line origin; centered/right runs are positioned by
+     * the measured line width when the whole run fits, and fall back to a
+     * left-aligned continuation otherwise.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $currentkey Current DOM array key.
+     * @param string $halign Horizontal alignment.
+     * @param float $lineOriginX Line origin abscissa.
+     * @param float $availableWidth Available line width.
+     * @param float $lineOffset Fragment offset on the current line.
+     * @param float $textIndentOffset CSS text-indent first-line offset.
+     * @param bool $customJustify Whether the line uses custom word-spacing justification.
+     * @param float $fragmentWidth Natural width of the fragment.
+     * @param float $remainingWidth Remaining width on the current line.
+     * @param float $curAscent Current font ascent.
+     * @param float $lineascent Line ascent.
+     *
+     * @return array{posx: float, width: float, offset: float, align: string, defer: bool}
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function resolveHTMLTextRenderGeometry(
+        array &$hrc,
+        int $currentkey,
+        string $halign,
+        float $lineOriginX,
+        float $availableWidth,
+        float $lineOffset,
+        float $textIndentOffset,
+        bool $customJustify,
+        float $fragmentWidth,
+        float $remainingWidth,
+        float $curAscent,
+        float $lineascent,
+    ): array {
+        $renderPosX = $lineOriginX;
+        $renderWidth = $availableWidth;
+        $renderOffset = $lineOffset + $textIndentOffset;
+        $renderAlign = $halign;
+        if ($customJustify) {
+            $renderAlign = 'L';
+        }
+        $deferWrapDetection = false;
+        if (($halign === 'C' || $halign === 'R') && $availableWidth > 0.0) {
+            if ($lineOffset > self::WIDTH_TOLERANCE) {
+                $renderPosX = $lineOriginX;
+                $renderWidth = $availableWidth;
+                $renderOffset = $lineOffset;
+                // Keep the first continuation chunk adjacent to previous inline text,
+                // while preserving center/right alignment on wrapped continuation lines.
+                $renderAlign = $halign === 'R' ? 'r' : 'c';
+            } elseif ($fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
+                $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
+                $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
+                $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
+                $isLeadingSmall = ($curAscent + self::WIDTH_TOLERANCE) < $lineascent;
+                $lineWidthCollapsed = $hasFollowingInline && $lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE);
+                $deferWrapDetection = $hasFollowingInline && $isLeadingSmall;
+                if (
+                    $lineWidth > 0.0
+                    && $lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE)
+                    && !$lineWidthCollapsed
+                ) {
+                    $renderPosX = $lineOriginX
+                    + match ($halign) {
+                        'R' => \max(0.0, $availableWidth - $lineWidth),
+                        default => \max(0.0, ($availableWidth - $lineWidth) / 2),
+                    };
+                    // Use the measured lineWidth for rendering to avoid rounding-induced wraps.
+                    // The lineWidth has been verified to fit within availableWidth + self::WIDTH_TOLERANCE tolerance.
+                    $renderWidth = \min($lineWidth, $availableWidth);
+                    $renderOffset = 0.0;
+                    $renderAlign = 'L';
+                } else {
+                    // If the full run does not fit, avoid centering only the first fragment.
+                    $renderPosX = $lineOriginX;
+                    $renderWidth = $remainingWidth;
+                    $renderOffset = 0.0;
+                    $renderAlign = 'L';
+                }
+            }
+        }
+
+        return [
+            'posx' => $renderPosX,
+            'width' => $renderWidth,
+            'offset' => $renderOffset,
+            'align' => $renderAlign,
+            'defer' => $deferWrapDetection,
+        ];
+    }
+
+    /**
+     * Compute the abscissa the cursor advances to after rendering a text
+     * fragment: the right edge of its bounding box plus any justification and
+     * stripped-trailing-space advances, clamped to an inline-block right edge,
+     * and extended by the custom word spacing applied to the fragment's spaces.
+     *
+     * @param array{x: float, y: float, w: float, h: float} $bbox Rendered text bounding box.
+     * @param float $trailjustifyadvance Trailing justified-space advance.
+     * @param float $trailSpaceAdvance Stripped trailing collapsible-space advance.
+     * @param float $inlineBlockEndX Right edge of an inline-block decoration (0.0 when none).
+     * @param float $effectiveWordSpacing Effective word spacing applied to the fragment.
+     * @param string $text Rendered fragment text.
+     * @param string $forcedir Forced text direction ('R' or '').
+     * @param float $renderWidth Render box width.
+     * @param float $renderOffset First-line render offset.
+     *
+     * @return float New cursor abscissa.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function computeHTMLTextAdvanceX(
+        array $bbox,
+        float $trailjustifyadvance,
+        float $trailSpaceAdvance,
+        float $inlineBlockEndX,
+        float $effectiveWordSpacing,
+        string $text,
+        string $forcedir,
+        float $renderWidth,
+        float $renderOffset,
+    ): float {
+        $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
+        if ($inlineBlockEndX > 0.0) {
+            $tpx = \max($tpx, $inlineBlockEndX);
+        }
+        if ($effectiveWordSpacing > 0.0) {
+            $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
+                $text,
+                $forcedir,
+                \max(0.0, $renderWidth - $renderOffset),
+            );
+            if ($fragmentSpaces > 0) {
+                $tpx += $effectiveWordSpacing * $fragmentSpaces;
+            }
+        }
+
+        return $tpx;
+    }
+
+    /**
      * Process HTML Text (content between tags).
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -15290,7 +15742,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $currentkey = $key;
         $hrc['currentkey'] = $currentkey;
 
-        $breakoutPrefix = '';
         $out = $this->getHTMLTextPrefix($hrc, $currentkey);
 
         $curfont = $this->font->getCurrentFont();
@@ -15314,65 +15765,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
 
-        // Generic page/region overflow guard for plain inline text flow.
-        // Skipped while a table cell is active so that table row pagination
-        // keeps working through its dedicated path. Also skipped when the
-        // cell has an explicit max height: the caller bounded the HTML box
-        // and content must stay within it.
-        // Block-level buffers (background/border) are split across pages by
-        // flushing the partial rectangle onto the current page before the
-        // break and updating each buffer's origin to the new region top.
-        if (
-            $hrc['tablestack'] === []
-            && $hrc['bcellctx'] === []
-            && $hrc['cellctx']['maxheight'] <= 0.0
-            && $lineAdvance > 0.0
-        ) {
-            $region = $this->page->getRegion();
-            $regiontop = $region['RY'];
-            $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
-            $willBreak =
-                $lineAdvance > ($remaining + self::WIDTH_TOLERANCE) && $tpy > ($regiontop + self::WIDTH_TOLERANCE);
-
-            if ($willBreak && $hrc['blockbuf'] !== [] && $appendFragment !== null) {
-                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
-                if ($flush !== '') {
-                    $appendFragment($flush);
-                }
-            }
-
-            $breakout = $this->breakHTMLIfNeeded($hrc, $lineAdvance, $tpx, $tpy, $tpw, $tph);
-
-            if ($willBreak) {
-                // The cursor moved to a new region: re-anchor the line-local
-                // state captured above, or the fragment renders at the
-                // previous region's X origin (visible with multi-column
-                // regions, where the next region starts at a different X).
-                $lineOriginX = $hrc['cellctx']['lineoriginx'];
-                $lineOffset = \max(0.0, $tpx - $lineOriginX);
-                $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
-                if ($hrc['cellctx']['maxwidth'] > 0) {
-                    $remainingWidth = \max(0.0, $tpw);
-                } elseif ($tpw > 0) {
-                    $remainingWidth = $tpw;
-                } else {
-                    $remainingWidth = $availableWidth;
-                }
-            }
-
-            if ($willBreak && $hrc['blockbuf'] !== []) {
-                foreach ($hrc['blockbuf'] as $bidx => $blkEntry) {
-                    $blkEntry['by'] = $tpy;
-                    $hrc['blockbuf'][$bidx] = $blkEntry;
-                }
-            }
-
-            if ($willBreak && $hrc['tablestack'] !== []) {
-                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
-            }
-
-            $breakoutPrefix = $breakout;
-        }
+        $breakoutPrefix = $this->breakHTMLTextBeforeLine(
+            $hrc,
+            $lineAdvance,
+            $tpx,
+            $tpy,
+            $tpw,
+            $tph,
+            $lineOriginX,
+            $lineOffset,
+            $availableWidth,
+            $remainingWidth,
+            $appendFragment,
+        );
 
         $verticalFitOut = $this->splitHTMLTextForVerticalFit(
             $hrc,
@@ -15397,29 +15802,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $fragmentWidth = $this->getStringWidth($text);
 
-        // When a continuation fragment's trailing collapsible whitespace is the
-        // sole cause of overflow, strip it before the wrap check and rendering.
-        // The cursor is advanced by the stripped width so inter-word spacing is
-        // preserved for the next fragment.
-        $trailSpaceAdvance = 0.0;
-        if (
-            $lineOffset > self::WIDTH_TOLERANCE
-            && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
-            && $fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE)
-        ) {
-            $trailVisMatch = [];
-            if (\preg_match('/\s+$/u', $text, $trailVisMatch) === 1) {
-                $strippedText = \rtrim($text);
-                if ($strippedText !== '') {
-                    $visibleWidth = $this->getStringWidth($strippedText);
-                    if ($visibleWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
-                        $trailSpaceAdvance = $fragmentWidth - $visibleWidth;
-                        $text = $strippedText;
-                        $fragmentWidth = $visibleWidth;
-                    }
-                }
-            }
-        }
+        $trailSpaceAdvance = $this->stripHTMLTrailingOverflowSpace(
+            $hrc,
+            $key,
+            $text,
+            $fragmentWidth,
+            $lineOffset,
+            $remainingWidth,
+        );
 
         $keepChunkOnLine = $this->canHTMLTextKeepVisibleChunkOnCurrentLine($text, $forcedir, $remainingWidth);
         $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
@@ -15475,38 +15865,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $lineAdvance = $this->getHTMLLineAdvance($hrc, $currentkey);
         }
 
-        $lineWordSpacing = 0.0;
-        $customJustify = false;
-        if ($halign === 'J') {
-            $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-            $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
-            $hasLineWordSpacing = $hrc['cellctx']['linewordspacing'] > 0.0;
-            $customJustify = $hasFollowingInline || $lineOffset > self::WIDTH_TOLERANCE && $hasLineWordSpacing;
-
-            if ($customJustify) {
-                if ($lineOffset <= self::WIDTH_TOLERANCE) {
-                    // Measure the greedy (zero word-spacing) fill of the line, then
-                    // distribute the leftover over its spaces. The break point is taken
-                    // at zero spacing on purpose: word spacing is derived to fill exactly
-                    // that content to $availableWidth, so applying it never pushes a word
-                    // off the line.
-                    $lineMetrics = $this->measureHTMLInlineLineMetrics($hrc, $currentkey, $availableWidth);
-                    if (
-                        $lineMetrics['wrapped']
-                        && (int) $lineMetrics['spaces'] > 0
-                        && $lineMetrics['width'] < ($availableWidth - self::WIDTH_TOLERANCE)
-                    ) {
-                        $lineWordSpacing = ($availableWidth - $lineMetrics['width']) / (int) $lineMetrics['spaces'];
-                    }
-
-                    $hrc['cellctx']['linewordspacing'] = $lineWordSpacing;
-                } else {
-                    $lineWordSpacing = $hrc['cellctx']['linewordspacing'];
-                }
-            } else {
-                $hrc['cellctx']['linewordspacing'] = 0.0;
-            }
-        }
+        $justification = $this->resolveHTMLLineJustification(
+            $hrc,
+            $currentkey,
+            $halign,
+            $fragmentWidth,
+            $lineOffset,
+            $availableWidth,
+        );
+        $customJustify = $justification['custom'];
+        $lineWordSpacing = $justification['spacing'];
 
         // Justified inline runs that overflow the current line must not bake the
         // first line's word spacing into the lines they wrap onto: a single
@@ -15517,40 +15885,24 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // for that line's full content (this fragment's tail plus following
         // inline). Only plain, wrappable text is split; the recursion terminates
         // because head and tail are both strictly shorter than the input.
-        if (
-            $halign === 'J'
-            && $customJustify
-            && \trim($text) !== ''
-            && $fragmentWidth > ($remainingWidth + self::WIDTH_TOLERANCE)
-            && $this->getHTMLWhiteSpaceMode($hrc, $key) !== 'nowrap'
-            && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
-            && $this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
-        ) {
-            $justifySplit = $this->splitHTMLJustifyFirstLine($text, $forcedir, $remainingWidth);
-            if ($justifySplit !== null) {
-                $origElm = $hrc['dom'][$key] ?? null;
-                if (!\is_array($origElm)) {
-                    return '';
-                }
-
-                $headElm = $origElm;
-                $headElm['value'] = $justifySplit[0];
-                $hrc['dom'][$key] = $headElm;
-                $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-
-                $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
-                $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
-                $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-
-                $tailElm = $origElm;
-                $tailElm['value'] = $justifySplit[1];
-                $hrc['dom'][$key] = $tailElm;
-                $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-
-                $hrc['dom'][$key] = $origElm;
-
-                return $breakoutPrefix . $headOut . $tailOut;
-            }
+        $justifyOut = $this->splitHTMLTextJustifyOverflow(
+            $hrc,
+            $key,
+            $text,
+            $halign,
+            $customJustify,
+            $fragmentWidth,
+            $remainingWidth,
+            $forcedir,
+            $breakoutPrefix,
+            $tpx,
+            $tpy,
+            $tpw,
+            $tph,
+            $appendFragment,
+        );
+        if ($justifyOut !== null) {
+            return $justifyOut;
         }
 
         $nodeWordSpacing = $this->getHTMLWordSpacing($hrc, $currentkey);
@@ -15568,53 +15920,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $effectiveWordSpacing = 0.0;
         }
 
-        $renderPosX = $lineOriginX;
-        $renderWidth = $availableWidth;
-        $renderOffset = $lineOffset + $textIndentOffset;
-        $renderAlign = $halign;
-        if ($customJustify) {
-            $renderAlign = 'L';
-        }
-        $deferWrapDetection = false;
-        if (($halign === 'C' || $halign === 'R') && $availableWidth > 0.0) {
-            if ($lineOffset > self::WIDTH_TOLERANCE) {
-                $renderPosX = $lineOriginX;
-                $renderWidth = $availableWidth;
-                $renderOffset = $lineOffset;
-                // Keep the first continuation chunk adjacent to previous inline text,
-                // while preserving center/right alignment on wrapped continuation lines.
-                $renderAlign = $halign === 'R' ? 'r' : 'c';
-            } elseif ($fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
-                $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
-                $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
-                $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
-                $isLeadingSmall = ($curAscent + self::WIDTH_TOLERANCE) < $lineascent;
-                $lineWidthCollapsed = $hasFollowingInline && $lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE);
-                $deferWrapDetection = $hasFollowingInline && $isLeadingSmall;
-                if (
-                    $lineWidth > 0.0
-                    && $lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE)
-                    && !$lineWidthCollapsed
-                ) {
-                    $renderPosX = $lineOriginX
-                    + match ($halign) {
-                        'R' => \max(0.0, $availableWidth - $lineWidth),
-                        default => \max(0.0, ($availableWidth - $lineWidth) / 2),
-                    };
-                    // Use the measured lineWidth for rendering to avoid rounding-induced wraps.
-                    // The lineWidth has been verified to fit within availableWidth + self::WIDTH_TOLERANCE tolerance.
-                    $renderWidth = \min($lineWidth, $availableWidth);
-                    $renderOffset = 0.0;
-                    $renderAlign = 'L';
-                } else {
-                    // If the full run does not fit, avoid centering only the first fragment.
-                    $renderPosX = $lineOriginX;
-                    $renderWidth = $remainingWidth;
-                    $renderOffset = 0.0;
-                    $renderAlign = 'L';
-                }
-            }
-        }
+        $geometry = $this->resolveHTMLTextRenderGeometry(
+            $hrc,
+            $currentkey,
+            $halign,
+            $lineOriginX,
+            $availableWidth,
+            $lineOffset,
+            $textIndentOffset,
+            $customJustify,
+            $fragmentWidth,
+            $remainingWidth,
+            $curAscent,
+            $lineascent,
+        );
+        $renderPosX = $geometry['posx'];
+        $renderWidth = $geometry['width'];
+        $renderOffset = $geometry['offset'];
+        $renderAlign = $geometry['align'];
+        $deferWrapDetection = $geometry['defer'];
 
         $trailjustifyadvance = 0.0;
         if ($customJustify && $lineWordSpacing > 0.0) {
@@ -15805,20 +16129,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             // last line instead of being pushed to a fresh empty line.
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
             $tpy = $bbox['y'];
-            $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
-            if ($inlineBlockEndX > 0.0) {
-                $tpx = \max($tpx, $inlineBlockEndX);
-            }
-            if ($effectiveWordSpacing > 0.0) {
-                $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
-                    $text,
-                    $forcedir,
-                    \max(0.0, $renderWidth - $renderOffset),
-                );
-                if ($fragmentSpaces > 0) {
-                    $tpx += $effectiveWordSpacing * $fragmentSpaces;
-                }
-            }
+            $tpx = $this->computeHTMLTextAdvanceX(
+                $bbox,
+                $trailjustifyadvance,
+                $trailSpaceAdvance,
+                $inlineBlockEndX,
+                $effectiveWordSpacing,
+                $text,
+                $forcedir,
+                $renderWidth,
+                $renderOffset,
+            );
             $this->updateHTMLLineAdvance($hrc, $lineAdvance);
             $hrc['cellctx']['linebottom'] = $bbox['y'] + $bbox['h'];
             if ($hrc['cellctx']['maxwidth'] > 0) {
@@ -15829,20 +16150,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $background . $out . $inlineBorder;
         }
 
-        $tpx = $bbox['x'] + $bbox['w'] + $trailjustifyadvance + $trailSpaceAdvance;
-        if ($inlineBlockEndX > 0.0) {
-            $tpx = \max($tpx, $inlineBlockEndX);
-        }
-        if ($effectiveWordSpacing > 0.0) {
-            $fragmentSpaces = $this->getHTMLTextFirstLineSpaces(
-                $text,
-                $forcedir,
-                \max(0.0, $renderWidth - $renderOffset),
-            );
-            if ($fragmentSpaces > 0) {
-                $tpx += $effectiveWordSpacing * $fragmentSpaces;
-            }
-        }
+        $tpx = $this->computeHTMLTextAdvanceX(
+            $bbox,
+            $trailjustifyadvance,
+            $trailSpaceAdvance,
+            $inlineBlockEndX,
+            $effectiveWordSpacing,
+            $text,
+            $forcedir,
+            $renderWidth,
+            $renderOffset,
+        );
         $this->updateHTMLLineAdvance($hrc, $lineAdvance);
         $linebottom = $bbox['y'] + $bbox['h'];
         if ($hrc['cellctx']['linebottom'] <= 0 || $linebottom > $hrc['cellctx']['linebottom']) {
