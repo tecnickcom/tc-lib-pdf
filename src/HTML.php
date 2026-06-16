@@ -259,6 +259,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected bool $htmlRenderSoftHyphen = false;
 
     /**
+     * Set to true while rendering the head fragment of a paragraph that is split
+     * across page regions or no-write bands. The remainder flows into the next
+     * region, so the head's final visual line is not the paragraph's last line
+     * and must be justified like an interior line (getTextCell jlast = false).
+     */
+    protected bool $htmlJustifyContinuationLine = false;
+
+    /**
      * Set to true while rendering an HTML cell once a translucent (alpha < 1)
      * graphics state has been emitted. It lets addHTMLCell() restore an opaque
      * alpha at the end of the cell so the transparency does not leak into later
@@ -8031,6 +8039,33 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Whether a region break would advance somewhere new: another writable
+     * region on the current page, or (on the last region) a fresh page added by
+     * the automatic page break. A paragraph that starts at a region top and is
+     * taller than that region cannot be shortened by flushing earlier lines, so
+     * it is split only when there is somewhere for the remainder to go: the
+     * lines that fit are rendered here and the rest continues in the next region
+     * or page. This is what makes HTML hug a banded obstacle (stacked no-write
+     * bands or columns) rather than overprint it, and lets the overflow of the
+     * last region paginate instead of running off the page bottom. When the
+     * last region is reached with automatic page break disabled there is nowhere
+     * to advance, so the paragraph is left to flow in place (no forced split,
+     * and no risk of looping on a break that cannot move).
+     *
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     */
+    protected function htmlCanAdvanceRegion(): bool
+    {
+        $page = $this->page->getPage();
+        $current = (int) $page['currentRegion'];
+        if (\array_key_exists($current + 1, $page['region'])) {
+            return true;
+        }
+
+        return $this->page->isAutoPageBreakEnabled();
+    }
+
+    /**
      * Break to the next page region when the required height does not fit.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -8062,6 +8097,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $oldRX = $region['RX'];
         $oldRY = $region['RY'];
+        $oldRW = $region['RW'];
         $oldpid = (int) $this->page->getPageId();
         $this->pageBreak();
         $region = $this->page->getRegion();
@@ -8085,11 +8121,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $rxDelta = $region['RX'] - $oldRX;
+        $rwDelta = $region['RW'] - $oldRW;
 
         $cellCtx = $hrc['cellctx'];
         $cellCtx['originy'] = $newRY;
         $cellCtx['originx'] += $rxDelta;
         $cellCtx['regionoffset'] = ($cellCtx['regionoffset'] ?? 0.0) + $rxDelta;
+        // Adapt the writable width to the new region. No-write page regions (and
+        // any layout whose regions differ in width) hand each band a different
+        // RW; without propagating it the line width would stay at the first
+        // region's width and overprint the obstacle. Equal-width layouts
+        // (multi-column, plain page breaks) have rwDelta == 0 and are untouched.
+        if ($cellCtx['maxwidth'] > 0.0 && \abs($rwDelta) > self::WIDTH_TOLERANCE) {
+            $cellCtx['maxwidth'] = \max(0.0, $cellCtx['maxwidth'] + $rwDelta);
+        }
+
         $hrc['cellctx'] = $cellCtx;
 
         $tpy = $newRY;
@@ -14684,40 +14730,57 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 );
                 $probeCount = \count($probeLines);
 
-                if ($probeCount > $maxFitLines && $tpy > ($regiontopMV + self::WIDTH_TOLERANCE)) {
-                    $orphans = \max(1, (int) $elm['orphans']);
-                    $widows = \max(1, (int) $elm['widows']);
+                // A paragraph taller than the remaining region height is split
+                // when there is room above it on this region (a mid-region break)
+                // or when the page offers a further region to flow into. The
+                // latter lets a paragraph that starts exactly at a region/band top
+                // still hug a banded obstacle: render the lines that fit in this
+                // band, then break into the next band instead of overprinting it.
+                $atRegionTopMV = $tpy <= ($regiontopMV + self::WIDTH_TOLERANCE);
+                $canSplitAtTopMV = $atRegionTopMV && $this->htmlCanAdvanceRegion();
+                if ($probeCount > $maxFitLines && (!$atRegionTopMV || $canSplitAtTopMV)) {
                     $fitLines = $maxFitLines;
-                    $tailLines = $probeCount - $fitLines;
-                    if ($tailLines > 0 && $tailLines < $widows) {
-                        $fitLines = \max(0, $probeCount - $widows);
-                    }
 
-                    if ($fitLines < $orphans) {
-                        if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
-                            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
-                            if ($flush !== '') {
-                                $appendFragment($flush);
+                    // Orphan/widow control only applies to a mid-region break,
+                    // where lines above the paragraph give room to trade. At a
+                    // region top the band may be a single line tall, so honoring
+                    // orphans/widows would either starve the band (no line ever
+                    // fits, looping) or hold back lines that have nowhere to go;
+                    // render as many lines as fit and let the rest flow on.
+                    if (!$atRegionTopMV) {
+                        $orphans = \max(1, (int) $elm['orphans']);
+                        $widows = \max(1, (int) $elm['widows']);
+                        $tailLines = $probeCount - $fitLines;
+                        if ($tailLines > 0 && $tailLines < $widows) {
+                            $fitLines = \max(0, $probeCount - $widows);
+                        }
+
+                        if ($fitLines < $orphans) {
+                            if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
+                                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                                if ($flush !== '') {
+                                    $appendFragment($flush);
+                                }
                             }
-                        }
 
-                        $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
-                        $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
+                            $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
+                            $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
 
-                        if ($hrc['blockbuf'] !== []) {
-                            foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
-                                $blkEntry2['by'] = $tpy;
-                                $hrc['blockbuf'][$bidx2] = $blkEntry2;
+                            if ($hrc['blockbuf'] !== []) {
+                                foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
+                                    $blkEntry2['by'] = $tpy;
+                                    $hrc['blockbuf'][$bidx2] = $blkEntry2;
+                                }
                             }
-                        }
 
-                        if ($hrc['tablestack'] !== []) {
-                            $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
-                        }
+                            if ($hrc['tablestack'] !== []) {
+                                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                            }
 
-                        return $breakoutPrefix
-                        . $brk
-                        . $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                            return $breakoutPrefix
+                            . $brk
+                            . $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                        }
                     }
 
                     $cut = 0;
@@ -14746,7 +14809,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $headElm = $origElm;
                             $headElm['value'] = $head;
                             $hrc['dom'][$key] = $headElm;
+                            // The paragraph continues in the tail, so the head's last
+                            // visual line must be justified (not treated as a ragged
+                            // paragraph end) to match a continuously flowed cell.
+                            $prevJustifyContinuation = $this->htmlJustifyContinuationLine;
+                            $this->htmlJustifyContinuationLine = $halign === 'J';
                             $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                            $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
+
+                            // The head's final line is left "open" (the cursor stays on
+                            // it so a following inline fragment could continue it), so tpy
+                            // is not advanced past it. When the head exactly fills a
+                            // single-line band, tpy is therefore still at the region top
+                            // and breakHTMLIfNeeded() would treat the band as untouched and
+                            // refuse to advance, leaving the tail to overprint the head.
+                            // Drop tpy to the rendered line bottom so the break sees the
+                            // band as consumed and moves the tail to the next region.
+                            $headBottom = $hrc['cellctx']['linebottom'];
+                            if ($headBottom > ($tpy + self::WIDTH_TOLERANCE)) {
+                                $tpy = $headBottom;
+                            }
 
                             // The HEAD portion belongs to the current (about-to-end)
                             // page and must be dispatched before the page break, using
@@ -15094,6 +15176,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->prepareText($text, $ordarr, $dim, $forcedir);
             $actualText = $this->getActualTextForOrdarr($ordarr);
         }
+        // When this fragment is the head of a paragraph split across regions or
+        // bands, its final visual line is not the paragraph's last line (the
+        // remainder flows into the next region), so it must be justified like any
+        // interior line rather than left ragged. jlast === false justifies the
+        // last line too.
+        $jlastRender = !$this->htmlJustifyContinuationLine;
         $this->htmlRenderSoftHyphen = true;
         try {
             $textout = $this->getTextCell(
@@ -15112,7 +15200,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $effectiveWordSpacing,
                 0,
                 0,
-                true,
+                $jlastRender,
                 $elmFill,
                 $elmStroke > 0,
                 \str_contains($style, 'U'),

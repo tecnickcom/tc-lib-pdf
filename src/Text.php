@@ -620,9 +620,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
                 $cell_pwidth = $cell_pntw;
                 if ($width <= 0) {
+                    // cellMaxWidth() expects the horizontal offset within the region (not the
+                    // absolute page position), so the region RX must not be included here.
+                    // Cap by the remaining text width ($dim['totwidth']): using the stale
+                    // $txt_pwidth (the previous region's width) would let the cell width only
+                    // shrink across regions and never expand back when a wider region follows.
                     $cell_pwidth = \min(
-                        $this->cellMaxWidth($rpntx, $cell),
-                        $this->cellMinWidth($txt_pwidth, $halign, $cell),
+                        $this->cellMaxWidth($this->toPoints($posx), $cell),
+                        $this->cellMinWidth($dim['totwidth'], $halign, $cell),
                     );
                 }
 
@@ -644,7 +649,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 }
                 $numlines = \count($lines);
 
-                $vspace = $this->textMaxHeight($regionRh + $cell['margin']['B'] + $cell['padding']['B'] - $cell_posy);
+                // The available vertical space is the region height minus the offset within the
+                // region (cell_posy is an absolute page position, so the region RY is removed).
+                $vspace = $this->textMaxHeight(
+                    $regionRh + $cell['margin']['B'] + $cell['padding']['B'] - ($cell_posy - $regionRy),
+                );
                 $region_max_lines = (int) (($vspace + $linespace) / ($fontheight + $linespace));
                 $lastblock = $numlines <= $region_max_lines;
 
@@ -736,11 +745,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $cell['margin']['T'] = 0;
                 $cell['margin']['B'] = 0;
 
+                $beforeRegion = (int) $this->page->getPage($pid)['currentRegion'];
                 $this->page->getNextRegion($pid);
                 $curpid = (int) $this->page->getPageId();
                 if ($curpid > $pid) {
                     $pid = $curpid;
                     $this->setPageContext($pid);
+                } elseif ((int) $this->page->getPage($pid)['currentRegion'] === $beforeRegion) {
+                    // No further region or page to flow into (e.g. automatic page break is
+                    // disabled and this is the last region): stop instead of repeatedly
+                    // overwriting the last region with the remaining text.
+                    break;
                 }
             }
         } finally {
@@ -3128,6 +3143,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         if ($this->font->hasCurrentFont()) {
             $this->page->addContent($this->font->getOutCurrentFont(), $pid);
         }
+
+        // The fill (non-stroking) colour resets to the default on a new page, so re-apply the
+        // current one. Otherwise text flowing onto an automatically added page would revert to
+        // black. Only a non-default colour needs to be re-emitted.
+        $fillColor = $this->graph->getLastStyleProperty('fillColor', 'black');
+        if (\is_string($fillColor) && $fillColor !== '' && $fillColor !== 'black') {
+            $this->page->addContent($this->graph->getStyleCmd(['fillColor' => $fillColor]), $pid);
+        }
+
         if ($this->defPageContentEnabled) {
             $this->page->addContent($this->defaultPageContent($pid), $pid);
         }
