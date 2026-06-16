@@ -34,6 +34,16 @@ class TestablePdfColor extends \Com\Tecnick\Pdf\PdfColor
         return $this->parseSpotTintToken($token);
     }
 
+    public function exposeIsRegisteredSpotColor(string $color): bool
+    {
+        return $this->isRegisteredSpotColor($color);
+    }
+
+    public function exposeGetPdfProcessColor(string $color, bool $stroke): string
+    {
+        return $this->getPdfProcessColor($color, $stroke);
+    }
+
     public function exposeGetLabProcessColor(string $color): ?\Com\Tecnick\Color\Model\Lab
     {
         return $this->getLabProcessColor($color);

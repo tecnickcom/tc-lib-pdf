@@ -147,18 +147,30 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
     public function getPdfColor(string $color, bool $stroke = false, float $tint = 1): string
     {
         $spotFromCss = $this->parseSpotCssFunction($color);
-        if ($spotFromCss !== null) {
+        $explicitSpot = $spotFromCss !== null;
+        if ($explicitSpot) {
             $color = $spotFromCss[0];
             $tint *= $spotFromCss[1];
         }
 
         if (!$this->forceDeviceCmyk) {
+            // Use a Separation (spot) color only when it is explicitly requested
+            // through the spot() CSS function or when the name refers to a spot
+            // color that has already been registered by the caller. Bare color
+            // names (e.g. "black", "red") must resolve to process colors;
+            // otherwise the underlying color library would emit them as
+            // DeviceCMYK Separations, which breaks PDF/A conformance when the
+            // document has an RGB OutputIntent.
+            if ($explicitSpot || $this->isRegisteredSpotColor($color)) {
+                return parent::getPdfColor($color, $stroke, $tint);
+            }
+
             $labColor = $this->getLabProcessColor($color);
             if ($labColor instanceof \Com\Tecnick\Color\Model\Lab) {
                 return $this->getPdfLabProcessColor($labColor, $stroke);
             }
 
-            return parent::getPdfColor($color, $stroke, $tint);
+            return $this->getPdfProcessColor($color, $stroke);
         }
 
         // Preserve spot color behavior under PDF/X restrictions.
@@ -182,6 +194,42 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
 
         $cmyk = new \Com\Tecnick\Color\Model\Cmyk($model->toCmykArray());
         return $cmyk->getPdfColor($stroke);
+    }
+
+    /**
+     * Return true when the given name refers to a spot color that has already
+     * been registered by the caller (and is therefore safe to emit as a
+     * Separation resource).
+     */
+    protected function isRegisteredSpotColor(string $color): bool
+    {
+        $key = $this->normalizeSpotColorName($color);
+        if ($key === '') {
+            return false;
+        }
+
+        return \array_key_exists($key, $this->getSpotColors());
+    }
+
+    /**
+     * Resolve a color name/value to a process color operator, bypassing the
+     * default spot-color name table so that common color names are not turned
+     * into DeviceCMYK Separations.
+     */
+    protected function getPdfProcessColor(string $color, bool $stroke): string
+    {
+        try {
+            $model = $this->getColorObj($color);
+        } catch (\Com\Tecnick\Color\Exception $colorException) {
+            unset($colorException);
+            return '';
+        }
+
+        if (!$model instanceof \Com\Tecnick\Color\Model) {
+            return '';
+        }
+
+        return $model->getPdfColor($stroke);
     }
 
     /**

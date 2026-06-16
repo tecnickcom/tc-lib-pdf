@@ -143,6 +143,47 @@ class PdfColorTest extends TestUtil
         $this->bcAssertMatchesRegularExpression('/^\/CS\d+\s+cs\s+0\.400000\s+scn\n$/', $out);
     }
 
+    public function testGetPdfColorBareNameResolvesToProcessColorNotSpot(): void
+    {
+        $obj = $this->getTestObject();
+
+        // A bare color name that also exists in the default spot-color table
+        // must resolve to a process color (DeviceRGB) and must NOT be emitted
+        // as a Separation, otherwise PDF/A documents with an RGB OutputIntent
+        // become non-compliant.
+        $out = $obj->getPdfColor('black');
+
+        $this->assertStringContainsString(' rg', $out);
+        $this->assertStringNotContainsString('scn', $out);
+        $this->assertStringNotContainsString('/CS', $out);
+        $this->assertFalse($obj->exposeIsRegisteredSpotColor('black'));
+    }
+
+    public function testGetPdfColorUsesSpotForRegisteredSpotColorByBareName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->addSpotColor('MyBrand', new \Com\Tecnick\Color\Model\Cmyk([
+            'cyan' => 0.1,
+            'magenta' => 0.2,
+            'yellow' => 0.3,
+            'key' => 0.4,
+            'alpha' => 1.0,
+        ]));
+
+        $this->assertTrue($obj->exposeIsRegisteredSpotColor('MyBrand'));
+
+        $out = $obj->getPdfColor('MyBrand');
+
+        $this->bcAssertMatchesRegularExpression('/^\/CS\d+\s+cs\s+1\.000000\s+scn\n$/', $out);
+    }
+
+    public function testGetPdfProcessColorReturnsEmptyForUnknownColor(): void
+    {
+        $obj = $this->getTestObject();
+
+        $this->assertSame('', $obj->exposeGetPdfProcessColor('not-a-real-color', false));
+    }
+
     public function testGetPdfColorReturnsEmptyForInvalidSpotCssTint(): void
     {
         $obj = $this->getTestObject();
