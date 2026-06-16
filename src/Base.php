@@ -21,6 +21,10 @@ namespace Com\Tecnick\Pdf;
 use Com\Tecnick\Barcode\Barcode as ObjBarcode;
 use Com\Tecnick\File\Cache as ObjCache;
 use Com\Tecnick\File\File as ObjFile;
+use Com\Tecnick\Pdf\Cache\CacheInterface as ObjExtCache;
+use Com\Tecnick\Pdf\Cache\FontSubsetCacheAdapter;
+use Com\Tecnick\Pdf\Cache\ImageCacheAdapter;
+use Com\Tecnick\Pdf\Cache\SelectiveCacheInterface;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Font\Stack as ObjFont;
@@ -695,7 +699,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.50.0';
+    protected string $version = '8.51.0';
 
     /**
      * Encrypt object.
@@ -726,6 +730,12 @@ abstract class Base
      * Cache object.
      */
     public ObjCache $cache;
+
+    /**
+     * Optional external cache shared by the cacheable sub-libraries
+     * (font subsets, images, ...). Null disables external caching.
+     */
+    protected ?ObjExtCache $extCache = null;
 
     /**
      * Unicode Convert object.
@@ -1793,12 +1803,21 @@ abstract class Base
      *                                         temp directory; when omitted, explicit
      *                                         allowedPaths values are reused for markup too.
      *
+     * @param ?ObjExtCache $cache Optional external cache shared by the cacheable sub-libraries
+     *                            (font subsets, images, ...). The application owns the backend,
+     *                            its (de)serialization, expiration and size limits. Null (default)
+     *                            disables external caching.
+     *
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      */
-    public function initClassObjects(?ObjEncrypt $objEncrypt = null, ?array $fileOptions = null): void
-    {
+    public function initClassObjects(
+        ?ObjEncrypt $objEncrypt = null,
+        ?array $fileOptions = null,
+        ?ObjExtCache $cache = null,
+    ): void {
+        $this->extCache = $cache;
         if ($objEncrypt instanceof ObjEncrypt) {
             $this->encrypt = $objEncrypt;
             // Enforce minimum PDF version required by the encryption algorithm.
@@ -1878,6 +1897,54 @@ abstract class Base
             fileHelper: $this->file,
             pdfa: $pdfamode,
             compress: $this->compress,
+            imageCache: $this->imageCacheAdapter(),
         );
+    }
+
+    /**
+     * Whether the external cache is enabled for the given cacheable subsystem type.
+     *
+     * A plain external cache caches every type; a SelectiveCacheInterface
+     * decides per type. Returns false when no external cache is configured.
+     *
+     * @param ObjExtCache::TYPE_* $type Subsystem type to query.
+     */
+    protected function extCacheEnabledFor(string $type): bool
+    {
+        if ($this->extCache === null) {
+            return false;
+        }
+
+        if ($this->extCache instanceof SelectiveCacheInterface) {
+            return $this->extCache->supports($type);
+        }
+
+        return true;
+    }
+
+    /**
+     * Build the image cache adapter bridging the external cache to the image
+     * library, or null when image caching is disabled.
+     */
+    protected function imageCacheAdapter(): ?ImageCacheAdapter
+    {
+        if ($this->extCache === null || !$this->extCacheEnabledFor(ObjExtCache::TYPE_IMAGE)) {
+            return null;
+        }
+
+        return new ImageCacheAdapter($this->extCache);
+    }
+
+    /**
+     * Build the font subset cache adapter bridging the external cache to the
+     * font library, or null when font subset caching is disabled.
+     */
+    protected function fontSubsetCacheAdapter(): ?FontSubsetCacheAdapter
+    {
+        if ($this->extCache === null || !$this->extCacheEnabledFor(ObjExtCache::TYPE_FONT)) {
+            return null;
+        }
+
+        return new FontSubsetCacheAdapter($this->extCache);
     }
 }

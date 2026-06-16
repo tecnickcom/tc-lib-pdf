@@ -16,6 +16,9 @@
 
 namespace Test;
 
+use Com\Tecnick\Pdf\Cache\FontSubsetCacheAdapter;
+use Com\Tecnick\Pdf\Cache\ImageCacheAdapter;
+
 class TestableTcpdf extends \Com\Tecnick\Pdf\Tcpdf
 {
     public function exposeEnableSignatureApproval(bool $enabled = true): static
@@ -26,5 +29,23 @@ class TestableTcpdf extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeSetSignAnnotRefs(): void
     {
         $this->setSignAnnotRefs();
+    }
+
+    /**
+     * @param \Com\Tecnick\Pdf\Cache\CacheInterface::TYPE_* $type
+     */
+    public function exposeExtCacheEnabledFor(string $type): bool
+    {
+        return $this->extCacheEnabledFor($type);
+    }
+
+    public function exposeImageCacheAdapter(): ?ImageCacheAdapter
+    {
+        return $this->imageCacheAdapter();
+    }
+
+    public function exposeFontSubsetCacheAdapter(): ?FontSubsetCacheAdapter
+    {
+        return $this->fontSubsetCacheAdapter();
     }
 }

@@ -245,7 +245,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->graph->getOutExtGState($this->pon);
         $this->pon = $this->graph->getObjectNumber();
         $out .= $this->getOutOCG();
-        $this->outfont = new OutFont($this->font->getFonts(), $this->pon, $this->encrypt);
+        $this->outfont = new OutFont(
+            $this->font->getFonts(),
+            $this->pon,
+            $this->encrypt,
+            subsetCache: $this->fontSubsetCacheAdapter(),
+        );
         $out .= $this->outfont->getFontsBlock();
         $this->pon = $this->outfont->getObjectNumber();
         $out .= $this->image->getOutImagesBlock($this->pon);

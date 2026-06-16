@@ -19,6 +19,7 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf;
 
 use Com\Tecnick\Barcode\Exception as BarcodeException;
+use Com\Tecnick\Pdf\Cache\CacheInterface as ObjExtCache;
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Import\Importer as ObjImporter;
@@ -50,7 +51,7 @@ use Com\Tecnick\Pdf\Import\PageTemplateInterface;
  * @phpstan-import-type TFileOptions from Base
  * @mixin \Com\Tecnick\Pdf\Base
  * @mixin \Com\Tecnick\Pdf\Text
- * @method void initClassObjects(?ObjEncrypt $objEncrypt = null, ?array $fileOptions = null)
+ * @method void initClassObjects(?ObjEncrypt $objEncrypt = null, ?array $fileOptions = null, ?\Com\Tecnick\Pdf\Cache\CacheInterface $cache = null)
  * @method float toPoints(float $usr)
  * @method float toUnit(float $pnt)
  * @method float toYUnit(float $pnt, float $pageh = -1)
@@ -118,6 +119,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *                                         prefixes for file:// reads. Defaults are
      *                                         automatically computed from the package location
      *                                         to cover bundled example assets.
+     * @param ?ObjExtCache $cache Optional external cache reused by every cacheable sub-library
+     *                            (font subsets, images, ...). Implement
+     *                            Com\Tecnick\Pdf\Cache\CacheInterface to bridge your own backend
+     *                            (filesystem, APCu, Redis, PSR-16, ...); the application owns the
+     *                            backend, its (de)serialization, expiration and size limits. Null
+     *                            (default) disables external caching. No backend is shipped.
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
@@ -132,6 +139,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         string $mode = '',
         ?ObjEncrypt $objEncrypt = null,
         ?array $fileOptions = null,
+        ?ObjExtCache $cache = null,
     ) {
         $this->setDecimalSeparator();
         $this->doctime = \time();
@@ -152,7 +160,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $this->setPDFMode($mode);
         $this->setCompressMode($compress);
         $this->setPDFVersion();
-        $this->initClassObjects($objEncrypt, $fileOptions);
+        $this->initClassObjects($objEncrypt, $fileOptions, $cache);
     }
 
     /**

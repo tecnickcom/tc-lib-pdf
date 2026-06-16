@@ -258,6 +258,7 @@ For implementation details, compliance guidance, operational workflows, and adva
 - ICC profile details: [doc/ICC_PROFILE.md](doc/ICC_PROFILE.md)
 - PDF import API, examples, and fidelity notes: [doc/PDF_IMPORT.md](doc/PDF_IMPORT.md)
 - Remote resources and `fileOptions` (`allowedHosts`, `allowedPaths`, `markupAllowedPaths`, cURL policy): [doc/REMOTE_RESOURCES.md](doc/REMOTE_RESOURCES.md)
+- External cache for font subsets and images (`CacheInterface`, selective caching): [doc/CACHE.md](doc/CACHE.md)
 - Digital signatures, TSA timestamps, and LTV: [doc/DIGITAL_SIGNATURES.md](doc/DIGITAL_SIGNATURES.md)
 - PDF/A, PDF/X, and PDF/UA conformance modes: [doc/STANDARDS.md](doc/STANDARDS.md)
 - Development, QA, preflight, and packaging workflows: [doc/DEVELOPMENT.md](doc/DEVELOPMENT.md)
