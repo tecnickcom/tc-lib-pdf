@@ -3886,6 +3886,30 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * The embedded file name must be a plain (PDFDocEncoded) ASCII string in /F,
+     * not a BOM-less UTF-16BE string, otherwise ZUGFeRD/Factur-X validators and
+     * PDF readers cannot resolve the attachment ("InputStream cannot be null").
+     * The Unicode /UF variant must carry the mandatory UTF-16BE byte order mark.
+     *
+     * @throws \Throwable
+     */
+    public function testGetOutEmbeddedFilesNameEncoding(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setPdfaMode(3);
+        $obj->addContentAsEmbeddedFile('factur-x.xml', '<x/>', 'text/xml', 'Alternative');
+
+        $out = $obj->exposeGetOutEmbeddedFiles();
+
+        // /F holds the plain ASCII name (no UTF-16BE null padding).
+        $this->assertStringContainsString('/F (factur-x.xml)', $out);
+        // /UF holds the UTF-16BE name with the leading BOM.
+        $this->assertStringContainsString("/UF (\xFE\xFF\x00f\x00a\x00c\x00t", $out);
+        // text/xml MIME yields the text#2Fxml subtype expected by validators.
+        $this->assertStringContainsString('/Subtype /text#2Fxml', $out);
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetOutEmbeddedFilesSkippedInPdfa1And2(): void

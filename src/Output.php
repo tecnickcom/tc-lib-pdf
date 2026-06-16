@@ -594,7 +594,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $afnames = [];
             $afobjs = [];
             foreach ($this->embeddedfiles as $efname => $efdata) {
-                $afnames[] = $this->getOutTextString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
+                // The EmbeddedFiles name-tree key must be a plain (PDFDocEncoded)
+                // byte string matching the Filespec /F, not UTF-16BE, otherwise
+                // readers cannot resolve the embedded file by name.
+                $afnames[] = $this->encrypt->escapeDataString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
                 $afobjs[] = $efdata['f'] . ' 0 R';
             }
             $names .= ' /EmbeddedFiles << /Names [ ' . \implode(' ', $afnames) . ' ] >>';
@@ -1394,14 +1397,18 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 . ' 0 obj'
                 . "\n"
                 . '<<'
+                // /F is the PDFDocEncoded (ASCII) file name; it must NOT be
+                // UTF-16BE encoded or readers (and ZUGFeRD/Factur-X validators)
+                // fail to match the embedded file. /UF carries the Unicode name
+                // as UTF-16BE WITH the mandatory byte order mark.
                 . ' /Type /Filespec /F '
-                . $this->getOutTextString($name, $oid)
+                . $this->encrypt->escapeDataString($name, $oid)
                 . ' /UF '
-                . $this->getOutTextString($name, $oid)
+                . $this->getOutTextString($name, $oid, true)
                 . ' /AFRelationship /'
                 . $data['afRelationship']
                 . ' /Desc '
-                . $this->getOutTextString($data['description'], $data['f'])
+                . $this->getOutTextString($data['description'], $data['f'], true)
                 . ' /EF <</F '
                 . $data['n']
                 . ' 0 R>>'

@@ -317,7 +317,15 @@ $invoiceXML = <<<XML
     </rsm:CrossIndustryInvoice>
     XML;
 
-$pdf->addContentAsEmbeddedFile(file: 'factur-x.xml', content: $invoiceXML);
+// Factur-X/ZUGFeRD requires the XML to be embedded as text/xml with the
+// AFRelationship set to "Alternative" and the exact file name "factur-x.xml".
+$pdf->addContentAsEmbeddedFile(
+    file: 'factur-x.xml',
+    content: $invoiceXML,
+    mime: 'text/xml',
+    afrel: 'Alternative',
+    desc: 'Factur-X/ZUGFeRD electronic invoice',
+);
 
 $pdf->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag', '<rdf:li rdf:parseType="Resource">
     <pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema>
