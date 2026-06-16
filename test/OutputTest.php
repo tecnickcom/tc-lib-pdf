@@ -3431,6 +3431,12 @@ class OutputTest extends TestUtil
             '/EmbeddedFiles',
             '/Dests 7 0 R',
         ]);
+
+        // The /AF (Associated Files) array must be an entry of the Catalog root,
+        // not nested inside the /Names dictionary (ISO 32000-2, PDF/A-3).
+        $namesPos = \strpos($out, '/Names <<');
+        $this->assertNotFalse($namesPos);
+        $this->assertStringNotContainsString('/AF', \substr($out, $namesPos));
     }
 
     /**

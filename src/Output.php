@@ -582,11 +582,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             //.' /Extensions <<>>'
             . ' /Pages '
             . $this->objid['pages']
-            . ' 0 R'
-            //.' /PageLabels ' //...
-            . ' /Names <<';
+            . ' 0 R';
+        //.' /PageLabels ' //...
+
+        $names = '';
         if ($this->pdfa === 0 && !$this->pdfx && $this->pdfuaMode === '' && $this->jstree !== '') {
-            $out .= ' /JavaScript ' . $this->jstree;
+            $names .= ' /JavaScript ' . $this->jstree;
         }
 
         if ($this->embeddedfiles !== []) {
@@ -596,11 +597,16 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $afnames[] = $this->getOutTextString($efname, $oid) . ' ' . $efdata['f'] . ' 0 R';
                 $afobjs[] = $efdata['f'] . ' 0 R';
             }
+            $names .= ' /EmbeddedFiles << /Names [ ' . \implode(' ', $afnames) . ' ] >>';
+            // The /AF (Associated Files) array is an entry of the document Catalog
+            // dictionary itself, not of the /Names tree (ISO 32000-2, PDF/A-3).
             $out .= ' /AF [ ' . \implode(' ', $afobjs) . ' ]';
-            $out .= ' /EmbeddedFiles << /Names [ ' . \implode(' ', $afnames) . ' ] >>';
         }
 
-        $out .= ' >>';
+        // Only emit the /Names dictionary when it actually has content.
+        if ($names !== '') {
+            $out .= ' /Names <<' . $names . ' >>';
+        }
 
         if ($this->objid['dests'] !== 0) {
             $out .= ' /Dests ' . $this->objid['dests'] . ' 0 R';
