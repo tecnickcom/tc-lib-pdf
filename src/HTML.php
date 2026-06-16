@@ -14432,6 +14432,733 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Handle a pre-line/pre-like whitespace fragment that contains an explicit
+     * newline: render the part before the first "\n", advance the cursor to the
+     * next line, then render the remainder. Returns the produced PDF code, or
+     * null when the fragment needs no newline handling and normal text flow
+     * should continue.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param-out THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
+     * @param string $text Normalized fragment text.
+     * @param float $tpx Abscissa of upper-left corner.
+     * @param float $tpy Ordinate of upper-left corner.
+     * @param float $tpw Width.
+     * @param float $tph Height.
+     * @param ?callable(string):void $appendFragment Optional sink used to emit
+     *        the partial flush of any open block-level buffers onto the current
+     *        page right before a region/page break.
+     *
+     * @return ?string PDF code when handled, or null to continue normal flow.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     * @throws PdfException
+     * @throws \Throwable
+     */
+    protected function splitHTMLTextPreLineNewline(
+        array &$hrc,
+        int $key,
+        string $text,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+        ?callable $appendFragment = null,
+    ): ?string {
+        if (
+            $this->getHTMLWhiteSpaceMode($hrc, $key) !== 'pre-line'
+            && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
+        ) {
+            return null;
+        }
+
+        if (!\str_contains($text, "\n")) {
+            return null;
+        }
+
+        $origElm = $hrc['dom'][$key] ?? null;
+        if (!\is_array($origElm)) {
+            return '';
+        }
+
+        $splitPos = \strpos($text, "\n");
+        if ($splitPos === false) {
+            return null;
+        }
+
+        $head = \substr($text, 0, $splitPos);
+        $tail = \substr($text, $splitPos + 1);
+
+        $headOut = '';
+        if ($head !== '') {
+            $headHrc = $hrc;
+            $headElm = $origElm;
+            $headElm['value'] = $head;
+            $headHrc['dom'][$key] = $headElm;
+            $headOut = $this->parseHTMLText($headHrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+            $hrc = $headHrc;
+        }
+
+        $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
+        $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
+        $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
+
+        $tailOut = '';
+        if ($tail !== '') {
+            $tailHrc = $hrc;
+            $tailElm = $origElm;
+            $tailElm['value'] = $tail;
+            $tailHrc['dom'][$key] = $tailElm;
+            $tailOut = $this->parseHTMLText($tailHrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+            $hrc = $tailHrc;
+        }
+
+        $hrc['dom'][$key] = $origElm;
+        return $headOut . $tailOut;
+    }
+
+    /**
+     * Multi-line vertical fit guard: when a wrappable fragment would produce
+     * more wrapped lines than fit in the remaining region height, render only
+     * the lines that fit, page-break, then process the remainder recursively on
+     * the new page region. Returns the produced PDF code, or null when the
+     * fragment fits and normal text flow should continue.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param-out THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key.
+     * @param string $text Normalized fragment text.
+     * @param string $forcedir Forced text direction ('R' or '').
+     * @param string $halign Horizontal alignment.
+     * @param float $lineAdvance Current line advance.
+     * @param THTMLAttrib $elm DOM element being rendered.
+     * @param string $breakoutPrefix PDF code emitted by an earlier page break.
+     * @param float $tpx Abscissa of upper-left corner.
+     * @param float $tpy Ordinate of upper-left corner.
+     * @param float $tpw Width.
+     * @param float $tph Height.
+     * @param ?callable(string):void $appendFragment Optional sink used to emit
+     *        the partial flush of any open block-level buffers onto the current
+     *        page right before a region/page break.
+     *
+     * @return ?string PDF code when handled, or null to continue normal flow.
+     *
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     * @throws PdfException
+     * @throws \Throwable
+     */
+    protected function splitHTMLTextForVerticalFit(
+        array &$hrc,
+        int $key,
+        string $text,
+        string $forcedir,
+        string $halign,
+        float $lineAdvance,
+        array $elm,
+        string $breakoutPrefix,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+        ?callable $appendFragment = null,
+    ): ?string {
+        if (
+            $hrc['tablestack'] !== []
+            || $hrc['bcellctx'] !== []
+            || $hrc['cellctx']['maxheight'] > 0.0
+            || $lineAdvance <= 0.0
+            || !$this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
+        ) {
+            return null;
+        }
+
+        $regionMV = $this->page->getRegion();
+        $regiontopMV = $regionMV['RY'];
+        $remainingMV = $this->getHTMLRemainingHeight($hrc, $tpy);
+        $maxFitLines = (int) \floor(($remainingMV + self::WIDTH_TOLERANCE) / $lineAdvance);
+        if ($maxFitLines < 1) {
+            $maxFitLines = 1;
+        }
+
+        $lineOffsetMV = $tpx - $hrc['cellctx']['originx'];
+        if ($lineOffsetMV < 0.0) {
+            $lineOffsetMV = 0.0;
+        }
+
+        $availableWidthMV = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+        if ($availableWidthMV <= 0.0) {
+            $availableWidthMV = $tpw;
+        }
+
+        if ($availableWidthMV <= 0.0) {
+            return null;
+        }
+
+        $probeText = $text;
+        $probeOrd = [];
+        $probeDim = $this->getHTMLDefaultTextDims();
+        $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir);
+        $probeLines = $this->splitLines(
+            $probeOrd,
+            $probeDim,
+            $this->toPoints($availableWidthMV),
+            $this->toPoints(\min($lineOffsetMV, $availableWidthMV)),
+        );
+        $probeCount = \count($probeLines);
+
+        // A paragraph taller than the remaining region height is split
+        // when there is room above it on this region (a mid-region break)
+        // or when the page offers a further region to flow into. The
+        // latter lets a paragraph that starts exactly at a region/band top
+        // still hug a banded obstacle: render the lines that fit in this
+        // band, then break into the next band instead of overprinting it.
+        $atRegionTopMV = $tpy <= ($regiontopMV + self::WIDTH_TOLERANCE);
+        $canSplitAtTopMV = $atRegionTopMV && $this->htmlCanAdvanceRegion();
+        if ($probeCount <= $maxFitLines || $atRegionTopMV && !$canSplitAtTopMV) {
+            return null;
+        }
+
+        $fitLines = $maxFitLines;
+
+        // Orphan/widow control only applies to a mid-region break,
+        // where lines above the paragraph give room to trade. At a
+        // region top the band may be a single line tall, so honoring
+        // orphans/widows would either starve the band (no line ever
+        // fits, looping) or hold back lines that have nowhere to go;
+        // render as many lines as fit and let the rest flow on.
+        if (!$atRegionTopMV) {
+            $orphans = \max(1, (int) $elm['orphans']);
+            $widows = \max(1, (int) $elm['widows']);
+            $tailLines = $probeCount - $fitLines;
+            if ($tailLines > 0 && $tailLines < $widows) {
+                $fitLines = \max(0, $probeCount - $widows);
+            }
+
+            if ($fitLines < $orphans) {
+                if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
+                    $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+                    if ($flush !== '') {
+                        $appendFragment($flush);
+                    }
+                }
+
+                $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
+                $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
+
+                if ($hrc['blockbuf'] !== []) {
+                    foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
+                        $blkEntry2['by'] = $tpy;
+                        $hrc['blockbuf'][$bidx2] = $blkEntry2;
+                    }
+                }
+
+                if ($hrc['tablestack'] !== []) {
+                    $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+                }
+
+                return $breakoutPrefix
+                . $brk
+                . $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+            }
+        }
+
+        $cut = 0;
+        for ($i = 0; $i < $fitLines; ++$i) {
+            $probeLine = $probeLines[$i] ?? null;
+            if (!\is_array($probeLine)) {
+                break;
+            }
+
+            $cut = (int) $probeLine['pos'] + (int) $probeLine['chars'];
+        }
+        $probeLen = \mb_strlen($probeText);
+        if ($cut <= 0 || $cut >= $probeLen) {
+            return null;
+        }
+
+        $head = \mb_substr($probeText, 0, $cut);
+        $tail = \mb_substr($probeText, $cut);
+        if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)) {
+            $tail = \ltrim($tail);
+        }
+
+        if ($head === '' || $tail === '') {
+            return null;
+        }
+
+        $origElm = $hrc['dom'][$key] ?? null;
+        if (!\is_array($origElm)) {
+            return '';
+        }
+
+        $headElm = $origElm;
+        $headElm['value'] = $head;
+        $hrc['dom'][$key] = $headElm;
+        // The paragraph continues in the tail, so the head's last
+        // visual line must be justified (not treated as a ragged
+        // paragraph end) to match a continuously flowed cell.
+        $prevJustifyContinuation = $this->htmlJustifyContinuationLine;
+        $this->htmlJustifyContinuationLine = $halign === 'J';
+        $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
+
+        // The head's final line is left "open" (the cursor stays on
+        // it so a following inline fragment could continue it), so tpy
+        // is not advanced past it. When the head exactly fills a
+        // single-line band, tpy is therefore still at the region top
+        // and breakHTMLIfNeeded() would treat the band as untouched and
+        // refuse to advance, leaving the tail to overprint the head.
+        // Drop tpy to the rendered line bottom so the break sees the
+        // band as consumed and moves the tail to the next region.
+        $headBottom = $hrc['cellctx']['linebottom'];
+        if ($headBottom > ($tpy + self::WIDTH_TOLERANCE)) {
+            $tpy = $headBottom;
+        }
+
+        // The HEAD portion belongs to the current (about-to-end)
+        // page and must be dispatched before the page break, using
+        // the same routing the caller applies to fragments
+        // (table-cell capture, block-level buffer, or direct page
+        // append). Mirroring this dispatch here ensures the head
+        // bytes are emitted on the correct page and not carried
+        // over to the new page along with the tail.
+        $headDispatch = $breakoutPrefix . $headOut;
+        if ($headDispatch !== '' && !$this->captureHTMLFragment($hrc, $headDispatch) && $appendFragment !== null) {
+            $appendFragment($headDispatch);
+        }
+
+        if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
+            $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
+            if ($flush !== '') {
+                $appendFragment($flush);
+            }
+        }
+
+        $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
+        $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
+
+        if ($hrc['blockbuf'] !== []) {
+            foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
+                $blkEntry2['by'] = $tpy;
+                $hrc['blockbuf'][$bidx2] = $blkEntry2;
+            }
+        }
+
+        if ($hrc['tablestack'] !== []) {
+            $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
+        }
+
+        $tailElm = $origElm;
+        $tailElm['value'] = $tail;
+        $hrc['dom'][$key] = $tailElm;
+        $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+
+        $hrc['dom'][$key] = $origElm;
+
+        // HEAD has already been dispatched above onto the
+        // current (now previous) page; only return $brk and
+        // $tailOut, which belong to the new page.
+        return $brk . $tailOut;
+    }
+
+    /**
+     * Resolve the inline background, padding, border and inline-block minimum
+     * width that a text fragment inherits from a decorated inline (or inline
+     * inline-block) parent element.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param THTMLAttrib $elm DOM element being rendered.
+     *
+     * @return array{
+     *     bgcolor: string,
+     *     padding: array{T: float, R: float, B: float, L: float},
+     *     border: array<string, BorderStyle>,
+     *     ibminw: float,
+     *     inlineblock: bool
+     * }
+     */
+    protected function resolveHTMLInlineDecoration(array &$hrc, array $elm): array
+    {
+        $decorBgcolor = '';
+        $decorPadding = ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0];
+        $decorBorder = [];
+        $ibMinDecorW = 0.0;
+        $isInlineBlockParent = false;
+        if (!$elm['tag'] && isset($hrc['dom'][$elm['parent']])) {
+            $parentElm = $hrc['dom'][$elm['parent']];
+            if (($parentElm['tag'] ?? false) && ($parentElm['opening'] ?? false)) {
+                $parentDisplay = \strtolower(\trim($parentElm['display']));
+                $isInlineBlockParent = $parentDisplay === 'inline-block';
+
+                $grandParentElm = null;
+                if (isset($hrc['dom'][$parentElm['parent']])) {
+                    $grandParentElm = $hrc['dom'][$parentElm['parent']];
+                }
+
+                $hasInlineDecoration = false;
+                if (isset($parentElm['bgcolor']) && $parentElm['bgcolor'] !== '' && \is_string($parentElm['bgcolor'])) {
+                    $hasInlineDecoration = true;
+                }
+                if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
+                    foreach (['T', 'R', 'B', 'L'] as $side) {
+                        if (!(isset($parentElm['padding'][$side]) && $parentElm['padding'][$side] > 0.0)) {
+                            continue;
+                        }
+
+                        $hasInlineDecoration = true;
+                        break;
+                    }
+                }
+                if (isset($parentElm['border']) && $parentElm['border'] !== []) {
+                    $hasInlineDecoration = true;
+                }
+
+                $hasOwnBg = false;
+                if (isset($parentElm['bgcolor'])) {
+                    $hasOwnBg =
+                        $grandParentElm === null
+                        || $grandParentElm['bgcolor'] === ''
+                        || $grandParentElm['bgcolor'] !== $parentElm['bgcolor'];
+                }
+
+                $hasOwnPadding = false;
+                if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
+                    foreach (['T', 'R', 'B', 'L'] as $side) {
+                        $parentPad = isset($parentElm['padding'][$side]) ? $parentElm['padding'][$side] : 0.0;
+                        $grandPad = $grandParentElm !== null
+                        && isset($grandParentElm['padding'])
+                        && $grandParentElm['padding'] !== []
+                        && isset($grandParentElm['padding'][$side])
+                            ? $grandParentElm['padding'][$side]
+                            : 0.0;
+
+                        if ($parentPad > ($grandPad + self::WIDTH_TOLERANCE)) {
+                            $hasOwnPadding = true;
+                            break;
+                        }
+                    }
+                }
+
+                $hasOwnBorder = false;
+                if (isset($parentElm['border']) && $parentElm['border'] !== []) {
+                    $hasOwnBorder =
+                        $grandParentElm === null
+                        || $grandParentElm['border'] === []
+                        || $grandParentElm['border'] !== $parentElm['border'];
+                }
+
+                // For pure inline elements, only apply decorations if they are not inherited
+                if (
+                    $parentDisplay === 'inline'
+                    && $hasInlineDecoration
+                    && ($hasOwnBg || $hasOwnPadding || $hasOwnBorder)
+                ) {
+                    if (isset($parentElm['bgcolor'])) {
+                        $decorBgcolor = $parentElm['bgcolor'];
+                    }
+                    if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
+                        foreach ($parentElm['padding'] as $paddingSide => $paddingValue) {
+                            if (!\in_array($paddingSide, ['T', 'R', 'B', 'L'], true)) {
+                                continue;
+                            }
+
+                            $decorPadding[$paddingSide] = $paddingValue;
+                        }
+                    }
+                    if ($hasOwnBorder && isset($parentElm['border']) && $parentElm['border'] !== []) {
+                        $decorBorder = $parentElm['border'];
+                    }
+                }
+
+                // Inline-block decoration for block-like parents is rendered by block open/close;
+                // keep parseHTMLText decoration only for inline inline-block containers.
+                $isInlineSpanParent = $parentElm['value'] !== '' && $parentElm['value'] === 'span';
+                if ($isInlineBlockParent && $hasInlineDecoration && $isInlineSpanParent) {
+                    if (isset($parentElm['bgcolor'])) {
+                        $decorBgcolor = $parentElm['bgcolor'];
+                    }
+                    if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
+                        foreach ($parentElm['padding'] as $paddingSide => $paddingValue) {
+                            if (!\in_array($paddingSide, ['T', 'R', 'B', 'L'], true)) {
+                                continue;
+                            }
+
+                            $decorPadding[$paddingSide] = $paddingValue;
+                        }
+                    }
+                    if (
+                        isset($parentElm['border'])
+                        && $parentElm['border'] !== []
+                        && isset($parentElm['border']['LTRB'])
+                    ) {
+                        $decorBorder = $parentElm['border'];
+                    }
+                }
+
+                if ($isInlineBlockParent && isset($parentElm['width']) && $parentElm['width'] > 0) {
+                    $inlineWidth = $parentElm['width'];
+                    if ($inlineWidth > 0.0) {
+                        $borderLeft = 0.0;
+                        $borderRight = 0.0;
+                        if (isset($parentElm['border']) && $parentElm['border'] !== []) {
+                            $bLTRB = $parentElm['border']['LTRB'] ?? null;
+                            $bL = $parentElm['border']['L'] ?? null;
+                            if ($bL !== null && $bL !== []) {
+                                $borderLeft = isset($bL['lineWidth']) ? $bL['lineWidth'] : 0.0;
+                            } elseif ($bLTRB !== null) {
+                                $borderLeft = isset($bLTRB['lineWidth']) ? $bLTRB['lineWidth'] : 0.0;
+                            }
+
+                            $bR = $parentElm['border']['R'] ?? null;
+                            if ($bR !== null && $bR !== []) {
+                                $borderRight = isset($bR['lineWidth']) ? $bR['lineWidth'] : 0.0;
+                            } elseif ($bLTRB !== null) {
+                                $borderRight = isset($bLTRB['lineWidth']) ? $bLTRB['lineWidth'] : 0.0;
+                            }
+                        }
+
+                        $ibMinDecorW =
+                            $inlineWidth + $decorPadding['L'] + $decorPadding['R'] + $borderLeft + $borderRight;
+                    }
+                }
+            }
+        }
+
+        return [
+            'bgcolor' => $decorBgcolor,
+            'padding' => $decorPadding,
+            'border' => $decorBorder,
+            'ibminw' => $ibMinDecorW,
+            'inlineblock' => $isInlineBlockParent,
+        ];
+    }
+
+    /**
+     * Build the PDF code that paints the inline background rectangle(s) for a
+     * decorated text fragment. A wrapped fragment is painted as up to three
+     * segments (first partial line, full middle block, last partial line) while
+     * a single-line or block-ancestor fragment is painted as one rectangle.
+     * Returns an empty string when the fragment has no background to paint.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $currentkey Current DOM array key.
+     * @param string $decorBgcolor Resolved background color.
+     * @param float $decorRectW Decoration rectangle width.
+     * @param float $decorRectH Decoration rectangle height.
+     * @param array{x: float, y: float, w: float, h: float} $bbox Rendered text bounding box.
+     * @param float $lineOffset Horizontal offset of the fragment on its line.
+     * @param float $lineOriginX Line origin abscissa.
+     * @param float $availableWidth Available line width.
+     * @param float $effectiveWordSpacing Effective word spacing applied to the fragment.
+     * @param string $text Rendered fragment text.
+     * @param string $forcedir Forced text direction ('R' or '').
+     * @param float $renderWidth Render box width.
+     * @param float $renderOffset First-line render offset.
+     * @param bool $wrapped Whether the fragment wrapped onto multiple lines.
+     * @param float $lineAdvance Current line advance.
+     * @param float $renderStartX Render start abscissa.
+     * @param float $renderStartY Render start ordinate.
+     *
+     * @return string PDF code, or an empty string when there is no background.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function buildHTMLInlineBackground(
+        array &$hrc,
+        int $currentkey,
+        string $decorBgcolor,
+        float $decorRectW,
+        float $decorRectH,
+        array $bbox,
+        float $lineOffset,
+        float $lineOriginX,
+        float $availableWidth,
+        float $effectiveWordSpacing,
+        string $text,
+        string $forcedir,
+        float $renderWidth,
+        float $renderOffset,
+        bool $wrapped,
+        float $lineAdvance,
+        float $renderStartX,
+        float $renderStartY,
+    ): string {
+        if ($decorBgcolor === '' || $decorRectW <= 0.0 || $decorRectH <= 0.0) {
+            return '';
+        }
+
+        $background = '';
+        $bgx = $bbox['x'];
+        $bgw = $bbox['w'];
+        $bgy = $bbox['y'];
+        $bgh = $bbox['h'];
+        $fillstyle = $this->getHTMLFillStyle($decorBgcolor);
+        $hasBlockBgAncestor = $this->hasBlockLvBgAncestor($hrc, $currentkey);
+
+        if ($hasBlockBgAncestor) {
+            // Block-level backgrounds (for example td/div) are line-wide.
+            // Draw them once at line start, otherwise later inline fragments
+            // repaint over already-rendered text on the same line.
+            if ($lineOffset > self::WIDTH_TOLERANCE) {
+                $hasBlockBgAncestor = false;
+            }
+        }
+
+        if ($hasBlockBgAncestor) {
+            $bgx = $lineOriginX;
+            $bgw = $availableWidth;
+        }
+
+        // A custom-justified inline run is rendered left-aligned with a Tw
+        // word spacing that stretches it to fill the line, but bbox['w'] only
+        // records the natural (unspaced) string width. Extend the fill by the
+        // same amount the cursor advance adds below, so the background covers
+        // the trailing glyphs of the justified line instead of stopping short.
+        if (!$hasBlockBgAncestor && $effectiveWordSpacing > 0.0) {
+            $bgFragmentSpaces = $this->getHTMLTextFirstLineSpaces(
+                $text,
+                $forcedir,
+                \max(0.0, $renderWidth - $renderOffset),
+            );
+            if ($bgFragmentSpaces > 0) {
+                $bgw += $effectiveWordSpacing * $bgFragmentSpaces;
+            }
+        }
+
+        if ($wrapped && !$hasBlockBgAncestor) {
+            $lineheight = \max($lineAdvance, self::WIDTH_TOLERANCE);
+            $renderEndY = $bbox['y'] + $bbox['h'];
+            $lineSpan = \max(0.0, $renderEndY - $renderStartY);
+            $lineCount = \max(2, (int) \ceil(($lineSpan - self::WIDTH_TOLERANCE) / $lineheight));
+            $firstWidth = \max(0.0, $renderWidth - $renderOffset);
+
+            $segments = [];
+            if ($firstWidth > 0.0 && $lineSpan > 0.0) {
+                $segments[] = [
+                    'x' => $renderStartX,
+                    'y' => $renderStartY,
+                    'w' => $firstWidth,
+                    'h' => \min($lineheight, $lineSpan),
+                ];
+            }
+
+            if ($lineCount > 2) {
+                $middleH = ($lineCount - 2) * $lineheight;
+                if ($middleH > 0.0 && $availableWidth > 0.0) {
+                    $segments[] = [
+                        'x' => $lineOriginX,
+                        'y' => $renderStartY + $lineheight,
+                        'w' => $availableWidth,
+                        'h' => $middleH,
+                    ];
+                }
+            }
+
+            $lastY = \max($bbox['y'], $renderStartY + (($lineCount - 1) * $lineheight));
+            $lastH = $renderEndY - $lastY;
+            if ($lastH <= 0.0) {
+                $lastY = $bbox['y'];
+                $lastH = $bbox['h'];
+            }
+            if ($bbox['w'] > 0.0 && $lastH > 0.0) {
+                $segments[] = [
+                    'x' => $bbox['x'],
+                    'y' => $lastY,
+                    'w' => $bbox['w'],
+                    'h' => $lastH,
+                ];
+            }
+
+            $bgout = '';
+            $graphFillStyle = $this->normalizeHTMLGraphStyleArray($fillstyle);
+            $alphaCmd = $this->getHTMLFillAlphaCmd($fillstyle);
+            foreach ($segments as $segment) {
+                $segx = $segment['x'];
+                $segy = $segment['y'];
+                $segw = $segment['w'];
+                $segh = $segment['h'];
+                if ($segw <= 0.0 || $segh <= 0.0 || $segx < 0.0) {
+                    continue;
+                }
+
+                $bgout .= $this->graph->getBasicRect($segx, $segy, $segw, $segh, 'f', $graphFillStyle);
+            }
+
+            if ($bgout !== '') {
+                $background = $this->graph->getStartTransform() . $alphaCmd . $bgout . $this->graph->getStopTransform();
+            }
+        }
+
+        if ($background === '' && $bgw > 0.0 && $bgx >= 0.0) {
+            $graphFillStyle = $this->normalizeHTMLGraphStyleArray($fillstyle);
+            $alphaCmd = $this->getHTMLFillAlphaCmd($fillstyle);
+            $background =
+                $this->graph->getStartTransform()
+                . $alphaCmd
+                . $this->graph->getBasicRect($bgx, $bgy, $bgw, $bgh, 'f', $graphFillStyle)
+                . $this->graph->getStopTransform();
+        }
+
+        return $background;
+    }
+
+    /**
+     * Build the PDF code that strokes the inline border rectangle for a
+     * decorated text fragment, or an empty string when no border should be
+     * drawn (no border style, zero-sized rectangle, or a block-level
+     * background ancestor already painting the line).
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $currentkey Current DOM array key.
+     * @param array<string, BorderStyle> $decorBorder Resolved border styles.
+     * @param float $decorRectX Decoration rectangle abscissa.
+     * @param float $decorRectY Decoration rectangle ordinate.
+     * @param float $decorRectW Decoration rectangle width.
+     * @param float $decorRectH Decoration rectangle height.
+     * @param bool $isInlineBlockParent Whether the parent is an inline-block element.
+     *
+     * @return string PDF code, or an empty string when there is no border.
+     */
+    protected function buildHTMLInlineBorder(
+        array &$hrc,
+        int $currentkey,
+        array $decorBorder,
+        float $decorRectX,
+        float $decorRectY,
+        float $decorRectW,
+        float $decorRectH,
+        bool $isInlineBlockParent,
+    ): string {
+        if (!isset($decorBorder['LTRB']) || $decorRectW <= 0.0 || $decorRectH <= 0.0) {
+            return '';
+        }
+
+        // For inline-block elements, always render the border (don't check for block ancestor bg)
+        // For pure inline elements, check if block ancestor has same bgcolor
+        $shouldRenderBorder = $isInlineBlockParent || !$this->hasBlockLvBgAncestor($hrc, $currentkey);
+        if (!$shouldRenderBorder) {
+            return '';
+        }
+
+        $graphDecorBorder = $this->normalizeHTMLGraphStyleArray($decorBorder['LTRB']);
+        return (
+            $this->graph->getStartTransform()
+            . $this->graph->getBasicRect($decorRectX, $decorRectY, $decorRectW, $decorRectH, 'D', $graphDecorBorder)
+            . $this->graph->getStopTransform()
+        );
+    }
+
+    /**
      * Process HTML Text (content between tags).
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -14488,50 +15215,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $whitespaceMode = $this->getHTMLWhiteSpaceMode($hrc, $key);
-        if (
-            ($whitespaceMode === 'pre-line' || $this->isHTMLPreLikeWhiteSpaceMode($hrc, $key))
-            && \str_contains($text, "\n")
-        ) {
-            $origElm = $hrc['dom'][$key] ?? null;
-            if (!\is_array($origElm)) {
-                return '';
-            }
-
-            $splitPos = \strpos($text, "\n");
-            if ($splitPos !== false) {
-                $headPart = \substr($text, 0, $splitPos);
-                $tailPart = \substr($text, $splitPos + 1);
-                $head = $headPart;
-                $tail = $tailPart;
-
-                $headOut = '';
-                if ($head !== '') {
-                    $headHrc = $hrc;
-                    $headElm = $origElm;
-                    $headElm['value'] = $head;
-                    $headHrc['dom'][$key] = $headElm;
-                    $headOut = $this->parseHTMLText($headHrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-                    $hrc = $headHrc;
-                }
-
-                $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
-                $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
-                $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
-
-                $tailOut = '';
-                if ($tail !== '') {
-                    $tailHrc = $hrc;
-                    $tailElm = $origElm;
-                    $tailElm['value'] = $tail;
-                    $tailHrc['dom'][$key] = $tailElm;
-                    $tailOut = $this->parseHTMLText($tailHrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-                    $hrc = $tailHrc;
-                }
-
-                $hrc['dom'][$key] = $origElm;
-                return $headOut . $tailOut;
-            }
+        $preLineOut = $this->splitHTMLTextPreLineNewline($hrc, $key, $text, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        if ($preLineOut !== null) {
+            return $preLineOut;
         }
 
         $style = $elm['fontstyle'] === '' ? '' : $elm['fontstyle'];
@@ -14688,201 +15374,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $breakoutPrefix = $breakout;
         }
 
-        // Multi-line vertical fit guard: when a wrappable fragment will produce
-        // more wrapped lines than fit in the remaining region height, render
-        // only the lines that fit, page-break, then process the remainder
-        // recursively on the new page region.
-        if (
-            $hrc['tablestack'] === []
-            && $hrc['bcellctx'] === []
-            && $hrc['cellctx']['maxheight'] <= 0.0
-            && $lineAdvance > 0.0
-            && $this->hasHTMLTextBreakOpportunity($hrc, $key, $text)
-        ) {
-            $regionMV = $this->page->getRegion();
-            $regiontopMV = $regionMV['RY'];
-            $remainingMV = $this->getHTMLRemainingHeight($hrc, $tpy);
-            $maxFitLines = (int) \floor(($remainingMV + self::WIDTH_TOLERANCE) / $lineAdvance);
-            if ($maxFitLines < 1) {
-                $maxFitLines = 1;
-            }
-
-            $lineOffsetMV = $tpx - $hrc['cellctx']['originx'];
-            if ($lineOffsetMV < 0.0) {
-                $lineOffsetMV = 0.0;
-            }
-
-            $availableWidthMV = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
-            if ($availableWidthMV <= 0.0) {
-                $availableWidthMV = $tpw;
-            }
-
-            if ($availableWidthMV > 0.0) {
-                $probeText = $text;
-                $probeOrd = [];
-                $probeDim = $this->getHTMLDefaultTextDims();
-                $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir);
-                $probeLines = $this->splitLines(
-                    $probeOrd,
-                    $probeDim,
-                    $this->toPoints($availableWidthMV),
-                    $this->toPoints(\min($lineOffsetMV, $availableWidthMV)),
-                );
-                $probeCount = \count($probeLines);
-
-                // A paragraph taller than the remaining region height is split
-                // when there is room above it on this region (a mid-region break)
-                // or when the page offers a further region to flow into. The
-                // latter lets a paragraph that starts exactly at a region/band top
-                // still hug a banded obstacle: render the lines that fit in this
-                // band, then break into the next band instead of overprinting it.
-                $atRegionTopMV = $tpy <= ($regiontopMV + self::WIDTH_TOLERANCE);
-                $canSplitAtTopMV = $atRegionTopMV && $this->htmlCanAdvanceRegion();
-                if ($probeCount > $maxFitLines && (!$atRegionTopMV || $canSplitAtTopMV)) {
-                    $fitLines = $maxFitLines;
-
-                    // Orphan/widow control only applies to a mid-region break,
-                    // where lines above the paragraph give room to trade. At a
-                    // region top the band may be a single line tall, so honoring
-                    // orphans/widows would either starve the band (no line ever
-                    // fits, looping) or hold back lines that have nowhere to go;
-                    // render as many lines as fit and let the rest flow on.
-                    if (!$atRegionTopMV) {
-                        $orphans = \max(1, (int) $elm['orphans']);
-                        $widows = \max(1, (int) $elm['widows']);
-                        $tailLines = $probeCount - $fitLines;
-                        if ($tailLines > 0 && $tailLines < $widows) {
-                            $fitLines = \max(0, $probeCount - $widows);
-                        }
-
-                        if ($fitLines < $orphans) {
-                            if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
-                                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
-                                if ($flush !== '') {
-                                    $appendFragment($flush);
-                                }
-                            }
-
-                            $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
-                            $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
-
-                            if ($hrc['blockbuf'] !== []) {
-                                foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
-                                    $blkEntry2['by'] = $tpy;
-                                    $hrc['blockbuf'][$bidx2] = $blkEntry2;
-                                }
-                            }
-
-                            if ($hrc['tablestack'] !== []) {
-                                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
-                            }
-
-                            return $breakoutPrefix
-                            . $brk
-                            . $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-                        }
-                    }
-
-                    $cut = 0;
-                    for ($i = 0; $i < $fitLines; ++$i) {
-                        $probeLine = $probeLines[$i] ?? null;
-                        if (!\is_array($probeLine)) {
-                            break;
-                        }
-
-                        $cut = (int) $probeLine['pos'] + (int) $probeLine['chars'];
-                    }
-                    $probeLen = \mb_strlen($probeText);
-                    if ($cut > 0 && $cut < $probeLen) {
-                        $head = \mb_substr($probeText, 0, $cut);
-                        $tail = \mb_substr($probeText, $cut);
-                        if (!$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)) {
-                            $tail = \ltrim($tail);
-                        }
-
-                        if ($head !== '' && $tail !== '') {
-                            $origElm = $hrc['dom'][$key] ?? null;
-                            if (!\is_array($origElm)) {
-                                return '';
-                            }
-
-                            $headElm = $origElm;
-                            $headElm['value'] = $head;
-                            $hrc['dom'][$key] = $headElm;
-                            // The paragraph continues in the tail, so the head's last
-                            // visual line must be justified (not treated as a ragged
-                            // paragraph end) to match a continuously flowed cell.
-                            $prevJustifyContinuation = $this->htmlJustifyContinuationLine;
-                            $this->htmlJustifyContinuationLine = $halign === 'J';
-                            $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-                            $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
-
-                            // The head's final line is left "open" (the cursor stays on
-                            // it so a following inline fragment could continue it), so tpy
-                            // is not advanced past it. When the head exactly fills a
-                            // single-line band, tpy is therefore still at the region top
-                            // and breakHTMLIfNeeded() would treat the band as untouched and
-                            // refuse to advance, leaving the tail to overprint the head.
-                            // Drop tpy to the rendered line bottom so the break sees the
-                            // band as consumed and moves the tail to the next region.
-                            $headBottom = $hrc['cellctx']['linebottom'];
-                            if ($headBottom > ($tpy + self::WIDTH_TOLERANCE)) {
-                                $tpy = $headBottom;
-                            }
-
-                            // The HEAD portion belongs to the current (about-to-end)
-                            // page and must be dispatched before the page break, using
-                            // the same routing the caller applies to fragments
-                            // (table-cell capture, block-level buffer, or direct page
-                            // append). Mirroring this dispatch here ensures the head
-                            // bytes are emitted on the correct page and not carried
-                            // over to the new page along with the tail.
-                            $headDispatch = $breakoutPrefix . $headOut;
-                            $breakoutPrefix = '';
-                            if (
-                                $headDispatch !== ''
-                                && !$this->captureHTMLFragment($hrc, $headDispatch)
-                                && $appendFragment !== null
-                            ) {
-                                $appendFragment($headDispatch);
-                            }
-
-                            if ($hrc['blockbuf'] !== [] && $appendFragment !== null) {
-                                $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
-                                if ($flush !== '') {
-                                    $appendFragment($flush);
-                                }
-                            }
-
-                            $forceH = $this->getHTMLRemainingHeight($hrc, $tpy) + $lineAdvance + 1.0;
-                            $brk = $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $tpy, $tpw, $tph);
-
-                            if ($hrc['blockbuf'] !== []) {
-                                foreach ($hrc['blockbuf'] as $bidx2 => $blkEntry2) {
-                                    $blkEntry2['by'] = $tpy;
-                                    $hrc['blockbuf'][$bidx2] = $blkEntry2;
-                                }
-                            }
-
-                            if ($hrc['tablestack'] !== []) {
-                                $this->resetHTMLTableStackOnPageBreak($hrc, $tpy);
-                            }
-
-                            $tailElm = $origElm;
-                            $tailElm['value'] = $tail;
-                            $hrc['dom'][$key] = $tailElm;
-                            $tailOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-
-                            $hrc['dom'][$key] = $origElm;
-
-                            // HEAD has already been dispatched above onto the
-                            // current (now previous) page; only return $brk and
-                            // $tailOut, which belong to the new page.
-                            return $brk . $tailOut;
-                        }
-                    }
-                }
-            }
+        $verticalFitOut = $this->splitHTMLTextForVerticalFit(
+            $hrc,
+            $key,
+            $text,
+            $forcedir,
+            $halign,
+            $lineAdvance,
+            $elm,
+            $breakoutPrefix,
+            $tpx,
+            $tpy,
+            $tpw,
+            $tph,
+            $appendFragment,
+        );
+        if ($verticalFitOut !== null) {
+            return $verticalFitOut;
         }
 
         $out = $breakoutPrefix . $this->getHTMLTextPrefix($hrc, $currentkey);
@@ -15230,151 +15738,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $wrapped = $wrapped || $bbox['h'] > (\max($lineAdvance, $curHeight) + self::WIDTH_TOLERANCE);
         }
 
-        $decorBgcolor = '';
-        $decorPadding = ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0];
-        $decorBorder = [];
-        $ibMinDecorW = 0.0;
         $inlineBlockEndX = 0.0;
-        $isInlineBlockParent = false;
-        if (!$elm['tag'] && isset($hrc['dom'][$elm['parent']])) {
-            $parentElm = $hrc['dom'][$elm['parent']];
-            if (($parentElm['tag'] ?? false) && ($parentElm['opening'] ?? false)) {
-                $parentDisplay = \strtolower(\trim($parentElm['display']));
-                $isInlineBlockParent = $parentDisplay === 'inline-block';
-
-                $grandParentElm = null;
-                if (isset($hrc['dom'][$parentElm['parent']])) {
-                    $grandParentElm = $hrc['dom'][$parentElm['parent']];
-                }
-
-                $hasInlineDecoration = false;
-                if (isset($parentElm['bgcolor']) && $parentElm['bgcolor'] !== '' && \is_string($parentElm['bgcolor'])) {
-                    $hasInlineDecoration = true;
-                }
-                if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
-                    foreach (['T', 'R', 'B', 'L'] as $side) {
-                        if (!(isset($parentElm['padding'][$side]) && $parentElm['padding'][$side] > 0.0)) {
-                            continue;
-                        }
-
-                        $hasInlineDecoration = true;
-                        break;
-                    }
-                }
-                if (isset($parentElm['border']) && $parentElm['border'] !== []) {
-                    $hasInlineDecoration = true;
-                }
-
-                $hasOwnBg = false;
-                if (isset($parentElm['bgcolor'])) {
-                    $hasOwnBg =
-                        $grandParentElm === null
-                        || $grandParentElm['bgcolor'] === ''
-                        || $grandParentElm['bgcolor'] !== $parentElm['bgcolor'];
-                }
-
-                $hasOwnPadding = false;
-                if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
-                    foreach (['T', 'R', 'B', 'L'] as $side) {
-                        $parentPad = isset($parentElm['padding'][$side]) ? $parentElm['padding'][$side] : 0.0;
-                        $grandPad = $grandParentElm !== null
-                        && isset($grandParentElm['padding'])
-                        && $grandParentElm['padding'] !== []
-                        && isset($grandParentElm['padding'][$side])
-                            ? $grandParentElm['padding'][$side]
-                            : 0.0;
-
-                        if ($parentPad > ($grandPad + self::WIDTH_TOLERANCE)) {
-                            $hasOwnPadding = true;
-                            break;
-                        }
-                    }
-                }
-
-                $hasOwnBorder = false;
-                if (isset($parentElm['border']) && $parentElm['border'] !== []) {
-                    $hasOwnBorder =
-                        $grandParentElm === null
-                        || $grandParentElm['border'] === []
-                        || $grandParentElm['border'] !== $parentElm['border'];
-                }
-
-                // For pure inline elements, only apply decorations if they are not inherited
-                if (
-                    $parentDisplay === 'inline'
-                    && $hasInlineDecoration
-                    && ($hasOwnBg || $hasOwnPadding || $hasOwnBorder)
-                ) {
-                    if (isset($parentElm['bgcolor'])) {
-                        $decorBgcolor = $parentElm['bgcolor'];
-                    }
-                    if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
-                        foreach ($parentElm['padding'] as $paddingSide => $paddingValue) {
-                            if (!\in_array($paddingSide, ['T', 'R', 'B', 'L'], true)) {
-                                continue;
-                            }
-
-                            $decorPadding[$paddingSide] = $paddingValue;
-                        }
-                    }
-                    if ($hasOwnBorder && isset($parentElm['border']) && $parentElm['border'] !== []) {
-                        $decorBorder = $parentElm['border'];
-                    }
-                }
-
-                // Inline-block decoration for block-like parents is rendered by block open/close;
-                // keep parseHTMLText decoration only for inline inline-block containers.
-                $isInlineSpanParent = $parentElm['value'] !== '' && $parentElm['value'] === 'span';
-                if ($isInlineBlockParent && $hasInlineDecoration && $isInlineSpanParent) {
-                    if (isset($parentElm['bgcolor'])) {
-                        $decorBgcolor = $parentElm['bgcolor'];
-                    }
-                    if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
-                        foreach ($parentElm['padding'] as $paddingSide => $paddingValue) {
-                            if (!\in_array($paddingSide, ['T', 'R', 'B', 'L'], true)) {
-                                continue;
-                            }
-
-                            $decorPadding[$paddingSide] = $paddingValue;
-                        }
-                    }
-                    if (
-                        isset($parentElm['border'])
-                        && $parentElm['border'] !== []
-                        && isset($parentElm['border']['LTRB'])
-                    ) {
-                        $decorBorder = $parentElm['border'];
-                    }
-                }
-
-                if ($isInlineBlockParent && isset($parentElm['width']) && $parentElm['width'] > 0) {
-                    $inlineWidth = $parentElm['width'];
-                    if ($inlineWidth > 0.0) {
-                        $borderLeft = 0.0;
-                        $borderRight = 0.0;
-                        if (isset($parentElm['border']) && $parentElm['border'] !== []) {
-                            $bLTRB = $parentElm['border']['LTRB'] ?? null;
-                            $bL = $parentElm['border']['L'] ?? null;
-                            if ($bL !== null && $bL !== []) {
-                                $borderLeft = isset($bL['lineWidth']) ? $bL['lineWidth'] : 0.0;
-                            } elseif ($bLTRB !== null) {
-                                $borderLeft = isset($bLTRB['lineWidth']) ? $bLTRB['lineWidth'] : 0.0;
-                            }
-
-                            $bR = $parentElm['border']['R'] ?? null;
-                            if ($bR !== null && $bR !== []) {
-                                $borderRight = isset($bR['lineWidth']) ? $bR['lineWidth'] : 0.0;
-                            } elseif ($bLTRB !== null) {
-                                $borderRight = isset($bLTRB['lineWidth']) ? $bLTRB['lineWidth'] : 0.0;
-                            }
-                        }
-
-                        $ibMinDecorW =
-                            $inlineWidth + $decorPadding['L'] + $decorPadding['R'] + $borderLeft + $borderRight;
-                    }
-                }
-            }
-        }
+        $decoration = $this->resolveHTMLInlineDecoration($hrc, $elm);
+        $decorBgcolor = $decoration['bgcolor'];
+        $decorPadding = $decoration['padding'];
+        $decorBorder = $decoration['border'];
+        $ibMinDecorW = $decoration['ibminw'];
+        $isInlineBlockParent = $decoration['inlineblock'];
 
         $decorRectX = $bbox['x'] - $decorPadding['L'];
         $decorRectY = $bbox['y'] - $decorPadding['T'];
@@ -15387,141 +15757,37 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $inlineBlockEndX = $decorRectX + $decorRectW;
         }
 
-        $background = '';
-        if ($decorBgcolor !== '' && $decorRectW > 0.0 && $decorRectH > 0.0) {
-            $bgx = $bbox['x'];
-            $bgw = $bbox['w'];
-            $bgy = $bbox['y'];
-            $bgh = $bbox['h'];
-            $fillstyle = $this->getHTMLFillStyle($decorBgcolor);
-            $hasBlockBgAncestor = $this->hasBlockLvBgAncestor($hrc, $currentkey);
+        $background = $this->buildHTMLInlineBackground(
+            $hrc,
+            $currentkey,
+            $decorBgcolor,
+            $decorRectW,
+            $decorRectH,
+            $bbox,
+            $lineOffset,
+            $lineOriginX,
+            $availableWidth,
+            $effectiveWordSpacing,
+            $text,
+            $forcedir,
+            $renderWidth,
+            $renderOffset,
+            $wrapped,
+            $lineAdvance,
+            $renderStartX,
+            $renderStartY,
+        );
 
-            if ($hasBlockBgAncestor) {
-                // Block-level backgrounds (for example td/div) are line-wide.
-                // Draw them once at line start, otherwise later inline fragments
-                // repaint over already-rendered text on the same line.
-                if ($lineOffset > self::WIDTH_TOLERANCE) {
-                    $hasBlockBgAncestor = false;
-                }
-            }
-
-            if ($hasBlockBgAncestor) {
-                $bgx = $lineOriginX;
-                $bgw = $availableWidth;
-            }
-
-            // A custom-justified inline run is rendered left-aligned with a Tw
-            // word spacing that stretches it to fill the line, but bbox['w'] only
-            // records the natural (unspaced) string width. Extend the fill by the
-            // same amount the cursor advance adds below, so the background covers
-            // the trailing glyphs of the justified line instead of stopping short.
-            if (!$hasBlockBgAncestor && $effectiveWordSpacing > 0.0) {
-                $bgFragmentSpaces = $this->getHTMLTextFirstLineSpaces(
-                    $text,
-                    $forcedir,
-                    \max(0.0, $renderWidth - $renderOffset),
-                );
-                if ($bgFragmentSpaces > 0) {
-                    $bgw += $effectiveWordSpacing * $bgFragmentSpaces;
-                }
-            }
-
-            if ($wrapped && !$hasBlockBgAncestor) {
-                $lineheight = \max($lineAdvance, self::WIDTH_TOLERANCE);
-                $renderEndY = $bbox['y'] + $bbox['h'];
-                $lineSpan = \max(0.0, $renderEndY - $renderStartY);
-                $lineCount = \max(2, (int) \ceil(($lineSpan - self::WIDTH_TOLERANCE) / $lineheight));
-                $firstWidth = \max(0.0, $renderWidth - $renderOffset);
-
-                $segments = [];
-                if ($firstWidth > 0.0 && $lineSpan > 0.0) {
-                    $segments[] = [
-                        'x' => $renderStartX,
-                        'y' => $renderStartY,
-                        'w' => $firstWidth,
-                        'h' => \min($lineheight, $lineSpan),
-                    ];
-                }
-
-                if ($lineCount > 2) {
-                    $middleH = ($lineCount - 2) * $lineheight;
-                    if ($middleH > 0.0 && $availableWidth > 0.0) {
-                        $segments[] = [
-                            'x' => $lineOriginX,
-                            'y' => $renderStartY + $lineheight,
-                            'w' => $availableWidth,
-                            'h' => $middleH,
-                        ];
-                    }
-                }
-
-                $lastY = \max($bbox['y'], $renderStartY + (($lineCount - 1) * $lineheight));
-                $lastH = $renderEndY - $lastY;
-                if ($lastH <= 0.0) {
-                    $lastY = $bbox['y'];
-                    $lastH = $bbox['h'];
-                }
-                if ($bbox['w'] > 0.0 && $lastH > 0.0) {
-                    $segments[] = [
-                        'x' => $bbox['x'],
-                        'y' => $lastY,
-                        'w' => $bbox['w'],
-                        'h' => $lastH,
-                    ];
-                }
-
-                $bgout = '';
-                $graphFillStyle = $this->normalizeHTMLGraphStyleArray($fillstyle);
-                $alphaCmd = $this->getHTMLFillAlphaCmd($fillstyle);
-                foreach ($segments as $segment) {
-                    $segx = $segment['x'];
-                    $segy = $segment['y'];
-                    $segw = $segment['w'];
-                    $segh = $segment['h'];
-                    if ($segw <= 0.0 || $segh <= 0.0 || $segx < 0.0) {
-                        continue;
-                    }
-
-                    $bgout .= $this->graph->getBasicRect($segx, $segy, $segw, $segh, 'f', $graphFillStyle);
-                }
-
-                if ($bgout !== '') {
-                    $background =
-                        $this->graph->getStartTransform() . $alphaCmd . $bgout . $this->graph->getStopTransform();
-                }
-            }
-
-            if ($background === '' && $bgw > 0.0 && $bgx >= 0.0) {
-                $graphFillStyle = $this->normalizeHTMLGraphStyleArray($fillstyle);
-                $alphaCmd = $this->getHTMLFillAlphaCmd($fillstyle);
-                $background =
-                    $this->graph->getStartTransform()
-                    . $alphaCmd
-                    . $this->graph->getBasicRect($bgx, $bgy, $bgw, $bgh, 'f', $graphFillStyle)
-                    . $this->graph->getStopTransform();
-            }
-        }
-
-        $inlineBorder = '';
-        if (isset($decorBorder['LTRB']) && $decorBorder['LTRB'] !== [] && $decorRectW > 0.0 && $decorRectH > 0.0) {
-            // For inline-block elements, always render the border (don't check for block ancestor bg)
-            // For pure inline elements, check if block ancestor has same bgcolor
-            $shouldRenderBorder = $isInlineBlockParent || !$this->hasBlockLvBgAncestor($hrc, $currentkey);
-            if ($shouldRenderBorder) {
-                $graphDecorBorder = $this->normalizeHTMLGraphStyleArray($decorBorder['LTRB']);
-                $inlineBorder =
-                    $this->graph->getStartTransform()
-                    . $this->graph->getBasicRect(
-                        $decorRectX,
-                        $decorRectY,
-                        $decorRectW,
-                        $decorRectH,
-                        'D',
-                        $graphDecorBorder,
-                    )
-                    . $this->graph->getStopTransform();
-            }
-        }
+        $inlineBorder = $this->buildHTMLInlineBorder(
+            $hrc,
+            $currentkey,
+            $decorBorder,
+            $decorRectX,
+            $decorRectY,
+            $decorRectW,
+            $decorRectH,
+            $isInlineBlockParent,
+        );
 
         $link = $this->getCurrentHTMLLink($hrc);
         if ($link !== '' && $bbox['w'] > 0.0 && $bbox['h'] > 0.0) {
