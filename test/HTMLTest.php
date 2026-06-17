@@ -4578,6 +4578,106 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Regression fixture for the inline run-ascent leak.
+     *
+     * A paragraph that mixes a taller-than-body inline run (a bold 14pt lead-in
+     * span) and an inline image inside justified 12pt body text used to let the
+     * tall run's ascent leak into the body lines rendered before the image: those
+     * lines were spaced at ~16.87pt (the leaked 13.5pt glyph box x 1.25) instead of
+     * the correct 15pt (12pt x 1.25). The pitch only snapped back to 15pt at the
+     * image. After the fix every body line is spaced by its own height, so the
+     * spacing is uniform and no line carries the leaked ~16.87pt pitch.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellDoesNotLeakInlineRunAscentIntoBodyLineSpacing(): void
+    {
+        $obj = $this->getTestObject();
+        self::setUpFontsPath();
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $fontout = $font->insert($pon, 'helvetica', '', 12);
+
+        $img = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
+        $this->assertNotSame('', $img, 'bundled test image must be present');
+
+        $obj->addPage([
+            'margin' => ['PL' => 15.0, 'PR' => 15.0, 'CT' => 15.0, 'CB' => 15.0],
+            'format' => 'A4',
+        ]);
+        $page->addContent($fontout['out']);
+
+        $lorem = \str_repeat('Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod. ', 8);
+        $html =
+            '<div style="line-height:1.25;">'
+            . '<p style="text-align:justify;font-size:12pt;">'
+            . '<span style="font-size:14pt;font-weight:bold;">TEST:</span> '
+            . $lorem
+            . ' <img src="'
+            . $img
+            . '" width="5mm" height="5mm" /> '
+            . $lorem
+            . '</p></div>';
+
+        $region = $page->getRegion();
+        $obj->addHTMLCell(html: $html, posx: $region['RX'], posy: $region['RY'], width: $region['RW']);
+
+        $allContent = '';
+        foreach ($page->getPages() as $pdata) {
+            $allContent .= \implode("\n", $pdata['content']) . "\n";
+        }
+
+        // Collect the baseline Y of every rendered text line (PDF points, origin
+        // bottom-left so Y decreases down the page) and the consecutive gaps.
+        $tdMatches = [];
+        \preg_match_all('/[\d.\-]+ ([\d.\-]+) Td\b/', $allContent, $tdMatches);
+        assert(isset($tdMatches[1]), 'Td Y capture group must be present');
+        $lineY = [];
+        foreach ($tdMatches[1] as $yVal) {
+            $y = \floatval($yVal);
+            $lineY[(string) \round($y, 1)] = $y;
+        }
+        \rsort($lineY);
+
+        $correctPitch = 0;
+        $leakedPitch = 0;
+        $prevY = null;
+        foreach ($lineY as $y) {
+            if ($prevY === null) {
+                $prevY = $y;
+                continue;
+            }
+
+            $gap = $prevY - $y;
+            $prevY = $y;
+            if ($gap <= 0.1 || $gap > 40.0) {
+                // Same visual line (sub-fragments) or a page/region break jump.
+                continue;
+            }
+
+            if ($gap >= 14.4 && $gap <= 15.6) {
+                ++$correctPitch; // 12pt x 1.25 = 15pt body line
+            } elseif ($gap >= 15.7 && $gap <= 17.3) {
+                ++$leakedPitch; // the leaked ~16.87pt (13.5pt glyph box x 1.25)
+            }
+        }
+
+        // Before the fix this paragraph produced five leaked ~16.87pt gaps and only
+        // five correct 15pt gaps; after the fix the body is uniform 15pt.
+        $this->assertSame(
+            0,
+            $leakedPitch,
+            'Body line spacing must not carry the leaked ~16.87pt pitch from the tall inline run.',
+        );
+        $this->assertGreaterThanOrEqual(8, $correctPitch, 'Most body lines must be spaced at the correct 15pt pitch.');
+    }
+
+    /**
      * Build a two-column page layout on the given object and return the
      * geometry shared by the column-break re-anchor tests.
      *

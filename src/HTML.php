@@ -219,6 +219,7 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *         lineadvance: float,
  *         linebottom: float,
  *         lineascent: float,
+ *         lineascentnolookahead: bool,
  *         linewordspacing: float,
  *         linewrapped: bool,
  *         textindentapplied: bool,
@@ -6988,6 +6989,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
             'lineascent' => 0.0,
+            'lineascentnolookahead' => false,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
@@ -7027,6 +7029,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
             'lineascent' => 0.0,
+            'lineascentnolookahead' => false,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
@@ -10034,22 +10037,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Measure the maximum ascent among inline text fragments in the current run.
      *
-     * The run stops at block boundaries and explicit BR tags.
+     * The run stops at block boundaries and explicit BR tags. When $maxRunWidth is
+     * non-negative it also stops once the accumulated inline advance fills the line:
+     * a line box's height is set only by the content that lands on it, so a taller
+     * inline fragment (a larger font run or an inline image) that wraps onto a later
+     * line must not inflate the ascent — and therefore the spacing — of earlier
+     * lines. The fragment at $startkey always counts (every line carries at least
+     * one fragment); a negative $maxRunWidth keeps the legacy unbounded scan.
      *
      * @param THTMLRenderContext $hrc HTML render context.
+     * @param int   $startkey    DOM key of the first fragment on the current line.
+     * @param float $maxRunWidth Width still available on the current line, or a
+     *                           negative value to scan the whole inline run.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
-    protected function measureHTMLInlineRunMaxAscent(array &$hrc, int $startkey): float
+    protected function measureHTMLInlineRunMaxAscent(array &$hrc, int $startkey, float $maxRunWidth = -1.0): float
     {
         $dom = &$hrc['dom'];
         $numel = \count($dom);
         $maxascent = 0.0;
+        $bounded = $maxRunWidth >= 0.0;
+        $widthLeft = $maxRunWidth;
 
         for ($key = $startkey; $key < $numel; ++$key) {
             $node = $dom[$key] ?? null;
             if (!\is_array($node)) {
                 continue;
+            }
+
+            // The current line is full: anything beyond this point wraps onto a
+            // following line and must not contribute to this line's ascent.
+            if ($bounded && $key > $startkey && $widthLeft <= self::WIDTH_TOLERANCE) {
+                break;
             }
 
             if ($node['tag']) {
@@ -10107,6 +10128,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         continue;
                     }
 
+                    // An image is an atomic inline box: if it does not fit in the
+                    // width left on this line it wraps whole onto the next one, so it
+                    // (and everything after it) must not raise this line's ascent.
+                    if ($bounded && $key > $startkey && $imgdim['width'] > ($widthLeft + self::WIDTH_TOLERANCE)) {
+                        break;
+                    }
+
                     $attr = $node['attribute'];
                     $valign = isset($attr['align']) && \is_string($attr['align'])
                         ? \strtolower(\trim($attr['align']))
@@ -10118,6 +10146,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     };
                     if ($ascent > $maxascent) {
                         $maxascent = $ascent;
+                    }
+
+                    if ($bounded) {
+                        $widthLeft -= $imgdim['width'];
                     }
 
                     continue;
@@ -10142,6 +10174,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 : 0.0;
             if ($ascent > $maxascent) {
                 $maxascent = $ascent;
+            }
+
+            if ($bounded) {
+                // getHTMLFontMetric() above selected this fragment's font, so the
+                // measured advance matches the glyphs that will be laid out.
+                $widthLeft -= $this->getStringWidth($text);
             }
         }
 
@@ -14708,7 +14746,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // paragraph end) to match a continuously flowed cell.
         $prevJustifyContinuation = $this->htmlJustifyContinuationLine;
         $this->htmlJustifyContinuationLine = $halign === 'J';
+        // The head's value is a pre-cut slice of this single node, so the forward
+        // run scan no longer sees where the node really ends and would mistake a
+        // following sibling (e.g. an inline image lower in the paragraph) for
+        // content on these lines. Measure each head line's ascent from its own
+        // font only; a taller sibling that truly lands on a line still raises that
+        // line through its own render. (Mirrors splitHTMLTextJustifyOverflow.)
+        $prevNoLookahead = $hrc['cellctx']['lineascentnolookahead'];
+        $hrc['cellctx']['lineascentnolookahead'] = true;
         $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
         $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
 
         // The head's final line is left "open" (the cursor stays on
@@ -15232,7 +15279,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $headElm = $origElm;
         $headElm['value'] = $justifySplit[0];
         $hrc['dom'][$key] = $headElm;
+        // The head is a complete justified line of this single node; its temporary
+        // one-line value would make the forward run scan misread the next sibling as
+        // sharing this line. Measure the head's ascent from its own font only.
+        $prevNoLookahead = $hrc['cellctx']['lineascentnolookahead'];
+        $hrc['cellctx']['lineascentnolookahead'] = true;
         $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+        $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
 
         $linebottom = $hrc['cellctx']['linebottom'] > 0 ? $hrc['cellctx']['linebottom'] : 0.0;
         $tpy = \max($tpy + $this->getCurrentHTMLLineAdvance($hrc, $key), $linebottom);
@@ -15747,9 +15800,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curfont = $this->font->getCurrentFont();
         $curAscent = $this->toUnit($curfont['ascent']);
         $curHeight = $this->toUnit($curfont['height']);
-        $skipAscent = $lineOffset <= self::WIDTH_TOLERANCE || $hrc['cellctx']['lineascent'] <= 0;
+        // A justified line emitted by splitHTMLTextJustifyOverflow is a complete
+        // single-node line: its value is one wrapped line, so the forward run scan
+        // would mistake the following sibling (e.g. an inline image further down the
+        // paragraph) for content on this line. Skip the look-ahead for such lines —
+        // their ascent is the node's own; any taller sibling that truly lands here
+        // raises the line height through its own render.
+        $skipAscent =
+            ($lineOffset <= self::WIDTH_TOLERANCE || $hrc['cellctx']['lineascent'] <= 0)
+            && !$hrc['cellctx']['lineascentnolookahead'];
         if ($skipAscent) {
-            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
+            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey, $remainingWidth);
             if ($lineascent <= 0.0) {
                 $lineascent = $curAscent;
             }
@@ -15852,7 +15913,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             // Forced wraps reset the line cursor; recompute per-line metrics using
             // the fresh line state so subsequent wrap detection uses the new line.
-            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey);
+            $lineascent = $this->measureHTMLInlineRunMaxAscent($hrc, $currentkey, $remainingWidth);
             if ($lineascent <= 0.0) {
                 $lineascent = $curAscent;
             }
@@ -18531,6 +18592,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
             'lineascent' => 0.0,
+            'lineascentnolookahead' => false,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,

@@ -40,6 +40,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'lineadvance' => 0.0,
             'linebottom' => 0.0,
             'lineascent' => 0.0,
+            'lineascentnolookahead' => false,
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
