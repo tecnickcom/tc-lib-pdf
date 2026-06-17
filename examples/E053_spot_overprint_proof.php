@@ -54,7 +54,7 @@ $pdf->enableDefaultPageContent();
 
 // ----------
 // Register spot colors with CMYK fallback values.
-// These simulate industry-standard Pantone-like named inks. In a real press
+// These simulate industry-standard spot-like named inks. In a real press
 // workflow the names would match the RIP spot-color library exactly.
 
 $pdf->color->addSpotColor('PROOF Cyan', new \Com\Tecnick\Color\Model\Cmyk([

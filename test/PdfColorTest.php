@@ -243,4 +243,97 @@ class PdfColorTest extends TestUtil
 
         $this->assertSame($lab->getPdfColor(false), $out);
     }
+
+    // ---------------------------------------------------------------------
+    // Regression tests for spot-color name preservation.
+    //
+    // tc-lib-color >= 2.11 preserves the original spot-color name (including
+    // spaces and uppercase) and emits it as a properly escaped PDF name object
+    // in the Separation color space, instead of the normalized lowercase key.
+    // See https://github.com/tecnickcom/tc-lib-pdf/issues/209
+    //
+    // tc-lib-pdf delegates Separation object emission to tc-lib-color, so these
+    // tests pin the end-to-end contract at the tc-lib-pdf integration boundary
+    // (the PdfColor adapter) and guard against a future dependency regression.
+    // ---------------------------------------------------------------------
+
+    public function testGetPdfSpotObjectsPreservesCmykSpotColorName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->addSpotColor('SPOTTYPE 123 C', new \Com\Tecnick\Color\Model\Cmyk([
+            'cyan' => 0.0,
+            'magenta' => 0.24,
+            'yellow' => 0.94,
+            'key' => 0.0,
+            'alpha' => 1.0,
+        ]));
+
+        $pon = 5;
+        $out = $obj->getPdfSpotObjects($pon);
+
+        // The original name is preserved and encoded as a PDF name object
+        // ("SPACE" => "#20"), not collapsed to the normalized lowercase key.
+        $this->assertStringContainsString('[/Separation /SPOTTYPE#20123#20C /DeviceCMYK', $out);
+        $this->assertStringNotContainsString('spottype123c', $out);
+        $this->assertStringNotContainsString('/SPOTTYPE 123 C', $out);
+
+        // The CMYK alternate components are emitted in the C1 array.
+        $this->assertStringContainsString('0.000000 0.240000 0.940000 0.000000', $out);
+
+        // The object number reference is advanced past the emitted object.
+        $this->assertSame(6, $pon);
+    }
+
+    public function testGetPdfSpotObjectsEncodesPdfNameDelimitersInSpotName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->addSpotColor('Spot (Test)/50%', new \Com\Tecnick\Color\Model\Cmyk([
+            'cyan' => 0.1,
+            'magenta' => 0.2,
+            'yellow' => 0.3,
+            'key' => 0.4,
+            'alpha' => 1.0,
+        ]));
+
+        $pon = 0;
+        $out = $obj->getPdfSpotObjects($pon);
+
+        // Spaces and the PDF delimiters "(", ")", "/" and "%" are escaped per
+        // ISO 32000-1:2008 7.3.5, so the name remains a valid PDF name object.
+        $this->assertStringContainsString('/Separation /Spot#20#28Test#29#2F50#25 /DeviceCMYK', $out);
+    }
+
+    public function testGetPdfSpotObjectsPreservesLabSpotColorName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->addSpotLabColor('Brand Lab Ink', 50.0, 20.0, 30.0);
+
+        $pon = 0;
+        $out = $obj->getPdfSpotObjects($pon);
+
+        // Lab-based spot colors must preserve their name in the same way.
+        $this->assertStringContainsString('[/Separation /Brand#20Lab#20Ink [/Lab', $out);
+        $this->assertStringNotContainsString('brandlabink', $out);
+    }
+
+    public function testGetPdfColorByRegisteredNameEmitsSeparationWithPreservedName(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->addSpotColor('SPOTTYPE 123 C', new \Com\Tecnick\Color\Model\Cmyk([
+            'cyan' => 0.0,
+            'magenta' => 0.24,
+            'yellow' => 0.94,
+            'key' => 0.0,
+            'alpha' => 1.0,
+        ]));
+
+        // A bare reference to a registered spot color emits a Separation
+        // operator referencing the color-space index with the given tint.
+        $ref = $obj->getPdfColor('SPOTTYPE 123 C', false, 0.5);
+        $this->bcAssertMatchesRegularExpression('/^\/CS\d+\s+cs\s+0\.500000\s+scn\n$/', $ref);
+
+        // ...and the Separation object that backs that reference keeps the name.
+        $pon = 0;
+        $this->assertStringContainsString('/Separation /SPOTTYPE#20123#20C', $obj->getPdfSpotObjects($pon));
+    }
 }

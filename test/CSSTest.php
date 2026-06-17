@@ -787,6 +787,32 @@ class CSSTest extends TestUtil
         $this->assertStringContainsString('/CS', $obj->color->getPdfColor('spot("Brand Orange",0.500000)'));
     }
 
+    /**
+     * Regression test for spot-color name preservation (issue #209).
+     *
+     * A spot color registered through an @spot CSS rule with a name containing
+     * spaces and uppercase letters must be emitted in the PDF Separation color
+     * space with its original name (escaped as a PDF name object), not with the
+     * normalized lowercase key.
+     *
+     * @throws \Throwable
+     */
+    public function testAtSpotRuleNameIsPreservedInSeparationObject(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $css = '@spot "Brand Orange" { cmyk: 0 62 100 0; } .brand { color: spot("Brand Orange", 0.5); }';
+
+        $obj->exposeExtractCSSproperties($css);
+
+        $pon = 0;
+        $spotObjects = $obj->color->getPdfSpotObjects($pon);
+
+        $this->assertStringContainsString('[/Separation /Brand#20Orange /DeviceCMYK', $spotObjects);
+        $this->assertStringNotContainsString('brandorange', $spotObjects);
+        // CMYK alternate components from the @spot rule (0 62 100 0).
+        $this->assertStringContainsString('0.000000 0.620000 1.000000 0.000000', $spotObjects);
+    }
+
     /** @throws \Throwable */
     public function testGetCSSBorderStyleParsesSpotColorToken(): void
     {
