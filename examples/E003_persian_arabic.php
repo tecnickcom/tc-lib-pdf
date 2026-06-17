@@ -67,9 +67,51 @@ $html .=
     . 'تمَّ بِحمد الله حلّ مشكلة الكتابة باللغة العربية في ملفات الـ<span color="#FF0000">PDF</span> مع دعم الكتابة <span color="#0000FF">من اليمين إلى اليسار</span> و<span color="#009900">الحركَات</span> .<br />تم الحل بواسطة <span color="#993399">صالح المطرفي و Asuni Nicola</span>  . '
     . '</div><hr />';
 
-$html .= '<div color="#0000ff">This is Arabic "العربية" Example With TCPDF.</div>';
+$html .= '<div color="#0000ff">This is Arabic "العربية" Example With TCPDF.</div><hr />';
 
-$pdf->addHTMLCell(html: $html, posx: 10, posy: 10, width: 160);
+// The page above keeps the document base direction LTR and relies on
+// text-align:right plus the bidi algorithm to lay out the Arabic text.
+$pdf->addHTMLCell(html: $html, posx: 15, posy: 15, width: 180);
+
+// =============================================================
+// Document base direction RTL: setRTL(true)
+$pdf->setRTL(true);
+
+// Plain-text form of the paragraph (no markup) for the text API.
+$arabicText =
+    'تمَّ بِحمد الله حلّ مشكلة الكتابة باللغة العربية في ملفات الـPDF ' . 'مع دعم الكتابة من اليمين إلى اليسار والحركَات .';
+
+// HTML form of the same paragraph (with inline colored spans) for the HTML API.
+$arabicHtml =
+    '<div style="text-align:right">'
+    . 'تمَّ بِحمد الله حلّ مشكلة الكتابة باللغة العربية في ملفات الـ<span color="#FF0000">PDF</span>'
+    . ' مع دعم الكتابة <span color="#0000FF">من اليمين إلى اليسار</span>'
+    . ' و<span color="#009900">الحركَات</span> .'
+    . '</div>';
+
+$pdf->page->addContent($pdf->graph->add(['fillColor' => 'black']));
+
+// --- Text variant (addTextCell) ---
+$pdf->addTextCell(
+    txt: 'setRTL(true) — text variant (addTextCell):',
+    posx: 15,
+    posy: 140,
+    width: 180,
+    halign: 'L',
+    drawcell: false,
+);
+$pdf->addTextCell(txt: $arabicText, posx: 15, posy: 150, width: 180, drawcell: false);
+
+// --- HTML variant (addHTMLCell) ---
+$pdf->addTextCell(
+    txt: 'setRTL(true) — HTML variant (addHTMLCell):',
+    posx: 15,
+    posy: 170,
+    width: 180,
+    halign: 'L',
+    drawcell: false,
+);
+$pdf->addHTMLCell(html: $arabicHtml, posx: 15, posy: 180, width: 180);
 
 // =============================================================
 
