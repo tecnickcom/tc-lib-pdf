@@ -628,6 +628,7 @@ class TextTest extends TestUtil
                 float $scale,
                 float $offsetPoints,
                 float $lineSpacePoints,
+                bool $rtl = false,
             ): array {
                 return [
                     'lines' => [[
@@ -652,6 +653,7 @@ class TextTest extends TestUtil
                 float $maxHeight,
                 float $offsetPoints,
                 float $lineSpacePoints,
+                bool $rtl = false,
             ): array {
                 ++$this->probeCalls;
                 if ($this->probeCalls === 1) {
@@ -712,6 +714,7 @@ class TextTest extends TestUtil
                 float $scale,
                 float $offsetPoints,
                 float $lineSpacePoints,
+                bool $rtl = false,
             ): array {
                 return [
                     'lines' => [[
@@ -736,6 +739,7 @@ class TextTest extends TestUtil
                 float $maxHeight,
                 float $offsetPoints,
                 float $lineSpacePoints,
+                bool $rtl = false,
             ): array {
                 return [
                     'size' => 10.0,
@@ -1580,6 +1584,196 @@ class TextTest extends TestUtil
         $newlineLines = $obj->exposeSplitLines($ordarrWithNewline, $dimWithNewline, 1000);
         $this->assertSame("Cell Borders\nnextline", $textWithNewline);
         $this->assertCount(2, $newlineLines);
+    }
+
+    /**
+     * Stage 1 RTL fix: a wrapped RTL paragraph must stack the logically-first
+     * words on the TOP line and the logically-last words on the BOTTOM line.
+     *
+     * @throws \Throwable
+     */
+    public function testSplitLinesReversesLineOrderForRtlBaseDirection(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        // Six distinct Hebrew "words" (each three identical letters) in logical order.
+        // Pure RTL + spaces, so the Bidi visual array is the exact reverse of the logical one.
+        $firstLetter = 0x05D0; // first logical character (top of the page when correct)
+        $lastLetter = 0x05D5; // last logical character (bottom of the page when correct)
+        $word = static fn(int $cp): string => (string) \mb_chr($cp) . (string) \mb_chr($cp) . (string) \mb_chr($cp);
+        $txt = \implode(' ', \array_map($word, [0x05D0, 0x05D1, 0x05D2, 0x05D3, 0x05D4, 0x05D5]));
+
+        [, $ordarr, $dim] = $obj->exposePrepareText($txt, 'R');
+        $logical = \array_reverse($ordarr); // pure-RTL: visual is the exact reverse of logical
+        $this->assertSame($firstLetter, $logical[0] ?? null);
+        $this->assertSame($lastLetter, $logical[\count($logical) - 1] ?? null);
+
+        // Force a wrap into several lines (roughly a third of the paragraph per line).
+        $wrapWidth = $dim['totwidth'] / 3.0;
+
+        $visualLines = $obj->exposeSplitLines($ordarr, $dim, $wrapWidth, 0, false);
+        $rtlLines = $obj->exposeSplitLines($ordarr, $dim, $wrapWidth, 0, true);
+
+        // The reversal must not change how many lines the text wraps to.
+        $this->assertGreaterThan(1, \count($rtlLines));
+        $this->assertSameSize($visualLines, $rtlLines);
+
+        $visualTop = $visualLines[0] ?? null;
+        $visualBottom = $visualLines[\count($visualLines) - 1] ?? null;
+        $rtlTop = $rtlLines[0] ?? null;
+        $rtlBottom = $rtlLines[\count($rtlLines) - 1] ?? null;
+        $this->assertIsArray($visualTop);
+        $this->assertIsArray($visualBottom);
+        $this->assertIsArray($rtlTop);
+        $this->assertIsArray($rtlBottom);
+
+        // Slice of the visual array rendered on each line.
+        $topVisual = \array_slice($ordarr, $visualTop['pos'], $visualTop['chars']);
+        $bottomVisual = \array_slice($ordarr, $visualBottom['pos'], $visualBottom['chars']);
+        $topRtl = \array_slice($ordarr, $rtlTop['pos'], $rtlTop['chars']);
+        $bottomRtl = \array_slice($ordarr, $rtlBottom['pos'], $rtlBottom['chars']);
+
+        // Default (rtl=false) walks the visual array forward and stacks bottom-up: the
+        // logically-LAST word ends up on the top line and the logically-FIRST on the bottom.
+        $this->assertContains($lastLetter, $topVisual);
+        $this->assertNotContains($firstLetter, $topVisual);
+        $this->assertContains($firstLetter, $bottomVisual);
+
+        // With the RTL flag the order is corrected: logically-FIRST word on top,
+        // logically-LAST word on the bottom.
+        $this->assertContains($firstLetter, $topRtl);
+        $this->assertNotContains($lastLetter, $topRtl);
+        $this->assertContains($lastLetter, $bottomRtl);
+
+        // Each RTL line slice is still in visual (reversed) order, so reversing it back to
+        // logical and concatenating the lines top-to-bottom reproduces the logical reading
+        // sequence. Compare the non-space glyphs (line breaks drop their separator space,
+        // while spaces inside a line are kept) to assert the letters keep logical order.
+        $reconstructed = [];
+        foreach ($rtlLines as $line) {
+            foreach (\array_reverse(\array_slice($ordarr, $line['pos'], $line['chars'])) as $cp) {
+                $reconstructed[] = $cp;
+            }
+        }
+        $stripSpaces = static fn(array $arr): array => \array_values(\array_filter(
+            $arr,
+            static fn(int $cp): bool => $cp !== 0x20,
+        ));
+        $this->assertSame($stripSpaces($logical), $stripSpaces($reconstructed));
+
+        // Single line => reversal is a no-op (same glyphs in the same position). Only the
+        // recomputed totwidth may differ by a float ULP due to summation order.
+        $singleVisual = $obj->exposeSplitLines($ordarr, $dim, $dim['totwidth'] * 2.0, 0, false);
+        $singleRtl = $obj->exposeSplitLines($ordarr, $dim, $dim['totwidth'] * 2.0, 0, true);
+        $this->assertCount(1, $singleRtl);
+        $singleVisualLine = $singleVisual[0] ?? null;
+        $singleRtlLine = $singleRtl[0] ?? null;
+        $this->assertIsArray($singleVisualLine);
+        $this->assertIsArray($singleRtlLine);
+        $this->assertSame((int) $singleVisualLine['pos'], (int) $singleRtlLine['pos']);
+        $this->assertSame((int) $singleVisualLine['chars'], (int) $singleRtlLine['chars']);
+        $this->assertSame(0, (int) $singleRtlLine['pos']);
+        $this->assertSame(\count($ordarr), (int) $singleRtlLine['chars']);
+
+        // Default flag is unchanged for the LTR/empty cases.
+        $this->assertSame([], $obj->exposeSplitLines([], $dim, 10, 0, true));
+    }
+
+    /** @throws \Throwable */
+    public function testIsOrdArrBaseRtlResolvesDirection(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        $latin = [0x41, 0x42, 0x43]; // ABC
+        $hebrew = [0x05D0, 0x05D1]; // strong R
+        $neutral = [0x20, 0x2E, 0x31]; // space, dot, digit -> no strong char
+
+        // Explicit forcedir always wins.
+        $this->assertTrue($obj->exposeIsOrdArrBaseRtl($latin, 'R'));
+        $this->assertFalse($obj->exposeIsOrdArrBaseRtl($hebrew, 'L'));
+
+        // Auto: first strong character decides.
+        $this->assertFalse($obj->exposeIsOrdArrBaseRtl($latin, ''));
+        $this->assertTrue($obj->exposeIsOrdArrBaseRtl($hebrew, ''));
+        // A leading neutral run is skipped until the first strong (R) character.
+        $this->assertTrue($obj->exposeIsOrdArrBaseRtl([...$neutral, ...$hebrew], ''));
+
+        // No strong character: fall back to the document default ($this->rtl).
+        $this->assertFalse($obj->exposeIsOrdArrBaseRtl($neutral, ''));
+        $this->setObjectProperty($obj, 'rtl', true);
+        $this->assertTrue($obj->exposeIsOrdArrBaseRtl($neutral, ''));
+
+        // prepareText surfaces the resolved base direction (and only when Bidi-reordered).
+        [, , , $baseRtl] = $obj->exposePrepareTextWithDir((string) \mb_chr(0x05D0) . (string) \mb_chr(0x05D1), '');
+        $this->assertTrue($baseRtl);
+        [, , , $baseLtr] = $obj->exposePrepareTextWithDir('abc', '');
+        $this->assertFalse($baseLtr);
+    }
+
+    /**
+     * End-to-end: addTextCell() on a wrapping RTL paragraph (E003's call pattern:
+     * width set, no height) must emit the glyph runs top-to-bottom in logical order,
+     * i.e. matching splitLines(rtl=true) and NOT the visual splitLines(rtl=false).
+     *
+     * @throws \Throwable
+     */
+    public function testAddTextCellStacksWrappedRtlParagraphTopDown(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $this->setObjectProperty($obj, 'isunicode', true);
+        $obj->setRTL(true);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $word = static fn(int $cp): string => (string) \mb_chr($cp) . (string) \mb_chr($cp) . (string) \mb_chr($cp);
+        $txt = \implode(' ', \array_map($word, [0x05D0, 0x05D1, 0x05D2, 0x05D3, 0x05D4, 0x05D5]));
+
+        // A borderless cell (drawcell:false, no styles) has zero padding, so the internal
+        // split width equals toPoints(width); reuse it to derive the reference lines.
+        $cellWidthMm = 18.0;
+        [, $ordarr, $dim] = $obj->exposePrepareText($txt, '');
+        $renderWidthPts = $obj->toPoints($cellWidthMm);
+
+        $logicalLines = $obj->exposeSplitLines($ordarr, $dim, $renderWidthPts, 0, true);
+        $visualLines = $obj->exposeSplitLines($ordarr, $dim, $renderWidthPts, 0, false);
+        $this->assertGreaterThan(1, \count($logicalLines));
+
+        // Ordered list of text-show operands (one per rendered line) in the content stream.
+        $glyphTokens = static function (string $content): array {
+            $matches = [];
+            \preg_match_all('/(\([^)]*\)|<[0-9A-Fa-f]*>|\[[^\]]*\])\s*T[jJ]/s', $content, $matches);
+            return $matches[1] ?? [];
+        };
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+        $beforeContent = $pageObj->getPage($pid)['content'];
+        $beforeCount = \count($beforeContent);
+
+        $obj->addTextCell(txt: $txt, pid: $pid, posx: 5, posy: 20, width: $cellWidthMm, drawcell: false);
+
+        $content = $pageObj->getPage($pid)['content'];
+        $actual = \implode('', \array_slice($content, $beforeCount));
+        $actualTokens = $glyphTokens($actual);
+
+        // Reference renders through the same outTextLines() the cell uses internally; with
+        // halign 'R' (the RTL default) no justification spacing is added, so the glyph-token
+        // sequence depends only on the line breaks and their top-to-bottom order.
+        $width = $obj->toUnit($renderWidthPts);
+        $expectedRtl = $glyphTokens($obj->exposeOutTextLines($ordarr, $logicalLines, 5, 20, $width, 0, 5, 0));
+        $expectedVisual = $glyphTokens($obj->exposeOutTextLines($ordarr, $visualLines, 5, 20, $width, 0, 5, 0));
+
+        // The emitted glyph order matches the logical (top-down) stacking, not the visual one.
+        $this->assertNotEmpty($actualTokens);
+        $this->assertSame($expectedRtl, $actualTokens);
+        $this->assertNotSame($expectedVisual, $actualTokens);
     }
 
     /** @throws \Throwable */

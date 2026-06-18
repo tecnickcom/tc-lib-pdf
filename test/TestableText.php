@@ -225,14 +225,41 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
+     * @phpstan-return array{0: string, 1: array<int, int>, 2: TTextDims, 3: bool}
+     * @throws \Throwable
+     */
+    public function exposePrepareTextWithDir(string $txt, string $forcedir = ''): array
+    {
+        $ordarr = [];
+        $dim = self::DIM_DEFAULT;
+        $baseRtl = false;
+        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl);
+        return [$txt, $ordarr, $dim, $baseRtl];
+    }
+
+    /**
+     * @phpstan-param array<int, int> $logicalOrdArr
+     * @throws \Throwable
+     */
+    public function exposeIsOrdArrBaseRtl(array $logicalOrdArr, string $forcedir = ''): bool
+    {
+        return $this->isOrdArrBaseRtl($logicalOrdArr, $forcedir);
+    }
+
+    /**
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims $dim
      * @phpstan-return array<int, TextLinePos>
      * @throws \Throwable
      */
-    public function exposeSplitLines(array $ordarr, array $dim, float $pwidth, float $poffset = 0): array
-    {
-        return $this->splitLines($ordarr, $dim, $pwidth, $poffset);
+    public function exposeSplitLines(
+        array $ordarr,
+        array $dim,
+        float $pwidth,
+        float $poffset = 0,
+        bool $rtl = false,
+    ): array {
+        return $this->splitLines($ordarr, $dim, $pwidth, $poffset, $rtl);
     }
 
     /**
