@@ -661,23 +661,114 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             3 => $styles[3] ?? $styleall,
         ];
 
-        if ($this->styleHasVisibleLineWidth($sidestyles[0])) {
-            $out .= $this->graph->getLine($rectx, $recty, $rectx + $rectw, $recty, $sidestyles[0]);
-        }
-
-        if ($this->styleHasVisibleLineWidth($sidestyles[1])) {
-            $out .= $this->graph->getLine($rectx + $rectw, $recty, $rectx + $rectw, $recty + $recth, $sidestyles[1]);
-        }
-
-        if ($this->styleHasVisibleLineWidth($sidestyles[2])) {
-            $out .= $this->graph->getLine($rectx + $rectw, $recty + $recth, $rectx, $recty + $recth, $sidestyles[2]);
-        }
-
-        if ($this->styleHasVisibleLineWidth($sidestyles[3])) {
-            $out .= $this->graph->getLine($rectx, $recty + $recth, $rectx, $recty, $sidestyles[3]);
-        }
+        $out .= $this->drawCellBorderSides($rectx, $recty, $rectw, $recth, $sidestyles);
 
         return $out . $stoptr;
+    }
+
+    /**
+     * Returns the PDF code to stroke the (possibly partial) cell border.
+     *
+     * Consecutive visible sides that share an identical style are stroked as a
+     * single continuous path so their shared corners are joined (mitered)
+     * instead of being drawn as independent, butt-capped segments that would
+     * leave the corners open. Sides with differing styles are kept separate so
+     * multi-colour borders keep their own line caps.
+     *
+     * @param float $rectx Border rectangle left X coordinate (user units).
+     * @param float $recty Border rectangle top Y coordinate (user units).
+     * @param float $rectw Border rectangle width (user units).
+     * @param float $recth Border rectangle height (user units).
+     * @param array{0: StyleDataOpt, 1: StyleDataOpt, 2: StyleDataOpt, 3: StyleDataOpt} $sidestyles
+     *        Side styles (0=top, 1=right, 2=bottom, 3=left).
+     *
+     * @return string
+     */
+    protected function drawCellBorderSides(
+        float $rectx,
+        float $recty,
+        float $rectw,
+        float $recth,
+        array $sidestyles,
+    ): string {
+        // Corner coordinates; sides chain cyclically:
+        // 0 (top) -> 1 (right) -> 2 (bottom) -> 3 (left) -> 0.
+        $tlx = $rectx;
+        $tly = $recty;
+        $trx = $rectx + $rectw;
+        $bry = $recty + $recth;
+
+        // [startX, startY, endX, endY] of each side, addressed by index.
+        $segOf = static fn(int $side) => match ($side) {
+            0 => [$tlx, $tly, $trx, $tly], // top:    TL -> TR
+            1 => [$trx, $tly, $trx, $bry], // right:  TR -> BR
+            2 => [$trx, $bry, $tlx, $bry], // bottom: BR -> BL
+            default => [$tlx, $bry, $tlx, $tly], // left: BL -> TL
+        };
+        $styleOf = static fn(int $side) => match ($side) {
+            0 => $sidestyles[0],
+            1 => $sidestyles[1],
+            2 => $sidestyles[2],
+            default => $sidestyles[3],
+        };
+
+        $v0 = $this->styleHasVisibleLineWidth($sidestyles[0]);
+        $v1 = $this->styleHasVisibleLineWidth($sidestyles[1]);
+        $v2 = $this->styleHasVisibleLineWidth($sidestyles[2]);
+        $v3 = $this->styleHasVisibleLineWidth($sidestyles[3]);
+        $visOf = static fn(int $side) => match ($side) {
+            0 => $v0,
+            1 => $v1,
+            2 => $v2,
+            default => $v3,
+        };
+
+        // All four sides visible with an identical style: stroke a single closed
+        // rectangle so every corner is joined by the line-join.
+        if (
+            $v0
+            && $v1
+            && $v2
+            && $v3
+            && $sidestyles[0] === $sidestyles[1]
+            && $sidestyles[1] === $sidestyles[2]
+            && $sidestyles[2] === $sidestyles[3]
+        ) {
+            return $this->graph->getBasicRect($rectx, $recty, $rectw, $recth, 'S', $sidestyles[0]);
+        }
+
+        // A side and the next one ($side + 1) % 4 can share a stroked path when
+        // both are visible and carry the same style.
+        $joinOf = static fn(int $side): bool => (
+            $visOf($side)
+            && $visOf(($side + 1) % 4)
+            && $styleOf($side) === $styleOf(($side + 1) % 4)
+        );
+
+        $out = '';
+        foreach ([0, 1, 2, 3] as $start) {
+            if (!$visOf($start) || $joinOf(($start + 3) % 4)) {
+                continue; // not visible, or this side continues a run started earlier
+            }
+
+            // Walk the maximal run of consecutive same-styled visible sides and
+            // stroke it as a single continuous (poly)line so the shared corners
+            // are joined instead of being drawn as independent, butt-capped
+            // segments.
+            $seg = $segOf($start);
+            $poly = [$seg[0], $seg[1], $seg[2], $seg[3]];
+            $cur = $start;
+            while ($joinOf($cur) && (($cur + 1) % 4) !== $start) {
+                $cur = ($cur + 1) % 4;
+                $seg = $segOf($cur);
+                $poly[] = $seg[2];
+                $poly[] = $seg[3];
+            }
+
+            $out .= $this->graph->getBasicPolygon($poly, 'S', $styleOf($start));
+        }
+
+        return $out;
     }
 
     /**

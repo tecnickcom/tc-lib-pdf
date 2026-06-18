@@ -37,7 +37,7 @@
         "tecnickcom/tc-lib-unicode-data": "^2.5",
         "tecnickcom/tc-lib-unicode": "^2.9",
         "tecnickcom/tc-lib-pdf-page": "^4.11",
-        "tecnickcom/tc-lib-pdf-graph": "^2.11",
+        "tecnickcom/tc-lib-pdf-graph": "^2.12",
         "tecnickcom/tc-lib-pdf-parser": "^3.12"
     },
     "minimum-stability": "stable",

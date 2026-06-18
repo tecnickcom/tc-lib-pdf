@@ -8306,6 +8306,69 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Stroke the outer frame of every currently-open HTML table around the
+     * section that was rendered on the page about to be left.
+     *
+     * The closing </table> handler (parseHTMLTagCLOSEtable()) only frames the
+     * final section because resetHTMLTableStackOnPageBreak() rebases each open
+     * table's originy/rowtop to the new region top on every page break, erasing
+     * the previous page's section geometry. This method must therefore be called
+     * before that rebasing (and before the page break itself) so each
+     * continuation page keeps its own outer border instead of leaving only the
+     * last page framed.
+     *
+     * The returned PDF code is meant to be dispatched onto the current
+     * (about-to-end) page, after the section's cells, so the frame overlays the
+     * cell content exactly as parseHTMLTagCLOSEtable() does.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param float $tpy Vertical cursor at the bottom of the last rendered row.
+     *
+     * @return string PDF code.
+     */
+    protected function renderHTMLOpenTableFramesBeforeBreak(array &$hrc, float $tpy): string
+    {
+        if ($hrc['tablestack'] === []) {
+            return '';
+        }
+
+        $out = '';
+        foreach ($hrc['tablestack'] as $table) {
+            $domkey = $table['domkey'];
+            if ($domkey < 0) {
+                continue;
+            }
+
+            // Match parseHTMLTagCLOSEtable(): the frame ends at the last rendered
+            // row's bottom, not the cursor, when a tall rowspan stretched lower.
+            $tablebottom = \max($tpy, $table['rowtop']);
+            $tableheight = \max(0.0, $tablebottom - $table['originy']);
+            if ($tableheight <= 0.0) {
+                continue;
+            }
+
+            $tablebstyles = $this->getHTMLTableCellBorderStyles($hrc, $domkey);
+            if ($tablebstyles === []) {
+                continue;
+            }
+
+            $out .= $this->renderHTMLTableCell(
+                $table['originx'],
+                $table['originy'],
+                $table['width'],
+                $tableheight,
+                $tableheight,
+                'top',
+                $tablebstyles,
+                null,
+                '',
+            );
+        }
+
+        return $out;
+    }
+
+    /**
      * Push a new active HTML link.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -14680,6 +14743,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             }
                         }
 
+                        if ($hrc['tablestack'] !== []) {
+                            // Frame the section left on this page before the
+                            // table origin is rebased to the next page's top.
+                            $tableFrames = $this->renderHTMLOpenTableFramesBeforeBreak($hrc, $tpy);
+                            if ($tableFrames !== '') {
+                                $appendFragment($tableFrames);
+                            }
+                        }
+
                         $this->pageBreak();
                         $this->resetHTMLCursorAfterPageBreak($hrc, $tpx, $tpy, $tpw);
 
@@ -14763,6 +14835,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
                             if ($flush !== '') {
                                 $appendFragment($flush);
+                            }
+                        }
+
+                        if ($willBreak && $hrc['tablestack'] !== []) {
+                            // Frame the section left on this page before the
+                            // table origin is rebased to the next page's top.
+                            $tableFrames = $this->renderHTMLOpenTableFramesBeforeBreak($hrc, $tpy);
+                            if ($tableFrames !== '') {
+                                $appendFragment($tableFrames);
                             }
                         }
 

@@ -9832,6 +9832,49 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testGetHTMLCellDrawsTableOuterFrameOnEveryPageItSpans(): void
+    {
+        // Regression: when a bordered table spanned several pages the outer
+        // frame was stroked only around the final page's section, because the
+        // closing </table> handler frames a single section and
+        // resetHTMLTableStackOnPageBreak() rebases the table origin to the new
+        // region top on every break. Each continuation page therefore lost its
+        // border, leaving only the last page framed. The frame must now be
+        // stroked once per page the table covers.
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Cells cancel their own borders so the only stroked rectangle on each
+        // page is the table's outer frame, emitted as a closed "re s" path.
+        $rows = '';
+        for ($i = 1; $i <= 80; ++$i) {
+            $rows .= '<tr><td style="border-width:0">Row ' . $i . '</td></tr>';
+        }
+
+        $out = $obj->getHTMLCell(
+            '<table border="1" cellspacing="0" cellpadding="2">' . $rows . '</table>',
+            0,
+            0,
+            30,
+            0,
+        );
+
+        $this->assertNotSame('', $out);
+        $this->assertStringContainsString('(Row 1)', $out);
+        $this->assertStringContainsString('(Row 80)', $out);
+
+        $matches = [];
+        $frames = \preg_match_all('/\sre\s+s\b/s', $out, $matches);
+        $this->assertGreaterThanOrEqual(
+            2,
+            $frames,
+            'The table outer frame must be stroked on every page the table spans, not only the last.',
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testGetHTMLCellTableHeadReplayDoesNotOverlapBodyRowWithCellpadding(): void
     {
         // Regression: estimateHTMLTableHeadHeight previously ignored the

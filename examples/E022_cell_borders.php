@@ -91,7 +91,7 @@ $drawStyledCell = static function (
     float $w,
     float $h,
     array $styles,
-    int $borderPos,
+    float $borderPos,
 ): void {
     $pdf->setDefaultCellBorderPos(borderpos: $borderPos);
 
