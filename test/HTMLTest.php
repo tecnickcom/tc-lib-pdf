@@ -20031,4 +20031,252 @@ class HTMLTest extends TestUtil
         $color = $this->getObjectProperty($obj, 'color');
         $this->assertStringContainsString(\trim($color->getPdfFillColor('#ff0000')), $out);
     }
+
+    /**
+     * RTL inter-fragment engine, inline image (Stage 2c): an <img> embedded between
+     * two RTL text fragments is placed as an atomic box on the right-to-left line —
+     * the first logical fragment hugs the right edge, the image sits to its left and
+     * the trailing fragment to the image's left. Verified through getHTMLCell() by
+     * the descending text abscissas and the image's translate-x falling strictly
+     * between the two text fragments.
+     *
+     * @throws \Throwable
+     */
+    public function testRtlInlineRunPlacesInlineImageRightToLeft(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        // Minimal valid in-memory PNG used as the inline image source.
+        $img = \imagecreate(8, 8);
+        \imagecolorallocate($img, 255, 0, 0);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        // Two short Hebrew "words" with an inline image between them; short enough to
+        // fit one line at width 180, so the RTL inter-fragment engine engages.
+        $word = static fn(int $cp): string => \str_repeat((string) \mb_chr($cp), 3);
+        $html =
+            '<p dir="rtl" style="direction:rtl;text-align:right">'
+            . $word(0x05D0)
+            . ' <img src="'
+            . $b64src
+            . '" width="8" height="8" /> '
+            . $word(0x05D1)
+            . '</p>';
+
+        $out = $obj->getHTMLCell($html, 15, 20, 180);
+
+        // The two text fragments are each placed once, right-to-left (descending x):
+        // the logically-first fragment is rendered first and sits to the right.
+        $matches = [];
+        \preg_match_all('/(-?\d+\.?\d*) -?\d+\.?\d* Td/', $out, $matches);
+        $xs = \array_map(static fn(string $v): float => \is_numeric($v) ? (float) $v : 0.0, $matches[1] ?? []);
+        $this->assertCount(2, $xs, 'the two RTL text fragments are each placed once');
+        $firstX = $xs[0] ?? 0.0;
+        $secondX = $xs[1] ?? 0.0;
+        $this->assertGreaterThan($secondX, $firstX, 'RTL text fragments must be placed right-to-left');
+
+        // The inline image is drawn exactly once; capture its translate-x (5th cm arg).
+        $imgMatch = [];
+        $imgPattern = '/q\s+[-0-9.]+\s+0\s+0\s+[-0-9.]+\s+([-0-9.]+)\s+[-0-9.]+\s+cm\s+\/IMG\d+\s+Do\s+Q/';
+        $this->assertSame(1, \preg_match_all($imgPattern, $out, $imgMatch), 'the inline image is drawn once');
+        $imgxRaw = $imgMatch[1][0] ?? null;
+        $imgx = \is_numeric($imgxRaw) ? (float) $imgxRaw : 0.0;
+
+        // Logical order [text1, image, text2] lays out right-to-left: text1 rightmost,
+        // image to its left, text2 leftmost. So text2.x < image.x < text1.x.
+        $this->assertGreaterThan($secondX, $imgx, 'image must sit left of the first (rightmost) fragment');
+        $this->assertLessThan($firstX, $imgx, 'image must sit right of the last (leftmost) fragment');
+    }
+
+    /**
+     * RTL inter-fragment engine, broken inline image: when the image source cannot be
+     * drawn the engine degrades like the forward renderer — it draws the alt text in
+     * the reserved slot rather than crashing — and the surrounding text fragments
+     * still lay out right-to-left. Verified by the absence of any image XObject and a
+     * third (alt-text) placement between the two fragments, all right-to-left.
+     *
+     * @throws \Throwable
+     */
+    public function testRtlInlineRunBrokenImageFallsBackToAltText(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        $word = static fn(int $cp): string => \str_repeat((string) \mb_chr($cp), 3);
+        $html =
+            '<p dir="rtl" style="direction:rtl;text-align:right">'
+            . $word(0x05D0)
+            . ' <img src="/tmp/__tc_lib_pdf_missing_rtl_image__.png" width="8" height="8" alt="altimg" /> '
+            . $word(0x05D1)
+            . '</p>';
+
+        $out = $obj->getHTMLCell($html, 15, 20, 180);
+
+        // No image XObject is drawn (the source is unreadable).
+        $imgDraws = [];
+        $this->assertSame(0, \preg_match_all('/\/IMG\d+\s+Do/', $out, $imgDraws), 'a broken image must not be drawn');
+
+        // Three placements (text1, alt text, text2), all right-to-left (descending x).
+        $matches = [];
+        \preg_match_all('/(-?\d+\.?\d*) -?\d+\.?\d* Td/', $out, $matches);
+        $xs = \array_map(static fn(string $v): float => \is_numeric($v) ? (float) $v : 0.0, $matches[1] ?? []);
+        $this->assertCount(3, $xs, 'the two fragments plus the alt-text fallback are each placed once');
+        $descending = $xs;
+        \rsort($descending);
+        $this->assertSame($descending, $xs, 'the run (incl. alt fallback) must read right-to-left');
+    }
+
+    /**
+     * RTL inter-fragment engine, leading inline image (Stage 2c): an RTL paragraph
+     * that begins with an <img> places that logically-first image at the right edge
+     * of the line, with the following text fragments flowing to its left. The engine
+     * is dispatched on the leading image (before the forward cursor would place it),
+     * so the whole run is captured and laid out right-to-left. Verified through
+     * getHTMLCell() by the image's translate-x being greater than every text abscissa.
+     *
+     * @throws \Throwable
+     */
+    public function testRtlInlineRunLeadingImageHugsRightEdge(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        $img = \imagecreate(8, 8);
+        \imagecolorallocate($img, 0, 0, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        // Paragraph starts with the image, then two RTL text fragments.
+        $word = static fn(int $cp): string => \str_repeat((string) \mb_chr($cp), 3);
+        $html =
+            '<p dir="rtl" style="direction:rtl;text-align:right">'
+            . '<img src="'
+            . $b64src
+            . '" width="8" height="8" /> '
+            . $word(0x05D0)
+            . ' <span color="#ff0000">'
+            . $word(0x05D1)
+            . '</span>'
+            . '</p>';
+
+        $out = $obj->getHTMLCell($html, 15, 20, 180);
+
+        // The leading image is drawn once; capture its translate-x (5th cm arg).
+        $imgMatch = [];
+        $imgPattern = '/q\s+[-0-9.]+\s+0\s+0\s+[-0-9.]+\s+([-0-9.]+)\s+[-0-9.]+\s+cm\s+\/IMG\d+\s+Do\s+Q/';
+        $this->assertSame(1, \preg_match_all($imgPattern, $out, $imgMatch), 'the leading image is drawn once');
+        $imgxRaw = $imgMatch[1][0] ?? null;
+        $imgx = \is_numeric($imgxRaw) ? (float) $imgxRaw : 0.0;
+
+        // The two text fragments are placed once each, right-to-left (descending x).
+        $matches = [];
+        \preg_match_all('/(-?\d+\.?\d*) -?\d+\.?\d* Td/', $out, $matches);
+        $xs = \array_map(static fn(string $v): float => \is_numeric($v) ? (float) $v : 0.0, $matches[1] ?? []);
+        $this->assertCount(2, $xs, 'the two RTL text fragments are each placed once');
+        $maxTextX = $xs === [] ? 0.0 : \max($xs);
+
+        // The logically-first (leading) image hugs the right edge: its abscissa is to
+        // the right of every text fragment.
+        $this->assertGreaterThan($maxTextX, $imgx, 'the leading image must sit to the right of all text');
+    }
+
+    /**
+     * RTL inter-fragment engine, region/page continuation (Stage 2e): a tall
+     * multi-fragment RTL paragraph added with addHTMLCell() low on the page overflows
+     * onto the next page, and the engine flows the remaining right-to-left lines into
+     * the new page instead of falling back to the forward-cursor renderer. Verified by
+     * inspecting each spanned page's content stream: every visual line reads
+     * right-to-left (descending abscissas) and multi-fragment lines remain so on the
+     * continued page (the forward fallback would order fragments left-to-right).
+     *
+     * @throws \Throwable
+     */
+    public function testRtlInlineRunFlowsAcrossPageBreak(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+        $obj->page->enableAutoPageBreak(true);
+        $startpid = (int) $obj->page->getPageId();
+
+        // A tall multi-fragment Hebrew paragraph (base text + colored span + base
+        // text) placed near the page bottom so it cannot fit and must continue.
+        $word = static fn(int $cp): string => \str_repeat((string) \mb_chr($cp), 4);
+        $body = '';
+        for ($i = 0; $i < 80; ++$i) {
+            $body .= $word(0x05D0 + ($i % 10)) . ' ';
+        }
+
+        $body = \rtrim($body);
+        $html =
+            '<p dir="rtl" style="direction:rtl;text-align:right">'
+            . $body
+            . ' <span color="#ff0000">'
+            . $word(0x05DC)
+            . '</span> '
+            . $body
+            . '</p>';
+
+        $obj->addHTMLCell($html, 15, 250, 90);
+        $endpid = (int) $obj->page->getPageId();
+
+        $this->assertGreaterThan($startpid, $endpid, 'the tall RTL paragraph must span more than one page');
+
+        $multiFragLines = 0;
+        for ($pid = $startpid; $pid <= $endpid; ++$pid) {
+            $stream = \implode('', $obj->page->getPage($pid)['content']);
+            $m = [];
+            \preg_match_all('/(-?\d+\.?\d*) (-?\d+\.?\d*) Td/', $stream, $m);
+            $xsAll = $m[1] ?? [];
+            $ysAll = $m[2] ?? [];
+            if ($xsAll === []) {
+                continue;
+            }
+
+            /** @var array<string, array<int, float>> $byLine */
+            $byLine = [];
+            foreach ($xsAll as $i => $x) {
+                $yRaw = $ysAll[$i] ?? null;
+                $yKey = (string) \round(\is_numeric($yRaw) ? (float) $yRaw : 0.0, 1);
+                $byLine[$yKey][] = \is_numeric($x) ? (float) $x : 0.0;
+            }
+
+            foreach ($byLine as $lineXs) {
+                if (\count($lineXs) >= 2) {
+                    ++$multiFragLines;
+                }
+
+                $descending = $lineXs;
+                \rsort($descending);
+                $this->assertSame($descending, $lineXs, "page {$pid}: each line must read right-to-left");
+            }
+        }
+
+        $this->assertGreaterThan(
+            0,
+            $multiFragLines,
+            'the continued RTL run must keep its multi-fragment lines right-to-left',
+        );
+    }
 }

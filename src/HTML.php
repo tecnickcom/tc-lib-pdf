@@ -249,6 +249,26 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *     'dom': array<int, THTMLAttrib>,
  * }
  *
+ * @phpstan-type THTMLRtlPiece array{
+ *     key: int,
+ *     text: string,
+ *     image: bool,
+ *     src: string,
+ *     width: float,
+ *     height: float,
+ *     valign: string
+ * }
+ * @phpstan-type THTMLRtlSegment array{
+ *     key: int,
+ *     text: string,
+ *     width: float,
+ *     ascent: float,
+ *     image: bool,
+ *     height: float,
+ *     valign: string,
+ *     src: string
+ * }
+ *
  * @mixin \Com\Tecnick\Pdf\Base
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
  */
@@ -9777,26 +9797,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Collect a maximal inline run of uniform right-to-left text fragments starting
      * at $startKey, for the RTL inter-fragment layout engine.
      *
-     * Returns the ordered logical text pieces (each carrying the DOM key whose
-     * baked-in font/color it renders with) and the last consumed DOM key, or null
-     * when the run is not a plain uniform-RTL inline run this engine can lay out —
-     * mixed direction, inline images, links, inline-block, or decorated spans keep
-     * the existing forward-cursor path (and are addressed by later increments or by
-     * full UBA for mixed bidi). See PLAN_RTL_HTML_FRAGMENTS.md.
+     * Returns the ordered logical pieces (each text piece carries the DOM key whose
+     * baked-in font/color it renders with; each image piece carries its resolved
+     * source and box) and the last consumed DOM key, or null when the run is not a
+     * plain uniform-RTL inline run this engine can lay out — mixed direction, links,
+     * inline-block, or decorated spans keep the existing forward-cursor path (and are
+     * addressed by later increments or by full UBA for mixed bidi). Inline images are
+     * accepted as atomic boxes (Stage 2c). See PLAN_RTL_HTML_FRAGMENTS.md.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
-     * @return array{pieces: array<int, array{key: int, text: string}>, endkey: int}|null
+     * @return array{pieces: array<int, THTMLRtlPiece>, endkey: int}|null
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
+     * @throws \Throwable
      */
     protected function collectHTMLRtlInlineRun(array &$hrc, int $startKey): ?array
     {
         $dom = &$hrc['dom'];
         $numel = \count($dom);
         $start = $dom[$startKey] ?? null;
-        if (!\is_array($start) || $start['tag'] || $start['dir'] !== 'rtl') {
+        if (!\is_array($start) || $start['dir'] !== 'rtl') {
+            return null;
+        }
+
+        // The run starts at a text fragment or at a leading inline image; any other
+        // tag (a block/span boundary) is not a run start this engine begins from.
+        if ($start['tag'] && !($start['value'] === 'img' && $start['opening'])) {
             return null;
         }
 
@@ -9811,8 +9839,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($node['tag']) {
                 $val = $node['value'];
                 if ($val === 'img') {
-                    // Inline images are handled by a later engine increment.
-                    return null;
+                    if ($node['opening']) {
+                        $imgPiece = $this->buildHTMLRtlImagePiece($hrc, $node, $key);
+                        if ($imgPiece === null) {
+                            // Missing source or non-positive size: defer the whole run to
+                            // the forward-cursor path (alt-text fallback etc.).
+                            return null;
+                        }
+
+                        $pieces[] = $imgPiece;
+                    }
+
+                    $endkey = $key;
+                    continue;
                 }
 
                 if ($key > $startKey && ($node['block'] || $val === 'br')) {
@@ -9843,7 +9882,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            $pieces[] = ['key' => $key, 'text' => $text];
+            $pieces[] = [
+                'key' => $key,
+                'text' => $text,
+                'image' => false,
+                'src' => '',
+                'width' => 0.0,
+                'height' => 0.0,
+                'valign' => '',
+            ];
         }
 
         if (\count($pieces) < 2) {
@@ -9855,20 +9902,72 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Lay out and render a uniform-RTL multi-fragment inline run right-to-left: the
-     * first logical fragment hugs the line's right edge, each subsequent fragment is
-     * placed to its left. Each fragment renders in a box of its own width through
-     * getTextCell() with forcedir 'R', so its internal glyphs (including neutral
-     * numerals) keep their correct visual order and its baked-in font/color are
-     * preserved.
+     * Build an atomic image piece for the RTL inter-fragment run-list from an <img>
+     * DOM node, or null when the image has no usable source or non-positive size (the
+     * caller then defers the whole run to the forward-cursor renderer).
+     *
+     * @param THTMLRenderContext $hrc  HTML render context.
+     * @param THTMLAttrib $node <img> DOM node.
+     * @param int $key DOM array key.
+     *
+     * @return THTMLRtlPiece|null
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Throwable
+     */
+    protected function buildHTMLRtlImagePiece(array &$hrc, array $node, int $key): ?array
+    {
+        $attr = $node['attribute'];
+        if (!isset($attr['src']) || !\is_string($attr['src']) || $attr['src'] === '') {
+            return null;
+        }
+
+        $src = $this->resolveHTMLImageSource($attr['src']);
+        $lineheight = $this->getHTMLLineAdvance($hrc, $key);
+        $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+        $width = $imgdim['width'];
+        $height = $imgdim['height'];
+        if ($width <= 0.0 || $height <= 0.0) {
+            return null;
+        }
+
+        $valign = isset($attr['align']) && \is_string($attr['align']) ? \strtolower(\trim($attr['align'])) : 'bottom';
+
+        return [
+            'key' => $key,
+            'text' => '',
+            'image' => true,
+            'src' => $src,
+            'width' => $width,
+            'height' => $height,
+            'valign' => $valign,
+        ];
+    }
+
+    /**
+     * Lay out and render a uniform-RTL multi-fragment inline run right-to-left,
+     * wrapping across fragment boundaries and stacking lines top-down: on each line
+     * the first logical fragment hugs the right edge and each subsequent fragment is
+     * placed to its left. Text fragments render in a box of their own width through
+     * getTextCell() with forcedir 'R', so their internal glyphs (including neutral
+     * numerals) keep their correct visual order and their baked-in font/color are
+     * preserved; inline images are placed as atomic boxes on the line (Stage 2c).
      *
      * Returns ['out' => PDF code, 'endkey' => last consumed DOM key], or null to fall
      * back to the existing forward-cursor renderer (LTR, single fragment, mid-line
-     * start, tables/links/PDF-UA, or a run that wraps — cross-fragment line-breaking
-     * is a later increment). The forward-cursor path is therefore byte-identical for
-     * every case this engine declines.
+     * start, tables/links/PDF-UA, a single word/image wider than the line, or a run
+     * taller than the remaining region with no way to continue — see $appendFragment).
+     * The forward-cursor path is therefore byte-identical for every case this engine
+     * declines.
+     *
+     * When the run overflows the current region and a per-page fragment sink is
+     * available (addHTMLCell), the engine flows the remaining right-to-left lines into
+     * the next region/page (Stage 2e): the lines that fit are emitted to the current
+     * page through $appendFragment and the final region's lines are returned in 'out'.
      *
      * @param THTMLRenderContext $hrc HTML render context.
+     * @param ?callable(string):void $appendFragment Per-page sink for the lines that
+     *        fit before a region/page break; null disables region/page continuation.
      *
      * @return array{out: string, endkey: int}|null
      *
@@ -9881,9 +9980,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float &$tpy,
         float &$tpw,
         float &$tph,
+        ?callable $appendFragment = null,
     ): ?array {
-        unset($tph);
-
         // Engine guards: only a plain inline flow at a fresh line start, no tables,
         // nested block cells, links, or PDF/UA tagging (handled by later increments).
         if (
@@ -9920,112 +10018,88 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineAdvance = $built['advance'];
         $numLines = \count($lines);
 
-        // Region/page continuation for RTL runs is a later increment: a run taller
-        // than the space left in the region falls back to the forward-cursor path
-        // rather than overprint the next region (no new regression — that path is
-        // also imperfect for RTL overflow, but it does not crash).
-        if (($numLines * $lineAdvance) > ($this->getHTMLRemainingHeight($hrc, $tpy) + self::WIDTH_TOLERANCE)) {
+        // A run taller than the space left in the current region flows into the next
+        // region/page (Stage 2e) when there is somewhere and some sink to flow into:
+        // a per-page fragment sink (addHTMLCell), no fixed cell height, no open
+        // styled block buffer (whose cross-page background the forward path handles),
+        // and a region/page to advance to. Otherwise it falls back to the
+        // forward-cursor path rather than overprint the next region (no new
+        // regression — that path is also imperfect for RTL overflow, but does not
+        // crash).
+        $runHeight = $numLines * $lineAdvance;
+        $fitsInRegion = $runHeight <= ($this->getHTMLRemainingHeight($hrc, $tpy) + self::WIDTH_TOLERANCE);
+        $canContinue =
+            $appendFragment !== null
+            && $hrc['cellctx']['maxheight'] <= 0.0
+            && $hrc['blockbuf'] === []
+            && $this->htmlCanAdvanceRegion();
+        if (!$fitsInRegion && !$canContinue) {
             return null;
         }
 
         // Place each line right-to-left, stacking top-down: the first logical
         // fragment of a line hugs the right edge, each subsequent fragment to its
-        // left; lines advance downward in logical (reading) order.
+        // left; lines advance downward in logical (reading) order. When the run
+        // overflows the region, the lines that fit are emitted to the current page
+        // and the cursor breaks into the next region/page for the remainder.
         $lineRight = $lineOriginX + $availableWidth;
         $out = '';
+        $lastLineTop = $tpy;
         $prevSoftHyphen = $this->htmlRenderSoftHyphen;
         $this->htmlRenderSoftHyphen = true;
         try {
-            foreach ($lines as $lineIdx => $segments) {
-                $cursor = $lineRight;
-                $lineTop = $tpy + ($lineIdx * $lineAdvance);
-
-                // Regroup consecutive segments from the same fragment so each fragment
-                // renders through a single getTextCell. Splitting at the word level
-                // would Bidi each word in isolation and separate a bracket pair like
-                // "(...)" across calls, reversing it; one call per fragment keeps the
-                // fragment's internal Bidi context (bracket pairing, neutral
-                // resolution) intact while still allowing wraps between fragments.
-                foreach ($this->groupHTMLRtlLineSegments($segments) as $group) {
-                    $groupText = $group['text'];
-                    if (\trim($groupText) === '') {
-                        // A whitespace-only group advances the cursor but draws nothing.
-                        $cursor -= $group['width'];
-                        continue;
-                    }
-
-                    $key = $group['key'];
-                    $node = $hrc['dom'][$key] ?? null;
-                    if (!\is_array($node)) {
-                        continue;
-                    }
-
-                    $this->getHTMLFontMetric($hrc, $key);
-
-                    // getTextCell drops a fragment's leading collapsible space (but keeps
-                    // its trailing one). Reserve the leading space as an explicit cursor
-                    // gap so the inter-fragment spacing is preserved — e.g. the space
-                    // before the word following an embedded span. The fragment itself is
-                    // still rendered whole, keeping its internal Bidi context (brackets).
-                    $leadm = [];
-                    $lead = \preg_match('/^ +/u', $groupText, $leadm) === 1 ? $leadm[0] ?? '' : '';
-                    if ($lead !== '') {
-                        $cursor -= $this->getStringWidth($lead);
-                    }
-
-                    if ($cursor <= 0.0) {
-                        continue;
-                    }
-
-                    // Render the fragment right-aligned in a box spanning from the page
-                    // left edge (x = 0) to the cursor. The box is always wider than a
-                    // fragment that fits on the line, so getTextCell never wraps; this
-                    // avoids the getStringWidth-vs-getTextCell measurement drift (Arabic
-                    // shaping / presentation forms) that otherwise spilled a word onto the
-                    // next line. renderX = 0 keeps the box on the page (a tighter box could
-                    // push it negative and misrender). The cursor then advances by the
-                    // ACTUAL rendered left edge (bbox), so spacing stays exact.
-                    $renderY = $lineTop + ($lineascent - $group['ascent']);
-                    $style = $node['fontstyle'];
-                    $strokeWidth = $node['stroke'];
-                    $textout = $this->getTextCell(
-                        $groupText,
-                        0.0,
-                        $renderY,
-                        $cursor,
-                        0,
-                        0,
-                        0,
-                        'T',
-                        'R',
-                        static::ZEROCELL,
-                        [],
-                        $strokeWidth,
-                        0,
-                        0,
-                        0,
-                        true,
-                        $node['fill'],
-                        $strokeWidth > 0,
-                        \str_contains($style, 'U'),
-                        \str_contains($style, 'D'),
-                        \str_contains($style, 'O'),
-                        $node['clip'],
-                        false,
-                        'R',
-                    );
-                    $out .= $this->getHTMLTextPrefix($hrc, $key) . $textout;
-                    $bbox = $this->getLastBBox();
-                    $cursor = $bbox['x'];
+            $y = $tpy;
+            $idx = 0;
+            while ($idx < $numLines) {
+                // How many of the remaining lines fit in the current region from $y?
+                // At least one always renders so a single line taller than the region
+                // makes progress instead of looping.
+                $maxFit = (int) \floor(
+                    ($this->getHTMLRemainingHeight($hrc, $y) + self::WIDTH_TOLERANCE) / $lineAdvance,
+                );
+                if ($maxFit < 1) {
+                    $maxFit = 1;
                 }
+
+                $regionEnd = \min($numLines, $idx + $maxFit);
+                for ($j = $idx; $j < $regionEnd; ++$j) {
+                    $line = $lines[$j] ?? null;
+                    if (!\is_array($line)) {
+                        continue;
+                    }
+
+                    $lastLineTop = $y + (($j - $idx) * $lineAdvance);
+                    $out .= $this->renderHTMLRtlLine($hrc, $line, $lineRight, $lastLineTop, $lineascent, $lineAdvance);
+                }
+
+                $idx = $regionEnd;
+                if ($idx >= $numLines || $appendFragment === null) {
+                    // All lines placed, or (unreachable: overflow continuation requires
+                    // a sink) no per-page sink to flush into.
+                    break;
+                }
+
+                // More lines remain: flush this region's output onto the current page
+                // ($canContinue guarantees a per-page sink) and break to the next
+                // region/page. resetHTMLLineCursor (inside breakHTMLIfNeeded) moves the
+                // origin, so re-derive the right edge for the (possibly resized) region.
+                $breakY = $lastLineTop + $lineAdvance;
+                $appendFragment($out);
+                $out = '';
+                $forceH = $this->getHTMLRemainingHeight($hrc, $breakY) + $lineAdvance + 1.0;
+                $this->breakHTMLIfNeeded($hrc, $forceH, $tpx, $breakY, $tpw, $tph);
+                $lineOriginX = $hrc['cellctx']['lineoriginx'];
+                $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+                $lineRight = $lineOriginX + $availableWidth;
+                $y = $breakY;
+                $lastLineTop = $breakY;
             }
         } finally {
             $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
 
-        // Leave the cursor at the last visual line (matching the forward-cursor
-        // wrapped branch), so the following block/break flows below the run.
-        $lastLineTop = $tpy + (($numLines - 1) * $lineAdvance);
+        // Leave the cursor at the last visual line of the final region, so the
+        // following block/break flows below the run.
         $this->updateHTMLLineAdvance($hrc, $lineAdvance);
         $linebottom = $lastLineTop + $lineAdvance;
         if ($hrc['cellctx']['linebottom'] <= 0 || $linebottom > $hrc['cellctx']['linebottom']) {
@@ -10044,47 +10118,260 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Merge consecutive line segments belonging to the same fragment (DOM key) into
-     * single placement groups, concatenating their text and summing their widths, so
-     * the fragment renders through one getTextCell with its Bidi context intact.
+     * Render one right-to-left visual line of a collected RTL inline run, returning
+     * its PDF code. Segments are grouped per fragment (groupHTMLRtlLineSegments) so
+     * each fragment renders through a single getTextCell (keeping its internal Bidi
+     * context), and placed right-to-left: the first logical fragment hugs the line's
+     * right edge ($lineRight) and the cursor advances leftward. Inline images are
+     * placed as atomic boxes; whitespace-only groups advance the cursor without
+     * drawing. See renderHTMLRtlInlineRun() and PLAN_RTL_HTML_FRAGMENTS.md.
      *
-     * @param array<int, array{key: int, text: string, width: float, ascent: float}> $segments
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param array<int, THTMLRtlSegment> $segments Logical-order line segments.
      *
-     * @return array<int, array{key: int, text: string, width: float, ascent: float}>
+     * @throws \Throwable
      */
-    protected function groupHTMLRtlLineSegments(array $segments): array
-    {
-        /** @var array<int, array{key: int, text: string, width: float, ascent: float}> $groups */
-        $groups = [];
-        $open = false;
-        $key = 0;
-        $text = '';
-        $width = 0.0;
-        $ascent = 0.0;
-        foreach ($segments as $segment) {
-            if ($open && $segment['key'] === $key) {
-                $text .= $segment['text'];
-                $width += $segment['width'];
-                if ($segment['ascent'] > $ascent) {
-                    $ascent = $segment['ascent'];
+    protected function renderHTMLRtlLine(
+        array &$hrc,
+        array $segments,
+        float $lineRight,
+        float $lineTop,
+        float $lineascent,
+        float $lineAdvance,
+    ): string {
+        $out = '';
+        $cursor = $lineRight;
+
+        // Regroup consecutive segments from the same fragment so each fragment
+        // renders through a single getTextCell. Splitting at the word level would
+        // Bidi each word in isolation and separate a bracket pair like "(...)" across
+        // calls, reversing it; one call per fragment keeps the fragment's internal
+        // Bidi context (bracket pairing, neutral resolution) intact while still
+        // allowing wraps between fragments.
+        foreach ($this->groupHTMLRtlLineSegments($segments) as $group) {
+            if ($group['image']) {
+                // Image box on the RTL line: its right edge sits at the cursor and the
+                // cursor then advances leftward by the box width. Vertical placement
+                // matches the forward renderer — bottom-aligned to the line baseline
+                // (lineTop + lineascent) by default, or top/middle.
+                $imgWidth = $group['width'];
+                if ($imgWidth <= 0.0) {
+                    continue;
+                }
+
+                $imgHeight = $group['height'];
+                $imagex = $cursor - $imgWidth;
+                if ($cursor > 0.0) {
+                    $imagey = match ($group['valign']) {
+                        'top' => $lineTop,
+                        'middle' => $lineTop + (($lineAdvance - $imgHeight) / 2.0),
+                        default => $lineTop + $lineascent - $imgHeight,
+                    };
+                    try {
+                        $out .= $this->buildHTMLImageXObject($group['src'], $imagex, $imagey, $imgWidth, $imgHeight);
+                        $cursor = $imagex;
+                    } catch (\Throwable) {
+                        // Broken image source: degrade like the forward renderer by
+                        // drawing the image's alt text in the reserved slot, and advance
+                        // the cursor by the alt's actual extent (falling back to the box
+                        // width when there is no alt text to draw).
+                        $fallback = $this->renderHTMLRtlImageAlt($hrc, $group['key'], $cursor, $lineTop, $imagex);
+                        $out .= $fallback['out'];
+                        $cursor = $fallback['cursor'];
+                    }
+                } else {
+                    $cursor = $imagex;
                 }
 
                 continue;
             }
 
-            if ($open) {
-                $groups[] = ['key' => $key, 'text' => $text, 'width' => $width, 'ascent' => $ascent];
+            $groupText = $group['text'];
+            if (\trim($groupText) === '') {
+                // A whitespace-only group advances the cursor but draws nothing.
+                $cursor -= $group['width'];
+                continue;
             }
 
-            $open = true;
-            $key = $segment['key'];
-            $text = $segment['text'];
-            $width = $segment['width'];
-            $ascent = $segment['ascent'];
+            $key = $group['key'];
+            $node = $hrc['dom'][$key] ?? null;
+            if (!\is_array($node)) {
+                continue;
+            }
+
+            $this->getHTMLFontMetric($hrc, $key);
+
+            // getTextCell drops a fragment's leading collapsible space (but keeps its
+            // trailing one). Reserve the leading space as an explicit cursor gap so the
+            // inter-fragment spacing is preserved — e.g. the space before the word
+            // following an embedded span. The fragment itself is still rendered whole,
+            // keeping its internal Bidi context (brackets).
+            $leadm = [];
+            $lead = \preg_match('/^ +/u', $groupText, $leadm) === 1 ? $leadm[0] ?? '' : '';
+            if ($lead !== '') {
+                $cursor -= $this->getStringWidth($lead);
+            }
+
+            if ($cursor <= 0.0) {
+                continue;
+            }
+
+            // Render the fragment right-aligned in a box spanning from the page left
+            // edge (x = 0) to the cursor. The box is always wider than a fragment that
+            // fits on the line, so getTextCell never wraps; this avoids the
+            // getStringWidth-vs-getTextCell measurement drift (Arabic shaping /
+            // presentation forms) that otherwise spilled a word onto the next line.
+            // renderX = 0 keeps the box on the page (a tighter box could push it
+            // negative and misrender). The cursor then advances by the ACTUAL rendered
+            // left edge (bbox), so spacing stays exact.
+            $renderY = $lineTop + ($lineascent - $group['ascent']);
+            $style = $node['fontstyle'];
+            $strokeWidth = $node['stroke'];
+            $textout = $this->getTextCell(
+                $groupText,
+                0.0,
+                $renderY,
+                $cursor,
+                0,
+                0,
+                0,
+                'T',
+                'R',
+                static::ZEROCELL,
+                [],
+                $strokeWidth,
+                0,
+                0,
+                0,
+                true,
+                $node['fill'],
+                $strokeWidth > 0,
+                \str_contains($style, 'U'),
+                \str_contains($style, 'D'),
+                \str_contains($style, 'O'),
+                $node['clip'],
+                false,
+                'R',
+            );
+            $out .= $this->getHTMLTextPrefix($hrc, $key) . $textout;
+            $bbox = $this->getLastBBox();
+            $cursor = $bbox['x'];
         }
 
-        if ($open) {
-            $groups[] = ['key' => $key, 'text' => $text, 'width' => $width, 'ascent' => $ascent];
+        return $out;
+    }
+
+    /**
+     * Render the alt text of an inline image as a right-to-left fallback fragment,
+     * used when the image source cannot be drawn — mirroring renderHTMLImage()'s
+     * graceful degradation. The text is right-aligned so it ends at the image box's
+     * right edge ($boxRight) and grows leftward, like the image it replaces.
+     *
+     * Returns the emitted PDF code and the resulting (leftward) cursor: the alt
+     * text's actual left edge when something was drawn, otherwise $fallbackCursor
+     * (the bare image-box advance, used when there is no alt text).
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param int   $key            <img> DOM array key.
+     * @param float $boxRight        Right edge of the reserved image box (cursor position).
+     * @param float $renderY         Top ordinate of the line.
+     * @param float $fallbackCursor  Cursor to keep when no alt text is drawn.
+     *
+     * @return array{out: string, cursor: float}
+     *
+     * @throws \Throwable
+     */
+    protected function renderHTMLRtlImageAlt(
+        array &$hrc,
+        int $key,
+        float $boxRight,
+        float $renderY,
+        float $fallbackCursor,
+    ): array {
+        if ($boxRight <= 0.0) {
+            return ['out' => '', 'cursor' => $fallbackCursor];
+        }
+
+        $node = $hrc['dom'][$key] ?? null;
+        if (!\is_array($node)) {
+            return ['out' => '', 'cursor' => $fallbackCursor];
+        }
+
+        $attr = $node['attribute'];
+        $alt = isset($attr['alt']) && \is_string($attr['alt']) ? $attr['alt'] : '[img]';
+        if (\trim($alt) === '') {
+            return ['out' => '', 'cursor' => $fallbackCursor];
+        }
+
+        $this->getHTMLFontMetric($hrc, $key);
+        $textout = $this->getTextCell(
+            $alt,
+            0.0,
+            $renderY,
+            $boxRight,
+            0,
+            0,
+            0,
+            'T',
+            'R',
+            static::ZEROCELL,
+            [],
+            0.0,
+            0,
+            0,
+            0,
+            true,
+            $node['fill'],
+            false,
+            false,
+            false,
+            false,
+            $node['clip'],
+            false,
+            'R',
+        );
+
+        return ['out' => $this->getHTMLTextPrefix($hrc, $key) . $textout, 'cursor' => $this->getLastBBox()['x']];
+    }
+
+    /**
+     * Merge consecutive text segments belonging to the same fragment (DOM key) into
+     * single placement groups, concatenating their text and summing their widths, so
+     * the fragment renders through one getTextCell with its Bidi context intact. An
+     * image segment is always kept standalone (never merged), so it renders as its
+     * own atomic box on the line.
+     *
+     * @param array<int, THTMLRtlSegment> $segments
+     *
+     * @return array<int, THTMLRtlSegment>
+     */
+    protected function groupHTMLRtlLineSegments(array $segments): array
+    {
+        /** @var array<int, THTMLRtlSegment> $groups */
+        $groups = [];
+        /** @var THTMLRtlSegment|null $cur */
+        $cur = null;
+        foreach ($segments as $segment) {
+            $isImage = $segment['image'];
+            if ($cur !== null && !$isImage && !$cur['image'] && $segment['key'] === $cur['key']) {
+                $cur['text'] .= $segment['text'];
+                $cur['width'] += $segment['width'];
+                if ($segment['ascent'] > $cur['ascent']) {
+                    $cur['ascent'] = $segment['ascent'];
+                }
+
+                continue;
+            }
+
+            if ($cur !== null) {
+                $groups[] = $cur;
+            }
+
+            $cur = $segment;
+        }
+
+        if ($cur !== null) {
+            $groups[] = $cur;
         }
 
         return $groups;
@@ -10093,22 +10380,23 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Break a collected RTL inline run into visual lines for right-to-left layout.
      *
-     * Each piece is tokenized (under its own baked-in font) into alternating
+     * Each text piece is tokenized (under its own baked-in font) into alternating
      * word / whitespace tokens, with the run's logical ends trimmed of collapsible
      * whitespace. A "word" is a maximal run of consecutive non-space tokens, which
      * may span fragment boundaries (for example an Arabic run immediately followed
      * by a Latin span, "الـ" + "PDF"); whitespace tokens are the break
-     * opportunities. The greedy fill returns the lines top-to-bottom in logical
-     * (reading) order, each a list of placement segments in logical order. Returns
-     * null when there are fewer than two fragments, a single word is wider than the
-     * line (needs word-/char-breaking, deferred to the forward-cursor path), or the
-     * run has no measurable content.
+     * opportunities. An image piece is an atomic, unbreakable word token whose width
+     * is its rendered box width (Stage 2c). The greedy fill returns the lines
+     * top-to-bottom in logical (reading) order, each a list of placement segments in
+     * logical order. Returns null when there are fewer than two pieces, a single
+     * word (or image) is wider than the line (needs word-/char-breaking, deferred to
+     * the forward-cursor path), or the run has no measurable content.
      *
      * @param THTMLRenderContext $hrc HTML render context.
-     * @param array<int, array{key: int, text: string}> $pieces Logical run pieces.
+     * @param array<int, THTMLRtlPiece> $pieces Logical run pieces.
      *
      * @return array{
-     *     lines: array<int, array<int, array{key: int, text: string, width: float, ascent: float}>>,
+     *     lines: array<int, array<int, THTMLRtlSegment>>,
      *     ascent: float,
      *     advance: float
      * }|null
@@ -10125,12 +10413,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $count = \count($pieces);
 
         // Tokenize each piece into word / whitespace tokens measured under its font.
-        /** @var array<int, array{key: int, text: string, width: float, ascent: float, space: bool}> $tokens */
+        /** @var array<int, array{key: int, text: string, width: float, ascent: float, space: bool, image: bool, height: float, valign: string, src: string}> $tokens */
         $tokens = [];
         $maxAscent = 0.0;
         $maxAdvance = 0.0;
         $pieceCount = 0;
         foreach ($pieces as $idx => $piece) {
+            if ($piece['image']) {
+                // An image is one atomic, unbreakable word token. It contributes its
+                // height to both the line ascent (bottom edge aligns to the baseline)
+                // and the line advance (so a tall image grows the line height).
+                ++$pieceCount;
+                $imgHeight = $piece['height'];
+                if ($imgHeight > $maxAscent) {
+                    $maxAscent = $imgHeight;
+                }
+
+                if ($imgHeight > $maxAdvance) {
+                    $maxAdvance = $imgHeight;
+                }
+
+                $tokens[] = [
+                    'key' => $piece['key'],
+                    'text' => '',
+                    'width' => $piece['width'],
+                    'ascent' => $imgHeight,
+                    'space' => false,
+                    'image' => true,
+                    'height' => $imgHeight,
+                    'valign' => $piece['valign'],
+                    'src' => $piece['src'],
+                ];
+                continue;
+            }
+
             $text = $piece['text'];
             if ($idx === 0) {
                 $text = \ltrim($text);
@@ -10170,6 +10486,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     'width' => $this->getStringWidth($part),
                     'ascent' => $ascent,
                     'space' => \trim($part) === '',
+                    'image' => false,
+                    'height' => 0.0,
+                    'valign' => '',
+                    'src' => '',
                 ];
             }
         }
@@ -10180,7 +10500,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // Group the tokens into units: a "word" (maximal run of non-space tokens,
         // possibly spanning fragments) or a "space" (maximal run of space tokens).
-        /** @var array<int, array{space: bool, width: float, parts: array<int, array{key: int, text: string, width: float, ascent: float}>}> $units */
+        // An image token is non-space, so it joins an adjacent word with no
+        // intervening space (no break opportunity), exactly like glued text.
+        /** @var array<int, array{space: bool, width: float, parts: array<int, THTMLRtlSegment>}> $units */
         $units = [];
         $curParts = [];
         $curWidth = 0.0;
@@ -10201,6 +10523,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 'text' => $token['text'],
                 'width' => $token['width'],
                 'ascent' => $token['ascent'],
+                'image' => $token['image'],
+                'height' => $token['height'],
+                'valign' => $token['valign'],
+                'src' => $token['src'],
             ];
             $curWidth += $token['width'];
         }
@@ -10211,12 +10537,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tolerance = $availableWidth + self::WIDTH_TOLERANCE;
 
         // Greedy fill: a deferred space joins the next word or is dropped at a break.
-        /** @var array<int, array<int, array{key: int, text: string, width: float, ascent: float}>> $lines */
+        /** @var array<int, array<int, THTMLRtlSegment>> $lines */
         $lines = [];
-        /** @var array<int, array{key: int, text: string, width: float, ascent: float}> $line */
+        /** @var array<int, THTMLRtlSegment> $line */
         $line = [];
         $lineWidth = 0.0;
-        /** @var array<int, array{key: int, text: string, width: float, ascent: float}> $pendingSpace */
+        /** @var array<int, THTMLRtlSegment> $pendingSpace */
         $pendingSpace = [];
         $pendingSpaceWidth = 0.0;
         foreach ($units as $unit) {
@@ -12134,6 +12460,43 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Emit the PDF code that draws an image (raster or SVG) at the given box.
+     *
+     * Shared by the forward-cursor renderer (renderHTMLImage) and the RTL
+     * inter-fragment engine (renderHTMLRtlInlineRun) so both place images through
+     * the exact same XObject registration. The caller is responsible for the
+     * cursor advance, vertical alignment and any alt-text fallback on failure.
+     *
+     * @param string $src    Resolved image source.
+     * @param float  $imagex Image left edge (user units).
+     * @param float  $imagey Image top edge (user units).
+     * @param float  $width  Image width (user units).
+     * @param float  $height Image height (user units).
+     *
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Throwable
+     */
+    protected function buildHTMLImageXObject(
+        string $src,
+        float $imagex,
+        float $imagey,
+        float $width,
+        float $height,
+    ): string {
+        $pageheight = $this->page->getPage()['height'];
+        if (\str_ends_with(\strtolower($src), '.svg')) {
+            $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight, true);
+
+            return $this->getSetSVG($svgid);
+        }
+
+        $imgid = $this->addMarkupRasterImage($src, $width, $height);
+
+        return $this->image->getSetImage($imgid, $imagex, $imagey, $width, $height, $pageheight);
+    }
+
+    /**
      * Render an HTML image and advance the inline cursor.
      *
      * @param THTMLRenderContext $hrc HTML render context.
@@ -12236,14 +12599,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $out = '';
         try {
-            $pageheight = $this->page->getPage()['height'];
-            if (\str_ends_with(\strtolower($src), '.svg')) {
-                $svgid = $this->addSVG($src, $imagex, $imagey, $width, $height, $pageheight, true);
-                $out = $this->getSetSVG($svgid);
-            } else {
-                $imgid = $this->addMarkupRasterImage($src, $width, $height);
-                $out = $this->image->getSetImage($imgid, $imagex, $imagey, $width, $height, $pageheight);
-            }
+            $out = $this->buildHTMLImageXObject($src, $imagex, $imagey, $width, $height);
         } catch (\Throwable) {
             return $this->renderHTMLLiteralText($hrc, $key, $alt, $tpx, $tpy, $tpw, $height);
         }
@@ -14256,6 +14612,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
+            // RTL inter-fragment engine: a uniform-RTL multi-fragment inline run is
+            // laid out right-to-left as a unit. Dispatched here — before the per-node
+            // tag/text handlers — so a run that begins with an inline <img> is captured
+            // whole instead of having its leading image placed by the forward cursor
+            // first (which would then trip the engine's mid-line guard and fall back).
+            // It returns null for every case it does not handle, so LTR, single
+            // fragment and mid-line starts keep the existing forward-cursor path.
+            if (!$elm['tag'] || $elm['value'] === 'img' && $elm['opening']) {
+                $hrc['currentkey'] = $key;
+                $rtlRun = $this->renderHTMLRtlInlineRun($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                if ($rtlRun !== null) {
+                    if (!$this->captureHTMLFragment($hrc, $rtlRun['out'])) {
+                        $appendFragment($rtlRun['out']);
+                    }
+
+                    $key = $rtlRun['endkey'] + 1;
+                    continue;
+                }
+            }
+
             if ($elm['tag']) { // HTML TAG
                 if ($elm['opening']) { // opening tag
                     $didpagebreak = false;
@@ -14766,23 +15142,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
                 }
             } else { // Text Content
+                // The RTL inter-fragment engine was already offered this node at the
+                // top of the loop; reaching here means it declined, so render the text
+                // fragment through the forward-cursor path.
                 $hrc['currentkey'] = $key;
-                // RTL inter-fragment engine: a uniform-RTL multi-fragment inline run
-                // is laid out right-to-left as a unit (returns null to fall back to
-                // the forward-cursor renderer for every case it does not handle, so
-                // LTR and single-fragment output is unchanged).
-                $rtlRun = $this->renderHTMLRtlInlineRun($hrc, $key, $tpx, $tpy, $tpw, $tph);
-                if ($rtlRun !== null) {
-                    if (!$this->captureHTMLFragment($hrc, $rtlRun['out'])) {
-                        $appendFragment($rtlRun['out']);
-                    }
-
-                    $key = $rtlRun['endkey'];
-                } else {
-                    $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-                    if (!$this->captureHTMLFragment($hrc, $fragment)) {
-                        $appendFragment($fragment);
-                    }
+                $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                if (!$this->captureHTMLFragment($hrc, $fragment)) {
+                    $appendFragment($fragment);
                 }
             }
 

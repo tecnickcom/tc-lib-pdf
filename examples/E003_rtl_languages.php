@@ -83,7 +83,7 @@ $pdf->page->addContent($bfont['out']);
 
 $pdf->setRTL(false);
 $pdf->addHTMLCell(
-    html: '<h1>RTL (Right-To-Left) Example</h1><h2>1. getTextCell()</h2>',
+    html: '<h1>RTL (Right-To-Left) Examples</h1><h2>1. getTextCell()</h2>',
     posx: $psx,
     posy: 15,
     width: $lnw,
@@ -210,6 +210,50 @@ $pdf->addHTMLCell(html: $htmlArabic, posx: $psx, posy: 160, width: $lnw);
 
 $pdf->addHTMLCell(html: $txtEngHebrew, posx: $psx, posy: 200, width: $lnw);
 $pdf->addHTMLCell(html: $htmlHebrew, posx: $psx, posy: 240, width: $lnw);
+
+// ----------
+
+$page = $pdf->addPage();
+
+$pdf->page->addContent($bfont['out']);
+
+$pdf->addHTMLCell(html: '<h2>7. addtHTMLCell() - HTML fragments with images</h2>', posx: $psx, posy: 15, width: $lnw);
+
+$rtlHtmlWithImage = '<p style="direction:rtl;text-align:right;color:#003366;" lang="fa"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" height="3mm" border="0" /> فرآیند چاپ و نمایش صحیح متون فارسی در سیستم‌های دیجیتال نیازمند پشتیبانی کامل از استاندارد یونیکد و چیدمان راست‌به‌چپ است. در این متن آزمایشی، تمامی حروف الفبای فارسی از جمله حروف خاص مانند <img src="images/tcpdf_logo.jpg" alt="TCPDF logo" height="3mm" border="0" /> <span style="color:#660000;">«پ»، «چ»، «ژ» و «گ»</span> گنجانده شده‌اند تا صحت اتصال آن‌ها بررسی شود. همچنین استفاده از اعداد فارسی <img src="images/tcpdf_logo.jpg" alt="TCPDF logo" height="3mm" border="0" /> <span style="color:#006600;">(۱۲۳۴۵۶۷۸۹۰)</span> و علائم نگارشی مانند ویرگول (،) و نقطه‌ویرگول (؛) برای سنجش دقیق ترازبندی خطوط و حاشیه‌های صفحات چندخطی الزامی است. <img src="images/tcpdf_logo.jpg" alt="TCPDF logo" height="3mm" border="0" /></p>';
+
+$pdf->addHTMLCell(html: $rtlHtmlWithImage, posx: $psx, posy: 40, width: $lnw);
+
+// ----------
+
+$page = $pdf->addPage();
+
+$pdf->page->addContent($bfont['out']);
+
+$pdf->addHTMLCell(
+    html: '<h2>8. addHTMLCell() - RTL paragraph spanning a page break</h2>',
+    posx: $psx,
+    posy: 15,
+    width: $lnw,
+);
+
+// A long multi-fragment RTL paragraph placed low on the page so that it overflows
+// the page bottom and must continue on the next page. This exercises Stage 2e (RTL
+// region/page continuation): the inter-fragment engine must flow the remaining
+// right-to-left lines into the next page, keeping them top-down and right-to-left,
+// instead of falling back to the forward-cursor renderer. See
+// PLAN_RTL_HTML_FRAGMENTS.md increment 4.
+$arabicSpanCycle =
+    $txtArabic
+    . ' <span style="color:#660000;">'
+    . $txtArabic
+    . '</span> '
+    . $txtArabic
+    . ' <span style="color:#006600;">'
+    . $txtArabic
+    . '</span> ';
+$htmlArabicLong =
+    '<p style="direction:rtl;text-align:right;color:#003366;" lang="ar">' . \str_repeat($arabicSpanCycle, 2) . '</p>';
+$pdf->addHTMLCell(html: $htmlArabicLong, posx: $psx, posy: 180, width: $lnw);
 
 // =============================================================
 
