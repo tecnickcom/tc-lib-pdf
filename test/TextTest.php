@@ -1776,6 +1776,54 @@ class TextTest extends TestUtil
         $this->assertNotSame($expectedVisual, $actualTokens);
     }
 
+    /**
+     * Stage 2a: getTextCell() is the path every HTML fragment renders through, so it
+     * must also stack a wrapping RTL paragraph top-down in logical order (matching
+     * splitLines(rtl=true)), not the visual (rtl=false) order. Before Stage 2a only
+     * addTextCell() reversed the line order; getTextCell() kept the visual stacking.
+     *
+     * @throws \Throwable
+     */
+    public function testGetTextCellStacksWrappedRtlParagraphTopDown(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $this->setObjectProperty($obj, 'isunicode', true);
+        $obj->setRTL(true);
+        $obj->addPage();
+
+        $word = static fn(int $cp): string => (string) \mb_chr($cp) . (string) \mb_chr($cp) . (string) \mb_chr($cp);
+        $txt = \implode(' ', \array_map($word, [0x05D0, 0x05D1, 0x05D2, 0x05D3, 0x05D4, 0x05D5]));
+
+        $cellWidthMm = 18.0;
+        [, $ordarr, $dim] = $obj->exposePrepareText($txt, '');
+        $renderWidthPts = $obj->toPoints($cellWidthMm);
+
+        $logicalLines = $obj->exposeSplitLines($ordarr, $dim, $renderWidthPts, 0, true);
+        $visualLines = $obj->exposeSplitLines($ordarr, $dim, $renderWidthPts, 0, false);
+        $this->assertGreaterThan(1, \count($logicalLines));
+
+        $glyphTokens = static function (string $content): array {
+            $matches = [];
+            \preg_match_all('/(\([^)]*\)|<[0-9A-Fa-f]*>|\[[^\]]*\])\s*T[jJ]/s', $content, $matches);
+            return $matches[1] ?? [];
+        };
+
+        // drawcell:false makes getTextCell return only the text-show output; the default
+        // halign 'C' adds no justification spacing, so the glyph-token order depends only
+        // on the line breaks and their top-to-bottom stacking.
+        $out = $obj->getTextCell(txt: $txt, posx: 5, posy: 20, width: $cellWidthMm, drawcell: false);
+        $actualTokens = $glyphTokens($out);
+
+        $width = $obj->toUnit($renderWidthPts);
+        $expectedRtl = $glyphTokens($obj->exposeOutTextLines($ordarr, $logicalLines, 5, 20, $width, 0, 5, 0));
+        $expectedVisual = $glyphTokens($obj->exposeOutTextLines($ordarr, $visualLines, 5, 20, $width, 0, 5, 0));
+
+        $this->assertNotEmpty($actualTokens);
+        $this->assertSame($expectedRtl, $actualTokens);
+        $this->assertNotSame($expectedVisual, $actualTokens);
+    }
+
     /** @throws \Throwable */
     public function testGetOutTextLineAndOutTextLineRenderFromPreparedText(): void
     {

@@ -7650,7 +7650,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $this->getHTMLFontMetric($hrc, $key);
                     $ordarr = [];
                     $dim = $this->getHTMLDefaultTextDims();
-                    $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+                    $fragmentRtl = false;
+                    $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $fragmentRtl);
 
                     $fragmentadvance = $this->getHTMLLineAdvance($hrc, $key);
                     if ($width <= 0.0 || $ordarr === []) {
@@ -7659,7 +7660,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         continue;
                     }
 
-                    $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), $this->toPoints($inlinewidth));
+                    // RTL base direction reverses line order so lines[0] is the
+                    // logically-first (top) line; the count is unchanged but per-line
+                    // widths follow the top-down layout the renderer will produce.
+                    $lines = $this->splitLines(
+                        $ordarr,
+                        $dim,
+                        $this->toPoints($width),
+                        $this->toPoints($inlinewidth),
+                        $fragmentRtl,
+                    );
                     if ($lines === []) {
                         continue;
                     }
@@ -7878,14 +7888,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->getHTMLFontMetric($hrc, $key);
             $ordarr = [];
             $dim = $this->getHTMLDefaultTextDims();
-            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+            $fragmentRtl = false;
+            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $fragmentRtl);
 
             $lineadvance = $this->getHTMLLineAdvance($hrc, $key);
             if ($width <= 0.0 || $ordarr === []) {
                 return $lineadvance;
             }
 
-            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width));
+            // Line count is direction-independent, but pass the RTL flag so the
+            // logical-order break matches what the renderer emits (greedy filling
+            // from the logical start can differ at the line boundary).
+            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($width), 0, $fragmentRtl);
             return \max($lineadvance, \count($lines) * $lineadvance);
         } finally {
             $this->restoreHTMLCallerFontState($callerfont);
@@ -9573,16 +9587,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<int, int> $ordarr Output array of UTF-8 code points.
      * @param TTextDims $dim Output measured text dimensions.
      * @param string $forcedir If 'R' forces RTL, if 'L' forces LTR.
+     * @param bool $baseRtl Out-param: true when the fragment base direction is RTL and the
+     *                      codepoints were Bidi reordered into visual order, so splitLines()
+     *                      must reverse line order and head extraction must use the remapped
+     *                      logically-first line position instead of the front of the array.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
-    protected function prepareHTMLText(string &$txt, array &$ordarr, array &$dim, string $forcedir = ''): void
-    {
+    protected function prepareHTMLText(
+        string &$txt,
+        array &$ordarr,
+        array &$dim,
+        string $forcedir = '',
+        bool &$baseRtl = false,
+    ): void {
         $prevSoftHyphen = $this->htmlRenderSoftHyphen;
         $this->htmlRenderSoftHyphen = true;
         try {
-            $this->prepareText($txt, $ordarr, $dim, $forcedir);
+            $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl);
         } finally {
             $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
@@ -9751,6 +9774,503 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Collect a maximal inline run of uniform right-to-left text fragments starting
+     * at $startKey, for the RTL inter-fragment layout engine.
+     *
+     * Returns the ordered logical text pieces (each carrying the DOM key whose
+     * baked-in font/color it renders with) and the last consumed DOM key, or null
+     * when the run is not a plain uniform-RTL inline run this engine can lay out —
+     * mixed direction, inline images, links, inline-block, or decorated spans keep
+     * the existing forward-cursor path (and are addressed by later increments or by
+     * full UBA for mixed bidi). See PLAN_RTL_HTML_FRAGMENTS.md.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     *
+     * @return array{pieces: array<int, array{key: int, text: string}>, endkey: int}|null
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function collectHTMLRtlInlineRun(array &$hrc, int $startKey): ?array
+    {
+        $dom = &$hrc['dom'];
+        $numel = \count($dom);
+        $start = $dom[$startKey] ?? null;
+        if (!\is_array($start) || $start['tag'] || $start['dir'] !== 'rtl') {
+            return null;
+        }
+
+        $pieces = [];
+        $endkey = $startKey;
+        for ($key = $startKey; $key < $numel; ++$key) {
+            $node = $dom[$key] ?? null;
+            if (!\is_array($node)) {
+                continue;
+            }
+
+            if ($node['tag']) {
+                $val = $node['value'];
+                if ($val === 'img') {
+                    // Inline images are handled by a later engine increment.
+                    return null;
+                }
+
+                if ($key > $startKey && ($node['block'] || $val === 'br')) {
+                    break; // end of the inline run
+                }
+
+                if ($node['opening']) {
+                    $disp = \strtolower(\trim($node['display']));
+                    if ($val === 'a' || $disp === 'inline-block' || $node['bgcolor'] !== '' || $node['border'] !== []) {
+                        // Links, inline-block and decorated spans keep the existing path.
+                        return null;
+                    }
+                }
+
+                $endkey = $key;
+                continue;
+            }
+
+            // The whole run must share a single RTL base direction; a fragment of a
+            // different direction means mixed bidi across fragments (needs full UBA).
+            if ($node['dir'] !== 'rtl') {
+                return null;
+            }
+
+            $text = $this->normalizeHTMLText($hrc, $node['value'], $key);
+            $endkey = $key;
+            if ($text === '') {
+                continue;
+            }
+
+            $pieces[] = ['key' => $key, 'text' => $text];
+        }
+
+        if (\count($pieces) < 2) {
+            // A single fragment already lays out correctly through getTextCell (Stage 2a).
+            return null;
+        }
+
+        return ['pieces' => $pieces, 'endkey' => $endkey];
+    }
+
+    /**
+     * Lay out and render a uniform-RTL multi-fragment inline run right-to-left: the
+     * first logical fragment hugs the line's right edge, each subsequent fragment is
+     * placed to its left. Each fragment renders in a box of its own width through
+     * getTextCell() with forcedir 'R', so its internal glyphs (including neutral
+     * numerals) keep their correct visual order and its baked-in font/color are
+     * preserved.
+     *
+     * Returns ['out' => PDF code, 'endkey' => last consumed DOM key], or null to fall
+     * back to the existing forward-cursor renderer (LTR, single fragment, mid-line
+     * start, tables/links/PDF-UA, or a run that wraps — cross-fragment line-breaking
+     * is a later increment). The forward-cursor path is therefore byte-identical for
+     * every case this engine declines.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     *
+     * @return array{out: string, endkey: int}|null
+     *
+     * @throws \Throwable
+     */
+    protected function renderHTMLRtlInlineRun(
+        array &$hrc,
+        int $startKey,
+        float &$tpx,
+        float &$tpy,
+        float &$tpw,
+        float &$tph,
+    ): ?array {
+        unset($tph);
+
+        // Engine guards: only a plain inline flow at a fresh line start, no tables,
+        // nested block cells, links, or PDF/UA tagging (handled by later increments).
+        if (
+            $this->pdfuaMode !== ''
+            || $hrc['tablestack'] !== []
+            || $hrc['bcellctx'] !== []
+            || $this->getCurrentHTMLLink($hrc) !== ''
+        ) {
+            return null;
+        }
+
+        $lineOriginX = $hrc['cellctx']['lineoriginx'];
+        if ($tpx > ($lineOriginX + self::WIDTH_TOLERANCE)) {
+            return null; // mid-line interception is not supported yet
+        }
+
+        $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+        if ($availableWidth <= 0.0) {
+            return null;
+        }
+
+        $run = $this->collectHTMLRtlInlineRun($hrc, $startKey);
+        if ($run === null) {
+            return null;
+        }
+
+        $built = $this->buildHTMLRtlRunLines($hrc, $run['pieces'], $availableWidth);
+        if ($built === null) {
+            return null;
+        }
+
+        $lines = $built['lines'];
+        $lineascent = $built['ascent'];
+        $lineAdvance = $built['advance'];
+        $numLines = \count($lines);
+
+        // Region/page continuation for RTL runs is a later increment: a run taller
+        // than the space left in the region falls back to the forward-cursor path
+        // rather than overprint the next region (no new regression — that path is
+        // also imperfect for RTL overflow, but it does not crash).
+        if (($numLines * $lineAdvance) > ($this->getHTMLRemainingHeight($hrc, $tpy) + self::WIDTH_TOLERANCE)) {
+            return null;
+        }
+
+        // Place each line right-to-left, stacking top-down: the first logical
+        // fragment of a line hugs the right edge, each subsequent fragment to its
+        // left; lines advance downward in logical (reading) order.
+        $lineRight = $lineOriginX + $availableWidth;
+        $out = '';
+        $prevSoftHyphen = $this->htmlRenderSoftHyphen;
+        $this->htmlRenderSoftHyphen = true;
+        try {
+            foreach ($lines as $lineIdx => $segments) {
+                $cursor = $lineRight;
+                $lineTop = $tpy + ($lineIdx * $lineAdvance);
+
+                // Regroup consecutive segments from the same fragment so each fragment
+                // renders through a single getTextCell. Splitting at the word level
+                // would Bidi each word in isolation and separate a bracket pair like
+                // "(...)" across calls, reversing it; one call per fragment keeps the
+                // fragment's internal Bidi context (bracket pairing, neutral
+                // resolution) intact while still allowing wraps between fragments.
+                foreach ($this->groupHTMLRtlLineSegments($segments) as $group) {
+                    $groupText = $group['text'];
+                    if (\trim($groupText) === '') {
+                        // A whitespace-only group advances the cursor but draws nothing.
+                        $cursor -= $group['width'];
+                        continue;
+                    }
+
+                    $key = $group['key'];
+                    $node = $hrc['dom'][$key] ?? null;
+                    if (!\is_array($node)) {
+                        continue;
+                    }
+
+                    $this->getHTMLFontMetric($hrc, $key);
+
+                    // getTextCell drops a fragment's leading collapsible space (but keeps
+                    // its trailing one). Reserve the leading space as an explicit cursor
+                    // gap so the inter-fragment spacing is preserved — e.g. the space
+                    // before the word following an embedded span. The fragment itself is
+                    // still rendered whole, keeping its internal Bidi context (brackets).
+                    $leadm = [];
+                    $lead = \preg_match('/^ +/u', $groupText, $leadm) === 1 ? $leadm[0] ?? '' : '';
+                    if ($lead !== '') {
+                        $cursor -= $this->getStringWidth($lead);
+                    }
+
+                    if ($cursor <= 0.0) {
+                        continue;
+                    }
+
+                    // Render the fragment right-aligned in a box spanning from the page
+                    // left edge (x = 0) to the cursor. The box is always wider than a
+                    // fragment that fits on the line, so getTextCell never wraps; this
+                    // avoids the getStringWidth-vs-getTextCell measurement drift (Arabic
+                    // shaping / presentation forms) that otherwise spilled a word onto the
+                    // next line. renderX = 0 keeps the box on the page (a tighter box could
+                    // push it negative and misrender). The cursor then advances by the
+                    // ACTUAL rendered left edge (bbox), so spacing stays exact.
+                    $renderY = $lineTop + ($lineascent - $group['ascent']);
+                    $style = $node['fontstyle'];
+                    $strokeWidth = $node['stroke'];
+                    $textout = $this->getTextCell(
+                        $groupText,
+                        0.0,
+                        $renderY,
+                        $cursor,
+                        0,
+                        0,
+                        0,
+                        'T',
+                        'R',
+                        static::ZEROCELL,
+                        [],
+                        $strokeWidth,
+                        0,
+                        0,
+                        0,
+                        true,
+                        $node['fill'],
+                        $strokeWidth > 0,
+                        \str_contains($style, 'U'),
+                        \str_contains($style, 'D'),
+                        \str_contains($style, 'O'),
+                        $node['clip'],
+                        false,
+                        'R',
+                    );
+                    $out .= $this->getHTMLTextPrefix($hrc, $key) . $textout;
+                    $bbox = $this->getLastBBox();
+                    $cursor = $bbox['x'];
+                }
+            }
+        } finally {
+            $this->htmlRenderSoftHyphen = $prevSoftHyphen;
+        }
+
+        // Leave the cursor at the last visual line (matching the forward-cursor
+        // wrapped branch), so the following block/break flows below the run.
+        $lastLineTop = $tpy + (($numLines - 1) * $lineAdvance);
+        $this->updateHTMLLineAdvance($hrc, $lineAdvance);
+        $linebottom = $lastLineTop + $lineAdvance;
+        if ($hrc['cellctx']['linebottom'] <= 0 || $linebottom > $hrc['cellctx']['linebottom']) {
+            $hrc['cellctx']['linebottom'] = $linebottom;
+        }
+
+        $tpy = $lastLineTop;
+        $tpx = $lineRight;
+        if ($hrc['cellctx']['maxwidth'] > 0) {
+            $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
+        }
+
+        $hrc['cellctx']['linewrapped'] = $numLines > 1;
+
+        return ['out' => $out, 'endkey' => $run['endkey']];
+    }
+
+    /**
+     * Merge consecutive line segments belonging to the same fragment (DOM key) into
+     * single placement groups, concatenating their text and summing their widths, so
+     * the fragment renders through one getTextCell with its Bidi context intact.
+     *
+     * @param array<int, array{key: int, text: string, width: float, ascent: float}> $segments
+     *
+     * @return array<int, array{key: int, text: string, width: float, ascent: float}>
+     */
+    protected function groupHTMLRtlLineSegments(array $segments): array
+    {
+        /** @var array<int, array{key: int, text: string, width: float, ascent: float}> $groups */
+        $groups = [];
+        $open = false;
+        $key = 0;
+        $text = '';
+        $width = 0.0;
+        $ascent = 0.0;
+        foreach ($segments as $segment) {
+            if ($open && $segment['key'] === $key) {
+                $text .= $segment['text'];
+                $width += $segment['width'];
+                if ($segment['ascent'] > $ascent) {
+                    $ascent = $segment['ascent'];
+                }
+
+                continue;
+            }
+
+            if ($open) {
+                $groups[] = ['key' => $key, 'text' => $text, 'width' => $width, 'ascent' => $ascent];
+            }
+
+            $open = true;
+            $key = $segment['key'];
+            $text = $segment['text'];
+            $width = $segment['width'];
+            $ascent = $segment['ascent'];
+        }
+
+        if ($open) {
+            $groups[] = ['key' => $key, 'text' => $text, 'width' => $width, 'ascent' => $ascent];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Break a collected RTL inline run into visual lines for right-to-left layout.
+     *
+     * Each piece is tokenized (under its own baked-in font) into alternating
+     * word / whitespace tokens, with the run's logical ends trimmed of collapsible
+     * whitespace. A "word" is a maximal run of consecutive non-space tokens, which
+     * may span fragment boundaries (for example an Arabic run immediately followed
+     * by a Latin span, "الـ" + "PDF"); whitespace tokens are the break
+     * opportunities. The greedy fill returns the lines top-to-bottom in logical
+     * (reading) order, each a list of placement segments in logical order. Returns
+     * null when there are fewer than two fragments, a single word is wider than the
+     * line (needs word-/char-breaking, deferred to the forward-cursor path), or the
+     * run has no measurable content.
+     *
+     * @param THTMLRenderContext $hrc HTML render context.
+     * @param array<int, array{key: int, text: string}> $pieces Logical run pieces.
+     *
+     * @return array{
+     *     lines: array<int, array<int, array{key: int, text: string, width: float, ascent: float}>>,
+     *     ascent: float,
+     *     advance: float
+     * }|null
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function buildHTMLRtlRunLines(array &$hrc, array $pieces, float $availableWidth): ?array
+    {
+        if ($availableWidth <= 0.0) {
+            return null;
+        }
+
+        $count = \count($pieces);
+
+        // Tokenize each piece into word / whitespace tokens measured under its font.
+        /** @var array<int, array{key: int, text: string, width: float, ascent: float, space: bool}> $tokens */
+        $tokens = [];
+        $maxAscent = 0.0;
+        $maxAdvance = 0.0;
+        $pieceCount = 0;
+        foreach ($pieces as $idx => $piece) {
+            $text = $piece['text'];
+            if ($idx === 0) {
+                $text = \ltrim($text);
+            }
+
+            if ($idx === ($count - 1)) {
+                $text = \rtrim($text);
+            }
+
+            if ($text === '') {
+                continue;
+            }
+
+            ++$pieceCount;
+            $key = $piece['key'];
+            $this->getHTMLFontMetric($hrc, $key);
+            $curfont = $this->font->getCurrentFont();
+            $ascent = $this->toUnit($curfont['ascent']);
+            $advance = $this->getHTMLLineAdvance($hrc, $key);
+            if ($ascent > $maxAscent) {
+                $maxAscent = $ascent;
+            }
+
+            if ($advance > $maxAdvance) {
+                $maxAdvance = $advance;
+            }
+
+            $parts = \preg_split('/( +)/u', $text, -1, \PREG_SPLIT_DELIM_CAPTURE | \PREG_SPLIT_NO_EMPTY);
+            if ($parts === false) {
+                return null;
+            }
+
+            foreach ($parts as $part) {
+                $tokens[] = [
+                    'key' => $key,
+                    'text' => $part,
+                    'width' => $this->getStringWidth($part),
+                    'ascent' => $ascent,
+                    'space' => \trim($part) === '',
+                ];
+            }
+        }
+
+        if ($pieceCount < 2 || $tokens === [] || $maxAdvance <= 0.0) {
+            return null;
+        }
+
+        // Group the tokens into units: a "word" (maximal run of non-space tokens,
+        // possibly spanning fragments) or a "space" (maximal run of space tokens).
+        /** @var array<int, array{space: bool, width: float, parts: array<int, array{key: int, text: string, width: float, ascent: float}>}> $units */
+        $units = [];
+        $curParts = [];
+        $curWidth = 0.0;
+        $curSpace = false;
+        $curOpen = false;
+        foreach ($tokens as $token) {
+            $isSpace = $token['space'];
+            if ($curOpen && $isSpace !== $curSpace) {
+                $units[] = ['space' => $curSpace, 'width' => $curWidth, 'parts' => $curParts];
+                $curParts = [];
+                $curWidth = 0.0;
+            }
+
+            $curOpen = true;
+            $curSpace = $isSpace;
+            $curParts[] = [
+                'key' => $token['key'],
+                'text' => $token['text'],
+                'width' => $token['width'],
+                'ascent' => $token['ascent'],
+            ];
+            $curWidth += $token['width'];
+        }
+
+        // $tokens is non-empty (guarded above), so a final unit is always pending.
+        $units[] = ['space' => $curSpace, 'width' => $curWidth, 'parts' => $curParts];
+
+        $tolerance = $availableWidth + self::WIDTH_TOLERANCE;
+
+        // Greedy fill: a deferred space joins the next word or is dropped at a break.
+        /** @var array<int, array<int, array{key: int, text: string, width: float, ascent: float}>> $lines */
+        $lines = [];
+        /** @var array<int, array{key: int, text: string, width: float, ascent: float}> $line */
+        $line = [];
+        $lineWidth = 0.0;
+        /** @var array<int, array{key: int, text: string, width: float, ascent: float}> $pendingSpace */
+        $pendingSpace = [];
+        $pendingSpaceWidth = 0.0;
+        foreach ($units as $unit) {
+            if ($unit['space']) {
+                $pendingSpace = $unit['parts'];
+                $pendingSpaceWidth = $unit['width'];
+                continue;
+            }
+
+            $wordWidth = $unit['width'];
+            if ($wordWidth > $tolerance) {
+                // A single word wider than the line needs word-/char-breaking; defer
+                // the whole run to the forward-cursor path.
+                return null;
+            }
+
+            $projected = $lineWidth + ($line === [] ? 0.0 : $pendingSpaceWidth) + $wordWidth;
+            if ($line !== [] && $projected > $tolerance) {
+                // Break: the deferred space sits at the line end and is dropped.
+                $lines[] = $line;
+                $line = $unit['parts'];
+                $lineWidth = $wordWidth;
+            } else {
+                if ($line !== [] && $pendingSpace !== []) {
+                    foreach ($pendingSpace as $space) {
+                        $line[] = $space;
+                    }
+
+                    $lineWidth += $pendingSpaceWidth;
+                }
+
+                foreach ($unit['parts'] as $wpart) {
+                    $line[] = $wpart;
+                }
+
+                $lineWidth += $wordWidth;
+            }
+
+            $pendingSpace = [];
+            $pendingSpaceWidth = 0.0;
+        }
+
+        if ($line !== []) {
+            $lines[] = $line;
+        }
+
+        if ($lines === []) {
+            return null;
+        }
+
+        return ['lines' => $lines, 'ascent' => $maxAscent, 'advance' => $maxAdvance];
+    }
+
+    /**
      * Measure the width of the inline chunk that fits on the next visual line.
      *
      * Unlike measureHTMLInlineRunWidth(), this method stops at the first wrap
@@ -9869,8 +10389,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $ordarr = [];
             $dim = $this->getHTMLDefaultTextDims();
             $forcedir = $node['dir'] === 'rtl' ? 'R' : '';
-            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
-            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining));
+            $fragmentRtl = false;
+            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $fragmentRtl);
+            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remaining), 0, $fragmentRtl);
             if ($lines === []) {
                 continue;
             }
@@ -9886,7 +10407,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 break;
             }
 
-            $chunkordarr = \array_slice($ordarr, 0, (int) $firstline['chars']);
+            // For an RTL base direction the visual ord array is reversed, so the
+            // logically-first line occupies [pos, pos+chars) at the tail of the array.
+            // Slice there and restore logical order so the trailing-space / trim
+            // bookkeeping below (which expects the head front-loaded, with any
+            // collapsible space at its logical end) keeps working unchanged.
+            $headpos = $fragmentRtl ? (int) $firstline['pos'] : 0;
+            $chunkordarr = \array_slice($ordarr, $headpos, (int) $firstline['chars']);
+            if ($fragmentRtl) {
+                $chunkordarr = \array_reverse($chunkordarr);
+            }
+
             $chunktext = \implode('', $this->uniconv->ordArrToChrArr($chunkordarr));
             if ($linewidth > 0.0 && !$spaceonly && \trim($chunktext) === '') {
                 $wrapped = true;
@@ -9969,12 +10500,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = $this->getHTMLDefaultTextDims();
-        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+        $baseRtl = false;
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $baseRtl);
         if ($ordarr === [] || (int) $dim['spaces'] <= 0) {
             return 0;
         }
 
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth));
+        // lines[0] is the logically-first (top) line for both directions once the
+        // RTL flag is set, so its space count is the one the renderer puts first.
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth), 0, $baseRtl);
         if ($lines === []) {
             return 0;
         }
@@ -10005,26 +10539,46 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = $this->getHTMLDefaultTextDims();
-        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+        $baseRtl = false;
+        $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $baseRtl);
         $numord = \count($ordarr);
         if ($numord === 0) {
             return null;
         }
 
-        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth));
+        $lines = $this->splitLines($ordarr, $dim, $this->toPoints($maxwidth), 0, $baseRtl);
         if (\count($lines) < 2) {
             // Fits on a single line: nothing to split.
             return null;
         }
 
         $headchars = (int) ($lines[0]['chars'] ?? 0);
-        $tailpos = (int) ($lines[1]['pos'] ?? 0);
-        if ($headchars <= 0 || $tailpos <= 0 || $tailpos >= $numord) {
+        if ($headchars <= 0) {
             return null;
         }
 
-        $headord = \array_slice($ordarr, 0, $headchars);
-        $tailord = \array_slice($ordarr, $tailpos);
+        if ($baseRtl) {
+            // RTL: the logically-first line sits at the tail of the visual array at
+            // [boundary, boundary+headchars); the tail (logical remainder) is
+            // everything before it. Reverse each slice back to logical order so the
+            // head/tail strings re-render through the normal forward Bidi path.
+            $boundary = (int) ($lines[0]['pos'] ?? 0);
+            if ($boundary <= 0 || $boundary >= $numord) {
+                return null;
+            }
+
+            $headord = \array_reverse(\array_slice($ordarr, $boundary, $headchars));
+            $tailord = \array_reverse(\array_slice($ordarr, 0, $boundary));
+        } else {
+            $tailpos = (int) ($lines[1]['pos'] ?? 0);
+            if ($tailpos <= 0 || $tailpos >= $numord) {
+                return null;
+            }
+
+            $headord = \array_slice($ordarr, 0, $headchars);
+            $tailord = \array_slice($ordarr, $tailpos);
+        }
+
         $head = \implode('', $this->uniconv->ordArrToChrArr($this->removeOrdArrSoftHyphens($headord)));
         $tail = \implode('', $this->uniconv->ordArrToChrArr($tailord));
         if (\trim($head) === '' || \trim($tail) === '') {
@@ -10398,11 +10952,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $ordarr = [];
         $dim = $this->getHTMLDefaultTextDims();
+        $baseRtl = false;
         try {
-            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir);
+            $this->prepareHTMLText($text, $ordarr, $dim, $forcedir, $baseRtl);
             // Give splitLines the same tolerance used by wrap guards so boundary fits
             // (for example: one more word after an italic fragment) are not rejected.
-            $lines = $this->splitLines($ordarr, $dim, $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE));
+            $lines = $this->splitLines(
+                $ordarr,
+                $dim,
+                $this->toPoints($remainingWidth + self::WIDTH_TOLERANCE),
+                0,
+                $baseRtl,
+            );
         } catch (\Throwable) {
             return false;
         }
@@ -10417,6 +10978,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
+        // $text is still in logical order (prepareHTMLText reorders only the ord
+        // array), and lines[0]['chars'] is the logically-first line's length for
+        // both directions, so the leading-chunk test stays correct under RTL.
         $chunk = \mb_substr($text, 0, $chars);
         return \trim($chunk) !== '';
     }
@@ -14203,9 +14767,22 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
             } else { // Text Content
                 $hrc['currentkey'] = $key;
-                $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
-                if (!$this->captureHTMLFragment($hrc, $fragment)) {
-                    $appendFragment($fragment);
+                // RTL inter-fragment engine: a uniform-RTL multi-fragment inline run
+                // is laid out right-to-left as a unit (returns null to fall back to
+                // the forward-cursor renderer for every case it does not handle, so
+                // LTR and single-fragment output is unchanged).
+                $rtlRun = $this->renderHTMLRtlInlineRun($hrc, $key, $tpx, $tpy, $tpw, $tph);
+                if ($rtlRun !== null) {
+                    if (!$this->captureHTMLFragment($hrc, $rtlRun['out'])) {
+                        $appendFragment($rtlRun['out']);
+                    }
+
+                    $key = $rtlRun['endkey'];
+                } else {
+                    $fragment = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
+                    if (!$this->captureHTMLFragment($hrc, $fragment)) {
+                        $appendFragment($fragment);
+                    }
                 }
             }
 
@@ -14644,12 +15221,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $probeText = $text;
         $probeOrd = [];
         $probeDim = $this->getHTMLDefaultTextDims();
-        $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir);
+        $probeRtl = false;
+        $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir, $probeRtl);
+        // Count only: the RTL flag keeps the line count consistent with the
+        // top-down render. (The pos-based continuation slicing for RTL overflow
+        // is Stage 2e and still deferred.)
         $probeLines = $this->splitLines(
             $probeOrd,
             $probeDim,
             $this->toPoints($availableWidthMV),
             $this->toPoints(\min($lineOffsetMV, $availableWidthMV)),
+            $probeRtl,
         );
         $probeCount = \count($probeLines);
 

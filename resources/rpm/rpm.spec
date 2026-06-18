@@ -32,7 +32,7 @@ Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.7.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 2.5.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.6.0
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.9.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 5.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.11.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0

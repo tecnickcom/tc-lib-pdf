@@ -5,7 +5,7 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E000_overview.php](E000_overview.php): General feature overview with text, graphics, HTML, SVG, images, barcodes, transparency, gradients, annotations, and bookmarks.
 - [E001_invoice.php](E001_invoice.php): Invoice layout example with embedded Factur-X / ZUGFeRD metadata.
 - [E002_font_dump.php](E002_font_dump.php): Font inspection and glyph dump example.
-- [E003_persian_arabic.php](E003_persian_arabic.php): RTL text rendering example for Persian and Arabic scripts.
+- [E003_rtl_languages.php](E003_rtl_languages.php): Right-To-Left (RTL) text rendering example for Persian,  Arabic and Hebrew.
 - [E004_page_formats.php](E004_page_formats.php): Page format and orientation samples.
 - [E005_header_footer.php](E005_header_footer.php): Repeating custom page header and footer example with PDF/UA Artifact tagging (`Pagination/Header` and `Pagination/Footer`).
 - [E006_minimal.php](E006_minimal.php): Minimal "Hello, PDF" setup.

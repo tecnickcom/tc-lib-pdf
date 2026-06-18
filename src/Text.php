@@ -237,7 +237,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
-        $this->prepareText($txt, $ordarr, $dim, $forcedir);
+        $baseRtl = false;
+        $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl);
         $txt_pwidth = $dim['totwidth'];
 
         $cell = $this->adjustMinCellPadding($styles, $cell);
@@ -263,6 +264,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell_pheight - $cell['padding']['T'] - $cell['padding']['B'],
             $offset_points,
             $linespace_points,
+            // Stage 2: $baseRtl reverses the line order for an RTL paragraph so a
+            // multi-line RTL block (including every HTML fragment, which renders
+            // through getTextCell) stacks top-down exactly as addTextCell does.
+            $baseRtl,
         );
         $ordarr = $fit_state['ordarr'];
         $dim = $fit_state['dim'];
@@ -1870,6 +1875,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function outTextLines(
         array $ordarr,
@@ -2142,6 +2148,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function getOutTextLine(
         string $txt,
@@ -2519,6 +2526,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function outTextLine(
         string $txt,
@@ -2693,6 +2701,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param float           $width    Desired string width in points (0 = automatic).
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function getJustifiedString(string $txt, array $ordarr, array $dim, float $width = 0): string
     {

@@ -19861,4 +19861,174 @@ class HTMLTest extends TestUtil
         $this->assertEqualsWithDelta(0.8, $after['stretching'], 1e-9);
         $this->assertEqualsWithDelta(0.5, $after['spacing'], 1e-9);
     }
+
+    /**
+     * Stage 2a: the HTML inline head-extraction sites must return the LOGICALLY-first
+     * chunk for an RTL fragment, not the front of the post-Bidi visual array.
+     * splitHTMLJustifyFirstLine() splits a wrapping fragment at its first visual line:
+     * for an RTL base the head is the logically-first words (rendered on the top line)
+     * and the tail the logically-last words. The LTR control keeps the leading words in
+     * the head, proving the change is gated by base direction.
+     *
+     * @throws \Throwable
+     */
+    public function testSplitHTMLJustifyFirstLineExtractsLogicalHeadForRtl(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        // Twelve distinct Hebrew "words" (each three identical letters) in logical
+        // order. Pure RTL + spaces, so the Bidi visual array is the exact reverse of
+        // the logical one; the first word belongs on the top line, the last on a
+        // later line.
+        $word = static fn(int $cp): string => \str_repeat((string) \mb_chr($cp), 3);
+        $firstWord = $word(0x05D0);
+        $lastWord = $word(0x05DB);
+        $rtlText = \implode(' ', \array_map($word, \range(0x05D0, 0x05DB)));
+
+        // Narrow enough (relative to the ~90mm paragraph) to force several lines.
+        $split = $obj->exposeSplitHTMLJustifyFirstLine($rtlText, 'R', 30.0);
+        $this->assertIsArray($split, 'A wrapping RTL paragraph must split into head and tail.');
+        [$head, $tail] = $split;
+
+        // Head holds the logically-FIRST word and not the logically-last; the tail
+        // holds the logically-last word and not the first. With the old front-of-array
+        // slice the head would have captured the logically-LAST words instead.
+        $this->assertStringContainsString($firstWord, $head);
+        $this->assertStringNotContainsString($lastWord, $head);
+        $this->assertStringContainsString($lastWord, $tail);
+        $this->assertStringNotContainsString($firstWord, $tail);
+
+        // LTR control: head is still the leading words, tail the trailing ones.
+        $ltrWords = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliett'];
+        $ltrSplit = $obj->exposeSplitHTMLJustifyFirstLine(\implode(' ', $ltrWords), '', 30.0);
+        $this->assertIsArray($ltrSplit);
+        [$ltrHead, $ltrTail] = $ltrSplit;
+        $this->assertStringStartsWith('alpha', $ltrHead);
+        $this->assertStringContainsString('juliett', $ltrTail);
+        $this->assertStringNotContainsString('juliett', $ltrHead);
+    }
+
+    /**
+     * RTL inter-fragment engine: a uniform-RTL multi-fragment inline run that fits
+     * on one line lays out right-to-left — the first logical fragment hugs the right
+     * edge and each subsequent fragment is placed to its left. Verified end-to-end
+     * through getHTMLCell() by the strictly-decreasing text-placement abscissas, and
+     * the colored span keeps its own fill color.
+     *
+     * @throws \Throwable
+     */
+    public function testRtlInlineRunRendersFragmentsRightToLeft(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        // Three short Hebrew "words" (each three identical letters); the middle one in
+        // a red span. Short enough to fit one line at width 180, so the engine engages.
+        $word = static fn(int $cp): string => \str_repeat((string) \mb_chr($cp), 3);
+        $html =
+            '<p dir="rtl" style="direction:rtl;text-align:right">'
+            . $word(0x05D0)
+            . ' '
+            . '<span color="#ff0000">'
+            . $word(0x05D1)
+            . '</span>'
+            . ' '
+            . $word(0x05D2)
+            . '</p>';
+
+        $out = $obj->getHTMLCell($html, 15, 20, 180);
+
+        // Text-placement abscissas in render (logical) order: one per fragment.
+        $matches = [];
+        \preg_match_all('/(-?\d+\.?\d*) -?\d+\.?\d* Td/', $out, $matches);
+        $xs = \array_map(static fn(string $v): float => \is_numeric($v) ? (float) $v : 0.0, $matches[1] ?? []);
+        $this->assertCount(3, $xs, 'the three RTL fragments are each placed once');
+
+        // Right-to-left: the logical render order is strictly descending in abscissa,
+        // i.e. each subsequent fragment sits to the left of the previous one.
+        $descending = $xs;
+        \rsort($descending);
+        $this->assertSame($descending, $xs, 'RTL fragments must be placed right-to-left');
+        $this->assertCount(3, \array_unique($xs), 'fragments must not overlap');
+
+        // The middle fragment is emitted with the span's red fill color.
+        /** @var \Com\Tecnick\Color\Pdf $color */
+        $color = $this->getObjectProperty($obj, 'color');
+        $this->assertStringContainsString(\trim($color->getPdfFillColor('#ff0000')), $out);
+    }
+
+    /**
+     * RTL inter-fragment engine, wrapping case: a long multi-fragment RTL paragraph
+     * (base text + colored span) breaks across fragment boundaries into several
+     * lines, each laid out right-to-left and stacked top-down. Verified through
+     * getHTMLCell() by grouping the text placements per baseline: there are multiple
+     * lines, and within each line the abscissas strictly decrease (right-to-left).
+     *
+     * @throws \Throwable
+     */
+    public function testRtlInlineRunWrapsTopDownRightToLeft(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 12, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        // A long Hebrew paragraph with a red span in the middle; the narrow cell
+        // forces wrapping across the fragment boundary.
+        $word = static fn(int $cp): string => \str_repeat((string) \mb_chr($cp), 4);
+        $body = '';
+        for ($i = 0; $i < 12; ++$i) {
+            $body .= $word(0x05D0 + ($i % 10)) . ' ';
+        }
+
+        $body = \rtrim($body);
+        $html =
+            '<p dir="rtl" style="direction:rtl;text-align:right">'
+            . $body
+            . ' <span color="#ff0000">'
+            . $word(0x05DC)
+            . '</span> '
+            . $body
+            . '</p>';
+
+        $out = $obj->getHTMLCell($html, 15, 20, 70);
+
+        $matches = [];
+        \preg_match_all('/(-?\d+\.?\d*) (-?\d+\.?\d*) Td/', $out, $matches);
+        $xs = \array_map(static fn(string $v): float => \is_numeric($v) ? (float) $v : 0.0, $matches[1] ?? []);
+        $ys = \array_map(static fn(string $v): float => \is_numeric($v) ? (float) $v : 0.0, $matches[2] ?? []);
+        $this->assertNotEmpty($ys);
+
+        // Group placements by baseline; each baseline is a visual line.
+        /** @var array<string, array<int, float>> $byLine */
+        $byLine = [];
+        foreach ($ys as $i => $y) {
+            $byLine[(string) \round($y, 1)][] = $xs[$i] ?? 0.0;
+        }
+
+        $this->assertGreaterThanOrEqual(2, \count($byLine), 'the run must wrap to multiple lines');
+
+        // Each line is laid out right-to-left: abscissas strictly descending.
+        foreach ($byLine as $lineXs) {
+            $descending = $lineXs;
+            \rsort($descending);
+            $this->assertSame($descending, $lineXs, 'each wrapped line must be right-to-left');
+        }
+
+        /** @var \Com\Tecnick\Color\Pdf $color */
+        $color = $this->getObjectProperty($obj, 'color');
+        $this->assertStringContainsString(\trim($color->getPdfFillColor('#ff0000')), $out);
+    }
 }
