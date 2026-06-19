@@ -124,6 +124,114 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
+     * Record, for each page, whether it actually uses transparency, so the page
+     * layer can decide whether to emit the per-page transparency /Group.
+     *
+     * A page is flagged transparent when its content blends (a sub-1 alpha, a
+     * non-Normal blend mode or a soft mask), paints a soft-masked image, draws
+     * an imported page, or paints a Form XObject that itself blends. The actual
+     * emission policy ('auto'/'always'/'never', set via
+     * Tcpdf::setPageTransparencyGroup()) and the PDF/A suppression are applied by
+     * the page layer; this method only supplies the facts it needs. Called once,
+     * just before the page objects are serialized.
+     *
+     * @throws PageException
+     */
+    protected function detectPageTransparency(): void
+    {
+        $transpNames = $this->getTransparencyResourceNames();
+        foreach ($this->page->getPages() as $pid => $page) {
+            $stream = \implode("\n", $page['content']);
+            $this->page->setPageTransparency($this->streamUsesTransparency($stream, $transpNames), $pid);
+        }
+    }
+
+    /**
+     * Build the set of resource names whose `gs` operator actually enables
+     * transparency: ExtGState objects with a sub-1 alpha, a non-Normal blend
+     * mode or a soft mask, plus every SVG soft-mask graphics state.
+     *
+     * @return array<string, true>
+     */
+    protected function getTransparencyResourceNames(): array
+    {
+        $names = [];
+        foreach ($this->graph->getTransparencyExtGStateNames() as $name) {
+            $names[$name] = true;
+        }
+
+        foreach (\array_keys($this->svgmasks) as $name) {
+            $names[$name] = true;
+        }
+
+        return $names;
+    }
+
+    /**
+     * Whether a content stream actually triggers transparency.
+     *
+     * A stream is considered transparent when it references a transparency
+     * ExtGState (`/<name> gs`), paints a soft-masked image (`/IMGmask*`,
+     * `/IMGplain*`), draws an imported page (`/IMP*`, treated conservatively as
+     * potentially transparent), or paints a Form XObject that itself blends.
+     * Referenced Form XObjects are inspected once, guarded against cycles.
+     *
+     * @param string              $stream      Content stream bytes.
+     * @param array<string, true> $transpNames Transparency-bearing resource names.
+     * @param array<string, true> $visited     Form XObject ids already inspected.
+     */
+    protected function streamUsesTransparency(string $stream, array $transpNames, array $visited = []): bool
+    {
+        if ($stream === '') {
+            return false;
+        }
+
+        $matchGs = [];
+        $gsCount = $transpNames === [] ? 0 : \preg_match_all('/\/([A-Za-z0-9_]+)\s+gs\b/', $stream, $matchGs);
+        if ($gsCount !== false && $gsCount > 0) {
+            foreach ($matchGs[1] ?? [] as $name) {
+                if (isset($transpNames[$name])) {
+                    return true;
+                }
+            }
+        }
+
+        $matchDo = [];
+        $doCount = \preg_match_all('/\/([A-Za-z0-9_]+)\s+Do\b/', $stream, $matchDo);
+        if ($doCount !== false && $doCount > 0) {
+            foreach ($matchDo[1] ?? [] as $name) {
+                if (
+                    \preg_match('/^IMG(?:mask|plain)[0-9]+$/', $name) === 1
+                    || \preg_match('/^IMP[0-9]+$/', $name) === 1
+                ) {
+                    return true;
+                }
+
+                $xobj = $this->xobjects[$name] ?? null;
+                if (!\is_array($xobj)) {
+                    continue;
+                }
+
+                if (($xobj['transparency'] ?? null) !== null) {
+                    return true;
+                }
+
+                if (isset($visited[$name])) {
+                    continue;
+                }
+
+                $visited[$name] = true;
+                $inner = $xobj['outdata'];
+                if ($inner !== '' && $this->streamUsesTransparency($inner, $transpNames, $visited)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * PDF layers.
      *
      * @var array<int, array{
@@ -235,6 +343,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $this->pdfuaStructStack = [];
         }
 
+        $this->detectPageTransparency();
         $out = $this->page->getPdfPages($this->pon);
         $this->objid['pages'] = $this->page->getRootObjID();
         if ($this->pdfuaMode !== '') {

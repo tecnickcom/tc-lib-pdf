@@ -103,6 +103,20 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getOnOff($val);
     }
 
+    /**
+     * @param array<string, true> $transpNames
+     */
+    public function exposeStreamUsesTransparency(string $stream, array $transpNames): bool
+    {
+        return $this->streamUsesTransparency($stream, $transpNames);
+    }
+
+    /** @return array<string, true> */
+    public function exposeGetTransparencyResourceNames(): array
+    {
+        return $this->getTransparencyResourceNames();
+    }
+
     /** @throws \Throwable */
     public function exposeGetOutDestinations(): string
     {

@@ -3871,6 +3871,106 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testStreamUsesTransparencyDetectsRealAlphaGsButIgnoresTrivialAndOpaqueContent(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $transpNames = ['GS3' => true, 'MSK_A' => true];
+
+        // Opaque vector/text content has no gs/Do triggers.
+        $this->assertFalse($obj->exposeStreamUsesTransparency('0 0 10 10 re f BT /F1 12 Tf (Hi) Tj ET', $transpNames));
+
+        // A gs that references a non-transparency ExtGState (e.g. an opaque
+        // reset such as /GS1 with /ca 1 /CA 1) must NOT count as transparency.
+        $this->assertFalse($obj->exposeStreamUsesTransparency('/GS1 gs 0 0 10 10 re f', $transpNames));
+
+        // A gs that references a real-transparency ExtGState counts.
+        $this->assertTrue($obj->exposeStreamUsesTransparency('/GS3 gs 0 0 10 10 re f', $transpNames));
+
+        // An SVG soft-mask graphics state counts.
+        $this->assertTrue($obj->exposeStreamUsesTransparency('/MSK_A gs 0 0 10 10 re f', $transpNames));
+
+        // A bare /GSn token of "GS31" must not be matched by the "GS3" name.
+        $this->assertFalse($obj->exposeStreamUsesTransparency('/GS31 gs 0 0 10 10 re f', $transpNames));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testStreamUsesTransparencyDetectsSoftMaskedImagesAndImportsButNotOpaqueImages(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        // A plain (opaque) image does not need a transparency group.
+        $this->assertFalse($obj->exposeStreamUsesTransparency('q 1 0 0 1 0 0 cm /IMG5 Do Q', []));
+
+        // Soft-masked image variants carry an alpha channel.
+        $this->assertTrue($obj->exposeStreamUsesTransparency('q 1 0 0 1 0 0 cm /IMGmask5 Do Q', []));
+        $this->assertTrue($obj->exposeStreamUsesTransparency('q 1 0 0 1 0 0 cm /IMGplain5 Do Q', []));
+
+        // Imported pages are treated conservatively as potentially transparent.
+        $this->assertTrue($obj->exposeStreamUsesTransparency('q 1 0 0 1 0 0 cm /IMP12 Do Q', []));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testStreamUsesTransparencyFollowsTransparencyGroupXObjects(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'xobjects', [
+            'XG' => [
+                'spot_colors' => [],
+                'extgstate' => [],
+                'gradient' => [],
+                'font' => [],
+                'image' => [],
+                'xobject' => [],
+                'annotations' => [],
+                'id' => 'XG',
+                'n' => 7,
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 10.0,
+                'h' => 10.0,
+                'outdata' => 'q Q',
+                'pheight' => 0.0,
+                'gheight' => 0.0,
+                'transparency' => ['CS' => 'DeviceRGB', 'I' => true, 'K' => false],
+            ],
+            'XO' => [
+                'spot_colors' => [],
+                'extgstate' => [],
+                'gradient' => [],
+                'font' => [],
+                'image' => [],
+                'xobject' => [],
+                'annotations' => [],
+                'id' => 'XO',
+                'n' => 8,
+                'x' => 0.0,
+                'y' => 0.0,
+                'w' => 10.0,
+                'h' => 10.0,
+                'outdata' => '/GS3 gs 0 0 10 10 re f',
+                'pheight' => 0.0,
+                'gheight' => 0.0,
+            ],
+        ]);
+
+        // A page that paints a Form XObject declaring its own transparency group.
+        $this->assertTrue($obj->exposeStreamUsesTransparency('q /XG Do Q', []));
+
+        // A page that paints a Form XObject which blends internally (its own
+        // stream references a real-transparency gs) is detected via recursion.
+        $this->assertTrue($obj->exposeStreamUsesTransparency('q /XO Do Q', ['GS3' => true]));
+
+        // The same opaque page with no transparency-bearing references stays flat.
+        $this->assertFalse($obj->exposeStreamUsesTransparency('q /XO Do Q', []));
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutEmbeddedFilesWithContent(): void
     {
         $obj = $this->getInternalTestObject();

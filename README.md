@@ -84,6 +84,7 @@ The fastest way to evaluate the library is to follow the installation and quick-
 - Bookmarks, named destinations, and table of contents
 - Automatic page numbering and page groups
 - Full page box control (Media/Crop/Bleed/Trim/Art), page reordering, and viewer preferences
+- **Per-page transparency group control** via `setPageTransparencyGroup()` — by default (`'auto'`) the page transparency `/Group` is emitted only on pages that actually blend, flattening fully-opaque pages for faster, more predictable printing on conservative RIPs/firmware; `'always'` keeps the group on every page (legacy) and `'never'` drops it entirely
 
 ### Images & Graphics
 - Native **JPEG**, **PNG**, and **SVG** support

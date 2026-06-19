@@ -342,6 +342,48 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
+     * Controls emission of the per-page transparency /Group entry on standard
+     * (non PDF/A) pages.
+     *
+     * Every standard tc-lib-pdf page declares a transparency group
+     * (/Group << /Type /Group /S /Transparency /CS /DeviceRGB >>). This makes
+     * blending color-managed and portable, but a conforming interpreter must
+     * composite such a page through the transparency pipeline even when every
+     * mark is fully opaque. Conservative print firmware does this at device
+     * resolution, which can add a flat per-page cost. Omitting the group on
+     * pages that contain no actual transparency removes that cost without
+     * changing the appearance of opaque pages.
+     *
+     * Modes:
+     * - 'auto'   : (default) emit the group only on pages that actually use
+     *              transparency (a fill/stroke alpha below 1, a non-Normal blend
+     *              mode, a soft mask, a soft-masked image, an imported page, or a
+     *              referenced transparency-group XObject). Fully-opaque pages are
+     *              flattened.
+     * - 'always' : always emit the group on every standard page (legacy
+     *              behaviour, maximally portable for blended content).
+     * - 'never'  : never emit the group. Use only for print targets known to be
+     *              free of transparency; blending becomes implementation-defined,
+     *              like classic TCPDF output.
+     *
+     * Has no effect in PDF/A mode, where the group is already suppressed.
+     *
+     * @param string $mode One of 'auto', 'always', 'never'.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception If the mode is not recognized.
+     */
+    public function setPageTransparencyGroup(string $mode = 'auto'): static
+    {
+        $normalized = \strtolower(\trim($mode));
+        if (!\in_array($normalized, ['auto', 'always', 'never'], true)) {
+            throw new PdfException('Invalid page transparency group mode: ' . $mode);
+        }
+
+        $this->page->setPageTransparencyGroupMode($normalized);
+        return $this;
+    }
+
+    /**
      * Defines the way the document is to be displayed by the viewer.
      *
      * @param int|string $zoom   The zoom to use.
