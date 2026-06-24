@@ -4920,6 +4920,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 'header' => "Content-Type: application/ocsp-request\r\nContent-Length: " . \strlen($request),
                 'content' => $request,
                 'timeout' => 30,
+                // Do not follow redirects:
+                // only the initial URL is checked against the allowlist.
+                'follow_location' => 0,
+                'max_redirects' => 0,
             ],
         ]);
         if (!$this->file->isValidURL($url)) {
@@ -5058,6 +5062,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 'content' => $request,
                 'timeout' => $timeout,
                 'ignore_errors' => true,
+                // Do not follow redirects: only the initial host is validated
+                // against the allowlist, so following a redirect could reach a
+                // non-allowlisted (e.g. internal) target.
+                'follow_location' => 0,
+                'max_redirects' => 0,
             ],
             'ssl' => [
                 'verify_peer' => $this->sigtimestamp['verify_peer'],

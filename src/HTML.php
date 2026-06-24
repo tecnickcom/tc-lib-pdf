@@ -1417,8 +1417,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            $defaultValue = $defaults[$prop] ?? null;
-            $parentValue = $parentNode[$prop] ?? null;
+            $defaultValue = $defaults[$prop];
+            $parentValue = $parentNode[$prop];
 
             if (!isset($node[$prop]) || $node[$prop] === $defaultValue) {
                 $node[$prop] = $parentValue;
@@ -1426,7 +1426,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         // Keep inherited absolute line-height when no explicit declaration is present.
-        $nodeStyle = isset($node['style']) && \is_array($node['style']) ? $node['style'] : [];
+        $nodeStyle = \is_array($node['style']) ? $node['style'] : [];
         $styleLineHeight = isset($nodeStyle['line-height']) && \is_string($nodeStyle['line-height'])
             ? $nodeStyle['line-height']
             : '';
@@ -2236,7 +2236,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return false;
         }
 
-        $attrValue = $attr[$name] ?? null;
+        $attrValue = $attr[$name];
         if (!\is_string($attrValue)) {
             return false;
         }
@@ -14006,6 +14006,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 }
 
                 $colspan = \min($colspan, $cols - $colid);
+                if ($colspan < 1) {
+                    // The first body row carries more cells than the table's
+                    // declared column count (e.g. a narrower <thead> row set
+                    // $cols). Remaining cells map past the last real column and
+                    // must not be sized (a zero $colspan would divide by zero).
+                    break;
+                }
 
                 $cellw = $this->getHTMLTableCellExplicitWidth($elm, $availableWidth);
                 if ($cellw > 0.0) {

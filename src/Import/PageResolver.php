@@ -90,7 +90,7 @@ class PageResolver
 
         $inherited = $this->extractInheritable($pagesDict);
         $remaining = $pageNum;
-        $pageDict = $this->walkTree($src, $pagesDict, $inherited, $remaining);
+        $pageDict = $this->walkTree($src, $pagesDict, $inherited, $remaining, [$pagesRef => true]);
 
         if ($pageDict === null) {
             throw new ImportPageOutOfRangeException('Page ' . $pageNum . ' not found; document has fewer pages.');
@@ -106,13 +106,19 @@ class PageResolver
      * @param array<string, mixed> $nodeDict  Current Pages or Page dictionary.
      * @param array<string, mixed> $inherited Inherited attributes from parent.
      * @param int                  $remaining Remaining pages to skip (decremented).
+     * @param array<string, bool>  $visited   Ref-keys on the current path (cycle guard).
      *
      * @return array<string, mixed>|null Resolved page dict or null if not found in this subtree.
      *
      * @throws ImportCorruptedSourceException On malformed tree.
      */
-    private function walkTree(SourceDocument $src, array $nodeDict, array $inherited, int &$remaining): ?array
-    {
+    private function walkTree(
+        SourceDocument $src,
+        array $nodeDict,
+        array $inherited,
+        int &$remaining,
+        array $visited = [],
+    ): ?array {
         $nodeType = '';
         if (isset($nodeDict['Type']) && \is_string($nodeDict['Type'])) {
             $nodeType = $nodeDict['Type'];
@@ -165,9 +171,18 @@ class PageResolver
             $kidRef = $kidRefSlice[0];
 
             $kidKey = SourceDocument::refToKey($kidRef);
+            if (isset($visited[$kidKey])) {
+                // A node referencing one of its own ancestors forms a cycle;
+                // without this guard a malformed source PDF would recurse until
+                // the stack/memory is exhausted.
+                throw new ImportCorruptedSourceException('Cyclic reference in page tree at node: ' . $kidKey);
+            }
+
+            $kidVisited = $visited;
+            $kidVisited[$kidKey] = true;
             $kidObj = $src->getObject($kidKey);
             $kidDict = $this->objectToDict($kidObj);
-            $result = $this->walkTree($src, $kidDict, $merged, $remaining);
+            $result = $this->walkTree($src, $kidDict, $merged, $remaining, $kidVisited);
             if ($result !== null) {
                 return $result;
             }

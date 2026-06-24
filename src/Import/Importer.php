@@ -365,7 +365,10 @@ class Importer implements ImporterInterface
         $total = $this->getSourcePageCount($sourceId);
 
         if ($range === null) {
-            $range = \range(1, $total);
+            // A missing or non-positive /Count would make \range(1, $total)
+            // produce a descending/invalid sequence (e.g. [1, 0]); there is
+            // simply nothing to import in that case.
+            $range = $total < 1 ? [] : \range(1, $total);
         } else {
             foreach ($range as $pageNum) {
                 $num = (int) $pageNum;

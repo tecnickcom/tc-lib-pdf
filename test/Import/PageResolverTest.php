@@ -595,4 +595,48 @@ class PageResolverTest extends TestCase
         );
         $this->assertArrayNotHasKey('123', $parsed);
     }
+
+    /**
+     * A cyclic /Pages tree (intermediate nodes referencing one another, with no
+     * Page leaf to terminate the descent) must be rejected instead of recursing
+     * until the stack/memory is exhausted.
+     *
+     * @throws \Throwable
+     */
+    public function testResolveThrowsOnCyclicPageTree(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '2 0 R'],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('Cyclic reference', '/') . '/');
+        $resolver->resolve($doc, 1);
+    }
 }

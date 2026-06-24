@@ -2808,4 +2808,28 @@ class TextTest extends TestUtil
 
         return \is_numeric($value) ? (float) $value : 0.0;
     }
+
+    /**
+     * A caller-supplied $linespace that exactly cancels the font height makes
+     * the per-region line pitch zero. addTextCell must not divide by it
+     * (regression: DivisionByZeroError). Using point units keeps the unit
+     * conversion an identity so $linespace can cancel the font height exactly.
+     *
+     * @throws \Throwable
+     */
+    public function testAddTextCellLineSpaceCancelingFontHeightDoesNotDivideByZero(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('pt');
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        $curfont = $font->getCurrentFont();
+        $fontHeight = $curfont['height'];
+        $this->assertGreaterThan(0.0, $fontHeight);
+
+        $obj->addTextCell(txt: 'Hello world', linespace: -$fontHeight);
+
+        $this->assertNotSame('', $obj->getOutPDFString());
+    }
 }

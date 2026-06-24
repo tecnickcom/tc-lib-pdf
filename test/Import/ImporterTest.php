@@ -697,4 +697,31 @@ class ImporterTest extends TestCase
         // The shared font (5_0) must appear exactly once in the output.
         $this->assertSame(1, \substr_count($out, '/Type /Font'));
     }
+
+    /**
+     * importPages(null) must import nothing when the source reports a missing or
+     * negative page count. Otherwise \range(1, $total) would yield a descending
+     * sequence (e.g. [1, 0]) and attempt to import bogus page numbers.
+     *
+     * @throws \Throwable
+     */
+    public function testImportPagesWithNonPositivePageCountReturnsEmpty(): void
+    {
+        $xobjects = [];
+        $pon = 0;
+        $importer = new class($xobjects, $pon, $this->makeObjFile()) extends Importer {
+            public int $fakeCount = 0;
+
+            public function getSourcePageCount(string $sourceId): int
+            {
+                return $this->fakeCount;
+            }
+        };
+
+        $importer->fakeCount = 0;
+        $this->assertSame([], $importer->importPages('any-source', null));
+
+        $importer->fakeCount = -3;
+        $this->assertSame([], $importer->importPages('any-source', null));
+    }
 }

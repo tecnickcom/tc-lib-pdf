@@ -20322,4 +20322,28 @@ class HTMLTest extends TestUtil
             'the continued RTL run must keep its multi-fragment lines right-to-left',
         );
     }
+
+    /**
+     * A <thead> row narrower than the first body row sets the table column
+     * count from the header; the wider body row then drives the column index
+     * past that count. The column-width computation must not divide by a zero
+     * colspan in that case (regression: DivisionByZeroError).
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTheadNarrowerThanBodyDoesNotDivideByZero(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table border="1">'
+            . '<thead><tr><th colspan="2">Header</th></tr></thead>'
+            . '<tbody><tr><td>a</td><td>b</td><td>c</td><td>d</td></tr></tbody>'
+            . '</table>';
+
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $this->assertNotSame('', $obj->getOutPDFString());
+    }
 }

@@ -667,7 +667,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $vspace = $this->textMaxHeight(
                     $regionRh + $cell['margin']['B'] + $cell['padding']['B'] - ($cell_posy - $regionRy),
                 );
-                $region_max_lines = (int) (($vspace + $linespace) / ($fontheight + $linespace));
+                // Line pitch is the font height plus the caller-supplied extra
+                // line spacing. A caller may pass a negative $linespace; when it
+                // cancels the font height exactly the pitch is zero, so guard the
+                // division and treat a non-positive pitch as "everything fits".
+                $linepitch = $fontheight + $linespace;
+                $region_max_lines = $linepitch > 0 ? (int) (($vspace + $linespace) / $linepitch) : $numlines;
                 $lastblock = $numlines <= $region_max_lines;
 
                 $rlines = $lines;

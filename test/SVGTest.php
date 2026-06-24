@@ -7104,4 +7104,67 @@ class SVGTest extends TestUtil
         $out = $obj->exposeParseSVGStyleMask(598, $style);
         $this->assertStringContainsString(' gs', $out);
     }
+
+    /**
+     * A nested <svg> with a degenerate (zero-extent) viewBox must not crash
+     * with a DivisionByZeroError; the viewBox is ignored as if absent.
+     *
+     * @throws \Throwable
+     */
+    public function testNestedSvgZeroAreaViewBoxDoesNotThrow(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">'
+            . '<svg x="0" y="0" width="20" height="20" viewBox="0 0 0 100">'
+            . '<rect x="0" y="0" width="10" height="10" fill="#000000"/>'
+            . '</svg>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 5, 6, 12, 12, $page['height']);
+
+        $this->assertNotSame('', $obj->getSetSVG($soid));
+    }
+
+    /**
+     * The nested <svg> viewBox parser must handle decimal values (not split
+     * "10.0" into two tokens) and preserve negative origins (not strip the
+     * sign). Differential check: a decimal viewBox renders identically to its
+     * integer equivalent, and a negative origin renders differently from the
+     * positive one.
+     *
+     * @throws \Throwable
+     */
+    public function testNestedSvgViewBoxParsesDecimalsAndNegatives(): void
+    {
+        // Decimal extent must be parsed like the integer equivalent (was
+        // previously dropped because "10.0" split into two regex tokens).
+        $this->assertSame($this->renderNestedSvgViewBox('0 0 10 10'), $this->renderNestedSvgViewBox('0 0 10.0 10.0'));
+
+        // Negative origin must keep its sign (a digits-only regex stripped it,
+        // making these two render identically); they must now differ.
+        $this->assertNotSame($this->renderNestedSvgViewBox('5 5 10 10'), $this->renderNestedSvgViewBox('-5 -5 10 10'));
+    }
+
+    /**
+     * Render a nested <svg> carrying the given viewBox and return its output.
+     *
+     * @throws \Throwable
+     */
+    private function renderNestedSvgViewBox(string $viewBox): string
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">'
+            . '<svg x="0" y="0" width="20" height="20" viewBox="'
+            . $viewBox
+            . '">'
+            . '<rect x="0" y="0" width="10" height="10" fill="#000000"/>'
+            . '</svg>'
+            . '</svg>';
+        $soid = $obj->addSVG($svg, 5, 6, 12, 12, $page['height']);
+        return $obj->getSetSVG($soid);
+    }
 }

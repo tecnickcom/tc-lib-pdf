@@ -1350,10 +1350,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     true,
                     $bbox,
                 );
-                $crd['xmin'] = (float) \min($crd['xmin'], $crd['x'], $bbox[0] ?? $crd['x']);
-                $crd['ymin'] = (float) \min($crd['ymin'], $crd['y'], $bbox[1] ?? $crd['y']);
-                $crd['xmax'] = (float) \max($crd['xmax'], $crd['x'], $bbox[2] ?? $crd['x']);
-                $crd['ymax'] = (float) \max($crd['ymax'], $crd['y'], $bbox[3] ?? $crd['y']);
+                $crd['xmin'] = \min($crd['xmin'], $crd['x'], $bbox[0] ?? $crd['x']);
+                $crd['ymin'] = \min($crd['ymin'], $crd['y'], $bbox[1] ?? $crd['y']);
+                $crd['xmax'] = \max($crd['xmax'], $crd['x'], $bbox[2] ?? $crd['x']);
+                $crd['ymax'] = \max($crd['ymax'], $crd['y'], $bbox[3] ?? $crd['y']);
             }
 
             if ($crd['relcoord']) {
@@ -4523,17 +4523,26 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out
             . $this->parseSVGStyle($parser, $soid, $svgstyle, $prev_svgstyle, $posx, $posy, $width, $height);
         }
-        $tmp = [];
-        \preg_match_all('/[0-9]+/', $attr['viewBox'], $tmp);
-        $tmp = $tmp[0] ?? [];
-        if (\count($tmp) !== 4) {
+        // Parse "min-x min-y width height" on whitespace/commas (matches the
+        // other viewBox parsers in this file) so decimals and negative origins
+        // are handled correctly; a digits-only regex would split "1.5" and drop
+        // the sign of negative coordinates.
+        $vbvals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
+        if (!\is_array($vbvals) || !isset($vbvals[0], $vbvals[1], $vbvals[2], $vbvals[3])) {
             return $out
             . $this->parseSVGStyle($parser, $soid, $svgstyle, $prev_svgstyle, $posx, $posy, $width, $height);
         }
-        $vbx = \floatval($tmp[0] ?? '0');
-        $vby = \floatval($tmp[1] ?? '0');
-        $vbw = \floatval($tmp[2] ?? '0');
-        $vbh = \floatval($tmp[3] ?? '0');
+        $vbx = \floatval($vbvals[0]);
+        $vby = \floatval($vbvals[1]);
+        $vbw = \abs(\floatval($vbvals[2]));
+        $vbh = \abs(\floatval($vbvals[3]));
+        if ($vbw <= 0.0 || $vbh <= 0.0) {
+            // Degenerate viewBox (zero or non-positive extent): ignore it and
+            // render without the viewBox transform, as in the no-viewBox case
+            // above. Dividing by it below would throw DivisionByZeroError.
+            return $out
+            . $this->parseSVGStyle($parser, $soid, $svgstyle, $prev_svgstyle, $posx, $posy, $width, $height);
+        }
         // get aspect ratio
         $tmp = [];
         $aspectX = 'xMid';
