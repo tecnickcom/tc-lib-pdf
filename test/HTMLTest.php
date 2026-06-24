@@ -7826,7 +7826,7 @@ class HTMLTest extends TestUtil
             . 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9Ijgi'
             . 'PjxjaXJjbGUgY3g9IjQiIGN5PSI0IiByPSI0IiBmaWxsPSJyZWQiLz48L3N2Zz4=';
         $obj->addHTMLCell(
-            '<ul style="list-style-image: url(' . $listImageDataUri . ')">' . '<li>Custom bullet image</li>' . '</ul>',
+            '<ul style="list-style-image: url(' . $listImageDataUri . ')"><li>Custom bullet image</li></ul>',
             20,
             20,
             120,

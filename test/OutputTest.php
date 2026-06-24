@@ -5803,4 +5803,73 @@ class OutputTest extends TestUtil
 
         $obj->savePDF('/this/path/does/not/exist/at/all', '%PDF-1.4');
     }
+
+    /**
+     * The font subsystem used at PDF output time must
+     * honor the application-provided file helper (fileOptions['allowedPaths'])
+     * instead of building its own helper restricted to K_PATH_FONTS. This lets
+     * custom fonts live outside the (often read-only) vendor/K_PATH_FONTS path.
+     *
+     * The font here is loaded by explicit path from a directory that is trusted
+     * only via fileOptions['allowedPaths'] and is NOT covered by K_PATH_FONTS,
+     * so embedding the font program at output exercises exactly the shared helper.
+     *
+     * @throws \Throwable
+     */
+    public function testCustomFontPathFromAllowedPathsIsEmbedded(): void
+    {
+        $bundled = (string) \realpath((string) \constant('K_PATH_FONTS'));
+        $customDir = \sys_get_temp_dir() . '/tc-lib-pdf-fonts-' . \bin2hex(\random_bytes(6));
+        $this->assertTrue(\mkdir($customDir, 0o777, true));
+
+        try {
+            foreach ((array) \glob($bundled . '/dejavu/dejavusans.*') as $src) {
+                \copy((string) $src, $customDir . '/' . \basename((string) $src));
+            }
+
+            $ifile = $customDir . '/dejavusans.json';
+            $customReal = (string) \realpath($customDir);
+            $this->assertFileIsReadable($ifile);
+            // The custom directory is outside K_PATH_FONTS; only allowedPaths trusts it.
+            $this->assertFalse(
+                \str_starts_with($customReal, $bundled),
+                'Custom font dir must be outside K_PATH_FONTS for this regression test to be meaningful.',
+            );
+
+            $pdf = new \Com\Tecnick\Pdf\Tcpdf('mm', true, true, true, '', null, ['allowedPaths' => [$customReal]]);
+
+            $pdf->addPage();
+            $objnum = $pdf->pon;
+            $font = $pdf->font->insert($objnum, 'dejavusans', '', 12, null, null, $ifile, true);
+            $pdf->page->addContent($font['out']);
+            $pdf->addTextCell('Embedded custom-path font: AÉ', -1, 10, 20);
+
+            $raw = $pdf->getOutPDFString();
+
+            $this->assertNotSame('', $raw);
+            // /FontFile2 is the embedded TrueType program stream; its presence proves
+            // the font file was read through the application-provided allowedPaths.
+            $this->assertStringContainsString('/FontFile2', $raw);
+        } finally {
+            $this->removeTempDir($customDir);
+        }
+    }
+
+    /**
+     * Remove a flat temporary directory and the files it contains.
+     */
+    private function removeTempDir(string $dir): void
+    {
+        foreach ((array) \glob($dir . '/*') as $file) {
+            if (!\is_file((string) $file)) {
+                continue;
+            }
+
+            \unlink((string) $file);
+        }
+
+        if (\is_dir($dir)) {
+            \rmdir($dir);
+        }
+    }
 }

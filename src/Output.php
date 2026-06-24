@@ -319,7 +319,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      */
     protected function getOutPDFHeader(): string
     {
-        return '%PDF-' . $this->pdfver . "\n" . "%\xE2\xE3\xCF\xD3\n";
+        return '%PDF-' . $this->pdfver . "\n%\xE2\xE3\xCF\xD3\n";
     }
 
     /**
@@ -358,6 +358,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $this->font->getFonts(),
             $this->pon,
             $this->encrypt,
+            fileHelper: $this->file,
             subsetCache: $this->fontSubsetCacheAdapter(),
         );
         $out .= $this->outfont->getFontsBlock();
@@ -464,7 +465,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             $out .= ' /Encrypt ' . (int) $enc['objid'] . ' 0 R';
         }
 
-        return $out . (' /ID [ <' . $this->fileid . '> <' . $this->fileid . '> ]' . ' >>' . "\n");
+        return $out . (' /ID [ <' . $this->fileid . '> <' . $this->fileid . '> ] >>' . "\n");
     }
 
     /**
@@ -1006,7 +1007,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 continue;
             }
 
-            $out .= $data['n'] . ' 0 obj' . "\n" . '<<' . ' /Type /XObject' . ' /Subtype /Form' . ' /FormType 1';
+            $out .= $data['n'] . ' 0 obj' . "\n" . '<< /Type /XObject /Subtype /Form /FormType 1';
             $stream = \trim($data['outdata']);
             if ($this->compress) {
                 $stream = \gzcompress($stream);
@@ -1906,9 +1907,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $tabs = '/Tabs /S' . "\n";
             }
 
-            $needle = $pageObjN . ' 0 obj' . "\n<<" . "\n/Type /Page" . "\n";
-            $replacement =
-                $pageObjN . ' 0 obj' . "\n<<" . "\n/Type /Page" . "\n/StructParents " . $parentKey . "\n" . $tabs;
+            $needle = $pageObjN . ' 0 obj' . "\n<<\n/Type /Page\n";
+            $replacement = $pageObjN . ' 0 obj' . "\n<<\n/Type /Page\n/StructParents " . $parentKey . "\n" . $tabs;
             $pdfpages = \str_replace($needle, $replacement, $pdfpages);
             $this->pagestructparents[$pageObjN] = $parentKey;
             ++$parentKey;
@@ -2091,7 +2091,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $oid = $this->radiobuttons[$annot['txt']]['n'];
-        $out = $oid . ' 0 obj' . "\n" . '<<' . ' /Type /Annot' . ' /Subtype /Widget' . ' /Rect [0 0 0 0]';
+        $out = $oid . ' 0 obj' . "\n" . '<< /Type /Annot /Subtype /Widget /Rect [0 0 0 0]';
         if ($this->radiobuttons[$annot['txt']]['#readonly#']) {
             // read only
             $out .= ' /F 68 /Ff 49153';
@@ -4168,7 +4168,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $pdfdoc = \substr($pdfdoc, 0, $byteRange[1]) . \substr($pdfdoc, $byteRange[2]);
 
         $byterange = \sprintf('/ByteRange[0 %u %u %u]', $byteRange[1], $byteRange[2], $byteRange[3]);
-        $byterange .= \str_repeat(' ', $byterangeLength - \strlen($byterange));
+        $byterange .= \str_repeat(' ', \max(0, $byterangeLength - \strlen($byterange)));
         $pdfdoc = \str_replace($this::BYTERANGE, $byterange, $pdfdoc);
 
         return [
@@ -5402,7 +5402,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '
             . $this::BYTERANGE
             . ' /Contents<'
-            . \str_repeat('0', $this::SIGMAXLEN)
+            . \str_repeat('0', \max(0, $this::SIGMAXLEN))
             . '>';
         if ($this->signature['approval'] !== 'A') {
             $out .= ' /Reference [ << /Type /SigRef';
