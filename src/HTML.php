@@ -7205,8 +7205,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
+        // The header repeated at the top of a continuation page is a visual
+        // running header, not new document structure. Render it (and its
+        // measurement pass) with PDF/UA tagging suspended so it does not push
+        // its own Table/TR/TH structure elements: those would remain open on
+        // the structure stack and detach the table's continuation rows from the
+        // Table element. The repeated header is then emitted as a single
+        // Artifact, while the original header stays the tagged one.
+        $savedPdfuaMode = $this->pdfuaMode;
+        $this->pdfuaMode = '';
         $theadh = $this->measureHTMLCellRenderedHeight($thead, $tpx, $tpy, $tpw, $tph);
         $out = $this->getHTMLCell($thead, $tpx, $tpy, $tpw, $tph);
+        $this->pdfuaMode = $savedPdfuaMode;
+        $out = $this->tagPdfUaArtifactContent($out);
+
         if ($theadh > 0.0) {
             $tpy += $theadh;
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
@@ -17993,14 +18005,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $lineY = $tpy + ($this->getHTMLLineAdvance($hrc, $key) / 2);
-        $out .= $this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, [
+        $out .= $this->tagPdfUaArtifactContent($this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, [
             'lineWidth' => $strokeWidth,
             'lineCap' => 'butt',
             'lineJoin' => 'miter',
             'dashArray' => [],
             'dashPhase' => 0,
             'lineColor' => $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'],
-        ]);
+        ]));
         $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
 
         return $out;
@@ -19448,16 +19460,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        if ($this->pdfuaMode !== '') {
-            $role = $elm['value'] === 'th' ? 'TH' : 'TD';
-            $attr = [];
-            if ($role === 'TH') {
-                $attr = ['O' => 'Table', 'Scope' => 'Column'];
-            }
-
-            $this->beginStructElem($role, $this->page->getPageId(), null, $attr);
-        }
-
         $table = $tableNode;
 
         $colindex = $this->getHTMLTableNextFreeColumn($table);
@@ -19482,6 +19484,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $colspan = \max(1, \min($remaining, $colspan));
         $rowspan = \max(1, $rowspan);
+
+        if ($this->pdfuaMode !== '') {
+            $role = $elm['value'] === 'th' ? 'TH' : 'TD';
+            $attr = [];
+            if ($role === 'TH') {
+                $attr = ['O' => 'Table', 'Scope' => 'Column'];
+            }
+
+            if ($colspan > 1 || $rowspan > 1) {
+                $attr['O'] = 'Table';
+                if ($colspan > 1) {
+                    $attr['ColSpan'] = $colspan;
+                }
+
+                if ($rowspan > 1) {
+                    $attr['RowSpan'] = $rowspan;
+                }
+            }
+
+            $this->beginStructElem($role, $this->page->getPageId(), null, $attr);
+        }
 
         $cellx = $this->getHTMLTableColX($table, $colindex);
         $cellw = $this->getHTMLTableColSpanWidth($table, $colindex, $colspan);

@@ -20346,4 +20346,104 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $obj->getOutPDFString());
     }
+
+    /**
+     * A horizontal rule is presentational: in PDF/UA mode its stroke must be
+     * tagged as an Artifact, not left as untagged real content.
+     *
+     * @throws \Throwable
+     */
+    public function testParseHTMLTagOPENhrIsTaggedAsArtifactInPdfua(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell('<p>before</p><hr/><p>after</p>', 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        // The rule's stroke (S operator) is emitted inside an Artifact block.
+        $this->assertMatchesRegularExpression('/\/Artifact\s+BMC[\s\S]*?\sS\s[\s\S]*?EMC/', $out);
+    }
+
+    /**
+     * A cell's colspan must be recorded on its structure element as an integer
+     * layout attribute owned by the table (/O /Table), so a row reports the
+     * correct effective column count for table-structure validation.
+     *
+     * @throws \Throwable
+     */
+    public function testParseHTMLTagOPENtdEmitsIntegerColSpanInPdfua(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table><tbody>'
+            . '<tr><td>a</td><td>b</td></tr>'
+            . '<tr><td colspan="2">merged</td></tr>'
+            . '</tbody></table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        // Emitted as a PDF integer (/ColSpan 2), not a PDF name (/ColSpan /2).
+        $this->assertStringContainsString('/ColSpan 2', $out);
+        $this->assertStringNotContainsString('/ColSpan /2', $out);
+        $this->assertStringContainsString('/O /Table', $out);
+    }
+
+    /**
+     * An empty table cell must keep a structure element so its row reports the
+     * same number of columns as the rest of the table (ISO 14289-1 7.2).
+     *
+     * @throws \Throwable
+     */
+    public function testEmptyTableCellsRemainInStructTreeInPdfua(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        // The second cell is empty; both cells must still produce a TD element.
+        $obj->addHTMLCell('<table><tbody><tr><td>x</td><td></td></tr></tbody></table>', 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $this->assertSame(2, \substr_count($out, '/Type /StructElem /S /TD'));
+    }
+
+    /**
+     * When a table spans a page break its repeated header must not detach the
+     * continuation rows: every row (including those after the break) must stay a
+     * child of the Table, never a direct child of the Document (PDF/UA 7.2).
+     *
+     * @throws \Throwable
+     */
+    public function testTableRowsStayUnderTableAcrossPageBreakInPdfua(): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, 'pdfua1');
+        $this->initFontAndPage($obj);
+
+        $rows = '';
+        for ($i = 1; $i <= 60; ++$i) {
+            $rows .= '<tr><td>Row ' . $i . '</td><td>' . $i . '</td></tr>';
+        }
+
+        // 60 rows force the table body to overflow onto a second page.
+        $html = '<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody>' . $rows . '</tbody></table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $this->assertSame(
+            1,
+            \preg_match('/(\d+) 0 obj\s*<<\s*\/Type \/StructElem \/S \/Document\b/', $out, $doc),
+        );
+
+        $matched = \preg_match_all('/\/Type \/StructElem \/S \/TR \/P (\d+) 0 R/', $out, $trParents);
+        $this->assertGreaterThan(40, $matched);
+        foreach ($trParents[1] as $parentId) {
+            $this->assertNotSame($doc[1], $parentId, 'A continuation TR is orphaned under the Document.');
+        }
+    }
 }

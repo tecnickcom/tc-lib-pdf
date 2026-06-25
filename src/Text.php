@@ -854,8 +854,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $top = $this->pdfuaStructStack[$topIndex];
         unset($this->pdfuaStructStack[$topIndex]);
 
-        // Only log elements that received marked-content or nested structure children.
-        if ($top['kids'] !== [] || isset($top['annots']) && $top['annots'] !== []) {
+        // Log elements that received marked-content or nested structure children.
+        // Table cells (TD/TH) are also kept when empty: an empty cell is still a
+        // column, so dropping it would make a row report fewer columns than its
+        // header and break table structure validation.
+        $topRole = $top['role'] ?? '';
+        if (
+            $top['kids'] !== []
+            || (isset($top['annots']) && $top['annots'] !== [])
+            || $topRole === 'TD'
+            || $topRole === 'TH'
+        ) {
             $entryIndex = \count($this->pdfuaStructLog);
             $this->pdfuaStructLog[] = $top;
 

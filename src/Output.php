@@ -1784,7 +1784,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         continue;
                     }
 
-                    $attrPairs .= ' /' . $akey . ' /' . $aval;
+                    // Integer attribute values (e.g. ColSpan/RowSpan) must be
+                    // emitted as PDF numbers; string values are PDF names.
+                    $attrPairs .= \is_int($aval)
+                        ? ' /' . $akey . ' ' . $aval
+                        : ' /' . $akey . ' /' . $aval;
                 }
 
                 if ($attrPairs !== '') {
