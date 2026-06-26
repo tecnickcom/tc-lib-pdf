@@ -4,6 +4,8 @@ Thank you for your interest in contributing to **tc-lib-pdf** — the modern evo
 
 Please take a moment to read this guide before opening an issue or pull request.
 
+> **Pull requests are restricted to project collaborators.** If you are not a collaborator, please [open an issue](https://github.com/tecnickcom/tc-lib-pdf/issues) instead of a pull request, describing the bug or feature in detail. A maintainer will review it and take it from there.
+
 ---
 
 ## Table of Contents
@@ -83,7 +85,11 @@ The more precise and reproducible the report, the faster it can be triaged and f
 
 ## Submitting a Bug Fix
 
-1. [Fork the repository](https://github.com/tecnickcom/tc-lib-pdf/fork) and create a branch from `main`:
+> Only project collaborators can open pull requests. If you are not a collaborator, please [open an issue](https://github.com/tecnickcom/tc-lib-pdf/issues/new) describing the bug in detail (see [Reporting a Bug](#reporting-a-bug)). A maintainer will take it from there.
+
+Collaborators preparing a fix:
+
+1. Create a branch from `main`:
    ```bash
    git checkout -b fix/short-description-of-bug
    ```
@@ -94,9 +100,7 @@ The more precise and reproducible the report, the faster it can be triaged and f
    make qa
    ```
 5. Commit your changes (see [Commit Message Guidelines](#commit-message-guidelines)).
-6. Open a pull request against `main` and fill in the PR template:
-   - Describe the problem and your solution.
-   - Reference the related issue number (e.g. `Fixes #123`).
+6. Open a pull request against `main` and fill in the PR template, describing the problem and your solution and referencing the related issue number (e.g. `Fixes #123`).
 
 ---
 
@@ -107,7 +111,7 @@ Before writing any code:
 1. **Open a Feature Request** on [GitHub Issues](https://github.com/tecnickcom/tc-lib-pdf/issues/new) describing the use case and proposed API.
 2. Wait for feedback from the maintainer. This avoids investing time in a direction that may not be accepted.
 
-Once the feature is agreed upon, follow the same branch → code → test → PR workflow as for bug fixes, using a branch named `feature/short-description`.
+Once the feature is agreed upon, a collaborator will implement it following the same branch → code → test → pull request workflow as for bug fixes, using a branch named `feature/short-description`.
 
 ---
 
@@ -163,6 +167,9 @@ Coverage reports are generated in `target/coverage/`.
 
 ## Pull Request Guidelines
 
+> Opening pull requests is restricted to project collaborators. If you are an external contributor, please [open an issue](https://github.com/tecnickcom/tc-lib-pdf/issues/new) describing the problem or feature in detail instead.
+
+- **Sign the Contributor License Agreement (CLA).** On your first pull request the CLA Assistant bot will comment with a link to sign; the PR cannot be merged until the CLA is signed.
 - Target the `main` branch.
 - Keep PRs focused — one fix or feature per PR.
 - Ensure `make qa` passes locally before opening the PR.

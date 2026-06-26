@@ -12,13 +12,14 @@ Please include a summary of the change and include relevant motivation and conte
 - [ ] Any new code follows the style guidelines of this project.
 - [ ] The code changes have been self-reviewed.
 - [ ] Corresponding changes to the documentation have been made.
-- [ ] The version has been updated in the VERSION file.
+
+> The maintainer bumps the `VERSION` file at release time. Do not change it in your PR.
 
 ## Type of change:
 
-- [ ] Minor non-breaking change (e.g., bug fix, dependencies updates) → The patch number in the VERSION file has been increased.
-- [ ] New feature (non-breaking change which adds functionality) → The minor number in the VERSION file has been increased.
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected) → The major number in the VERSION file has been increased.
+- [ ] Minor non-breaking change (e.g., bug fix, dependencies updates).
+- [ ] New feature (non-breaking change which adds functionality).
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected).
 - [ ] Automation.
 - [ ] Documentation.
 - [ ] Example.

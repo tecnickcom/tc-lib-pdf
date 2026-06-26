@@ -18076,17 +18076,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $lineY = $tpy + ($this->getHTMLLineAdvance($hrc, $key) / 2);
-        // A horizontal rule carries no semantics, so in PDF/UA mode its stroke is wrapped
-        // as an Artifact (tagPdfUaArtifactContent is a no-op outside PDF/UA mode). Without
-        // this the rule would be untagged real content, violating PDF/UA-1 7.1.
-        $out .= $this->tagPdfUaArtifactContent($this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, [
+        $lineStyle = [
             'lineWidth' => $strokeWidth,
             'lineCap' => 'butt',
             'lineJoin' => 'miter',
             'dashArray' => [],
             'dashPhase' => 0,
             'lineColor' => $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'],
-        ]));
+        ];
+        $outLine = $this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, $lineStyle);
+        // A horizontal rule carries no semantics, so in PDF/UA mode its stroke is wrapped
+        // as an Artifact (tagPdfUaArtifactContent is a no-op outside PDF/UA mode). Without
+        // this the rule would be untagged real content, violating PDF/UA-1 7.1.
+        $out .= $this->tagPdfUaArtifactContent($outLine);
         $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
 
         return $out;

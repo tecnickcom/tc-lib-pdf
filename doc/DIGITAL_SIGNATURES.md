@@ -73,7 +73,8 @@ When LTV is enabled the output PDF contains `/DSS`, `/VRI`, `/OCSPs`, `/CRLs`, a
 
 ```bash
 openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-    -keyout tcpdf.key -out tcpdf.crt
+    -keyout tcpdf.key -out tcpdf.crt \
+    -subj "/CN=tc-lib-pdf test certificate"
 # convert to PKCS#12 if needed
 openssl pkcs12 -export -in tcpdf.crt -inkey tcpdf.key -out tcpdf.p12
 ```

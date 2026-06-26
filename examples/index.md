@@ -5,7 +5,7 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E000_overview.php](E000_overview.php): General feature overview with text, graphics, HTML, SVG, images, barcodes, transparency, gradients, annotations, and bookmarks.
 - [E001_invoice.php](E001_invoice.php): Invoice layout example with embedded Factur-X / ZUGFeRD metadata.
 - [E002_font_dump.php](E002_font_dump.php): Font inspection and glyph dump example.
-- [E003_rtl_languages.php](E003_rtl_languages.php): Right-To-Left (RTL) text rendering example for Persian,  Arabic and Hebrew.
+- [E003_rtl_languages.php](E003_rtl_languages.php): Right-To-Left (RTL) text rendering example for Persian, Arabic, and Hebrew.
 - [E004_page_formats.php](E004_page_formats.php): Page format and orientation samples.
 - [E005_header_footer.php](E005_header_footer.php): Repeating custom page header and footer example with PDF/UA Artifact tagging (`Pagination/Header` and `Pagination/Footer`).
 - [E006_minimal.php](E006_minimal.php): Minimal "Hello, PDF" setup.
@@ -48,7 +48,7 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E043_html_tables.php](E043_html_tables.php): HTML table layout showcase including colspan/rowspan, nested tables, and CSS styling.
 - [E044_toc_index.php](E044_toc_index.php): Bookmark outline example with generated table of contents via addTOC.
 - [E045_encryption_and_permissions.php](E045_encryption_and_permissions.php): PDF encryption and permission controls with user and owner passwords.
-- [E046_pangrams.php](E046_pangrams.php): Multilingual pangram showcase covering 14 scripts: Latin, Arabic, Hebrew, Thai, Devanagari, Hangul, Greek, Japanese, Russian, Armenian, Georgian, Tamil, Bengali, Amharic, Khmer, Tibetan, and Chinese.
+- [E046_pangrams.php](E046_pangrams.php): Multilingual pangram showcase covering 17 scripts: Latin, Arabic, Hebrew, Thai, Devanagari, Hangul, Greek, Japanese, Russian, Armenian, Georgian, Tamil, Bengali, Amharic, Khmer, Tibetan, and Chinese.
 - [E047_remote_resources_security.php](E047_remote_resources_security.php): Remote resource security configuration using fileOptions host/path allowlists, size limits, and cURL controls.
 - [E048_page_boxes_prepress.php](E048_page_boxes_prepress.php): Prepress page-box guide showing Media/Crop/Bleed/Trim/Art boundaries with visual overlays.
 - [E049_output_targets_integration.php](E049_output_targets_integration.php): Multi-target output example covering render, download, save-to-file, and MIME attachment workflows.
@@ -78,7 +78,7 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E073_css_supported_categories.php](E073_css_supported_categories.php): Consolidated CSS category showcase covering cascade, selectors, box model, typography, float/clear/position, tables, and paged media.
 - [E074_text_cell_fit_modes.php](E074_text_cell_fit_modes.php): Visual inspection grid for getTextCell() fit modes (T, S, F) including disabled precondition cases.
 - [E075_external_signature_injection.php](E075_external_signature_injection.php): External/remote signing walkthrough using signature placeholder setup, ByteRange digest export, and injected CMS/PKCS#7 signature bytes.
-- [E076_absolute_position.php](E076_absolute_position.php): Absolute coordinates position inside a give page.
+- [E076_absolute_position.php](E076_absolute_position.php): Absolute coordinate positioning within a given page.
 - [E077_html_table_header_px_unit.php](E077_html_table_header_px_unit.php): HTML table pagination with px document units, verifying replayed header rows keep the same column geometry on continuation pages.
 - [E078_htmlcell_page_margins.php](E078_htmlcell_page_margins.php): Single page with 100mm top and bottom margins, placing getHTMLCell text blocks in the top border, central content area, and bottom border.
 - [E079_font_stretch_spacing_matrix.php](E079_font_stretch_spacing_matrix.php): Font stretching (Tz) and character spacing (Tc) matrix across L/C/R/J alignment for both the direct text API and the HTML/CSS font-stretch/letter-spacing engine.

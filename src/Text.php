@@ -892,9 +892,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $top = $this->pdfuaStructStack[$topIndex];
         unset($this->pdfuaStructStack[$topIndex]);
 
-        // Log elements that received marked-content or nested structure children.
-        // Elements flagged "required" (e.g. table cells) are kept even when empty so
-        // the table grid stays regular and rows keep their full column count.
+        // Record elements that picked up marked-content or nested structure children.
+        // "Required" elements (e.g. table cells) are retained even when empty, so the
+        // table grid stays uniform and every row keeps its full column count.
         if (
             $top['kids'] !== []
             || isset($top['annots']) && $top['annots'] !== []
