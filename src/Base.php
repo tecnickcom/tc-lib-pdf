@@ -126,6 +126,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @phpstan-type TPdfUaStructKid array{
  *    type: 'elem'|'mcid',
  *    id: int,
+ *    pid?: int,
  * }
  *
  * @phpstan-type TPdfUaStructElem array{
@@ -136,6 +137,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    alt?: string,
  *    annots?: int[],
  *    attr?: array<string, string>,
+ *    required?: bool,
  * }
  *
  * @phpstan-type TFileOptions array{
@@ -699,7 +701,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.64.1';
+    protected string $version = '8.65.0';
 
     /**
      * Encrypt object.

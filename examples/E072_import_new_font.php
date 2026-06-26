@@ -21,7 +21,7 @@
 
 // NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
 
-require '../vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
 $defaultFontsDir = (string) \realpath(\dirname(__DIR__) . '/vendor/tecnickcom/tc-lib-pdf-font/target/fonts');
 $sourceFontsDir = \dirname(__DIR__) . '/target/fonts/source';

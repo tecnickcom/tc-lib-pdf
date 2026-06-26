@@ -42,6 +42,13 @@ $pdf->setPDFFilename('E017_pdfua2.pdf');
 $pdf->setLanguage(code: 'en-US');
 
 $font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
+
+// PDF/UA requires every font to be embedded. <code>/<pre> default to the
+// non-embedded standard-14 Courier, so register an embedded monospace font and
+// select it for those elements.
+$pdf->font->insert($pdf->pon, 'dejavusansmono', '', 10);
+$pdf->setHTMLMonospaceFont('dejavusansmono');
+
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 

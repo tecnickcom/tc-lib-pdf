@@ -44,6 +44,13 @@ $pdf->setPDFFilename('E016_pdfua1.pdf');
 $pdf->setLanguage(code: 'en-US');
 
 $font = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
+
+// PDF/UA requires every font to be embedded. <code>/<pre> default to the
+// non-embedded standard-14 Courier, so register an embedded monospace font and
+// select it for those elements.
+$pdf->font->insert($pdf->pon, 'dejavusansmono', '', 10);
+$pdf->setHTMLMonospaceFont('dejavusansmono');
+
 $pdf->addPage();
 $pdf->page->addContent($font['out']);
 
@@ -117,7 +124,32 @@ $html =
     . ' <a href="https://github.com/tecnickcom/tc-lib-pdf" style="text-decoration:none;">hyperlink to the tc-lib-pdf repository</a>;'
     . ' the <code>a</code> element is tagged with the <strong>Link</strong> structure role'
     . ' automatically. PDF/UA-1 requires that link annotations have an accessible name,'
-    . ' which the library derives from the link text in the structure tree.</p>';
+    . ' which the library derives from the link text in the structure tree.</p>'
+    . '<h2>7 — Rules, Spans and Empty Cells</h2>'
+    . '<p>A horizontal rule carries no semantics, so it is emitted as an <strong>Artifact</strong>'
+    . ' rather than left as untagged content (PDF/UA-1 7.1):</p>'
+    . '<hr>'
+    . '<p>Cell <code>colspan</code>/<code>rowspan</code> are recorded on the cell structure'
+    . ' element as integer <strong>/ColSpan</strong> and <strong>/RowSpan</strong> attributes,'
+    . ' and an empty cell is kept in the tree so the row keeps its full column count (7.2):</p>'
+    . '<table border="1" cellspacing="0" cellpadding="3">'
+    . '<tr><th>Col A</th><th>Col B</th><th>Col C</th></tr>'
+    . '<tr><td colspan="2">Spans columns A and B</td><td>C</td></tr>'
+    . '<tr><td rowspan="2">Spans rows</td><td>B2</td><td>C2</td></tr>'
+    . '<tr><td>B3</td><td></td></tr>'
+    . '</table>';
+
+// A long table that breaks across pages: the repeated header on each continuation
+// page is an Artifact, while the single Table structure element keeps all its rows.
+$html .=
+    '<h2>8 — Page-Spanning Table</h2>'
+    . '<table border="1" cellspacing="0" cellpadding="2">'
+    . '<thead><tr><th>#</th><th>Description</th></tr></thead>';
+for ($row = 1; $row <= 60; ++$row) {
+    $html .= '<tr><td>' . $row . '</td><td>Continuation row ' . $row . '</td></tr>';
+}
+
+$html .= '</table>';
 
 $pdf->addHTMLCell(html: $html, posx: 15, posy: 20, width: 180);
 

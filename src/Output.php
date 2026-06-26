@@ -1726,11 +1726,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 }
 
                 $mcid = $kid['id'];
-                if ($entryPageOid > 0) {
-                    $parentTreeMap[$entryPageOid][$mcid] = $elemOids[$entryIdx] ?? 0;
+                // Each MCID belongs to the page it was emitted on, which may differ from
+                // the element's own page when the element's content wraps across a page
+                // break. Use the kid's page so the MCR /Pg and ParentTree key are correct.
+                $kidPageOid = $pidToOid[$kid['pid']] ?? $entryPageOid;
+                if ($kidPageOid > 0) {
+                    $parentTreeMap[$kidPageOid][$mcid] = $elemOids[$entryIdx] ?? 0;
                 }
 
-                $kidsOut .= ' << /Type /MCR /Pg ' . $entryPageOid . ' 0 R /MCID ' . $mcid . ' >>';
+                $kidsOut .= ' << /Type /MCR /Pg ' . $kidPageOid . ' 0 R /MCID ' . $mcid . ' >>';
             }
 
             if ($entry['annots'] !== []) {
@@ -1781,6 +1785,15 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                         if ($headerOut !== '') {
                             $attrPairs .= ' /Headers [' . $headerOut . ' ]';
                         }
+                        continue;
+                    }
+
+                    if ($akey === 'ColSpan' || $akey === 'RowSpan') {
+                        // Table span attributes are integers, not names (ISO 32000-1 table 348).
+                        if (\is_numeric($aval)) {
+                            $attrPairs .= ' /' . $akey . ' ' . (int) $aval;
+                        }
+
                         continue;
                     }
 

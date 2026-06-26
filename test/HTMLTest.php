@@ -20346,4 +20346,424 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $obj->getOutPDFString());
     }
+
+    /**
+     * Build an uncompressed PDF/UA-1 document so the structure tree and page
+     * content streams can be inspected as plain text.
+     *
+     * @throws \Throwable
+     */
+    private function getPdfUaUncompressedObject(): \Com\Tecnick\Pdf\Tcpdf
+    {
+        return new \Com\Tecnick\Pdf\Tcpdf(
+            unit: 'mm',
+            isunicode: true,
+            subsetfont: false,
+            compress: false,
+            mode: 'pdfua1',
+        );
+    }
+
+    /**
+     * A cell colspan must be recorded on the TD/TH structure element and
+     * serialised as a PDF integer (/ColSpan 2), not a name (/ColSpan /2),
+     * so assistive technology can reconstruct the table grid (PDF/UA-1 7.2).
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTableColSpanSerializedAsPdfInteger(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table border="1">'
+            . '<tr><th>A</th><th>B</th></tr>'
+            . '<tr><td colspan="2">Spans two columns</td></tr>'
+            . '</table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $this->assertStringContainsString('/ColSpan 2', $out);
+        $this->assertStringNotContainsString('/ColSpan /2', $out);
+        $this->assertStringContainsString('/O /Table', $out);
+    }
+
+    /**
+     * A cell rowspan must be recorded and serialised as a PDF integer.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTableRowSpanSerializedAsPdfInteger(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table border="1">'
+            . '<tr><td rowspan="2">Spans two rows</td><td>a</td></tr>'
+            . '<tr><td>b</td></tr>'
+            . '</table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $this->assertStringContainsString('/RowSpan 2', $out);
+        $this->assertStringNotContainsString('/RowSpan /2', $out);
+    }
+
+    /**
+     * An empty table cell must remain in the structure tree so the row keeps
+     * its full column count and the table matrix stays regular (PDF/UA-1 7.2).
+     * Before the fix, endStructElem() dropped the empty TD.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellEmptyTableCellKeptInStructureTree(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table border="1">'
+            . '<tr><th>A</th><th>B</th><th>C</th></tr>'
+            . '<tr><td>x</td><td></td><td>y</td></tr>'
+            . '</table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        // The body row must contribute three TD structure elements even though
+        // the middle cell is empty.
+        $tdCount = \preg_match_all('~/S /TD\b~', $out);
+        $this->assertSame(3, $tdCount, 'Empty middle cell must remain a TD structure element');
+    }
+
+    /**
+     * A horizontal rule carries no semantics, so in PDF/UA mode its stroke must
+     * be marked as an Artifact rather than left as untagged real content
+     * (PDF/UA-1 7.1).
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellHorizontalRuleTaggedAsArtifact(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell('<p>Above</p><hr><p>Below</p>', 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $this->assertStringContainsString('/Artifact', $out);
+        // The rule must not create a structure element of its own.
+        $this->assertStringNotContainsString('/S /HR', $out);
+    }
+
+    /**
+     * A table that breaks across pages must keep exactly one Table structure
+     * element with all its rows attached; the header is tagged once and the
+     * repeated headers on continuation pages are Artifacts, not new TH
+     * structure elements (PDF/UA-1 7.2). This is the regression for the nested,
+     * never-closed Table subtree produced by the header replay.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellPageSpanningTableTagsHeaderOnceAndKeepsSingleTable(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $rowCount = 120;
+        $rows = '';
+        for ($i = 1; $i <= $rowCount; ++$i) {
+            $rows .= '<tr><td>R' . $i . 'A</td><td>R' . $i . 'B</td></tr>';
+        }
+
+        $html = '<table border="1"><thead><tr><th>H1</th><th>H2</th></tr></thead>' . $rows . '</table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $pageCount = \preg_match_all('~/Type\s*/Page\b~', $out);
+        $this->assertGreaterThanOrEqual(2, $pageCount, 'Table must span at least two pages');
+
+        $this->assertSame(1, \preg_match_all('~/S /Table\b~', $out), 'Exactly one Table structure element');
+        $this->assertSame(2, \preg_match_all('~/S /TH\b~', $out), 'Header cells are tagged once only');
+        $this->assertSame(
+            $rowCount + 1,
+            \preg_match_all('~/S /TR\b~', $out),
+            'All rows (one header + body rows) attach to the single Table',
+        );
+        $this->assertSame(2 * $rowCount, \preg_match_all('~/S /TD\b~', $out), 'Every body cell is tagged once');
+    }
+
+    /**
+     * The measurement and header-replay passes must not advance the per-page
+     * MCID counter or append phantom structure elements: every marked-content
+     * reference (MCR) in the structure tree must point at a marked-content
+     * sequence (BDC) that actually exists in a page content stream.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellPageSpanningTableHasConsistentMcidReferences(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $rows = '';
+        for ($i = 1; $i <= 120; ++$i) {
+            $rows .= '<tr><td>R' . $i . 'A</td><td>R' . $i . 'B</td></tr>';
+        }
+
+        $html = '<table border="1"><thead><tr><th>H1</th><th>H2</th></tr></thead>' . $rows . '</table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $declaredBdc = \preg_match_all('~<</MCID\s+\d+~', $out);
+        $referencedMcr = \preg_match_all('~/Type\s*/MCR\b[^>]*?/MCID\s+\d+~', $out);
+
+        $this->assertGreaterThan(0, $referencedMcr);
+        $this->assertSame(
+            $declaredBdc,
+            $referencedMcr,
+            'Each structure-tree MCID reference must match exactly one content-stream BDC',
+        );
+    }
+
+    /**
+     * A header cell with scope="row" must serialise as /Scope /Row, while the
+     * absent default and scope="col" stay /Scope /Column.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTableHeaderScopeIsHonored(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table border="1">'
+            . '<tr><th scope="col">Col head</th><th>Plain head</th></tr>'
+            . '<tr><th scope="row">Row head</th><td>data</td></tr>'
+            . '</table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        $this->assertSame(1, \preg_match_all('~/Scope /Row\b~', $out), 'scope="row" must map to /Scope /Row');
+        // Two column headers: the explicit scope="col" and the default header cell.
+        $this->assertSame(
+            2,
+            \preg_match_all('~/Scope /Column\b~', $out),
+            'col and default headers map to /Scope /Column',
+        );
+    }
+
+    /**
+     * Explicit id/headers markup on cells must be passed through to the
+     * structure element as /ID and /Headers so complex tables can declare
+     * header associations from HTML.
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellTableHeaderAssociationPassedThrough(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $html =
+            '<table border="1">'
+            . '<tr><th id="hc1">A</th><th id="hc2">B</th></tr>'
+            . '<tr><td headers="hc1">1</td><td headers="hc2">2</td></tr>'
+            . '</table>';
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        // The header ids are promoted to /ID entries and the data cells to /Headers.
+        $this->assertSame(2, \preg_match_all('~/Type /StructElem /S /TH[^>]*?/ID ~s', $out), 'Both TH carry an /ID');
+        $this->assertStringContainsString('/Headers [', $out);
+        // ID and Headers must not leak into the /A attribute dictionary as names.
+        $this->assertStringNotContainsString('/ID /hc1', $out);
+    }
+
+    /**
+     * An inline background fill carries no semantics, so in PDF/UA mode it must
+     * be marked as an Artifact rather than emitted as untagged content
+     * (PDF/UA-1 7.1).
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellInlineBackgroundTaggedAsArtifact(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell(
+            '<p>before <span style="background-color:#ffff00;">highlighted</span> after</p>',
+            10,
+            10,
+            180,
+            0,
+        );
+
+        $out = $obj->getOutPDFString();
+
+        $this->assertStringContainsString('/Artifact', $out);
+        // Marked content must stay balanced once the background is wrapped.
+        $this->assertSame(
+            \preg_match_all('~\bB(DC|MC)\b~', $out),
+            \preg_match_all('~\bEMC\b~', $out),
+            'BDC/BMC and EMC operators must balance',
+        );
+    }
+
+    /**
+     * Text-decoration lines (underline, line-through) and link underlines must be
+     * emitted inside the text run's marked content, not as untagged path painting
+     * after the EMC (PDF/UA-1 7.1).
+     *
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellUnderlineDecorationIsInsideMarkedContent(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell('<p>plain <u>underlined</u> word.</p>', 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        // The decoration must paint a fill rectangle...
+        $this->assertMatchesRegularExpression('~re\s+f~', $out, 'underline must paint a fill rectangle');
+        // ...but never as the first painting after an EMC (the pre-fix bug signature).
+        $this->assertDoesNotMatchRegularExpression(
+            '~\bEMC\b\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+re\s+f~',
+            $out,
+            'decoration fill must not be emitted as untagged content after EMC',
+        );
+    }
+
+    /**
+     * By default <code>/<pre> use the standard-14 Courier font.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCodeUsesCourierByDefault(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        $obj->addHTMLCell('<p><code>mono()</code></p>', 10, 10, 180, 0);
+
+        $this->assertStringContainsString('Courier', $obj->getOutPDFString());
+    }
+
+    /**
+     * setHTMLMonospaceFont() replaces the non-embedded Courier default for
+     * <code>/<pre> with the chosen (embeddable) font, as required for PDF/UA.
+     *
+     * @throws \Throwable
+     */
+    public function testSetHTMLMonospaceFontReplacesCourierForCode(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+        $obj->font->insert($obj->pon, 'dejavusansmono', '', 10);
+        $obj->setHTMLMonospaceFont('dejavusansmono');
+
+        $obj->addHTMLCell('<p><code>mono()</code></p>', 10, 10, 180, 0);
+
+        $this->assertStringNotContainsString('Courier', $obj->getOutPDFString());
+    }
+
+    /**
+     * An explicit CSS font-family on a code element wins over the monospace
+     * default, so authors can pick an embedded font without the setter.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCodeFontFamilyCssOverridesMonospaceDefault(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+        $obj->font->insert($obj->pon, 'dejavusansmono', '', 10);
+
+        $obj->addHTMLCell('<style>code{font-family:dejavusansmono;}</style><p><code>mono()</code></p>', 10, 10, 180, 0);
+
+        $this->assertStringNotContainsString('Courier', $obj->getOutPDFString());
+    }
+
+    /**
+     * When a tagged element's text wraps across a page break, each marked-content
+     * reference must be mapped to the page it was actually emitted on. Otherwise
+     * the MCIDs on the continuation page are orphaned in the ParentTree
+     * (PDF/UA-1 7.1). Every MCR's /Pg must match the page whose content stream
+     * declares that MCID.
+     *
+     * @throws \Throwable
+     */
+    public function testPageSpanningTextMapsMcidsToCorrectPage(): void
+    {
+        $obj = $this->getPdfUaUncompressedObject();
+        $this->initFontAndPage($obj);
+
+        // Enough paragraphs to force a page break mid-flow.
+        $html = '';
+        for ($i = 1; $i <= 90; ++$i) {
+            $html .= '<p>Paragraph ' . $i . ' with enough words to fill the line and flow down the page.</p>';
+        }
+
+        $obj->addHTMLCell($html, 10, 10, 180, 0);
+
+        $out = $obj->getOutPDFString();
+
+        // The document must span more than one page.
+        $this->assertGreaterThanOrEqual(2, \preg_match_all('~/Type\s*/Page\b~', $out));
+
+        // Map each page object to its content-stream object (/Contents N 0 R).
+        $pageContents = [];
+        $pm = [];
+        \preg_match_all('~(\d+) 0 obj\s*<<\s*/Type /Page\b.*?/Contents (\d+) 0 R~s', $out, $pm, \PREG_SET_ORDER);
+        foreach ($pm as $row) {
+            $pageContents[(int) ($row[1] ?? '0')] = (int) ($row[2] ?? '0');
+        }
+
+        // Collect the MCIDs each content stream declares via BDC.
+        $streamMcids = [];
+        $stm = [];
+        \preg_match_all(
+            '~(\d+) 0 obj\s*<< /Length \d+ >>\s*stream\r?\n(.*?)\r?\nendstream~s',
+            $out,
+            $stm,
+            \PREG_SET_ORDER,
+        );
+        foreach ($stm as $row) {
+            $mm = [];
+            \preg_match_all('~<</MCID (\d+)~', $row[2] ?? '', $mm);
+            $ids = [];
+            foreach ($mm[1] ?? [] as $id) {
+                $ids[] = (int) $id;
+            }
+
+            $streamMcids[(int) ($row[1] ?? '0')] = $ids;
+        }
+
+        // Every MCR's (page, mcid) must be backed by a BDC on that page's stream.
+        $orphans = 0;
+        $rm = [];
+        \preg_match_all('~/Type /MCR /Pg (\d+) 0 R /MCID (\d+)~', $out, $rm, \PREG_SET_ORDER);
+        foreach ($rm as $row) {
+            $stream = $pageContents[(int) ($row[1] ?? '0')] ?? 0;
+            if (!\in_array((int) ($row[2] ?? '0'), $streamMcids[$stream] ?? [], true)) {
+                ++$orphans;
+            }
+        }
+
+        $this->assertGreaterThan(0, \count($rm), 'sanity: MCRs must be present');
+        $this->assertSame(0, $orphans, 'every MCR must reference an MCID declared on its own page');
+    }
 }

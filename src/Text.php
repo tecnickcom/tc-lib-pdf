@@ -801,6 +801,32 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Suspend PDF/UA structure tagging and marked-content recording.
+     *
+     * While suspended, beginStructElem()/endStructElem() and the marked-content
+     * helpers become no-ops (they key off the PDF/UA mode), so measurement passes
+     * (whose output is discarded) and replayed content (re-emitted as an Artifact)
+     * do not append phantom structure elements or advance the per-page MCID counter.
+     *
+     * The previous mode is returned and must be handed back to resumePdfUaTagging():
+     * keeping the saved state on the caller's stack lets suspensions nest safely.
+     */
+    public function suspendPdfUaTagging(): string
+    {
+        $previous = $this->pdfuaMode;
+        $this->pdfuaMode = '';
+        return $previous;
+    }
+
+    /**
+     * Resume PDF/UA tagging, restoring the mode returned by suspendPdfUaTagging().
+     */
+    public function resumePdfUaTagging(string $previous): void
+    {
+        $this->pdfuaMode = $previous;
+    }
+
+    /**
      * Open a PDF/UA structure element bracket.
      * Call this before rendering the content of a logical block (e.g. <p>, <h1>).
      * All addTextCell calls until endStructElem() share the same structure element.
@@ -811,9 +837,17 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *                          dictionary — primarily used for Figure elements to carry accessible alt-text.
      * @param array<string, string> $attr Optional structure element attributes, serialized as
      *                                    a PDF dictionary in the /A entry.
+     * @param bool        $required When true, the element is kept in the structure tree even if it
+     *                              receives no marked content (e.g. an empty table cell that must hold
+     *                              its grid position for a regular table matrix).
      */
-    public function beginStructElem(string $role, int $pid, ?string $alt = null, array $attr = []): void
-    {
+    public function beginStructElem(
+        string $role,
+        int $pid,
+        ?string $alt = null,
+        array $attr = [],
+        bool $required = false,
+    ): void {
         if ($this->pdfuaMode === '') {
             return;
         }
@@ -831,6 +865,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         if ($attr !== []) {
             $entry['attr'] = $attr;
+        }
+
+        if ($required) {
+            $entry['required'] = true;
         }
 
         $this->pdfuaStructStack[] = $entry;
@@ -854,8 +892,14 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $top = $this->pdfuaStructStack[$topIndex];
         unset($this->pdfuaStructStack[$topIndex]);
 
-        // Only log elements that received marked-content or nested structure children.
-        if ($top['kids'] !== [] || isset($top['annots']) && $top['annots'] !== []) {
+        // Log elements that received marked-content or nested structure children.
+        // Elements flagged "required" (e.g. table cells) are kept even when empty so
+        // the table grid stays regular and rows keep their full column count.
+        if (
+            $top['kids'] !== []
+            || isset($top['annots']) && $top['annots'] !== []
+            || isset($top['required']) && $top['required']
+        ) {
             $entryIndex = \count($this->pdfuaStructLog);
             $this->pdfuaStructLog[] = $top;
 
@@ -1659,6 +1703,30 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             ++$etEnd;
         }
 
+        // Text-decoration lines (underline, line-through, overline) and link
+        // underlines are emitted as path-painting operators after the glyphs' final
+        // ET. When such a decoration follows the text, pull it inside the marked
+        // content so it is tagged as part of the text run rather than left as
+        // untagged content (PDF/UA-1 7.1). The decoration runs until the next text
+        // object or marked-content operator, or the end of this run's output.
+        $tailEnd = \strlen($content);
+        foreach (['BT', 'BDC', 'BMC', 'EMC'] as $boundary) {
+            $pos = \strpos($content, $boundary, $etEnd);
+            if ($pos !== false && $pos < $tailEnd) {
+                $tailEnd = $pos;
+            }
+        }
+
+        // Only extend when the trailing span actually paints a path (fill/stroke),
+        // so plain text without decorations keeps its existing tagging.
+        if (
+            $tailEnd > $etEnd
+            && \preg_match('~(?:^|\s)(?:f\*?|S|s|B\*?|b\*?)(?:\s|$)~', \substr($content, $etEnd, $tailEnd - $etEnd))
+                === 1
+        ) {
+            $etEnd = $tailEnd;
+        }
+
         $wrapped =
             \substr($content, 0, $firstBt)
             . $open
@@ -1668,7 +1736,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $this->pdfuapagemcid[$pid] = $mcid + 1;
 
-        // Register this MCID.
+        // Register this MCID together with the page it was emitted on, so an element
+        // whose text wraps across a page break maps each MCID to its real page.
         if ($stackTop !== null && isset($this->pdfuaStructStack[$stackTop])) {
             // Assign to the top open struct elem.
             $stackEntry = $this->pdfuaStructStack[$stackTop];
@@ -1676,6 +1745,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $stackEntry['kids'][] = [
                 'type' => 'mcid',
                 'id' => $mcid,
+                'pid' => $pid,
             ];
             $this->pdfuaStructStack[$stackTop] = $stackEntry;
         } else {
@@ -1687,6 +1757,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 'kids' => [[
                     'type' => 'mcid',
                     'id' => $mcid,
+                    'pid' => $pid,
                 ]],
             ];
         }
@@ -1787,7 +1858,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             // Assign the MCID directly to that bracket so we don't produce Figure > Figure.
             $stackEntry = $this->pdfuaStructStack[$stackTop];
             $stackEntry['mcids'][] = $mcid;
-            $stackEntry['kids'][] = ['type' => 'mcid', 'id' => $mcid];
+            $stackEntry['kids'][] = ['type' => 'mcid', 'id' => $mcid, 'pid' => $pid];
             if ($alt !== '' && !isset($stackEntry['alt'])) {
                 $stackEntry['alt'] = $alt;
             }
@@ -1802,6 +1873,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 'kids' => [[
                     'type' => 'mcid',
                     'id' => $mcid,
+                    'pid' => $pid,
                 ]],
             ];
             if ($alt !== '') {

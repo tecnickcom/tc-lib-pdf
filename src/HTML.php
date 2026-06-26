@@ -605,6 +605,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected string $ullidot = '!';
 
     /**
+     * Monospaced font applied to <pre>, <code> and <tt> elements when the author
+     * has not set an explicit font-family. Defaults to the standard-14 Courier;
+     * set an embedded font with setHTMLMonospaceFont() for PDF/UA output, which
+     * requires every font to be embedded.
+     *
+     * @var string
+     */
+    protected string $monospaceFontName = self::FONT_MONO;
+
+    /**
      * Custom vertical spacing overrides for HTML block tags.
      * Structure: [ tagname => [ 0 => ['h' => float, 'n' => int], 1 => ['h' => float, 'n' => int] ] ]
      * Index 0 = before-open spacing, index 1 = after-close spacing.
@@ -6126,7 +6136,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $node = &$dom[$key];
 
         if ($node['value'] === 'pre' || $node['value'] === 'tt' || $node['value'] === 'code') {
-            $node['fontname'] = self::FONT_MONO;
+            // Respect an explicit author font-family; otherwise apply the configured
+            // monospace font (Courier by default, or an embedded font for PDF/UA).
+            if (!isset($node['style']['font-family']) || $node['style']['font-family'] === '') {
+                $node['fontname'] = $this->monospaceFontName;
+            }
+        }
+    }
+
+    /**
+     * Set the monospaced font used for <pre>, <code> and <tt> elements.
+     *
+     * PDF/UA requires every font to be embedded. The default Courier is a
+     * non-embedded standard-14 font, so set an embedded monospace font (after
+     * inserting it with the font stack) when producing tagged or accessible PDFs.
+     */
+    public function setHTMLMonospaceFont(string $fontname): void
+    {
+        $fontname = \trim($fontname);
+        if ($fontname !== '') {
+            $this->monospaceFontName = $fontname;
         }
     }
 
@@ -7206,7 +7235,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $theadh = $this->measureHTMLCellRenderedHeight($thead, $tpx, $tpy, $tpw, $tph);
-        $out = $this->getHTMLCell($thead, $tpx, $tpy, $tpw, $tph);
+
+        // The header is replayed visually at the top of each continuation page, but it
+        // is already represented once in the structure tree (on its first page). Suspend
+        // tagging during the replay so it does not open a second, nested Table subtree
+        // inside the still-open table, then emit the whole replayed header as an Artifact.
+        $savedPdfuaMode = $this->suspendPdfUaTagging();
+        try {
+            $rendered = $this->getHTMLCell($thead, $tpx, $tpy, $tpw, $tph);
+        } finally {
+            $this->resumePdfUaTagging($savedPdfuaMode);
+        }
+
+        $out = $this->tagPdfUaArtifactContent($rendered);
         if ($theadh > 0.0) {
             $tpy += $theadh;
             $this->resetHTMLLineCursor($hrc, $tpx, $tpw);
@@ -7359,9 +7400,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tph = $contenth;
 
         $this->initHTMLCellContext($hrc, $contentx, $contenty, $contentw, $contenth);
-        $this->renderHTMLCellFragments($hrc, $tpx, $tpy, $tpw, $tph, static function (string $fragment): void {
-            unset($fragment);
-        });
+        // Measurement renders into a discarded buffer, so suspend PDF/UA tagging:
+        // otherwise this pass appends phantom structure elements and advances the
+        // per-page MCID counter for content that is never written to a page stream.
+        $savedPdfuaMode = $this->suspendPdfUaTagging();
+        try {
+            $this->renderHTMLCellFragments($hrc, $tpx, $tpy, $tpw, $tph, static function (string $fragment): void {
+                unset($fragment);
+            });
+        } finally {
+            $this->resumePdfUaTagging($savedPdfuaMode);
+        }
 
         $this->clearHTMLCellContext($hrc);
         $this->restoreHTMLCallerFontState($callerfont);
@@ -11720,6 +11769,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'blockquote' => 'BlockQuote',
             'pre' => 'Code',
             default => '',
+        };
+    }
+
+    /**
+     * Return a trimmed string HTML attribute from a DOM node, or '' when absent.
+     *
+     * @param array<string, mixed> $elm DOM element.
+     */
+    protected function getHTMLNodeStringAttr(array $elm, string $name): string
+    {
+        if (
+            !isset($elm['attribute'])
+            || !\is_array($elm['attribute'])
+            || !isset($elm['attribute'][$name])
+            || !\is_string($elm['attribute'][$name])
+        ) {
+            return '';
+        }
+
+        return \trim($elm['attribute'][$name]);
+    }
+
+    /**
+     * Map an HTML th/td scope attribute to a PDF table header Scope value.
+     * row/rowgroup map to Row; col/colgroup and any other value (including the
+     * absent default) map to Column.
+     *
+     * @param array<string, mixed> $elm DOM element.
+     */
+    protected function getHTMLCellScope(array $elm): string
+    {
+        return match (\strtolower($this->getHTMLNodeStringAttr($elm, 'scope'))) {
+            'row', 'rowgroup' => 'Row',
+            default => 'Column',
         };
     }
 
@@ -17244,7 +17327,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             $hrc['cellctx']['linewrapped'] = true;
 
-            return $background . $out . $inlineBorder;
+            return $this->tagPdfUaArtifactContent($background) . $out . $this->tagPdfUaArtifactContent($inlineBorder);
         }
 
         $tpx = $this->computeHTMLTextAdvanceX(
@@ -17269,7 +17352,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $hrc['cellctx']['linewrapped'] = false;
 
-        return $background . $out . $inlineBorder;
+        return $this->tagPdfUaArtifactContent($background) . $out . $this->tagPdfUaArtifactContent($inlineBorder);
     }
 
     // FUNCTIONS TO PROCESS HTML OPENING TAGS
@@ -17993,14 +18076,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $lineY = $tpy + ($this->getHTMLLineAdvance($hrc, $key) / 2);
-        $out .= $this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, [
+        // A horizontal rule carries no semantics, so in PDF/UA mode its stroke is wrapped
+        // as an Artifact (tagPdfUaArtifactContent is a no-op outside PDF/UA mode). Without
+        // this the rule would be untagged real content, violating PDF/UA-1 7.1.
+        $out .= $this->tagPdfUaArtifactContent($this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, [
             'lineWidth' => $strokeWidth,
             'lineCap' => 'butt',
             'lineJoin' => 'miter',
             'dashArray' => [],
             'dashPhase' => 0,
             'lineColor' => $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'],
-        ]);
+        ]));
         $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
 
         return $out;
@@ -19448,16 +19534,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        if ($this->pdfuaMode !== '') {
-            $role = $elm['value'] === 'th' ? 'TH' : 'TD';
-            $attr = [];
-            if ($role === 'TH') {
-                $attr = ['O' => 'Table', 'Scope' => 'Column'];
-            }
-
-            $this->beginStructElem($role, $this->page->getPageId(), null, $attr);
-        }
-
         $table = $tableNode;
 
         $colindex = $this->getHTMLTableNextFreeColumn($table);
@@ -19482,6 +19558,45 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
         $colspan = \max(1, \min($remaining, $colspan));
         $rowspan = \max(1, $rowspan);
+
+        if ($this->pdfuaMode !== '') {
+            $role = $elm['value'] === 'th' ? 'TH' : 'TD';
+            $attr = [];
+            if ($role === 'TH') {
+                // Honor an explicit scope; header cells default to column scope.
+                $attr = ['O' => 'Table', 'Scope' => $this->getHTMLCellScope($elm)];
+            }
+
+            // Record the cell spans on the structure element so assistive technology can
+            // reconstruct the table grid. The owner (/O /Table) is required for the span
+            // attributes; the serialiser writes ColSpan/RowSpan as integers.
+            if ($colspan > 1) {
+                $attr['O'] = 'Table';
+                $attr['ColSpan'] = (string) $colspan;
+            }
+
+            if ($rowspan > 1) {
+                $attr['O'] = 'Table';
+                $attr['RowSpan'] = (string) $rowspan;
+            }
+
+            // Pass through explicit header-association markup so complex tables can label
+            // header cells with an id and point data cells at them. The struct-tree
+            // serialiser promotes these to the StructElem /ID and /Headers entries.
+            $cellId = $this->getHTMLNodeStringAttr($elm, 'id');
+            if ($cellId !== '') {
+                $attr['ID'] = $cellId;
+            }
+
+            $cellHeaders = $this->getHTMLNodeStringAttr($elm, 'headers');
+            if ($cellHeaders !== '') {
+                $attr['Headers'] = $cellHeaders;
+            }
+
+            // Keep the cell in the structure tree even when empty so the row preserves
+            // its full column count and the table matrix stays regular.
+            $this->beginStructElem($role, $this->page->getPageId(), null, $attr, true);
+        }
 
         $cellx = $this->getHTMLTableColX($table, $colindex);
         $cellw = $this->getHTMLTableColSpanWidth($table, $colindex, $colspan);
