@@ -12,13 +12,14 @@
 
 [![Sponsor on GitHub](https://img.shields.io/badge/sponsor-github-EA4AAA.svg?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/tecnickcom)
 
-If this project is useful to you, please consider [supporting development via GitHub Sponsors](https://github.com/sponsors/tecnickcom).
+> 💖 **Keep TCPDF maintained.** `tc-lib-pdf` is the actively-developed successor to **TCPDF**, which is installed 100M+ times across 500+ PHP packages and is now maintenance-only. If your company depends on it, [become a sponsor](https://github.com/sponsors/tecnickcom) to keep this shared infrastructure secure and maintained — see [Sponsors](#sponsors) for tiers.
 
 ---
 
 ## Contents
 
 - [Overview](#overview)
+- [Sponsors](#sponsors)
 - [For TCPDF Users](#for-tcpdf-users)
 - [Features](#features)
 - [Requirements](#requirements)
@@ -51,6 +52,20 @@ Releases follow [Semantic Versioning](https://semver.org):
 - **PATCH** — backwards-compatible bug fixes
 - **MINOR** — backwards-compatible new features
 - **MAJOR** — breaking changes
+
+---
+
+## Sponsors
+
+`tc-lib-pdf` is the actively-developed successor to **TCPDF**, which is installed **100M+ times across 500+ PHP packages** and is now maintenance-only. If your product relies on TCPDF or `tc-lib-pdf`, sponsoring is how that shared infrastructure stays secure and maintained — closer to insurance on a dependency you already ship than to a donation.
+
+[![Sponsor on GitHub](https://img.shields.io/badge/sponsor-github-EA4AAA.svg?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/tecnickcom)
+
+<!-- sponsors -->
+**Your logo here.** Be the first company to back the project — [become a sponsor →](https://github.com/sponsors/tecnickcom)
+<!-- sponsors -->
+
+See **[SPONSORS.md](https://github.com/tecnickcom/.github/blob/main/SPONSORS.md)** for sponsorship tiers, how to add your logo, and the logo/content policy. Individual backers are listed in **[BACKERS.md](https://github.com/tecnickcom/.github/blob/main/BACKERS.md)**.
 
 ---
 
