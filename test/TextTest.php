@@ -230,6 +230,70 @@ class TextTest extends TestUtil
         $this->assertStringNotContainsString('/MCID', $out);
     }
 
+    /**
+     * Regression test:
+     *
+     * A custom defaultPageContent() that draws vector graphics through the graph
+     * component (here a line) must render correctly on the first page. The graph
+     * flips the Y axis against the page height; previously that height was still
+     * zero when the first page context was generated (it was only set after
+     * setPageContext()), so the first page emitted negative, off-page coordinates
+     * while every subsequent page reused the prior page height and rendered fine.
+     *
+     * @throws \Throwable
+     */
+    public function testCustomDefaultPageContentDrawsGraphicsOnFirstPage(): void
+    {
+        $obj = new class extends \Com\Tecnick\Pdf\Tcpdf {
+            public function defaultPageContent(int $pid = -1): string
+            {
+                if ($pid < 0) {
+                    $pid = $this->page->getPageId();
+                }
+
+                // A horizontal line 18 user-units from the top of the page.
+                return $this->graph->getLine(10.0, 18.0, 100.0, 18.0, ['lineColor' => 'rgb(192,192,192)']);
+            }
+        };
+
+        $this->initFont($obj);
+        $obj->enableDefaultPageContent();
+
+        $firstPid = $this->requirePageId($obj->addPage());
+        $secondPid = $this->requirePageId($obj->addPage());
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
+        $pageObj = $this->getObjectProperty($obj, 'page');
+
+        $firstY = $this->extractFirstMoveToY($pageObj->getPage($firstPid)['content']);
+        $secondY = $this->extractFirstMoveToY($pageObj->getPage($secondPid)['content']);
+
+        // The line must be drawn inside the page (positive Y), not above the top edge.
+        $this->assertGreaterThan(0.0, $firstY, 'First page header graphics must not be drawn off-page (issue #246).');
+
+        // The first page must match every subsequent page.
+        $this->assertEqualsWithDelta($secondY, $firstY, 0.0001);
+    }
+
+    /**
+     * Returns the Y coordinate of the first "moveto" (m) operator in a page content stream.
+     *
+     * @param array<array-key, string> $content
+     *
+     * @throws \Throwable
+     */
+    private function extractFirstMoveToY(array $content): float
+    {
+        $match = [];
+        if (\preg_match('/(?:^|\s)(\S+) (-?\d+\.\d+) m(?:\s|$)/', \implode('', $content), $match) !== 1) {
+            $this->fail('Expected a moveto (m) operator in the page content stream.');
+        }
+
+        $value = $match[2] ?? '0';
+
+        return \is_numeric($value) ? (float) $value : 0.0;
+    }
+
     /** @throws \Throwable */
     public function testArtifactHelpersAndAddArtifactContent(): void
     {

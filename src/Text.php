@@ -3367,6 +3367,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function setPageContext(int $pid = -1): void
     {
+        // The graph component must know the dimensions of the target page before the
+        // page context is generated. defaultPageContent() may draw graphics whose Y
+        // coordinates are flipped against the page height; without this, a custom
+        // override that does not call setCurrentPage() would render off-page on the
+        // first page (the graph would still hold a zero/stale height).
+        $ctxpage = $this->page->getPage($pid);
+        $this->graph->setPageWidth($ctxpage['width']);
+        $this->graph->setPageHeight($ctxpage['height']);
+
         if ($this->font->hasCurrentFont()) {
             $this->page->addContent($this->font->getOutCurrentFont(), $pid);
         }
