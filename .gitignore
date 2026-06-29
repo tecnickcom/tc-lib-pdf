@@ -16,7 +16,8 @@
 composer.lock
 ecs.php
 phpunit.xml
+PLAN_*
 rector.php
 target
+TMP_*
 vendor
-PLAN_*
