@@ -347,6 +347,35 @@ $pdf->addHTMLCell(
     195,
 );
 
+// ----------
+
+$page5 = $pdf->addPage();
+
+// Percentage widths are resolved against the containing element:
+// an image with width:100% fills its fixed-width table cell (issue #247).
+$html6 = '<h2>HTML TABLES (E): PERCENTAGE WIDTHS</h2>
+<table style="width:100%;" border="1" cellspacing="0" cellpadding="2">
+	<tr>
+		<td style="width:25%;">25% column</td>
+		<td style="width:75%;">75% column</td>
+	</tr>
+	<tr>
+		<td style="width:25%;"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" style="width:100%;" /></td>
+		<td style="width:75%;"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" style="width:50%;" /></td>
+	</tr>
+</table>
+<br />
+<table style="width:160mm;" border="1" cellspacing="0" cellpadding="2">
+	<tr>
+		<td style="width:40mm;"><img src="images/tcpdf_logo.jpg" alt="TCPDF logo" style="width:100%;" /></td>
+		<td>The image on the left fills the width of its 40mm cell (width:100%).</td>
+	</tr>
+</table>
+<hr style="width:50%;" />
+<p>The horizontal rule above spans 50% of the container width.</p>';
+
+$pdf->addHTMLCell(html: $html6, posx: 20, posy: 10, width: 180);
+
 // =============================================================
 
 // ----------

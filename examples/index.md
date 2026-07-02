@@ -45,7 +45,7 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E040_annotation_form.php](E040_annotation_form.php): Interactive AcroForm fields (text, radio, checkbox, list/combo, buttons) and JavaScript actions.
 - [E041_layers_visibility.php](E041_layers_visibility.php): Optional Content Group (layer) visibility for screen-only and print-only content.
 - [E042_html_form.php](E042_html_form.php): XHTML form-to-PDF mapping example for inputs, selects, textarea, and actions.
-- [E043_html_tables.php](E043_html_tables.php): HTML table layout showcase including colspan/rowspan, nested tables, and CSS styling.
+- [E043_html_tables.php](E043_html_tables.php): HTML table layout showcase including colspan/rowspan, nested tables, CSS styling, and percentage widths.
 - [E044_toc_index.php](E044_toc_index.php): Bookmark outline example with generated table of contents via addTOC.
 - [E045_encryption_and_permissions.php](E045_encryption_and_permissions.php): PDF encryption and permission controls with user and owner passwords.
 - [E046_pangrams.php](E046_pangrams.php): Multilingual pangram showcase covering 17 scripts: Latin, Arabic, Hebrew, Thai, Devanagari, Hangul, Greek, Japanese, Russian, Armenian, Georgian, Tamil, Bengali, Amharic, Khmer, Tibetan, and Chinese.

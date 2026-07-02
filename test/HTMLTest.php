@@ -16918,6 +16918,120 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Issue #247: a percentage width must be resolved against the containing
+     * block width, not the default unit reference (which collapsed it to ~1pt).
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellImgPercentWidthResolvesAgainstContainerWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 2);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $out = $obj->getHTMLCell('<img src="' . $b64src . '" style="width:50%;" />', 0, 0, 80, 20);
+
+        $imgMatch = [];
+        $imgPattern = '/q\s+([-0-9.]+)\s+0\s+0\s+([-0-9.]+)\s+[-0-9.]+\s+[-0-9.]+\s+cm\s+\/IMG\d+\s+Do\s+Q/';
+        $this->assertSame(1, \preg_match($imgPattern, $out, $imgMatch));
+        assert(isset($imgMatch[1]), "\$imgMatch[1] must be set");
+        assert(isset($imgMatch[2]), "\$imgMatch[2] must be set");
+
+        $drawWidth = \floatval($imgMatch[1]);
+        $drawHeight = \floatval($imgMatch[2]);
+        // 50% of the 80-unit wide cell.
+        $this->assertEqualsWithDelta($obj->toPoints(40.0), $drawWidth, 0.5);
+        // The unspecified height follows the intrinsic 4:2 aspect ratio.
+        $this->assertEqualsWithDelta(0.5, $drawHeight / $drawWidth, 0.01);
+    }
+
+    /**
+     * Issue #247: an image with width:100% inside a fixed-width table cell
+     * must fill the cell width.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellImgPercentWidthFillsFixedWidthTableCell(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $img = \imagecreate(4, 2);
+        \imagecolorallocate($img, 255, 255, 255);
+        \ob_start();
+        \imagepng($img);
+        $raw = \ob_get_clean();
+        $b64src = 'data:image/png;base64,' . \base64_encode((string) $raw);
+
+        $html =
+            '<table style="width:60mm;"><tr>'
+            . '<td style="width:30mm;"><img src="'
+            . $b64src
+            . '" style="width:100%;" /></td>'
+            . '<td>second cell</td>'
+            . '</tr></table>';
+        $out = $obj->getHTMLCell($html, 0, 0, 80, 0);
+
+        $imgMatch = [];
+        $imgPattern = '/q\s+([-0-9.]+)\s+0\s+0\s+[-0-9.]+\s+[-0-9.]+\s+[-0-9.]+\s+cm\s+\/IMG\d+\s+Do\s+Q/';
+        $this->assertSame(1, \preg_match($imgPattern, $out, $imgMatch));
+        assert(isset($imgMatch[1]), "\$imgMatch[1] must be set");
+
+        $drawWidth = \floatval($imgMatch[1]);
+        $this->assertEqualsWithDelta($obj->toPoints(30.0), $drawWidth, 0.5);
+    }
+
+    /**
+     * Issue #247: a percentage hr width must be resolved against the
+     * containing block width.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellHrPercentWidthResolvesAgainstContainerWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<hr style="width:50%;" />', 0, 0, 80, 20);
+
+        $lineMatch = [];
+        $linePattern = '/([-0-9.]+) [-0-9.]+ m\s+([-0-9.]+) [-0-9.]+ l/';
+        $this->assertSame(1, \preg_match($linePattern, $out, $lineMatch));
+        assert(isset($lineMatch[1]), "\$lineMatch[1] must be set");
+        assert(isset($lineMatch[2]), "\$lineMatch[2] must be set");
+
+        $lineLength = \floatval($lineMatch[2]) - \floatval($lineMatch[1]);
+        $this->assertEqualsWithDelta($obj->toPoints(40.0), $lineLength, 0.5);
+    }
+
+    /**
+     * Issue #247: a percentage width on a form control must be resolved
+     * against the containing block width.
+     *
+     * @throws \Throwable
+     */
+    public function testGetHTMLCellInputPercentWidthResolvesAgainstContainerWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->getHTMLCell('<input type="text" name="fname" style="width:50%;" value="x" />', 0, 0, 80, 10);
+
+        $annotation = $this->getObjectArrayProperty($obj, 'annotation');
+        $this->assertIsArray($annotation);
+        $this->assertNotEmpty($annotation);
+        /** @var array{w: float} $field */
+        $field = \end($annotation);
+        $this->assertEqualsWithDelta(40.0, $field['w'], 0.1);
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetHTMLCellImgBottomAlignmentUsesTextBaseline(): void

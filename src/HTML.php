@@ -7787,7 +7787,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $inlinewidth = $state['inlinewidth'];
                         $inlineadvance = $state['inlineadvance'];
                         $hasinlinecontent = $state['hasinlinecontent'];
-                        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineadvance);
+                        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineadvance, $width);
                         $height += $imgdim['height'];
                         continue;
                     }
@@ -8029,7 +8029,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                     if ($elm['value'] === 'img') {
                         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineheight);
+                        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineheight, $width);
                         $height += $imgdim['height'];
                         continue;
                     }
@@ -9876,7 +9876,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($node['tag']) {
                 if ($node['value'] === 'img' && $node['opening']) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight, $hrc['cellctx']['maxwidth']);
                     $imgwidth = $imgdim['width'];
                     if ($imgwidth > 0.0) {
                         $runwidth += $imgwidth;
@@ -10036,7 +10036,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $src = $this->resolveHTMLImageSource($attr['src']);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+        $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight, $hrc['cellctx']['maxwidth']);
         $width = $imgdim['width'];
         $height = $imgdim['height'];
         if ($width <= 0.0 || $height <= 0.0) {
@@ -10765,7 +10765,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             if ($node['tag']) {
                 if ($node['value'] === 'img' && $node['opening']) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+                    // Percentages resolve against the containing block, not the
+                    // (possibly smaller) residual line width being measured.
+                    $containerwidth = $hrc['cellctx']['maxwidth'] > 0.0 ? $hrc['cellctx']['maxwidth'] : $maxwidth;
+                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight, $containerwidth);
                     $imgwidth = $imgdim['width'];
 
                     if ($imgwidth <= 0.0) {
@@ -11114,7 +11117,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                 if ($node['value'] === 'img' && $node['opening']) {
                     $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight);
+                    $imgdim = $this->getHTMLResolvedImageDimensions($node, $lineheight, $hrc['cellctx']['maxwidth']);
                     $imgheight = $imgdim['height'];
                     if ($imgheight <= 0.0) {
                         continue;
@@ -12565,13 +12568,32 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * When only one side is specified, preserve image aspect ratio using intrinsic dimensions.
      * When no side is specified, fallback to current line height.
+     * Percentage widths are resolved against the given available width (the
+     * containing block); a percentage height behaves as 'auto' because the
+     * containing block height is not tracked at this level.
      *
      * @param THTMLAttrib $elm
+     * @param float $lineheight Current line height (fallback size) in user units.
+     * @param float $availableWidth Containing block width in user units (0 = unknown).
      *
      * @return array{width: float, height: float}
      */
-    protected function getHTMLResolvedImageDimensions(array &$elm, float $lineheight): array
-    {
+    protected function getHTMLResolvedImageDimensions(
+        array &$elm,
+        float $lineheight,
+        float $availableWidth = 0.0,
+    ): array {
+        if ($availableWidth > 0.0) {
+            $widthFraction = $this->getHTMLPercentDimensionFraction($elm, 'width');
+            if ($widthFraction !== null) {
+                $elm['width'] = \max(0.0, $availableWidth * $widthFraction);
+            }
+        }
+
+        if ($this->getHTMLPercentDimensionFraction($elm, 'height') !== null) {
+            $elm['height'] = 0.0;
+        }
+
         $width = $elm['width'] > 0 ? $elm['width'] : 0.0;
         $height = $elm['height'] > 0 ? $elm['height'] : 0.0;
 
@@ -12673,7 +12695,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $src = $this->resolveHTMLImageSource($attr['src']);
 
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineheight);
+        $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
+        $imgdim = $this->getHTMLResolvedImageDimensions($elm, $lineheight, $availableWidth);
         $width = $imgdim['width'];
         $height = $imgdim['height'];
 
@@ -12712,7 +12735,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Horizontal alignment: inherit text-align for inline image runs.
         $lineOriginX = $hrc['cellctx']['lineoriginx'];
         $lineOffset = $tpx - $lineOriginX;
-        $availableWidth = $hrc['cellctx']['maxwidth'] > 0 ? $hrc['cellctx']['maxwidth'] : $tpw;
         if ($hrc['cellctx']['maxwidth'] > 0) {
             $remainingWidth = \max(0.0, $tpw);
         } elseif ($tpw > 0) {
@@ -13816,35 +13838,57 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Resolve a table-cell explicit width using table-available user units.
+     * Return the declared dimension fraction (e.g. 0.5 for '50%') when the element
+     * specifies the given dimension as a percentage, or null otherwise.
      *
-     * Percentage widths from HTML/CSS must be resolved against the table width,
-     * not the generic default unit reference used during early DOM parsing.
+     * The CSS style declaration is checked first, then the HTML attribute.
+     * Percentages refer to the containing block, which is unknown during early
+     * DOM parsing (they are pre-parsed against the default unit reference),
+     * so they must be re-resolved at layout time against the actual container.
      *
      * @param THTMLAttrib $elm
+     * @param string      $dimension Dimension name ('width' or 'height').
      */
-    protected function getHTMLTableCellExplicitWidth(array $elm, float $availableWidth): float
+    protected function getHTMLPercentDimensionFraction(array $elm, string $dimension): ?float
     {
-        if ($availableWidth <= 0.0) {
-            return $elm['width'] > 0 ? $elm['width'] : 0.0;
-        }
-
-        $rawWidth = '';
-        if (isset($elm['style']['width']) && $elm['style']['width'] !== '') {
-            $rawWidth = \trim($elm['style']['width']);
+        $rawValue = '';
+        if (isset($elm['style'][$dimension]) && $elm['style'][$dimension] !== '') {
+            $rawValue = \trim($elm['style'][$dimension]);
         } elseif (
-            isset($elm['attribute']['width'])
-            && $elm['attribute']['width'] !== ''
-            && \is_string($elm['attribute']['width'])
+            isset($elm['attribute'][$dimension])
+            && $elm['attribute'][$dimension] !== ''
+            && \is_string($elm['attribute'][$dimension])
         ) {
-            $rawWidth = \trim($elm['attribute']['width']);
+            $rawValue = \trim($elm['attribute'][$dimension]);
         }
 
         $match = [];
-        if ($rawWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawWidth, $match) === 1) {
-            $widthPercent = $match[1] ?? null;
-            if (\is_numeric($widthPercent)) {
-                return \max(0.0, ($availableWidth * \floatval($widthPercent)) / 100.0);
+        if ($rawValue !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawValue, $match) === 1) {
+            $percent = $match[1] ?? null;
+            if (\is_numeric($percent)) {
+                return \floatval($percent) / 100.0;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the explicit width of an element in user units.
+     *
+     * Percentage widths from HTML/CSS are resolved against the given available
+     * width (the actual container), not the generic default unit reference used
+     * during early DOM parsing. Absolute lengths use the pre-parsed numeric
+     * width value. Returns 0.0 when no usable explicit width is declared.
+     *
+     * @param THTMLAttrib $elm
+     */
+    protected function getHTMLElementExplicitWidth(array $elm, float $availableWidth): float
+    {
+        if ($availableWidth > 0.0) {
+            $fraction = $this->getHTMLPercentDimensionFraction($elm, 'width');
+            if ($fraction !== null) {
+                return \max(0.0, $availableWidth * $fraction);
             }
         }
 
@@ -13865,26 +13909,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 0.0;
         }
 
-        $rawWidth = '';
-        if (isset($elm['style']['width']) && $elm['style']['width'] !== '') {
-            $rawWidth = \trim($elm['style']['width']);
-        } elseif (
-            isset($elm['attribute']['width'])
-            && $elm['attribute']['width'] !== ''
-            && \is_string($elm['attribute']['width'])
-        ) {
-            $rawWidth = \trim($elm['attribute']['width']);
-        }
-
-        $match = [];
-        if ($rawWidth !== '' && \preg_match('/^([0-9.+\-]+)\s*%$/', $rawWidth, $match) === 1) {
-            $widthPercent = $match[1] ?? null;
-            if (\is_numeric($widthPercent)) {
-                return \max(0.0, ($availableWidth * \floatval($widthPercent)) / 100.0);
-            }
-        }
-
-        return $elm['width'] > 0 ? $elm['width'] : 0.0;
+        return $this->getHTMLElementExplicitWidth($elm, $availableWidth);
     }
 
     /**
@@ -14000,7 +14025,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     ? \max(1, (int) $elm['attribute']['span'])
                     : 1;
                 $colgroupspan = \max(1, \min($colgroupspan, $cols - $colgroupstart));
-                $colgroupwidth = $this->getHTMLTableCellExplicitWidth($elm, $availableWidth);
+                $colgroupwidth = $this->getHTMLElementExplicitWidth($elm, $availableWidth);
                 continue;
             }
 
@@ -14039,7 +14064,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     ? \max(1, (int) $elm['attribute']['span'])
                     : 1;
                 $colspan = \max(1, \min($colspan, $cols - $hintcol));
-                $colw = $this->getHTMLTableCellExplicitWidth($elm, $availableWidth);
+                $colw = $this->getHTMLElementExplicitWidth($elm, $availableWidth);
                 if ($colw > 0.0 && $colspan > 0) {
                     $percol = $colw / $colspan;
                     for ($i = 0; $i < $colspan; ++$i) {
@@ -14097,7 +14122,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
 
-                $cellw = $this->getHTMLTableCellExplicitWidth($elm, $availableWidth);
+                $cellw = $this->getHTMLElementExplicitWidth($elm, $availableWidth);
                 if ($cellw > 0.0) {
                     $percw = $cellw / $colspan;
                     for ($i = 0; $i < $colspan; ++$i) {
@@ -18066,7 +18091,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $availableWidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
         $width = $availableWidth;
-        if ($elm['width'] > 0) {
+        // A percentage width has already been resolved into the block inner
+        // width by openHTMLBlock(); the pre-parsed numeric width only applies
+        // to absolute lengths.
+        if ($elm['width'] > 0 && $this->getHTMLPercentDimensionFraction($elm, 'width') === null) {
             $width = \min($elm['width'], $availableWidth);
         }
 
@@ -18203,8 +18231,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             : 'input_' . \count($this->tagvspaces);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
         $maxwidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
-        $fieldwidth = $elm['width'] > 0
-            ? $elm['width']
+        $explicitwidth = $this->getHTMLElementExplicitWidth($elm, $maxwidth);
+        $fieldwidth = $explicitwidth > 0
+            ? $explicitwidth
             : $this->getHTMLInputFallbackWidth($hrc, $key, $attrStr, $lineheight, $maxwidth);
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
         $fieldelm = $elm;
@@ -18248,7 +18277,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $padRight = isset($elm['padding']['R']) ? $elm['padding']['R'] : 0.0;
                 $buttonHeight = \max($lineheight, $lineheight + $padTop + $padBottom);
                 $buttonWidth = $fieldwidth;
-                $hasExplicitWidth = $elm['width'] > 0;
+                $hasExplicitWidth = $explicitwidth > 0;
                 if (!$hasExplicitWidth) {
                     $captionWidth = $this->getStringWidth($caption);
                     $buttonWidth = \max($fieldwidth, $captionWidth + $lineheight + $padLeft + $padRight);
@@ -18786,7 +18815,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ? $attrStr['name']
             : 'select_' . \count($this->tagvspaces);
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
-        $fieldwidth = $elm['width'] > 0 ? $elm['width'] : $lineheight * 5;
+        $maxwidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
+        $explicitwidth = $this->getHTMLElementExplicitWidth($elm, $maxwidth);
+        $fieldwidth = $explicitwidth > 0 ? $explicitwidth : $lineheight * 5;
         $fieldlabel = $this->getHTMLLabelTextForControl($hrc, $key);
         $fieldjsp = $this->getHTMLFormFieldJSProperties($attrStr, 'select', $elm);
 
@@ -19817,8 +19848,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineheight = $this->getHTMLLineAdvance($hrc, $key);
         $rows = isset($attr['rows']) && \is_numeric($attr['rows']) ? \max(1, (int) $attr['rows']) : 3;
         $maxwidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
-        $fieldwidth = $elm['width'] > 0 ? $elm['width'] : $maxwidth;
-        $hasCols = $elm['width'] <= 0 && isset($attr['cols']) && \is_numeric($attr['cols']);
+        $explicitwidth = $this->getHTMLElementExplicitWidth($elm, $maxwidth);
+        $fieldwidth = $explicitwidth > 0 ? $explicitwidth : $maxwidth;
+        $hasCols = $explicitwidth <= 0 && isset($attr['cols']) && \is_numeric($attr['cols']);
         if ($hasCols) {
             // Use the current font metrics to map HTML cols to a character-based field width.
             $cols = \max(1, (int) $attr['cols']);
