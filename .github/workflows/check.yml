@@ -26,7 +26,7 @@ jobs:
       matrix:
         php-version: ["8.2", "8.3", "8.4", "8.5"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       #- name: Install pdfinfo
       #  run: sudo apt-get install -y poppler-utils
       - name: Use php ${{ matrix.php-version }}
@@ -41,7 +41,7 @@ jobs:
       - name: List php modules using "no php ini" mode
         run: php -m -n
       - name: Cache module
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.composer/cache/
           key: ${{ runner.os }}-php-${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -87,7 +87,7 @@ jobs:
             target/report/renderability-trend.md
       - name: Send coverage
         if: matrix.php-version == '8.4'
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           flags: php-${{ matrix.php-version }}-ubuntu-latest
           name: php-${{ matrix.php-version }}-ubuntu-latest

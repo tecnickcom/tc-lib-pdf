@@ -102,7 +102,7 @@ PHPDOC=$(shell which phpDocumentor)
 VERAPDF_BIN?=$(shell command -v verapdf 2>/dev/null)
 
 # Mago version
-MAGOVERSION=1.40.2
+MAGOVERSION=1.42.0
 
 # --- MAKE TARGETS ---
 

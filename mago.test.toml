@@ -1,4 +1,4 @@
-#:schema https://mago.carthage.software/1.40.2/schema.json
+#:schema https://mago.carthage.software/1.42.0/schema.json
 version = "1"
 php-version = "8.2.0"
 
@@ -31,6 +31,7 @@ kan-defect = { enabled = false }
 no-boolean-flag-parameter = { enabled = false }
 no-else-clause = { enabled = false }
 no-empty = { enabled = false }
+no-duplicate-match-arm = { enabled = false }
 excessive-nesting = { enabled = true, threshold = 10, function-like-threshold = 10 }
 no-empty-catch-clause = { enabled = false }
 no-isset = { enabled = false }
