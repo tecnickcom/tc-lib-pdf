@@ -26,8 +26,6 @@
     ],
     "require": {
         "php": ">=8.2",
-        "ext-date": "*",
-        "ext-pcre": "*",
         "tecnickcom/tc-lib-barcode": "^2.11",
         "tecnickcom/tc-lib-color": "^2.12",
         "tecnickcom/tc-lib-pdf-image": "^3.11",

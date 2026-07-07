@@ -143,7 +143,6 @@ The fastest way to evaluate the library is to follow the installation and quick-
 ## Requirements
 
 - **PHP 8.2** or later
-- Required PHP extensions: `date`, `pcre` (enforced by Composer)
 - Composer
 
 Optional PHP extensions for extended functionality: `gd`, `zlib`.
