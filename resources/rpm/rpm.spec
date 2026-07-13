@@ -18,27 +18,27 @@ Requires:  php(language) >= 8.2.0
 Requires:  php-date
 Requires:  php-pcre
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.11.3
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.11.4
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.12.4
+Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.12.5
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.11.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.11.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 3.10.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 3.10.1
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.6.3
+Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.6.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.8.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.8.4
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 2.6.3
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 2.6.4
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.10.3
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 2.10.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 5.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.13.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.13.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.14.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.14.4
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) < 4.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.13.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.13.4
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}
@@ -50,8 +50,8 @@ PHP library to generate PDF documents
 #(cd %{_current_directory} && make build)
 
 %install
-rm -rf %{buildroot}
-(cd %{_current_directory} && make install DESTDIR=%{buildroot})
+rm -rf "%{buildroot}"
+(cd "%{_current_directory}" && make install DESTDIR="%{buildroot}")
 
 %files
 %attr(-,root,root) %{_libpath}
