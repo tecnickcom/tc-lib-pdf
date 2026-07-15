@@ -29,7 +29,7 @@
         "tecnickcom/tc-lib-barcode": "^2.11",
         "tecnickcom/tc-lib-color": "^2.12",
         "tecnickcom/tc-lib-pdf-image": "^3.11",
-        "tecnickcom/tc-lib-pdf-font": "^3.10",
+        "tecnickcom/tc-lib-pdf-font": "^3.11",
         "tecnickcom/tc-lib-file": "^3.6",
         "tecnickcom/tc-lib-pdf-encrypt": "^2.8",
         "tecnickcom/tc-lib-unicode-data": "^2.6",
@@ -74,10 +74,10 @@
         "cs-fix": "mago fmt src test",
         "qa": ["@cs-check", "@analyse", "@test"],
         "post-install-cmd": [
-            "[ -d vendor/tecnickcom/tc-lib-pdf-font ] && make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts"
+            "make fonts"
         ],
         "post-update-cmd": [
-            "[ -d vendor/tecnickcom/tc-lib-pdf-font ] && make -C vendor/tecnickcom/tc-lib-pdf-font deps fonts"
+            "make fonts"
         ]
     }
 }

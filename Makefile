@@ -193,7 +193,7 @@ ensuretarget:
 ## Build default tc-font-mirror fonts via tc-lib-pdf-font
 .PHONY: fonts
 fonts:
-	cd vendor/tecnickcom/tc-lib-pdf-font/ && make deps fonts
+	cd vendor/tecnickcom/tc-lib-pdf-font/ && make fonts
 
 ## Install this application
 .PHONY: install
