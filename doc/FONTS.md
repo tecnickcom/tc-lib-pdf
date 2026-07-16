@@ -44,7 +44,7 @@ If you prefer to generate fonts manually, run the build in the `tc-lib-pdf-font`
 
 ```bash
 cd vendor/tecnickcom/tc-lib-pdf-font
-make deps fonts
+make fonts
 ```
 
 Equivalent one-liner from your project root:

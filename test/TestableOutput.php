@@ -21,7 +21,6 @@ namespace Test;
  * @phpstan-import-type TObjID from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TOutline from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TSignDocPrepared from \Com\Tecnick\Pdf\Output
- * @phpstan-import-type TValidationMaterial from \Com\Tecnick\Pdf\Output
  * @phpstan-import-type TSVGMaskObject from \Com\Tecnick\Pdf\Base
  */
 class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
@@ -396,6 +395,23 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @throws \Throwable */
+    public function exposeAppendDssRevision(string $pdf): string
+    {
+        return $this->appendDssRevision($pdf);
+    }
+
+    /** @throws \Throwable */
+    public function exposeAppendDocTimeStampRevision(string $pdf): string
+    {
+        return $this->appendDocTimeStampRevision($pdf);
+    }
+
+    public function exposeExtractSignatureContents(string $pdf): string
+    {
+        return $this->extractSignatureContents($pdf);
+    }
+
+    /** @throws \Throwable */
     public function exposeGetOutICC(): string
     {
         return $this->getOutICC();
@@ -476,48 +492,18 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @throws \Throwable */
-    public function exposeWritePreparedDocumentForSignature(string $pdfdoc): string
-    {
-        return $this->writePreparedDocumentForSignature($pdfdoc);
-    }
-
-    /** @throws \Throwable */
-    public function exposeCreatePkcs7SignatureFile(string $tempdoc): string
-    {
-        return $this->createPkcs7SignatureFile($tempdoc);
-    }
-
-    /** @throws \Throwable */
-    public function exposeExtractSignatureFromPkcs7File(string $tempsign, int $pdfdocLength): string
-    {
-        return $this->extractSignatureFromPkcs7File($tempsign, $pdfdocLength);
-    }
-
-    /** @throws \Throwable */
     public function exposeConvertBinarySignatureToHex(string $signature): string
     {
         return $this->convertBinarySignatureToHex($signature);
     }
 
-    /** @throws \Throwable */
-    public function exposeBuildTimestampRequest(string $signature): string
-    {
-        return $this->buildTimestampRequest($signature);
-    }
-
     /**
-     * @phpstan-return TValidationMaterial
+     * @return array{certs: list<string>, ocsp: list<string>, crls: list<string>}
      * @throws \Throwable
      */
-    public function exposeCollectValidationMaterial(): array
+    public function exposeCollectDssMaterial(): array
     {
-        return $this->collectValidationMaterial();
-    }
-
-    /** @throws \Throwable */
-    public function exposeExtractTimestampTokenFromResponse(string $response): string
-    {
-        return $this->extractTimestampTokenFromResponse($response);
+        return $this->collectDssMaterial();
     }
 
     public function setMockTimestampResponse(string $response): void
@@ -620,9 +606,42 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @throws \Throwable */
-    public function exposeApplySignatureTimestamp(string $signature): string
+    public function exposeBuildSignatureCms(string $content): string
     {
-        return $this->applySignatureTimestamp($signature);
+        return $this->buildSignatureCms($content);
+    }
+
+    public function exposeSignatureSubFilter(): string
+    {
+        return $this->signatureSubFilter();
+    }
+
+    public function exposeSignatureDigestAlgorithm(): string
+    {
+        return $this->signatureDigestAlgorithm();
+    }
+
+    public function exposeSignatureContentsLength(): int
+    {
+        return $this->signatureContentsLength();
+    }
+
+    /**
+     * @param array<int, string> $objects
+     * @throws \Throwable
+     */
+    public function exposeAppendIncrementalRevision(string $pdf, array $objects): string
+    {
+        return $this->appendIncrementalRevision($pdf, $objects);
+    }
+
+    /**
+     * @return list<string>
+     * @throws \Throwable
+     */
+    public function exposeLoadExtraCertificates(string $extracerts): array
+    {
+        return $this->loadExtraCertificates($extracerts);
     }
 
     /** @throws \Throwable */
@@ -639,12 +658,6 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetOutSignatureUserRights(): string
     {
         return $this->getOutSignatureUserRights();
-    }
-
-    /** @throws \Throwable */
-    public function exposeGetOutSignatureInfo(int $oid): string
-    {
-        return $this->getOutSignatureInfo($oid);
     }
 
     /** @phpstan-param array<string, int|array<int>> $objid */
@@ -824,24 +837,6 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
     public function exposeGetPatternDict(): string
     {
         return $this->getPatternDict();
-    }
-
-    /**
-     * @phpstan-param int<0, max> $value
-     * @throws \Throwable
-     */
-    public function exposeAsn1EncodeInteger(int $value): string
-    {
-        return $this->asn1EncodeInteger($value);
-    }
-
-    /**
-     * @phpstan-param int<0, max> $length
-     * @throws \Throwable
-     */
-    public function exposeAsn1EncodeLength(int $length): string
-    {
-        return $this->asn1EncodeLength($length);
     }
 
     /** @throws \Throwable */

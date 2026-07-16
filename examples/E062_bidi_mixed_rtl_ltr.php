@@ -14,7 +14,7 @@
  * This file is part of tc-lib-pdf software library.
  */
 
-// NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
+// NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
 // Unifont covers ~65 000 Unicode glyphs (including per-glyph cbbox data).
 // Loading its full metric array exceeds the 128 MB PHP default.

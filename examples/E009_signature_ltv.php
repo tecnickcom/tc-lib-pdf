@@ -14,7 +14,7 @@
  * This file is part of tc-lib-pdf software library.
  */
 
-// NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
+// NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
 require __DIR__ . '/../vendor/autoload.php';
@@ -28,8 +28,8 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf();
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 009');
-$pdf->setTitle('LTV Signature Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf example signature ltv dss vri');
+$pdf->setTitle('PAdES B-LT Long-Term Validation Signature Example');
+$pdf->setKeywords('TCPDF tc-lib-pdf example signature ltv dss vri pades pades-b-lt');
 $pdf->setPDFFilename('009_signature_ltv.pdf');
 
 // Insert font before adding the first page.
@@ -38,7 +38,7 @@ $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
 $page = $pdf->addPage();
 $pdf->page->addContent($bfont['out']);
 
-$text = 'This document enables LTV collection to emit DSS/VRI validation structures.';
+$text = 'This document is a PAdES-BASELINE-LT signature: B-T plus a Document Security Store (DSS).';
 $textCell = $pdf->getTextCell(
     txt: $text,
     posx: 15,
@@ -52,7 +52,9 @@ $textCell = $pdf->getTextCell(
 );
 $pdf->page->addContent($textCell);
 
-$text2 = 'When OCSP/CRL/cert retrieval succeeds, validators can verify long after certificate expiry.';
+$text2 =
+    'The DSS/VRI embed the certificate and, when its CA exposes reachable OCSP/CRL responders, '
+    . 'the revocation data needed to verify offline long after expiry.';
 $textCell2 = $pdf->getTextCell(
     txt: $text2,
     posx: 15,
@@ -73,28 +75,48 @@ if ($certPath === false) {
 
 $cert = 'file://' . $certPath;
 
-$pdf->setSignature([
-    'cert_type' => 2,
-    'info' => [
-        'ContactInfo' => 'https://github.com/tecnickcom/tc-lib-pdf',
-        'Location' => 'Demo Office',
-        'Name' => 'tc-lib-pdf',
-        'Reason' => 'LTV (DSS/VRI) signature example',
-    ],
-    'password' => '',
-    'privkey' => $cert,
-    'signcert' => $cert,
-    'ltv' => [
+// PAdES-BASELINE-LT: a B-T signature (so a TSA timestamp is required) plus the
+// LTV material (DSS/VRI). The signing process and this demo's limitations are
+// rendered into the document itself (see the explanatory block added below).
+$pdf
+    ->signature()
+    ->configure([
+        'profile' => 'pades-b-lt',
+        'digest_algorithm' => 'sha256',
+        'cert_type' => 2,
+        'info' => [
+            'ContactInfo' => 'https://github.com/tecnickcom/tc-lib-pdf',
+            'Location' => 'Demo Office',
+            'Name' => 'tc-lib-pdf',
+            'Reason' => 'PAdES-BASELINE-LT (DSS/VRI) signature example',
+        ],
+        'password' => '',
+        'privkey' => $cert,
+        'signcert' => $cert,
+        'ltv' => [
+            'enabled' => true,
+            'embed_ocsp' => true,
+            'embed_crl' => true,
+            'embed_certs' => true,
+            'include_dss' => true,
+            'include_vri' => true,
+        ],
+    ])
+    ->timestamp([
         'enabled' => true,
-        'embed_ocsp' => true,
-        'embed_crl' => true,
-        'embed_certs' => true,
-        'include_dss' => true,
-        'include_vri' => true,
-    ],
-]);
+        // Public demo endpoint. For production use your trusted TSA service.
+        'host' => 'https://freetsa.org/tsr',
+        'username' => '',
+        'password' => '',
+        'cert' => '',
+        'hash_algorithm' => 'sha256',
+        'policy_oid' => '',
+        'nonce_enabled' => true,
+        'timeout' => 30,
+        'verify_peer' => true,
+    ]);
 
-$pdf->setSignatureAppearance(posx: 15, posy: 35, width: 90, heigth: 20, page: -1, name: 'LTVSignature');
+$pdf->signature()->appearance()->place(posx: 15, posy: 35, width: 90, height: 20, page: -1, name: 'LTVSignature');
 
 // Attach a reusable Form XObject as signature appearance using the official API.
 // Any imported page can be used as a visual signature stamp.
@@ -102,7 +124,7 @@ $stampSource = __DIR__ . '/data/pdf/E006_example_minimal.pdf';
 if (\is_readable($stampSource)) {
     $sourceId = $pdf->setImportSourceFile($stampSource);
     $tpl = $pdf->importPage(sourceId: $sourceId, pageNum: 1);
-    $pdf->setSignatureAppearanceXObject($tpl->getXobjId());
+    $pdf->signature()->appearance()->xobject($tpl->getXobjId());
 } else {
     // Fallback appearance stream when the optional stamp source is unavailable.
     $sigW = 90.0;
@@ -112,7 +134,7 @@ if (\is_readable($stampSource)) {
     $sigAppearance = $bfont['out'];
     $sigAppearance .= $pdf->color->getPdfColor('rgb(15%,15%,15%)');
     $sigAppearance .= $pdf->getTextCell(
-        txt: 'LTV-enabled signature (DSS/VRI)',
+        txt: 'PAdES B-LT signature (DSS/VRI)',
         posx: 0,
         posy: $sigTopY,
         width: $sigW,
@@ -142,10 +164,10 @@ if (\is_readable($stampSource)) {
         clip: false,
         drawcell: true,
     );
-    $pdf->setSignatureAppearanceStream(stream: $sigAppearance);
+    $pdf->signature()->appearance()->stream(stream: $sigAppearance);
 }
 
-$widgetObjId = $pdf->getSignatureObjectID();
+$widgetObjId = $pdf->signature()->widgetObjectId();
 $text3 = 'LTV signature widget object ID: ' . $widgetObjId;
 $textCell3 = $pdf->getTextCell(
     txt: $text3,
@@ -159,6 +181,31 @@ $textCell3 = $pdf->getTextCell(
     halign: 'L',
 );
 $pdf->page->addContent($textCell3);
+
+// Render the signing process and the demo's limitations into the document so the
+// output PDF is self-documenting (this text is page content, not part of the
+// signed appearance stream).
+$explainHtml = <<<HTML
+    <h2 style="font-size:11pt;color:#1f2a33;">How this PAdES-BASELINE-LT signature is produced</h2>
+    <p style="font-size:9pt;color:#1f2a33;">A B-LT signature is a B-T signature (a TSA timestamp is required)
+    plus long-term validation material. The signing process writes two incremental revisions: first the
+    CAdES signature with its embedded RFC 3161 signature timestamp (B-T), then a Document Security Store
+    (<code>/DSS</code> with a <code>/VRI</code> map keyed by the uppercase SHA-1 of the final signature
+    <code>/Contents</code>) carrying the validation material. OCSP/CRL retrieval follows the certificate's
+    AIA and CRL-DP extensions so a validator can check the chain offline long after the certificate
+    expires.</p>
+    <h2 style="font-size:11pt;color:#7a1f1f;">Limitations of this demo</h2>
+    <ul style="font-size:9pt;color:#1f2a33;">
+      <li>A reachable TSA is required (live HTTPS request); if it is unreachable or rejects the request the
+      signing step throws a signing exception and no PDF is produced.</li>
+      <li>The bundled self-signed demo certificate exposes neither an OCSP responder nor a CRL distribution
+      point, so the DSS embeds only the certificate bytes (no revocation data) and a validator reports B-T
+      with a DSS present rather than a full B-LT. Missing responders are tolerated and do not abort signing.
+      Sign with a CA-issued certificate whose OCSP/CRL responders are reachable at signing time to obtain a
+      full B-LT verdict.</li>
+    </ul>
+    HTML;
+$pdf->addHTMLCell(html: $explainHtml, posx: 15, posy: 70, width: 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF(rawpdf: $rawpdf);

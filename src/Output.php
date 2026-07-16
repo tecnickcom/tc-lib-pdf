@@ -24,7 +24,18 @@ use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Font\Exception as FontException;
 use Com\Tecnick\Pdf\Font\Output as OutFont;
 use Com\Tecnick\Pdf\Page\Exception as PageException;
+use Com\Tecnick\Pdf\Sign\Cms\Builder as SignBuilder;
+use Com\Tecnick\Pdf\Sign\Config as SignConfig;
+use Com\Tecnick\Pdf\Sign\Exception as SignException;
+use Com\Tecnick\Pdf\Sign\Output\DocTimeStamp as SignDocTimeStamp;
+use Com\Tecnick\Pdf\Sign\Output\Dss as SignDss;
+use Com\Tecnick\Pdf\Sign\Output\Signature as SignSignature;
+use Com\Tecnick\Pdf\Sign\Output\Widget as SignWidget;
+use Com\Tecnick\Pdf\Sign\Signer;
+use Com\Tecnick\Pdf\Sign\Timestamp\Client as TimestampClient;
+use Com\Tecnick\Pdf\Sign\Timestamp\Config as TimestampConfig;
 use Com\Tecnick\Unicode\Exception as UnicodeException;
+use OpenSSLAsymmetricKey;
 
 /**
  * Com\Tecnick\Pdf\Output
@@ -95,9 +106,6 @@ use Com\Tecnick\Unicode\Exception as UnicodeException;
  * @phpstan-import-type TEmbeddedFile from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TObjID from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TSignDocPrepared from \Com\Tecnick\Pdf\Base
- * @phpstan-import-type TValidationCert from \Com\Tecnick\Pdf\Base
- * @phpstan-import-type TValidationVri from \Com\Tecnick\Pdf\Base
- * @phpstan-import-type TValidationMaterial from \Com\Tecnick\Pdf\Base
  *
  * @SuppressWarnings("PHPMD")
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
@@ -311,7 +319,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . "\n"
             . '%%EOF'
             . "\n";
-        return $this->signDocument($out);
+        return $this->appendDocTimeStampRevision($this->appendDssRevision($this->signDocument($out)));
     }
 
     /**
@@ -388,7 +396,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out .= $this->getOutSignatureFields();
         $out .= $this->getOutSignature();
-        $out .= $this->getOutDssObjects();
+        // The DSS (PAdES B-LT) is emitted in a post-signing incremental revision
+        // (appendDssRevision) because its VRI key is the SHA-1 of the final
+        // signature /Contents, which does not exist until after signing.
         $out .= $this->getOutMetaInfo();
         $out .= $this->getOutXMP();
         $out .= $this->getOutICC();
@@ -466,6 +476,144 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         return $out . (' /ID [ <' . $this->fileid . '> <' . $this->fileid . '> ] >>' . "\n");
+    }
+
+    /**
+     * Append an incremental-update revision to a completed PDF document.
+     *
+     * The original bytes are never modified: the new object bodies are appended,
+     * then a classic incremental xref table whose trailer chains to the previous
+     * revision via /Prev. Objects are keyed by number so the caller (which
+     * advances $this->pon while emitting via the package emitters) stays
+     * authoritative over numbering; encryption of the object contents is the
+     * caller's responsibility, while the trailer still advertises /Encrypt. This
+     * is the foundation for PAdES B-LT (a post-signing DSS revision) and B-LTA
+     * (a document timestamp revision).
+     *
+     * @param string             $pdf     The complete PDF, ending after its %%EOF.
+     * @param array<int, string> $objects New/replacement object bodies keyed by
+     *                                    object number (each the full
+     *                                    "N 0 obj ... endobj\n" fragment).
+     *
+     * @return string The PDF with one appended revision, or $pdf unchanged when
+     *         there is nothing to add.
+     */
+    protected function appendIncrementalRevision(string $pdf, array $objects): string
+    {
+        if ($objects === []) {
+            return $pdf;
+        }
+
+        \ksort($objects);
+
+        $body = '';
+        $offsets = [];
+        $base = \strlen($pdf);
+        foreach ($objects as $num => $obj) {
+            $offsets[$num] = $base + \strlen($body);
+            $body .= $obj;
+        }
+
+        $out = $pdf . $body;
+        $xrefOffset = \strlen($out);
+        $size = \max($this->pon, \array_key_last($offsets) ?? 0) + 1;
+
+        $out .= $this->buildIncrementalXref($offsets);
+        $out .= $this->buildIncrementalTrailer($this->previousStartxref($pdf), $size);
+
+        return $out . 'startxref' . "\n" . $xrefOffset . "\n" . '%%EOF' . "\n";
+    }
+
+    /**
+     * Build a classic incremental xref table, grouping consecutive object
+     * numbers into subsections. The free-list head is inherited from the
+     * previous revision through /Prev, so it is not repeated here.
+     *
+     * @param array<int, int> $offsets Byte offsets keyed by object number.
+     */
+    protected function buildIncrementalXref(array $offsets): string
+    {
+        \ksort($offsets);
+
+        $out = 'xref' . "\n";
+        $runStart = 0;
+        $run = [];
+        $prev = null;
+        foreach ($offsets as $num => $off) {
+            if ($prev !== null && $num === ($prev + 1)) {
+                $run[] = $off;
+            } else {
+                $out .= $run === [] ? '' : $this->xrefSubsection($runStart, $run);
+                $runStart = $num;
+                $run = [$off];
+            }
+
+            $prev = $num;
+        }
+
+        return $out . ($run === [] ? '' : $this->xrefSubsection($runStart, $run));
+    }
+
+    /**
+     * Render one xref subsection header plus its in-use entries.
+     *
+     * @param list<int> $offsets Byte offsets of consecutive objects from $start.
+     */
+    private function xrefSubsection(int $start, array $offsets): string
+    {
+        $out = $start . ' ' . \count($offsets) . "\n";
+        foreach ($offsets as $off) {
+            $out .= \sprintf('%010d 00000 n ' . "\n", $off);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Build the incremental-update trailer, chaining to the previous revision.
+     */
+    private function buildIncrementalTrailer(int $prevStartxref, int $size): string
+    {
+        $out =
+            'trailer'
+            . "\n"
+            . '<<'
+            . ' /Size '
+            . $size
+            . ' /Root '
+            . $this->objid['catalog']
+            . ' 0 R'
+            . ' /Info '
+            . $this->objid['info']
+            . ' 0 R'
+            . ' /Prev '
+            . $prevStartxref;
+
+        $enc = $this->encrypt->getEncryptionData();
+        if ((int) $enc['objid'] !== 0 && !$this->pdfx) {
+            $out .= ' /Encrypt ' . (int) $enc['objid'] . ' 0 R';
+        }
+
+        return $out . ' /ID [ <' . $this->fileid . '> <' . $this->fileid . '> ] >>' . "\n";
+    }
+
+    /**
+     * Read the byte offset of the document's current (soon to be previous) xref
+     * section from its last startxref pointer.
+     */
+    private function previousStartxref(string $pdf): int
+    {
+        $pos = \strrpos($pdf, 'startxref');
+        if ($pos === false) {
+            return 0;
+        }
+
+        $matches = [];
+        if (\preg_match('/\d+/', \substr($pdf, $pos + 9), $matches) === 1) {
+            return (int) ($matches[0] ?? '0');
+        }
+
+        return 0;
     }
 
     /**
@@ -681,6 +829,27 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         $oid = ++$this->pon;
         $this->objid['catalog'] = $oid;
+        return $this->buildCatalogObject($oid);
+    }
+
+    /**
+     * Build the Catalog object body for a given (already allocated) object number.
+     *
+     * Split out of getOutCatalog so the catalog can be re-emitted with the same
+     * object number in a post-signing incremental revision (adding the /DSS
+     * reference for PAdES B-LT). The method only reads state and is idempotent:
+     * re-running it against the same document state yields identical bytes, so
+     * emitting a second catalog version is safe.
+     *
+     * @return string PDF Catalog object.
+     *
+     * @throws UnicodeException
+     * @throws EncryptException
+     * @throws FontException
+     * @throws PageException
+     */
+    protected function buildCatalogObject(int $oid): string
+    {
         $out =
             $oid
             . ' 0 obj'
@@ -813,6 +982,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 foreach ($this->objid['form'] as $objid) {
                     $objrefs .= ' ' . $objid . ' 0 R';
                 }
+            }
+
+            // PAdES B-LTA document-timestamp field, added in a post-signing revision.
+            if ($this->objid['doctimestamp'] !== 0) {
+                $objrefs .= ' ' . $this->objid['doctimestamp'] . ' 0 R';
             }
 
             $out .= ' /Fields [' . $objrefs . ']';
@@ -4095,33 +4269,24 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
+        $widget = new SignWidget();
+        $stringEncoder =
+            /** @throws \Throwable */
+            fn(string $text, int $oid): string => $this->getOutTextString($text, $oid, true);
+
         $out = '';
         foreach ($this->signature['appearance']['empty'] as $key => $esa) {
             $page = $this->page->getPage($esa['page']);
-            $pageObjN = (int) $page['n'];
             $signame = \sprintf('%s [%03d]', $esa['name'], $key + 1);
-            $out .=
-                $esa['objid']
-                . ' 0 obj'
-                . "\n"
-                . '<<'
-                . ' /Type /Annot'
-                . ' /Subtype /Widget'
-                . ' /Rect ['
-                . $esa['rect']
-                . ']'
-                . ' /P '
-                . $pageObjN
-                . ' 0 R' // link to signature appearance page
-                . ' /F 4'
-                . ' /FT /Sig'
-                . ' /T '
-                . $this->getOutTextString($signame, $esa['objid'], true)
-                . ' /Ff 0'
-                . ' >>'
-                . "\n"
-                . 'endobj'
-                . "\n";
+            $out .= $widget->annotation(
+                $esa['objid'],
+                $esa['rect'],
+                (int) $page['n'],
+                $signame,
+                null,
+                '',
+                $stringEncoder,
+            );
         }
 
         return $out;
@@ -4145,15 +4310,249 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $prepared = $this->prepareDocumentForSignature($pdfdoc);
         $pdfdoc = $prepared['pdfdoc'];
-        $pdfdocLength = $prepared['pdfdoc_length'];
         $byteRange = $prepared['byte_range'];
-        $tempdoc = $this->writePreparedDocumentForSignature($pdfdoc);
-        $tempsign = $this->createPkcs7SignatureFile($tempdoc);
-        $signature = $this->extractSignatureFromPkcs7File($tempsign, $pdfdocLength);
-        $signature = $this->applySignatureTimestamp($signature);
-        $signature = $this->convertBinarySignatureToHex($signature);
+        $cms = $this->buildSignatureCms($pdfdoc);
+        $signature = $this->convertBinarySignatureToHex($cms);
 
         return \substr($pdfdoc, 0, $byteRange[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byteRange[1]);
+    }
+
+    /**
+     * Build the detached CMS (CAdES) signature over the ByteRange content using
+     * the native tc-lib-pdf-sign builder, replacing the temp-file PKCS#7 path.
+     *
+     * The produced CMS carries the ESS signing-certificate-v2 signed attribute,
+     * so it is a CAdES-BES structure for every profile; the legacy profile keeps
+     * the /SubFilter /adbe.pkcs7.detached wrapper and stays verifiable.
+     *
+     * @param string $content ByteRange-covered document bytes to sign.
+     *
+     * @return string DER-encoded CMS ContentInfo.
+     *
+     * @throws PdfException If credentials cannot be loaded or signing fails.
+     */
+    protected function buildSignatureCms(string $content): string
+    {
+        $certDer = $this->loadSignerCertificate($this->signature['signcert']);
+        $privateKey = $this->loadSignerPrivateKey($this->signature['privkey'], $this->signature['password']);
+        $chainDer = $this->loadExtraCertificates($this->signature['extracerts'] ?? '');
+        $timestampProvider = $this->sigtimestamp['enabled'] ? $this->requestSignatureTimestampToken(...) : null;
+
+        try {
+            $signBuilder = new SignBuilder();
+            return $signBuilder->sign(
+                $content,
+                $certDer,
+                $privateKey,
+                $chainDer,
+                $this->signatureDigestAlgorithm(),
+                $this->docmodtime,
+                $timestampProvider,
+                $this->signatureIncludesSigningTime(),
+            );
+        } catch (SignException $e) {
+            throw new PdfException('Unable to build the CMS signature: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Request an RFC 3161 signature timestamp token for the given signature bytes.
+     *
+     * The RFC 3161 request/response codec lives in the tc-lib-pdf-sign package;
+     * this host method only owns the HTTP transport (postTimestampRequest, which
+     * enforces the URL allow-list). The returned DER token is embedded by the CMS
+     * builder as the id-aa-signatureTimeStampToken unsigned attribute (PAdES B-T).
+     *
+     * @param string $signature Raw SignerInfo signature bytes to be timestamped.
+     *
+     * @return string DER-encoded RFC 3161 timestamp token.
+     *
+     * @throws PdfException If the TSA configuration, transport, or response is invalid.
+     */
+    protected function requestSignatureTimestampToken(string $signature): string
+    {
+        try {
+            $config = new TimestampConfig(
+                $this->sigtimestamp['host'],
+                $this->sigtimestamp['hash_algorithm'],
+                $this->sigtimestamp['policy_oid'],
+                $this->sigtimestamp['nonce_enabled'],
+                (int) $this->sigtimestamp['timeout'],
+                $this->sigtimestamp['verify_peer'],
+                $this->sigtimestamp['username'],
+                $this->sigtimestamp['password'],
+                $this->sigtimestamp['cert'],
+            );
+
+            $timestampClient = new TimestampClient($config);
+            return $timestampClient->requestToken($signature, $this->postTimestampRequest(...));
+        } catch (SignException $e) {
+            throw new PdfException('Unable to obtain the TSA timestamp: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Load a signing certificate (PEM string or file:// path) and return its DER.
+     *
+     * @param string $signcert Certificate source.
+     *
+     * @return string DER-encoded certificate.
+     *
+     * @throws PdfException If the certificate cannot be read or parsed.
+     */
+    protected function loadSignerCertificate(string $signcert): string
+    {
+        $pem = $this->readCertificateBundle($signcert);
+        $matches = [];
+        \preg_match_all('/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/s', $pem, $matches);
+
+        $first = $matches[0][0] ?? '';
+        if ($first === '') {
+            throw new PdfException('Unable to read the signing certificate');
+        }
+
+        return $this->certificatePemToDer($first);
+    }
+
+    /**
+     * Load a signing private key (PEM string or file:// path) with its password.
+     *
+     * @param string $privkey  Private key source.
+     * @param string $password Private key password.
+     *
+     * @throws PdfException If the private key cannot be loaded.
+     */
+    protected function loadSignerPrivateKey(
+        string $privkey,
+        #[\SensitiveParameter]
+        string $password,
+    ): OpenSSLAsymmetricKey {
+        $key = \openssl_pkey_get_private($privkey, $password);
+        if (!$key instanceof OpenSSLAsymmetricKey) {
+            throw new PdfException('Unable to load the signing private key');
+        }
+
+        return $key;
+    }
+
+    /**
+     * Load an optional extra-certificates PEM bundle (file:// path or PEM string)
+     * as a list of DER certificate strings for embedding in the CMS.
+     *
+     * @param string $extracerts Bundle source, or '' for none.
+     *
+     * @return list<string>
+     *
+     * @throws PdfException If a certificate in the bundle cannot be decoded.
+     */
+    protected function loadExtraCertificates(string $extracerts): array
+    {
+        if ($extracerts === '') {
+            return [];
+        }
+
+        $bundle = $this->readCertificateBundle($extracerts);
+        $matches = [];
+        \preg_match_all('/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/s', $bundle, $matches);
+
+        $ders = [];
+        foreach ($matches[0] ?? [] as $pem) {
+            $ders[] = $this->certificatePemToDer($pem);
+        }
+
+        return $ders;
+    }
+
+    /**
+     * Read a certificate bundle from a PEM string or a (file://) file path.
+     *
+     * @throws PdfException If the file cannot be read.
+     */
+    protected function readCertificateBundle(string $source): string
+    {
+        if (\str_contains($source, '-----BEGIN')) {
+            return $source;
+        }
+
+        $path = \str_starts_with($source, 'file://') ? \substr($source, 7) : $source;
+
+        try {
+            $data = $this->file->getFileData($path);
+        } catch (FileException $e) {
+            throw new PdfException('Unable to read the extra certificates file: ' . $e->getMessage(), 0, $e);
+        }
+
+        if ($data === false) {
+            throw new PdfException('Unable to read the extra certificates file');
+        }
+
+        return $data;
+    }
+
+    /**
+     * Decode a PEM certificate block to DER.
+     *
+     * @throws PdfException If the PEM cannot be decoded.
+     */
+    protected function certificatePemToDer(string $pem): string
+    {
+        $stripped = (string) \preg_replace('/-----[^-]+-----|\s+/', '', $pem);
+        $der = \base64_decode($stripped, true);
+        if ($der === false) {
+            throw new PdfException('Unable to decode a certificate');
+        }
+
+        return $der;
+    }
+
+    /**
+     * Resolve the CMS digest algorithm from the signature configuration.
+     */
+    protected function signatureDigestAlgorithm(): string
+    {
+        $digest = $this->signature['digest_algorithm'] ?? 'sha256';
+        return \in_array($digest, SignConfig::DIGEST_ALGORITHMS, true) ? $digest : 'sha256';
+    }
+
+    /**
+     * Resolve the /SubFilter for the configured signature profile.
+     *
+     * The default legacy profile keeps ISO 32000-1 /adbe.pkcs7.detached; any
+     * PAdES profile emits /ETSI.CAdES.detached.
+     */
+    protected function signatureSubFilter(): string
+    {
+        $profile = $this->signature['profile'] ?? SignConfig::PROFILE_LEGACY;
+        return $profile === SignConfig::PROFILE_LEGACY ? 'adbe.pkcs7.detached' : 'ETSI.CAdES.detached';
+    }
+
+    /**
+     * Whether the CMS should carry the signing-time signed attribute.
+     *
+     * The legacy (ISO 32000-1) profile embeds it; every PAdES profile omits it,
+     * because ETSI EN 319 142-1 forbids the CMS signing-time attribute and carries
+     * the signing time in the /M signature dictionary entry instead. A PAdES CMS
+     * that keeps signing-time is demoted by validators from PAdES-BASELINE-B to the
+     * older PAdES-BES format.
+     */
+    protected function signatureIncludesSigningTime(): bool
+    {
+        $profile = $this->signature['profile'] ?? SignConfig::PROFILE_LEGACY;
+        return $profile === SignConfig::PROFILE_LEGACY;
+    }
+
+    /**
+     * Number of hex characters reserved for the signature /Contents placeholder.
+     *
+     * A signature timestamp embeds a full RFC 3161 token in the CMS, roughly
+     * tripling its size, so extra room is reserved when timestamping is enabled;
+     * otherwise the legacy SIGMAXLEN is kept so existing output is unchanged. The
+     * placeholder emission, the ByteRange computation, and the hex padding all
+     * read this so they stay in agreement.
+     */
+    protected function signatureContentsLength(): int
+    {
+        return $this->sigtimestamp['enabled'] ? $this::SIGMAXLEN + 20_000 : $this::SIGMAXLEN;
     }
 
     /**
@@ -4176,7 +4575,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $byteRange[1] = $byteRangePos + $byterangeLength + 10;
-        $byteRange[2] = $byteRange[1] + $this::SIGMAXLEN + 2;
+        $byteRange[2] = $byteRange[1] + $this->signatureContentsLength() + 2;
         $byteRange[3] = \strlen($pdfdoc) - $byteRange[2];
         $pdfdoc = \substr($pdfdoc, 0, $byteRange[1]) . \substr($pdfdoc, $byteRange[2]);
 
@@ -4192,105 +4591,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
-     * Write the prepared document bytes to a temporary file for OpenSSL signing.
-     *
-     * @param string $pdfdoc Prepared PDF document bytes.
-     *
-     * @return string Path to temporary document file.
-     *
-     * @throws PdfException
-     * @throws \Throwable
-     */
-    protected function writePreparedDocumentForSignature(string $pdfdoc): string
-    {
-        $tempdoc = $this->cache->getNewFileName('doc', $this->fileid);
-
-        try {
-            $handle = $this->file->fopenLocal($tempdoc, 'wb');
-        } catch (FileException $e) {
-            throw new PdfException('Unable to open temporary document file: ' . $e->getMessage(), 0, $e);
-        }
-
-        \fwrite($handle, $pdfdoc);
-        \fclose($handle);
-
-        return $tempdoc;
-    }
-
-    /**
-     * Create the detached PKCS#7 signature file for the prepared document.
-     *
-     * @param string $tempdoc Temporary PDF document path.
-     *
-     * @return string Path to temporary signature file.
-     *
-     * @throws PdfException
-     */
-    protected function createPkcs7SignatureFile(string $tempdoc): string
-    {
-        try {
-            $tempsign = $this->cache->getNewFileName('sig', $this->fileid);
-        } catch (FileException $e) {
-            throw new PdfException('Unable to create temporary signature file: ' . $e->getMessage(), 0, $e);
-        }
-
-        if (!\call_user_func(
-            'openssl_pkcs7_sign',
-            $tempdoc,
-            $tempsign,
-            $this->signature['signcert'],
-            [$this->signature['privkey'], $this->signature['password']],
-            [],
-            PKCS7_BINARY | PKCS7_DETACHED,
-            $this->signature['extracerts'],
-        )) {
-            throw new PdfException('Unable to generate PKCS#7 signature');
-        }
-
-        return $tempsign;
-    }
-
-    /**
-     * Extract the binary signature from the PKCS#7 output file.
-     *
-     * @param string $tempsign Signed output file path.
-     * @param int $pdfdocLength Length of the prepared PDF content.
-     *
-     * @return string Binary signature string.
-     *
-     * @throws PdfException
-     */
-    protected function extractSignatureFromPkcs7File(string $tempsign, int $pdfdocLength): string
-    {
-        try {
-            $signature = $this->file->getFileData($tempsign);
-        } catch (FileException $e) {
-            throw new PdfException('Unable to read signature file: ' . $e->getMessage(), 0, $e);
-        }
-
-        if ($signature === false) {
-            throw new PdfException('Unable to read signature file');
-        }
-
-        $signature = \substr($signature, $pdfdocLength);
-        $boundaryPos = \strpos($signature, "%%EOF\n\n------");
-        if ($boundaryPos === false) {
-            $boundaryPos = 0;
-        }
-
-        $signature = \substr($signature, $boundaryPos + 13);
-
-        $tmparr = \explode("\n\n", $signature);
-        $signature = $tmparr[1] ?? '';
-        $signature = \base64_decode(\trim($signature), true);
-        if ($signature === false) {
-            throw new PdfException('Unable to decode signature');
-        }
-
-        return $signature;
-    }
-
-    /**
      * Convert the binary signature to padded hexadecimal PDF contents.
      *
      * @param string $signature Digital signature as binary string.
@@ -4302,138 +4602,58 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function convertBinarySignatureToHex(string $signature): string
     {
         $hexSignature = \bin2hex($signature);
-
-        return \str_pad($hexSignature, $this::SIGMAXLEN, '0');
-    }
-
-    /**
-     * Add TSA timestamp to the signature.
-     *
-     * @param string $signature Digital signature as binary string.
-     *
-     * @return string Signature with timestamp applied.
-     *
-     * @throws Exception
-     * @throws \Throwable
-     */
-    protected function applySignatureTimestamp(string $signature): string
-    {
-        if (!$this->sigtimestamp['enabled']) {
-            return $signature;
+        $contentsLength = $this->signatureContentsLength();
+        if (\strlen($hexSignature) > $contentsLength) {
+            throw new PdfException('Signature is too large for the reserved PDF placeholder');
         }
 
-        // Phase 2 groundwork: validate RFC3161 request/response lifecycle.
-        // CMS unsigned-attributes embedding is added in the next phase slice.
-        $token = $this->requestTimestampToken($signature);
-        if ($token === '') {
-            throw new PdfException('Unable to extract TSA token');
-        }
-
-        return $signature;
+        return \str_pad($hexSignature, $contentsLength, '0');
     }
 
     /**
-     * @param string $signature Digital signature as binary string.
+     * Collect the long-term validation material for the signature via the
+     * tc-lib-pdf-sign package.
      *
-     * @return string Timestamp token.
+     * The signer certificate plus any extra certificates form a leaf-first chain
+     * that the package Signer walks: OCSP is attempted for each certificate that
+     * has an issuer in the chain, CRLs for every certificate's distribution
+     * points, with responses deduplicated. The HTTP transports (postOcspRequest /
+     * getCrlData) stay in the host, which owns networking and the URL allow-list;
+     * a null transport skips that revocation source. The embed_* flags gate which
+     * material is fetched and embedded.
      *
-     * @throws Exception
+     * @return array{certs: list<string>, ocsp: list<string>, crls: list<string>}
      * @throws \Throwable
      */
-    protected function requestTimestampToken(string $signature): string
+    protected function collectDssMaterial(): array
     {
-        $request = $this->buildTimestampRequest($signature);
-        $response = $this->postTimestampRequest($request);
-        return $this->extractTimestampTokenFromResponse($response);
-    }
-
-    /**
-     * Collect deterministic validation material for LTV embedding.
-     *
-     * @return TValidationMaterial
-     * @throws \Throwable
-     */
-    protected function collectValidationMaterial(): array
-    {
-        $empty = [
-            'cert_chain' => [],
-            'certs' => [],
-            'ocsp' => [],
-            'crls' => [],
-            'vri' => [],
-        ];
+        $empty = ['certs' => [], 'ocsp' => [], 'crls' => []];
 
         $ltv = $this->signature['ltv'] ?? ['enabled' => false];
-        if (!isset($ltv['enabled']) || !$ltv['enabled']) {
+        if (!$ltv['enabled']) {
             return $empty;
         }
 
-        $pemInputs = $this->collectValidationCertificateInputs();
-        if ($pemInputs === []) {
+        $chainPem = \array_values($this->collectValidationCertificateInputs());
+        if ($chainPem === []) {
             return $empty;
         }
 
-        $certChain = [];
-        $certs = [];
-        $certIndexes = [];
-        $seen = [];
-        foreach ($pemInputs as $pem) {
-            $cert = $this->normalizeValidationCertificate($pem);
-            $fingerprint = \hash('sha256', $cert['der']);
-            if (isset($seen[$fingerprint])) {
-                continue;
-            }
+        $ocspTransport = $ltv['embed_ocsp'] ?? false ? $this->postOcspRequest(...) : null;
+        $crlTransport = $ltv['embed_crl'] ?? false ? $this->getCrlData(...) : null;
 
-            $seen[$fingerprint] = true;
-            $certChain[] = $cert;
-            if (isset($ltv['embed_certs'])) {
-                $certIndexes[] = \count($certs);
-                $certs[] = $cert['der'];
-            }
+        try {
+            $signer = new Signer();
+            $material = $signer->collectValidationMaterial($chainPem, $ocspTransport, $crlTransport);
+        } catch (SignException $e) {
+            throw new PdfException('Unable to collect validation material: ' . $e->getMessage(), 0, $e);
         }
 
-        if ($certChain === []) {
-            return $empty;
+        if (!($ltv['embed_certs'] ?? false)) {
+            $material['certs'] = [];
         }
 
-        /** @var array<int, string> $ocsp */
-        $ocsp = [];
-        /** @var array<string, int> $ocspDedup */
-        $ocspDedup = [];
-        /** @var array<int, string> $crls */
-        $crls = [];
-        /** @var array<string, int> $crlDedup */
-        $crlDedup = [];
-        $vri = [];
-
-        if (isset($ltv['include_vri']) && $ltv['include_vri']) {
-            $signerCert = $certChain[0];
-            $issuerCert = $certChain[1] ?? $signerCert;
-            $revocation = $this->collectRevocationForCert(
-                $signerCert,
-                $issuerCert,
-                isset($ltv['embed_ocsp']) && $ltv['embed_ocsp'],
-                isset($ltv['embed_crl']) && $ltv['embed_crl'],
-                $ocsp,
-                $ocspDedup,
-                $crls,
-                $crlDedup,
-            );
-            $vriKey = \strtoupper(\hash('sha1', $signerCert['der']));
-            $vri[$vriKey] = [
-                'certs' => $certIndexes,
-                'ocsp' => $revocation['ocsp'],
-                'crls' => $revocation['crls'],
-            ];
-        }
-
-        return [
-            'cert_chain' => $certChain,
-            'certs' => $certs,
-            'ocsp' => $ocsp,
-            'crls' => $crls,
-            'vri' => $vri,
-        ];
+        return $material;
     }
 
     /**
@@ -4461,164 +4681,167 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
-     * Emit DSS and VRI objects for the current signature.
+     * Append the PAdES B-LT Document Security Store as a post-signing incremental
+     * revision.
+     *
+     * The DSS can only be produced after signing: its VRI key is the uppercase
+     * SHA-1 of the final signature /Contents (ISO 32000-2 clause 12.8.4.3), which
+     * does not exist until the signature is embedded. The validation material is
+     * collected, emitted through the tc-lib-pdf-sign Output\Dss emitter (which
+     * computes the correct VRI key), and appended as an incremental revision that
+     * never touches the signed bytes; the document catalog is re-emitted in the
+     * same revision carrying the /DSS reference.
+     *
+     * @param string $pdf The signed PDF document.
+     *
+     * @return string The document with the DSS revision appended, or $pdf unchanged
+     *         when LTV/DSS is not requested or there is no material to embed.
      *
      * @throws \Throwable
      */
-    protected function getOutDssObjects(): string
+    protected function appendDssRevision(string $pdf): string
     {
         $this->objid['dss'] = 0;
+        if (!$this->sign) {
+            return $pdf;
+        }
+
         $ltv = $this->signature['ltv'] ?? ['enabled' => false];
         if (!$ltv['enabled'] || !($ltv['include_dss'] ?? false)) {
-            return '';
+            return $pdf;
         }
 
-        $material = $this->collectValidationMaterial();
-        if (
-            $material['certs'] === []
-            && $material['ocsp'] === []
-            && $material['crls'] === []
-            && $material['vri'] === []
-        ) {
-            return '';
+        $material = $this->collectDssMaterial();
+        if ($material['certs'] === [] && $material['ocsp'] === [] && $material['crls'] === []) {
+            return $pdf;
         }
 
-        $out = '';
-        $certObjIds = $this->emitDssBinaryObjects($out, $material['certs']);
-        $ocspObjIds = $this->emitDssBinaryObjects($out, $material['ocsp']);
-        $crlObjIds = $this->emitDssBinaryObjects($out, $material['crls']);
-        $vriObjIds = $this->emitDssVriObjects($out, $material['vri'], $certObjIds, $ocspObjIds, $crlObjIds);
-
-        $oid = ++$this->pon;
-        $this->objid['dss'] = $oid;
-        $out .= $oid . " 0 obj\n";
-        $out .= '<< /Type /DSS';
-
-        if ($vriObjIds !== []) {
-            $out .= ' /VRI <<';
-            foreach ($vriObjIds as $vriKey => $vriOid) {
-                $out .= ' /' . $vriKey . ' ' . $vriOid . ' 0 R';
-            }
-            $out .= ' >>';
+        $encryptor =
+            /** @throws \Throwable */
+            fn(string $data, int $objectId): string => $this->encrypt->encryptString($data, $objectId);
+        $signDss = new SignDss();
+        $emitted = $signDss->emit($material, $this->extractSignatureContents($pdf), $this->pon, $encryptor);
+        $objects = $emitted['objects'];
+        if ($objects === []) {
+            return $pdf;
         }
 
-        if ($ocspObjIds !== []) {
-            $out .= ' /OCSPs [';
-            foreach ($ocspObjIds as $objId) {
-                $out .= ' ' . $objId . ' 0 R';
-            }
-            $out .= ' ]';
-        }
+        $this->objid['dss'] = $emitted['object_id'];
+        $objects[$this->objid['catalog']] = $this->buildCatalogObject($this->objid['catalog']);
 
-        if ($crlObjIds !== []) {
-            $out .= ' /CRLs [';
-            foreach ($crlObjIds as $objId) {
-                $out .= ' ' . $objId . ' 0 R';
-            }
-            $out .= ' ]';
-        }
-
-        if ($certObjIds !== []) {
-            $out .= ' /Certs [';
-            foreach ($certObjIds as $objId) {
-                $out .= ' ' . $objId . ' 0 R';
-            }
-            $out .= ' ]';
-        }
-
-        $out .= ' >>' . "\n";
-        $out .= 'endobj' . "\n";
-
-        return $out;
+        return $this->appendIncrementalRevision($pdf, $objects);
     }
 
     /**
-     * @param string                $out   Output buffer.
-     * @param array<int, string>    $items Binary payloads.
-     * @return array<int, int>
+     * Extract the raw signature /Contents bytes from a signed document.
+     *
+     * The signature /Contents is a hexadecimal string padded with zeros to the
+     * reserved placeholder length; the decoded bytes (the CMS plus that padding)
+     * are what a reader hashes for the DSS VRI key, so they are returned verbatim.
+     *
+     * @param string $pdf The signed PDF document.
+     *
+     * @return string Hex-decoded signature /Contents, or '' when none is present.
+     */
+    protected function extractSignatureContents(string $pdf): string
+    {
+        $needle = '/Contents<';
+        $start = \strpos($pdf, $needle);
+        if ($start === false) {
+            return '';
+        }
+
+        $start += \strlen($needle);
+        $end = \strpos($pdf, '>', $start);
+        if ($end === false) {
+            return '';
+        }
+
+        $bin = \hex2bin(\substr($pdf, $start, $end - $start));
+        return $bin === false ? '' : $bin;
+    }
+
+    /**
+     * Append the PAdES B-LTA archive document timestamp as a further incremental
+     * revision, then timestamp it.
+     *
+     * For the `pades-b-lta` profile (which requires a configured TSA), a
+     * `/Type /DocTimeStamp` value object plus an invisible signature-field widget
+     * are emitted through the tc-lib-pdf-sign `Output\DocTimeStamp` / `Output\Widget`
+     * emitters; the catalog is re-emitted with the timestamp field added to the
+     * AcroForm `/Fields` (and the existing `/DSS` reference kept). A second signing
+     * pass then covers the whole document up to that point with a bare RFC 3161
+     * token (not a CAdES CMS), exactly like the main signature's ByteRange machinery.
+     *
+     * @param string $pdf The signed, DSS-augmented PDF document.
+     *
+     * @return string The document with the archive-timestamp revision appended, or
+     *         $pdf unchanged when B-LTA is not requested.
+     *
      * @throws \Throwable
      */
-    private function emitDssBinaryObjects(string &$out, array $items): array
+    protected function appendDocTimeStampRevision(string $pdf): string
     {
-        $objIds = [];
-        foreach ($items as $index => $item) {
-            $oid = ++$this->pon;
-            $objIds[$index] = $oid;
-            $stream = $this->encrypt->encryptString($item, $oid);
-            $out .= $oid . " 0 obj\n";
-            $out .= '<< /Length ' . \strlen($stream) . ' >>' . "\n";
-            $out .= 'stream' . "\n";
-            $out .= $stream . "\n";
-            $out .= 'endstream' . "\n";
-            $out .= 'endobj' . "\n";
+        $this->objid['doctimestamp'] = 0;
+        if (!$this->sign) {
+            return $pdf;
         }
 
-        return $objIds;
+        $profile = $this->signature['profile'] ?? SignConfig::PROFILE_LEGACY;
+        if ($profile !== SignConfig::PROFILE_PADES_B_LTA || !$this->sigtimestamp['enabled']) {
+            return $pdf;
+        }
+
+        $contentsLength = $this->signatureContentsLength();
+        $dtsValueId = ++$this->pon;
+        $widgetId = ++$this->pon;
+        $this->objid['doctimestamp'] = $widgetId;
+
+        $page = $this->page->getPage($this->signature['appearance']['page']);
+        $pageObjN = (int) $page['n'];
+
+        $stringEncoder =
+            /** @throws \Throwable */
+            fn(string $text, int $oid): string => $this->getOutTextString($text, $oid, true);
+
+        $signDocTimeStamp = new SignDocTimeStamp();
+        $signWidget = new SignWidget();
+        $objects = [
+            $dtsValueId => $signDocTimeStamp->valueObject($dtsValueId, $contentsLength),
+            $widgetId => $signWidget->annotation(
+                $widgetId,
+                '0 0 0 0',
+                $pageObjN,
+                'DocTimeStamp',
+                $dtsValueId,
+                '',
+                $stringEncoder,
+            ),
+            $this->objid['catalog'] => $this->buildCatalogObject($this->objid['catalog']),
+        ];
+
+        return $this->signDocTimeStamp($this->appendIncrementalRevision($pdf, $objects));
     }
 
     /**
-     * @param string                                $out       Output buffer.
-     * @param array<string, TValidationVri>         $vriItems  VRI entries.
-     * @param array<int, int>                       $certObjId Certificate object IDs by index.
-     * @param array<int, int>                       $ocspObjId OCSP object IDs by index.
-     * @param array<int, int>                       $crlObjId  CRL object IDs by index.
-     * @return array<string, int>
+     * Fill the DocTimeStamp placeholder with a bare RFC 3161 timestamp token over
+     * its ByteRange, reusing the signature ByteRange machinery.
+     *
+     * @param string $pdfdoc Document carrying the DocTimeStamp ByteRange/Contents placeholder.
+     *
+     * @return string The document with the timestamp token embedded.
+     *
+     * @throws \Throwable
      */
-    private function emitDssVriObjects(
-        string &$out,
-        array $vriItems,
-        array $certObjId,
-        array $ocspObjId,
-        array $crlObjId,
-    ): array {
-        $objIds = [];
-        foreach ($vriItems as $vriKey => $item) {
-            $oid = ++$this->pon;
-            $objIds[$vriKey] = $oid;
-            $out .= $oid . " 0 obj\n";
-            $out .= '<< /Type /VRI';
+    protected function signDocTimeStamp(string $pdfdoc): string
+    {
+        $prepared = $this->prepareDocumentForSignature($pdfdoc);
+        $pdfdoc = $prepared['pdfdoc'];
+        $byteRange = $prepared['byte_range'];
+        $token = $this->requestSignatureTimestampToken($pdfdoc);
+        $signature = $this->convertBinarySignatureToHex($token);
 
-            if ($item['certs'] !== []) {
-                $out .= ' /Cert [';
-                foreach ($item['certs'] as $index) {
-                    if (!isset($certObjId[$index])) {
-                        continue;
-                    }
-
-                    $out .= ' ' . ($certObjId[(int) $index] ?? 0) . ' 0 R';
-                }
-                $out .= ' ]';
-            }
-
-            if ($item['ocsp'] !== []) {
-                $out .= ' /OCSP [';
-                foreach ($item['ocsp'] as $index) {
-                    if (!isset($ocspObjId[$index])) {
-                        continue;
-                    }
-
-                    $out .= ' ' . ($ocspObjId[(int) $index] ?? 0) . ' 0 R';
-                }
-                $out .= ' ]';
-            }
-
-            if ($item['crls'] !== []) {
-                $out .= ' /CRL [';
-                foreach ($item['crls'] as $index) {
-                    if (!isset($crlObjId[$index])) {
-                        continue;
-                    }
-
-                    $out .= ' ' . ($crlObjId[(int) $index] ?? 0) . ' 0 R';
-                }
-                $out .= ' ]';
-            }
-
-            $out .= ' >>' . "\n";
-            $out .= 'endobj' . "\n";
-        }
-
-        return $objIds;
+        return \substr($pdfdoc, 0, $byteRange[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byteRange[1]);
     }
 
     /**
@@ -4675,62 +4898,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
-     * @param string $pem PEM certificate.
-     *
-     * @return TValidationCert
-     * @throws \Throwable
-     */
-    protected function normalizeValidationCertificate(string $pem): array
-    {
-        $parsed = \openssl_x509_parse($pem, false);
-        if ($parsed === false) {
-            $parsed = [];
-        }
-
-        $extensions = [];
-        if (isset($parsed['extensions'])) {
-            $extensions = $parsed['extensions'];
-        }
-
-        $base64 = \str_replace(['-----BEGIN CERTIFICATE-----', '-----END CERTIFICATE-----', "\r", "\n"], '', $pem);
-        $der = \base64_decode($base64, true);
-        if ($der === false) {
-            throw new PdfException('Unable to decode validation certificate');
-        }
-
-        $subject = isset($parsed['name']) ? $parsed['name'] : '';
-        $issuer = '';
-        if (isset($parsed['issuer'])) {
-            $issuer = \json_encode($parsed['issuer']);
-            if ($issuer === false) {
-                $issuer = '';
-            }
-        }
-
-        $serial = '';
-        if (isset($parsed['serialNumberHex'])) {
-            $serial = $parsed['serialNumberHex'];
-        }
-
-        $aiaText = isset($extensions['authorityInfoAccess']) && \is_string($extensions['authorityInfoAccess'])
-            ? $extensions['authorityInfoAccess']
-            : '';
-        $cdpText = isset($extensions['crlDistributionPoints']) && \is_string($extensions['crlDistributionPoints'])
-            ? $extensions['crlDistributionPoints']
-            : '';
-
-        return [
-            'pem' => $pem,
-            'der' => $der,
-            'serial' => $serial,
-            'subject' => $subject,
-            'issuer' => $issuer,
-            'ocsp_urls' => $this->extractCertExtensionUrls($aiaText, 'OCSP'),
-            'crl_dp_urls' => $this->extractCertExtensionUrls($cdpText, 'CRL'),
-        ];
-    }
-
-    /**
      * Extract URLs of a given type from a certificate extension text block.
      *
      * Pass 'OCSP' to extract OCSP responder URIs from Authority Information Access,
@@ -4738,187 +4905,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * @return array<int, string>
      */
-    /**
-     * Extract certificate extension URLs from text.
-     *
-     * @param string $text      X.509 certificate text.
-     * @param string $type      Extension type ('OCSP' or 'CRL').
-     *
-     * @return array<int, string>
-     */
-    protected function extractCertExtensionUrls(string $text, string $type): array
-    {
-        if ($text === '') {
-            return [];
-        }
-
-        $pattern = $type === 'OCSP' ? '/OCSP\s*-\s*URI:(https?:\/\/[^\s,]+)/i' : '/URI:(https?:\/\/[^\s]+)/i';
-
-        $matches = [];
-        if (\preg_match_all($pattern, $text, $matches) === false) {
-            return [];
-        }
-
-        /** @var array<int, string> */
-        return array_values($matches[1] ?? []);
-    }
-
-    /**
-     * Extract the raw DER bytes of the Subject Name and the public key value
-     * from a DER-encoded X.509 certificate.
-     *
-     * The Subject bytes are the full DER encoding of the issuer Name SEQUENCE.
-     * The pubkey bytes are the BIT STRING value without the leading unused-bits byte.
-     *
-     * @return array{subject: string, pubkey: string}
-     * @throws \Throwable
-     */
-    private function extractDerSubjectAndPubkey(string $certDer): array
-    {
-        $certOff = 0;
-        $certTlv = $this->asn1ReadTlv($certDer, $certOff);
-
-        $tbsOff = 0;
-        $tbsTlv = $this->asn1ReadTlv($certTlv['value'], $tbsOff);
-        $tbs = $tbsTlv['value'];
-
-        $off = 0;
-        if ($off < \strlen($tbs) && (\ord($tbs[$off]) & 0xe0) === 0xa0) {
-            $this->asn1ReadTlv($tbs, $off);
-        }
-
-        $this->asn1ReadTlv($tbs, $off);
-        $this->asn1ReadTlv($tbs, $off);
-
-        $issuerStart = $off;
-        $this->asn1ReadTlv($tbs, $off);
-        $subjectDer = \substr($tbs, $issuerStart, $off - $issuerStart);
-
-        $this->asn1ReadTlv($tbs, $off);
-        $this->asn1ReadTlv($tbs, $off);
-
-        $spki = $this->asn1ReadTlv($tbs, $off);
-        $spkiOff = 0;
-        $this->asn1ReadTlv($spki['value'], $spkiOff);
-        $bitStr = $this->asn1ReadTlv($spki['value'], $spkiOff);
-        $pubkey = \substr($bitStr['value'], 1);
-
-        return ['subject' => $subjectDer, 'pubkey' => $pubkey];
-    }
-
-    /**
-     * Encode a raw big-endian byte string as an ASN.1 DER INTEGER.
-     *
-     * @throws \Throwable
-     */
-    private function asn1EncodeIntegerBytes(string $bytes): string
-    {
-        if ($bytes === '') {
-            $bytes = "\x00";
-        }
-
-        if ((\ord($bytes[0]) & 0x80) !== 0) {
-            $bytes = "\x00" . $bytes;
-        }
-
-        return "\x02" . $this->asn1EncodeLength(\strlen($bytes)) . $bytes;
-    }
-
-    /**
-     * Build an RFC 2560 OCSPRequest in DER format for a single certificate.
-     *
-     * Uses SHA-1 as the hash algorithm for CertID as required by RFC 2560.
-     *
-     * @phpstan-param TValidationCert $leafCert
-     * @phpstan-param TValidationCert $issuerCert
-     * @throws \Throwable
-     */
-    protected function buildOcspRequest(array $leafCert, array $issuerCert): string
-    {
-        $issuerInfo = $this->extractDerSubjectAndPubkey($issuerCert['der']);
-        $issuerNameHash = \hash('sha1', $issuerInfo['subject'], true);
-        $issuerKeyHash = \hash('sha1', $issuerInfo['pubkey'], true);
-
-        $decoded = $leafCert['serial'] !== '' ? \hex2bin($leafCert['serial']) : false;
-        $serialBytes = \is_string($decoded) ? $decoded : "\x00";
-
-        $algId = $this->asn1EncodeSequence(
-            $this->asn1EncodeObjectIdentifier('1.3.14.3.2.26') . $this->asn1EncodeNull(),
-        );
-        $certId = $this->asn1EncodeSequence(
-            $algId . $this->asn1EncodeOctetString($issuerNameHash) . $this->asn1EncodeOctetString($issuerKeyHash)
-                . $this->asn1EncodeIntegerBytes($serialBytes),
-        );
-        $requestList = $this->asn1EncodeSequence($this->asn1EncodeSequence($certId));
-        return $this->asn1EncodeSequence($this->asn1EncodeSequence($requestList));
-    }
-
-    /**
-     * Collect OCSP responses and CRL data for one certificate.
-     * Updates the provided lists and dedup maps in place.
-     *
-     * @phpstan-param TValidationCert       $cert
-     * @phpstan-param TValidationCert|null  $issuerCert
-     * @phpstan-param array<int, string>    $ocspList
-     * @phpstan-param array<string, int>    $ocspDedup
-     * @phpstan-param array<int, string>    $crlList
-     * @phpstan-param array<string, int>    $crlDedup
-     * @return array{ocsp: array<int>, crls: array<int>}
-     * @throws \Throwable
-     */
-    private function collectRevocationForCert(
-        array $cert,
-        ?array $issuerCert,
-        bool $embedOcsp,
-        bool $embedCrl,
-        array &$ocspList,
-        array &$ocspDedup,
-        array &$crlList,
-        array &$crlDedup,
-    ): array {
-        $ocspIdxs = [];
-        $crlIdxs = [];
-
-        if ($embedOcsp && $issuerCert !== null && $cert['ocsp_urls'] !== []) {
-            $requestDer = $this->buildOcspRequest($cert, $issuerCert);
-            foreach ($cert['ocsp_urls'] as $url) {
-                try {
-                    $resp = $this->postOcspRequest($url, $requestDer);
-                } catch (\Throwable) {
-                    continue;
-                }
-
-                $fp = \hash('sha256', $resp);
-                if (!isset($ocspDedup[$fp])) {
-                    $ocspDedup[$fp] = \count($ocspList);
-                    $ocspList[] = $resp;
-                }
-
-                $ocspIdxs[] = $ocspDedup[$fp] ?? 0;
-            }
-        }
-
-        if ($embedCrl && $cert['crl_dp_urls'] !== []) {
-            foreach ($cert['crl_dp_urls'] as $url) {
-                try {
-                    $crlData = $this->getCrlData($url);
-                } catch (\Throwable) {
-                    continue;
-                }
-
-                $fp = \hash('sha256', $crlData);
-                if (!isset($crlDedup[$fp])) {
-                    $crlDedup[$fp] = \count($crlList);
-                    $crlList[] = $crlData;
-                }
-
-                $crlIdxs[] = $crlDedup[$fp] ?? 0;
-            }
-        }
-
-        return ['ocsp' => $ocspIdxs, 'crls' => $crlIdxs];
-    }
-
     /**
      * Send an OCSP request via HTTP POST.
      * Override in subclasses or test doubles to inject a canned response.
@@ -4964,47 +4950,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         return $data;
-    }
-
-    /**
-     * Build RFC3161 TimeStampReq for the provided signature hash.
-     *
-     * @param string $signature Digital signature as binary string.
-     *
-     * @return string DER-encoded timestamp request.
-     *
-     * @throws PdfException
-     * @throws \Throwable
-     */
-    protected function buildTimestampRequest(string $signature): string
-    {
-        $hashAlgo = \strtolower($this->sigtimestamp['hash_algorithm']);
-        $hash = \hash($hashAlgo, $signature, true);
-
-        $oid = $this->getTimestampHashAlgorithmOid($hashAlgo);
-        $messageImprint = $this->asn1EncodeSequence(
-            $this->asn1EncodeSequence($this->asn1EncodeObjectIdentifier($oid) . $this->asn1EncodeNull())
-                . $this->asn1EncodeOctetString($hash),
-        );
-
-        $body = $this->asn1EncodeInteger(1) . $messageImprint;
-        $policyOid = $this->sigtimestamp['policy_oid'];
-        if ($policyOid !== '') {
-            $body .= $this->asn1EncodeObjectIdentifier($policyOid);
-        }
-
-        if ($this->sigtimestamp['nonce_enabled']) {
-            try {
-                $nonce = \random_int(1, PHP_INT_MAX);
-            } catch (\Random\RandomException $e) {
-                throw new PdfException('Unable to generate random nonce: ' . $e->getMessage(), 0, $e);
-            }
-
-            $body .= $this->asn1EncodeInteger($nonce);
-        }
-
-        $body .= $this->asn1EncodeBoolean(true);
-        return $this->asn1EncodeSequence($body);
     }
 
     /**
@@ -5102,168 +5047,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         return $response;
     }
 
-    /**
-     * Extract timestamp token from RFC3161 TimeStampResp.
-     *
-     * @param string $response DER-encoded timestamp response.
-     *
-     * @return string Extracted timestamp token.
-     *
-     * @throws Exception
-     * @throws \Throwable
-     */
-    protected function extractTimestampTokenFromResponse(string $response): string
-    {
-        if ($response === '') {
-            throw new PdfException('Empty TSA response');
-        }
-
-        /** @var int<0, max> $offset */
-        $offset = 0;
-        $root = $this->asn1ReadTlv($response, $offset);
-        if ($root['tag'] !== 0x30 || $offset !== \strlen($response)) {
-            throw new PdfException('Invalid TSA response');
-        }
-
-        /** @var int<0, max> $inner */
-        $inner = 0;
-        $statusSeq = $this->asn1ReadTlv($root['value'], $inner);
-        if ($statusSeq['tag'] !== 0x30) {
-            throw new PdfException('Invalid TSA status response');
-        }
-
-        /** @var int<0, max> $statusOffset */
-        $statusOffset = 0;
-        $status = $this->asn1ReadTlv($statusSeq['value'], $statusOffset);
-        if ($status['tag'] !== 0x02) {
-            throw new PdfException('Invalid TSA status code');
-        }
-
-        $statusCode = $this->asn1DecodeInteger($status['value']);
-        if ($statusCode !== 0 && $statusCode !== 1) {
-            throw new PdfException('TSA request rejected');
-        }
-
-        if ($inner >= \strlen($root['value'])) {
-            throw new PdfException('Missing TSA token');
-        }
-
-        $token = $this->asn1ReadTlv($root['value'], $inner);
-        if ($token['tag'] !== 0x30) {
-            throw new PdfException('Invalid TSA token structure');
-        }
-
-        return $token['raw'];
-    }
-
-    protected function getTimestampHashAlgorithmOid(string $algorithm): string
-    {
-        return match ($algorithm) {
-            'sha256' => '2.16.840.1.101.3.4.2.1',
-            'sha384' => '2.16.840.1.101.3.4.2.2',
-            'sha512' => '2.16.840.1.101.3.4.2.3',
-            default => throw new PdfException('Unsupported TSA hash algorithm'),
-        };
-    }
-
-    /**
-     * @param int<0, max> $length
-     * @throws \Throwable
-     */
-    protected function asn1EncodeLength(int $length): string
-    {
-        if ($length < 128) {
-            return \chr($length);
-        }
-
-        $encoded = '';
-        $value = $length;
-        while ($value > 0) {
-            $encoded = \chr((int) ($value & 0xFF)) . $encoded;
-            $value = (int) ($value / 256);
-        }
-
-        $encodedLength = \strlen($encoded);
-        if ($encodedLength > 0x7F) {
-            throw new PdfException('ASN.1 length encoding overflow');
-        }
-
-        return \chr(0x80 | $encodedLength) . $encoded;
-    }
-
-    /**
-     * @param int<0, max> $value
-     * @throws \Throwable
-     */
-    protected function asn1EncodeInteger(int $value): string
-    {
-        $data = '';
-        $num = $value;
-        while ($num > 0) {
-            $data = \chr((int) ($num & 0xFF)) . $data;
-            $num = (int) ($num / 256);
-        }
-
-        if ($data === '') {
-            $data = "\x00";
-        }
-
-        if ((\ord($data[0]) & 0x80) !== 0) {
-            $data = "\x00" . $data;
-        }
-
-        return "\x02" . $this->asn1EncodeLength(\strlen($data)) . $data;
-    }
-
-    protected function asn1EncodeBoolean(bool $value): string
-    {
-        return "\x01\x01" . ($value ? "\xFF" : "\x00");
-    }
-
-    protected function asn1EncodeNull(): string
-    {
-        return "\x05\x00";
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    protected function asn1EncodeOctetString(string $value): string
-    {
-        return "\x04" . $this->asn1EncodeLength(\strlen($value)) . $value;
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    protected function asn1EncodeSequence(string $value): string
-    {
-        return "\x30" . $this->asn1EncodeLength(\strlen($value)) . $value;
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    protected function asn1EncodeObjectIdentifier(string $oid): string
-    {
-        $parts = \array_map('intval', \explode('.', $oid));
-        if (\count($parts) < 2) {
-            throw new PdfException('Invalid OID');
-        }
-
-        $data = \chr((int) ((($parts[0] * 40) + ($parts[1] ?? 0)) & 0xFF));
-        $count = \count($parts);
-        for ($idx = 2; $idx < $count; ++$idx) {
-            $part = (int) ($parts[$idx] ?? 0);
-            if ($part < 0) {
-                $part = 0;
-            }
-            $data .= $this->asn1EncodeBase128Int($part);
-        }
-
-        return "\x06" . $this->asn1EncodeLength(\strlen($data)) . $data;
-    }
-
     /** @param int<0, max> $value */
     protected function asn1EncodeBase128Int(int $value): string
     {
@@ -5280,82 +5063,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         return $out;
-    }
-
-    /**
-     * @param int $offset
-     *
-     * @return array{tag: int, value: string, raw: string}
-     * @throws \Throwable
-     */
-    protected function asn1ReadTlv(string $data, int &$offset): array
-    {
-        if ($offset >= \strlen($data)) {
-            throw new PdfException('Malformed ASN.1 structure');
-        }
-
-        $start = $offset;
-        $tag = \ord($data[$offset]);
-        ++$offset;
-
-        $length = $this->asn1ReadLength($data, $offset);
-        if (($offset + $length) > \strlen($data)) {
-            throw new PdfException('Malformed ASN.1 length');
-        }
-
-        $value = \substr($data, $offset, $length);
-        $offset += $length;
-        $raw = \substr($data, $start, $offset - $start);
-
-        return ['tag' => $tag, 'value' => $value, 'raw' => $raw];
-    }
-
-    /**
-     * @param int $offset
-     * @throws \Throwable
-     */
-    protected function asn1ReadLength(string $data, int &$offset): int
-    {
-        if ($offset >= \strlen($data)) {
-            throw new PdfException('Malformed ASN.1 length');
-        }
-
-        $first = \ord($data[$offset]);
-        ++$offset;
-        if (($first & 0x80) === 0) {
-            return $first;
-        }
-
-        $numBytes = $first & 0x7F;
-        if ($numBytes < 1 || $numBytes > 4 || ($offset + $numBytes) > \strlen($data)) {
-            throw new PdfException('Unsupported ASN.1 length');
-        }
-
-        $length = 0;
-        for ($idx = 0; $idx < $numBytes; ++$idx) {
-            $length = ($length * 256) + \ord($data[$offset + $idx]);
-        }
-
-        $offset += $numBytes;
-        return $length;
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    protected function asn1DecodeInteger(string $value): int
-    {
-        if ($value === '') {
-            throw new PdfException('Invalid ASN.1 integer');
-        }
-
-        $int = 0;
-        $len = \strlen($value);
-        for ($idx = 0; $idx < $len; ++$idx) {
-            $int = ($int * 256) + \ord($value[$idx]);
-        }
-
-        return $int;
     }
 
     /**
@@ -5392,58 +5099,46 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         list($sigAppearance, $sigAppearanceXObj) = $this->getSignatureAppearanceStream($sigWidth, $sigHeight);
         $pageObjN = (int) $page['n'];
 
-        $out =
-            $soid
-            . ' 0 obj'
-            . "\n"
-            . '<<'
-            . ' /Type /Annot'
-            . ' /Subtype /Widget'
-            . ' /Rect ['
-            . $this->signature['appearance']['rect']
-            . ']'
-            . ' /P '
-            . $pageObjN
-            . ' 0 R' // link to signature appearance page
-            . ' /F 4'
-            . ' /FT /Sig'
-            . ' /T '
-            . $this->getOutTextString($this->signature['appearance']['name'], $soid, true)
-            . ' /Ff 0'
-            . $sigAppearance
-            . ' /V '
-            . $oid
-            . ' 0 R'
-            . ' >>'
-            . "\n"
-            . 'endobj'
-            . "\n";
-        $out .= $sigAppearanceXObj;
-        $out .= $oid . ' 0 obj' . "\n";
-        $out .=
-            '<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached '
-            . $this::BYTERANGE
-            . ' /Contents<'
-            . \str_repeat('0', \max(0, $this::SIGMAXLEN))
-            . '>';
-        if ($this->signature['approval'] !== 'A') {
-            $out .= ' /Reference [ << /Type /SigRef';
-            if ($this->signature['cert_type'] > 0) {
-                $out .= $this->getOutSignatureDocMDP();
-            } else {
-                $out .= $this->getOutSignatureUserRights();
-            }
+        $stringEncoder =
+            /** @throws \Throwable */
+            fn(string $text, int $obj): string => $this->getOutTextString($text, $obj, true);
 
-            // optional digest data (values must be calculated and replaced later)
-            //$out .= ' /Data ********** 0 R'
-            //    .' /DigestMethod /MD5'
-            //    .' /DigestLocation[********** 34]'
-            //    .' /DigestValue<********************************>';
-            $out .= ' >> ]'; // end of reference
+        // Signature widget annotation (references the /Sig value object via /V).
+        $signWidget = new SignWidget();
+        $out = $signWidget->annotation(
+            $soid,
+            $this->signature['appearance']['rect'],
+            $pageObjN,
+            $this->signature['appearance']['name'],
+            $oid,
+            $sigAppearance,
+            $stringEncoder,
+        );
+        $out .= $sigAppearanceXObj;
+
+        // /Reference transform (DocMDP for a certification signature, UR3 for an
+        // approval one); omitted entirely for an author signature ('A').
+        $reference = '';
+        if ($this->signature['approval'] !== 'A') {
+            $params = $this->signature['cert_type'] > 0
+                ? $this->getOutSignatureDocMDP()
+                : $this->getOutSignatureUserRights();
+            $reference = ' /Reference [ << /Type /SigRef' . $params . ' >> ]';
         }
 
-        $out .= $this->getOutSignatureInfo($oid);
-        return $out . ' /M ' . $this->getOutDateTimeString($this->docmodtime, $oid) . ' >>' . "\n" . 'endobj' . "\n";
+        // /Sig value object (the byte skeleton + ByteRange/Contents placeholders).
+        $signSignature = new SignSignature();
+        $out .= $signSignature->valueObject(
+            $oid,
+            $this->signatureSubFilter(),
+            $reference,
+            $this->signature['info'],
+            $this->getOutDateTimeString($this->docmodtime, $oid),
+            $this->signatureContentsLength(),
+            $stringEncoder,
+        );
+
+        return $out;
     }
 
     /**
@@ -5567,53 +5262,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         return $out . ' >>';
-    }
-
-    /**
-     * Returns the PDF signarure info section.
-     *
-     * @param int $oid Object ID.
-     *
-     * @return string Signature info section.
-     *
-     * @throws UnicodeException
-     * @throws EncryptException
-     */
-    protected function getOutSignatureInfo(int $oid): string
-    {
-        $out = '';
-        $signature = $this->signature + ['info' => []];
-        $signatureInfo = $signature['info'];
-
-        $sigInfo = $signatureInfo
-        + [
-            'Name' => '',
-            'Location' => '',
-            'Reason' => '',
-            'ContactInfo' => '',
-        ];
-
-        $name = $sigInfo['Name'];
-        if ($name !== '') {
-            $out .= ' /Name ' . $this->getOutTextString($name, $oid, true);
-        }
-
-        $location = $sigInfo['Location'];
-        if ($location !== '') {
-            $out .= ' /Location ' . $this->getOutTextString($location, $oid, true);
-        }
-
-        $reason = $sigInfo['Reason'];
-        if ($reason !== '') {
-            $out .= ' /Reason ' . $this->getOutTextString($reason, $oid, true);
-        }
-
-        $contactInfo = $sigInfo['ContactInfo'];
-        if ($contactInfo !== '') {
-            $out .= ' /ContactInfo ' . $this->getOutTextString($contactInfo, $oid, true);
-        }
-
-        return $out;
     }
 
     /**

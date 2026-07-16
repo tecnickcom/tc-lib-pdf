@@ -2362,9 +2362,13 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * The DSS is no longer part of the initial body: it moves to a post-signing
+     * incremental revision (appendDssRevision) so its VRI key can be derived from
+     * the final signature /Contents (ISO 32000-2 clause 12.8.4.3).
+     *
      * @throws \Throwable
      */
-    public function testGetOutPDFBodyIncludesDssWhenLtvDssEnabled(): void
+    public function testGetOutPDFBodyOmitsDssNowInIncrementalRevision(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
@@ -2386,20 +2390,90 @@ class OutputTest extends TestUtil
             ],
         ]);
         $this->setObjectProperty($obj, 'signature', $signature);
-        $obj->setMockOcspResponse('mock-ocsp-response-binary');
-        $obj->setMockCrlResponse('mock-crl-binary');
 
         $out = $obj->exposeGetOutPDFBody();
 
-        $this->assertContainsAllFragments($out, [
-            '/Type /DSS',
-            '/VRI <<',
-            '/OCSPs [',
-            '/CRLs [',
-            '/Certs [',
-            '/Type /VRI',
-            '/DSS ',
+        $this->assertStringNotContainsString('/Type /DSS', $out);
+        $this->assertStringNotContainsString('/Type /VRI', $out);
+    }
+
+    /**
+     * appendDssRevision is a no-op unless signing with an LTV/DSS profile that has
+     * validation material to embed.
+     *
+     * @throws \Throwable
+     */
+    public function testAppendDssRevisionNoOpPaths(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $base = "%PDF-1.7\nstartxref\n9\n%%EOF\n";
+
+        // Not signing.
+        $this->setObjectProperty($obj, 'sign', false);
+        $this->assertSame($base, $obj->exposeAppendDssRevision($base));
+
+        // Signing but LTV/DSS not requested.
+        $this->setObjectProperty($obj, 'sign', true);
+        /** @var array<string, mixed> $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $signature = \array_replace_recursive($signature, [
+            'signcert' => '',
+            'extracerts' => '',
+            'ltv' => ['enabled' => false, 'include_dss' => false],
         ]);
+        $this->setObjectProperty($obj, 'signature', $signature);
+        $this->assertSame($base, $obj->exposeAppendDssRevision($base));
+
+        // LTV/DSS requested but no certificate source, so no material to embed.
+        $signature = \array_replace_recursive($signature, [
+            'ltv' => ['enabled' => true, 'include_dss' => true, 'embed_certs' => true, 'include_vri' => true],
+        ]);
+        $this->setObjectProperty($obj, 'signature', $signature);
+        $this->assertSame($base, $obj->exposeAppendDssRevision($base));
+    }
+
+    /**
+     * appendDocTimeStampRevision is a no-op unless signing with the pades-b-lta
+     * profile and a configured TSA.
+     *
+     * @throws \Throwable
+     */
+    public function testAppendDocTimeStampRevisionNoOpPaths(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $base = "%PDF-1.7\nstartxref\n9\n%%EOF\n";
+
+        // Not signing.
+        $this->setObjectProperty($obj, 'sign', false);
+        $this->assertSame($base, $obj->exposeAppendDocTimeStampRevision($base));
+
+        // Signing, but not a B-LTA profile.
+        $this->setObjectProperty($obj, 'sign', true);
+        /** @var array<string, mixed> $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $signature['profile'] = 'pades-b-lt';
+        $this->setObjectProperty($obj, 'signature', $signature);
+        $this->assertSame($base, $obj->exposeAppendDocTimeStampRevision($base));
+
+        // B-LTA profile but no TSA configured, so the timestamp revision is skipped.
+        $signature['profile'] = 'pades-b-lta';
+        $this->setObjectProperty($obj, 'signature', $signature);
+        $this->assertSame($base, $obj->exposeAppendDocTimeStampRevision($base));
+    }
+
+    /**
+     * extractSignatureContents returns the hex-decoded /Contents bytes, or '' when
+     * the document carries no signature placeholder.
+     *
+     * @throws \Throwable
+     */
+    public function testExtractSignatureContents(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame('', $obj->exposeExtractSignatureContents('no signature here'));
+        $this->assertSame('', $obj->exposeExtractSignatureContents('/Contents<41 no closing bracket'));
+        $this->assertSame("\x30\x82\x00\x00", $obj->exposeExtractSignatureContents('x /Contents<30820000> y'));
     }
 
     /**
@@ -2528,20 +2602,11 @@ class OutputTest extends TestUtil
 
         $this->assertSame('', $obj->exposeGetOutSignatureFields());
         $this->assertSame('abc', $obj->exposeSignDocument('abc'));
-        $this->assertSame('sigbin', $obj->exposeApplySignatureTimestamp('sigbin'));
         $this->assertSame('', $obj->exposeGetOutSignature());
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
 
         $userRightsOut = $obj->exposeGetOutSignatureUserRights();
         $this->assertStringContainsString('/TransformMethod /UR3', $userRightsOut);
-
-        $this->assertSame('', $obj->exposeGetOutSignatureInfo(11));
-        $this->setObjectProperty($obj, 'signature', ['info' => ['Name' => 'John', 'Reason' => 'Approval']]);
-        $info = $obj->exposeGetOutSignatureInfo(11);
-        $this->assertContainsAllFragments($info, [
-            '/Name ',
-            '/Reason ',
-        ]);
 
         $this->setObjectProperty($obj, 'signature', ['cert_type' => 2]);
         $this->assertStringContainsString('/TransformMethod /DocMDP', $obj->exposeGetOutSignatureDocMDP());
@@ -2806,36 +2871,23 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * B-T: an enabled TSA embeds the signature timestamp as the SignerInfo
+     * id-aa-signatureTimeStampToken unsigned attribute inside the CMS. The RFC
+     * 3161 codec lives in the tc-lib-pdf-sign package; the host only supplies the
+     * HTTP transport (mocked here).
+     *
      * @throws \Throwable
      */
-    public function testBuildTimestampRequestContainsSha256OidWhenNonceDisabled(): void
+    public function testBuildSignatureCmsEmbedsSignatureTimestamp(): void
     {
         $obj = $this->getInternalTestObject();
-        $this->setObjectProperty($obj, 'sigtimestamp', [
-            'enabled' => true,
-            'host' => 'https://tsa.example.test',
-            'username' => '',
+        $signer = $this->makeSigningCredential();
+        $this->setSignatureArray($obj, [
+            'signcert' => $signer['cert_pem'],
+            'privkey' => $signer['key_pem'],
             'password' => '',
-            'cert' => '',
-            'hash_algorithm' => 'sha256',
-            'policy_oid' => '',
-            'nonce_enabled' => false,
-            'timeout' => 5,
-            'verify_peer' => true,
+            'profile' => 'pades-b-t',
         ]);
-
-        $request = $obj->exposeBuildTimestampRequest('sigbin');
-
-        $this->assertStringStartsWith("\x30", $request);
-        $this->assertStringContainsString('608648016503040201', \bin2hex($request));
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function testApplySignatureTimestampWithMockedTsaResponse(): void
-    {
-        $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'sigtimestamp', [
             'enabled' => true,
             'host' => 'https://tsa.example.test',
@@ -2849,44 +2901,39 @@ class OutputTest extends TestUtil
             'verify_peer' => false,
         ]);
 
-        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
+        // TimeStampResp: SEQUENCE { PKIStatusInfo{INTEGER 0}, token SEQUENCE{INTEGER 42} }.
+        $token = (string) \hex2bin('300302012A');
         $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
-        $signed = $obj->exposeApplySignatureTimestamp('sigbin');
 
-        $this->assertSame('sigbin', $signed);
+        $cms = $obj->exposeBuildSignatureCms('payload');
+
+        $asn1 = new \Com\Tecnick\Pdf\Sign\Cms\Asn1();
+        $oid = $asn1->encodeObjectIdentifier('1.2.840.113549.1.9.16.2.14');
+        $this->assertStringContainsString($oid, $cms);
+        $this->assertStringContainsString($token, $cms);
+
+        // The TSA transport received a DER TimeStampReq (SEQUENCE).
         $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
     }
 
     /**
      * @throws \Throwable
      */
-    public function testExtractTimestampTokenFromResponseRejectsFailureStatus(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
-
-        // SEQUENCE { SEQUENCE { INTEGER 2 } }
-        $obj->exposeExtractTimestampTokenFromResponse((string) \hex2bin('30053003020102'));
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function testCollectValidationMaterialReturnsEmptyWhenLtvDisabled(): void
+    public function testCollectDssMaterialReturnsEmptyWhenLtvDisabled(): void
     {
         $obj = $this->getInternalTestObject();
 
-        $material = $obj->exposeCollectValidationMaterial();
+        $material = $obj->exposeCollectDssMaterial();
 
-        $this->assertSame([], $material['cert_chain']);
         $this->assertSame([], $material['certs']);
-        $this->assertSame([], $material['vri']);
+        $this->assertSame([], $material['ocsp']);
+        $this->assertSame([], $material['crls']);
     }
 
     /**
      * @throws \Throwable
      */
-    public function testCollectValidationMaterialLoadsAndDeduplicatesCertificates(): void
+    public function testCollectDssMaterialLoadsAndDeduplicatesCertificates(): void
     {
         $obj = $this->getInternalTestObject();
         $certPath = __DIR__ . '/../examples/data/cert/tcpdf.crt';
@@ -2905,17 +2952,18 @@ class OutputTest extends TestUtil
             ],
         ]);
 
-        $material = $obj->exposeCollectValidationMaterial();
+        $material = $obj->exposeCollectDssMaterial();
 
-        $this->assertGreaterThan(0, \count($material['cert_chain']));
+        // The signer cert given twice (signcert + extracerts) deduplicates to one.
         $this->assertSame(1, \count($material['certs']));
-        $this->assertSame(1, \count($material['vri']));
+        $this->assertSame([], $material['ocsp']);
+        $this->assertSame([], $material['crls']);
     }
 
     /**
      * @throws \Throwable
      */
-    public function testCollectValidationMaterialCollectsOcspAndCrlWhenEnabled(): void
+    public function testCollectDssMaterialCollectsOcspAndCrlWhenEnabled(): void
     {
         $obj = $this->getInternalTestObject();
         $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
@@ -2936,26 +2984,21 @@ class OutputTest extends TestUtil
         $obj->setMockOcspResponse('mock-ocsp-response-binary');
         $obj->setMockCrlResponse('mock-crl-binary');
 
-        $material = $obj->exposeCollectValidationMaterial();
+        $material = $obj->exposeCollectDssMaterial();
 
+        $this->assertSame(1, \count($material['certs']));
         $this->assertSame(1, \count($material['ocsp']));
         $this->assertSame(1, \count($material['crls']));
         $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
         $this->assertSame('http://crl2.example.com/root.crl', $obj->getCapturedCrlUrl());
+        // The OCSP request is built by the package Ocsp\Client and passed to the host transport.
         $this->assertNotSame('', $obj->getCapturedOcspRequest());
-        $this->assertSame(1, \count($material['vri']));
-
-        $vriList = \array_values($material['vri']);
-        assert(isset($vriList[0]), "\$vriList[0] must be set");
-        $vri = $vriList[0];
-        $this->assertSame([0], $vri['ocsp']);
-        $this->assertSame([0, 0], $vri['crls']);
     }
 
     /**
      * @throws \Throwable
      */
-    public function testCollectValidationMaterialFallsBackToCrlWhenOcspFails(): void
+    public function testCollectDssMaterialFallsBackToCrlWhenOcspFails(): void
     {
         $obj = $this->getInternalTestObject();
         $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
@@ -2976,17 +3019,74 @@ class OutputTest extends TestUtil
         $obj->setMockOcspThrows(true);
         $obj->setMockCrlResponse('mock-crl-binary');
 
-        $material = $obj->exposeCollectValidationMaterial();
+        $material = $obj->exposeCollectDssMaterial();
 
+        // The package skips the failing OCSP transport and keeps the CRL.
         $this->assertSame([], $material['ocsp']);
         $this->assertSame(1, \count($material['crls']));
         $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
+    }
 
-        $vriList = \array_values($material['vri']);
-        assert(isset($vriList[0]), "\$vriList[0] must be set");
-        $vri = $vriList[0];
-        $this->assertSame([], $vri['ocsp']);
-        $this->assertSame([0, 0], $vri['crls']);
+    /**
+     * A certificate the package cannot decode surfaces as a host PdfException.
+     *
+     * @throws \Throwable
+     */
+    public function testCollectDssMaterialThrowsOnUndecodableCertificate(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => "-----BEGIN CERTIFICATE-----\n@@@@\n-----END CERTIFICATE-----",
+            'extracerts' => '',
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->exposeCollectDssMaterial();
+    }
+
+    /**
+     * The embed_* flags gate which material is embedded: with them off, only the
+     * chain is walked and nothing is fetched or kept.
+     *
+     * @throws \Throwable
+     */
+    public function testCollectDssMaterialHonoursEmbedFlags(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
+        $certPem = (string) \file_get_contents($certPath);
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => $certPem,
+            'extracerts' => '',
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => false,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $obj->setMockOcspResponse('mock-ocsp-response-binary');
+        $obj->setMockCrlResponse('mock-crl-binary');
+
+        $material = $obj->exposeCollectDssMaterial();
+
+        $this->assertSame([], $material['certs']);
+        $this->assertSame([], $material['ocsp']);
+        $this->assertSame([], $material['crls']);
+        // No transports were invoked.
+        $this->assertSame('', $obj->getCapturedOcspUrl());
+        $this->assertSame('', $obj->getCapturedCrlUrl());
     }
 
     /**
@@ -4670,6 +4770,7 @@ class OutputTest extends TestUtil
                 'rect' => '5 15 45 25',
                 'name' => 'SigMain',
             ],
+            'info' => [],
         ]);
 
         $outApproval = $obj->exposeGetOutSignature();
@@ -4695,6 +4796,7 @@ class OutputTest extends TestUtil
                 'rect' => '6 16 46 26',
                 'name' => 'SigUR3',
             ],
+            'info' => [],
         ]);
 
         $out = $obj->exposeGetOutSignature();
@@ -4735,21 +4837,27 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * The /Sig value object (emitted through the package Output\Signature) carries
+     * every configured info field, encoded with the host text encoder.
+     *
      * @throws \Throwable
      */
-    public function testGetOutSignatureInfoWithAllOptionalFields(): void
+    public function testGetOutSignatureIncludesAllInfoFields(): void
     {
         $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 15);
+
+        $this->setObjectProperty($obj, 'sign', true);
+        $this->setObjectProperty($obj, 'objid', ['signature' => 90]);
         $this->setObjectProperty($obj, 'signature', [
-            'info' => [
-                'Name' => 'N',
-                'Location' => 'L',
-                'Reason' => 'R',
-                'ContactInfo' => 'C',
-            ],
+            'cert_type' => 2,
+            'approval' => 'P',
+            'appearance' => ['page' => $page['pid'], 'rect' => '5 15 45 25', 'name' => 'SigInfo'],
+            'info' => ['Name' => 'N', 'Location' => 'L', 'Reason' => 'R', 'ContactInfo' => 'C'],
         ]);
 
-        $out = $obj->exposeGetOutSignatureInfo(33);
+        $out = $obj->exposeGetOutSignature();
 
         $this->assertContainsAllFragments($out, [
             '/Name ',
@@ -4762,7 +4870,7 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testEndToEndOutputIncludesSignatureTsaAndDssInSingleRevision(): void
+    public function testEndToEndOutputIncludesSignatureTsaAndDssAcrossRevisions(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
@@ -4828,10 +4936,101 @@ class OutputTest extends TestUtil
             'startxref',
             '%%EOF',
         ]);
-        $this->assertSame(1, \substr_count($pdf, '%%EOF'));
+        // The signature is in the first revision; the DSS is appended in a second.
+        $this->assertSame(2, \substr_count($pdf, '%%EOF'));
+        $firstEof = \strpos($pdf, '%%EOF');
+        $this->assertIsInt($firstEof);
+        $this->assertStringNotContainsString('/Type /DSS', \substr($pdf, 0, $firstEof));
+        $this->assertStringContainsString('/Type /DSS', \substr($pdf, $firstEof));
         $this->assertMatchesRegularExpression('#/ByteRange\[0 \d+ \d+ \d+\]#', $pdf);
         $this->assertStringNotContainsString('**********', $pdf);
         $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
+    }
+
+    /**
+     * PAdES B-LTA: on top of the signature (B-T) and DSS (B-LT) revisions, a third
+     * incremental revision adds a /Type /DocTimeStamp archive timestamp (an
+     * invisible signature field) whose /Contents is a bare RFC 3161 token over its
+     * own ByteRange.
+     *
+     * @throws \Throwable
+     */
+    public function testGetOutPDFStringAppendsBltaDocTimeStampRevision(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $page = $this->addRawPageWithObjectNumber($obj, 14);
+        $certPath = (string) \realpath(__DIR__ . '/../examples/data/cert/tcpdf.crt');
+        $certFile = 'file://' . $certPath;
+
+        $obj->setSignature([
+            'appearance' => ['empty' => [], 'name' => 'SigLTA', 'page' => $page['pid'], 'rect' => '10 20 50 30'],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => null,
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => $certFile,
+            'signcert' => $certFile,
+            'profile' => 'pades-b-lta',
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => false,
+        ]);
+        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
+        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+
+        $pdf = $obj->getOutPDFString();
+
+        // Three revisions: signature (B-T), DSS (B-LT), archive timestamp (B-LTA).
+        $this->assertSame(3, \substr_count($pdf, '%%EOF'));
+        $this->assertSame(3, \substr_count($pdf, "startxref\n"));
+
+        // A PAdES profile uses the CAdES subfilter for the main signature.
+        $this->assertStringContainsString('/SubFilter /ETSI.CAdES.detached', $pdf);
+
+        // The DocTimeStamp lives only in the third (last) revision.
+        $eofs = [];
+        $pos = -1;
+        while (($pos = \strpos($pdf, '%%EOF', $pos + 1)) !== false) {
+            $eofs[] = $pos;
+        }
+        $secondEof = $eofs[1] ?? 0;
+        $lastRevision = \substr($pdf, $secondEof);
+        $this->assertStringNotContainsString('/Type /DocTimeStamp', \substr($pdf, 0, $secondEof));
+        $this->assertStringContainsString('/Type /DocTimeStamp', $lastRevision);
+        $this->assertStringContainsString('/SubFilter /ETSI.RFC3161', $lastRevision);
+
+        // Its ByteRange is filled (no placeholder left anywhere) and the DSS is kept.
+        $this->assertStringNotContainsString('**********', $pdf);
+        $this->assertStringContainsString('/Type /DSS', $pdf);
+
+        // Two filled ByteRanges now exist: the main signature and the document timestamp.
+        $this->assertSame(2, \preg_match_all('#/ByteRange\[0 \d+ \d+ \d+\]#', $pdf));
+
+        // The archive-timestamp widget is added to the AcroForm as a second field.
+        $m = [];
+        $matched = \preg_match('#/AcroForm << /Fields \[([^\]]*)\]#', $lastRevision, $m);
+        $this->assertSame(1, $matched);
+        $this->assertSame(2, \substr_count($m[1] ?? '', ' 0 R'));
     }
 
     /**
@@ -5575,18 +5774,18 @@ class OutputTest extends TestUtil
     }
 
     // -------------------------------------------------------------------------
-    // collectValidationMaterial: empty pemInputs path (lines 4162, 4406)
+    // collectDssMaterial: empty certificate-inputs path
     // -------------------------------------------------------------------------
 
     /**
      * @throws \Throwable
      */
-    public function testCollectValidationMaterialReturnsEmptyWhenSigncertIsEmpty(): void
+    public function testCollectDssMaterialReturnsEmptyWhenSigncertIsEmpty(): void
     {
         $obj = $this->getInternalTestObject();
 
         // ltv.enabled is truthy but signcert is '' → getCertificateSourceContent('') returns ''
-        // → collectValidationCertificateInputs returns [] → line 4162 triggered.
+        // → collectValidationCertificateInputs returns [] → empty material.
         $this->setObjectProperty($obj, 'signature', [
             'signcert' => '',
             'extracerts' => '',
@@ -5595,13 +5794,11 @@ class OutputTest extends TestUtil
             'ltv' => ['enabled' => true],
         ]);
 
-        $material = $obj->exposeCollectValidationMaterial();
+        $material = $obj->exposeCollectDssMaterial();
 
-        $this->assertSame([], $material['cert_chain']);
         $this->assertSame([], $material['certs']);
         $this->assertSame([], $material['ocsp']);
         $this->assertSame([], $material['crls']);
-        $this->assertSame([], $material['vri']);
     }
 
     // -------------------------------------------------------------------------
@@ -5634,83 +5831,6 @@ class OutputTest extends TestUtil
         $structParents = $this->getObjectProperty($obj, 'pagestructparents');
         $this->assertArrayHasKey(99, $structParents);
         $this->assertArrayNotHasKey(9999, $structParents);
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function testBuildTimestampRequestWithPolicyOidAndNonceEnabled(): void
-    {
-        $obj = $this->getInternalTestObject();
-        $this->setObjectProperty($obj, 'sigtimestamp', [
-            'enabled' => true,
-            'host' => 'https://tsa.example.test',
-            'username' => '',
-            'password' => '',
-            'cert' => '',
-            'hash_algorithm' => 'sha256',
-            'policy_oid' => '1.2.3.4.5',
-            'nonce_enabled' => true,
-            'timeout' => 5,
-            'verify_peer' => true,
-        ]);
-
-        $request = $obj->exposeBuildTimestampRequest('sigbin');
-
-        // Result must be a valid DER SEQUENCE.
-        $this->assertStringStartsWith("\x30", $request);
-        // SHA-256 OID must be present.
-        $this->assertStringContainsString('608648016503040201', \bin2hex($request));
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function testAsn1EncodeLengthShortForm(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        // Length < 128 → single byte.
-        $encoded = $obj->exposeAsn1EncodeLength(127);
-        $this->assertSame("\x7f", $encoded);
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function testAsn1EncodeLengthLongForm(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        // Length >= 128 → long form encoding.
-        $encoded = $obj->exposeAsn1EncodeLength(256);
-        // Expect 0x82 (2 length bytes) + 0x01 + 0x00.
-        $this->assertSame("\x82\x01\x00", $encoded);
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function testAsn1EncodeIntegerZeroProducesZeroByte(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $encoded = $obj->exposeAsn1EncodeInteger(0);
-        // Tag 0x02, length 0x01, value 0x00.
-        $this->assertSame("\x02\x01\x00", $encoded);
-    }
-
-    /**
-     * @throws \Throwable
-     */
-    public function testAsn1EncodeIntegerHighBitSetPrependsPaddingByte(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        // 0x80 = 128: high bit is set, so a 0x00 padding byte must be prepended.
-        $encoded = $obj->exposeAsn1EncodeInteger(0x80);
-        // Tag 0x02, length 0x02, padding 0x00, value 0x80.
-        $this->assertSame("\x02\x02\x00\x80", $encoded);
     }
 
     /**
@@ -5871,5 +5991,256 @@ class OutputTest extends TestUtil
         if (\is_dir($dir)) {
             \rmdir($dir);
         }
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureSubFilterFollowsProfile(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->setSignatureArray($obj, ['profile' => 'legacy']);
+        $this->assertSame('adbe.pkcs7.detached', $obj->exposeSignatureSubFilter());
+
+        $this->setSignatureArray($obj, ['profile' => 'pades-b-b']);
+        $this->assertSame('ETSI.CAdES.detached', $obj->exposeSignatureSubFilter());
+
+        $this->setSignatureArray($obj, []);
+        $this->assertSame('adbe.pkcs7.detached', $obj->exposeSignatureSubFilter());
+    }
+
+    /** @throws \Throwable */
+    public function testAppendIncrementalRevisionChainsANewRevision(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $base = $obj->getOutPDFString();
+
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $newNum = $pon + 1;
+        $dummy = $newNum . " 0 obj\n<< /Type /TestMarker >>\nendobj\n";
+
+        $result = $obj->exposeAppendIncrementalRevision($base, [$newNum => $dummy]);
+
+        // The original revision is a byte-for-byte prefix; a second revision is appended.
+        $this->assertTrue(\str_starts_with($result, $base));
+        $this->assertStringEndsWith("%%EOF\n", $result);
+        $this->assertSame(2, \substr_count($result, "startxref\n"));
+        $this->assertStringContainsString('/Type /TestMarker', $result);
+
+        // The incremental trailer chains to the previous revision's xref.
+        $baseMatches = [];
+        \preg_match('/\d+/', \substr($base, (int) \strrpos($base, 'startxref') + 9), $baseMatches);
+        $this->assertStringContainsString('/Prev ' . ($baseMatches[0] ?? ''), $result);
+
+        // The last startxref points at the incremental xref, which lists the new
+        // object at its true byte offset (the end of the original document).
+        $lastMatches = [];
+        \preg_match('/\d+/', \substr($result, (int) \strrpos($result, 'startxref') + 9), $lastMatches);
+        $xrefOffset = (int) ($lastMatches[0] ?? '0');
+        $this->assertSame('xref', \substr($result, $xrefOffset, 4));
+        $this->assertStringContainsString($newNum . ' 1' . "\n", \substr($result, $xrefOffset));
+        $this->assertStringContainsString(\sprintf('%010d 00000 n', \strlen($base)), \substr($result, $xrefOffset));
+    }
+
+    /** @throws \Throwable */
+    public function testAppendIncrementalRevisionReturnsInputWhenNoObjects(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->assertSame("%PDF-1.7\n", $obj->exposeAppendIncrementalRevision("%PDF-1.7\n", []));
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureContentsLengthGrowsWhenTimestamping(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->assertSame(11_742, $obj->exposeSignatureContentsLength());
+
+        $this->setObjectProperty($obj, 'sigtimestamp', ['enabled' => true]);
+        $this->assertSame(31_742, $obj->exposeSignatureContentsLength());
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureDigestAlgorithmDefaultsAndValidates(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->setSignatureArray($obj, []);
+        $this->assertSame('sha256', $obj->exposeSignatureDigestAlgorithm());
+
+        $this->setSignatureArray($obj, ['digest_algorithm' => 'sha384']);
+        $this->assertSame('sha384', $obj->exposeSignatureDigestAlgorithm());
+
+        $this->setSignatureArray($obj, ['digest_algorithm' => 'md5']);
+        $this->assertSame('sha256', $obj->exposeSignatureDigestAlgorithm());
+    }
+
+    /** @throws \Throwable */
+    public function testLoadExtraCertificatesParsesPemAndFileBundles(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $one = $this->makeSigningCredential();
+        $two = $this->makeSigningCredential();
+
+        $this->assertSame([], $obj->exposeLoadExtraCertificates(''));
+
+        $pemBundle = $one['cert_pem'] . "\n" . $two['cert_pem'];
+        $expected = [$this->pemCertToDer($one['cert_pem']), $this->pemCertToDer($two['cert_pem'])];
+
+        $this->assertSame($expected, $obj->exposeLoadExtraCertificates($pemBundle));
+
+        $file = (string) \tempnam(\sys_get_temp_dir(), 'tcchain');
+        \file_put_contents($file, $pemBundle);
+        try {
+            $fromFile = $obj->exposeLoadExtraCertificates('file://' . $file);
+        } finally {
+            \unlink($file);
+        }
+
+        $this->assertSame($expected, $fromFile);
+    }
+
+    /** @throws \Throwable */
+    public function testBuildSignatureCmsEmbedsExtraCertificates(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $signer = $this->makeSigningCredential();
+        $extra = $this->makeSigningCredential();
+
+        $this->setSignatureArray($obj, [
+            'signcert' => $signer['cert_pem'],
+            'privkey' => $signer['key_pem'],
+            'password' => '',
+            'extracerts' => $extra['cert_pem'],
+        ]);
+
+        $cms = $obj->exposeBuildSignatureCms('payload');
+        $this->assertStringContainsString($this->pemCertToDer($extra['cert_pem']), $cms);
+    }
+
+    /** @throws \Throwable */
+    public function testBuildSignatureCmsOmitsSigningTimeForPadesProfile(): void
+    {
+        $signer = $this->makeSigningCredential();
+        $asn1 = new \Com\Tecnick\Pdf\Sign\Cms\Asn1();
+        $signingTimeOid = $asn1->encodeObjectIdentifier('1.2.840.113549.1.9.5');
+
+        // The legacy (ISO 32000-1) profile keeps the CMS signing-time attribute.
+        $legacy = $this->getInternalTestObject();
+        $this->setSignatureArray($legacy, [
+            'signcert' => $signer['cert_pem'],
+            'privkey' => $signer['key_pem'],
+            'password' => '',
+            'profile' => 'legacy',
+        ]);
+        $this->assertStringContainsString($signingTimeOid, $legacy->exposeBuildSignatureCms('payload'));
+
+        // Every PAdES profile omits it (ETSI EN 319 142-1): a PAdES CMS that carries
+        // signing-time is demoted by validators from PAdES-BASELINE-B to PAdES-BES.
+        // The signing time is carried by the /M signature dictionary entry instead.
+        $pades = $this->getInternalTestObject();
+        $this->setSignatureArray($pades, [
+            'signcert' => $signer['cert_pem'],
+            'privkey' => $signer['key_pem'],
+            'password' => '',
+            'profile' => 'pades-b-b',
+        ]);
+        $this->assertStringNotContainsString($signingTimeOid, $pades->exposeBuildSignatureCms('payload'));
+    }
+
+    /** @throws \Throwable */
+    public function testBuildSignatureCmsRejectsInvalidCertificate(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setSignatureArray($obj, [
+            'signcert' => 'not-a-certificate',
+            'privkey' => 'not-a-key',
+            'password' => '',
+        ]);
+
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->exposeBuildSignatureCms('payload');
+    }
+
+    /** @throws \Throwable */
+    public function testBuildSignatureCmsRejectsInvalidPrivateKey(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $signer = $this->makeSigningCredential();
+        $this->setSignatureArray($obj, [
+            'signcert' => $signer['cert_pem'],
+            'privkey' => 'not-a-key',
+            'password' => '',
+        ]);
+
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        \set_error_handler(static fn(): bool => true);
+        try {
+            $obj->exposeBuildSignatureCms('payload');
+        } finally {
+            \restore_error_handler();
+        }
+    }
+
+    /** @throws \Throwable */
+    public function testConvertBinarySignatureToHexRejectsOversizedSignature(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $oversized = \str_repeat("\x00", 6_000); // 12000 hex chars > SIGMAXLEN (11742)
+
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->exposeConvertBinarySignatureToHex($oversized);
+    }
+
+    /**
+     * Set the protected signature configuration array on a test object.
+     *
+     * @param array<string, mixed> $signature
+     * @throws \Throwable
+     */
+    private function setSignatureArray(TestableOutput $obj, array $signature): void
+    {
+        $prop = new \ReflectionProperty($obj, 'signature');
+        $prop->setValue($obj, $signature);
+    }
+
+    /**
+     * Convert the first PEM CERTIFICATE block to DER.
+     */
+    private function pemCertToDer(string $pem): string
+    {
+        $stripped = (string) \preg_replace('/-----[^-]+-----|\s+/', '', $pem);
+        return (string) \base64_decode($stripped, true);
+    }
+
+    /**
+     * Generate an RSA signing key and matching self-signed certificate (PEM).
+     *
+     * @return array{cert_pem: string, key_pem: string}
+     */
+    private function makeSigningCredential(): array
+    {
+        $config = ['digest_alg' => 'sha256', 'private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA];
+        $key = \openssl_pkey_new($config);
+        if (!$key instanceof \OpenSSLAsymmetricKey) {
+            $this->markTestSkipped('RSA key generation is not available');
+        }
+
+        $csr = \openssl_csr_new(['commonName' => 'tc-lib-pdf signer'], $key, $config);
+        if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
+            $this->markTestSkipped('CSR generation failed');
+        }
+
+        $cert = \openssl_csr_sign($csr, null, $key, 365, $config);
+        if (!$cert instanceof \OpenSSLCertificate) {
+            $this->markTestSkipped('Certificate signing failed');
+        }
+
+        $certPem = '';
+        \openssl_x509_export($cert, $certPem);
+        $keyPem = '';
+        \openssl_pkey_export($key, $keyPem);
+
+        return ['cert_pem' => $certPem, 'key_pem' => $keyPem];
     }
 }

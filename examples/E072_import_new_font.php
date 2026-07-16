@@ -19,7 +19,7 @@
  * This file is part of tc-lib-pdf software library.
  */
 
-// NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
+// NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
 require __DIR__ . '/../vendor/autoload.php';
 

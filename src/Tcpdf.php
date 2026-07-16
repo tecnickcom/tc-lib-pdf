@@ -25,6 +25,7 @@ use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Import\Importer as ObjImporter;
 use Com\Tecnick\Pdf\Import\ImporterInterface;
 use Com\Tecnick\Pdf\Import\PageTemplateInterface;
+use Com\Tecnick\Pdf\Sign\Config as SignConfig;
 
 /**
  * Com\Tecnick\Pdf\Tcpdf
@@ -84,6 +85,13 @@ use Com\Tecnick\Pdf\Import\PageTemplateInterface;
  */
 class Tcpdf extends \Com\Tecnick\Pdf\Output
 {
+    /**
+     * Fluent signature facade instance (null until first signature() call).
+     *
+     * @var \Com\Tecnick\Pdf\Signature\Facade|null
+     */
+    private ?\Com\Tecnick\Pdf\Signature\Facade $signatureFacade = null;
+
     /**
      * Initialize a new PDF object.
      *
@@ -504,6 +512,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *        - signature (string) Names specifying additional signature-related usage rights for the document.
      *          The only defined value is /Modify, which permits a user to apply a digital signature to an
      *          existing signature form field or clear a signed signature form field.
+     *
+     * Also available through the fluent API: signature()->userRights().
      */
     public function setUserRights(array $rights): void
     {
@@ -564,6 +574,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *            - embed_certs (bool) Embed certificate bytes in validation material.
      *            - include_dss (bool) Include DSS objects in output.
      *            - include_vri (bool) Include VRI map in output.
+     *
+     * Also available through the fluent API: signature()->configure().
      *
      * @throws PdfException
      */
@@ -636,6 +648,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param TSignature $data Signature data.
      *
      * @throws PdfException
+     *
+     * Also available through the fluent API: signature()->external()->configure().
      */
     public function setSignatureForExternalSigning(array $data): void
     {
@@ -666,6 +680,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *
      * @throws PdfException
      * @throws \Throwable
+     *
+     * Also available through the fluent API: signature()->external()->prepare().
      */
     public function getExternalSignaturePreparation(string $algorithm = 'sha256'): array
     {
@@ -716,6 +732,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @return string Fully signed PDF document.
      *
      * @throws PdfException
+     *
+     * Also available through the fluent API: signature()->external()->apply().
      */
     public function applyExternalSignature(
         string $preparedPdf,
@@ -754,11 +772,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             throw new PdfException('Invalid signature encoding');
         }
 
-        if (\strlen($hexSignature) > $this::SIGMAXLEN) {
+        $contentsLength = $this->signatureContentsLength();
+        if (\strlen($hexSignature) > $contentsLength) {
             throw new PdfException('Signature is too large for the reserved PDF placeholder');
         }
 
-        $hexSignature = \str_pad(\strtolower($hexSignature), $this::SIGMAXLEN, '0');
+        $hexSignature = \str_pad(\strtolower($hexSignature), $contentsLength, '0');
         return \substr($preparedPdf, 0, $pos) . '<' . $hexSignature . '>' . \substr($preparedPdf, $pos);
     }
 
@@ -766,6 +785,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * Get the signature widget object ID.
      *
      * @return int Signature widget annotation object ID (0 if not initialized).
+     *
+     * Also available through the fluent API: signature()->widgetObjectId().
      */
     public function getSignatureObjectID(): int
     {
@@ -800,6 +821,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *        - verify_peer (bool) Validate TSA TLS certificate.
      *
      * @throws PdfException
+     *
+     * Also available through the fluent API: signature()->timestamp().
      */
     public function setSignTimeStamp(array $data): void
     {
@@ -843,6 +866,30 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         if ($timeout < 1) {
             throw new PdfException('Invalid TSA timeout');
         }
+    }
+
+    /**
+     * Request a PAdES B-LTA archive: switch the signature profile to pades-b-lta
+     * and ensure the long-term validation store (DSS) is emitted.
+     *
+     * The next getOutPDFString() then produces the signature revision, the DSS
+     * revision, and a /Type /DocTimeStamp archive-timestamp revision. A TSA must be
+     * configured (setSignTimeStamp / signature()->timestamp()) since B-LTA builds
+     * on B-T; without it the timestamp revision is skipped. Existing LTV options are
+     * preserved; only enabled and include_dss are forced on.
+     */
+    public function upgradeSignatureToLta(): void
+    {
+        $ltv = $this->signature['ltv'] ?? [];
+        $this->signature['ltv'] = [
+            'enabled' => true,
+            'embed_ocsp' => $ltv['embed_ocsp'] ?? true,
+            'embed_crl' => $ltv['embed_crl'] ?? true,
+            'embed_certs' => $ltv['embed_certs'] ?? true,
+            'include_dss' => true,
+            'include_vri' => $ltv['include_vri'] ?? true,
+        ];
+        $this->signature['profile'] = SignConfig::PROFILE_PADES_B_LTA;
     }
 
     /**
@@ -897,6 +944,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param string $name Name of the signature.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
+     *
+     * Also available through the fluent API: signature()->appearance()->place().
      */
     public function setSignatureAppearance(
         float $posx = 0,
@@ -921,6 +970,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param string $state Optional appearance state name.
      *
      * @throws PdfException
+     *
+     * Also available through the fluent API: signature()->appearance()->stream().
      */
     public function setSignatureAppearanceStream(string $stream, string $mode = 'N', string $state = ''): void
     {
@@ -961,6 +1012,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param string $xobjid XObject resource name (for example "IMP1").
      *
      * @throws PdfException
+     *
+     * Also available through the fluent API: signature()->appearance()->xobject().
      */
     public function setSignatureAppearanceXObject(string $xobjid): void
     {
@@ -983,6 +1036,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param string $name Name of the signature.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
+     *
+     * Also available through the fluent API: signature()->emptyField().
      */
     public function addEmptySignatureAppearance(
         float $posx = 0,
@@ -1292,6 +1347,21 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     // -------------------------------------------------------------------------
     // PDF Import API
     // -------------------------------------------------------------------------
+
+    /**
+     * Fluent entry point for the signature subsystem.
+     *
+     * Groups signature configuration, timestamp, user rights, appearance, empty
+     * fields, and external signing behind one discoverable object. It forwards to
+     * the underlying setSignature()/setSignTimeStamp()/... methods, which remain
+     * fully supported; the facade is a convenience wrapper, not a replacement.
+     *
+     * @return \Com\Tecnick\Pdf\Signature\Facade
+     */
+    public function signature(): \Com\Tecnick\Pdf\Signature\Facade
+    {
+        return $this->signatureFacade ??= new \Com\Tecnick\Pdf\Signature\Facade($this);
+    }
 
     /**
      * Return the lazy-initialized importer instance.

@@ -17,7 +17,7 @@
  * This file is part of tc-lib-pdf software library.
  */
 
-// NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
+// NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -100,7 +100,8 @@ $pdf->setSignatureAppearanceStream(stream: $sigAppearance);
 
 $instructionsHtml = <<<HTML
     <h1>External Signature Injection (E075)</h1>
-    <p>This example demonstrates a full remote-signing flow where the private key never lives in your application.</p>
+    <p>This example demonstrates a full remote-signing flow where the private key never lives in your
+    application. The signature field uses the ISO 32000-1 <code>/adbe.pkcs7.detached</code> sub-filter.</p>
 
     <h2>Workflow</h2>
     <ol>
@@ -124,8 +125,12 @@ $instructionsHtml = <<<HTML
     </ol>
 
     <h2>This Demo Uses a Fake External Response</h2>
-    <p>To keep the example self-contained, it injects a simulated CMS payload.
-    The resulting PDF proves the integration mechanics, but the signature is expected to be cryptographically invalid.</p>
+    <p>To keep the example self-contained and offline, it injects a simulated CMS payload
+    (<code>DEMO-REMOTE-CMS:</code> followed by the raw digest) instead of calling a real signer. The injection
+    reuses the reserved <code>/Contents</code> placeholder without re-hashing the document, so the PDF proves
+    the ByteRange / placeholder / injection mechanics but is cryptographically invalid and will not pass
+    signature validation. <code>applyExternalSignature()</code> throws if the returned CMS is larger than the
+    reserved placeholder, so size the placeholder for your provider's real CMS.</p>
 
     <h2>Run Modes</h2>
     <ul>
@@ -149,9 +154,13 @@ if (!in_array($mode, ['render', 'save'], true)) {
     $mode = PHP_SAPI === 'cli' ? 'save' : 'render';
 }
 
+// The external signing workflow (reserve placeholder, hash, remote-sign, inject)
+// is documented in the instructions rendered into the document above.
 $prepared = $pdf->getExternalSignaturePreparation('sha256');
 
-// Simulated remote CMS response for demonstration only.
+// Demo shortcut: inject a FAKE CMS payload instead of calling a real signer (see
+// the "fake external response" note in the rendered instructions above). Replace
+// this with a real CMS from your provider for a verifiable signature.
 $fakeRemoteCmsSignature = 'DEMO-REMOTE-CMS:' . $prepared['hash_raw'];
 $signedPdf = $pdf->applyExternalSignature(
     preparedPdf: $prepared['prepared_pdf'],

@@ -21,7 +21,7 @@ Only the listed host names are permitted. Any attempt to load a resource from an
 
 ## Restricting Local Paths
 
-`allowedPaths` controls which local path prefixes may be read by the shared file helper for internal library IO, such as temp-backed signing flows, fonts, and other explicit file operations. If you omit it, the library computes a default set of trusted roots that covers the system temp directory, the package root, and bundled `vendor/tecnickcom` assets. The helper that returns these defaults is `Com\\Tecnick\\Pdf\\Base::defaultFileAllowedPaths()`.
+`allowedPaths` controls which local path prefixes may be read by the shared file helper for internal library IO, such as fonts, and other explicit file operations. If you omit it, the library computes a default set of trusted roots that covers the system temp directory, the package root, and bundled `vendor/tecnickcom` assets. The helper that returns these defaults is `Com\\Tecnick\\Pdf\\Base::defaultFileAllowedPaths()`.
 
 `markupAllowedPaths` controls which local path prefixes may be read when resources are referenced by rendered HTML, CSS, or SVG markup. If you omit it, the library reuses an explicit `allowedPaths` value when one is provided; otherwise it computes a stricter default that excludes the system temp directory. The helper that returns those stricter defaults is `Com\\Tecnick\\Pdf\\Base::defaultMarkupAllowedPaths()`.
 
@@ -44,7 +44,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 );
 ```
 
-Supplying `allowedPaths` replaces the internal-file defaults instead of merging with them. Include every local directory the PDF run needs for trusted internal operations, such as temp-backed signature files, image fixtures, custom font directories, or cache-backed assets.
+Supplying `allowedPaths` replaces the internal-file defaults instead of merging with them. Include every local directory the PDF run needs for trusted internal operations, such as image fixtures, custom font directories, or cache-backed assets.
 
 Supplying `markupAllowedPaths` replaces the stricter markup defaults instead of merging with them. Include only directories that should be reachable from rendered markup.
 

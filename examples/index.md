@@ -9,9 +9,9 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E004_page_formats.php](E004_page_formats.php): Page format and orientation samples.
 - [E005_header_footer.php](E005_header_footer.php): Repeating custom page header and footer example with PDF/UA Artifact tagging (`Pagination/Header` and `Pagination/Footer`).
 - [E006_minimal.php](E006_minimal.php): Minimal "Hello, PDF" setup.
-- [E007_signature_basic.php](E007_signature_basic.php): Basic detached CMS (PKCS#7) digital signature with visible signature fields.
-- [E008_signature_timestamp.php](E008_signature_timestamp.php): Detached CMS digital signature with RFC 3161 timestamp support.
-- [E009_signature_ltv.php](E009_signature_ltv.php): Detached CMS digital signature with LTV validation material (/DSS and /VRI).
+- [E007_signature_basic.php](E007_signature_basic.php): PAdES-BASELINE-B digital signature via the fluent `signature()` facade, with visible signature fields.
+- [E008_signature_timestamp.php](E008_signature_timestamp.php): PAdES-BASELINE-T digital signature with an RFC 3161 TSA timestamp.
+- [E009_signature_ltv.php](E009_signature_ltv.php): PAdES-BASELINE-LT digital signature with LTV validation material (/DSS and /VRI).
 - [E010_pdfx.php](E010_pdfx.php): Generic PDF/X mode example for baseline print-oriented output.
 - [E011_pdfx1a.php](E011_pdfx1a.php): PDF/X-1a conformance example focused on classic CMYK/spot print restrictions.
 - [E012_pdfx3.php](E012_pdfx3.php): PDF/X-3 conformance example for color-managed print workflows.
@@ -83,3 +83,4 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E078_htmlcell_page_margins.php](E078_htmlcell_page_margins.php): Single page with 100mm top and bottom margins, placing getHTMLCell text blocks in the top border, central content area, and bottom border.
 - [E079_font_stretch_spacing_matrix.php](E079_font_stretch_spacing_matrix.php): Font stretching (Tz) and character spacing (Tc) matrix across L/C/R/J alignment for both the direct text API and the HTML/CSS font-stretch/letter-spacing engine.
 - [E080_no_write_regions.php](E080_no_write_regions.php): No-write page regions: text flows around rectangular, trapezoidal, and circular obstacles via `setNoWriteRegions()`, which approximates each obstacle with a stack of rectangular write regions. Each scenario is rendered twice — with `addTextCell()` and with `addHTMLCell()` — producing the same shape-hugging flow and overflowing onto a fresh full-width page.
+- [E081_signature_pades_lta.php](E081_signature_pades_lta.php): PAdES-BASELINE-LTA archive-timestamped signature: a B-LT signature upgraded via `signature()->upgradeToLta()`, adding a `/Type /DocTimeStamp` archive timestamp over the whole document in a further incremental revision.

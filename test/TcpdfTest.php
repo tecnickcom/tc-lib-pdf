@@ -1173,4 +1173,364 @@ class TcpdfTest extends TestUtil
         $this->assertTrue($pdfxColor->isForceDeviceCmyk());
         $this->assertSame('', $pdfxColor->getPdfColor('not-a-color-value'));
     }
+
+    /**
+     * End-to-end: signing a document embeds a native detached CAdES CMS that
+     * cryptographically verifies over the ByteRange bytes, while the legacy
+     * profile keeps the /adbe.pkcs7.detached SubFilter.
+     *
+     * @throws \Throwable
+     */
+    public function testSignDocumentEmbedsVerifiableNativeCms(): void
+    {
+        $cred = $this->makeSigningCredentials();
+
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+        $obj->setSignature([
+            'appearance' => ['empty' => [], 'name' => 'MainSig', 'page' => $page['pid'], 'rect' => '0 0 10 5'],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => '',
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => $cred['key_pem'],
+            'signcert' => $cred['cert_pem'],
+        ]);
+
+        $pdf = $obj->getOutPDFString();
+
+        // Legacy profile keeps the ISO 32000-1 SubFilter.
+        $this->assertStringContainsString('/SubFilter /adbe.pkcs7.detached', $pdf);
+
+        [$cmsDer, $signedBytes] = $this->extractSignatureCmsAndContent($pdf);
+
+        // The embedded blob is a CMS SignedData ContentInfo.
+        $asn1 = new \Com\Tecnick\Pdf\Sign\Cms\Asn1();
+        $offset = 0;
+        $root = $asn1->readTlv($cmsDer, $offset);
+        $this->assertSame(0x30, $root['tag']);
+        $this->assertStringContainsString($asn1->encodeObjectIdentifier('1.2.840.113549.1.7.2'), $cmsDer);
+
+        // The detached signature covers exactly the ByteRange bytes: the
+        // message-digest signed attribute equals SHA-256 of that content.
+        $this->assertStringContainsString(\hash('sha256', $signedBytes, true), $cmsDer);
+
+        // The SignerInfo signature verifies over the DER SET OF signed attributes.
+        $this->assertTrue($this->cmsSignatureVerifies($cmsDer, $cred['cert_pem']));
+    }
+
+    /**
+     * PAdES B-LT: the Document Security Store is emitted in a post-signing
+     * incremental revision whose VRI key is the SHA-1 of the final signature
+     * /Contents, and the document catalog is re-emitted there with the /DSS
+     * reference. The originally signed revision is left byte-for-byte intact.
+     *
+     * @throws \Throwable
+     */
+    public function testGetOutPDFStringAppendsBltDssRevision(): void
+    {
+        $cred = $this->makeSigningCredentials();
+
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+        $obj->setSignature([
+            'appearance' => ['empty' => [], 'name' => 'MainSig', 'page' => $page['pid'], 'rect' => '0 0 10 5'],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => '',
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => $cred['key_pem'],
+            'signcert' => $cred['cert_pem'],
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $pdf = $obj->getOutPDFString();
+
+        // The signed revision is untouched and a second (DSS) revision is appended.
+        $this->assertSame(2, \substr_count($pdf, '%%EOF'));
+        $this->assertSame(2, \substr_count($pdf, "startxref\n"));
+
+        $firstEof = \strpos($pdf, '%%EOF');
+        $this->assertIsInt($firstEof);
+        $revision = \substr($pdf, $firstEof);
+
+        // The DSS objects and the re-emitted catalog live only in the appended revision.
+        $this->assertStringContainsString('/Type /DSS', $revision);
+        $this->assertStringContainsString('/Certs [', $revision);
+        $this->assertStringContainsString('/Type /VRI', $revision);
+        $this->assertStringContainsString('/Type /Catalog', $revision);
+        $this->assertStringContainsString('/Prev ', $revision);
+
+        // The VRI key is the uppercase SHA-1 of the signature /Contents bytes.
+        $cstart = \strpos($pdf, '/Contents<');
+        $this->assertIsInt($cstart);
+        $cstart += \strlen('/Contents<');
+        $cend = \strpos($pdf, '>', $cstart);
+        $this->assertIsInt($cend);
+        $contents = (string) \hex2bin(\substr($pdf, $cstart, $cend - $cstart));
+        $vriKey = \strtoupper(\sha1($contents));
+        $this->assertStringContainsString('/VRI << /' . $vriKey . ' ', $revision);
+        $this->assertStringContainsString('/DSS ', $revision);
+
+        // It is no longer the legacy cert-hash VRI key.
+        $certDer = (string) \base64_decode(
+            (string) \preg_replace('/-----[^-]+-----|\s+/', '', $cred['cert_pem']),
+            true,
+        );
+        $this->assertStringNotContainsString(\strtoupper(\sha1($certDer)), $revision);
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureFacadeIsLazyAndStable(): void
+    {
+        $obj = $this->getTestObject();
+        $facade = $obj->signature();
+
+        $this->assertInstanceOf(\Com\Tecnick\Pdf\Signature\Facade::class, $facade);
+        $this->assertSame($facade, $obj->signature());
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureFacadeConfigureSetsSignState(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+
+        $result = $obj->signature()->configure([
+            'appearance' => ['empty' => [], 'name' => 'MainSig', 'page' => $page['pid'], 'rect' => '0 0 10 5'],
+            'approval' => '',
+            'cert_type' => 2,
+            'extracerts' => '',
+            'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+            'password' => '',
+            'privkey' => 'dummy-key',
+            'signcert' => 'dummy-cert',
+        ]);
+
+        $this->assertInstanceOf(\Com\Tecnick\Pdf\Signature\Facade::class, $result);
+        $this->assertTrue($this->getObjectProperty($obj, 'sign'));
+        $this->assertGreaterThan(0, $obj->signature()->widgetObjectId());
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureFacadeAppearanceAndEmptyFieldDelegate(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+
+        $appearance = $obj->signature()->appearance();
+        $chained = $appearance->place(10, 20, 30, 15, $page['pid'], 'MainSig')->xobject('IMP1');
+        $appearance->stream('q 0 g Q', 'N', 'On');
+        $obj->signature()->emptyField(5, 6, 20, 10, $page['pid'], 'EmptySig');
+
+        $this->assertInstanceOf(\Com\Tecnick\Pdf\Signature\Appearance::class, $chained);
+
+        /**
+         * @var array{appearance: array{
+         *     name: string, xobj: string, as: string, empty: array<int, array{name: string}>
+         * }} $signature
+         */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertSame('MainSig', $signature['appearance']['name']);
+        $this->assertSame('IMP1', $signature['appearance']['xobj']);
+        $this->assertSame('On', $signature['appearance']['as']);
+        $this->assertNotEmpty($signature['appearance']['empty']);
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureFacadeTimestampAndUserRightsDelegate(): void
+    {
+        $obj = $this->getTestObject();
+
+        $obj
+            ->signature()
+            ->timestamp([
+                'enabled' => true,
+                'host' => 'https://tsa.example.org',
+                'username' => '',
+                'password' => '',
+                'cert' => '',
+                'hash_algorithm' => 'sha256',
+                'policy_oid' => '',
+                'nonce_enabled' => true,
+                'timeout' => 5,
+                'verify_peer' => true,
+            ])
+            ->userRights([
+                'annots' => '',
+                'document' => '/FullSave',
+                'ef' => '',
+                'enabled' => true,
+                'form' => '',
+                'formex' => '',
+                'signature' => '',
+            ]);
+
+        /** @var array{enabled: bool, host: string} $ts */
+        $ts = $this->getObjectProperty($obj, 'sigtimestamp');
+        $this->assertTrue($ts['enabled']);
+        $this->assertSame('https://tsa.example.org', $ts['host']);
+
+        /** @var array{document: string} $rights */
+        $rights = $this->getObjectProperty($obj, 'userrights');
+        $this->assertSame('/FullSave', $rights['document']);
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureFacadeUpgradeToLtaSetsProfileAndDss(): void
+    {
+        $obj = $this->getTestObject();
+
+        $result = $obj->signature()->upgradeToLta();
+
+        $this->assertInstanceOf(\Com\Tecnick\Pdf\Signature\Facade::class, $result);
+
+        /** @var array{profile: string, ltv: array{enabled: bool, include_dss: bool}} $signature */
+        $signature = $this->getObjectProperty($obj, 'signature');
+        $this->assertSame('pades-b-lta', $signature['profile']);
+        $this->assertTrue($signature['ltv']['enabled']);
+        $this->assertTrue($signature['ltv']['include_dss']);
+    }
+
+    /** @throws \Throwable */
+    public function testSignatureFacadeExternalConfigureAndPrepare(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndAddRawPage($obj);
+
+        $obj
+            ->signature()
+            ->external()
+            ->configure([
+                'appearance' => ['empty' => [], 'name' => 'ExtSig', 'page' => $page['pid'], 'rect' => '0 0 10 5'],
+                'approval' => '',
+                'cert_type' => 2,
+                'extracerts' => '',
+                'info' => ['ContactInfo' => '', 'Location' => '', 'Name' => '', 'Reason' => ''],
+                'password' => '',
+                'privkey' => '',
+                'signcert' => '',
+            ]);
+
+        $prep = $obj->signature()->external()->prepare('sha256');
+        $this->assertSame('sha256', $prep['algorithm']);
+        $this->assertNotSame('', $prep['prepared_pdf']);
+        $this->assertSame(\hash('sha256', $prep['prepared_pdf'], true), $prep['hash_raw']);
+    }
+
+    /**
+     * Extract the embedded CMS (DER, trimmed of placeholder padding) and the
+     * ByteRange-covered content from a signed PDF.
+     *
+     * @return array{string, string} [CMS DER, signed content bytes]
+     * @throws \Throwable
+     */
+    private function extractSignatureCmsAndContent(string $pdf): array
+    {
+        $m = [];
+        if (\preg_match('/\\/ByteRange\\[0 (\\d+) (\\d+) (\\d+)\\]/', $pdf, $m) !== 1) {
+            $this->fail('ByteRange not found in signed output');
+        }
+
+        $end1 = (int) ($m[1] ?? '0');
+        $start2 = (int) ($m[2] ?? '0');
+        $len2 = (int) ($m[3] ?? '0');
+
+        $signedBytes = \substr($pdf, 0, $end1) . \substr($pdf, $start2, $len2);
+
+        $contents = \substr($pdf, $end1, $start2 - $end1); // '<' hex '>'
+        $hex = \trim($contents, '<>');
+        $binary = (string) \hex2bin($hex);
+
+        // Trim the trailing zero padding to the exact DER length.
+        $asn1 = new \Com\Tecnick\Pdf\Sign\Cms\Asn1();
+        $offset = 0;
+        $cms = $asn1->readTlv($binary, $offset);
+
+        return [$cms['raw'], $signedBytes];
+    }
+
+    /**
+     * Cryptographically verify the CMS SignerInfo signature over its signed
+     * attributes using the certificate public key.
+     *
+     * @throws \Throwable
+     */
+    private function cmsSignatureVerifies(string $cmsDer, string $certPem): bool
+    {
+        $asn1 = new \Com\Tecnick\Pdf\Sign\Cms\Asn1();
+
+        $offset = 0;
+        $contentInfo = $asn1->readTlv($cmsDer, $offset);
+        $ci = 0;
+        $asn1->readTlv($contentInfo['value'], $ci); // contentType OID
+        $explicit = $asn1->readTlv($contentInfo['value'], $ci); // [0] EXPLICIT
+
+        $sd = 0;
+        $signedData = $asn1->readTlv($explicit['value'], $sd);
+        $inner = 0;
+        $asn1->readTlv($signedData['value'], $inner); // version
+        $asn1->readTlv($signedData['value'], $inner); // digestAlgorithms
+        $asn1->readTlv($signedData['value'], $inner); // encapContentInfo
+        $asn1->readTlv($signedData['value'], $inner); // certificates [0]
+        $signerInfos = $asn1->readTlv($signedData['value'], $inner); // signerInfos SET
+
+        $si = 0;
+        $signerInfo = $asn1->readTlv($signerInfos['value'], $si);
+        $f = 0;
+        $asn1->readTlv($signerInfo['value'], $f); // version
+        $asn1->readTlv($signerInfo['value'], $f); // sid
+        $asn1->readTlv($signerInfo['value'], $f); // digestAlgorithm
+        $signedAttrs = $asn1->readTlv($signerInfo['value'], $f); // [0] IMPLICIT
+        $asn1->readTlv($signerInfo['value'], $f); // signatureAlgorithm
+        $signature = $asn1->readTlv($signerInfo['value'], $f); // signature OCTET STRING
+
+        $publicKey = \openssl_pkey_get_public($certPem);
+        if ($publicKey === false) {
+            $this->fail('Unable to load certificate public key');
+        }
+
+        $signedAttrsSet = $asn1->encodeSet($signedAttrs['value']);
+        return \openssl_verify($signedAttrsSet, $signature['value'], $publicKey, OPENSSL_ALGO_SHA256) === 1;
+    }
+
+    /**
+     * Generate an RSA signing key and a matching self-signed certificate (PEM).
+     *
+     * @return array{cert_pem: string, key_pem: string}
+     */
+    private function makeSigningCredentials(): array
+    {
+        $config = ['digest_alg' => 'sha256', 'private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA];
+        $key = \openssl_pkey_new($config);
+        if (!$key instanceof \OpenSSLAsymmetricKey) {
+            $this->markTestSkipped('RSA key generation is not available');
+        }
+
+        $csr = \openssl_csr_new(['commonName' => 'tc-lib-pdf signer'], $key, $config);
+        if (!$csr instanceof \OpenSSLCertificateSigningRequest) {
+            $this->markTestSkipped('CSR generation failed');
+        }
+
+        $cert = \openssl_csr_sign($csr, null, $key, 365, $config);
+        if (!$cert instanceof \OpenSSLCertificate) {
+            $this->markTestSkipped('Certificate signing failed');
+        }
+
+        $certPem = '';
+        \openssl_x509_export($cert, $certPem);
+        $keyPem = '';
+        \openssl_pkey_export($key, $keyPem);
+
+        return ['cert_pem' => $certPem, 'key_pem' => $keyPem];
+    }
 }

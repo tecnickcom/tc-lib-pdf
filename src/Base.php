@@ -607,6 +607,8 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *        'password': string,
  *        'privkey': string,
  *        'signcert': string,
+ *        'profile'?: string,
+ *        'digest_algorithm'?: string,
  *        'ltv'?: TLtvConfig,
  *    }
  *
@@ -649,6 +651,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  * @phpstan-type TObjID array{
  *        'catalog': int,
  *        'dests': int,
+ *        'doctimestamp': int,
  *        'dss': int,
  *        'form': array<int>,
  *        'info': int,
@@ -670,30 +673,6 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *        'pdfdoc_length': int,
  *    }
  *
- * @phpstan-type TValidationCert array{
- *        'pem': string,
- *        'der': string,
- *        'serial': string,
- *        'subject': string,
- *        'issuer': string,
- *        'ocsp_urls': array<int, string>,
- *        'crl_dp_urls': array<int, string>,
- *    }
- *
- * @phpstan-type TValidationVri array{
- *        'certs': array<int>,
- *        'ocsp': array<int>,
- *        'crls': array<int>,
- *    }
- *
- * @phpstan-type TValidationMaterial array{
- *        'cert_chain': array<int, TValidationCert>,
- *        'certs': array<int, string>,
- *        'ocsp': array<int, string>,
- *        'crls': array<int, string>,
- *        'vri': array<string, TValidationVri>,
- *    }
- *
  * @SuppressWarnings("PHPMD")
  */
 abstract class Base
@@ -701,7 +680,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.65.10';
+    protected string $version = '8.66.0';
 
     /**
      * Encrypt object.
@@ -1126,6 +1105,7 @@ abstract class Base
     protected array $objid = [
         'catalog' => 0,
         'dests' => 0,
+        'doctimestamp' => 0,
         'dss' => 0,
         'form' => [],
         'info' => 0,

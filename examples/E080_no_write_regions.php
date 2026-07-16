@@ -34,7 +34,7 @@
  * height) a 5mm band fits exactly one line, giving the finest (per-line) staircase.
  */
 
-// NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
+// NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
 require __DIR__ . '/../vendor/autoload.php';

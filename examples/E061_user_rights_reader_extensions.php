@@ -14,7 +14,7 @@
  * This file is part of tc-lib-pdf software library.
  */
 
-// NOTE: run make deps fonts in the project root to generate the dependencies and example fonts.
+// NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 // NOTE: This example requires a signing certificate.  Run the following to create a self-signed one:
 //   cd examples/data/cert
 //   openssl req -x509 -nodes -days 365000 -newkey rsa:2048 -keyout tcpdf.crt -out tcpdf.crt \

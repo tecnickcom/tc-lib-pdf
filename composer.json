@@ -32,6 +32,7 @@
         "tecnickcom/tc-lib-pdf-font": "^3.11",
         "tecnickcom/tc-lib-file": "^3.6",
         "tecnickcom/tc-lib-pdf-encrypt": "^2.8",
+        "tecnickcom/tc-lib-pdf-sign": "^1.0",
         "tecnickcom/tc-lib-unicode-data": "^2.6",
         "tecnickcom/tc-lib-unicode": "^2.10",
         "tecnickcom/tc-lib-pdf-page": "^4.13",
