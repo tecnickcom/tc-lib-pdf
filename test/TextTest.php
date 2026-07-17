@@ -1391,8 +1391,8 @@ class TextTest extends TestUtil
                 float $height = 0,
                 float $offset = 0,
                 float $linespace = 0,
-                string $valign = 'T',
-                string $halign = '',
+                string|\Com\Tecnick\Pdf\TextVAlign $valign = 'T',
+                string|\Com\Tecnick\Pdf\TextHAlign $halign = '',
                 ?array $cell = null,
                 array $styles = [],
                 float $strokewidth = 0,
@@ -1407,9 +1407,9 @@ class TextTest extends TestUtil
                 bool $overline = false,
                 bool $clip = false,
                 bool $drawcell = true,
-                string $forcedir = '',
+                string|\Com\Tecnick\Unicode\TextDirection $forcedir = '',
                 ?array $shadow = null,
-                string $fit = '',
+                string|\Com\Tecnick\Pdf\TextFitMode $fit = '',
             ): void {
                 $this->captured = [
                     'txt' => $txt,

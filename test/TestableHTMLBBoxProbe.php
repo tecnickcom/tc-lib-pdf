@@ -51,8 +51,8 @@ class TestableHTMLBBoxProbe extends TestableHTML
         float $height = 0,
         float $offset = 0,
         float $linespace = 0,
-        string $valign = 'C',
-        string $halign = 'C',
+        string|\Com\Tecnick\Pdf\TextVAlign $valign = 'C',
+        string|\Com\Tecnick\Pdf\TextHAlign $halign = 'C',
         ?array $cell = null,
         array $styles = [],
         float $strokewidth = 0,
@@ -67,9 +67,9 @@ class TestableHTMLBBoxProbe extends TestableHTML
         bool $overline = false,
         bool $clip = false,
         bool $drawcell = true,
-        string $forcedir = '',
+        string|\Com\Tecnick\Unicode\TextDirection $forcedir = '',
         ?array $shadow = null,
-        string $fit = '',
+        string|\Com\Tecnick\Pdf\TextFitMode $fit = '',
     ): string {
         $out = parent::getTextCell(
             $txt,

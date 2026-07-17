@@ -33,6 +33,8 @@ class TestableTcpdf extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @param \Com\Tecnick\Pdf\Cache\CacheInterface::TYPE_* $type
+     *
+     * @throws \Com\Tecnick\Pdf\Exception
      */
     public function exposeExtCacheEnabledFor(string $type): bool
     {

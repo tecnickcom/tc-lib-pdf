@@ -69,12 +69,12 @@ final class Appearance
      * Set a custom appearance stream for the signature widget annotation.
      *
      * @param string $stream Appearance stream content.
-     * @param string $mode   Appearance mode: N (normal), R (rollover), D (down).
+     * @param string|SignatureAppearanceMode $mode Appearance mode: N (normal), R (rollover), D (down), or enum case.
      * @param string $state  Optional appearance state name.
      *
      * @throws \Com\Tecnick\Pdf\Exception
      */
-    public function stream(string $stream, string $mode = 'N', string $state = ''): self
+    public function stream(string $stream, string|SignatureAppearanceMode $mode = 'N', string $state = ''): self
     {
         $this->pdf->setSignatureAppearanceStream($stream, $mode, $state);
         return $this;

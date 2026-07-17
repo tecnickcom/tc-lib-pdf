@@ -22,6 +22,7 @@ use Com\Tecnick\Barcode\Barcode as ObjBarcode;
 use Com\Tecnick\File\Cache as ObjCache;
 use Com\Tecnick\File\File as ObjFile;
 use Com\Tecnick\Pdf\Cache\CacheInterface as ObjExtCache;
+use Com\Tecnick\Pdf\Cache\CacheType;
 use Com\Tecnick\Pdf\Cache\FontSubsetCacheAdapter;
 use Com\Tecnick\Pdf\Cache\ImageCacheAdapter;
 use Com\Tecnick\Pdf\Cache\SelectiveCacheInterface;
@@ -1889,16 +1890,18 @@ abstract class Base
      * A plain external cache caches every type; a SelectiveCacheInterface
      * decides per type. Returns false when no external cache is configured.
      *
-     * @param ObjExtCache::TYPE_* $type Subsystem type to query.
+     * @param string|CacheType $type Subsystem type to query.
+     *
+     * @throws \Com\Tecnick\Pdf\Exception if the type is not a known cache type.
      */
-    protected function extCacheEnabledFor(string $type): bool
+    protected function extCacheEnabledFor(string|CacheType $type): bool
     {
         if ($this->extCache === null) {
             return false;
         }
 
         if ($this->extCache instanceof SelectiveCacheInterface) {
-            return $this->extCache->supports($type);
+            return $this->extCache->supports(CacheType::fromLoose($type)->value);
         }
 
         return true;
@@ -1910,7 +1913,7 @@ abstract class Base
      */
     protected function imageCacheAdapter(): ?ImageCacheAdapter
     {
-        if ($this->extCache === null || !$this->extCacheEnabledFor(ObjExtCache::TYPE_IMAGE)) {
+        if ($this->extCache === null || !$this->extCacheEnabledFor(CacheType::Image)) {
             return null;
         }
 
@@ -1923,7 +1926,7 @@ abstract class Base
      */
     protected function fontSubsetCacheAdapter(): ?FontSubsetCacheAdapter
     {
-        if ($this->extCache === null || !$this->extCacheEnabledFor(ObjExtCache::TYPE_FONT)) {
+        if ($this->extCache === null || !$this->extCacheEnabledFor(CacheType::Font)) {
             return null;
         }
 

@@ -650,7 +650,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *
      * @param string $file  File name (absolute or relative path).
      * @param string $mime  MIME type of the file (e.g., 'application/xml').
-     * @param string $afrel AFRelationship value (Source, Data, Alternative, Supplement, Unspecified).
+     * @param string|AFRelationship $afrel AFRelationship value (Source, Data, Alternative, Supplement, Unspecified) or enum.
      * @param string $desc  Optional description of the file.
      *
      * @throws PdfException in case of error.
@@ -658,9 +658,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     public function addEmbeddedFile(
         string $file,
         string $mime = 'application/octet-stream',
-        string $afrel = 'Source',
+        string|AFRelationship $afrel = 'Source',
         string $desc = '',
     ): void {
+        if ($afrel instanceof AFRelationship) {
+            $afrel = $afrel->value;
+        }
+
         if ($this->pdfa === 1 || $this->pdfa === 2) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
@@ -697,7 +701,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param string $file    File name to be used a key for the embedded file.
      * @param string $content Content of the embedded file.
      * @param string $mime  MIME type of the file (e.g., 'application/xml').
-     * @param string $afrel AFRelationship value (Source, Data, Alternative, Supplement, Unspecified).
+     * @param string|AFRelationship $afrel AFRelationship value (Source, Data, Alternative, Supplement, Unspecified) or enum.
      * @param string $desc  Optional description of the file.
      *
      * @throws PdfException in case of error.
@@ -706,9 +710,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         string $file,
         string $content,
         string $mime = 'application/octet-stream',
-        string $afrel = 'Source',
+        string|AFRelationship $afrel = 'Source',
         string $desc = '',
     ): void {
+        if ($afrel instanceof AFRelationship) {
+            $afrel = $afrel->value;
+        }
+
         if ($this->pdfa === 1 || $this->pdfa === 2) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }

@@ -84,14 +84,18 @@ final class External
      * @param string                 $preparedPdf Prepared PDF returned by prepare().
      * @param array{int,int,int,int} $byteRange   ByteRange returned by prepare().
      * @param string                 $signature   External signature data.
-     * @param string                 $encoding    Signature encoding: binary, base64, or hex.
+     * @param string|ExternalSignatureEncoding $encoding Signature encoding: binary, base64, hex, or enum case.
      *
      * @return string Fully signed PDF document.
      *
      * @throws \Com\Tecnick\Pdf\Exception
      */
-    public function apply(string $preparedPdf, array $byteRange, string $signature, string $encoding = 'binary'): string
-    {
+    public function apply(
+        string $preparedPdf,
+        array $byteRange,
+        string $signature,
+        string|ExternalSignatureEncoding $encoding = 'binary',
+    ): string {
         return $this->pdf->applyExternalSignature($preparedPdf, $byteRange, $signature, $encoding);
     }
 }

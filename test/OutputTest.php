@@ -3416,7 +3416,7 @@ class OutputTest extends TestUtil
                 ], 77);
                 $this->fail('Expected missing image key exception for mk.' . $ikey);
             } catch (\Com\Tecnick\Pdf\Image\Exception $e) {
-                $this->assertStringContainsString('Unknownn key', $e->getMessage());
+                $this->assertStringContainsString('Unknown key', $e->getMessage());
             }
         }
     }
