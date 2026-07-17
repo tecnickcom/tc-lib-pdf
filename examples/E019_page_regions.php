@@ -27,11 +27,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -100,8 +100,8 @@ $pdf->addTextCell(
     height: 0,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     cell: null,
     styles: [],
     strokewidth: 0,
@@ -151,8 +151,8 @@ $pdf->addTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'J',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Justify,
     cell: null,
     styles: [],
     strokewidth: 0,

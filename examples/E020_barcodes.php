@@ -24,11 +24,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -428,8 +428,8 @@ function renderBarcodeSection(
             height: 0,
             offset: 0,
             linespace: 1,
-            valign: 'T',
-            halign: 'L',
+            valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+            halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         ));
 
         $pdf->page->addContent($smallfont['out']);
@@ -441,8 +441,8 @@ function renderBarcodeSection(
             height: 0,
             offset: 0,
             linespace: 1,
-            valign: 'T',
-            halign: 'L',
+            valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+            halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         ));
 
         return 22.0;
@@ -468,8 +468,8 @@ function renderBarcodeSection(
                 height: 0,
                 offset: 0,
                 linespace: $descLineSpace,
-                valign: 'T',
-                halign: 'L',
+                valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+                halign: \Com\Tecnick\Pdf\TextHAlign::Left,
             );
             $descBBox = $pdf->getLastBBox();
             $barcodePosY = (float) $descBBox['y'] + (float) $descBBox['h'] + $barcodeGap;
@@ -520,8 +520,8 @@ function renderBarcodeSection(
             height: 0,
             offset: 0,
             linespace: 1,
-            valign: 'T',
-            halign: 'L',
+            valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+            halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         ));
 
         $pdf->page->addContent($smallfont['out']);

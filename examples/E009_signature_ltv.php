@@ -47,8 +47,8 @@ $textCell = $pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 );
 $pdf->page->addContent($textCell);
 
@@ -63,8 +63,8 @@ $textCell2 = $pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 );
 $pdf->page->addContent($textCell2);
 
@@ -141,8 +141,8 @@ if (\is_readable($stampSource)) {
         height: $sigH,
         offset: 3.0,
         linespace: 0,
-        valign: 'C',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         cell: null,
         styles: [
             'all' => [
@@ -177,8 +177,8 @@ $textCell3 = $pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 );
 $pdf->page->addContent($textCell3);
 

@@ -39,7 +39,12 @@ $svgdir = __DIR__ . '/images';
 // ---------------------------------------------------------------------------
 // PDF object
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: true);
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
@@ -77,8 +82,8 @@ $pdf->addTextCell(
     height: 6,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     cell: null,
     styles: [],
     strokewidth: 0,
@@ -147,8 +152,8 @@ $pdf->addTextCell(
     height: 6,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     cell: null,
     styles: [],
     strokewidth: 0,
@@ -217,8 +222,8 @@ $pdf->addTextCell(
     height: 6,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     cell: null,
     styles: [],
     strokewidth: 0,
@@ -289,8 +294,8 @@ $pdf->addTextCell(
     height: 6,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     cell: null,
     styles: [],
     strokewidth: 0,
@@ -376,8 +381,8 @@ $pdf->addTextCell(
     height: 6,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     cell: null,
     styles: [],
     strokewidth: 0,

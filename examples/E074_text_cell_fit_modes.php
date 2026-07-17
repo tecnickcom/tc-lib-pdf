@@ -40,7 +40,13 @@ $titleFont = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 14);
 
 $pdf->addPage();
 $pdf->page->addContent($titleFont['out']);
-$pdf->page->addContent($pdf->getTextCell(txt: 'getTextCell() fit mode', posx: 15, posy: 15, valign: 'T', halign: 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'getTextCell() fit mode',
+    posx: 15,
+    posy: 15,
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+));
 
 $baseFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
 
@@ -62,16 +68,21 @@ $pdf->page->addContent($pdf->getTextCell(
     txt: 'Long text scenario (overflow):',
     posx: 15,
     posy: 30,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $longSample = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
-$modesL = ['T', 'S', 'F', ''];
+$modesL = [
+    \Com\Tecnick\Pdf\TextFitMode::Truncate,
+    \Com\Tecnick\Pdf\TextFitMode::Stretch,
+    \Com\Tecnick\Pdf\TextFitMode::ShrinkFont,
+    \Com\Tecnick\Pdf\TextFitMode::Off,
+];
 $modeY = 40;
 
 foreach ($modesL as $mode) {
-    $label = $mode === '' ? 'fit=(disabled)' : 'fit=' . $mode;
+    $label = $mode === \Com\Tecnick\Pdf\TextFitMode::Off ? 'fit=(disabled)' : 'fit=' . $mode->value;
 
     $pdf->page->addContent($pdf->getTextCell(
         txt: $label,
@@ -79,8 +90,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 24,
         height: 6,
-        valign: 'T',
-        halign: 'R',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Right,
     ));
 
     // one line
@@ -90,8 +101,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 160,
         height: 5,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     ));
@@ -103,8 +114,8 @@ foreach ($modesL as $mode) {
         posy: $modeY + 8,
         width: 80,
         height: 10,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     ));
@@ -118,7 +129,13 @@ $page = $pdf->addPage();
 $pid = $page['pid'];
 
 $pdf->page->addContent($titleFont['out']);
-$pdf->page->addContent($pdf->getTextCell(txt: 'addTextCell() fit mode', posx: 15, posy: 15, valign: 'T', halign: 'L'));
+$pdf->page->addContent($pdf->getTextCell(
+    txt: 'addTextCell() fit mode',
+    posx: 15,
+    posy: 15,
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+));
 
 $pdf->page->addContent($baseFont['out']);
 
@@ -126,14 +143,14 @@ $pdf->page->addContent($pdf->getTextCell(
     txt: 'Long text scenario (overflow):',
     posx: 15,
     posy: 30,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $modeY = 40;
 
 foreach ($modesL as $mode) {
-    $label = $mode === '' ? 'fit=(disabled)' : 'fit=' . $mode;
+    $label = $mode === \Com\Tecnick\Pdf\TextFitMode::Off ? 'fit=(disabled)' : 'fit=' . $mode->value;
 
     $pdf->page->addContent($pdf->getTextCell(
         txt: $label,
@@ -141,8 +158,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 24,
         height: 6,
-        valign: 'T',
-        halign: 'R',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Right,
     ));
 
     // one line
@@ -153,8 +170,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 160,
         height: 5,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     );
@@ -167,8 +184,8 @@ foreach ($modesL as $mode) {
         posy: $modeY + 8,
         width: 80,
         height: 10,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     );
@@ -187,8 +204,8 @@ $pdf->page->addContent($pdf->getTextCell(
     posx: 15,
     posy: 15,
     width: 180,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $baseFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 11);
@@ -211,8 +228,8 @@ $pdf->page->addContent($pdf->getTextCell(
     txt: 'Long word scenario (overflow):',
     posx: 15,
     posy: 30,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // Define a custom hyphenation pattern that splits a word after each character.
@@ -224,11 +241,16 @@ foreach (range('a', 'z') as $letter) {
 $pdf->setTexHyphenPatterns(patterns: $singleCharPattern);
 
 $longWord = 'Loremipsumdolorsitametconsecteturadipiscingelitseddoeiusmodtemporincididuntutlaboreetdoloremagnaaliqua.';
-$modesL = ['T', 'S', 'F', ''];
+$modesL = [
+    \Com\Tecnick\Pdf\TextFitMode::Truncate,
+    \Com\Tecnick\Pdf\TextFitMode::Stretch,
+    \Com\Tecnick\Pdf\TextFitMode::ShrinkFont,
+    \Com\Tecnick\Pdf\TextFitMode::Off,
+];
 $modeY = 40;
 
 foreach ($modesL as $mode) {
-    $label = $mode === '' ? 'fit=(disabled)' : 'fit=' . $mode;
+    $label = $mode === \Com\Tecnick\Pdf\TextFitMode::Off ? 'fit=(disabled)' : 'fit=' . $mode->value;
 
     $pdf->page->addContent($pdf->getTextCell(
         txt: $label,
@@ -236,8 +258,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 24,
         height: 6,
-        valign: 'T',
-        halign: 'R',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Right,
     ));
 
     // one line
@@ -247,8 +269,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 160,
         height: 5,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     ));
@@ -260,8 +282,8 @@ foreach ($modesL as $mode) {
         posy: $modeY + 8,
         width: 80,
         height: 10,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     ));
@@ -280,8 +302,8 @@ $pdf->page->addContent($pdf->getTextCell(
     posx: 15,
     posy: 15,
     width: 180,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $pdf->page->addContent($baseFont['out']);
@@ -290,14 +312,14 @@ $pdf->page->addContent($pdf->getTextCell(
     txt: 'Long word scenario (overflow):',
     posx: 15,
     posy: 30,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $modeY = 40;
 
 foreach ($modesL as $mode) {
-    $label = $mode === '' ? 'fit=(disabled)' : 'fit=' . $mode;
+    $label = $mode === \Com\Tecnick\Pdf\TextFitMode::Off ? 'fit=(disabled)' : 'fit=' . $mode->value;
 
     $pdf->page->addContent($pdf->getTextCell(
         txt: $label,
@@ -305,8 +327,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 24,
         height: 6,
-        valign: 'T',
-        halign: 'R',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Right,
     ));
 
     // one line
@@ -317,8 +339,8 @@ foreach ($modesL as $mode) {
         posy: $modeY,
         width: 160,
         height: 5,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     );
@@ -331,8 +353,8 @@ foreach ($modesL as $mode) {
         posy: $modeY + 8,
         width: 80,
         height: 10,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
         styles: $cellStyle,
         fit: $mode,
     );

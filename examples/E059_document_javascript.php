@@ -53,11 +53,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object — plain mode (no PDF/A, PDF/X, PDF/UA constraint)
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 

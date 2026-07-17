@@ -23,11 +23,11 @@ require __DIR__ . '/../vendor/autoload.php';
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -59,8 +59,8 @@ $pdf->page->addContent($pdf->getTextCell(
     180.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 ));
 
 $setFont($pdf, 'helvetica', '', 10);
@@ -71,8 +71,8 @@ $pdf->page->addContent($pdf->getTextCell(
     180.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $templateWidth = 60.0;
@@ -105,8 +105,8 @@ $templateContent .= $pdf->getTextCell(
     $templateWidth,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 );
 
 $pdf->addXObjectContent($templateId, $templateContent);

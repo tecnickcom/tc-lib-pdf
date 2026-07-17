@@ -32,11 +32,11 @@ require __DIR__ . '/../vendor/autoload.php';
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -67,7 +67,11 @@ $pdf->setViewerPreferences([
 ]);
 
 // Display mode: open at full width, single-page layout, with outlines panel.
-$pdf->setDisplayMode(zoom: 'fullwidth', layout: 'SinglePage', mode: 'UseOutlines');
+$pdf->setDisplayMode(
+    zoom: \Com\Tecnick\Pdf\DisplayZoom::FullWidth,
+    layout: \Com\Tecnick\Pdf\Page\PageLayout::SinglePage,
+    mode: \Com\Tecnick\Pdf\Page\PageDisplayMode::UseOutlines,
+);
 
 $pdf->enableDefaultPageContent();
 
@@ -243,8 +247,8 @@ $drawNavButton = static function (
         height: $bh - 3,
         offset: 0,
         linespace: 1,
-        valign: 'T',
-        halign: 'C',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Center,
     ));
     $lnkid = $pdf->addInternalLink($targetPage, 0);
     $annid = $pdf->setLink(posx: $bx, posy: $by, width: $bw, height: $bh, link: $lnkid);

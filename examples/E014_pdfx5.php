@@ -8,7 +8,13 @@ require __DIR__ . '/../vendor/autoload.php';
 
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$pdf = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: true, mode: 'pdfx5');
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
+    isunicode: true,
+    subsetfont: false,
+    compress: true,
+    mode: \Com\Tecnick\Pdf\PdfConformance::Pdfx5,
+);
 
 $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');

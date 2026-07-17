@@ -47,11 +47,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -206,14 +206,56 @@ $setupTrapezoids = static function (float $pageHeight) use (
     // Annotation labels and direction arrows (8pt black), as in the legacy example.
     $pdf->page->addContent($black);
     $insertFont('', 8);
-    $pdf->addTextCellXY(txt: 'xt,yt', posx: 38, posy: 90, width: 18, halign: 'R', drawcell: false);
-    $pdf->addTextCellXY(txt: 'xb,yb', posx: 48, posy: 136, width: 18, halign: 'R', drawcell: false);
-    $pdf->addTextCellXY(txt: 'side', posx: 38, posy: 111, width: 16, halign: 'R', drawcell: false);
+    $pdf->addTextCellXY(
+        txt: 'xt,yt',
+        posx: 38,
+        posy: 90,
+        width: 18,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Right,
+        drawcell: false,
+    );
+    $pdf->addTextCellXY(
+        txt: 'xb,yb',
+        posx: 48,
+        posy: 136,
+        width: 18,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Right,
+        drawcell: false,
+    );
+    $pdf->addTextCellXY(
+        txt: 'side',
+        posx: 38,
+        posy: 111,
+        width: 16,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Right,
+        drawcell: false,
+    );
     $pdf->page->addContent($pdf->graph->getArrow(60, 115, 40, 115, 2, 4, 15, $arrowStyle));
 
-    $pdf->addTextCellXY(txt: 'xt,yt', posx: 147, posy: 130, width: 18, halign: 'L', drawcell: false);
-    $pdf->addTextCellXY(txt: 'xb,yb', posx: 156, posy: 176, width: 18, halign: 'L', drawcell: false);
-    $pdf->addTextCellXY(txt: 'side', posx: 158, posy: 151, width: 16, halign: 'L', drawcell: false);
+    $pdf->addTextCellXY(
+        txt: 'xt,yt',
+        posx: 147,
+        posy: 130,
+        width: 18,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+        drawcell: false,
+    );
+    $pdf->addTextCellXY(
+        txt: 'xb,yb',
+        posx: 156,
+        posy: 176,
+        width: 18,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+        drawcell: false,
+    );
+    $pdf->addTextCellXY(
+        txt: 'side',
+        posx: 158,
+        posy: 151,
+        width: 16,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+        drawcell: false,
+    );
     $pdf->page->addContent($pdf->graph->getArrow(152, 155, 172, 155, 2, 4, 15, $arrowStyle));
 
     // No-write regions: each is a segment (xt,yt)-(xb,yb) plus the blocked page side.
@@ -274,7 +316,14 @@ $setupCircle = static function () use ($pdf, $fillStyle, $bandHeight): void {
 $renderTextBody = static function () use ($pdf, $body, $bodyBlue, $insertFont): void {
     $pdf->page->addContent($pdf->graph->add(['fillColor' => $bodyBlue]));
     $insertFont('', 12);
-    $pdf->addTextCell(txt: $body, posx: 0, posy: 0, width: 0, halign: 'J', drawcell: false);
+    $pdf->addTextCell(
+        txt: $body,
+        posx: 0,
+        posy: 0,
+        width: 0,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Justify,
+        drawcell: false,
+    );
 };
 
 // Flow the SAME body with the HTML engine. A single justified, coloured paragraph hugs the

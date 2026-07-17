@@ -94,11 +94,11 @@ if ($useEncryption) {
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: $encrypt,
 );
 
@@ -129,8 +129,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
@@ -195,8 +195,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);

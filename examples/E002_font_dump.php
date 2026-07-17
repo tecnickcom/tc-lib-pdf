@@ -27,11 +27,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -90,7 +90,15 @@ foreach ($corefonts as $fontcfg) {
 
     // title
     $pdf->page->addContent($titlefont['out']);
-    $title = $pdf->getTextCell('FONT: ' . $fontname, 15, 15, 180, 10, valign: 'C', halign: 'C');
+    $title = $pdf->getTextCell(
+        'FONT: ' . $fontname,
+        15,
+        15,
+        180,
+        10,
+        valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Center,
+    );
     $pdf->page->addContent($title);
 
     // glyph table font
@@ -105,7 +113,15 @@ foreach ($corefonts as $fontcfg) {
         $posy = 30 + ($row * 11.25);
 
         $txt = $pdf->uniconv->chr($i);
-        $cell = $pdf->getTextCell($txt, $posx, $posy, 11.25, 11.25, valign: 'C', halign: 'C');
+        $cell = $pdf->getTextCell(
+            $txt,
+            $posx,
+            $posy,
+            11.25,
+            11.25,
+            valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+            halign: \Com\Tecnick\Pdf\TextHAlign::Center,
+        );
         $pdf->page->addContent($cell);
     }
 
@@ -115,8 +131,8 @@ foreach ($corefonts as $fontcfg) {
         220,
         180,
         8,
-        valign: 'C',
-        halign: 'C',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Center,
     );
     $pdf->page->addContent($pangram);
 }

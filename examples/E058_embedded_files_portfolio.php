@@ -40,11 +40,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -125,21 +125,21 @@ $pdf->addContentAsEmbeddedFile(
     file: 'invoice.csv',
     content: $csvContent,
     mime: 'text/csv',
-    afrel: 'Data',
+    afrel: \Com\Tecnick\Pdf\AFRelationship::Data,
     desc: 'Invoice line items',
 );
 $pdf->addContentAsEmbeddedFile(
     file: 'report.xml',
     content: $xmlContent,
     mime: 'application/xml',
-    afrel: 'Data',
+    afrel: \Com\Tecnick\Pdf\AFRelationship::Data,
     desc: 'Monthly sales report',
 );
 $pdf->addContentAsEmbeddedFile(
     file: 'config.json',
     content: $jsonContent,
     mime: 'application/json',
-    afrel: 'Source',
+    afrel: \Com\Tecnick\Pdf\AFRelationship::Source,
     desc: 'Library configuration',
 );
 
@@ -156,8 +156,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
@@ -229,8 +229,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10);

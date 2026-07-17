@@ -23,11 +23,11 @@ require __DIR__ . '/../vendor/autoload.php';
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -68,8 +68,8 @@ $pdf->page->addContent($pdf->getTextCell(
     15,
     180,
     8,
-    valign: 'C',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     drawcell: false,
 ));
 
@@ -163,7 +163,7 @@ foreach ($rows as $row) {
             $cellW,
             $cellH,
             valign: $row['textAlign'],
-            halign: 'C',
+            halign: \Com\Tecnick\Pdf\TextHAlign::Center,
             cell: $cellDef,
             drawcell: false,
         ));

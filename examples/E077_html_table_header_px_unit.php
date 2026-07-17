@@ -35,11 +35,11 @@ require __DIR__ . '/../vendor/autoload.php';
 // column geometry as the table body regardless of the document unit
 // (see https://github.com/tecnickcom/tc-lib-pdf/issues/224).
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'px',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Point,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 

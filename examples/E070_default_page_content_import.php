@@ -141,8 +141,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $pdf->page->addContent($bodyFont['out']);
@@ -154,8 +154,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 2,
-    valign: 'T',
-    halign: 'J',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Justify,
 ));
 
 // Page 2
@@ -169,8 +169,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 0,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $pdf->page->addContent($bodyFont['out']);
@@ -182,8 +182,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 2,
-    valign: 'T',
-    halign: 'J',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Justify,
 ));
 
 $rawpdf = $pdf->getOutPDFString();

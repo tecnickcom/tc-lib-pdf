@@ -36,11 +36,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -72,8 +72,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
@@ -84,8 +84,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Welcome to the tc-lib-pdf page-reorder demo. This page was authored first'
@@ -96,8 +96,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // Page index 1 – Appendix (will be moved to the end later)
@@ -111,8 +111,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
@@ -123,8 +123,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'This Appendix page was authored second but belongs at the end.'
@@ -135,8 +135,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // Page index 2 – Chapter 1
@@ -150,8 +150,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
@@ -162,8 +162,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Chapter 1 content. After reordering this becomes the second page (index 1),'
@@ -174,8 +174,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // Page index 3 – Chapter 2
@@ -189,8 +189,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($bfont['out']);
 $pdf->page->addContent($pdf->getTextCell(
@@ -201,8 +201,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Chapter 2 content. After reordering this becomes the third page (index 2),'
@@ -213,8 +213,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // -----------------------------------------------------------------------
@@ -253,8 +253,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 ));
 $pdf->page->addContent($bfont['out']);
 
@@ -281,8 +281,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Page 4  (Appendix)',
@@ -292,8 +292,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Right side of sheet',
@@ -303,8 +303,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Page 1  (Introduction)',
@@ -314,8 +314,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Left side of sheet',
@@ -325,8 +325,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // Spread 2 – inner sheet (pages 2 & 3)
@@ -342,8 +342,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Page 2  (Chapter 1)',
@@ -353,8 +353,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Left side of sheet',
@@ -364,8 +364,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Page 3  (Chapter 2)',
@@ -375,8 +375,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     txt: 'Right side of sheet',
@@ -386,8 +386,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // Fold / cut annotation
@@ -401,8 +401,8 @@ $pdf->page->addContent($pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // -----------------------------------------------------------------------

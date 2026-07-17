@@ -23,11 +23,11 @@ require __DIR__ . '/../vendor/autoload.php';
 \define('K_PATH_FONTS', \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -72,8 +72,8 @@ $drawTextModeLine = static function (
         stroke: $stroke,
         clip: $clip,
         drawcell: false,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     ));
 
     if ($clip && $imageId > 0) {
@@ -95,8 +95,8 @@ $pdf->page->addContent($pdf->getTextCell(
     180.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $setFont($pdf, 'helvetica', '', 22);

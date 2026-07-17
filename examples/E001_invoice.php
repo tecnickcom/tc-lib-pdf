@@ -27,11 +27,11 @@ require __DIR__ . '/../vendor/autoload.php';
 
 // main TCPDF object
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: 'pdfa3',
+    mode: \Com\Tecnick\Pdf\PdfConformance::Pdfa3,
     objEncrypt: null,
 );
 
@@ -323,7 +323,7 @@ $pdf->addContentAsEmbeddedFile(
     file: 'factur-x.xml',
     content: $invoiceXML,
     mime: 'text/xml',
-    afrel: 'Alternative',
+    afrel: \Com\Tecnick\Pdf\AFRelationship::Alternative,
     desc: 'Factur-X/ZUGFeRD electronic invoice',
 );
 

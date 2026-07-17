@@ -47,8 +47,8 @@ $textCell = $pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 );
 $pdf->page->addContent($textCell);
 
@@ -63,8 +63,8 @@ $textCell2 = $pdf->getTextCell(
     height: 0,
     offset: 0,
     linespace: 1,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 );
 $pdf->page->addContent($textCell2);
 
@@ -135,8 +135,8 @@ $sigAppearance .= $pdf->getTextCell(
     height: $sigH,
     offset: 3.0,
     linespace: 0,
-    valign: 'C',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     cell: null,
     styles: [
         'all' => [
@@ -159,7 +159,10 @@ $sigAppearance .= $pdf->getTextCell(
     drawcell: true,
 );
 
-$pdf->signature()->appearance()->stream(stream: $sigAppearance);
+$pdf
+    ->signature()
+    ->appearance()
+    ->stream(stream: $sigAppearance, mode: \Com\Tecnick\Pdf\Signature\SignatureAppearanceMode::Normal);
 
 // Render the signing process and the demo's limitations into the document so the
 // output PDF is self-documenting (this text is page content, not part of the

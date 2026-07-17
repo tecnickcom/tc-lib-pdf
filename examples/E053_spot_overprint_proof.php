@@ -35,11 +35,11 @@ require __DIR__ . '/../vendor/autoload.php';
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -150,8 +150,8 @@ for ($t = 1; $t <= $tintSteps; $t++) {
         height: 0,
         offset: 0,
         linespace: 1,
-        valign: 'T',
-        halign: 'C',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Center,
     ));
 }
 
@@ -172,8 +172,8 @@ foreach ($spotRows as $row) {
         height: 0,
         offset: 0,
         linespace: 1,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     ));
 
     // Draw tint swatches 10%–100%
@@ -233,8 +233,8 @@ foreach ($labelNames as $ci => $clab) {
         height: 0,
         offset: 0,
         linespace: 1,
-        valign: 'T',
-        halign: 'C',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Center,
     ));
 }
 
@@ -248,8 +248,8 @@ foreach ($tints as $mi => $mTint) {
         height: 0,
         offset: 0,
         linespace: 1,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     ));
 
     foreach ($tints as $ci => $cTint) {

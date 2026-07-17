@@ -79,11 +79,11 @@ if ($patternFile === false) {
 // Common document setup
 // -----------------------------------------------------------------------
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -146,8 +146,8 @@ $pdf->page->addContent($pdf->getTextCell(
     180.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 $pdf->page->addContent($fontSmall['out']);
@@ -158,8 +158,8 @@ $pdf->page->addContent($pdf->getTextCell(
     180.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // --- Column headers ---
@@ -171,8 +171,8 @@ $pdf->page->addContent($pdf->getTextCell(
     87.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 ));
 $pdf->page->addContent($pdf->getTextCell(
     'With Dutch patterns',
@@ -181,8 +181,8 @@ $pdf->page->addContent($pdf->getTextCell(
     87.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 ));
 
 // Separator line between header and body
@@ -249,8 +249,8 @@ $pdf->page->addContent($pdf->getTextCell(
     180.0,
     0.0,
     drawcell: false,
-    valign: 'T',
-    halign: 'C',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Center,
 ));
 
 // -----------------------------------------------------------------------

@@ -85,11 +85,11 @@ if ($certPath === false) {
 $cert = 'file://' . $certPath;
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -192,8 +192,8 @@ $pdf->page->addContent($pdf->getTextCell(
     60.0,
     6.0,
     drawcell: false,
-    valign: 'M',
-    halign: 'L',
+    valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
 ));
 
 // -----------------------------------------------------------------------

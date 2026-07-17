@@ -24,11 +24,11 @@ require __DIR__ . '/../vendor/autoload.php';
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -166,7 +166,7 @@ $signedPdf = $pdf->applyExternalSignature(
     preparedPdf: $prepared['prepared_pdf'],
     byteRange: $prepared['byte_range'],
     signature: $fakeRemoteCmsSignature,
-    encoding: 'binary',
+    encoding: \Com\Tecnick\Pdf\Signature\ExternalSignatureEncoding::Binary,
 );
 
 if ($mode === 'save') {

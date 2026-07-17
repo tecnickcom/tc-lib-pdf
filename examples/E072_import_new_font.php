@@ -135,11 +135,11 @@ $fontsRoot = !empty($fontSetupError) || empty($customFontsReal) ? $defaultFontsD
 \define('K_PATH_FONTS', $fontsRoot);
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: true,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 

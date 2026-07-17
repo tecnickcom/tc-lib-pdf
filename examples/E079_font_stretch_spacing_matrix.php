@@ -27,11 +27,11 @@ require __DIR__ . '/../vendor/autoload.php';
 // HTML/CSS engine (Section 2), across every combination of alignment,
 // stretching and spacing for two fonts (times and dejavuserif).
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
-    unit: 'mm',
+    unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
     subsetfont: false,
     compress: true,
-    mode: '',
+    mode: \Com\Tecnick\Pdf\PdfConformance::None,
     objEncrypt: null,
 );
 
@@ -106,8 +106,8 @@ $heading = static function (
         posy: $y,
         width: $contentWidth,
         height: 0,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     ));
     $setFont($pdf, 'helvetica', '', 9);
     $pdf->page->addContent($pdf->getTextCell(
@@ -116,8 +116,8 @@ $heading = static function (
         posy: $y + 6.5,
         width: $contentWidth,
         height: 0,
-        valign: 'T',
-        halign: 'L',
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
     ));
 
     return $y + 15.0;
@@ -168,7 +168,7 @@ foreach ($fonts as $family) {
                     posy: $y,
                     width: $contentWidth,
                     height: $rowHeight,
-                    valign: 'C',
+                    valign: \Com\Tecnick\Pdf\TextVAlign::Center,
                     halign: $code,
                     drawcell: false,
                 ));
