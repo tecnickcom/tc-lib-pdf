@@ -38,7 +38,7 @@ namespace Com\Tecnick\Pdf\Cache;
  * never breaks PDF generation.
  *
  * Keys are already namespaced and schema-versioned by each sub-library
- * (e.g. "tc-lib-pdf-font:subset:v1:..." and "tc-lib-pdf-image:v1:..."), so a
+ * (e.g. "tc-lib-pdf-font:subset:v2:..." and "tc-lib-pdf-image:v2:..."), so a
  * single shared store is collision-safe.
  *
  * Security: the cache store is a trust boundary. Cached values are embedded

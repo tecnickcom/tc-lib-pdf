@@ -5,13 +5,13 @@ declare(strict_types=1);
 /**
  * Facade.php
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
@@ -34,13 +34,13 @@ use Com\Tecnick\Pdf\Tcpdf;
  * @phpstan-import-type TSignTimeStamp from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TUserRights from \Com\Tecnick\Pdf\Base
  *
- * @since       2002-08-03
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2002-08-03
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  */
 final class Facade
 {

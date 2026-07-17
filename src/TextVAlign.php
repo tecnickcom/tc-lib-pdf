@@ -5,13 +5,13 @@ declare(strict_types=1);
 /**
  * TextVAlign.php
  *
- * @since       2026-07-17
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2026-07-17
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
@@ -25,20 +25,23 @@ namespace Com\Tecnick\Pdf;
  * C (center), B (bottom), A (center on font ascent), L (center on font
  * baseline) or D (center on font descent).
  *
- * @since       2026-07-17
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2026-07-17
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  */
 enum TextVAlign: string
 {
+    /** Align to the top edge of the cell. */
     case Top = 'T';
 
+    /** Align to the vertical center of the cell. */
     case Center = 'C';
 
+    /** Align to the bottom edge of the cell. */
     case Bottom = 'B';
 
     /** Center on the font ascent line. */

@@ -75,7 +75,7 @@ use Com\Tecnick\Pdf\Signature\SignatureAppearanceMode;
  * @property string $pdffilename
  * @property string $encpdffilename
  * @property array{r: string, p: string, m: string} $spaceregexp
- * @property array{zoom: int|string, layout: string, page: string} $display
+ * @property array{zoom: int|string, layout: string, mode: string} $display
  * @property array<string, string> $lang
  * @property TUserRights $userrights
  * @property TSignature $signature
@@ -260,7 +260,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
-     * Set the decimal separator.
+     * Set the Unicode mode.
      *
      * @param bool $isunicode True when using Unicode mode.
      */
@@ -333,7 +333,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
-     * Set regular expression to detect withespaces or word separators.
+     * Set regular expression to detect whitespaces or word separators.
      * The pattern delimiter must be the forward-slash character "/".
      * Some example patterns are:
      * <pre>
@@ -565,7 +565,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *            - page (int) Page number.
      *            - rect (array) Rectangle of the signature field.
      *            - xobj (string) Optional Form XObject ID to auto-fit as normal appearance.
-     *        - approval (bool) Enable approval signature eg. for PDF incremental update.
+     *        - approval (string) Set to 'A' to enable the approval signature eg. for PDF incremental update.
      *        - cert_type (int) The access permissions granted for this document. Valid values shall be:
      *            1 = No changes to the document shall be permitted;
      *                any change to the document shall invalidate the signature;
@@ -810,9 +810,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
-     * Enable or disable the the Signature Approval
+     * Enable or disable the Signature Approval
      *
-     * @param bool $enabled It true enable the Signature Approval
+     * @param bool $enabled If true enable the Signature Approval
      */
     protected function enableSignatureApproval(bool $enabled = true): static
     {
@@ -914,7 +914,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param float $posx Abscissa of the upper-left corner.
      * @param float $posy Ordinate of the upper-left corner.
      * @param float $width Width of the signature area.
-     * @param float $heigth Height of the signature area.
+     * @param float $height Height of the signature area.
      * @param int $page Page number (pid).
      * @param string $name Name of the signature.
      *
@@ -930,7 +930,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
-        float $heigth = 0,
+        float $height = 0,
         int $page = -1,
         string $name = '',
     ): array {
@@ -940,9 +940,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         $sigapp['name'] = $name === '' ? 'Signature' : $name;
 
         $pntx = $this->toPoints($posx);
-        $pnty = $this->toYUnit($posy + $heigth, $this->page->getPage($sigapp['page'])['pheight']);
+        $pnty = $this->toYUnit($posy + $height, $this->page->getPage($sigapp['page'])['pheight']);
         $pntw = $this->toPoints($width);
-        $pnth = $this->toPoints($heigth);
+        $pnth = $this->toPoints($height);
 
         $sigapp['rect'] = \sprintf('%F %F %F %F', $pntx, $pnty, $pntx + $pntw, $pnty + $pnth);
 
@@ -950,13 +950,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
-     * Set the digital signature appearance (a cliccable rectangle area to get signature properties).
+     * Set the digital signature appearance (a clickable rectangle area to get signature properties).
      *
      * @param float $posx Abscissa of the upper-left corner.
      * @param float $posy Ordinate of the upper-left corner.
      * @param float $width Width of the signature area.
-     * @param float $heigth Height of the signature area.
-     * @param int $page option page number (if < 0 the current page is used).
+     * @param float $height Height of the signature area.
+     * @param int $page optional page number (if < 0 the current page is used).
      * @param string $name Name of the signature.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -967,11 +967,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
-        float $heigth = 0,
+        float $height = 0,
         int $page = -1,
         string $name = '',
     ): void {
-        $data = $this->getSignatureAppearanceArray($posx, $posy, $width, $heigth, $page, $name);
+        $data = $this->getSignatureAppearanceArray($posx, $posy, $width, $height, $page, $name);
         $this->signature['appearance']['page'] = $data['page'];
         $this->signature['appearance']['name'] = $data['name'];
         $this->signature['appearance']['rect'] = $data['rect'];
@@ -1042,13 +1042,13 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
-     * Add an empty digital signature appearance (a cliccable rectangle area to get signature properties).
+     * Add an empty digital signature appearance (a clickable rectangle area to get signature properties).
      *
      * @param float $posx Abscissa of the upper-left corner.
      * @param float $posy Ordinate of the upper-left corner.
      * @param float $width Width of the signature area.
-     * @param float $heigth Height of the signature area.
-     * @param int $page option page number (if < 0 the current page is used).
+     * @param float $height Height of the signature area.
+     * @param int $page optional page number (if < 0 the current page is used).
      * @param string $name Name of the signature.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -1059,12 +1059,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         float $posx = 0,
         float $posy = 0,
         float $width = 0,
-        float $heigth = 0,
+        float $height = 0,
         int $page = -1,
         string $name = '',
     ): void {
         ++$this->pon;
-        $data = $this->getSignatureAppearanceArray($posx, $posy, $width, $heigth, $page, $name);
+        $data = $this->getSignatureAppearanceArray($posx, $posy, $width, $height, $page, $name);
         $this->signature['appearance']['empty'][] = [
             'objid' => $this->pon,
             'name' => $data['name'],
@@ -1151,6 +1151,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         return ' /OC /' . $layer . ' BDC' . "\n";
     }
 
+    /**
+     * Close the current optional content (layer) marked-content sequence.
+     *
+     * @return string PDF marked-content operator that ends the layer opened by newLayer().
+     */
     public function closeLayer(): string
     {
         return 'EMC' . "\n";
@@ -1160,12 +1165,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
     /**
      * Add a Table of Contents (TOC) to the document.
-     * The bookmars are created via the setBookmark() method.
+     * The bookmarks are created via the setBookmark() method.
      *
      * @param int   $page  Page number.
      * @param float $posx  Abscissa of the upper-left corner.
      * @param float $posy  Ordinate of the upper-left corner.
-     * @param float $width Width of the signature area.
+     * @param float $width Width of the TOC area.
      * @param bool  $rtl   Right-To-Left - If true prints the TOC in RTL mode.
      * @param StyleDataOpt $linestyle Line style for the space filler.
      *
@@ -1202,7 +1207,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         /** @var array{cw: array<int, numeric>, dw: numeric, idx: int, size: numeric, spacing: float, stretching: float} $curfont */
         $curfont = $this->font->getCurrentFont();
 
-        // width to accomodate the number (max 9 digits space).
+        // width to accommodate the number (max 9 digits space).
         $cwVal = (float) ($curfont['cw'][48] ?? $curfont['dw']);
         $chrw = $this->toUnit($cwVal); // 48 ASCII = '0'.
         $indent = 2 * $chrw; // each level is indented by 2 characters.

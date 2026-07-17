@@ -5,13 +5,13 @@ declare(strict_types=1);
 /**
  * CacheType.php
  *
- * @since       2026-07-17
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2026-07-17
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
@@ -26,13 +26,13 @@ use Com\Tecnick\Pdf\Exception as PdfException;
  * Backed enum for the cacheable subsystem type. The backing value of each case
  * matches a CacheInterface::TYPE_* constant.
  *
- * @since       2026-07-17
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2026-07-17
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  */
 enum CacheType: string
 {

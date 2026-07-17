@@ -745,12 +745,12 @@ abstract class Base
     public ObjImage $image;
 
     /**
-     * Time is seconds since EPOCH when the document was created.
+     * Time in seconds since EPOCH when the document was created.
      */
     protected int $doctime = 0;
 
     /**
-     *  Time is seconds since EPOCH when the document was modified.
+     *  Time in seconds since EPOCH when the document was modified.
      */
     protected int $docmodtime = 0;
 
@@ -813,7 +813,7 @@ abstract class Base
      *    False = LTR = Left-To-Right.
      *    True = RTL = Right-To-Left.
      *
-     * @val bool
+     * @var bool
      */
     protected bool $rtl = false;
 
@@ -822,7 +822,7 @@ abstract class Base
      *    False = LTR = Left-To-Right.
      *    True = RTL = Right-To-Left.
      *
-     * @val bool
+     * @var bool
      */
     protected bool $tmprtl = false;
 
@@ -883,7 +883,7 @@ abstract class Base
     ];
 
     /**
-     * Ration for small font.
+     * Ratio for small font.
      *
      * @var float
      */
@@ -897,7 +897,7 @@ abstract class Base
     protected const FONT_MONO = 'courier';
 
     /**
-     * Default eference values for unit conversion.
+     * Default reference values for unit conversion.
      *
      * @var TRefUnitValues
      */
@@ -1067,14 +1067,14 @@ abstract class Base
     protected array $embeddedfiles = [];
 
     /**
-     * Annotations indexed bu object IDs.
+     * Annotations indexed by object IDs.
      *
      * @var array<int, TAnnot>
      */
     protected array $annotation = [];
 
     /**
-     * Array containing the regular expression used to identify withespaces or word separators.
+     * Array containing the regular expression used to identify whitespaces or word separators.
      *
      * @var array{
      *         r: string,
@@ -1094,7 +1094,7 @@ abstract class Base
     protected string $pdffilename;
 
     /**
-     * Raw encoded fFile name of the PDF document.
+     * Raw encoded File name of the PDF document.
      */
     protected string $encpdffilename;
 
@@ -1297,7 +1297,7 @@ abstract class Base
     protected bool $defPageContentEnabled = false;
 
     /**
-     * Default font for defautl page content.
+     * Default font for default page content.
      *
      * @var ?TFontMetric
      */
@@ -1324,7 +1324,7 @@ abstract class Base
     /**
      * Default values for cell boundaries.
      *
-     * @const TCellBound
+     * @var TCellBound
      */
     public const ZEROCELLBOUND = [
         'T' => 0.0,
@@ -1336,7 +1336,7 @@ abstract class Base
     /**
      * Default values for cell.
      *
-     * @const TCellDef
+     * @var TCellDef
      */
     public const ZEROCELL = [
         'margin' => self::ZEROCELLBOUND,

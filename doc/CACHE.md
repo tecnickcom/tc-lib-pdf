@@ -4,7 +4,7 @@ Back to root overview: [README.md](../README.md#in-depth-documentation)
 
 Generating font subsets and processing images (decode, resize, re-encode) is computationally expensive. `tc-lib-pdf` can reuse these results across `Tcpdf` instances and PHP processes through an **optional external cache** that you provide.
 
-No cache backend is shipped: you implement a tiny interface that bridges to whatever store you already use (filesystem, APCu, Redis, a PSR-16 cache, ...). Caching is **disabled by default** — when no cache is supplied, behavior is unchanged.
+No cache backend is shipped: you implement a tiny interface that bridges to whatever store you already use (filesystem, APCu, Redis, a PSR-16 cache, ...). Caching is **disabled by default**: when no cache is supplied, behavior is unchanged.
 
 One cache instance is reused by every cacheable subsystem (currently font subsets and images, more may be added later), so a single backend, connection, and configuration serves them all.
 
@@ -63,8 +63,8 @@ $cache = new class implements CacheInterface {
 
 | Subsystem | Type constant | Cached value | Key prefix |
 |-----------|---------------|--------------|------------|
-| Font subsets | `CacheInterface::TYPE_FONT` | Raw subset font program (`string`, uncompressed) | `tc-lib-pdf-font:subset:v1:` |
-| Images | `CacheInterface::TYPE_IMAGE` | Processed image snapshot (`array`) | `tc-lib-pdf-image:v1:` |
+| Font subsets | `CacheInterface::TYPE_FONT` | Raw subset font program (`string`, uncompressed) | `tc-lib-pdf-font:subset:v2:` |
+| Images | `CacheInterface::TYPE_IMAGE` | Processed image snapshot (`array`) | `tc-lib-pdf-image:v2:` |
 
 Keys are already namespaced and schema-versioned by each sub-library, so a single shared store is collision-safe. The font subset cache is only consulted when font subsetting is enabled (`subsetfont: true`).
 
@@ -86,7 +86,7 @@ interface SelectiveCacheInterface extends CacheInterface
 
 When `supports()` returns `false` for a type, that type is disabled entirely: the cache is never queried or written for it, and your implementation never receives its data. A plain `CacheInterface` (without `supports()`) caches every type.
 
-Example — cache font subsets but never images:
+For example, to cache font subsets but never images:
 
 ```php
 use Com\Tecnick\Pdf\Cache\CacheInterface;

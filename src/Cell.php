@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Text.php
+ * Cell.php
  *
  * @since     2002-08-03
  * @category  Library
@@ -31,7 +31,7 @@ namespace Com\Tecnick\Pdf;
  * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
  * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
- * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Style
+ * @phpstan-import-type StyleDataOpt from \Com\Tecnick\Pdf\Graph\Base
  * @phpstan-import-type TCellDef from \Com\Tecnick\Pdf\Base
  *
  * @SuppressWarnings("PHPMD.DepthOfInheritance")
@@ -274,10 +274,10 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the adjusted cell left X coordinate to account for margins.
      *
-     * @param float    $pntx   Starting top Y coordinate in internal points.
-     * @param float    $pwidth Cell width in internal points.
-     * @param string   $align  Cell horizontal alignment: L=left; C=center; R=right; J=Justify.
-     * @param TCellDef $cell   Optional to overwrite cell parameters for padding, margin etc.
+     * @param float     $pntx   Starting left X coordinate in internal points.
+     * @param float     $pwidth Cell width in internal points.
+     * @param string    $align  Cell horizontal alignment: L=left; C=center; R=right; J=Justify.
+     * @param ?TCellDef $cell   Optional to overwrite cell parameters for padding, margin etc.
      */
     protected function cellHPos(float $pntx, float $pwidth, string $align = 'L', ?array $cell = null): float
     {
@@ -781,6 +781,7 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      * @return string escaped string.
      *
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
     protected function getOutTextString(string $str, int $oid, bool $bom = false): string
     {

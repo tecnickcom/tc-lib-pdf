@@ -22,7 +22,7 @@ namespace Com\Tecnick\Pdf\CSS;
  * Normalizes CSS declarations to ensure !important is properly propagated
  * to all longhands when shorthand properties are used.
  *
- * @since     2026-05-08
+ * @since     2002-08-03
  * @category  Library
  * @package   Pdf
  * @author    Nicola Asuni <info@tecnick.com>
@@ -89,8 +89,11 @@ class ImportanceNormalizer
     }
 
     /**
-     * @param array<int, string> $affected
-     * @param array<string, bool> $visited
+     * Recursively collect the longhand properties affected by a shorthand.
+     *
+     * @param array<int, string>  $affected Accumulator of affected longhand names (by reference).
+     * @param string              $property Property to expand.
+     * @param array<string, bool> $visited  Properties already expanded, to guard against cycles.
      */
     private static function collectAffectedLonghands(array &$affected, string $property, array $visited): void
     {

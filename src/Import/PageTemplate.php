@@ -36,7 +36,7 @@ namespace Com\Tecnick\Pdf\Import;
 class PageTemplate implements PageTemplateInterface
 {
     /**
-     * XObject template ID (e.g. "TPL1").
+     * XObject template ID (e.g. "IMP1").
      *
      * @var string
      */

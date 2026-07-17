@@ -208,7 +208,7 @@ class Importer implements ImporterInterface
      *
      * @param string        $sourceId  Source document identifier.
      * @param int           $pageNum   1-based page number.
-     * @param array<string, mixed> $options Import options (box, groupXObject, cache).
+     * @param array<string, mixed> $options Import options (box, groupXObject, cache, respectRotation).
      *
      * @return PageTemplateInterface Imported page template.
      *
@@ -407,7 +407,7 @@ class Importer implements ImporterInterface
 
     /**
      * Release parser memory and cached resources.
-     * Should be called after getOutPDFBody() completes.
+     * Should be called after getOutImportedObjects() completes.
      */
     public function cleanUp(): void
     {

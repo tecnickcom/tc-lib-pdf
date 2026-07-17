@@ -176,8 +176,9 @@ class Specificity
     }
 
     /**
-     * Legacy string representation for backward compatibility
-     * Format: "0abc" (e.g., "0123" for a=0, b=1, c=2, d=3)
+     * Legacy string representation for backward compatibility.
+     * Format: inline-style flag followed by the id, class, and type counts
+     * (e.g. "0123" = inline-style 0, 1 id, 2 classes, 3 types).
      *
      * Note: This is maintained for backward compatibility with existing code,
      * but internally we use numeric tuple comparison.

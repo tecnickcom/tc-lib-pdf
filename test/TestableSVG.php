@@ -20,7 +20,7 @@ namespace Test;
  * @phpstan-import-type TTMatrix from \Com\Tecnick\Pdf\Graph\Base
  * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TSVGSize from \Com\Tecnick\Pdf\SVG
- * @phpstan-import-type TSCGCoord from \Com\Tecnick\Pdf\SVG
+ * @phpstan-import-type TSVGCoord from \Com\Tecnick\Pdf\SVG
  * @phpstan-import-type TSVGGradient from \Com\Tecnick\Pdf\SVG
  * @phpstan-import-type TSVGStyle from \Com\Tecnick\Pdf\SVG
  * @phpstan-import-type TSVGTextMode from \Com\Tecnick\Pdf\SVG
@@ -176,7 +176,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
         return $this->parseCSSAttrib($tag, $attr, $default);
     }
 
-    /** @phpstan-return TSCGCoord */
+    /** @phpstan-return TSVGCoord */
     public function getPathCoordDefaults(): array
     {
         return [
@@ -199,10 +199,10 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
+     * @phpstan-param TSVGCoord $crd
      * @phpstan-param array<array<string>> $paths
      * @phpstan-param array<string> $rawparams
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdA(array $prm, array $crd, array $paths, int $key, array $rawparams): array
     {
@@ -212,8 +212,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-param TSVGCoord $crd
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdC(array $prm, array $crd): array
     {
@@ -223,8 +223,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-param TSVGCoord $crd
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdH(array $prm, array $crd): array
     {
@@ -234,8 +234,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-param TSVGCoord $crd
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdL(array $prm, array $crd): array
     {
@@ -245,8 +245,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-param TSVGCoord $crd
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdM(array $prm, array $crd): array
     {
@@ -256,8 +256,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-param TSVGCoord $crd
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdQ(array $prm, array $crd): array
     {
@@ -267,9 +267,9 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
+     * @phpstan-param TSVGCoord $crd
      * @phpstan-param array<array<string>> $paths
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdS(array $prm, array $crd, array $paths, int $key): array
     {
@@ -279,9 +279,9 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
+     * @phpstan-param TSVGCoord $crd
      * @phpstan-param array<array<string>> $paths
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdT(array $prm, array $crd, array $paths, int $key): array
     {
@@ -291,8 +291,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
 
     /**
      * @phpstan-param array<float> $prm
-     * @phpstan-param TSCGCoord $crd
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-param TSVGCoord $crd
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdV(array $prm, array $crd): array
     {
@@ -301,8 +301,8 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
-     * @phpstan-param TSCGCoord $crd
-     * @phpstan-return array{0: string, 1: TSCGCoord}
+     * @phpstan-param TSVGCoord $crd
+     * @phpstan-return array{0: string, 1: TSVGCoord}
      */
     public function exposeSvgPathCmdZ(array $crd): array
     {

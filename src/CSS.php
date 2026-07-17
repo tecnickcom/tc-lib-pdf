@@ -78,7 +78,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     /**
      * Default values for cell boundaries.
      *
-     * @const TCSSBorderSpacing
+     * @var TCSSBorderSpacing
      */
     protected const ZEROBORDERSPACE = [
         'H' => 0,
@@ -226,8 +226,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     /**
      * Set the default CSS border spacing in user units.
      *
+     * @param float $vert  Vertical space.
      * @param float $horiz Horizontal space.
-     * @param float $vert Vertical space.
      */
     public function setDefaultCSSBorderSpacing(float $vert, float $horiz): void
     {
@@ -365,7 +365,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     }
 
     /**
-     * Returns the default CSS borer style.
+     * Returns the default CSS border style.
      *
      * @return BorderStyle
      */
@@ -844,13 +844,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     }
 
     /**
-     * Tidy up the CSS string by removing unsupported properties.
-     *
-     * @param string $css string containing CSS definitions.
-     *
-     * @return string
-     */
-    /**
      * Maximum recursion depth for @import resolution.
      */
     private const CSS_IMPORT_MAX_DEPTH = 8;
@@ -996,6 +989,13 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         return false;
     }
 
+    /**
+     * Tidy up the CSS string by removing unsupported properties.
+     *
+     * @param string $css string containing CSS definitions.
+     *
+     * @return string
+     */
     protected function tidyCSS(string $css): string
     {
         if ($css === '') {
@@ -1042,13 +1042,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     }
 
     /**
-     * Extracts the CSS properties from a CSS string.
-     *
-     * @param string $css string containing CSS definitions.
-     *
-     * @return array<string, string> CSS properties.
-     */
-    /**
      * Extract CSS properties from a CSS data string and return as a sorted array.
      *
      * When CascadeContext is provided, maintains global source order across all CSS sources
@@ -1074,7 +1067,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $matches = [];
         // explode css data string into array
         if (\substr($css, -1) === '}') {
-            // remove last parethesis
+            // remove last parenthesis
             $css = \substr($css, 0, -1);
         }
         $matches = \explode('}', $css);
@@ -1101,7 +1094,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             }
             unset($blk[$key]);
         }
-        // covert array to selector => properties
+        // convert array to selector => properties
         $out = [];
         $sourceOrder = 0;
         foreach ($blk as $block) {

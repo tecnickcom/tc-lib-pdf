@@ -489,14 +489,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected const HTML_TAG_PATTERN = '/(<[^>]+>)/';
 
     /**
-     * Verical shift ratio for HTML sub tag.
+     * Vertical shift ratio for HTML sub tag.
      *
      * @var float
      */
     protected const VERT_SHIFT_SUB = 0.1;
 
     /**
-     * Verical shift ratio for HTML sup tag.
+     * Vertical shift ratio for HTML sup tag.
      *
      * @var float
      */
@@ -2802,11 +2802,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
     }
 
+    /**
+     * Return true when the CSS display value is supported by the HTML renderer.
+     *
+     * @param string $display Normalized CSS display value.
+     */
     protected function isSupportedHTMLDisplayValue(string $display): bool
     {
         return \in_array($display, self::HTML_SUPPORTED_DISPLAY_VALUES, true);
     }
 
+    /**
+     * Return true when the CSS display value produces a block-like box (not inline or none).
+     *
+     * @param string $display Normalized CSS display value.
+     */
     protected function isHTMLDisplayBlockLike(string $display): bool
     {
         return !\in_array($display, ['inline', 'none'], true);
@@ -2908,7 +2918,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @throws PdfException
      */
-
     protected function parseHTMLStylePositionOffsetProperties(array &$dom, int $key, int $parentkey): void
     {
         $position = isset($dom[$key]['position']) && $dom[$key]['position'] !== ''

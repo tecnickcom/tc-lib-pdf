@@ -5,13 +5,13 @@ declare(strict_types=1);
 /**
  * PdfConformance.php
  *
- * @since       2026-07-17
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2026-07-17
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
  */
@@ -25,13 +25,13 @@ namespace Com\Tecnick\Pdf;
  * the empty string (no special conformance), a PDF/A level, a PDF/X profile or
  * a PDF/UA profile. The backing value is the lowercase mode identifier.
  *
- * @since       2026-07-17
- * @category    Library
- * @package     Pdf
- * @author      Nicola Asuni <info@tecnick.com>
- * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
- * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
- * @link        https://github.com/tecnickcom/tc-lib-pdf
+ * @since     2026-07-17
+ * @category  Library
+ * @package   Pdf
+ * @author    Nicola Asuni <info@tecnick.com>
+ * @copyright 2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license   https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link      https://github.com/tecnickcom/tc-lib-pdf
  */
 enum PdfConformance: string
 {

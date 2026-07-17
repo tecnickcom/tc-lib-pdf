@@ -29,7 +29,7 @@ $pdf->setCreator('tc-lib-pdf');
 $pdf->setAuthor('Nicola Asuni');
 $pdf->setSubject('tc-lib-pdf example: 076');
 $pdf->setTitle('Minimal Example');
-$pdf->setKeywords('TCPDF tc-lib-pdf absolute positon');
+$pdf->setKeywords('TCPDF tc-lib-pdf absolute position');
 $pdf->setPDFFilename('076_absolute_position.pdf');
 
 // Line style

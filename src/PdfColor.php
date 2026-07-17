@@ -82,6 +82,13 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         return [$name, $tint];
     }
 
+    /**
+     * Parse and unquote a spot() color name token.
+     *
+     * @param string $token Raw name token from the spot() CSS function.
+     *
+     * @return string The cleaned spot color name, or an empty string when the token is empty.
+     */
     protected function parseSpotNameToken(#[\SensitiveParameter] string $token): string
     {
         $token = \trim($token);
@@ -99,6 +106,16 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         return \trim($token);
     }
 
+    /**
+     * Parse a spot() tint token into a factor in the range 0-1.
+     *
+     * Accepts a percentage (e.g. "50%") or a bare number; values above 1 and up to 100
+     * are treated as percentages. The result is clamped to the range 0-1.
+     *
+     * @param string $token Raw tint token from the spot() CSS function.
+     *
+     * @return ?float The tint factor in the range 0-1, or null when the token is empty or non-numeric.
+     */
     protected function parseSpotTintToken(#[\SensitiveParameter] string $token): ?float
     {
         $token = \trim($token);
@@ -143,6 +160,12 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
      *
      * When DeviceCMYK forcing is enabled, process colors are emitted as CMYK operators
      * to avoid DeviceRGB output in restrictive PDF/X modes.
+     *
+     * @param string $color  Color name, hex value, or spot() CSS function.
+     * @param bool   $stroke If true return the stroking color operator, otherwise the non-stroking one.
+     * @param float  $tint   Tint value in the range 0-1 applied to spot colors.
+     *
+     * @return string PDF color operator string.
      */
     public function getPdfColor(string $color, bool $stroke = false, float $tint = 1): string
     {

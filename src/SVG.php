@@ -53,7 +53,7 @@ use TSVGStyle;
  *    'ar_ms': string,
  * }
  *
- * @phpstan-type TSCGCoord array{
+ * @phpstan-type TSVGCoord array{
  *    'x': float,
  *    'y': float,
  *    'x0': float,
@@ -502,7 +502,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     ];
 
     /**
-     * Deafult unit of measure for SVG (px = pixels).
+     * Default unit of measure for SVG (px = pixels).
      *
      * @var string
      */
@@ -1230,10 +1230,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'A' (elliptical arc).
+     * Process SVG path command 'A' (elliptical arc).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      * @param array<array<string>> $paths All paths.
      * @param int $key Current key.
      * @param array<string> $rawparams Raw parameters.
@@ -1323,7 +1323,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
                 $angs = \round(\rad2deg($angs), 6);
                 $angf = \round(\rad2deg($angf), 6);
-                // covent angles to positive values
+                // convert angles to positive values
                 if ($angs < 0 && $angf < 0) {
                     $angs += 360;
                     $angf += 360;
@@ -1366,10 +1366,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'C' (curveto).
+     * Process SVG path command 'C' (curveto).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      *
      * @return string
      */
@@ -1403,10 +1403,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'H' (horizontal lineto).
+     * Process SVG path command 'H' (horizontal lineto).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      *
      * @return string
      */
@@ -1435,10 +1435,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'L' (lineto).
+     * Process SVG path command 'L' (lineto).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      *
      * @return string
      */
@@ -1479,10 +1479,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'M' (moveto)
+     * Process SVG path command 'M' (moveto)
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      *
      * @return string
      */
@@ -1531,10 +1531,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'Q' (quadratic Bezier curveto).
+     * Process SVG path command 'Q' (quadratic Bezier curveto).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      *
      * @return string
      */
@@ -1575,10 +1575,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'S' (shorthand/smooth curveto).
+     * Process SVG path command 'S' (shorthand/smooth curveto).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      * @param array<array<string>> $paths All paths.
      * @param int $key Current key.
      *
@@ -1628,10 +1628,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'T' (shorthand/smooth quadratic Bezier curveto).
+     * Process SVG path command 'T' (shorthand/smooth quadratic Bezier curveto).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      * @param array<array<string>> $paths All paths.
      * @param int $key Current key.
      *
@@ -1684,10 +1684,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'V' (vertical lineto).
+     * Process SVG path command 'V' (vertical lineto).
      *
      * @param array<float> $prm Parameters.
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      *
      * @return string
      */
@@ -1716,9 +1716,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
-     * Process SCG path command 'Z'.
+     * Process SVG path command 'Z'.
      *
-     * @param TSCGCoord $crd Current coordinates.
+     * @param TSVGCoord $crd Current coordinates.
      *
      * @return string
      */

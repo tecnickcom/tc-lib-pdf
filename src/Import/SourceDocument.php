@@ -137,6 +137,7 @@ class SourceDocument
      * support password-based decryption.
      *
      * @param array<string, mixed> $cfg
+     * @param bool                 $passwordProvided Set to true when a password alias is present in $cfg.
      *
      * @return array<string, bool>
      */

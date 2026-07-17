@@ -113,7 +113,7 @@ use OpenSSLAsymmetricKey;
 abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 {
     /**
-     * Object to export fornt data.
+     * Object to export font data.
      *
      * @var OutFont
      */

@@ -131,7 +131,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     ];
 
     /**
-     * Deafult Javascript Annotation properties.
+     * Default Javascript Annotation properties.
      * Possible values are described on official Javascript for Acrobat API reference.
      * Annotation options can be directly specified using the 'aopt' entry.
      *
@@ -1216,7 +1216,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * Add the specified Image ID to the XObject template.
      *
      * @param string  $tid  The XObject Template object as returned by the newXObjectTemplate method.
-     * @param int     $key  TheImage key to add.
+     * @param int     $key  The Image key to add.
      */
     public function addXObjectImageID(string $tid, int $key): void
     {
@@ -1295,7 +1295,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     // ===| ANNOTATION FORM FIELDS |=======================================================
 
     /**
-     * Retyurns the PDF command to ser the default fill color from the style stack.
+     * Returns the PDF command to set the default fill color from the style stack.
      *
      * @return string
      * @throws \Com\Tecnick\Color\Exception
@@ -1933,7 +1933,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         return $this->setAnnotation($posx, $posy, $width, $height, $name, $annotOpt);
     }
 
-    // ==| JS Fiedls |==
+    // ==| JS Fields |==
 
     /**
      * Adds a JavaScript button form field.
@@ -1945,9 +1945,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float $height height in user units.
      * @param string $caption caption.
      * @param string $action action triggered by pressing the button.
-     *                      Use a string to specify a javascript action.
-     *                      Use an array to specify a form action options
-     *                      as in section 12.7.5 of PDF32000_2008.
+     *                      A string specifying the JavaScript action to run.
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -2058,7 +2056,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 $itm .= ',[\'' . \addslashes($value) . '\',\'' . \addslashes($value) . '\']';
             }
         }
-        $this->javascript .= 'f' . $name . '.\setItems(' . \substr($itm, 1) . ');' . "\n";
+        $this->javascript .= 'f' . $name . '.setItems(' . \substr($itm, 1) . ');' . "\n";
     }
 
     /**

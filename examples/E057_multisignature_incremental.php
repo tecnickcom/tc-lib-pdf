@@ -211,11 +211,11 @@ $pdf->setSignature([
 ]);
 
 // Primary signature appearance – placed on page 2 at the first slot.
-$pdf->setSignatureAppearance(posx: 100, posy: 45, width: 90, heigth: 35, page: $page2['pid'], name: 'Author');
+$pdf->setSignatureAppearance(posx: 100, posy: 45, width: 90, height: 35, page: $page2['pid'], name: 'Author');
 
 // Empty approval fields for the remaining approvers.
-$pdf->addEmptySignatureAppearance(posx: 100, posy: 90, width: 90, heigth: 35, page: $page2['pid'], name: 'Reviewer');
-$pdf->addEmptySignatureAppearance(posx: 100, posy: 135, width: 90, heigth: 35, page: $page2['pid'], name: 'Manager');
+$pdf->addEmptySignatureAppearance(posx: 100, posy: 90, width: 90, height: 35, page: $page2['pid'], name: 'Reviewer');
+$pdf->addEmptySignatureAppearance(posx: 100, posy: 135, width: 90, height: 35, page: $page2['pid'], name: 'Manager');
 
 // -----------------------------------------------------------------------
 // Page 3 – Workflow guide

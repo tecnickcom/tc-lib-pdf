@@ -12,7 +12,7 @@
 
 [![Sponsor on GitHub](https://img.shields.io/badge/sponsor-github-EA4AAA.svg?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/tecnickcom)
 
-> 💖 **Keep TCPDF maintained.** `tc-lib-pdf` is the actively-developed successor to **TCPDF**, which is installed 100M+ times across 500+ PHP packages and is now maintenance-only. If your company depends on it, [become a sponsor](https://github.com/sponsors/tecnickcom) to keep this shared infrastructure secure and maintained — see [Sponsors](#sponsors) for tiers.
+> 💖 **Keep TCPDF maintained.** `tc-lib-pdf` is the actively-developed successor to **TCPDF**, which is installed 100M+ times across 500+ PHP packages and is now maintenance-only. If your company depends on it, [become a sponsor](https://github.com/sponsors/tecnickcom) to keep this shared infrastructure secure and maintained. See [Sponsors](#sponsors) for tiers.
 
 ---
 
@@ -49,20 +49,20 @@ It coordinates specialized companion packages for fonts, images, graphics, pages
 
 Releases follow [Semantic Versioning](https://semver.org):
 
-- **PATCH** — backwards-compatible bug fixes
-- **MINOR** — backwards-compatible new features
-- **MAJOR** — breaking changes
+- **PATCH**: backwards-compatible bug fixes
+- **MINOR**: backwards-compatible new features
+- **MAJOR**: breaking changes
 
 ---
 
 ## Sponsors
 
-`tc-lib-pdf` is the actively-developed successor to **TCPDF**, which is installed **100M+ times across 500+ PHP packages** and is now maintenance-only. If your product relies on TCPDF or `tc-lib-pdf`, sponsoring is how that shared infrastructure stays secure and maintained — closer to insurance on a dependency you already ship than to a donation.
+`tc-lib-pdf` is the actively-developed successor to **TCPDF**, which is installed **100M+ times across 500+ PHP packages** and is now maintenance-only. If your product relies on TCPDF or `tc-lib-pdf`, sponsoring is how that shared infrastructure stays secure and maintained, closer to insurance on a dependency you already ship than to a donation.
 
 [![Sponsor on GitHub](https://img.shields.io/badge/sponsor-github-EA4AAA.svg?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/tecnickcom)
 
 <!-- sponsors -->
-**Your logo here.** Be the first company to back the project — [become a sponsor →](https://github.com/sponsors/tecnickcom)
+**Your logo here.** Be the first company to back the project: [become a sponsor →](https://github.com/sponsors/tecnickcom)
 <!-- sponsors -->
 
 See **[SPONSORS.md](https://github.com/tecnickcom/.github/blob/main/SPONSORS.md)** for sponsorship tiers, how to add your logo, and the logo/content policy. Individual backers are listed in **[BACKERS.md](https://github.com/tecnickcom/.github/blob/main/BACKERS.md)**.
@@ -99,7 +99,7 @@ The fastest way to evaluate the library is to follow the installation and quick-
 - Bookmarks, named destinations, and table of contents
 - Automatic page numbering and page groups
 - Full page box control (Media/Crop/Bleed/Trim/Art), page reordering, and viewer preferences
-- **Per-page transparency group control** via `setPageTransparencyGroup()` — by default (`'auto'`) the page transparency `/Group` is emitted only on pages that actually blend, flattening fully-opaque pages for faster, more predictable printing on conservative RIPs/firmware; `'always'` keeps the group on every page (legacy) and `'never'` drops it entirely
+- **Per-page transparency group control** via `setPageTransparencyGroup()`: by default (`'auto'`) the page transparency `/Group` is emitted only on pages that actually blend, flattening fully-opaque pages for faster, more predictable printing on conservative RIPs/firmware; `'always'` keeps the group on every page (legacy) and `'never'` drops it entirely
 
 ### Images & Graphics
 - Native **JPEG**, **PNG**, and **SVG** support
@@ -111,19 +111,19 @@ The fastest way to evaluate the library is to follow the installation and quick-
 ### Security & Standards
 - Password and certificate-based document encryption (RC4 and AES, up to 256-bit)
 - Remote resource controls via `fileOptions` with host allowlists plus separate internal and markup local-path allowlists for external assets
-- **Digital signatures** — detached CMS (PKCS#7) and **PAdES baseline** signatures (ETSI EN 319 142-1) via the fluent `signature()` facade, with configurable appearance fields. Profiles: `legacy` (ISO 32000-1 `adbe.pkcs7.detached`), `pades-b-b`, `pades-b-t`, `pades-b-lt`, and `pades-b-lta` (`ETSI.CAdES.detached`), with RSA or ECDSA keys and `sha256`/`sha384`/`sha512` digests. Both local (private-key) and external/remote (HSM) signing are supported. The cryptography lives in the companion package [`tc-lib-pdf-sign`](https://github.com/tecnickcom/tc-lib-pdf-sign); see [doc/DIGITAL_SIGNATURES.md](doc/DIGITAL_SIGNATURES.md)
-- **RFC 3161 TSA timestamps** (PAdES B-T) — embed a trusted timestamp token from any RFC 3161-compliant Time Stamping Authority (TSA) into the CMS signature as the `id-aa-signatureTimeStampToken` attribute; configurable digest algorithm (`sha256`, `sha384`, `sha512`), policy OID, nonce, timeout, and TLS peer verification
-- **LTV (Long-Term Validation)** (PAdES B-LT) — embed revocation evidence in a post-signing incremental revision:
+- **Digital signatures**: detached CMS (PKCS#7) and **PAdES baseline** signatures (ETSI EN 319 142-1) via the fluent `signature()` facade, with configurable appearance fields. Profiles: `legacy` (ISO 32000-1 `adbe.pkcs7.detached`), `pades-b-b`, `pades-b-t`, `pades-b-lt`, and `pades-b-lta` (`ETSI.CAdES.detached`), with RSA or ECDSA keys and `sha256`/`sha384`/`sha512` digests. Both local (private-key) and external/remote (HSM) signing are supported. The cryptography lives in the companion package [`tc-lib-pdf-sign`](https://github.com/tecnickcom/tc-lib-pdf-sign); see [doc/DIGITAL_SIGNATURES.md](doc/DIGITAL_SIGNATURES.md)
+- **RFC 3161 TSA timestamps** (PAdES B-T): embed a trusted timestamp token from any RFC 3161-compliant Time Stamping Authority (TSA) into the CMS signature as the `id-aa-signatureTimeStampToken` attribute; configurable digest algorithm (`sha256`, `sha384`, `sha512`), policy OID, nonce, timeout, and TLS peer verification
+- **LTV (Long-Term Validation)** (PAdES B-LT): embed revocation evidence in a post-signing incremental revision:
   - collects the signing certificate chain and fetches OCSP responses and/or CRL payloads from AIA and CDP URLs
   - deduplicates binary payloads by fingerprint
   - emits a Document Security Store (`/DSS`) carrying `/VRI`, `/Certs`, `/OCSPs`, and `/CRLs`, referenced from the re-emitted document catalog
   - each feature (OCSP, CRL, cert embedding, DSS, VRI) can be enabled independently via the `signature()` LTV options
-- **Archive timestamps** (PAdES B-LTA) — add a `/Type /DocTimeStamp` archive timestamp over the whole document in a further incremental revision via `signature()->upgradeToLta()`
+- **Archive timestamps** (PAdES B-LTA): add a `/Type /DocTimeStamp` archive timestamp over the whole document in a further incremental revision via `signature()->upgradeToLta()`
 - **PDF annotations**: links, text notes, file attachments, markup, shapes, media, and widgets
 - **JavaScript** embedding
-- **PDF/A** (1/2/3, including a/b/u conformance levels) — see [doc/STANDARDS.md](doc/STANDARDS.md) and [E001_invoice.php](examples/E001_invoice.php) for a Factur-X / ZUGFeRD example
-- **PDF/X** (generic alias, PDF/X-1a, PDF/X-3, PDF/X-4, PDF/X-5) — print-exchange conformance: per-variant OutputIntent identifiers, GTS_PDFXVersion in Info dict and XMP, PDF version enforcement, CMYK color forcing for restrictive profiles (X-1a, X-3), transparency restrictions, and suppression of encryption and JavaScript
-- **PDF/UA** (generic alias, PDF/UA-1, PDF/UA-2) — accessibility conformance: tagged structure tree (`StructTreeRoot` / `ParentTree`), `MarkInfo /Marked true`, document language (`/Lang`), `DisplayDocTitle true`, `ActualText` for ligatures and special glyphs, figure alt-text tagging, and heading-level clamping to prevent skipped levels; PDF/UA-2 targets PDF 2.0
+- **PDF/A** (1/2/3, including a/b/u conformance levels): see [doc/STANDARDS.md](doc/STANDARDS.md) and [E001_invoice.php](examples/E001_invoice.php) for a Factur-X / ZUGFeRD example
+- **PDF/X** (generic alias, PDF/X-1a, PDF/X-3, PDF/X-4, PDF/X-5): print-exchange conformance covering per-variant OutputIntent identifiers, GTS_PDFXVersion in Info dict and XMP, PDF version enforcement, CMYK color forcing for restrictive profiles (X-1a, X-3), transparency restrictions, and suppression of encryption and JavaScript
+- **PDF/UA** (generic alias, PDF/UA-1, PDF/UA-2): accessibility conformance covering tagged structure tree (`StructTreeRoot` / `ParentTree`), `MarkInfo /Marked true`, document language (`/Lang`), `DisplayDocTitle true`, `ActualText` for ligatures and special glyphs, figure alt-text tagging, and heading-level clamping to prevent skipped levels; PDF/UA-2 targets PDF 2.0
 
 ### PDF Import
 - Import pages from existing PDFs as **Form XObjects** and place them on any destination page
@@ -216,17 +216,17 @@ $pdf->renderPDF($rawpdf);
 
 > **Note:** `realpath()` returns `false` when the fonts directory does not yet exist. If you see `K_PATH_FONTS` errors on first run, verify that fonts were generated after `composer install` (see [doc/FONTS.md](doc/FONTS.md)).
 
-For more complete examples — including invoices, images, barcodes, HTML tables, dedicated HTML selector/form/table showcases, PDF/X, and PDF/UA — see the [examples](examples) directory.
+For more complete examples (including invoices, images, barcodes, HTML tables, dedicated HTML selector/form/table showcases, PDF/X, and PDF/UA), see the [examples](examples) directory.
 Annotation-focused runnable example: [examples/E027_annotations.php](examples/E027_annotations.php).
 
 To run the bundled examples locally:
 
 ```bash
-make x       # build example assets
+make fonts   # generate the companion fonts used by the examples
 make server  # start a local PHP server
 ```
 
-Then open <http://localhost:8971/index.php>.
+Then open <http://localhost:8971/E000_overview.php>.
 
 If the minimal example fails on first run, verify these two points first:
 
@@ -258,11 +258,11 @@ Selected topic groups in the examples set:
 To preview examples locally:
 
 ```bash
-make x
+make fonts
 make server
 ```
 
-Then open <http://localhost:8971/index.php>.
+Then open <http://localhost:8971/E000_overview.php>.
 
 ---
 

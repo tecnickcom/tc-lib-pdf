@@ -67,7 +67,7 @@ $pdf->setSignatureAppearance(
     posx: $sigPosX,
     posy: $sigPosY,
     width: $sigWidth,
-    heigth: $sigHeight,
+    height: $sigHeight,
     page: $page['pid'],
     name: 'Remote Approval',
 );

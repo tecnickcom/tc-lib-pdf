@@ -130,7 +130,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected array $hyphen_patterns = [];
 
     /**
-     * Dafault value for $dim array.
+     * Default value for $dim array.
      *
      * @var TTextDims
      */
@@ -929,6 +929,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * Pass raw drawing/image operators (for example from graph or image helpers)
      * to associate them with a Figure structure element and optional /Alt text.
+     *
+     * @param string $content Raw drawing/image operators to place inside the Figure.
+     * @param int    $pid     Page identifier the content is added to.
+     * @param string $alt     Optional alternate text written as the Figure /Alt entry.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
@@ -2706,7 +2710,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Returns the last text fragment bounding box [llx, lly, urx, ury].
+     * Returns the last text fragment bounding box as {x, y, w, h} (left, top, width, height).
      *
      * @return TBBox  Array of bounding box values.
      */
@@ -2724,7 +2728,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Returns the last Text bounding box [llx, lly, urx, ury].
+     * Returns the last Text bounding box as {x, y, w, h} (left, top, width, height).
      *
      * @return TBBox  Array of bounding box values.
      */
@@ -2742,7 +2746,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Returns the last Cell bounding box [llx, lly, urx, ury].
+     * Returns the last Cell bounding box as {x, y, w, h} (left, top, width, height).
      *
      * @return TBBox  Array of bounding box values.
      */
@@ -2760,7 +2764,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Remove special chacters from the text string:
+     * Remove special characters from the text string:
      *     - 'CARRIAGE RETURN' (U+000D)
      *     - 'NO-BREAK SPACE' (U+00A0)
      *     - 'SHY' (U+00AD) SOFT HYPHEN
@@ -3061,12 +3065,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         return $sub->replaceChars($ordarr);
     }
 
-    // ===| HYPENATION |====================================================
+    // ===| HYPHENATION |====================================================
 
     /**
      * Returns an array of hyphenation patterns.
      *
-     * @param string $file TEX file containing hypenation patterns.
+     * @param string $file TEX file containing hyphenation patterns.
      *                     TEX patterns can be downloaded from
      *                     https://www.ctan.org/tex-archive/language/hyph-utf8/tex/generic/hyph-utf8/patterns/tex
      *                     See https://www.ctan.org/tex-archive/language/hyph-utf8/ for more information.
@@ -3212,7 +3216,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @param array<int, int> $ordarr  Array of UTF-8 codepoints (integer values).
      *
-     * @return array<int, int> The modified array with SOFT-HYPHEN (U+00AD) characters.
+     * @return array<int, int> The modified array with ZERO-WIDTH-SPACE (U+200B) characters inserted.
      */
     protected function addOrdArrBreakPoints(array $ordarr): array
     {

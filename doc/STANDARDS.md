@@ -32,7 +32,12 @@ PDF/A-3 supports embedding arbitrary file attachments (for example XML invoice p
 ```php
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfa3');
 // ... build document ...
-$pdf->Annotation(/* file attachment annotation pointing to the XML */);
+$pdf->addContentAsEmbeddedFile(
+    file: 'factur-x.xml',
+    content: $invoiceXML,
+    mime: 'text/xml',
+    afrel: \Com\Tecnick\Pdf\AFRelationship::Alternative,
+);
 $pdf->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag', $xmpBag);
 ```
 
@@ -94,7 +99,7 @@ When a PDF/UA mode is active the library automatically:
 To provide the document language explicitly:
 
 ```php
-$pdf->setDocInfo(['a_meta_language' => 'de-DE']);
+$pdf->setLanguageArray(['a_meta_language' => 'de-DE']);
 ```
 
 To tag decorative or repeated content as Artifact (for example headers, footers, and page numbers):

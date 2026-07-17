@@ -23,7 +23,7 @@ namespace Com\Tecnick\Pdf;
 /**
  * Com\Tecnick\Pdf\MetaInfo
  *
- * Meta Informaton PDF class
+ * Meta Information PDF class
  *
  * @since     2002-08-03
  * @category  Library
@@ -191,6 +191,8 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     /**
      * Returns the canonical GTS_PDFXVersion string for the active PDF/X variant.
      * Used in both the Info dictionary and XMP metadata.
+     *
+     * @return string The canonical GTS_PDFXVersion identifier.
      */
     protected function getGtsPdfxVersionString(): string
     {
@@ -827,7 +829,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     }
 
     /**
-     * Sanitize the page box name and return the default 'CropBox' in case of error.
+     * Returns the PrintScaling entry for the Viewer Preferences.
      */
     protected function getPagePrintScaling(): string
     {
