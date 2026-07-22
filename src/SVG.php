@@ -431,6 +431,7 @@ use TSVGStyle;
  *    'child': array<int>,
  *    'xmldepth': int,
  *    'switchstack'?: array<int, TSVGSwitchState>,
+ *    'usechain': array<string, bool>,
  *    'markermode': int,
  *    'patternmode': int,
  *    'textmode': TSVGTextMode,
@@ -528,6 +529,17 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @var float
      */
     protected const SVGMAXVAL = 2_147_483_647.0;
+
+    /**
+     * Maximum depth of a <use> resolution chain.
+     *
+     * Bounds recursion in parseSVGTagSTARTuse() so a cyclic or pathologically
+     * deep <use> graph cannot exhaust memory (CWE-400). Far beyond any
+     * legitimate nesting while keeping recursion well below PHP limits.
+     *
+     * @var int
+     */
+    protected const SVGMAXUSEDEPTH = 64;
 
     /**
      * Identity Transofrmation matrix.
@@ -743,6 +755,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'child' => [],
         'xmldepth' => 0,
         'switchstack' => [],
+        'usechain' => [],
         'markermode' => 0,
         'patternmode' => 0,
         'textmode' => [
@@ -7687,6 +7700,49 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         if (!\is_array($use)) {
             return '';
         }
+
+        // Cycle / runaway-depth guard for <use> resolution (CWE-400), mirroring
+        // the $seen visited-set used by resolveSVGPatternDef() for pattern href
+        // inheritance. A target already being expanded (direct or transitive
+        // self-reference), or a chain deeper than SVGMAXUSEDEPTH, is refused
+        // instead of recursing until the process runs out of memory.
+        if (isset($svgobj['usechain'][$svgdefid]) || \count($svgobj['usechain']) >= self::SVGMAXUSEDEPTH) {
+            return '';
+        }
+        $this->svgobjs[$soid]['usechain'][$svgdefid] = true;
+
+        try {
+            return $this->expandSVGUse($parser, $soid, $attr, $use);
+        } finally {
+            unset($this->svgobjs[$soid]['usechain'][$svgdefid]);
+        }
+    }
+
+    /**
+     * Expand a resolved <use> target into PDF output.
+     *
+     * Split out from parseSVGTagSTARTuse() so the cycle/depth guard there can
+     * wrap the whole expansion in a single try/finally.
+     *
+     * @param \XMLParser $parser The XML parser calling the handler.
+     * @param int $soid ID of the current SVG object.
+     * @phpstan-param TSVGAttributes $attr Use-element attributes (href/id stripped upstream).
+     * @phpstan-param TSVGAttribs $use Resolved target definition from the defs table.
+     *
+     * @return string
+     *
+     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\File\Exception
+     * @throws \Com\Tecnick\Pdf\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Graph\Exception
+     * @throws \Com\Tecnick\Pdf\Image\Exception
+     * @throws \Com\Tecnick\Pdf\Page\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function expandSVGUse(\XMLParser $parser, int $soid, array $attr, array $use): string
+    {
+        $svgobj = &$this->getSVGObjRef($soid);
 
         if (isset($attr['xlink:href'])) {
             unset($attr['xlink:href']);

@@ -498,6 +498,7 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             'child' => [],
             'xmldepth' => 0,
             'switchstack' => [],
+            'usechain' => [],
             'markermode' => 0,
             'patternmode' => 0,
             'textmode' => [

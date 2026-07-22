@@ -764,6 +764,201 @@ class SVGTest extends TestUtil
         $this->assertNotSame('', $svgobj['out']);
     }
 
+    /**
+     * A <use> whose target is itself a <use> pointing back at the same id must
+     * terminate instead of recursing until memory is exhausted (CWE-400).
+     *
+     * @throws \Throwable
+     */
+    public function testSvgUseSelfReferenceDoesNotRecurInfinitely(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(46);
+
+        $obj->patchSvgObj(46, [
+            'defs' => [
+                'a' => [
+                    'name' => 'use',
+                    'attr' => ['id' => 'a', 'href' => '#a'],
+                ],
+            ],
+            'out' => '',
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $result = $obj->exposeParseSVGTagSTARTuse($parser, 46, ['href' => '#a']);
+
+        $this->assertSame('', $result);
+        $this->assertSame('', $obj->getSvgObj(46)['out']);
+    }
+
+    /**
+     * Two <use> elements in a mutual cycle (#a -> #b -> #a) must terminate.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgUseMutualCycleTerminates(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(47);
+
+        $obj->patchSvgObj(47, [
+            'defs' => [
+                'a' => ['name' => 'use', 'attr' => ['id' => 'a', 'href' => '#b']],
+                'b' => ['name' => 'use', 'attr' => ['id' => 'b', 'href' => '#a']],
+            ],
+            'out' => '',
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $result = $obj->exposeParseSVGTagSTARTuse($parser, 47, ['href' => '#a']);
+
+        $this->assertSame('', $result);
+        $this->assertSame('', $obj->getSvgObj(47)['out']);
+    }
+
+    /**
+     * The cycle guard refuses to expand a target already on the active chain,
+     * so seeding its id into usechain suppresses rendering of an otherwise
+     * valid shape.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgUseCycleGuardRefusesTargetAlreadyBeingExpanded(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(48);
+
+        $obj->patchSvgObj(48, [
+            'defs' => [
+                'shape1' => [
+                    'name' => 'rect',
+                    'attr' => [
+                        'x' => '2',
+                        'y' => '3',
+                        'width' => '5',
+                        'height' => '4',
+                        'style' => 'fill:#000000;stroke:none;',
+                    ],
+                ],
+            ],
+            'usechain' => ['shape1' => true],
+            'out' => '',
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $result = $obj->exposeParseSVGTagSTARTuse($parser, 48, ['href' => '#shape1']);
+
+        $this->assertSame('', $result);
+        $this->assertSame('', $obj->getSvgObj(48)['out']);
+    }
+
+    /**
+     * The depth ceiling refuses expansion once the active chain reaches
+     * SVGMAXUSEDEPTH (64), bounding non-cyclic but pathologically deep graphs.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgUseDepthGuardRefusesBeyondMaxDepth(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(49);
+
+        $deepChain = [];
+        for ($i = 0; $i < 64; $i++) {
+            $deepChain['d' . $i] = true;
+        }
+
+        $obj->patchSvgObj(49, [
+            'defs' => [
+                'shape1' => [
+                    'name' => 'rect',
+                    'attr' => [
+                        'x' => '2',
+                        'y' => '3',
+                        'width' => '5',
+                        'height' => '4',
+                        'style' => 'fill:#000000;stroke:none;',
+                    ],
+                ],
+            ],
+            'usechain' => $deepChain,
+            'out' => '',
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $result = $obj->exposeParseSVGTagSTARTuse($parser, 49, ['href' => '#shape1']);
+
+        $this->assertSame('', $result);
+        $this->assertSame('', $obj->getSvgObj(49)['out']);
+    }
+
+    /**
+     * The guard is a stack-scoped active chain, not a permanent seen-set: two
+     * separate <use> references to the same shape must both render.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgUseRepeatedReferenceToSameShapeStillRenders(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $obj->initSvgObjForHandlers(50);
+
+        $obj->patchSvgObj(50, [
+            'defs' => [
+                'shape1' => [
+                    'name' => 'rect',
+                    'attr' => [
+                        'x' => '2',
+                        'y' => '3',
+                        'width' => '5',
+                        'height' => '4',
+                        'style' => 'fill:#000000;stroke:none;',
+                    ],
+                ],
+            ],
+            'out' => '',
+        ]);
+
+        $parser = \xml_parser_create('UTF-8');
+        $obj->exposeParseSVGTagSTARTuse($parser, 50, ['href' => '#shape1', 'x' => '5', 'y' => '7']);
+        $firstOut = $obj->getSvgObj(50)['out'];
+        $this->assertNotSame('', $firstOut);
+
+        $obj->exposeParseSVGTagSTARTuse($parser, 50, ['href' => '#shape1', 'x' => '9', 'y' => '1']);
+        $secondOut = $obj->getSvgObj(50)['out'];
+        $this->assertNotSame($firstOut, $secondOut);
+    }
+
+    /**
+     * End-to-end: the ~90-byte advisory PoC (a self-referencing <use> inside
+     * <defs>) must render without a fatal memory-exhaustion crash.
+     *
+     * @throws \Throwable
+     */
+    public function testAddSVGSelfReferencingUseDoesNotExhaustMemory(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            . '<defs><use id="a" href="#a"/></defs>'
+            . '<use href="#a"/>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 10, 10, 50, 50, $page['height']);
+
+        $this->assertSame(1, $soid);
+        /** @var array<int, array<string, mixed>> $svgobjs */
+        $svgobjs = $this->getObjectProperty($obj, 'svgobjs');
+        $this->assertArrayHasKey($soid, $svgobjs);
+    }
+
     /** @throws \Throwable */
     public function testSvgTransformRotateCenterAndEmptyTransformMatrix(): void
     {
