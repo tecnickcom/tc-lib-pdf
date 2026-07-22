@@ -58,6 +58,14 @@ class PageResolver
     private const INHERITABLE = ['MediaBox', 'CropBox', 'BleedBox', 'TrimBox', 'ArtBox', 'Rotate', 'Resources'];
 
     /**
+     * Hard ceiling on page tree nodes visited in a single walk.
+     * Far above any legitimate document; defense in depth on top of the
+     * duplicate-reference guard, which already bounds every walk by the
+     * number of distinct objects in the source file.
+     */
+    public const MAX_PAGE_TREE_NODES = 1_000_000;
+
+    /**
      * Resolve the effective page dictionary for the given 1-based page number.
      *
      * @param SourceDocument $src      Parsed source document.
@@ -90,7 +98,10 @@ class PageResolver
 
         $inherited = $this->extractInheritable($pagesDict);
         $remaining = $pageNum;
-        $pageDict = $this->walkTree($src, $pagesDict, $inherited, $remaining, [$pagesRef => true]);
+        $visited = [
+            $pagesRef => true,
+        ];
+        $pageDict = $this->walkTree($src, $pagesDict, $inherited, $remaining, $visited);
 
         if ($pageDict === null) {
             throw new ImportPageOutOfRangeException('Page ' . $pageNum . ' not found; document has fewer pages.');
@@ -100,13 +111,89 @@ class PageResolver
     }
 
     /**
+     * Count the pages actually reachable through the /Kids page tree.
+     *
+     * The declared /Count entry of the /Pages dictionary is intentionally
+     * ignored: it is under the control of whoever produced the source file
+     * and must never size an allocation or bound a loop. The walk applies
+     * the same acceptance rules as resolve(), so both methods always agree
+     * on which pages are reachable.
+     *
+     * @param SourceDocument $src      Parsed source document.
+     * @param int            $maxNodes Maximum number of tree nodes to visit.
+     *
+     * @return int Number of reachable pages.
+     *
+     * @throws ImportCorruptedSourceException If the page tree is malformed, contains
+     *                                        duplicate or cyclic references, or exceeds
+     *                                        the node budget.
+     */
+    public function countPages(SourceDocument $src, int $maxNodes = self::MAX_PAGE_TREE_NODES): int
+    {
+        $trailer = $src->getTrailer();
+        $rootRef = SourceDocument::refToKey($trailer['root']);
+        $rootObj = $src->getObject($rootRef);
+        $rootDict = $this->objectToDict($rootObj);
+
+        if (!isset($rootDict['Pages'])) {
+            throw new ImportCorruptedSourceException('PDF /Root is missing /Pages entry.');
+        }
+
+        $stack = [SourceDocument::refToKey(\is_string($rootDict['Pages']) ? $rootDict['Pages'] : '')];
+
+        /** @var array<string, bool> $visited */
+        $visited = [];
+        $count = 0;
+        $nodes = 0;
+        while ($stack !== []) {
+            $ref = \array_pop($stack);
+            if (isset($visited[$ref])) {
+                throw new ImportCorruptedSourceException('Duplicate or cyclic reference in page tree at node: ' . $ref);
+            }
+
+            $visited[$ref] = true;
+            ++$nodes;
+            if ($nodes > $maxNodes) {
+                throw new ImportCorruptedSourceException('Page tree exceeds the maximum node budget: ' . $maxNodes);
+            }
+
+            $nodeDict = $this->objectToDict($src->getObject($ref));
+            $nodeType = isset($nodeDict['Type']) && \is_string($nodeDict['Type']) ? $nodeDict['Type'] : '';
+            if ($nodeType === 'Page') {
+                ++$count;
+                continue;
+            }
+
+            if ($nodeType !== 'Pages') {
+                throw new ImportCorruptedSourceException('Unexpected page tree node type: ' . $nodeType);
+            }
+
+            if (!isset($nodeDict['Kids']) || !\is_array($nodeDict['Kids'])) {
+                throw new ImportCorruptedSourceException('/Pages node is missing /Kids array.');
+            }
+
+            /** @var mixed $kid */
+            foreach ($nodeDict['Kids'] as $kid) {
+                if (!\is_string($kid)) {
+                    continue;
+                }
+
+                $stack[] = SourceDocument::refToKey($kid);
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * Recursively walk the page tree to find the $remaining-th Page node.
      *
      * @param SourceDocument       $src       Source document.
      * @param array<string, mixed> $nodeDict  Current Pages or Page dictionary.
      * @param array<string, mixed> $inherited Inherited attributes from parent.
      * @param int                  $remaining Remaining pages to skip (decremented).
-     * @param array<string, bool>  $visited   Ref-keys on the current path (cycle guard).
+     * @param array<string, bool>  $visited   All ref-keys visited during this walk, shared by
+     *                                        reference (duplicate and cycle guard).
      *
      * @return array<string, mixed>|null Resolved page dict or null if not found in this subtree.
      *
@@ -117,7 +204,7 @@ class PageResolver
         array $nodeDict,
         array $inherited,
         int &$remaining,
-        array $visited = [],
+        array &$visited,
     ): ?array {
         $nodeType = '';
         if (isset($nodeDict['Type']) && \is_string($nodeDict['Type'])) {
@@ -172,17 +259,19 @@ class PageResolver
 
             $kidKey = SourceDocument::refToKey($kidRef);
             if (isset($visited[$kidKey])) {
-                // A node referencing one of its own ancestors forms a cycle;
-                // without this guard a malformed source PDF would recurse until
-                // the stack/memory is exhausted.
-                throw new ImportCorruptedSourceException('Cyclic reference in page tree at node: ' . $kidKey);
+                // The page tree must be a strict tree (every node has a single
+                // /Parent), so any ref seen twice is malformed: an ancestor ref
+                // forms a cycle that would recurse until the stack is exhausted,
+                // and a duplicated sibling ref would multiply the traversal
+                // exponentially with tree depth besides corrupting page numbers.
+                throw new ImportCorruptedSourceException('Duplicate or cyclic reference in page tree at node: '
+                . $kidKey);
             }
 
-            $kidVisited = $visited;
-            $kidVisited[$kidKey] = true;
+            $visited[$kidKey] = true;
             $kidObj = $src->getObject($kidKey);
             $kidDict = $this->objectToDict($kidObj);
-            $result = $this->walkTree($src, $kidDict, $merged, $remaining, $kidVisited);
+            $result = $this->walkTree($src, $kidDict, $merged, $remaining, $visited);
             if ($result !== null) {
                 return $result;
             }

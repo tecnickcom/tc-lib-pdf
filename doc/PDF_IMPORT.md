@@ -13,6 +13,8 @@ $sourceId = $pdf->setImportSourceFile('/path/to/source.pdf');
 $count = $pdf->getSourcePageCount($sourceId);
 ```
 
+The page count is derived from the page tree actually reachable through `/Kids`; the declared `/Count` entry of the `/Pages` dictionary is ignored, so a forged or wrong `/Count` cannot influence how many pages are counted or imported. Structurally broken page trees (missing `/Kids`, unexpected node types, duplicate or cyclic references) raise `ImportCorruptedSourceException`.
+
 ## Import One Page and Place It
 
 ```php

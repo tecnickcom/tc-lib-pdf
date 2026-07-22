@@ -1438,6 +1438,9 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     /**
      * Return the total number of pages in a registered source document.
      *
+     * The count reflects the pages actually reachable through the /Kids page
+     * tree; the declared /Count entry of the /Pages dictionary is ignored.
+     *
      * @param string $sourceId Source document identifier.
      *
      * @return int Total page count.

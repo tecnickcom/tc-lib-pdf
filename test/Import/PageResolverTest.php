@@ -636,7 +636,195 @@ class PageResolverTest extends TestCase
         ]);
 
         $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessageMatches('/' . preg_quote('Cyclic reference', '/') . '/');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Duplicate or cyclic reference', '/') . '/');
         $resolver->resolve($doc, 1);
+    }
+
+    /**
+     * A /Pages node listing the same kid twice is malformed (every node has a
+     * single /Parent) and, if tolerated, would multiply the traversal
+     * exponentially with tree depth besides corrupting page numbering.
+     *
+     * @throws \Throwable
+     */
+    public function testResolveThrowsOnDuplicateSiblingReference(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('Duplicate or cyclic reference', '/') . '/');
+        $resolver->resolve($doc, 2);
+    }
+
+    // -------------------------------------------------------------------------
+    // countPages
+    // -------------------------------------------------------------------------
+
+    /** @throws \Throwable */
+    public function testCountPagesReturnsReachablePageCount(): void
+    {
+        $resolver = new PageResolver();
+        $this->assertSame(1, $resolver->countPages($this->loadDoc()));
+    }
+
+    /** @throws \Throwable */
+    public function testCountPagesThrowsWhenRootPagesEntryIsMissing(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Catalog'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('missing /Pages entry', '/') . '/');
+        $resolver->countPages($doc);
+    }
+
+    /** @throws \Throwable */
+    public function testCountPagesReturnsZeroForEmptyKidsArray(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                ['[', []],
+            ]),
+        ]);
+
+        $this->assertSame(0, $resolver->countPages($doc));
+    }
+
+    /** @throws \Throwable */
+    public function testCountPagesThrowsOnDuplicateKidReference(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('Duplicate or cyclic reference', '/') . '/');
+        $resolver->countPages($doc);
+    }
+
+    /** @throws \Throwable */
+    public function testCountPagesThrowsWhenNodeBudgetExceeded(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('maximum node budget', '/') . '/');
+        $resolver->countPages($doc, 1);
+    }
+
+    /** @throws \Throwable */
+    public function testCountPagesThrowsForUnexpectedNodeType(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Catalog'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('Unexpected page tree node type', '/') . '/');
+        $resolver->countPages($doc);
+    }
+
+    /** @throws \Throwable */
+    public function testCountPagesThrowsForPagesNodeWithoutKids(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+            ]),
+        ]);
+
+        $this->expectException(ImportCorruptedSourceException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('missing /Kids', '/') . '/');
+        $resolver->countPages($doc);
     }
 }

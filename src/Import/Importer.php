@@ -70,6 +70,13 @@ class Importer implements ImporterInterface
     private array $templateCache = [];
 
     /**
+     * Verified reachable page count per source ID (sources are immutable after parsing).
+     *
+     * @var array<string, int>
+     */
+    private array $pageCounts = [];
+
+    /**
      * Raw PDF object bytes queued for deferred write, keyed by XObject template ID.
      *
      * @var array<string, string>
@@ -171,6 +178,11 @@ class Importer implements ImporterInterface
     /**
      * Return the total number of pages in a registered source document.
      *
+     * The count is derived from the page tree actually reachable through
+     * /Kids; the declared /Count entry is intentionally ignored because it
+     * is under the control of whoever produced the source file and must
+     * never size an allocation or bound a loop.
+     *
      * @param string $sourceId Source document identifier.
      *
      * @return int Total page count.
@@ -181,26 +193,14 @@ class Importer implements ImporterInterface
     public function getSourcePageCount(string $sourceId): int
     {
         $src = $this->requireSource($sourceId);
-        $trailer = $src->getTrailer();
-        $rootRef = SourceDocument::refToKey($trailer['root']);
-        $rootObj = $src->getObject($rootRef);
-        $rootDict = $this->parseSimpleDict($rootObj);
-        if (!isset($rootDict['Pages'])) {
-            throw new ImportCorruptedSourceException('PDF /Root is missing /Pages entry.');
+        $count = $this->pageCounts[$sourceId] ?? null;
+        if ($count === null) {
+            $resolver = new PageResolver();
+            $count = $resolver->countPages($src);
+            $this->pageCounts[$sourceId] = $count;
         }
 
-        $pagesRef = SourceDocument::refToKey(\is_string($rootDict['Pages']) ? $rootDict['Pages'] : '');
-        $pagesObj = $src->getObject($pagesRef);
-        $pagesDict = $this->parseSimpleDict($pagesObj);
-        if (isset($pagesDict['Count']) && \is_int($pagesDict['Count'])) {
-            return $pagesDict['Count'];
-        }
-
-        if (isset($pagesDict['Count']) && \is_numeric($pagesDict['Count'])) {
-            return (int) $pagesDict['Count'];
-        }
-
-        return 0;
+        return $count;
     }
 
     /**
@@ -364,23 +364,25 @@ class Importer implements ImporterInterface
     {
         $total = $this->getSourcePageCount($sourceId);
 
+        $templates = [];
         if ($range === null) {
-            // A missing or non-positive /Count would make \range(1, $total)
-            // produce a descending/invalid sequence (e.g. [1, 0]); there is
-            // simply nothing to import in that case.
-            $range = $total < 1 ? [] : \range(1, $total);
-        } else {
-            foreach ($range as $pageNum) {
-                $num = (int) $pageNum;
-                if ($num < 1 || $num > $total) {
-                    throw new ImportPageOutOfRangeException(
-                        'Page number ' . $num . ' is out of range [1,' . $total . '].',
-                    );
-                }
+            // $total is the verified number of reachable pages, so every page
+            // number in 1..$total is resolvable; no array of page numbers is
+            // materialized up front.
+            for ($pageNum = 1; $pageNum <= $total; ++$pageNum) {
+                $templates[] = $this->importPage($sourceId, $pageNum, $options);
+            }
+
+            return $templates;
+        }
+
+        foreach ($range as $pageNum) {
+            $num = (int) $pageNum;
+            if ($num < 1 || $num > $total) {
+                throw new ImportPageOutOfRangeException('Page number ' . $num . ' is out of range [1,' . $total . '].');
             }
         }
 
-        $templates = [];
         foreach ($range as $pageNum) {
             $templates[] = $this->importPage($sourceId, (int) $pageNum, $options);
         }
@@ -414,6 +416,7 @@ class Importer implements ImporterInterface
         $this->sources = [];
         $this->objectMaps = [];
         $this->rawObjects = [];
+        $this->pageCounts = [];
     }
 
     /**
@@ -508,80 +511,5 @@ class Importer implements ImporterInterface
             270 => [0.0, 1.0, -1.0, 0.0, $hgt, 0.0],
             default => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
         };
-    }
-
-    /**
-     * Extract a minimal key->value dict from a raw parsed object (for trailer-level lookups).
-     *
-     * @param array<int, mixed> $objData Raw object data.
-     *
-     * @return array<string, mixed>
-     *
-     * @throws ImportCorruptedSourceException If no dictionary found.
-     */
-    private function parseSimpleDict(array $objData): array
-    {
-        $objItems = \array_values($objData);
-        $objCount = \count($objItems);
-        for ($objIdx = 0; $objIdx < $objCount; ++$objIdx) {
-            $objItemSlice = \array_slice($objItems, $objIdx, 1);
-            if (\count($objItemSlice) !== 1 || !\is_array($objItemSlice[0])) {
-                continue;
-            }
-
-            $objItem = $objItemSlice[0];
-
-            if (($objItem[0] ?? null) !== '<<' || !\is_array($objItem[1] ?? null)) {
-                continue;
-            }
-
-            $dict = [];
-            $raw = \array_values($objItem[1]);
-            $cnt = \count($raw);
-            for ($idx = 0; $idx < ($cnt - 1); $idx += 2) {
-                $pair = \array_slice($raw, $idx, 2);
-                if (\count($pair) < 2) {
-                    continue;
-                }
-
-                if (!\is_array($pair[0] ?? null) || ($pair[0][0] ?? null) !== '/') {
-                    continue;
-                }
-
-                if (!\array_key_exists(1, $pair)) {
-                    continue;
-                }
-
-                if (!\array_key_exists(1, $pair[0])) {
-                    continue;
-                }
-
-                if (!\is_string($pair[0][1])) {
-                    continue;
-                }
-
-                $key = \ltrim($pair[0][1], '/');
-
-                if (\is_array($pair[1])) {
-                    if (!\array_key_exists(1, $pair[1])) {
-                        continue;
-                    }
-
-                    if (!\is_array($pair[1][1]) && \is_scalar($pair[1][1])) {
-                        $dict[$key] = (string) $pair[1][1];
-                    }
-
-                    continue;
-                }
-
-                if (!\is_array($pair[1]) && \is_scalar($pair[1])) {
-                    $dict[$key] = (string) $pair[1];
-                }
-            }
-
-            return $dict;
-        }
-
-        throw new ImportCorruptedSourceException('Expected dictionary object but none found.');
     }
 }
