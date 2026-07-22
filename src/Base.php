@@ -1571,7 +1571,12 @@ abstract class Base
     {
         $allowedPaths = [];
 
-        $candidatePaths = [__DIR__ . '/../', __DIR__ . '/../../../vendor/tecnickcom/'];
+        $candidatePaths = [__DIR__ . '/../'];
+
+        $vendorSiblings = $this->vendorSiblingPackagesPath(__DIR__);
+        if ($vendorSiblings !== null) {
+            $candidatePaths[] = $vendorSiblings;
+        }
 
         if ($includeSystemTemp) {
             \array_unshift($candidatePaths, \sys_get_temp_dir());
@@ -1586,6 +1591,24 @@ abstract class Base
         }
 
         return \array_values(\array_unique($allowedPaths));
+    }
+
+    /**
+     * Return the directory holding the sibling tecnickcom packages when this
+     * package is installed as a Composer dependency
+     * (<project>/vendor/tecnickcom/tc-lib-pdf), or null for any other layout,
+     * such as a standalone repository checkout, so the default allowlist is
+     * not widened beyond the package tree.
+     *
+     * @param string $srcDir Path of the directory containing this source file.
+     */
+    protected function vendorSiblingPackagesPath(string $srcDir): ?string
+    {
+        if (\basename(\dirname($srcDir, 3)) !== 'vendor') {
+            return null;
+        }
+
+        return \dirname($srcDir, 2);
     }
 
     /**

@@ -17,6 +17,11 @@
  * This file is part of tc-lib-pdf software library.
  */
 
+// NOTE: local file reads (images, fonts, attachments) are restricted to an allowlist of
+// trusted paths that covers this package tree, so run the examples in place. To read assets
+// from other locations, list them in the 'allowedPaths' entry of the fileOptions constructor
+// parameter (see E047_remote_resources_security.php).
+
 // NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
 // autoloader when using Composer
