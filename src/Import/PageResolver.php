@@ -68,6 +68,11 @@ class PageResolver
     /**
      * Resolve the effective page dictionary for the given 1-based page number.
      *
+     * Convenience wrapper that builds the page index and resolves from it.
+     * Callers importing many pages from the same source should build the
+     * index once with buildPageIndex() and use resolveFromIndex(), so the
+     * page tree is walked only once per source.
+     *
      * @param SourceDocument $src      Parsed source document.
      * @param int            $pageNum  1-based page number to resolve.
      *
@@ -83,6 +88,59 @@ class PageResolver
             throw new ImportPageOutOfRangeException('Page number must be >= 1, got: ' . $pageNum);
         }
 
+        return $this->resolveFromIndex($src, $this->buildPageIndex($src), $pageNum);
+    }
+
+    /**
+     * Resolve a page against a page index previously built by buildPageIndex().
+     *
+     * @param SourceDocument                   $src     Parsed source document the index was built from.
+     * @param array<int, array<string, mixed>> $index   Flattened page index in document order.
+     * @param int                              $pageNum 1-based page number to resolve.
+     *
+     * @phpstan-return ResolvedPage
+     * @return array<string, mixed>
+     *
+     * @throws ImportPageOutOfRangeException If the page number is out of range.
+     * @throws ImportCorruptedSourceException If page boxes or resources are malformed.
+     */
+    public function resolveFromIndex(SourceDocument $src, array $index, int $pageNum): array
+    {
+        if ($pageNum < 1) {
+            throw new ImportPageOutOfRangeException('Page number must be >= 1, got: ' . $pageNum);
+        }
+
+        $pageDict = $index[$pageNum - 1] ?? null;
+        if ($pageDict === null) {
+            throw new ImportPageOutOfRangeException('Page ' . $pageNum . ' not found; document has fewer pages.');
+        }
+
+        return $this->buildResolved($pageDict, $src);
+    }
+
+    /**
+     * Build the flattened page index: one effective page dictionary (the page's
+     * own entries merged over the attributes inherited from its ancestor /Pages
+     * nodes) per reachable page, in document order.
+     *
+     * The walk is iterative, visits every node exactly once (a global visited
+     * set rejects duplicate and cyclic references) and is bounded by $maxNodes,
+     * so a hostile page tree can neither recurse nor amplify the traversal.
+     * The declared /Count entry is intentionally ignored: it is under the
+     * control of whoever produced the source file and must never size an
+     * allocation or bound a loop.
+     *
+     * @param SourceDocument $src      Parsed source document.
+     * @param int            $maxNodes Maximum number of tree nodes to visit.
+     *
+     * @return array<int, array<string, mixed>> Effective page dictionaries in document order.
+     *
+     * @throws ImportCorruptedSourceException If the page tree is malformed, contains
+     *                                        duplicate or cyclic references, or exceeds
+     *                                        the node budget.
+     */
+    public function buildPageIndex(SourceDocument $src, int $maxNodes = self::MAX_PAGE_TREE_NODES): array
+    {
         $trailer = $src->getTrailer();
         $rootRef = SourceDocument::refToKey($trailer['root']);
         $rootObj = $src->getObject($rootRef);
@@ -92,22 +150,56 @@ class PageResolver
             throw new ImportCorruptedSourceException('PDF /Root is missing /Pages entry.');
         }
 
-        $pagesRef = SourceDocument::refToKey(\is_string($rootDict['Pages']) ? $rootDict['Pages'] : '');
-        $pagesObj = $src->getObject($pagesRef);
-        $pagesDict = $this->objectToDict($pagesObj);
+        /** @var array<int, array{0: string, 1: array<string, mixed>}> $stack */
+        $stack = [[SourceDocument::refToKey(\is_string($rootDict['Pages']) ? $rootDict['Pages'] : ''), []]];
 
-        $inherited = $this->extractInheritable($pagesDict);
-        $remaining = $pageNum;
-        $visited = [
-            $pagesRef => true,
-        ];
-        $pageDict = $this->walkTree($src, $pagesDict, $inherited, $remaining, $visited);
+        /** @var array<string, bool> $visited */
+        $visited = [];
 
-        if ($pageDict === null) {
-            throw new ImportPageOutOfRangeException('Page ' . $pageNum . ' not found; document has fewer pages.');
+        /** @var array<int, array<string, mixed>> $index */
+        $index = [];
+        $nodes = 0;
+        while ($stack !== []) {
+            [$ref, $inherited] = \array_pop($stack);
+            if (isset($visited[$ref])) {
+                throw new ImportCorruptedSourceException('Duplicate or cyclic reference in page tree at node: ' . $ref);
+            }
+
+            $visited[$ref] = true;
+            ++$nodes;
+            if ($nodes > $maxNodes) {
+                throw new ImportCorruptedSourceException('Page tree exceeds the maximum node budget: ' . $maxNodes);
+            }
+
+            $nodeDict = $this->objectToDict($src->getObject($ref));
+            $nodeType = isset($nodeDict['Type']) && \is_string($nodeDict['Type']) ? $nodeDict['Type'] : '';
+            if ($nodeType === 'Page') {
+                $index[] = $this->effectivePageDict($inherited, $nodeDict);
+                continue;
+            }
+
+            if ($nodeType !== 'Pages') {
+                throw new ImportCorruptedSourceException('Unexpected page tree node type: ' . $nodeType);
+            }
+
+            if (!isset($nodeDict['Kids']) || !\is_array($nodeDict['Kids'])) {
+                throw new ImportCorruptedSourceException('/Pages node is missing /Kids array.');
+            }
+
+            $merged = $this->mergeInherited($inherited, $nodeDict);
+
+            // Push the kids in reverse so the LIFO stack pops them in document order.
+            /** @var mixed $kid */
+            foreach (\array_reverse(\array_values($nodeDict['Kids'])) as $kid) {
+                if (!\is_string($kid)) {
+                    continue;
+                }
+
+                $stack[] = [SourceDocument::refToKey($kid), $merged];
+            }
         }
 
-        return $this->buildResolved($pageDict, $src);
+        return $index;
     }
 
     /**
@@ -130,87 +222,20 @@ class PageResolver
      */
     public function countPages(SourceDocument $src, int $maxNodes = self::MAX_PAGE_TREE_NODES): int
     {
-        $trailer = $src->getTrailer();
-        $rootRef = SourceDocument::refToKey($trailer['root']);
-        $rootObj = $src->getObject($rootRef);
-        $rootDict = $this->objectToDict($rootObj);
-
-        if (!isset($rootDict['Pages'])) {
-            throw new ImportCorruptedSourceException('PDF /Root is missing /Pages entry.');
-        }
-
-        $stack = [SourceDocument::refToKey(\is_string($rootDict['Pages']) ? $rootDict['Pages'] : '')];
-
-        /** @var array<string, bool> $visited */
-        $visited = [];
-        $count = 0;
-        $nodes = 0;
-        while ($stack !== []) {
-            $ref = \array_pop($stack);
-            if (isset($visited[$ref])) {
-                throw new ImportCorruptedSourceException('Duplicate or cyclic reference in page tree at node: ' . $ref);
-            }
-
-            $visited[$ref] = true;
-            ++$nodes;
-            if ($nodes > $maxNodes) {
-                throw new ImportCorruptedSourceException('Page tree exceeds the maximum node budget: ' . $maxNodes);
-            }
-
-            $nodeDict = $this->objectToDict($src->getObject($ref));
-            $nodeType = isset($nodeDict['Type']) && \is_string($nodeDict['Type']) ? $nodeDict['Type'] : '';
-            if ($nodeType === 'Page') {
-                ++$count;
-                continue;
-            }
-
-            if ($nodeType !== 'Pages') {
-                throw new ImportCorruptedSourceException('Unexpected page tree node type: ' . $nodeType);
-            }
-
-            if (!isset($nodeDict['Kids']) || !\is_array($nodeDict['Kids'])) {
-                throw new ImportCorruptedSourceException('/Pages node is missing /Kids array.');
-            }
-
-            /** @var mixed $kid */
-            foreach ($nodeDict['Kids'] as $kid) {
-                if (!\is_string($kid)) {
-                    continue;
-                }
-
-                $stack[] = SourceDocument::refToKey($kid);
-            }
-        }
-
-        return $count;
+        return \count($this->buildPageIndex($src, $maxNodes));
     }
 
     /**
-     * Recursively walk the page tree to find the $remaining-th Page node.
+     * Merge a node's inheritable attributes over the attributes inherited
+     * from its ancestors, deep-merging Resources dictionaries.
      *
-     * @param SourceDocument       $src       Source document.
-     * @param array<string, mixed> $nodeDict  Current Pages or Page dictionary.
-     * @param array<string, mixed> $inherited Inherited attributes from parent.
-     * @param int                  $remaining Remaining pages to skip (decremented).
-     * @param array<string, bool>  $visited   All ref-keys visited during this walk, shared by
-     *                                        reference (duplicate and cycle guard).
+     * @param array<string, mixed> $inherited Attributes inherited from ancestor nodes.
+     * @param array<string, mixed> $nodeDict  Current node dictionary.
      *
-     * @return array<string, mixed>|null Resolved page dict or null if not found in this subtree.
-     *
-     * @throws ImportCorruptedSourceException On malformed tree.
+     * @return array<string, mixed>
      */
-    private function walkTree(
-        SourceDocument $src,
-        array $nodeDict,
-        array $inherited,
-        int &$remaining,
-        array &$visited,
-    ): ?array {
-        $nodeType = '';
-        if (isset($nodeDict['Type']) && \is_string($nodeDict['Type'])) {
-            $nodeType = $nodeDict['Type'];
-        }
-
+    private function mergeInherited(array $inherited, array $nodeDict): array
+    {
         $merged = \array_merge($inherited, $this->extractInheritable($nodeDict));
         if (
             isset($inherited['Resources'], $nodeDict['Resources'])
@@ -220,64 +245,31 @@ class PageResolver
             $merged['Resources'] = \array_replace_recursive($inherited['Resources'], $nodeDict['Resources']);
         }
 
-        if ($nodeType === 'Page') {
-            --$remaining;
-            if ($remaining === 0) {
-                $effective = \array_merge($merged, $nodeDict);
+        return $merged;
+    }
 
-                if (
-                    isset($merged['Resources'], $nodeDict['Resources'])
-                    && \is_array($merged['Resources'])
-                    && \is_array($nodeDict['Resources'])
-                ) {
-                    $effective['Resources'] = \array_replace_recursive($merged['Resources'], $nodeDict['Resources']);
-                }
-
-                return $effective;
-            }
-
-            return null;
+    /**
+     * Build the effective dictionary for a Page leaf: the page's own entries
+     * win over inherited attributes, with Resources dictionaries deep-merged.
+     *
+     * @param array<string, mixed> $inherited Attributes inherited from ancestor nodes.
+     * @param array<string, mixed> $pageDict  Page leaf dictionary.
+     *
+     * @return array<string, mixed>
+     */
+    private function effectivePageDict(array $inherited, array $pageDict): array
+    {
+        $merged = $this->mergeInherited($inherited, $pageDict);
+        $effective = \array_merge($merged, $pageDict);
+        if (
+            isset($merged['Resources'], $pageDict['Resources'])
+            && \is_array($merged['Resources'])
+            && \is_array($pageDict['Resources'])
+        ) {
+            $effective['Resources'] = \array_replace_recursive($merged['Resources'], $pageDict['Resources']);
         }
 
-        if ($nodeType !== 'Pages') {
-            throw new ImportCorruptedSourceException('Unexpected page tree node type: ' . $nodeType);
-        }
-
-        if (!isset($nodeDict['Kids']) || !\is_array($nodeDict['Kids'])) {
-            throw new ImportCorruptedSourceException('/Pages node is missing /Kids array.');
-        }
-
-        $kids = \array_values($nodeDict['Kids']);
-        $kidCount = \count($kids);
-        for ($kidIdx = 0; $kidIdx < $kidCount; ++$kidIdx) {
-            $kidRefSlice = \array_slice($kids, $kidIdx, 1);
-            if (\count($kidRefSlice) !== 1 || !\is_string($kidRefSlice[0])) {
-                continue;
-            }
-
-            $kidRef = $kidRefSlice[0];
-
-            $kidKey = SourceDocument::refToKey($kidRef);
-            if (isset($visited[$kidKey])) {
-                // The page tree must be a strict tree (every node has a single
-                // /Parent), so any ref seen twice is malformed: an ancestor ref
-                // forms a cycle that would recurse until the stack is exhausted,
-                // and a duplicated sibling ref would multiply the traversal
-                // exponentially with tree depth besides corrupting page numbers.
-                throw new ImportCorruptedSourceException('Duplicate or cyclic reference in page tree at node: '
-                . $kidKey);
-            }
-
-            $visited[$kidKey] = true;
-            $kidObj = $src->getObject($kidKey);
-            $kidDict = $this->objectToDict($kidObj);
-            $result = $this->walkTree($src, $kidDict, $merged, $remaining, $visited);
-            if ($result !== null) {
-                return $result;
-            }
-        }
-
-        return null;
+        return $effective;
     }
 
     /**

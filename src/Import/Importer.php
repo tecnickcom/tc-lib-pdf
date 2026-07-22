@@ -70,11 +70,12 @@ class Importer implements ImporterInterface
     private array $templateCache = [];
 
     /**
-     * Verified reachable page count per source ID (sources are immutable after parsing).
+     * Flattened page index per source ID: one effective page dictionary per
+     * reachable page, in document order (sources are immutable after parsing).
      *
-     * @var array<string, int>
+     * @var array<string, array<int, array<string, mixed>>>
      */
-    private array $pageCounts = [];
+    private array $pageIndexes = [];
 
     /**
      * Raw PDF object bytes queued for deferred write, keyed by XObject template ID.
@@ -192,15 +193,7 @@ class Importer implements ImporterInterface
      */
     public function getSourcePageCount(string $sourceId): int
     {
-        $src = $this->requireSource($sourceId);
-        $count = $this->pageCounts[$sourceId] ?? null;
-        if ($count === null) {
-            $resolver = new PageResolver();
-            $count = $resolver->countPages($src);
-            $this->pageCounts[$sourceId] = $count;
-        }
-
-        return $count;
+        return \count($this->getPageIndex($sourceId));
     }
 
     /**
@@ -244,7 +237,7 @@ class Importer implements ImporterInterface
 
         $src = $this->requireSource($sourceId);
         $resolver = new PageResolver();
-        $resolved = $resolver->resolve($src, $pageNum);
+        $resolved = $resolver->resolveFromIndex($src, $this->getPageIndex($sourceId), $pageNum);
 
         $box = $this->selectBox($resolved, $useBox);
         $rotate = $respectRotation ? $resolved['rotate'] : 0;
@@ -416,7 +409,31 @@ class Importer implements ImporterInterface
         $this->sources = [];
         $this->objectMaps = [];
         $this->rawObjects = [];
-        $this->pageCounts = [];
+        $this->pageIndexes = [];
+    }
+
+    /**
+     * Return the flattened page index for a registered source, building and
+     * caching it on first use so batch imports walk the page tree only once.
+     *
+     * @param string $sourceId Source document identifier.
+     *
+     * @return array<int, array<string, mixed>> Effective page dictionaries in document order.
+     *
+     * @throws ImportSourceNotFoundException If the source ID is not registered.
+     * @throws ImportCorruptedSourceException If the page tree is malformed.
+     */
+    private function getPageIndex(string $sourceId): array
+    {
+        $index = $this->pageIndexes[$sourceId] ?? null;
+        if ($index === null) {
+            $src = $this->requireSource($sourceId);
+            $resolver = new PageResolver();
+            $index = $resolver->buildPageIndex($src);
+            $this->pageIndexes[$sourceId] = $index;
+        }
+
+        return $index;
     }
 
     /**

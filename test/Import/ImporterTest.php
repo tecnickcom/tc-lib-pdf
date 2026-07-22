@@ -439,14 +439,14 @@ class ImporterTest extends TestCase
     }
 
     /** @throws \Throwable */
-    public function testCleanUpClearsPageCountCache(): void
+    public function testCleanUpClearsPageIndexCache(): void
     {
         $data = $this->fixtureData();
         $importer = $this->makeImporter();
         $srcId = $importer->setImportSourceData($data);
         $this->assertSame(1, $importer->getSourcePageCount($srcId));
         $importer->cleanUp();
-        $this->assertSame([], $this->getObjectProperty($importer, 'pageCounts'));
+        $this->assertSame([], $this->getObjectProperty($importer, 'pageIndexes'));
     }
 
     public function testSelectBoxFallsBackToMediaBoxWhenRequestedBoxIsMissing(): void
@@ -713,6 +713,41 @@ class ImporterTest extends TestCase
         assert(isset($batch[0]), "\$batch[0] must be set");
         // Same page imported again (cache hit) — must return the exact same template.
         $this->assertSame($single->getXobjId(), $batch[0]->getXobjId());
+    }
+
+    /**
+     * Counting the pages and importing all of them must walk the page tree
+     * exactly once per source: the flattened page index built on first use is
+     * reused for every subsequent page resolution.
+     *
+     * @throws \Throwable
+     */
+    public function testImportPagesWalksPageTreeOnlyOnce(): void
+    {
+        $importer = $this->makeImporter();
+        $src = new class($this->buildDonorPdf(null, 2)) extends SourceDocument {
+            /** @var array<string, int> */
+            public array $fetches = [];
+
+            public function getObject(string $ref): array
+            {
+                $this->fetches[$ref] = ($this->fetches[$ref] ?? 0) + 1;
+                return parent::getObject($ref);
+            }
+        };
+        $sourceId = 'counting-source';
+        $this->setObjectProperty($importer, 'sources', [$sourceId => $src]);
+
+        $this->assertSame(2, $importer->getSourcePageCount($sourceId));
+        $templates = $importer->importPages($sourceId);
+
+        $this->assertCount(2, $templates);
+        // Catalog, /Pages node, and each page leaf fetched exactly once for
+        // the count plus the whole batch import.
+        $this->assertSame(1, $src->fetches['1_0'] ?? 0);
+        $this->assertSame(1, $src->fetches['2_0'] ?? 0);
+        $this->assertSame(1, $src->fetches['3_0'] ?? 0);
+        $this->assertSame(1, $src->fetches['4_0'] ?? 0);
     }
 
     /** @throws \Throwable */

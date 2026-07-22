@@ -15,6 +15,8 @@ $count = $pdf->getSourcePageCount($sourceId);
 
 The page count is derived from the page tree actually reachable through `/Kids`; the declared `/Count` entry of the `/Pages` dictionary is ignored, so a forged or wrong `/Count` cannot influence how many pages are counted or imported. Structurally broken page trees (missing `/Kids`, unexpected node types, duplicate or cyclic references) raise `ImportCorruptedSourceException`.
 
+The reachable-page walk runs once per registered source: it produces a flattened page index (one effective page dictionary per page, with inherited attributes already resolved) that is cached and reused by `getSourcePageCount()`, `importPage()`, and `importPages()`. Importing all pages of an n-page document therefore costs a single tree walk plus one index lookup per page, instead of one full walk per page.
+
 ## Import One Page and Place It
 
 ```php

@@ -827,4 +827,156 @@ class PageResolverTest extends TestCase
         $this->expectExceptionMessageMatches('/' . preg_quote('missing /Kids', '/') . '/');
         $resolver->countPages($doc);
     }
+
+    // -------------------------------------------------------------------------
+    // buildPageIndex / resolveFromIndex
+    // -------------------------------------------------------------------------
+
+    /** @throws \Throwable */
+    public function testBuildPageIndexReturnsPagesInDocumentOrderWithInheritedAttributes(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->mockDoc([
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                        ['objref', '6 0 R'],
+                    ],
+                ],
+                ['/', 'MediaBox'],
+                [
+                    '[',
+                    [
+                        ['numeric', 0],
+                        ['numeric', 0],
+                        ['numeric', 300],
+                        ['numeric', 500],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '4 0 R'],
+                        ['objref', '5 0 R'],
+                    ],
+                ],
+            ]),
+            '4_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+                ['/', 'Rotate'],
+                ['numeric', 90],
+            ]),
+            '5_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+                ['/', 'Rotate'],
+                ['numeric', 180],
+            ]),
+            '6_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+                ['/', 'Rotate'],
+                ['numeric', 270],
+            ]),
+        ]);
+
+        $index = $resolver->buildPageIndex($doc);
+
+        $this->assertCount(3, $index);
+        // Leaves of the nested /Pages node come before the root's second kid.
+        $this->assertSame([90, 180, 270], \array_column($index, 'Rotate'));
+        // The root /Pages MediaBox is inherited by every leaf.
+        foreach ($index as $pageDict) {
+            $this->assertSame([0, 0, 300, 500], $pageDict['MediaBox'] ?? null);
+        }
+    }
+
+    /** @throws \Throwable */
+    public function testResolveFromIndexThrowsForPageZero(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->loadDoc();
+        $index = $resolver->buildPageIndex($doc);
+        $this->expectException(ImportPageOutOfRangeException::class);
+        $resolver->resolveFromIndex($doc, $index, 0);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveFromIndexThrowsForPageBeyondIndex(): void
+    {
+        $resolver = new PageResolver();
+        $doc = $this->loadDoc();
+        $index = $resolver->buildPageIndex($doc);
+        $this->expectException(ImportPageOutOfRangeException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('document has fewer pages', '/') . '/');
+        $resolver->resolveFromIndex($doc, $index, 2);
+    }
+
+    /** @throws \Throwable */
+    public function testResolveFromIndexDoesNotWalkTheTreeAgain(): void
+    {
+        $resolver = new PageResolver();
+        $calls = 0;
+        $objects = [
+            '1_0' => $this->dictObject([
+                ['/', 'Pages'],
+                ['objref', '2 0 R'],
+            ]),
+            '2_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Pages'],
+                ['/', 'Kids'],
+                [
+                    '[',
+                    [
+                        ['objref', '3 0 R'],
+                    ],
+                ],
+                ['/', 'MediaBox'],
+                [
+                    '[',
+                    [
+                        ['numeric', 0],
+                        ['numeric', 0],
+                        ['numeric', 200],
+                        ['numeric', 200],
+                    ],
+                ],
+            ]),
+            '3_0' => $this->dictObject([
+                ['/', 'Type'],
+                ['/', 'Page'],
+            ]),
+        ];
+        $doc = $this->createStub(SourceDocument::class);
+        $doc->method('getTrailer')->willReturn(['root' => '1 0 R']);
+        $doc->method('getObject')->willReturnCallback(static function (string $ref) use ($objects, &$calls): array {
+            ++$calls;
+            return $objects[$ref] ?? [];
+        });
+
+        $index = $resolver->buildPageIndex($doc);
+        $callsAfterBuild = $calls;
+        $this->assertGreaterThan(0, $callsAfterBuild);
+
+        $resolved = $resolver->resolveFromIndex($doc, $index, 1);
+
+        $this->assertSame([0.0, 0.0, 200.0, 200.0], $resolved['mediaBox']);
+        $this->assertSame($callsAfterBuild, $calls);
+    }
 }
