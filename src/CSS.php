@@ -966,7 +966,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             // Extract media type: everything before the first 'and' keyword or feature '('
             $parts = \preg_split('/\band\b/', $condition, 2);
             $mediaType = \trim($parts[0] ?? '');
-            // Feature-only query (starts with '(') — no media type means 'all'
+            // Feature-only query (starts with '('): no media type means 'all'
             if ($mediaType === '' || $mediaType[0] === '(') {
                 if (!$negated) {
                     return true;

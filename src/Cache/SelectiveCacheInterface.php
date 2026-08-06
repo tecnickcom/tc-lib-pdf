@@ -27,8 +27,7 @@ namespace Com\Tecnick\Pdf\Cache;
  * A plain CacheInterface is consulted for every cacheable subsystem. When an
  * implementation also implements this interface, each subsystem is wired only
  * when supports() returns true for its type; unsupported types are disabled
- * entirely, so the cache is never queried nor written for them and the
- * implementation never has to handle their data.
+ * and the cache is never queried nor written for them.
  *
  * @since     2026-06-16
  * @category  Library

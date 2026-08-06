@@ -268,9 +268,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $cell_pheight - $cell['padding']['T'] - $cell['padding']['B'],
             $offset_points,
             $linespace_points,
-            // Stage 2: $baseRtl reverses the line order for an RTL paragraph so a
-            // multi-line RTL block (including every HTML fragment, which renders
-            // through getTextCell) stacks top-down exactly as addTextCell does.
+            // $baseRtl stacks the lines of an RTL paragraph top-down.
             $baseRtl,
         );
         $ordarr = $fit_state['ordarr'];
@@ -634,11 +632,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
                 $cell_pwidth = $cell_pntw;
                 if ($width <= 0) {
-                    // cellMaxWidth() expects the horizontal offset within the region (not the
-                    // absolute page position), so the region RX must not be included here.
-                    // Cap by the remaining text width ($dim['totwidth']): using the stale
-                    // $txt_pwidth (the previous region's width) would let the cell width only
-                    // shrink across regions and never expand back when a wider region follows.
+                    // cellMaxWidth() takes the horizontal offset within the region, so the
+                    // region RX is excluded. The width is capped by the remaining text
+                    // width ($dim['totwidth']) rather than the previous region's width.
                     $cell_pwidth = \min(
                         $this->cellMaxWidth($this->toPoints($posx), $cell),
                         $this->cellMinWidth($dim['totwidth'], $halign, $cell),
@@ -659,12 +655,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 if ($use_prefit_layout && $num_blocks === 0) {
                     $lines = $fit_lines;
                 } else {
-                    // $baseRtl reverses the line order for an RTL paragraph (Stage 1 fix).
-                    // Note: the RTL multi-region continuation below (pos-based slicing of the
-                    // remaining text) assumes ascending visual pos and is NOT direction-aware,
-                    // so RTL paragraphs that overflow into further regions/pages still flow
-                    // incorrectly. That pre-existing limitation is deferred to Stage 2; the
-                    // single-region case (the common one) renders correctly.
+                    // $baseRtl reverses the line order for an RTL paragraph. The
+                    // multi-region continuation below slices the remaining text by
+                    // ascending visual pos and is not direction-aware.
                     $lines = $this->splitLines($ordarr, $dim, $txt_pwidth, $this->toPoints($offset), $baseRtl);
                 }
                 $numlines = \count($lines);
@@ -674,10 +667,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $vspace = $this->textMaxHeight(
                     $regionRh + $cell['margin']['B'] + $cell['padding']['B'] - ($cell_posy - $regionRy),
                 );
-                // Line pitch is the font height plus the caller-supplied extra
-                // line spacing. A caller may pass a negative $linespace; when it
-                // cancels the font height exactly the pitch is zero, so guard the
-                // division and treat a non-positive pitch as "everything fits".
+                // Line pitch is the font height plus the extra line spacing.
+                // A non-positive pitch (negative $linespace) means everything fits.
                 $linepitch = $fontheight + $linespace;
                 $region_max_lines = $linepitch > 0 ? (int) (($vspace + $linespace) / $linepitch) : $numlines;
                 $lastblock = $numlines <= $region_max_lines;
@@ -777,9 +768,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     $pid = $curpid;
                     $this->setPageContext($pid);
                 } elseif ((int) $this->page->getPage($pid)['currentRegion'] === $beforeRegion) {
-                    // No further region or page to flow into (e.g. automatic page break is
-                    // disabled and this is the last region): stop instead of repeatedly
-                    // overwriting the last region with the remaining text.
+                    // No further region or page to flow into: stop.
                     break;
                 }
             }
@@ -799,9 +788,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $this->page->addContent($fontout_suffix, $pid);
         }
 
-        // Keep the current page on the final auto-broken page when the call
-        // started from the implicit current page. Explicit page-targeted calls
-        // still restore the prior page selection.
+        // An implicit-page call leaves the final auto-broken page current;
+        // an explicit page-targeted call restores the prior page selection.
         if (!$implicitCurrentPage && $pid !== $cpid) {
             $this->setCurrentPage($cpid);
         }
@@ -811,12 +799,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Suspend PDF/UA structure tagging and marked-content recording.
      *
      * While suspended, beginStructElem()/endStructElem() and the marked-content
-     * helpers become no-ops (they key off the PDF/UA mode), so measurement passes
-     * (whose output is discarded) and replayed content (re-emitted as an Artifact)
-     * do not append phantom structure elements or advance the per-page MCID counter.
+     * helpers are no-ops, so no structure elements are appended and the per-page
+     * MCID counter does not advance.
      *
-     * The previous mode is returned and must be handed back to resumePdfUaTagging():
-     * keeping the saved state on the caller's stack lets suspensions nest safely.
+     * Returns the previous mode, to be passed back to resumePdfUaTagging().
+     * Suspensions nest.
      */
     public function suspendPdfUaTagging(): string
     {
@@ -840,13 +827,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @param string      $role PDF structure role, e.g. 'P', 'H1', 'H2', 'L', 'LI', 'Figure'.
      * @param int         $pid  Page index (from addPage / getPageId).
-     * @param string|null $alt  Optional alternate description written as /Alt in the structure element
-     *                          dictionary — primarily used for Figure elements to carry accessible alt-text.
+     * @param string|null $alt  Optional alternate description written as /Alt in the structure
+     *                          element dictionary, typically alt-text for Figure elements.
      * @param array<string, string> $attr Optional structure element attributes, serialized as
      *                                    a PDF dictionary in the /A entry.
-     * @param bool        $required When true, the element is kept in the structure tree even if it
-     *                              receives no marked content (e.g. an empty table cell that must hold
-     *                              its grid position for a regular table matrix).
+     * @param bool        $required When true, the element is kept in the structure tree even if
+     *                              it receives no marked content (e.g. an empty table cell).
      */
     public function beginStructElem(
         string $role,
@@ -900,8 +886,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         unset($this->pdfuaStructStack[$topIndex]);
 
         // Record elements that picked up marked-content or nested structure children.
-        // "Required" elements (e.g. table cells) are retained even when empty, so the
-        // table grid stays uniform and every row keeps its full column count.
+        // "Required" elements (e.g. table cells) are retained even when empty.
         if (
             $top['kids'] !== []
             || isset($top['annots']) && $top['annots'] !== []
@@ -1436,9 +1421,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $best_layout = $mid_layout;
             }
         } else {
-            // Even at minimum stretch the layout still overflows.
-            // If the overflow is still a width overflow, apply best-effort compression.
-            // If only height overflows (compression cannot reduce line count), skip.
+            // The layout overflows even at minimum stretch: compress on width
+            // overflow, skip when only the height overflows.
             if (!$this->textCellLayoutWidthOverflows($probe_layout, $maxWidth)) {
                 return [
                     'fontchanged' => false,
@@ -1710,12 +1694,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             ++$etEnd;
         }
 
-        // Text-decoration lines (underline, line-through, overline) and link
-        // underlines are emitted as path-painting operators after the glyphs' final
-        // ET. When such a decoration follows the text, pull it inside the marked
-        // content so it is tagged as part of the text run rather than left as
-        // untagged content (PDF/UA-1 7.1). The decoration runs until the next text
-        // object or marked-content operator, or the end of this run's output.
+        // Text decorations (underline, line-through, overline) are path-painting
+        // operators emitted after the final ET. Pull them inside the marked content
+        // so they are tagged as part of the text run (PDF/UA-1 7.1). The decoration
+        // runs until the next text object or marked-content operator, or the end
+        // of this run's output.
         $tailEnd = \strlen($content);
         foreach (['BT', 'BDC', 'BMC', 'EMC'] as $boundary) {
             $pos = \strpos($content, $boundary, $etEnd);
@@ -1872,7 +1855,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
             $this->pdfuaStructStack[$stackTop] = $stackEntry;
         } else {
-            // No open Figure bracket — create a new Figure struct elem entry.
+            // No open Figure bracket: create a new Figure struct elem entry.
             $entry = [
                 'role' => 'Figure',
                 'pid' => $pid,
@@ -2042,9 +2025,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $jwidth = $cell_width;
             }
 
-            // When custom inline word spacing is active (multi-fragment justified
-            // paragraph), the first line uses the pre-computed word spacing while
-            // wrapped continuation lines use per-line justification instead.
+            // With custom inline word spacing, the first line uses the pre-computed
+            // word spacing and wrapped lines use per-line justification.
             if ($wordspacing > 0 && $i > 0) {
                 $line_ws = 0;
                 if ($data['septype'] !== 'B' && ($i < $lastline || !$jlast)) {
@@ -2076,12 +2058,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $line_posx = $posx;
             $bbox = $this->getLastBBox();
             if ($line_txt === '') {
-                // An empty line renders no glyphs and therefore pushes no
-                // bounding box, so getLastBBox() returns a stale box from
-                // previously rendered content. Synthesize a zero-width box at
-                // the current line position (matching outTextLine's geometry)
-                // so the next line advances by one line height instead of
-                // jumping to the stale location.
+                // An empty line pushes no bounding box, so synthesize a zero-width
+                // box at the current line position using outTextLine's geometry.
                 $emptyfont = $this->font->getCurrentFont();
                 $bbox = [
                     'x' => $txt_posx,
@@ -2318,13 +2296,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Determine the paragraph base direction (RTL or LTR) from the LOGICAL
-     * (pre-Bidi) codepoints, mirroring the resolution the Bidi algorithm itself
-     * uses: an explicit $forcedir wins, otherwise the first strong character
-     * (UBA rules P2/P3) decides, otherwise fall back to the document default.
-     *
-     * This must run on the logical array: once Bidi has reordered the codepoints
-     * into visual order a first-strong test would inspect the wrong end.
+     * Determine the paragraph base direction (RTL or LTR) from the logical
+     * (pre-Bidi) codepoints: an explicit $forcedir wins, otherwise the first
+     * strong character (UBA rules P2/P3) decides, otherwise the document
+     * default applies.
      *
      * @param array<int, int> $logicalOrdArr Codepoints in logical (reading) order.
      * @param string          $forcedir      'R' forces RTL, 'L' forces LTR, '' = auto.
@@ -2391,9 +2366,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $ordarr = \array_values($this->uniconv->strToOrdArr($txt));
 
         if ($this->isunicode && !$this->font->isCurrentByteFont()) {
-            // Resolve the base direction from the LOGICAL codepoints before Bidi
-            // reorders $ordarr into visual order. splitLines() only ever sees the
-            // visual array, so it must be told the direction via this flag.
+            // Resolve the base direction from the logical codepoints before Bidi
+            // reorders $ordarr into visual order; splitLines() only sees the
+            // visual array and receives the direction through this flag.
             $baseRtl = $this->isOrdArrBaseRtl($ordarr, $forcedir);
             $bidi = new Bidi($txt, null, $ordarr, $forcedir);
             /** @var array<int, int> $bidiarr */
@@ -2441,14 +2416,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         if ($rtl) {
-            // For an RTL base direction $ordarr is in visual (reversed) order, so a plain
-            // forward greedy walk would fill the visual-first chunk (the logically-LAST
-            // words) first and stack the lines bottom-up. Reverse the array back to logical
-            // reading order, break it forward (top line filled first, ragged line last),
-            // then translate each line's position back into the visual array's coordinates
-            // so outTextLines() slices the right glyphs. A simple array_reverse() of the
-            // forward-computed lines is NOT enough: it would leave the short ragged chunk on
-            // the top line with the wrong length.
+            // For an RTL base direction $ordarr is in visual (reversed) order. Reverse
+            // it back to logical reading order, break it forward (top line filled first,
+            // ragged line last), then translate each line position back into the visual
+            // array coordinates used by outTextLines().
             $logicalOrdArr = \array_reverse($ordarr);
             $logicalDim = $this->font->getOrdArrDims($logicalOrdArr);
             $lines = $this->splitLines($logicalOrdArr, $logicalDim, $pwidth, $poffset);
@@ -3377,11 +3348,9 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function setPageContext(int $pid = -1): void
     {
-        // The graph component must know the dimensions of the target page before the
-        // page context is generated. defaultPageContent() may draw graphics whose Y
-        // coordinates are flipped against the page height; without this, a custom
-        // override that does not call setCurrentPage() would render off-page on the
-        // first page (the graph would still hold a zero/stale height).
+        // The graph component needs the target page dimensions before the page
+        // context is generated: defaultPageContent() may draw graphics whose Y
+        // coordinates are flipped against the page height.
         $ctxpage = $this->page->getPage($pid);
         $this->graph->setPageWidth($ctxpage['width']);
         $this->graph->setPageHeight($ctxpage['height']);
@@ -3390,9 +3359,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $this->page->addContent($this->font->getOutCurrentFont(), $pid);
         }
 
-        // The fill (non-stroking) colour resets to the default on a new page, so re-apply the
-        // current one. Otherwise text flowing onto an automatically added page would revert to
-        // black. Only a non-default colour needs to be re-emitted.
+        // The fill (non-stroking) colour resets to the default on a new page:
+        // re-emit the current one when it is not the default.
         $fillColor = $this->graph->getLastStyleProperty('fillColor', 'black');
         if (\is_string($fillColor) && $fillColor !== '' && $fillColor !== 'black') {
             $this->page->addContent($this->graph->getStyleCmd(['fillColor' => $fillColor]), $pid);

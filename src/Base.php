@@ -681,7 +681,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.67.3';
+    protected string $version = '8.67.4';
 
     /**
      * Encrypt object.
@@ -1596,9 +1596,8 @@ abstract class Base
     /**
      * Return the directory holding the sibling tecnickcom packages when this
      * package is installed as a Composer dependency
-     * (<project>/vendor/tecnickcom/tc-lib-pdf), or null for any other layout,
-     * such as a standalone repository checkout, so the default allowlist is
-     * not widened beyond the package tree.
+     * (<project>/vendor/tecnickcom/tc-lib-pdf), or null for any other layout
+     * such as a standalone repository checkout.
      *
      * @param string $srcDir Path of the directory containing this source file.
      */

@@ -21,9 +21,8 @@ namespace Com\Tecnick\Pdf\Import;
 /**
  * Com\Tecnick\Pdf\Import\PageTemplateInterface
  *
- * Contract for an immutable value object representing a page imported as a Form XObject.
- * Separating this into an interface allows the import implementation to be moved to a
- * dedicated library (e.g. tc-lib-pdf-import) without breaking callers in tc-lib-pdf.
+ * Contract for an immutable value object representing a page imported as a
+ * Form XObject.
  *
  * @since     2026-05-03
  * @category  Library

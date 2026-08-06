@@ -58,10 +58,9 @@ class PageResolver
     private const INHERITABLE = ['MediaBox', 'CropBox', 'BleedBox', 'TrimBox', 'ArtBox', 'Rotate', 'Resources'];
 
     /**
-     * Hard ceiling on page tree nodes visited in a single walk.
-     * Far above any legitimate document; defense in depth on top of the
-     * duplicate-reference guard, which already bounds every walk by the
-     * number of distinct objects in the source file.
+     * Hard ceiling on page tree nodes visited in a single walk, on top of the
+     * duplicate-reference guard that bounds every walk by the number of
+     * distinct objects in the source file.
      */
     public const MAX_PAGE_TREE_NODES = 1_000_000;
 
@@ -124,11 +123,9 @@ class PageResolver
      * nodes) per reachable page, in document order.
      *
      * The walk is iterative, visits every node exactly once (a global visited
-     * set rejects duplicate and cyclic references) and is bounded by $maxNodes,
-     * so a hostile page tree can neither recurse nor amplify the traversal.
-     * The declared /Count entry is intentionally ignored: it is under the
-     * control of whoever produced the source file and must never size an
-     * allocation or bound a loop.
+     * set rejects duplicate and cyclic references) and is bounded by $maxNodes.
+     * The declared /Count entry is ignored: it is controlled by the source file
+     * and never sizes an allocation or bounds a loop.
      *
      * @param SourceDocument $src      Parsed source document.
      * @param int            $maxNodes Maximum number of tree nodes to visit.
@@ -205,11 +202,10 @@ class PageResolver
     /**
      * Count the pages actually reachable through the /Kids page tree.
      *
-     * The declared /Count entry of the /Pages dictionary is intentionally
-     * ignored: it is under the control of whoever produced the source file
-     * and must never size an allocation or bound a loop. The walk applies
-     * the same acceptance rules as resolve(), so both methods always agree
-     * on which pages are reachable.
+     * The declared /Count entry of the /Pages dictionary is ignored: it is
+     * controlled by the source file and never sizes an allocation or bounds a
+     * loop. The walk applies the same acceptance rules as resolve(), so both
+     * methods agree on which pages are reachable.
      *
      * @param SourceDocument $src      Parsed source document.
      * @param int            $maxNodes Maximum number of tree nodes to visit.

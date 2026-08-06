@@ -669,11 +669,9 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
     /**
      * Returns the PDF code to stroke the (possibly partial) cell border.
      *
-     * Consecutive visible sides that share an identical style are stroked as a
-     * single continuous path so their shared corners are joined (mitered)
-     * instead of being drawn as independent, butt-capped segments that would
-     * leave the corners open. Sides with differing styles are kept separate so
-     * multi-colour borders keep their own line caps.
+     * Consecutive visible sides sharing an identical style are stroked as a
+     * single continuous path, so their shared corners are mitered. Sides with
+     * differing styles are stroked separately and keep their own line caps.
      *
      * @param float $rectx Border rectangle left X coordinate (user units).
      * @param float $recty Border rectangle top Y coordinate (user units).
@@ -752,9 +750,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
             }
 
             // Walk the maximal run of consecutive same-styled visible sides and
-            // stroke it as a single continuous (poly)line so the shared corners
-            // are joined instead of being drawn as independent, butt-capped
-            // segments.
+            // stroke it as a single continuous polyline, so the shared corners
+            // are joined.
             $seg = $segOf($start);
             $poly = [$seg[0], $seg[1], $seg[2], $seg[3]];
             $cur = $start;

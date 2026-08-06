@@ -179,10 +179,9 @@ class Importer implements ImporterInterface
     /**
      * Return the total number of pages in a registered source document.
      *
-     * The count is derived from the page tree actually reachable through
-     * /Kids; the declared /Count entry is intentionally ignored because it
-     * is under the control of whoever produced the source file and must
-     * never size an allocation or bound a loop.
+     * The count is derived from the page tree reachable through /Kids. The
+     * declared /Count entry is ignored: it is controlled by the source file and
+     * never sizes an allocation or bounds a loop.
      *
      * @param string $sourceId Source document identifier.
      *

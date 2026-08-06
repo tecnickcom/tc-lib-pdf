@@ -81,7 +81,7 @@ class ResourceCloner
     public function getContentStream(array $pageDict, SourceDocument $src): array
     {
         if (!isset($pageDict['Contents'])) {
-            // Page has no content — return empty stream.
+            // Page has no content: return an empty stream.
             return ['bytes' => '', 'filter' => '', 'length' => 0];
         }
 
@@ -675,9 +675,9 @@ class ResourceCloner
     /**
      * Decode one content stream for multi-stream concatenation.
      *
-     * For single-stream imports we preserve original bytes and /Filter metadata.
-     * For array /Contents we need plain bytes, so we best-effort decode known filters.
-     * If decoding fails we keep the original bytes to avoid dropping content entirely.
+     * Single-stream imports keep the original bytes and /Filter metadata. An
+     * array /Contents needs plain bytes, so known filters are decoded; the
+     * original bytes are kept when decoding fails.
      */
     private function decodeMultiContentStream(string $bytes, string $filter): string
     {

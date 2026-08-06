@@ -137,11 +137,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * A page is flagged transparent when its content blends (a sub-1 alpha, a
      * non-Normal blend mode or a soft mask), paints a soft-masked image, draws
-     * an imported page, or paints a Form XObject that itself blends. The actual
+     * an imported page, or paints a Form XObject that itself blends. The
      * emission policy ('auto'/'always'/'never', set via
-     * Tcpdf::setPageTransparencyGroup()) and the PDF/A suppression are applied by
-     * the page layer; this method only supplies the facts it needs. Called once,
-     * just before the page objects are serialized.
+     * Tcpdf::setPageTransparencyGroup()) and the PDF/A suppression are applied
+     * by the page layer. Called once, just before the page objects are
+     * serialized.
      *
      * @throws PageException
      */
@@ -3329,8 +3329,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             return '';
         }
 
-        // Limited support: currently writes sound file reference and icon name.
-        // Extended sound parameters (R, C, B, E, CO, CP) are intentionally not serialized yet.
+        // Writes the sound file reference and the icon name. The extended sound
+        // parameters (R, C, B, E, CO, CP) are not serialized.
         $out = ' /Sound ' . $this->embeddedfiles[$filename]['f'] . ' 0 R';
         $iconsapp = ['Speaker', 'Mic'];
         if (isset($annot['opt']['name']) && \in_array($annot['opt']['name'], $iconsapp, true)) {
@@ -4319,11 +4319,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
     /**
      * Build the detached CMS (CAdES) signature over the ByteRange content using
-     * the native tc-lib-pdf-sign builder, replacing the temp-file PKCS#7 path.
+     * the tc-lib-pdf-sign builder.
      *
      * The produced CMS carries the ESS signing-certificate-v2 signed attribute,
-     * so it is a CAdES-BES structure for every profile; the legacy profile keeps
-     * the /SubFilter /adbe.pkcs7.detached wrapper and stays verifiable.
+     * making it a CAdES-BES structure for every profile. The ISO 32000-1 profile
+     * keeps the /SubFilter /adbe.pkcs7.detached wrapper.
      *
      * @param string $content ByteRange-covered document bytes to sign.
      *
@@ -4546,9 +4546,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * A signature timestamp embeds a full RFC 3161 token in the CMS, roughly
      * tripling its size, so extra room is reserved when timestamping is enabled;
-     * otherwise the legacy SIGMAXLEN is kept so existing output is unchanged. The
-     * placeholder emission, the ByteRange computation, and the hex padding all
-     * read this so they stay in agreement.
+     * otherwise SIGMAXLEN is used. The placeholder emission, the ByteRange
+     * computation and the hex padding all read this value.
      */
     protected function signatureContentsLength(): int
     {
@@ -4736,8 +4735,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Extract the raw signature /Contents bytes from a signed document.
      *
      * The signature /Contents is a hexadecimal string padded with zeros to the
-     * reserved placeholder length; the decoded bytes (the CMS plus that padding)
-     * are what a reader hashes for the DSS VRI key, so they are returned verbatim.
+     * reserved placeholder length. The decoded bytes (the CMS plus that padding)
+     * are returned verbatim, as hashed by a reader for the DSS VRI key.
      *
      * @param string $pdf The signed PDF document.
      *
@@ -4765,13 +4764,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Append the PAdES B-LTA archive document timestamp as a further incremental
      * revision, then timestamp it.
      *
-     * For the `pades-b-lta` profile (which requires a configured TSA), a
+     * For the `pades-b-lta` profile, which requires a configured TSA, a
      * `/Type /DocTimeStamp` value object plus an invisible signature-field widget
-     * are emitted through the tc-lib-pdf-sign `Output\DocTimeStamp` / `Output\Widget`
-     * emitters; the catalog is re-emitted with the timestamp field added to the
-     * AcroForm `/Fields` (and the existing `/DSS` reference kept). A second signing
-     * pass then covers the whole document up to that point with a bare RFC 3161
-     * token (not a CAdES CMS), exactly like the main signature's ByteRange machinery.
+     * are emitted through the tc-lib-pdf-sign `Output\DocTimeStamp` and
+     * `Output\Widget` emitters. The catalog is re-emitted with the timestamp
+     * field added to the AcroForm `/Fields`, keeping the existing `/DSS`
+     * reference. A second signing pass then covers the whole document up to that
+     * point with a bare RFC 3161 token instead of a CAdES CMS, through the same
+     * ByteRange machinery as the main signature.
      *
      * @param string $pdf The signed, DSS-augmented PDF document.
      *

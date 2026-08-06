@@ -472,8 +472,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'metadata',
         'style',
         'script',
-        // SVG filter primitives — PDF has no equivalent pixel-pipeline; entire
-        // subtree content is discarded to avoid garbled output.
+        // SVG filter primitives: the whole subtree content is discarded.
         'filter',
         'feBlend',
         'feColorMatrix',
@@ -533,9 +532,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Maximum depth of a <use> resolution chain.
      *
-     * Bounds recursion in parseSVGTagSTARTuse() so a cyclic or pathologically
-     * deep <use> graph cannot exhaust memory (CWE-400). Far beyond any
-     * legitimate nesting while keeping recursion well below PHP limits.
+     * Bounds the recursion in parseSVGTagSTARTuse().
      *
      * @var int
      */
@@ -2182,11 +2179,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Apply an SVG mask="url(#id)" as a PDF SMask ExtGState.
      *
-     * Renders the mask's child content to a stream that will be emitted as a
-     * Form XObject (with a DeviceGray transparency group) at PDF body time.
-     * The Form XObject is referenced by an SMask dict which is in turn
-     * referenced by an ExtGState.  The returned PDF command activates that
-     * ExtGState before the masked element is drawn.
+     * Renders the mask child content to a stream emitted as a Form XObject with
+     * a DeviceGray transparency group, referenced by an SMask dict, which is in
+     * turn referenced by an ExtGState. Returns the command activating that
+     * ExtGState.
      *
      * @param int $soid SVG object ID.
      * @param TSVGStyle $svgstyle Current SVG style.
@@ -2357,7 +2353,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     protected function getSVGGlyphOrientationRotation(array $svgstyle, bool $isVertical): float
     {
         if ($isVertical) {
-            // S-2 baseline: vertical writing stacks glyphs and rotates them 90°.
+            // Vertical writing stacks glyphs and rotates them 90°.
             $default = 90.0;
             $gvert = \strtolower($svgstyle['glyph-orientation-vertical']);
             if ($gvert === 'auto') {
@@ -2379,18 +2375,15 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Map SVG rendering-hint properties to PDF rendering-intent operators.
      *
-     * SVG `color-rendering`, `image-rendering`, `shape-rendering`, and
-     * `text-rendering` are advisory hints with no guaranteed effect in any
-     * renderer.  PDF supports a /ri (rendering intent) operator with four
-     * standard values; this method performs a best-effort mapping:
+     * The SVG `color-rendering`, `image-rendering`, `shape-rendering` and
+     * `text-rendering` hints map onto the PDF /ri operator:
      *
      *  - `optimizeQuality`  / `crispEdges`     → /RelativeColorimetric (default)
      *  - `optimizeSpeed`    / `pixelated`      → /AbsoluteColorimetric
-     *  - `auto`             (any)              → no operator emitted (use PDF default)
+     *  - `auto`             (any)              → no operator emitted
      *
-     * The SVG `color-interpolation` / `color-interpolation-filters` values
-     * (`sRGB`, `linearRGB`) cannot be faithfully represented through the ri
-     * operator alone and are therefore silently accepted but not forwarded.
+     * The `color-interpolation` and `color-interpolation-filters` values
+     * (`sRGB`, `linearRGB`) are accepted and not forwarded.
      *
      * @param TSVGStyle $svgstyle SVG style.
      *
@@ -3676,7 +3669,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 return;
             }
 
-            // E-8: skip subtree ends for non-selected <switch> siblings.
+            // Skip subtree ends for non-selected <switch> siblings.
             if (isset($svgobj['switchstack']) && $svgobj['switchstack'] !== []) {
                 $switchkey = \array_key_last($svgobj['switchstack']);
                 if (!isset($svgobj['switchstack'][$switchkey])) {
@@ -4004,7 +3997,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             default => 'S',
         };
 
-        // S-1: compute Y offset for dominant-baseline / alignment-baseline.
+        // Compute the Y offset for dominant-baseline / alignment-baseline.
         $baselineOffset = 0.0;
         $baselineKw = $svgobj['textmode']['baseline'] ?? 'auto';
         if ($baselineKw !== 'auto' && $baselineKw !== 'alphabetic') {
@@ -4021,14 +4014,14 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             };
         }
 
-        // S-4: first-angle rotation for the text run.
+        // First-angle rotation for the text run.
         $rotate = $svgobj['textmode']['rotate'] ?? 0.0;
 
-        // E-6: when a textPath is active, derive per-glyph x/y/angle lists
+        // When a textPath is active, derive per-glyph x/y/angle lists
         // from the sampled path and glyph advances before rendering.
         $this->applyTextPathGlyphLayout($soid);
 
-        // S-3: textLength adjustment.
+        // textLength adjustment.
         $textLengthTarget = $svgobj['textmode']['textlength'] ?? 0.0;
         $lengthAdjust = $svgobj['textmode']['lengthadjust'] ?? 'spacing';
         $forcedWidth = 0.0; // passed to getTextLine for spacing-only adjust
@@ -4046,7 +4039,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
 
-        // R-1: multi-value x / y lists — emit one call per character if lists present.
+        // Multi-value x / y lists: emit one call per character when lists are present.
         $xlist = $svgobj['textmode']['xlist'] ?? [];
         $ylist = $svgobj['textmode']['ylist'] ?? [];
         $rotlist = $svgobj['textmode']['rotlist'] ?? [];
@@ -4080,7 +4073,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             }
         } elseif ($isVertical) {
-            // S-2: basic vertical writing mode; stack glyphs along Y axis.
+            // Vertical writing mode: stack glyphs along the Y axis.
             $chars = \mb_str_split($svgobj['text'], 1, 'UTF-8');
             $strokeWidth = (float) $svgobj['textmode']['stroke'];
             foreach ($chars as $ch) {
@@ -4184,7 +4177,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return;
         }
 
-        // E-8: render only the first direct child of each <switch>.
+        // Render only the first direct child of each <switch>.
         if (isset($svgobj['switchstack']) && $svgobj['switchstack'] !== []) {
             $switchkey = \array_key_last($svgobj['switchstack']);
             if (!isset($svgobj['switchstack'][$switchkey])) {
@@ -4536,10 +4529,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out
             . $this->parseSVGStyle($parser, $soid, $svgstyle, $prev_svgstyle, $posx, $posy, $width, $height);
         }
-        // Parse "min-x min-y width height" on whitespace/commas (matches the
-        // other viewBox parsers in this file) so decimals and negative origins
-        // are handled correctly; a digits-only regex would split "1.5" and drop
-        // the sign of negative coordinates.
+        // Parse "min-x min-y width height" on whitespace and commas, keeping
+        // decimals and negative origins intact.
         $vbvals = \preg_split('/[\s,]+/', \trim($attr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
         if (!\is_array($vbvals) || !isset($vbvals[0], $vbvals[1], $vbvals[2], $vbvals[3])) {
             return $out
@@ -4550,9 +4541,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $vbw = \abs(\floatval($vbvals[2]));
         $vbh = \abs(\floatval($vbvals[3]));
         if ($vbw <= 0.0 || $vbh <= 0.0) {
-            // Degenerate viewBox (zero or non-positive extent): ignore it and
-            // render without the viewBox transform, as in the no-viewBox case
-            // above. Dividing by it below would throw DivisionByZeroError.
+            // Degenerate viewBox (zero or non-positive extent): render without
+            // the viewBox transform.
             return $out
             . $this->parseSVGStyle($parser, $soid, $svgstyle, $prev_svgstyle, $posx, $posy, $width, $height);
         }
@@ -4815,8 +4805,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $offset = isset($attr['offset']) ? $this->svgUnitToUnit($attr['offset'], $soid) : 0.0;
         $stop_color = $svgstyle['stop-color'];
         // Normalize stop colors to hex RGB so all gradient stops share one
-        // color space. Without this, named colors (e.g. "white") resolve to
-        // CMYK while hex colors resolve to RGB, producing corrupt gradients.
+        // color space.
         $colobj = $this->color->getColorObj($stop_color);
         if ($colobj !== null) {
             $stop_color = $colobj->getRgbHexColor();
@@ -6265,7 +6254,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         } catch (\Throwable) {
             return '';
         }
-        // R-2: honour preserveAspectRatio for raster images.
+        // Honour preserveAspectRatio for raster images.
         $renderX = $posx;
         $renderY = $posy;
         $renderW = $width;
@@ -6359,11 +6348,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $out = '';
         if ($svgobj['text'] !== '') {
             // Flush the text accumulated between an outer <text> start and this
-            // nested <text>/<tspan> start.  We only emit the text-line operator and
-            // clear the buffer.  We deliberately do NOT close the outer transform or
-            // pop the styles stack — those bookkeeping operations are the
-            // responsibility of the matching </text> end handler; duplicating them
-            // here would corrupt the PDF graphics-state stack.
+            // nested <text>/<tspan> start: emit the text-line operator and clear
+            // the buffer. The outer transform and the styles stack are left to
+            // the matching </text> end handler.
             $anchor = $svgobj['textmode']['text-anchor'];
             $txtanchor = match ($anchor) {
                 'end' => 'E',
@@ -6447,16 +6434,16 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $svgobj['textmode']['stroke'] = 0.0;
         }
 
-        // S-1: dominant-baseline / alignment-baseline Y offset.
+        // Dominant-baseline / alignment-baseline Y offset.
         $svgobj['textmode']['baseline'] = $svgstyle['dominant-baseline'];
 
-        // S-3: textLength and lengthAdjust.
+        // textLength and lengthAdjust.
         $svgobj['textmode']['textlength'] = isset($attr['textLength'])
             ? $this->svgUnitToUnit($attr['textLength'], $soid)
             : 0.0;
         $svgobj['textmode']['lengthadjust'] = $attr['lengthAdjust'] ?? 'spacing';
 
-        // S-4: parse rotate list; first angle remains run fallback.
+        // Parse the rotate list; the first angle is the run fallback.
         $svgobj['textmode']['rotlist'] = [];
         if (isset($attr['rotate']) && $attr['rotate'] !== '') {
             $rotvals = \preg_split('/[\s,]+/', \trim($attr['rotate']), -1, \PREG_SPLIT_NO_EMPTY);
@@ -6474,7 +6461,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
 
-        // R-1: multi-value x / y coordinate lists.
+        // Multi-value x / y coordinate lists.
         $svgobj['textmode']['xlist'] = [];
         $svgobj['textmode']['ylist'] = [];
         $svgobj['textmode']['textpathpoints'] = [];
@@ -7373,10 +7360,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'symbol'.
      *
-     * A <symbol> is a reusable graphic container that is captured into defs.
-     * It is never rendered directly; it is expanded only when referenced by <use>.
-     * The defsmode flag is set here so that subsequent child elements are stored
-     * in the defs array rather than rendered immediately.
+     * A <symbol> is captured into defs and expanded only when referenced by
+     * <use>. The defsmode flag is set here so child elements are stored in the
+     * defs array instead of being rendered.
      *
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
@@ -7481,29 +7467,20 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Parse the SVG Start tag 'filter'.
      *
-     * SVG filters (<filter> with fe* primitives) define a pixel-level processing
-     * pipeline that has no direct equivalent in static PDF.  This handler is a
-     * deliberate no-op: the <filter> element and all its fe* children are already
-     * excluded from the character-data parser (see SVGCHARDATASKIPTAGS), so this
-     * method exists only to silence the dispatch-table default branch and to make
-     * the intentional non-support self-documenting.
-     *
-     * A filter reference on a shape element (filter="url(#f)") is also silently
-     * ignored — the shape is rendered without the filter effect applied.
+     * Filters are not rendered. A filter="url(#f)" reference on a shape is
+     * ignored and the shape is drawn without the filter effect.
      *
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
      *
-     * @return string Empty string — filters are not supported in PDF output.
+     * @return string Empty string.
      *
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
     protected function parseSVGTagSTARTfilter(int $soid, array $attr): string
     {
-        // Filters cannot be represented in static PDF.  Mark defs-mode so the
-        // fe* child elements captured by SVGCHARDATASKIPTAGS are discarded, and
-        // register a placeholder in defs so a filter="url(#id)" reference does
-        // not trigger spurious fallback paths elsewhere.
+        // Enter defs-mode so the fe* children captured by SVGCHARDATASKIPTAGS are
+        // discarded, and register a placeholder in defs for filter="url(#id)".
         return $this->registerSVGDefsContainer($soid, 'filter', $attr);
     }
 
@@ -7512,7 +7489,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @param int $soid ID of the current SVG object.
      *
-     * @return string Empty string — filters are not supported in PDF output.
+     * @return string Empty string.
      */
     protected function parseSVGTagENDfilter(int $soid): string
     {
@@ -7524,9 +7501,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * Records the link URL and bounding origin.  Child elements are rendered
      * normally; the annotation is emitted on the matching </a> end tag.
-     * Unsupported SVG feature: full bounding-box tracking of arbitrary child
-     * shapes is not implemented.  A best-effort URI annotation is emitted at the
-     * current cursor position with a placeholder size on </a>.
+     * The bounding box of arbitrary child shapes is not tracked: the URI
+     * annotation is emitted at the current cursor position with a placeholder
+     * size on </a>.
      *
      * @param int $soid ID of the current SVG object.
      * @param TSVGAttributes $attr SVG attributes.
@@ -7701,11 +7678,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        // Cycle / runaway-depth guard for <use> resolution (CWE-400), mirroring
-        // the $seen visited-set used by resolveSVGPatternDef() for pattern href
-        // inheritance. A target already being expanded (direct or transitive
-        // self-reference), or a chain deeper than SVGMAXUSEDEPTH, is refused
-        // instead of recursing until the process runs out of memory.
+        // Cycle and depth guard: a target already being expanded, or a chain
+        // deeper than SVGMAXUSEDEPTH, is refused.
         if (isset($svgobj['usechain'][$svgdefid]) || \count($svgobj['usechain']) >= self::SVGMAXUSEDEPTH) {
             return '';
         }
@@ -7720,9 +7694,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
     /**
      * Expand a resolved <use> target into PDF output.
-     *
-     * Split out from parseSVGTagSTARTuse() so the cycle/depth guard there can
-     * wrap the whole expansion in a single try/finally.
      *
      * @param \XMLParser $parser The XML parser calling the handler.
      * @param int $soid ID of the current SVG object.
@@ -7775,7 +7746,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 $useH = 0.0;
             }
 
-            // E-1/R-3 hardening: if use width/height are omitted, use viewBox size.
+            // If the use width/height are omitted, fall back to the viewBox size.
             if (($useW <= 0.0 || $useH <= 0.0) && isset($symAttr['viewBox']) && $symAttr['viewBox'] !== '') {
                 $viewBoxVals = \preg_split('/[\s,]+/', \trim($symAttr['viewBox']), -1, \PREG_SPLIT_NO_EMPTY);
                 if (\is_array($viewBoxVals) && isset($viewBoxVals[2], $viewBoxVals[3])) {
@@ -7790,8 +7761,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                 }
             }
 
-            // Build an attr array that looks like an inner <svg> while preserving
-            // use-level style/transform/inherited attributes for compatibility.
+            // Build an attr array shaped like an inner <svg>, keeping the
+            // use-level style, transform and inherited attributes.
             /** @var TSVGAttributes $svglikeAttr */
             $svglikeAttr = $attr;
             $svglikeAttr['x'] = (string) $useX;
@@ -7819,9 +7790,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             $out = '';
             $useStyle = $defStyle;
 
-            // Preserve symbol-level presentation/style attributes first so the
-            // symbol container behaves like an inner <svg> wrapper. Use-level
-            // presentation/style attrs are then applied on top as the final override.
+            // Symbol-level presentation/style attributes are applied first,
+            // then the use-level ones override them.
             $symbolStyleTag = '';
             if (isset($symAttr['style']) && $symAttr['style'] !== '') {
                 $symbolStyleTag = $symAttr['style'][0] === ';' ? $symAttr['style'] : ';' . $symAttr['style'];
@@ -7895,7 +7865,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
                     }
 
                     if (isset($child['attr']['closing_tag'])) {
-                        // closing-tag sentinel — emit the matching end handler
+                        // closing-tag sentinel: emit the matching end handler
                         $this->handleSVGTagEnd($parser, $childName);
                     } else {
                         $childAttr = $child['attr'];
@@ -8074,12 +8044,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     /**
      * Pre-scan SVG data to collect gradient definitions before the main parse.
      *
-     * SVG allows forward references — elements can reference gradients defined
-     * later in <defs>. Because the main parser generates PDF commands in a
-     * single pass, gradients must be registered first. This lightweight scan
-     * extracts <linearGradient>, <radialGradient> and <stop> elements and
-     * feeds them through the existing tag handlers so the gradient arrays are
-     * populated before any drawing element needs them.
+     * SVG allows forward references to gradients defined later in <defs>, while
+     * the main parser generates PDF commands in a single pass. This scan extracts
+     * <linearGradient>, <radialGradient> and <stop> elements and feeds them
+     * through the tag handlers to populate the gradient arrays first.
      *
      * @param string $data Raw SVG XML string.
      * @param int    $soid SVG object ID.

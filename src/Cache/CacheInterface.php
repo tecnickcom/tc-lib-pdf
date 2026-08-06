@@ -31,11 +31,10 @@ namespace Com\Tecnick\Pdf\Cache;
  * ...) serves every cacheable subsystem with one connection and one
  * configuration.
  *
- * This library intentionally ships NO concrete implementation: the backend,
- * its (de)serialization, expiration and size limits are entirely the
- * application's responsibility. Implementations MUST be best-effort and MUST
- * NOT throw on a miss or a transient backend failure, so that a cache problem
- * never breaks PDF generation.
+ * No concrete implementation is shipped: the backend, its (de)serialization,
+ * expiration and size limits are the application's responsibility.
+ * Implementations MUST be best-effort and MUST NOT throw on a miss or a
+ * transient backend failure.
  *
  * Keys are already namespaced and schema-versioned by each sub-library
  * (e.g. "tc-lib-pdf-font:subset:v2:..." and "tc-lib-pdf-image:v2:..."), so a

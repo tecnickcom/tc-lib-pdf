@@ -177,13 +177,10 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         }
 
         if (!$this->forceDeviceCmyk) {
-            // Use a Separation (spot) color only when it is explicitly requested
-            // through the spot() CSS function or when the name refers to a spot
-            // color that has already been registered by the caller. Bare color
-            // names (e.g. "black", "red") must resolve to process colors;
-            // otherwise the underlying color library would emit them as
-            // DeviceCMYK Separations, which breaks PDF/A conformance when the
-            // document has an RGB OutputIntent.
+            // A Separation (spot) color is used only when explicitly requested
+            // through the spot() CSS function, or when the name refers to a spot
+            // color already registered by the caller. Bare color names
+            // (e.g. "black", "red") resolve to process colors.
             if ($explicitSpot || $this->isRegisteredSpotColor($color)) {
                 return parent::getPdfColor($color, $stroke, $tint);
             }

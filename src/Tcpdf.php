@@ -1373,9 +1373,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * Fluent entry point for the signature subsystem.
      *
      * Groups signature configuration, timestamp, user rights, appearance, empty
-     * fields, and external signing behind one discoverable object. It forwards to
-     * the underlying setSignature()/setSignTimeStamp()/... methods, which remain
-     * fully supported; the facade is a convenience wrapper, not a replacement.
+     * fields and external signing behind one object, forwarding to the
+     * underlying setSignature() / setSignTimeStamp() / ... methods.
      *
      * @return \Com\Tecnick\Pdf\Signature\Facade
      */

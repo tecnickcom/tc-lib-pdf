@@ -1012,12 +1012,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // CSS declarations are parsed into canonical engine fields
         // (for example: color -> fgcolor, direction -> dir, text-align -> align).
-        //
-        // NOTE:
-        //   Because PDFs are visual document files,
-        //   properties built for real-time Text-to-Speech (TTS) rendering systems,
-        //   audio cues, or sound spatialisation are completely ignored by PDF layout engines:
-        //   azimuth, speak, speak-header, volume.
+        // Aural properties (azimuth, speak, speak-header, volume) are ignored.
 
         return [
             'align' => '',
@@ -1228,10 +1223,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $domLen = \count($dom);
 
         // The streaming DOM pass serializes table header rows into each table
-        // node's 'thead' slot so they can be replayed on continuation pages.
-        // The re-cascade below re-runs parseHTMLAttributes(), which clears that
-        // slot via the table defaults, but it never rebuilds the serialization.
-        // Snapshot the stored headers now and restore them after the cascade.
+        // node's 'thead' slot for replay on continuation pages. The re-cascade
+        // below clears that slot without rebuilding it, so snapshot the stored
+        // headers here and restore them afterwards.
         $savedThead = [];
         for ($key = 1; $key < $domLen; ++$key) {
             $node = $dom[$key] ?? null;
@@ -1267,10 +1261,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             // Structural pseudo-classes (e.g. :empty) can mis-match during
-            // streaming DOM construction before children are parsed, leaving
-            // stale style-derived values behind. Reset the non-inherited
-            // style-derived geometry so the final-tree cascade re-derives it
-            // from the recomputed declarations and tag attributes below.
+            // streaming DOM construction, before children are parsed. Reset the
+            // non-inherited style-derived geometry so the final-tree cascade
+            // re-derives it below.
             $node['style'] = $defaults['style'];
             $node['height'] = $defaults['height'];
             $node['width'] = $defaults['width'];
@@ -1341,10 +1334,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $node = $key;
         while ($node > 0 && isset($dom[$node])) {
-            // The <thead> wrapper is never materialized as a DOM node, so its
-            // rows are flagged with thead === 'true' during the streaming pass.
-            // Rely on that marker (on the row itself or an ancestor row) rather
-            // than searching for a <thead> ancestor that does not exist.
+            // The <thead> wrapper is never materialized as a DOM node: its rows
+            // carry thead === 'true' from the streaming pass. Match on that
+            // marker, on the row itself or on an ancestor row.
             if (($dom[$node]['value'] ?? '') === 'tr' && ($dom[$node]['thead'] ?? '') === 'true') {
                 return true;
             }
@@ -3122,8 +3114,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         } else {
             // Keep the raw CSS family list and defer font resolution to insert().
-            // Resolving here against the current buffer can incorrectly collapse
-            // unresolved families to the currently active font.
             $node['fontname'] = $fontFamily;
         }
     }
@@ -4593,8 +4583,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $lastProperty = $this->getLastHTMLStyleDeclarationProperty($dom, $key, ['border', $property]);
         if ($lastProperty === '') {
-            // Declaration order is unknown: keep the legacy behavior of
-            // applying the longhand on top of the border shorthand.
+            // Declaration order is unknown: apply the longhand on top of the
+            // border shorthand.
             return true;
         }
 
@@ -4928,10 +4918,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $hasSideDecl =
                 $borderSide !== '' || $borderSideColor !== '' || $borderSideWidth !== '' || $borderSideStyle !== '';
 
-            // Side-only overrides (e.g. border-right-color) must remain renderable
-            // when the base border shorthand supplies width/style. Skip when the
-            // sides were already seeded for global longhand overrides: re-seeding
-            // here would discard the applied border-width/style/color values.
+            // Side-only overrides (e.g. border-right-color) stay renderable when
+            // the border shorthand supplies width/style. Skip when the sides were
+            // already seeded for global longhand overrides.
             if ($hasSideDecl && !$globalOverrides) {
                 $keyBorderLTRB = isset($dom[$key]['border']['LTRB']) ? $dom[$key]['border']['LTRB'] : [];
                 if (isset($keyBorderLTRB['lineWidth'])) {
@@ -5166,8 +5155,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Commit a border side when renderable.
      *
      * A side explicitly declared non-renderable (e.g. border-width:0 or
-     * border-left:none) is also committed when a border shorthand exists,
-     * so it shadows the renderable LTRB fallback instead of being dropped.
+     * border-left:none) is also committed when a border shorthand exists, so it
+     * shadows the renderable LTRB fallback.
      *
      * @param array<int, THTMLAttrib> $dom
      * @param array<string, BorderStyleOpt> $brdr
@@ -6156,9 +6145,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Set the monospaced font used for <pre>, <code> and <tt> elements.
      *
-     * PDF/UA requires every font to be embedded. The default Courier is a
-     * non-embedded standard-14 font, so set an embedded monospace font (after
-     * inserting it with the font stack) when producing tagged or accessible PDFs.
+     * PDF/UA requires every font to be embedded and the default Courier is a
+     * non-embedded standard-14 font, so an embedded monospace font must be set
+     * (after inserting it with the font stack) for tagged or accessible PDFs.
      */
     public function setHTMLMonospaceFont(string $fontname): void
     {
@@ -6427,8 +6416,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $parentNode['cols'] += \intval($colspan);
             }
 
-            // Keep legacy HTML table behavior: table border attribute propagates
-            // to cells when no explicit cell border is provided.
+            // The table border attribute propagates to cells when no explicit
+            // cell border is provided.
             if (
                 (!isset($attributes['border']) || $attributes['border'] === '')
                 && !isset($styles['border'])
@@ -7130,12 +7119,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $inrow = false;
         $rowcount = 0;
 
-        // Resolve the table-level cellpadding/cellspacing defaults the renderer
-        // would apply at runtime (parseHTMLTagOPENtable / parseHTMLTagOPENtd).
-        // The standalone thead DOM does not run those handlers, so the cell
-        // padding default from the <table cellpadding="..."> attribute would
-        // otherwise be lost, causing the estimated header height to be smaller
-        // than the actually rendered one.
+        // Resolve the table-level cellpadding/cellspacing defaults applied at
+        // render time by parseHTMLTagOPENtable / parseHTMLTagOPENtd: the
+        // standalone thead DOM does not run those handlers.
         $tablecellpadding = 0.0;
         $tablecellspacingv = 0.0;
         foreach ($dom as $elm) {
@@ -7245,10 +7231,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $theadh = $this->measureHTMLCellRenderedHeight($thead, $tpx, $tpy, $tpw, $tph);
 
-        // The header is replayed visually at the top of each continuation page, but it
-        // is already represented once in the structure tree (on its first page). Suspend
-        // tagging during the replay so it does not open a second, nested Table subtree
-        // inside the still-open table, then emit the whole replayed header as an Artifact.
+        // The header is replayed at the top of each continuation page and is already
+        // present once in the structure tree. Tagging is suspended during the replay
+        // and the replayed header is emitted as an Artifact.
         $savedPdfuaMode = $this->suspendPdfUaTagging();
         try {
             $rendered = $this->getHTMLCell($thead, $tpx, $tpy, $tpw, $tph);
@@ -7294,9 +7279,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'quotelevel' => 0,
             'dom' => [],
         ];
-        // Attached after the literal: inlining the assignment into the return
-        // statement would drop the THTMLRenderContext coercion above, which is
-        // needed because the seed omits the keys initHTMLCellContext() fills in.
+        // Assigned after the literal to keep the THTMLRenderContext coercion
+        // above: the seed omits the keys initHTMLCellContext() fills in.
         $hrc['dom'] = $dom;
 
         return $hrc;
@@ -7362,9 +7346,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Measure the actual rendered height consumed by an HTML cell fragment.
      *
-     * This mirrors getHTMLCell() rendering flow but discards the output so
-     * callers can advance cursors using the real rendered height rather than
-     * a separate estimate.
+     * Follows the getHTMLCell() rendering flow and discards the output, so
+     * callers can advance cursors by the real rendered height.
      *
      * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
@@ -7409,9 +7392,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tph = $contenth;
 
         $this->initHTMLCellContext($hrc, $contentx, $contenty, $contentw, $contenth);
-        // Measurement renders into a discarded buffer, so suspend PDF/UA tagging:
-        // otherwise this pass appends phantom structure elements and advances the
-        // per-page MCID counter for content that is never written to a page stream.
+        // Measurement renders into a discarded buffer: PDF/UA tagging is suspended
+        // so this pass adds no structure elements and does not advance the MCID
+        // counter.
         $savedPdfuaMode = $this->suspendPdfUaTagging();
         try {
             $this->renderHTMLCellFragments($hrc, $tpx, $tpy, $tpw, $tph, static function (string $fragment): void {
@@ -7454,10 +7437,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return $thead;
         }
 
-        // Serialize widths in points: CSS unit ratios (e.g. 1px = 0.75pt) can
-        // differ from the document unit ratio (e.g. 1px user unit = 1pt), so
-        // echoing the document unit name would re-parse user-unit values with
-        // the CSS ratio and shrink the replayed header columns.
+        // Serialize widths in points: the values are re-parsed with the CSS unit
+        // ratios (e.g. 1px = 0.75pt), which can differ from the document unit ratio.
         $colgroup = '<colgroup data-tcpdf-colwidths="1">';
         foreach ($colwidths as $width) {
             if ($width <= 0.0) {
@@ -7577,11 +7558,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 return 0.0;
             }
 
-            // Fetch parent-table per-column widths and cellpadding fallback so we can
-            // measure the wrapped text height inside each cell, mirroring what the
-            // renderer will actually produce. Without this the estimate uses a single
-            // line advance and misses multi-line cell content, leading to late page
-            // breaks where the last row spills below the page bottom (see example 018).
+            // Fetch the parent-table per-column widths and cellpadding fallback to
+            // measure the wrapped text height inside each cell, so the estimate
+            // accounts for multi-line cell content.
             $tableColWidths = [];
             $tableCellPad = 0.0;
             $parentTableKey = isset($dom[$trkey]['parent']) ? $dom[$trkey]['parent'] : 0;
@@ -8135,17 +8114,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Whether a region break would advance somewhere new: another writable
-     * region on the current page, or (on the last region) a fresh page added by
-     * the automatic page break. A paragraph that starts at a region top and is
-     * taller than that region cannot be shortened by flushing earlier lines, so
-     * it is split only when there is somewhere for the remainder to go: the
-     * lines that fit are rendered here and the rest continues in the next region
-     * or page. This is what makes HTML hug a banded obstacle (stacked no-write
-     * bands or columns) rather than overprint it, and lets the overflow of the
-     * last region paginate instead of running off the page bottom. When the
-     * last region is reached with automatic page break disabled there is nowhere
-     * to advance, so the paragraph is left to flow in place (no forced split,
-     * and no risk of looping on a break that cannot move).
+     * region on the current page, or, on the last region, a fresh page added by
+     * the automatic page break.
+     *
+     * A paragraph taller than its region is split only when there is somewhere
+     * for the remainder to go: the lines that fit render in place and the rest
+     * continues in the next region or page. On the last region with automatic
+     * page break disabled there is nowhere to advance and the paragraph flows
+     * in place.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
@@ -8200,13 +8176,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $newRY = $region['RY'];
 
         // pageBreak() is a no-op when automatic page break is disabled and there
-        // is no further region or page to move to: getNextPage() returns the
-        // same page and region. In that case there is nowhere to break to, so
-        // leave the cursor where it is rather than resetting it to the region
-        // top, which would make the overflowing content overlap whatever is
-        // already on the page. A genuine break always changes the page id or the
-        // region origin (e.g. between multi-column regions, which advance even
-        // with autobreak disabled).
+        // is no further region or page: getNextPage() returns the same page and
+        // region, and the cursor is left where it is. A real break always changes
+        // the page id or the region origin.
         if (
             $newpid === $oldpid
             && \abs($region['RX'] - $oldRX) <= self::WIDTH_TOLERANCE
@@ -8222,10 +8194,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cellCtx['originy'] = $newRY;
         $cellCtx['originx'] += $rxDelta;
         $cellCtx['regionoffset'] = ($cellCtx['regionoffset'] ?? 0.0) + $rxDelta;
-        // Adapt the writable width to the new region. No-write page regions (and
-        // any layout whose regions differ in width) hand each band a different
-        // RW; without propagating it the line width would stay at the first
-        // region's width and overprint the obstacle. Equal-width layouts
+        // Adapt the writable width to the new region: regions of differing width
+        // (no-write page regions) each carry their own RW. Equal-width layouts
         // (multi-column, plain page breaks) have rwDelta == 0 and are untouched.
         if ($cellCtx['maxwidth'] > 0.0 && \abs($rwDelta) > self::WIDTH_TOLERANCE) {
             $cellCtx['maxwidth'] = \max(0.0, $cellCtx['maxwidth'] + $rwDelta);
@@ -8242,13 +8212,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Render the partial styled rectangles for all currently-open block-level
      * buffers up to the given vertical position, reset their accumulated
-     * content, and return the concatenated PDF code so the caller can emit it
-     * onto the current (about-to-end) page before triggering a page break.
+     * content, and return the concatenated PDF code for the caller to emit onto
+     * the current page before the page break.
      *
-     * Buffers are rendered innermost-first so that nested blocks remain wrapped
-     * inside their outer block's rectangle, mirroring the behavior of
-     * closeHTMLBlock(). The caller is expected to update each remaining
-     * buffer's `by` to the new region top after the page break.
+     * Buffers are rendered innermost-first, so nested blocks stay wrapped inside
+     * their outer block's rectangle. The caller updates each remaining buffer's
+     * `by` to the new region top after the page break.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
@@ -8261,11 +8230,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         // Extend the partial rectangle bottom to the page region bottom so the
-        // styled block (background/border) appears visually continuous across
-        // the page break. After the break, each buffer's `by` is reset to the
-        // new region top, so the next page's rectangle abuts this one with no
-        // visible gap. Without this extension the rectangle would end at the
-        // last rendered line and leave an empty strip down to the page margin.
+        // styled block (background/border) is continuous across the page break.
+        // Each buffer's `by` is reset to the new region top after the break, so
+        // the next page's rectangle abuts this one.
         $pageBottom = $tpy + $this->getHTMLRemainingHeight($hrc, $tpy);
 
         $rendered = '';
@@ -8276,12 +8243,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             $openkey = (int) $blk['openkey'];
-            // For <table> blocks the outer border must end at the last
-            // rendered row's bottom, not the page region bottom: row borders
-            // already draw horizontals and the next page replays the head
-            // with its own top border, so extending the outer frame to the
-            // page bottom would leave a tall empty bordered rectangle below
-            // the last row on this page.
+            // For <table> blocks the outer border ends at the last rendered
+            // row's bottom rather than the page region bottom: row borders draw
+            // their own horizontals and the next page replays the head with its
+            // own top border.
             $isTable = $openkey >= 0 && ($hrc['dom'][$openkey]['value'] ?? '') === 'table';
             $blockBottom = $isTable ? $tpy : $pageBottom;
             $partialHeight = $blockBottom - $blk['by'];
@@ -8320,14 +8285,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * After a page break occurs while one or more HTML tables are open,
-     * reset each open table's per-page top references (`originy`, `rowtop`)
-     * to the new region top. Without this, the closing `</table>` would draw
-     * the outer frame using the previous page's top, leaving a stale narrow
-     * rectangle on the new page.
+     * After a page break with one or more HTML tables open, reset each open
+     * table's per-page top references (`originy`, `rowtop`) to the new region
+     * top.
      *
-     * Any in-progress rowspan cells reference the previous page's `rowtop`
-     * and would render incorrectly across the break, so they are dropped.
+     * In-progress rowspan cells reference the previous page's `rowtop` and are
+     * dropped.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      */
@@ -8367,17 +8330,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Stroke the outer frame of every currently-open HTML table around the
      * section that was rendered on the page about to be left.
      *
-     * The closing </table> handler (parseHTMLTagCLOSEtable()) only frames the
-     * final section because resetHTMLTableStackOnPageBreak() rebases each open
-     * table's originy/rowtop to the new region top on every page break, erasing
-     * the previous page's section geometry. This method must therefore be called
-     * before that rebasing (and before the page break itself) so each
-     * continuation page keeps its own outer border instead of leaving only the
-     * last page framed.
+     * The closing </table> handler frames only the final section, because
+     * resetHTMLTableStackOnPageBreak() rebases each open table's originy/rowtop
+     * to the new region top. This method must be called before that rebasing and
+     * before the page break, so each continuation page keeps its own outer
+     * border.
      *
-     * The returned PDF code is meant to be dispatched onto the current
-     * (about-to-end) page, after the section's cells, so the frame overlays the
-     * cell content exactly as parseHTMLTagCLOSEtable() does.
+     * The returned PDF code is dispatched onto the current page after the
+     * section's cells, so the frame overlays the cell content as
+     * parseHTMLTagCLOSEtable() does.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param float $tpy Vertical cursor at the bottom of the last rendered row.
@@ -9006,12 +8967,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Strip the font-key style suffix from the given font name.
      *
-     * Font keys are the lowercase family name plus an optional uppercase
-     * 'B' (bold) and/or 'I' (italic) suffix. Underline (U), strikeout (D)
-     * and overline (O) styles are never part of the key, so only trailing
-     * uppercase 'B'/'I' characters are stripped (case-sensitive) to preserve
-     * family names ending in 'b', 'i', 'u', 'd' or 'o'
-     * (e.g. "dejavusanscondensed").
+     * Font keys are the lowercase family name plus an optional uppercase 'B'
+     * (bold) and/or 'I' (italic) suffix. Only trailing uppercase 'B'/'I'
+     * characters are stripped, case-sensitively, so family names ending in 'b',
+     * 'i', 'u', 'd' or 'o' (e.g. "dejavusanscondensed") are preserved.
      *
      * @param string $fontkey Font key or family name.
      *
@@ -9056,10 +9015,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $fontkey = $curfont['key'];
         $family = $this->font->getFontFamilyName($fontkey);
         // getFontFamilyName may return the full font key (e.g. "helveticaB")
-        // rather than the plain base family name ("helvetica"), because the
-        // bold variant is itself a valid key in the buffer. Strip the style
-        // suffix so restoreHTMLCallerFontState re-inserts (family, style)
-        // correctly without accumulating extra 'B'/'I' characters in the key.
+        // instead of the base family name, because the bold variant is itself a
+        // valid key in the buffer. Strip the style suffix so
+        // restoreHTMLCallerFontState re-inserts (family, style) correctly.
         $family = $this->stripHTMLFontKeyStyleSuffix($family);
         if ($family === '') {
             $family = 'helvetica';
@@ -9410,10 +9368,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Apply conservative named-page semantics for block-level HTML elements.
      *
-     * The current engine does not implement full @page templates, but a named
-     * page token can still express a section boundary. We honor that by forcing
-     * a break-before when the requested page name changes and the cursor is not
-     * already at the top of a fresh page/region.
+     * Full @page templates are not implemented. A named page token is treated
+     * as a section boundary: a break-before is forced when the requested page
+     * name changes and the cursor is not already at the top of a fresh
+     * page/region.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param THTMLAttrib $elm Current DOM element.
@@ -9919,12 +9877,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * at $startKey, for the RTL inter-fragment layout engine.
      *
      * Returns the ordered logical pieces (each text piece carries the DOM key whose
-     * baked-in font/color it renders with; each image piece carries its resolved
-     * source and box) and the last consumed DOM key, or null when the run is not a
-     * plain uniform-RTL inline run this engine can lay out — mixed direction, links,
-     * inline-block, or decorated spans keep the existing forward-cursor path (and are
-     * addressed by later increments or by full UBA for mixed bidi). Inline images are
-     * accepted as atomic boxes (Stage 2c). See PLAN_RTL_HTML_FRAGMENTS.md.
+     * baked-in font and color it renders with; each image piece carries its
+     * resolved source and box) and the last consumed DOM key. Inline images are
+     * accepted as atomic boxes. Returns null for runs this engine does not lay
+     * out: mixed direction, links, inline-block and decorated spans, which stay
+     * on the forward-cursor path.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
@@ -10015,7 +9972,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if (\count($pieces) < 2) {
-            // A single fragment already lays out correctly through getTextCell (Stage 2a).
+            // A single fragment lays out through getTextCell.
             return null;
         }
 
@@ -10070,21 +10027,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * wrapping across fragment boundaries and stacking lines top-down: on each line
      * the first logical fragment hugs the right edge and each subsequent fragment is
      * placed to its left. Text fragments render in a box of their own width through
-     * getTextCell() with forcedir 'R', so their internal glyphs (including neutral
-     * numerals) keep their correct visual order and their baked-in font/color are
-     * preserved; inline images are placed as atomic boxes on the line (Stage 2c).
+     * getTextCell() with forcedir 'R', keeping their internal glyph order and their
+     * baked-in font and color. Inline images are placed as atomic boxes on the line.
      *
      * Returns ['out' => PDF code, 'endkey' => last consumed DOM key], or null to fall
-     * back to the existing forward-cursor renderer (LTR, single fragment, mid-line
-     * start, tables/links/PDF-UA, a single word/image wider than the line, or a run
-     * taller than the remaining region with no way to continue — see $appendFragment).
-     * The forward-cursor path is therefore byte-identical for every case this engine
-     * declines.
+     * back to the forward-cursor renderer: LTR, single fragment, mid-line start,
+     * tables/links/PDF-UA, a single word or image wider than the line, or a run
+     * taller than the remaining region with no way to continue (see $appendFragment).
      *
      * When the run overflows the current region and a per-page fragment sink is
-     * available (addHTMLCell), the engine flows the remaining right-to-left lines into
-     * the next region/page (Stage 2e): the lines that fit are emitted to the current
-     * page through $appendFragment and the final region's lines are returned in 'out'.
+     * available (addHTMLCell), the remaining right-to-left lines flow into the next
+     * region/page: the lines that fit are emitted to the current page through
+     * $appendFragment and the final region's lines are returned in 'out'.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param ?callable(string):void $appendFragment Per-page sink for the lines that
@@ -10139,14 +10093,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineAdvance = $built['advance'];
         $numLines = \count($lines);
 
-        // A run taller than the space left in the current region flows into the next
-        // region/page (Stage 2e) when there is somewhere and some sink to flow into:
-        // a per-page fragment sink (addHTMLCell), no fixed cell height, no open
-        // styled block buffer (whose cross-page background the forward path handles),
-        // and a region/page to advance to. Otherwise it falls back to the
-        // forward-cursor path rather than overprint the next region (no new
-        // regression — that path is also imperfect for RTL overflow, but does not
-        // crash).
+        // A run taller than the space left in the current region flows into the
+        // next region/page when there is a per-page fragment sink (addHTMLCell),
+        // no fixed cell height, no open styled block buffer and a region or page
+        // to advance to. Otherwise it falls back to the forward-cursor path.
         $runHeight = $numLines * $lineAdvance;
         $fitsInRegion = $runHeight <= ($this->getHTMLRemainingHeight($hrc, $tpy) + self::WIDTH_TOLERANCE);
         $canContinue =
@@ -10245,7 +10195,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * context), and placed right-to-left: the first logical fragment hugs the line's
      * right edge ($lineRight) and the cursor advances leftward. Inline images are
      * placed as atomic boxes; whitespace-only groups advance the cursor without
-     * drawing. See renderHTMLRtlInlineRun() and PLAN_RTL_HTML_FRAGMENTS.md.
+     * drawing. See renderHTMLRtlInlineRun().
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param array<int, THTMLRtlSegment> $segments Logical-order line segments.
@@ -10264,17 +10214,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cursor = $lineRight;
 
         // Regroup consecutive segments from the same fragment so each fragment
-        // renders through a single getTextCell. Splitting at the word level would
-        // Bidi each word in isolation and separate a bracket pair like "(...)" across
-        // calls, reversing it; one call per fragment keeps the fragment's internal
-        // Bidi context (bracket pairing, neutral resolution) intact while still
-        // allowing wraps between fragments.
+        // renders through a single getTextCell, keeping its internal Bidi context
+        // (bracket pairing, neutral resolution) while still allowing wraps between
+        // fragments.
         foreach ($this->groupHTMLRtlLineSegments($segments) as $group) {
             if ($group['image']) {
                 // Image box on the RTL line: its right edge sits at the cursor and the
-                // cursor then advances leftward by the box width. Vertical placement
-                // matches the forward renderer — bottom-aligned to the line baseline
-                // (lineTop + lineascent) by default, or top/middle.
+                // cursor then advances leftward by the box width. Vertically it is
+                // bottom-aligned to the line baseline (lineTop + lineascent) by
+                // default, or top/middle.
                 $imgWidth = $group['width'];
                 if ($imgWidth <= 0.0) {
                     continue;
@@ -10292,10 +10240,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $out .= $this->buildHTMLImageXObject($group['src'], $imagex, $imagey, $imgWidth, $imgHeight);
                         $cursor = $imagex;
                     } catch (\Throwable) {
-                        // Broken image source: degrade like the forward renderer by
-                        // drawing the image's alt text in the reserved slot, and advance
-                        // the cursor by the alt's actual extent (falling back to the box
-                        // width when there is no alt text to draw).
+                        // Broken image source: draw the image alt text in the reserved
+                        // slot and advance the cursor by the alt's extent, or by the
+                        // box width when there is no alt text.
                         $fallback = $this->renderHTMLRtlImageAlt($hrc, $group['key'], $cursor, $lineTop, $imagex);
                         $out .= $fallback['out'];
                         $cursor = $fallback['cursor'];
@@ -10322,11 +10269,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
             $this->getHTMLFontMetric($hrc, $key);
 
-            // getTextCell drops a fragment's leading collapsible space (but keeps its
-            // trailing one). Reserve the leading space as an explicit cursor gap so the
-            // inter-fragment spacing is preserved — e.g. the space before the word
-            // following an embedded span. The fragment itself is still rendered whole,
-            // keeping its internal Bidi context (brackets).
+            // getTextCell drops a fragment's leading collapsible space and keeps its
+            // trailing one. Reserve the leading space as an explicit cursor gap to
+            // preserve the inter-fragment spacing. The fragment is still rendered
+            // whole, keeping its internal Bidi context.
             $leadm = [];
             $lead = \preg_match('/^ +/u', $groupText, $leadm) === 1 ? $leadm[0] ?? '' : '';
             if ($lead !== '') {
@@ -10337,14 +10283,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 continue;
             }
 
-            // Render the fragment right-aligned in a box spanning from the page left
-            // edge (x = 0) to the cursor. The box is always wider than a fragment that
-            // fits on the line, so getTextCell never wraps; this avoids the
-            // getStringWidth-vs-getTextCell measurement drift (Arabic shaping /
-            // presentation forms) that otherwise spilled a word onto the next line.
-            // renderX = 0 keeps the box on the page (a tighter box could push it
-            // negative and misrender). The cursor then advances by the ACTUAL rendered
-            // left edge (bbox), so spacing stays exact.
+            // Render the fragment right-aligned in a box spanning from the page
+            // left edge (x = 0) to the cursor. The box is wider than any fragment
+            // that fits on the line, so getTextCell never wraps. The cursor then
+            // advances by the rendered left edge taken from the bbox.
             $renderY = $lineTop + ($lineascent - $group['ascent']);
             $style = $node['fontstyle'];
             $strokeWidth = $node['stroke'];
@@ -10384,9 +10326,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Render the alt text of an inline image as a right-to-left fallback fragment,
-     * used when the image source cannot be drawn — mirroring renderHTMLImage()'s
-     * graceful degradation. The text is right-aligned so it ends at the image box's
-     * right edge ($boxRight) and grows leftward, like the image it replaces.
+     * used when the image source cannot be drawn. The text is right-aligned so it
+     * ends at the image box's right edge ($boxRight) and grows leftward.
      *
      * Returns the emitted PDF code and the resulting (leftward) cursor: the alt
      * text's actual left edge when something was drawn, otherwise $fallbackCursor
@@ -10507,11 +10448,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * may span fragment boundaries (for example an Arabic run immediately followed
      * by a Latin span, "الـ" + "PDF"); whitespace tokens are the break
      * opportunities. An image piece is an atomic, unbreakable word token whose width
-     * is its rendered box width (Stage 2c). The greedy fill returns the lines
-     * top-to-bottom in logical (reading) order, each a list of placement segments in
-     * logical order. Returns null when there are fewer than two pieces, a single
-     * word (or image) is wider than the line (needs word-/char-breaking, deferred to
-     * the forward-cursor path), or the run has no measurable content.
+     * is its rendered box width. The greedy fill returns the lines top-to-bottom in
+     * logical (reading) order, each a list of placement segments in logical order.
+     * Returns null when there are fewer than two pieces, when a single word or
+     * image is wider than the line, or when the run has no measurable content.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param array<int, THTMLRtlPiece> $pieces Logical run pieces.
@@ -10971,10 +10911,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * Returns [head, tail] where head is the portion that fits on the current
      * line (within $maxwidth) and tail is the remainder, or null when the text
-     * fits on a single line or cannot be split safely. Used so that each
-     * wrapped visual line of a justified paragraph computes its own word
-     * spacing, instead of a single run baking the first line's spacing into
-     * the lines it overflows onto.
+     * fits on a single line or cannot be split safely. Each wrapped visual line
+     * of a justified paragraph then computes its own word spacing.
      *
      * @return array{0: string, 1: string}|null
      *
@@ -11042,12 +10980,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Measure the maximum ascent among inline text fragments in the current run.
      *
      * The run stops at block boundaries and explicit BR tags. When $maxRunWidth is
-     * non-negative it also stops once the accumulated inline advance fills the line:
-     * a line box's height is set only by the content that lands on it, so a taller
-     * inline fragment (a larger font run or an inline image) that wraps onto a later
-     * line must not inflate the ascent — and therefore the spacing — of earlier
-     * lines. The fragment at $startkey always counts (every line carries at least
-     * one fragment); a negative $maxRunWidth keeps the legacy unbounded scan.
+     * non-negative it also stops once the accumulated inline advance fills the line,
+     * so a taller fragment wrapping onto a later line does not inflate the ascent
+     * and spacing of earlier lines. The fragment at $startkey always counts; a
+     * negative $maxRunWidth scans the whole inline run.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param int   $startkey    DOM key of the first fragment on the current line.
@@ -11365,9 +11301,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Return true when a breakable fragment can keep a visible leading chunk on the current line.
      *
-     * This is intentionally narrower than hasHTMLTextBreakOpportunity(): a fragment such as
-     * " underline ..." may keep flowing after the previous text, while a fragment starting with
-     * visible content should wrap from the line origin when it cannot fully fit in the remaining width.
+     * Narrower than hasHTMLTextBreakOpportunity(): a fragment such as " underline ..."
+     * may keep flowing after the previous text, while a fragment starting with visible
+     * content wraps from the line origin when it does not fit in the remaining width.
      */
     protected function canHTMLTextKeepVisibleChunkOnCurrentLine(
         string $text,
@@ -11379,12 +11315,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if (!(bool) \preg_match('/^\s/u', $text)) {
-            // The text begins with non-whitespace content (typically punctuation
-            // such as ")" or "." that is glued to the previous inline fragment
-            // on the same line). Allow it to remain on the current line if its
-            // leading non-space chunk fits within the remaining width, so that
-            // a closing parenthesis after an inline element does not get force-
-            // wrapped to a fresh line.
+            // The text begins with non-whitespace content, typically punctuation
+            // glued to the previous inline fragment on the same line. It stays on
+            // the current line when its leading non-space chunk fits within the
+            // remaining width.
             $leadMatches = [];
             if (\preg_match('/^\S+/u', $text, $leadMatches) === 1) {
                 $lead = $leadMatches[0] ?? '';
@@ -11735,10 +11669,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Clamp a heading structure role (H1-H6) to prevent skipped levels in PDF/UA mode.
      * Going back to a higher level (e.g. H3 then H1) is always allowed.
-     * if ($table['collapse'] && $table['hascellborders']) {
-     * $bstyles = [];
-     * }
-     * if (($bstyles !== []) || ($fillstyle !== null)) {
      * Non-heading roles are returned unchanged.
      */
     protected function pdfuaClampHeadingRole(string $role): string
@@ -12013,9 +11943,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $hrc['cellctx']['maxwidth'] = $restoreMaxWidth;
             $tpx = \max($tpx + $marginR, $inlineNextX);
             if (isset($openelm['inlineblockrowy'])) {
-                // Only restore tpy to opening position if we're still on the same page.
-                // If a page break occurred during content rendering (e.g., due to orphans/widows),
-                // the stored inlineblockrowy is from a different page and should not be used.
+                // Restore tpy to the opening position only on the same page: after a
+                // page break the stored inlineblockrowy belongs to a different page.
                 $storedPageId = $openelm['inlineblockpageid'] ?? -1;
                 $currentPageId = (int) $this->page->getPageId();
                 if ($storedPageId === $currentPageId) {
@@ -12517,9 +12446,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Resolve raster import dimensions in pixels for HTML images.
      *
-     * Downscale only when rendered size is smaller than intrinsic size.
-     * This enables tc-lib-pdf-image pixel resampling for HTML images while
-     * avoiding unnecessary re-encoding on equal/larger render sizes.
+     * Downscaling is applied only when the rendered size is smaller than the
+     * intrinsic size, so tc-lib-pdf-image resamples pixels without re-encoding
+     * at equal or larger render sizes.
      *
      * @return array{width: int, height: int}|null
      */
@@ -12640,9 +12569,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Emit the PDF code that draws an image (raster or SVG) at the given box.
      *
      * Shared by the forward-cursor renderer (renderHTMLImage) and the RTL
-     * inter-fragment engine (renderHTMLRtlInlineRun) so both place images through
-     * the exact same XObject registration. The caller is responsible for the
-     * cursor advance, vertical alignment and any alt-text fallback on failure.
+     * inter-fragment engine (renderHTMLRtlInlineRun), so both place images
+     * through the same XObject registration. The caller handles the cursor
+     * advance, vertical alignment and any alt-text fallback on failure.
      *
      * @param string $src    Resolved image source.
      * @param float  $imagex Image left edge (user units).
@@ -13136,9 +13065,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Return a PDF alpha (ExtGState) command derived from a CSS color value.
      *
-     * When $resetOpaque is true, this method always emits an alpha command in
-     * transparent-capable modes so that previously active transparency states do
-     * not leak into subsequent opaque operations.
+     * When $resetOpaque is true, an alpha command is always emitted in
+     * transparency-capable modes.
      */
     protected function getHTMLColorAlphaCmd(string $color, bool $resetOpaque = false): string
     {
@@ -13197,12 +13125,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Return a PDF alpha (ExtGState) command for a border stroke derived from
      * its line color.
      *
-     * Border strokes are emitted after the cell content, where a previously
-     * active translucent state (e.g. an RGBA text or fill color) may still be
-     * the current graphics state. This always emits an alpha command in
-     * transparency-capable modes so an opaque border (e.g. "1px solid red") is
-     * painted at full opacity, while still honoring a border color that carries
-     * its own alpha channel.
+     * Border strokes are emitted after the cell content, where a translucent
+     * state (e.g. an RGBA text or fill color) may still be current. An alpha
+     * command is always emitted in transparency-capable modes, so an opaque
+     * border is painted at full opacity and a border color carrying its own
+     * alpha channel is honored.
      *
      * @param array<array-key, mixed> $strokestyle Stroke style array with optional 'lineColor' key.
      */
@@ -13762,11 +13689,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Route a rendered fragment to the innermost open capture context
      * (table-cell buffer or block-level buffer).
      *
-     * Capture contexts nest while the DOM is walked, so a fragment always
-     * belongs to the most recently opened one. When the top block buffer was
-     * opened inside the currently open table cell (e.g. a styled <div> inside
-     * a <td>), it must capture the fragment so the block background is painted
-     * behind its own content; otherwise the cell buffer captures first.
+     * Capture contexts nest while the DOM is walked, so a fragment belongs to
+     * the most recently opened one. A block buffer opened inside the current
+     * table cell (e.g. a styled <div> inside a <td>) captures the fragment;
+     * otherwise the cell buffer captures it.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
@@ -13851,9 +13777,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * specifies the given dimension as a percentage, or null otherwise.
      *
      * The CSS style declaration is checked first, then the HTML attribute.
-     * Percentages refer to the containing block, which is unknown during early
-     * DOM parsing (they are pre-parsed against the default unit reference),
-     * so they must be re-resolved at layout time against the actual container.
+     * Percentages refer to the containing block and are pre-parsed against the
+     * default unit reference, so they are re-resolved at layout time.
      *
      * @param THTMLAttrib $elm
      * @param string      $dimension Dimension name ('width' or 'height').
@@ -13885,10 +13810,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Resolve the explicit width of an element in user units.
      *
-     * Percentage widths from HTML/CSS are resolved against the given available
-     * width (the actual container), not the generic default unit reference used
-     * during early DOM parsing. Absolute lengths use the pre-parsed numeric
-     * width value. Returns 0.0 when no usable explicit width is declared.
+     * Percentage widths are resolved against the given available width, not the
+     * default unit reference used during early DOM parsing. Absolute lengths use
+     * the pre-parsed numeric width value. Returns 0.0 when no usable explicit
+     * width is declared.
      *
      * @param THTMLAttrib $elm
      */
@@ -14148,15 +14073,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     && isset($elm['content'])
                     && $elm['content'] !== ''
                 ) {
-                    // The cell content carries an embedded <cssarray> payload
-                    // (the serialized CSS map used when the cell is re-parsed as
-                    // standalone HTML for nested tables / header replay). Its
-                    // serialized text would otherwise dominate and flatten the
-                    // auto-layout weights when embedded CSS rules are present.
-                    // Collapse it to the empty-map form so the weighting depends
-                    // only on the visible cell text and matches the historical
-                    // baseline (an empty CSS map serializes to "[]") regardless
-                    // of any author CSS.
+                    // The cell content carries an embedded <cssarray> payload: the
+                    // serialized CSS map used when the cell is re-parsed as
+                    // standalone HTML for nested tables and header replay. Collapse
+                    // it to the empty-map form ("[]") so the auto-layout weighting
+                    // depends only on the visible cell text.
                     $rawContent =
                         \preg_replace('/<cssarray>.*?<\/cssarray>/is', '[]', $elm['content']) ?? $elm['content'];
                     $plain = \trim(\strip_tags($rawContent));
@@ -14800,12 +14721,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             // RTL inter-fragment engine: a uniform-RTL multi-fragment inline run is
-            // laid out right-to-left as a unit. Dispatched here — before the per-node
-            // tag/text handlers — so a run that begins with an inline <img> is captured
-            // whole instead of having its leading image placed by the forward cursor
-            // first (which would then trip the engine's mid-line guard and fall back).
-            // It returns null for every case it does not handle, so LTR, single
-            // fragment and mid-line starts keep the existing forward-cursor path.
+            // laid out right-to-left as a unit. It is dispatched before the per-node
+            // tag/text handlers so a run that begins with an inline <img> is captured
+            // whole. It returns null for every case it does not handle, leaving LTR,
+            // single-fragment and mid-line starts on the forward-cursor path.
             if (!$elm['tag'] || $elm['value'] === 'img' && $elm['opening']) {
                 $hrc['currentkey'] = $key;
                 $rtlRun = $this->renderHTMLRtlInlineRun($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
@@ -14926,11 +14845,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     // Skip automatic table-row pagination when the cell has an
-                    // explicit max height: the caller bounded the HTML box (e.g.
-                    // an absolutely-positioned cell placed in a page margin) and
-                    // the table must stay within it rather than being treated as
-                    // overflow and reset to the top of the content region. This
-                    // mirrors the guard applied to plain inline text and <li>.
+                    // explicit max height: the caller bounded the HTML box and the
+                    // table stays within it. The same guard applies to plain inline
+                    // text and <li>.
                     if ($elm['value'] === 'tr' && $hrc['cellctx']['maxheight'] <= 0.0) {
                         $parent = $elm['parent'];
                         $theadhtml = '';
@@ -14942,11 +14859,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
                         $requiredh = $this->estimateHTMLTableRowHeight($hrc, $key);
 
-                        // If a page break is about to happen for this row, flush
-                        // any open block-level buffers (e.g. <table border>) onto
-                        // the current page before the break, so previously
-                        // rendered rows are committed to the right page rather
-                        // than carried over via the buffer to the next page.
+                        // Flush any open block-level buffers (e.g. <table border>)
+                        // onto the current page before this row's page break, so the
+                        // already rendered rows are committed to this page.
                         $region = $this->page->getRegion();
                         $regiontop = $region['RY'];
                         $remaining = $this->getHTMLRemainingHeight($hrc, $tpy);
@@ -15368,9 +15283,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Returns the PDF code for the border and background box of an HTML cell.
      *
-     * Shared by getHTMLCell() and addHTMLCell(): both derive an identical box
-     * height fallback when no explicit height is given and draw the cell
-     * border/background through the same point conversions.
+     * Shared by getHTMLCell() and addHTMLCell(): both derive the same box height
+     * fallback when no explicit height is given and use the same point
+     * conversions.
      *
      * @param float     $posx        Abscissa of upper-left corner.
      * @param float     $posy        Ordinate of upper-left corner.
@@ -15709,11 +15624,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Multi-line vertical fit guard: when a wrappable fragment would produce
-     * more wrapped lines than fit in the remaining region height, render only
-     * the lines that fit, page-break, then process the remainder recursively on
-     * the new page region. Returns the produced PDF code, or null when the
-     * fragment fits and normal text flow should continue.
+     * Multi-line vertical fit guard: when a wrappable fragment produces more
+     * wrapped lines than fit in the remaining region height, only the lines that
+     * fit are rendered, the page breaks, and the remainder is processed
+     * recursively on the new page region. Returns the produced PDF code, or null
+     * when the fragment fits and normal text flow continues.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param-out THTMLRenderContext $hrc HTML render context.
@@ -15795,8 +15710,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $probeRtl = false;
         $this->prepareHTMLText($probeText, $probeOrd, $probeDim, $forcedir, $probeRtl);
         // Count only: the RTL flag keeps the line count consistent with the
-        // top-down render. (The pos-based continuation slicing for RTL overflow
-        // is Stage 2e and still deferred.)
+        // top-down render.
         $probeLines = $this->splitLines(
             $probeOrd,
             $probeDim,
@@ -15806,12 +15720,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         );
         $probeCount = \count($probeLines);
 
-        // A paragraph taller than the remaining region height is split
-        // when there is room above it on this region (a mid-region break)
-        // or when the page offers a further region to flow into. The
-        // latter lets a paragraph that starts exactly at a region/band top
-        // still hug a banded obstacle: render the lines that fit in this
-        // band, then break into the next band instead of overprinting it.
+        // A paragraph taller than the remaining region height is split when
+        // there is room above it in this region (a mid-region break) or when the
+        // page offers a further region to flow into: the lines that fit render
+        // in this band and the rest break into the next one.
         $atRegionTopMV = $tpy <= ($regiontopMV + self::WIDTH_TOLERANCE);
         $canSplitAtTopMV = $atRegionTopMV && $this->htmlCanAdvanceRegion();
         if ($probeCount <= $maxFitLines || $atRegionTopMV && !$canSplitAtTopMV) {
@@ -15820,12 +15732,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $fitLines = $maxFitLines;
 
-        // Orphan/widow control only applies to a mid-region break,
-        // where lines above the paragraph give room to trade. At a
-        // region top the band may be a single line tall, so honoring
-        // orphans/widows would either starve the band (no line ever
-        // fits, looping) or hold back lines that have nowhere to go;
-        // render as many lines as fit and let the rest flow on.
+        // Orphan/widow control applies only to a mid-region break, where the
+        // lines above the paragraph give room to trade. At a region top, as many
+        // lines as fit are rendered and the rest flow on.
         if (!$atRegionTopMV) {
             $orphans = \max(1, (int) $elm['orphans']);
             $widows = \max(1, (int) $elm['widows']);
@@ -15900,37 +15809,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $prevJustifyContinuation = $this->htmlJustifyContinuationLine;
         $this->htmlJustifyContinuationLine = $halign === 'J';
         // The head's value is a pre-cut slice of this single node, so the forward
-        // run scan no longer sees where the node really ends and would mistake a
-        // following sibling (e.g. an inline image lower in the paragraph) for
-        // content on these lines. Measure each head line's ascent from its own
-        // font only; a taller sibling that truly lands on a line still raises that
-        // line through its own render. (Mirrors splitHTMLTextJustifyOverflow.)
+        // run scan cannot see where the node ends. Measure each head line's ascent
+        // from its own font only; a taller sibling that lands on a line raises
+        // that line through its own render.
         $prevNoLookahead = $hrc['cellctx']['lineascentnolookahead'];
         $hrc['cellctx']['lineascentnolookahead'] = true;
         $headOut = $this->parseHTMLText($hrc, $key, $tpx, $tpy, $tpw, $tph, $appendFragment);
         $hrc['cellctx']['lineascentnolookahead'] = $prevNoLookahead;
         $this->htmlJustifyContinuationLine = $prevJustifyContinuation;
 
-        // The head's final line is left "open" (the cursor stays on
-        // it so a following inline fragment could continue it), so tpy
-        // is not advanced past it. When the head exactly fills a
-        // single-line band, tpy is therefore still at the region top
-        // and breakHTMLIfNeeded() would treat the band as untouched and
-        // refuse to advance, leaving the tail to overprint the head.
-        // Drop tpy to the rendered line bottom so the break sees the
+        // The head's final line stays open (the cursor remains on it so a
+        // following inline fragment can continue it), so tpy is not advanced past
+        // it. Drop tpy to the rendered line bottom so breakHTMLIfNeeded() sees the
         // band as consumed and moves the tail to the next region.
         $headBottom = $hrc['cellctx']['linebottom'];
         if ($headBottom > ($tpy + self::WIDTH_TOLERANCE)) {
             $tpy = $headBottom;
         }
 
-        // The HEAD portion belongs to the current (about-to-end)
-        // page and must be dispatched before the page break, using
-        // the same routing the caller applies to fragments
-        // (table-cell capture, block-level buffer, or direct page
-        // append). Mirroring this dispatch here ensures the head
-        // bytes are emitted on the correct page and not carried
-        // over to the new page along with the tail.
+        // The head belongs to the current page and is dispatched before the page
+        // break through the same routing the caller applies to fragments:
+        // table-cell capture, block-level buffer, or direct page append.
         $headDispatch = $breakoutPrefix . $headOut;
         if ($headDispatch !== '' && !$this->captureHTMLFragment($hrc, $headDispatch) && $appendFragment !== null) {
             $appendFragment($headDispatch);
@@ -16360,10 +16259,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Split a justified inline run that overflows the current line at its first
-     * visual line break, rendering head and tail on separate lines so each
-     * line's word spacing is computed for its own content. Returns the produced
-     * PDF code, or null when no justified split applies and normal flow should
-     * continue.
+     * visual line break, rendering head and tail on separate lines so each line's
+     * word spacing is computed for its own content. Returns the produced PDF
+     * code, or null when no justified split applies.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param-out THTMLRenderContext $hrc HTML render context.
@@ -16455,13 +16353,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Generic page/region overflow guard for plain inline text flow: when the
-     * next line would not fit in the remaining region height, break to the next
-     * region and re-anchor the line-local geometry. Skipped while a table cell
-     * is active (table pagination has its own path) or when the cell has an
-     * explicit max height (the caller bounded the box). Open block-level buffers
-     * are flushed onto the current page before the break and re-based to the new
-     * region top. Returns the page-break PDF code (empty when no break occurred).
+     * Page/region overflow guard for plain inline text flow: when the next line
+     * does not fit in the remaining region height, break to the next region and
+     * re-anchor the line-local geometry. Skipped while a table cell is active
+     * (table pagination has its own path) or when the cell has an explicit max
+     * height. Open block-level buffers are flushed onto the current page before
+     * the break and re-based to the new region top. Returns the page-break PDF
+     * code, empty when no break occurred.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param-out THTMLRenderContext $hrc HTML render context.
@@ -16551,11 +16449,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * When a continuation fragment's trailing collapsible whitespace is the
-     * sole cause of overflow, strip it before the wrap check and rendering so
-     * the visible text still fits the current line. The fragment text and its
-     * width are updated in place; the returned advance lets the caller move the
-     * cursor by the stripped width to preserve inter-word spacing.
+     * When a continuation fragment's trailing collapsible whitespace is the sole
+     * cause of overflow, it is stripped before the wrap check and rendering. The
+     * fragment text and width are updated in place; the returned advance is the
+     * stripped width, for the caller to move the cursor by.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
@@ -16954,11 +16851,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $curAscent = $this->toUnit($curfont['ascent']);
         $curHeight = $this->toUnit($curfont['height']);
         // A justified line emitted by splitHTMLTextJustifyOverflow is a complete
-        // single-node line: its value is one wrapped line, so the forward run scan
-        // would mistake the following sibling (e.g. an inline image further down the
-        // paragraph) for content on this line. Skip the look-ahead for such lines —
-        // their ascent is the node's own; any taller sibling that truly lands here
-        // raises the line height through its own render.
+        // single-node line, so the forward run scan cannot see where the node ends.
+        // Skip the look-ahead for such lines: their ascent is the node's own, and a
+        // taller sibling that lands here raises the line height through its own
+        // render.
         $skipAscent =
             ($lineOffset <= self::WIDTH_TOLERANCE || $hrc['cellctx']['lineascent'] <= 0)
             && !$hrc['cellctx']['lineascentnolookahead'];
@@ -17090,15 +16986,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $customJustify = $justification['custom'];
         $lineWordSpacing = $justification['spacing'];
 
-        // Justified inline runs that overflow the current line must not bake the
-        // first line's word spacing into the lines they wrap onto: a single
-        // getTextCell render shares one spacing across all of its visual lines,
-        // so a continuation line (and any inline siblings sharing it) is left
-        // under-justified. Split the run at the first visual line break and
-        // render each part on its own line, where the word spacing is recomputed
-        // for that line's full content (this fragment's tail plus following
-        // inline). Only plain, wrappable text is split; the recursion terminates
-        // because head and tail are both strictly shorter than the input.
+        // A single getTextCell render shares one word spacing across all of its
+        // visual lines. Split a justified run that overflows the current line at
+        // the first visual line break and render each part on its own line, where
+        // the word spacing is recomputed for that line's full content. Only plain,
+        // wrappable text is split; head and tail are both strictly shorter than
+        // the input, so the recursion terminates.
         $justifyOut = $this->splitHTMLTextJustifyOverflow(
             $hrc,
             $key,
@@ -18122,9 +18015,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'lineColor' => $elm['fgcolor'] === '' ? 'black' : $elm['fgcolor'],
         ];
         $outLine = $this->graph->getLine($tpx, $lineY, $tpx + $width, $lineY, $lineStyle);
-        // A horizontal rule carries no semantics, so in PDF/UA mode its stroke is wrapped
-        // as an Artifact (tagPdfUaArtifactContent is a no-op outside PDF/UA mode). Without
-        // this the rule would be untagged real content, violating PDF/UA-1 7.1.
+        // A horizontal rule carries no semantics: in PDF/UA mode its stroke is
+        // wrapped as an Artifact (PDF/UA-1 7.1). tagPdfUaArtifactContent is a
+        // no-op outside PDF/UA mode.
         $out .= $this->tagPdfUaArtifactContent($outLine);
         $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
 
@@ -18420,19 +18313,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $font = $this->getHTMLFontMetric($hrc, $key);
 
         // When the parent <ul>/<ol> carries an explicit CSS padding/margin override,
-        // openHTMLBlock() already consumed those values by shifting hrc['cellctx']['originx']
-        // (and therefore tpx) into the element's content box.  Adding the same amount here
-        // again would double-count the shift and push bullet+text too far right.
-        // Use the default gutter width only when no CSS override was applied.
+        // openHTMLBlock() has already shifted hrc['cellctx']['originx'] (and therefore
+        // tpx) into the element's content box. The default gutter width applies only
+        // when no CSS override was used.
         $depthidx = $depth - 1;
         $hasCSSIndentOverride =
             isset($hrc['liststack'][$depthidx]['indent']) && $hrc['liststack'][$depthidx]['indent'] > 0.0;
         $indent = $hasCSSIndentOverride ? 0.0 : $this->getHTMLListIndentWidth();
 
-        // IMPORTANT: Do NOT add liIndent here. When the <li> element carries CSS padding/margin,
-        // openHTMLBlock() already consumed those values by shifting tpx. For 'outside' markers
-        // the bullet must not be pushed into the li's content box by li padding-left; that
-        // correction is applied below when computing $bulletx.
+        // liIndent is not added here: openHTMLBlock() has already shifted tpx by the
+        // <li> CSS padding/margin. For 'outside' markers the correction is applied
+        // below when computing $bulletx.
 
         $counter = $this->getHTMLListItemCounter($hrc, $key);
         $markerType = $this->getCurrentHTMLListMarkerType($hrc);
@@ -18451,11 +18342,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $runAscent = $this->measureHTMLInlineRunMaxAscent($hrc, $key);
         $this->getHTMLFontMetric($hrc, $key); // restore the li font selected above
         $baseline = $tpy + \max($this->toUnit($fontAscent), $runAscent);
-        // For 'outside' markers the bullet hangs in the li's padding area (between the
-        // list's content edge and the li's content edge). openHTMLBlock() already shifted
-        // tpx by li margin+padding into the li's content box, so subtract the li's own
-        // padding-left to re-anchor the marker at the li's border-box left edge instead
-        // of pushing it further right into the content area.
+        // For 'outside' markers the bullet hangs in the li's padding area, between
+        // the list's content edge and the li's content edge. tpx was shifted by the
+        // li margin+padding, so subtract the li's own padding-left to anchor the
+        // marker at the li's border-box left edge.
         $liPaddingL = $markerPosition === 'outside' && isset($hrc['dom'][$key]['padding']['L'])
             ? $hrc['dom'][$key]['padding']['L']
             : 0.0;
@@ -19500,10 +19390,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Resolve the effective padding of a table cell, applying the table
      * cellpadding attribute as a per-side default.
      *
-     * The HTML cellpadding attribute acts as a presentational hint: it
-     * provides the default padding for every side of the cell, while each
-     * side explicitly set via CSS (padding shorthand or padding-<side>)
-     * keeps its CSS value, mirroring browser behavior.
+     * The HTML cellpadding attribute provides the default padding for every
+     * side of the cell; each side explicitly set via CSS (padding shorthand or
+     * padding-<side>) keeps its CSS value.
      *
      * @param THTMLAttrib $elm         DOM element (td/th).
      * @param float       $cellpadding Table cellpadding value in user units.

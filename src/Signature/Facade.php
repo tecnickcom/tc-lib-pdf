@@ -25,10 +25,8 @@ use Com\Tecnick\Pdf\Tcpdf;
  *
  * Fluent entry point for the signature subsystem, returned by Tcpdf::signature().
  * It groups the signature methods (configuration, timestamp, user rights,
- * appearance, empty fields, external signing, and the widget object id) behind
- * one discoverable object, forwarding to the underlying Tcpdf methods so the
- * behaviour is identical. Those methods remain fully supported; this facade is
- * a convenience wrapper, not a replacement.
+ * appearance, empty fields, external signing and the widget object id) behind
+ * one object, forwarding to the underlying Tcpdf methods.
  *
  * @phpstan-import-type TSignature from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TSignTimeStamp from \Com\Tecnick\Pdf\Base
