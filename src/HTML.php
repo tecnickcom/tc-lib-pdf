@@ -12721,7 +12721,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         if ($this->pdfuaMode !== '') {
-            $out = $this->tagPdfUaFigureContent($out, $this->page->getPageId(), $alt);
+            // Flip the top-left image origin to the bottom-left PDF user space origin.
+            $pageheight = $this->page->getPage()['height'];
+            $out = $this->tagPdfUaFigureContent($out, $this->page->getPageId(), $alt, [
+                $this->toPoints($imagex),
+                $this->toPoints($pageheight - $imagey - $height),
+                $this->toPoints($imagex + $width),
+                $this->toPoints($pageheight - $imagey),
+            ]);
         }
 
         return $out;

@@ -46,6 +46,7 @@ use Com\Tecnick\Unicode\TextDirection;
  * @phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
  * @phpstan-import-type TFontMetric from \Com\Tecnick\Pdf\Font\Stack
  * @phpstan-import-type TBBox from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TFourFloat from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TStackUnitBBox from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TPdfUaStructElem from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TPdfUaStructKid from \Com\Tecnick\Pdf\Base
@@ -918,16 +919,21 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param string $content Raw drawing/image operators to place inside the Figure.
      * @param int    $pid     Page identifier the content is added to.
      * @param string $alt     Optional alternate text written as the Figure /Alt entry.
+     * @param TFourFloat|array{} $bbox Optional bounding box of the content as
+     *                                 [llx, lly, urx, ury] in points, measured in default user
+     *                                 space with the origin at the bottom-left page corner.
+     *                                 Written as the /BBox Layout attribute, which PDF/UA
+     *                                 requires for figures contained on a single page.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    public function addTaggedFigureContent(string $content, int $pid, string $alt = ''): void
+    public function addTaggedFigureContent(string $content, int $pid, string $alt = '', array $bbox = []): void
     {
         if ($content === '') {
             return;
         }
 
-        $this->page->addContent($this->tagPdfUaFigureContent($content, $pid, $alt), $pid);
+        $this->page->addContent($this->tagPdfUaFigureContent($content, $pid, $alt, $bbox), $pid);
     }
 
     /**
@@ -1827,9 +1833,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * Wrap non-text content (such as images) with a PDF/UA Figure marked-content sequence.
      *
      * The generated MCID is logged as a standalone Figure structure element and can include
-     * an alternate description via the StructElem /Alt entry.
+     * an alternate description via the StructElem /Alt entry and a /BBox Layout attribute.
+     *
+     * @param TFourFloat|array{} $bbox Bounding box [llx, lly, urx, ury] in points, in default
+     *                                 user space with the origin at the bottom-left page corner.
      */
-    protected function tagPdfUaFigureContent(string $content, int $pid, string $alt = ''): string
+    protected function tagPdfUaFigureContent(string $content, int $pid, string $alt = '', array $bbox = []): string
     {
         if ($this->pdfuaMode === '' || $content === '') {
             return $content;
@@ -1853,6 +1862,12 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $stackEntry['alt'] = $alt;
             }
 
+            // Grow the bracket box so it covers every piece of content it holds.
+            $bracketBBox = $this->mergePdfUaFigureBBox($stackEntry['bbox'] ?? [], $bbox);
+            if ($bracketBBox !== []) {
+                $stackEntry['bbox'] = $bracketBBox;
+            }
+
             $this->pdfuaStructStack[$stackTop] = $stackEntry;
         } else {
             // No open Figure bracket: create a new Figure struct elem entry.
@@ -1868,6 +1883,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             ];
             if ($alt !== '') {
                 $entry['alt'] = $alt;
+            }
+
+            $figureBBox = $this->mergePdfUaFigureBBox([], $bbox);
+            if ($figureBBox !== []) {
+                $entry['bbox'] = $figureBBox;
             }
 
             $entryIndex = \count($this->pdfuaStructLog);
@@ -1887,6 +1907,40 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         return $open . $content . $close;
+    }
+
+    /**
+     * Merge a bounding box into the one already recorded for a structure element.
+     *
+     * ISO 32000-1 table 344 requires the /BBox Layout attribute on figures and tables
+     * contained on a single page. Boxes are combined into their union, so an element
+     * holding several drawings keeps a single enclosing box.
+     *
+     * @param array<int, float> $current Box already recorded for the element, if any.
+     * @param TFourFloat|array{} $bbox Box to merge, as [llx, lly, urx, ury] in points.
+     *
+     * @return TFourFloat|array{} The merged box, or an empty array when $bbox is unset.
+     */
+    protected function mergePdfUaFigureBBox(array $current, array $bbox): array
+    {
+        if (\count($bbox) !== 4) {
+            return [];
+        }
+
+        [$blx, $bly, $bux, $buy] = $bbox;
+        $llx = \min($blx, $bux);
+        $lly = \min($bly, $buy);
+        $urx = \max($blx, $bux);
+        $ury = \max($bly, $buy);
+
+        if (\count($current) === 4) {
+            $llx = \min($llx, $current[0] ?? $llx);
+            $lly = \min($lly, $current[1] ?? $lly);
+            $urx = \max($urx, $current[2] ?? $urx);
+            $ury = \max($ury, $current[3] ?? $ury);
+        }
+
+        return [$llx, $lly, $urx, $ury];
     }
 
     /**

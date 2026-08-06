@@ -658,8 +658,11 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
         $this->registerPdfUaAnnotation($oid, $pid);
     }
 
-    public function exposeTagPdfUaFigureContent(string $content, int $pid, string $alt = ''): string
+    /**
+     * @param array{float, float, float, float}|array{} $bbox Figure bounding box in points.
+     */
+    public function exposeTagPdfUaFigureContent(string $content, int $pid, string $alt = '', array $bbox = []): string
     {
-        return $this->tagPdfUaFigureContent($content, $pid, $alt);
+        return $this->tagPdfUaFigureContent($content, $pid, $alt, $bbox);
     }
 }

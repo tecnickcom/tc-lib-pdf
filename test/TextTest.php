@@ -2455,6 +2455,48 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testPdfUaFigureBoundingBoxIsRecordedAndMerged(): void
+    {
+        $obj = new TestableText('mm', true, false, true, 'pdfua');
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        // A standalone figure records the box it was given, normalized to [llx, lly, urx, ury].
+        $obj->exposeTagPdfUaFigureContent("q\nQ\n", $pid, 'Standalone', [30.0, 80.0, 10.0, 20.0]);
+
+        /** @var array<int, array<string, mixed>> $log */
+        $log = $this->getObjectProperty($obj, 'pdfuaStructLog');
+        $lastKey = \array_key_last($log);
+        $last = \is_int($lastKey) && isset($log[$lastKey]) ? $log[$lastKey] : null;
+        $this->assertIsArray($last);
+        $this->assertSame([10.0, 20.0, 30.0, 80.0], $last['bbox'] ?? null);
+
+        // Content added to an open Figure bracket grows the box to the union of both.
+        $obj->beginStructElem('Figure', $pid, 'Open figure');
+        $obj->exposeTagPdfUaFigureContent("q\nQ\n", $pid, '', [10.0, 20.0, 30.0, 40.0]);
+        $obj->exposeTagPdfUaFigureContent("q\nQ\n", $pid, '', [25.0, 5.0, 50.0, 35.0]);
+
+        /** @var array<int, array<string, mixed>> $stack */
+        $stack = $this->getObjectProperty($obj, 'pdfuaStructStack');
+        $topKey = \array_key_last($stack);
+        $top = \is_int($topKey) && isset($stack[$topKey]) ? $stack[$topKey] : null;
+        $this->assertIsArray($top);
+        $this->assertSame([10.0, 5.0, 50.0, 40.0], $top['bbox'] ?? null);
+
+        // A figure tagged without a box gets no bbox entry.
+        $obj->endStructElem();
+        $obj->exposeTagPdfUaFigureContent("q\nQ\n", $pid, 'No box');
+
+        /** @var array<int, array<string, mixed>> $log */
+        $log = $this->getObjectProperty($obj, 'pdfuaStructLog');
+        $lastKey = \array_key_last($log);
+        $last = \is_int($lastKey) && isset($log[$lastKey]) ? $log[$lastKey] : null;
+        $this->assertIsArray($last);
+        $this->assertArrayNotHasKey('bbox', $last);
+    }
+
+    /** @throws \Throwable */
     public function testRemoveOrdArrSoftHyphensKeepsTrailingSoftHyphenOnlyWhenPresent(): void
     {
         $obj = $this->getInternalTestObject();

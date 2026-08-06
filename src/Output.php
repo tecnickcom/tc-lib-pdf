@@ -53,6 +53,7 @@ use OpenSSLAsymmetricKey;
  * @phpstan-import-type PageData from \Com\Tecnick\Pdf\Page\Box
  *
  * @phpstan-import-type TFourFloat from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TPdfUaStructElem from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TAnnotQuadPoint from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TAnnotBorderStyle from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TAnnotBorderEffect from \Com\Tecnick\Pdf\Base
@@ -1929,7 +1930,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         foreach ($entryOrder as $entryIdx) {
             $entry = $structLog[$entryIdx];
-            $entry += ['annots' => [], 'alt' => '', 'attr' => []];
+            $entry += ['annots' => [], 'alt' => '', 'attr' => [], 'bbox' => []];
             $entryPageOid = $pidToOid[$entry['pid']] ?? 0;
             $kidsOut = '';
             foreach ($entry['kids'] as $kid) {
@@ -1967,11 +1968,25 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $altOut = ' /Alt ' . $this->getOutTextString($entry['alt'], $elemOids[$entryIdx] ?? 0, true);
             }
 
+            // The /BBox Layout attribute only applies to elements laid out on a single
+            // page, so it is skipped when the element content is split by a page break.
+            $bboxPairs = '';
+            $bbox = $entry['bbox'];
+            if (\count($bbox) === 4 && $this->isSinglePageStructElem($structLog, $entryIdx)) {
+                [$bllx, $blly, $burx, $bury] = $bbox;
+                $bboxPairs = \sprintf(' /O /Layout /BBox [%F %F %F %F]', $bllx, $blly, $burx, $bury);
+            }
+
             $attrOut = '';
             $idOut = '';
+            $attrPairs = $bboxPairs;
             if ($entry['attr'] !== []) {
-                $attrPairs = '';
                 foreach ($entry['attr'] as $akey => $aval) {
+                    if ($akey === 'O' && $bboxPairs !== '') {
+                        // The Layout owner is already set by the bounding box.
+                        continue;
+                    }
+
                     if ($akey === '' || $aval === '') {
                         continue;
                     }
@@ -2013,10 +2028,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
                     $attrPairs .= ' /' . $akey . ' /' . $aval;
                 }
+            }
 
-                if ($attrPairs !== '') {
-                    $attrOut = ' /A <<' . $attrPairs . ' >>';
-                }
+            if ($attrPairs !== '') {
+                $attrOut = ' /A <<' . $attrPairs . ' >>';
             }
 
             $parentOid = $entryParentOid[$entryIdx] ?? $documentStructElemOid;
@@ -2110,6 +2125,39 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . $namespaceOut
             . $structElemsOut
         );
+    }
+
+    /**
+     * Returns true when a structure element and its whole subtree sit on a single page.
+     *
+     * @param array<int, TPdfUaStructElem> $structLog Completed structure elements.
+     * @param int $entryIdx Index of the element to inspect in $structLog.
+     */
+    protected function isSinglePageStructElem(array $structLog, int $entryIdx): bool
+    {
+        $pids = [];
+        $seen = [];
+        $stack = [$entryIdx];
+        while ($stack !== []) {
+            $idx = (int) \array_pop($stack);
+            $entry = $structLog[$idx] ?? null;
+            if ($entry === null || isset($seen[$idx])) {
+                continue;
+            }
+
+            $seen[$idx] = true;
+            $pids[$entry['pid']] = true;
+            foreach ($entry['kids'] as $kid) {
+                if ($kid['type'] === 'elem') {
+                    $stack[] = $kid['id'];
+                    continue;
+                }
+
+                $pids[$kid['pid'] ?? $entry['pid']] = true;
+            }
+        }
+
+        return \count($pids) <= 1;
     }
 
     /**

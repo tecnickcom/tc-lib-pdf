@@ -310,11 +310,19 @@ $figStyle = [
         'fillColor' => '#cce0ff',
     ],
 ];
+// The bounding box is required by PDF/UA for figures contained on a single page.
+// It is expressed in points, from the bottom-left page corner.
 $pdf->addTaggedFigureContent(
     $pdf->graph->getStartTransform() . $pdf->graph->getRect($leftMargin, 143.0, 180.0, 25.0, 'DF', $figStyle)
         . $pdf->graph->getStopTransform(),
     $pid1,
     'Blue placeholder rectangle representing a figure area',
+    [
+        $pdf->toPoints($leftMargin),
+        $pdf->toPoints($page1['height'] - 143.0 - 25.0),
+        $pdf->toPoints($leftMargin + 180.0),
+        $pdf->toPoints($page1['height'] - 143.0),
+    ],
 );
 
 // Caption for the figure.
@@ -806,6 +814,12 @@ $pdf->addTaggedFigureContent(
         . $pdf->graph->getStopTransform(),
     $pid4,
     'Horizontal bar chart illustrating the relative nesting depth of each PDF structure role category',
+    [
+        $pdf->toPoints($leftMargin),
+        $pdf->toPoints($page4['height'] - $figY - 22.0),
+        $pdf->toPoints($leftMargin + 180.0),
+        $pdf->toPoints($page4['height'] - $figY),
+    ],
 );
 
 $pdf->page->addContent($pdf->color->getPdfColor('black'), $pid4);

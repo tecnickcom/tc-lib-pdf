@@ -2276,6 +2276,50 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testGetOutPDFBodySerializesFigureBoundingBox(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $obj->addTaggedFigureContent("q\nQ\n", $page['pid'], 'Boxed figure', [10.0, 20.0, 110.0, 70.0]);
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Type /StructElem /S /Figure', $out);
+        $this->assertStringContainsString('/A << /O /Layout /BBox [10.000000 20.000000 110.000000 70.000000] >>', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutPDFBodySkipsFigureBoundingBoxAcrossPageBreak(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $page = $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $secondPage = $obj->addPage();
+        if (!isset($secondPage['pid']) || !\is_int($secondPage['pid'])) {
+            $this->fail('Expected addPage to return an integer pid');
+        }
+
+        $secondPid = $secondPage['pid'];
+
+        // A single Figure holding content emitted on two different pages.
+        $obj->beginStructElem('Figure', $page['pid'], 'Split figure');
+        $obj->addTaggedFigureContent("q\nQ\n", $page['pid'], '', [10.0, 20.0, 110.0, 70.0]);
+        $obj->addTaggedFigureContent("q\nQ\n", $secondPid, '', [10.0, 20.0, 110.0, 70.0]);
+        $obj->endStructElem();
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Type /StructElem /S /Figure', $out);
+        $this->assertStringNotContainsString('/BBox [10.000000 20.000000 110.000000 70.000000]', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodyPromotesStructElemIdAttributeToIdEntry(): void
     {
         $obj = $this->getInternalUncompressedTestObject();
