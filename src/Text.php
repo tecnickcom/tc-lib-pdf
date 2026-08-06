@@ -1863,7 +1863,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             }
 
             // Grow the bracket box so it covers every piece of content it holds.
-            $bracketBBox = $this->mergePdfUaFigureBBox($stackEntry['bbox'] ?? [], $bbox);
+            $bracketBBox = $this->mergePdfUaStructBBox($stackEntry['bbox'] ?? [], $bbox);
             if ($bracketBBox !== []) {
                 $stackEntry['bbox'] = $bracketBBox;
             }
@@ -1885,7 +1885,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $entry['alt'] = $alt;
             }
 
-            $figureBBox = $this->mergePdfUaFigureBBox([], $bbox);
+            $figureBBox = $this->mergePdfUaStructBBox([], $bbox);
             if ($figureBBox !== []) {
                 $entry['bbox'] = $figureBBox;
             }
@@ -1910,6 +1910,37 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Record a bounding box on the structure element currently open on the stack.
+     *
+     * Used by block-level elements whose extent is only known once their content has
+     * been laid out, such as a table measured at its closing tag.
+     *
+     * @param TFourFloat|array{} $bbox Bounding box [llx, lly, urx, ury] in points, in default
+     *                                 user space with the origin at the bottom-left page corner.
+     * @param string $role When set, the box is applied only if the open element has this role.
+     */
+    protected function setPdfUaStructElemBBox(array $bbox, string $role = ''): void
+    {
+        if ($this->pdfuaMode === '' || \count($bbox) !== 4) {
+            return;
+        }
+
+        $stackTop = \array_key_last($this->pdfuaStructStack);
+        if (
+            $stackTop !== null
+            && isset($this->pdfuaStructStack[$stackTop])
+            && ($role === '' || $this->pdfuaStructStack[$stackTop]['role'] === $role)
+        ) {
+            $entry = $this->pdfuaStructStack[$stackTop];
+            $merged = $this->mergePdfUaStructBBox($entry['bbox'] ?? [], $bbox);
+            if ($merged !== []) {
+                $entry['bbox'] = $merged;
+                $this->pdfuaStructStack[$stackTop] = $entry;
+            }
+        }
+    }
+
+    /**
      * Merge a bounding box into the one already recorded for a structure element.
      *
      * ISO 32000-1 table 344 requires the /BBox Layout attribute on figures and tables
@@ -1921,7 +1952,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      *
      * @return TFourFloat|array{} The merged box, or an empty array when $bbox is unset.
      */
-    protected function mergePdfUaFigureBBox(array $current, array $bbox): array
+    protected function mergePdfUaStructBBox(array $current, array $bbox): array
     {
         if (\count($bbox) !== 4) {
             return [];

@@ -2293,6 +2293,56 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testGetOutPDFBodySerializesTableBoundingBox(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $html = '<table border="1"><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>';
+        $htmlOut = $obj->getHTMLCell($html, 15, 20, 100, 0);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addContent($htmlOut, $page->getPageId());
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertMatchesRegularExpression(
+            '#/Type /StructElem /S /Table .*?/A << /O /Layout /BBox \[[0-9. ]+\] >>#s',
+            $out,
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutPDFBodySkipsTableBoundingBoxAcrossPageBreak(): void
+    {
+        $obj = $this->getInternalUncompressedTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+
+        $rows = '';
+        for ($idx = 0; $idx < 120; ++$idx) {
+            $rows .= '<tr><td>row ' . $idx . '</td><td>value ' . $idx . '</td></tr>';
+        }
+
+        $htmlOut = $obj->getHTMLCell('<table border="1">' . $rows . '</table>', 15, 20, 100, 0);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $page->addContent($htmlOut, $page->getPageId());
+
+        $out = $obj->exposeGetOutPDFBody();
+
+        $this->assertStringContainsString('/Type /StructElem /S /Table', $out);
+        $this->assertDoesNotMatchRegularExpression('#/Type /StructElem /S /Table .*?/BBox#s', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testGetOutPDFBodySkipsFigureBoundingBoxAcrossPageBreak(): void
     {
         $obj = $this->getInternalUncompressedTestObject();

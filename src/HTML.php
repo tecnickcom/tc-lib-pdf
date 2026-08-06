@@ -71,6 +71,7 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  * @phpstan-type THTMLTableState array{
  *     originx: float,
  *     originy: float,
+ *     captiontopy: float,
  *     width: float,
  *     dir: string,
  *     cols: int,
@@ -8307,6 +8308,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         foreach ($tableStack as $tidx => $table) {
             $cellspacing = $table['cellspacingv'];
             $table['originy'] = $tpy;
+            $table['captiontopy'] = $tpy;
             $table['rowtop'] = $tpy + $cellspacing;
             $table['rowheight'] = 0.0;
             $table['cells'] = [];
@@ -19124,6 +19126,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
+        // Top of the Table structure element, which includes any caption above the frame.
+        $captiontopy = $tpy;
         if (isset($elm['caption-top-html']) && $elm['caption-top-html'] !== '') {
             // Use local copies for caption rendering to prevent corrupting table width.
             // resetHTMLLineCursor called during caption rendering would otherwise modify
@@ -19173,6 +19177,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['tablestack'][] = [
             'originx' => $tpx,
             'originy' => $tpy,
+            'captiontopy' => $captiontopy,
             'width' => $width,
             'dir' => \strtolower(\trim($elm['dir'])),
             'cols' => $cols,
@@ -21382,6 +21387,21 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpx = $captpx;
             $tpy = $captpy;
             $tpw = $captpw;
+        }
+
+        if ($this->pdfuaMode !== '' && $tableheight > 0.0) {
+            // Record the box on the open Table element before closeHTMLBlock() ends it.
+            // The top and bottom are taken from the captions when present, as they are
+            // children of the Table element. Flip to the bottom-left user space origin.
+            $boxtop = \min($table['captiontopy'], $table['originy']);
+            $boxbottom = \max($tablebottom, $tpy);
+            $pageheight = $this->page->getPage()['height'];
+            $this->setPdfUaStructElemBBox([
+                $this->toPoints($table['originx']),
+                $this->toPoints($pageheight - $boxbottom),
+                $this->toPoints($table['originx'] + $table['width']),
+                $this->toPoints($pageheight - $boxtop),
+            ], 'Table');
         }
 
         // Emit buffered table background/content first, then overlay the
