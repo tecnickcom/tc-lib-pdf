@@ -26,6 +26,15 @@
     ],
     "require": {
         "php": ">=8.2",
+        "ext-ctype": "*",
+        "ext-filter": "*",
+        "ext-hash": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "ext-pcre": "*",
+        "ext-xml": "*",
+        "ext-zlib": "*",
         "tecnickcom/tc-lib-barcode": "^2.13",
         "tecnickcom/tc-lib-color": "^2.13",
         "tecnickcom/tc-lib-pdf-image": "^3.12",
@@ -38,6 +47,10 @@
         "tecnickcom/tc-lib-pdf-page": "^4.14",
         "tecnickcom/tc-lib-pdf-graph": "^2.15",
         "tecnickcom/tc-lib-pdf-parser": "^3.14"
+    },
+    "suggest": {
+        "ext-curl": "Required to contact a Timestamp Authority (RFC 3161) when timestamping signatures",
+        "ext-intl": "Enables Unicode NFC normalization of the PDF file name"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

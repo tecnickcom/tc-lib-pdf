@@ -15,8 +15,16 @@ URL:       https://github.com/%{gh_owner}/%{gh_project}
 BuildArch: noarch
 
 Requires:  php(language) >= 8.2.0
+Requires:  php-ctype
 Requires:  php-date
+Requires:  php-filter
+Requires:  php-hash
+Requires:  php-json
+Requires:  php-mbstring
+Requires:  php-openssl
 Requires:  php-pcre
+Requires:  php-xml
+Requires:  php-zlib
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.13.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
@@ -29,6 +37,8 @@ Requires:  php-composer(%{c_vendor}/tc-lib-file) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.7.1
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.9.1
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) < 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) >= 1.1.1
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 3.0.0
@@ -39,6 +49,9 @@ Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.15.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) < 4.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.14.0
+
+Recommends: php-curl
+Recommends: php-intl
 
 Provides:  php-composer(%{c_vendor}/%{gh_project}) = %{version}
 Provides:  php-%{gh_project} = %{version}
