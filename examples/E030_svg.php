@@ -476,6 +476,41 @@ $svg06a = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $svg06a));
 
 // ---------------------------------------------------------------------------
+// Page 7 — path_text_regressions.svg (full-page portrait)
+//
+// Visual regression sheet for the path and text parsing rules that are easy to
+// break: numbers with no leading digit, packed decimals, scientific notation,
+// elliptical arc flags packed against their neighbours, the smooth curve
+// commands 'S' and 'T', compound subpaths under both fill rules, text
+// anchoring, XML white space handling and multi chunk text layout.
+//
+// Every shape is drawn twice, as a pale fill from a verbose path and as a dark
+// outline from the compact equivalent: the outline must trace the fill exactly.
+// ---------------------------------------------------------------------------
+
+$page07 = $pdf->addPage();
+$pdf->setBookmark(
+    name: 'path_text_regressions.svg',
+    link: '',
+    level: 0,
+    page: -1,
+    posx: 0,
+    posy: 0,
+    fstyle: 'B',
+    color: 'purple',
+);
+
+$svg07a = $pdf->addSVG(
+    img: $svgdir . '/path_text_regressions.svg',
+    posx: 0,
+    posy: 0,
+    width: $page07['width'],
+    height: $page07['height'],
+    pageheight: $page07['height'],
+);
+$pdf->page->addContent($pdf->getSetSVG(soid: $svg07a));
+
+// ---------------------------------------------------------------------------
 // Output
 // ---------------------------------------------------------------------------
 

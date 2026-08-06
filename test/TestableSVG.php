@@ -194,6 +194,9 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
             'yoffset' => 0.0,
             'relcoord' => false,
             'firstcmd' => true,
+            'cpx' => 0.0,
+            'cpy' => 0.0,
+            'cptype' => '',
         ];
     }
 
@@ -268,24 +271,22 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
     /**
      * @phpstan-param array<float> $prm
      * @phpstan-param TSVGCoord $crd
-     * @phpstan-param array<array<string>> $paths
      * @phpstan-return array{0: string, 1: TSVGCoord}
      */
-    public function exposeSvgPathCmdS(array $prm, array $crd, array $paths, int $key): array
+    public function exposeSvgPathCmdS(array $prm, array $crd): array
     {
-        $out = $this->svgPathCmdS($prm, $crd, $paths, $key);
+        $out = $this->svgPathCmdS($prm, $crd);
         return [$out, $crd];
     }
 
     /**
      * @phpstan-param array<float> $prm
      * @phpstan-param TSVGCoord $crd
-     * @phpstan-param array<array<string>> $paths
      * @phpstan-return array{0: string, 1: TSVGCoord}
      */
-    public function exposeSvgPathCmdT(array $prm, array $crd, array $paths, int $key): array
+    public function exposeSvgPathCmdT(array $prm, array $crd): array
     {
-        $out = $this->svgPathCmdT($prm, $crd, $paths, $key);
+        $out = $this->svgPathCmdT($prm, $crd);
         return [$out, $crd];
     }
 
@@ -506,12 +507,17 @@ class TestableSVG extends \Com\Tecnick\Pdf\Tcpdf
                 'invisible' => false,
                 'stroke' => 0,
                 'text-anchor' => 'start',
+                'spacepreserve' => false,
+                'textstarted' => false,
                 'vertical' => false,
                 'linkhref' => '',
                 'linkx' => 0.0,
                 'linky' => 0.0,
             ],
             'charskip' => 0,
+            // The handlers are driven directly, so the fixture starts inside a
+            // text-content element and the character data handler accepts data.
+            'textdepth' => 1,
             'text' => '',
             'markupresources' => false,
             'dir' => '',

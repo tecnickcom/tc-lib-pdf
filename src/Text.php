@@ -2231,7 +2231,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $ordarr = [];
         $dim = self::DIM_DEFAULT;
         $this->prepareText($txt, $ordarr, $dim, $forcedir);
-        $totWidth = $dim['totwidth'];
+        // $posx is in user units while the measured width is in points.
+        $totWidth = $this->toUnit($dim['totwidth']);
 
         switch ($txtanchor) {
             case 'M':

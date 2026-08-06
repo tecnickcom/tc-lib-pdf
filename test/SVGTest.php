@@ -387,12 +387,10 @@ class SVGTest extends TestUtil
         [$qout, $coord] = $obj->exposeSvgPathCmdQ([19, 20, 21, 22], $coord);
         $this->assertStringContainsString('c', $qout);
 
-        $spaths = [['0', 'C'], ['1', 'S']];
-        [$sout, $coord] = $obj->exposeSvgPathCmdS([23, 24, 25, 26], $coord, $spaths, 1);
+        [$sout, $coord] = $obj->exposeSvgPathCmdS([23, 24, 25, 26], $coord);
         $this->assertStringContainsString('c', $sout);
 
-        $tpaths = [['0', 'Q'], ['1', 'T']];
-        [$tout, $coord] = $obj->exposeSvgPathCmdT([27, 28], $coord, $tpaths, 1);
+        [$tout, $coord] = $obj->exposeSvgPathCmdT([27, 28], $coord);
         $this->assertStringContainsString('c', $tout);
 
         $arcPaths = [['0', 'A'], ['1', 'z']];
@@ -1155,11 +1153,11 @@ class SVGTest extends TestUtil
         $this->assertGreaterThan(0.0, $coord['xoffset']);
         $this->assertGreaterThan(0.0, $coord['yoffset']);
 
-        [, $coord] = $obj->exposeSvgPathCmdS([2, 3, 4, 5], $coord, [['0', 'L']], 1);
+        [, $coord] = $obj->exposeSvgPathCmdS([2, 3, 4, 5], $coord);
         $this->assertGreaterThan(0.0, $coord['xoffset']);
         $this->assertGreaterThan(0.0, $coord['yoffset']);
 
-        [, $coord] = $obj->exposeSvgPathCmdT([6, 7], $coord, [['0', 'L']], 1);
+        [, $coord] = $obj->exposeSvgPathCmdT([6, 7], $coord);
         $this->assertGreaterThan(0.0, $coord['xoffset']);
         $this->assertGreaterThan(0.0, $coord['yoffset']);
 
@@ -3029,8 +3027,9 @@ class SVGTest extends TestUtil
         );
 
         $this->assertNotSame('', $out);
-        // Base line transform + one end marker only (no start marker).
-        $this->assertSame(2, \substr_count($out, "q\n"));
+        // Base line transform, then one end marker only (no start marker) with
+        // its own transform and the transform of the path it contains.
+        $this->assertSame(3, \substr_count($out, "q\n"));
     }
 
     /** @throws \Throwable */
@@ -7361,5 +7360,356 @@ class SVGTest extends TestUtil
             . '</svg>';
         $soid = $obj->addSVG($svg, 5, 6, 12, 12, $page['height']);
         return $obj->getSetSVG($soid);
+    }
+
+    /**
+     * A path number may omit the digit before the decimal point ('.5', '-.5')
+     * and may use scientific notation. The compact forms must produce the same
+     * geometry as the fully spelled out equivalent.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgPathParsesCompactNumberForms(): void
+    {
+        // Leading-dot numbers, with and without a sign.
+        $this->assertSame(
+            $this->renderSvgPath('M0.5 0.5C0.5 1.5 -0.5 1.5 -0.5 0.5Z'),
+            $this->renderSvgPath('M.5 .5C.5 1.5 -.5 1.5 -.5 .5Z'),
+        );
+
+        // Numbers packed without any separator between them.
+        $this->assertSame($this->renderSvgPath('M1.5 0.5L2.5 0.5'), $this->renderSvgPath('M1.5.5L2.5.5'));
+
+        // Scientific notation.
+        $this->assertSame($this->renderSvgPath('M0 0L10 20'), $this->renderSvgPath('M0 0L1e1 2E1'));
+
+        // A sign must not be dropped: mirrored coordinates must differ.
+        $this->assertNotSame($this->renderSvgPath('M0 0L.5 .5'), $this->renderSvgPath('M0 0L-.5 -.5'));
+    }
+
+    /**
+     * The two flags of an 'A' (elliptical arc) command are single digits that
+     * may be packed with the values around them, as path optimizers do.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgPathParsesPackedArcFlags(): void
+    {
+        $spaced = $this->renderSvgPath('M10 20a10 10 0 0 1 20 0');
+        $this->assertStringContainsString(' c', $spaced);
+
+        // Both flags packed with the following coordinate.
+        $this->assertSame($spaced, $this->renderSvgPath('M10 20a10 10 0 0120 0'));
+
+        // Packed flags followed by a negative coordinate, and two arcs in a row.
+        $this->assertSame(
+            $this->renderSvgPath('M10 20a10 10 0 0 1 20 0a10 10 0 0 1 -20 0'),
+            $this->renderSvgPath('M10 20a10 10 0 0120 0a10 10 0 01-20 0'),
+        );
+
+        // The flags must still be read as two separate values.
+        $this->assertNotSame($spaced, $this->renderSvgPath('M10 20a10 10 0 1120 0'));
+    }
+
+    /**
+     * The smooth curve commands 'S' and 'T' mirror the control point of the
+     * preceding curve about the current point, and fall back to the current
+     * point when the preceding command is not a curve of the same degree.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgPathSmoothCurvesMirrorThePreviousControlPoint(): void
+    {
+        // 'S' after 'C': the mirror of (40,60) about (50,100) is (60,140).
+        $this->assertSame(
+            $this->renderSvgPath('M10 100C20 60 40 60 50 100C60 140 80 140 90 100'),
+            $this->renderSvgPath('M10 100C20 60 40 60 50 100S80 140 90 100'),
+        );
+
+        // 'T' after 'Q': the mirror of (30,120) about (50,160) is (70,200).
+        $this->assertSame(
+            $this->renderSvgPath('M10 160Q30 120 50 160Q70 200 90 160'),
+            $this->renderSvgPath('M10 160Q30 120 50 160T90 160'),
+        );
+
+        // Chained smooth commands mirror the segment they follow.
+        $this->assertSame(
+            $this->renderSvgPath('M10 100C20 60 40 60 50 100C60 140 80 140 90 100C100 60 120 60 130 100'),
+            $this->renderSvgPath('M10 100C20 60 40 60 50 100S80 140 90 100S120 60 130 100'),
+        );
+
+        // Without a preceding curve the control point is the current point.
+        $this->assertSame($this->renderSvgPath('M10 40C10 40 30 0 50 40'), $this->renderSvgPath('M10 40S30 0 50 40'));
+        $this->assertSame($this->renderSvgPath('M110 40Q110 40 150 40'), $this->renderSvgPath('M110 40T150 40'));
+
+        // A lineto between two curves resets the mirroring.
+        $this->assertSame(
+            $this->renderSvgPath('M10 100C20 60 40 60 50 100L60 100C60 100 80 140 90 100'),
+            $this->renderSvgPath('M10 100C20 60 40 60 50 100L60 100S80 140 90 100'),
+        );
+    }
+
+    /**
+     * Render a single <path> with the given 'd' attribute and return its output.
+     *
+     * @throws \Throwable
+     */
+    private function renderSvgPath(string $pathd): string
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="-10 -10 40 40">'
+            . '<path fill="#0066cc" d="'
+            . $pathd
+            . '"/>'
+            . '</svg>';
+        $soid = $obj->addSVG($svg, 5, 6, 12, 12, $page['height']);
+        return $obj->getSetSVG($soid);
+    }
+
+    /**
+     * An SVG made only of geometry must not require a font to be inserted first.
+     *
+     * @throws \Throwable
+     */
+    public function testAddSVGWithoutTextDoesNotRequireAFont(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $obj->addPage();
+        if (!isset($page['height']) || !\is_float($page['height'])) {
+            $this->fail('Unexpected addPage() return shape.');
+        }
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">'
+            . '<path fill="#0066cc" d="M 4 4 H 36 V 36 H 4 Z"/>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 5, 6, 12, 12, $page['height']);
+
+        $this->assertNotSame('', $obj->getSetSVG($soid));
+    }
+
+    /**
+     * The text-anchor offset is a text width, so it must be converted from
+     * points to user units before being applied to the position.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgTextAnchorShiftMatchesTextWidth(): void
+    {
+        // Advance of the '0' glyph of the 10pt Helvetica test font, in points.
+        $zeroWidth = 5.56;
+
+        $start = $this->renderSvgTextAnchorPosX('start', '0');
+        $end = $this->renderSvgTextAnchorPosX('end', '0');
+        $middle = $this->renderSvgTextAnchorPosX('middle', '0');
+        $endTwo = $this->renderSvgTextAnchorPosX('end', '00');
+
+        $this->assertEqualsWithDelta($zeroWidth, $start - $end, 0.01);
+        $this->assertEqualsWithDelta($zeroWidth / 2, $start - $middle, 0.01);
+        $this->assertEqualsWithDelta(2 * $zeroWidth, $start - $endTwo, 0.01);
+    }
+
+    /**
+     * Render a <text> with the given anchor and return the X coordinate of the
+     * emitted Td operator.
+     *
+     * @throws \Throwable
+     */
+    private function renderSvgTextAnchorPosX(string $anchor, string $txt): float
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            . '<text x="50" y="50" text-anchor="'
+            . $anchor
+            . '">'
+            . $txt
+            . '</text>'
+            . '</svg>';
+        $soid = $obj->addSVG($svg, 0, 0, 100, 100, $page['height']);
+        $match = [];
+        if (\preg_match('/([\-0-9\.]+) [\-0-9\.]+ Td/', $obj->getSetSVG($soid), $match) !== 1 || !isset($match[1])) {
+            $this->fail('No Td operator found in the SVG text output.');
+        }
+
+        return \floatval($match[1]);
+    }
+
+    /**
+     * Character data outside a text-content element is not rendered: the
+     * white space between the tags of a pretty-printed SVG must not produce
+     * any text operator.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgIgnoresCharacterDataOutsideTextElements(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            "@<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\">\n"
+            . "    <rect x=\"0\" y=\"0\" width=\"10\" height=\"10\" fill=\"#000000\"/>\n"
+            . "    <text x=\"5\" y=\"30\">one</text>\n"
+            . "    <text x=\"5\" y=\"60\">two</text>\n"
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 0, 0, 100, 100, $page['height']);
+        $out = $obj->getSetSVG($soid);
+
+        // Only the two text elements are rendered, not the indentation around them.
+        $this->assertSame(2, \substr_count($out, ' Tj'));
+        $this->assertStringContainsString('(one) Tj', $out);
+        $this->assertStringContainsString('(two) Tj', $out);
+    }
+
+    /**
+     * The XML white space of the text content is collapsed unless
+     * xml:space='preserve' is set.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgTextContentWhiteSpaceHandling(): void
+    {
+        $this->assertStringContainsString('(Hello world) Tj', $this->renderSvgTextContent(
+            "\n    Hello\n    world\n  ",
+            '',
+        ));
+
+        $this->assertStringContainsString('( Hello  world ) Tj', $this->renderSvgTextContent(
+            ' Hello  world ',
+            ' xml:space="preserve"',
+        ));
+    }
+
+    /**
+     * Render a <text> with the given raw content and extra attributes.
+     *
+     * @throws \Throwable
+     */
+    private function renderSvgTextContent(string $txt, string $attr): string
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            . '<text x="5" y="50"'
+            . $attr
+            . '>'
+            . $txt
+            . '</text>'
+            . '</svg>';
+        $soid = $obj->addSVG($svg, 0, 0, 100, 100, $page['height']);
+        return $obj->getSetSVG($soid);
+    }
+
+    /**
+     * Consecutive text chunks of the same text element must not be stacked on
+     * the same position: each one starts where the previous one ends.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgTspanChunksAdvanceTheTextCursor(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">'
+            . '<text x="5" y="50">Hello <tspan fill="#ff0000">world</tspan></text>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 0, 0, 200, 100, $page['height']);
+
+        $match = [];
+        $count = \preg_match_all('/([\-0-9\.]+) [\-0-9\.]+ Td/', $obj->getSetSVG($soid), $match);
+        $this->assertSame(2, $count);
+        $posx = $match[1] ?? [];
+        $this->assertGreaterThan(\floatval($posx[0] ?? '0'), \floatval($posx[1] ?? '0'));
+    }
+
+    /**
+     * The inheritable presentation attributes of the enclosing element apply to
+     * its children: the style stack must be read at its top, not one level up.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgChildrenInheritTheEnclosingElementStyle(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            . '<g fill="#ff0000">'
+            . '<rect x="0" y="0" width="10" height="10"/>'
+            . '</g>'
+            . '<text x="5" y="50" font-size="4.5">Hi <tspan fill="#0000ff">there</tspan></text>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 0, 0, 100, 100, $page['height']);
+        $out = $obj->getSetSVG($soid);
+
+        // The rect takes the fill of the group.
+        $this->assertSame(2, \substr_count($out, "1.000000 0.000000 0.000000 rg\n"));
+
+        // The tspan keeps the font size of the text element.
+        $this->assertSame(2, \substr_count($out, '/F1 4.500000 Tf'));
+    }
+
+    /**
+     * Markers are placed on the path vertices: their content must sit inside
+     * the marker transform, and that transform is expressed in SVG user units.
+     *
+     * @throws \Throwable
+     */
+    public function testSvgMarkersArePlacedOnThePathVertices(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            . '<defs>'
+            . '<marker id="sq" viewBox="0 0 4 4" refX="2" refY="2"'
+            . ' markerWidth="4" markerHeight="4" orient="auto">'
+            . '<rect x="0" y="0" width="4" height="4" fill="#ff0000"/>'
+            . '</marker>'
+            . '</defs>'
+            . '<path fill="none" stroke="#000000" stroke-width="2"'
+            . ' marker-start="url(#sq)" marker-end="url(#sq)" d="M10 50L90 50"/>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 0, 0, 100, 100, $page['height']);
+        $out = $obj->getSetSVG($soid);
+
+        $match = [];
+        $count = \preg_match_all(
+            '/([\-0-9\.]+) [\-0-9\.]+ [\-0-9\.]+ [\-0-9\.]+ ([\-0-9\.]+) ([\-0-9\.]+) cm/',
+            $out,
+            $match,
+        );
+        $this->assertGreaterThanOrEqual(2, $count);
+
+        // markerUnits defaults to strokeWidth, so the 4 unit wide marker box is
+        // scaled by the stroke width of 2 and keeps the 1:1 viewBox ratio.
+        $scales = \array_map('floatval', $match[1] ?? []);
+        $this->assertContains(2.0, $scales);
+
+        // Both markers are centred on the path ends, 80 units apart.
+        $marks = [];
+        foreach ($scales as $idx => $scale) {
+            if ($scale !== 2.0) {
+                continue;
+            }
+
+            $marks[] = \floatval($match[2][$idx] ?? '0');
+        }
+        $this->assertCount(2, $marks);
+        $this->assertEqualsWithDelta(60.0, \abs(($marks[1] ?? 0.0) - ($marks[0] ?? 0.0)), 0.01);
+
+        // The rect of the last marker is emitted after its transform.
+        $lastMarker = \strrpos($out, '2.000000 0.000000 0.000000 2.000000 ');
+        $this->assertIsInt($lastMarker);
+        $this->assertGreaterThan($lastMarker, (int) \strrpos($out, ' re'));
     }
 }

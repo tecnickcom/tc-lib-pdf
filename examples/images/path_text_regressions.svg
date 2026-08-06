@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="210mm"
+     height="297mm"
+     viewBox="0 0 210 297"
+     version="1.1">
+  <title>SVG Path and Text Regression Showcase</title>
+  <desc>Each shape is drawn twice: a pale fill from a verbose path and a dark
+        outline from the compact equivalent that path optimizers emit. The two
+        forms describe the same geometry, so the dark outline must trace the
+        pale shape exactly. The text blocks check anchoring, white space
+        handling, style inheritance and multi chunk layout.</desc>
+
+  <defs>
+    <marker id="dot" viewBox="0 0 4 4" refX="2" refY="2" markerWidth="4" markerHeight="4" orient="auto">
+      <circle cx="2" cy="2" r="1.6" fill="#d6457b"/>
+    </marker>
+    <marker id="tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0 0L10 5L0 10z" fill="#0a6e46"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="210" height="297" fill="#ffffff"/>
+  <rect x="6" y="6" width="198" height="285" fill="none" stroke="#18486b" stroke-width="0.6"/>
+
+  <text x="12" y="16" font-family="Helvetica" font-size="6" fill="#18486b">SVG path and text regression showcase</text>
+  <text x="12" y="22" font-family="Helvetica" font-size="3.4" fill="#4a6f8a">Pale fill = verbose form. Dark outline = compact form. They must coincide.</text>
+  <line x1="12" y1="25" x2="198" y2="25" stroke="#18486b" stroke-width="0.4"/>
+
+  <!-- Numbers with no leading digit, packed decimals and exponents. -->
+  <text x="12" y="33" font-family="Helvetica" font-size="3.6" fill="#18486b">1. numbers: .4029 and -.2485 and 9e-1</text>
+  <g transform="translate(20 37) scale(11)">
+    <path fill="#a8d5c2"
+          d="M1.8 0.9C1.8 1.3971 1.3971 1.8 0.9 1.8C0.4029 1.8 0 1.3971 0 0.9C0 0.4029 0.4029 0 0.9 0C1.3971 0 1.8 0.4029 1.8 0.9Z M1.35 0.9C1.35 0.6515 1.1485 0.45 0.9 0.45C0.6515 0.45 0.45 0.6515 0.45 0.9C0.45 1.1485 0.6515 1.35 0.9 1.35C1.1485 1.35 1.35 1.1485 1.35 0.9Z"/>
+    <path fill="none" stroke="#0a6e46" stroke-width="0.05"
+          d="M1.8 9e-1C1.8 1.3971 1.3971 1.8 .9 1.8C.4029 1.8 0 1.3971 0 .9C0 .4029.4029 0 .9 0C1.3971 0 1.8 .4029 1.8 .9Z M1.35 .9c0-.2485-.2015-.45-.45-.45c-.2485 0-.45.2015-.45.45c0 .2485.2015.45.45.45c.2485 0 .45-.2015.45-.45z"/>
+  </g>
+
+  <!-- Elliptical arc flags packed with the surrounding values. -->
+  <text x="110" y="33" font-family="Helvetica" font-size="3.6" fill="#18486b">2. arc flags: a8 8 0 018 8</text>
+  <g transform="translate(112 37) scale(0.62)">
+    <path fill="#bcd8ef"
+          d="M8 0H32A8 8 0 0 1 40 8V24A8 8 0 0 1 32 32H8A8 8 0 0 1 0 24V8A8 8 0 0 1 8 0Z"/>
+    <path fill="none" stroke="#18486b" stroke-width="0.8"
+          d="M8 0H32a8 8 0 018 8v16a8 8 0 01-8 8H8a8 8 0 01-8-8V8a8 8 0 018-8z"/>
+  </g>
+  <g transform="translate(152 37) scale(0.62)">
+    <path fill="#bcd8ef" d="M20 20V0A20 20 0 1 1 0 20Z"/>
+    <path fill="none" stroke="#18486b" stroke-width="0.8" d="M20 20V0a20 20 0 11-20 20z"/>
+  </g>
+
+  <!-- Smooth cubic curveto: the control point mirrors the previous curve. -->
+  <text x="12" y="66" font-family="Helvetica" font-size="3.6" fill="#18486b">3. smooth cubic: C then S then S</text>
+  <g transform="translate(16 70) scale(1.55)">
+    <path fill="none" stroke="#f0c9a0" stroke-width="2.2"
+          d="M0 12C4 0 12 0 16 12C20 24 28 24 32 12C36 0 44 0 48 12"/>
+    <path fill="none" stroke="#a4521a" stroke-width="0.5"
+          d="M0 12C4 0 12 0 16 12S28 24 32 12S44 0 48 12"/>
+  </g>
+
+  <!-- Smooth quadratic curveto: the control point mirrors the previous curve. -->
+  <text x="110" y="66" font-family="Helvetica" font-size="3.6" fill="#18486b">4. smooth quadratic: Q then T then T</text>
+  <g transform="translate(114 70) scale(1.55)">
+    <path fill="none" stroke="#f0c9a0" stroke-width="2.2"
+          d="M0 12Q8 0 16 12Q24 24 32 12Q40 0 48 12"/>
+    <path fill="none" stroke="#a4521a" stroke-width="0.5"
+          d="M0 12Q8 0 16 12T32 12T48 12"/>
+  </g>
+
+  <!-- Compound paths: both fill rules must leave the counter open. -->
+  <text x="12" y="110" font-family="Helvetica" font-size="3.6" fill="#18486b">5. compound path, nonzero</text>
+  <g transform="translate(20 114) scale(0.62)">
+    <path fill="#6c63ff" d="M0 0H40V40H0Z M8 8V32H32V8Z"/>
+  </g>
+  <text x="110" y="110" font-family="Helvetica" font-size="3.6" fill="#18486b">6. compound path, evenodd</text>
+  <g transform="translate(118 114) scale(0.62)">
+    <path fill="#6c63ff" fill-rule="evenodd" d="M0 0H40V40H0Z M8 8H32V32H8Z"/>
+  </g>
+
+  <!-- Text anchoring: every run must line up with its guide. -->
+  <text x="12" y="146" font-family="Helvetica" font-size="3.6" fill="#18486b">7. text-anchor: end, middle, start on the guides</text>
+  <line x1="60" y1="149" x2="60" y2="169" stroke="#d6457b" stroke-width="0.4"/>
+  <line x1="105" y1="149" x2="105" y2="169" stroke="#d6457b" stroke-width="0.4"/>
+  <line x1="150" y1="149" x2="150" y2="169" stroke="#d6457b" stroke-width="0.4"/>
+  <text x="60" y="155" font-family="Helvetica" font-size="4" text-anchor="end" fill="#333333">end</text>
+  <text x="105" y="155" font-family="Helvetica" font-size="4" text-anchor="middle" fill="#333333">middle</text>
+  <text x="150" y="155" font-family="Helvetica" font-size="4" text-anchor="start" fill="#333333">start</text>
+  <text x="60" y="161" font-family="Helvetica" font-size="4" text-anchor="end" fill="#333333">00000000</text>
+  <text x="105" y="161" font-family="Helvetica" font-size="4" text-anchor="middle" fill="#333333">00000000</text>
+  <text x="150" y="161" font-family="Helvetica" font-size="4" text-anchor="start" fill="#333333">00000000</text>
+  <text x="60" y="167" font-family="Helvetica" font-size="4" text-anchor="end" fill="#333333">0</text>
+  <text x="105" y="167" font-family="Helvetica" font-size="4" text-anchor="middle" fill="#333333">0</text>
+  <text x="150" y="167" font-family="Helvetica" font-size="4" text-anchor="start" fill="#333333">0</text>
+
+  <!-- White space: the indentation of this file must never reach the page. -->
+  <text x="12" y="178" font-family="Helvetica" font-size="3.6" fill="#18486b">8. white space and collapsing</text>
+  <text x="16" y="185" font-family="Helvetica" font-size="4" fill="#333333">
+    one line, no leading or trailing blanks
+  </text>
+  <text x="16" y="191" font-family="Helvetica" font-size="4" fill="#333333">three     spaces     collapsed</text>
+  <text x="16" y="197" font-family="Helvetica" font-size="4" fill="#333333" xml:space="preserve">   xml:space preserve   keeps   them   </text>
+
+  <!-- Inheritance: the children take the presentation attributes of the group. -->
+  <text x="110" y="178" font-family="Helvetica" font-size="3.6" fill="#18486b">9. inherited group style</text>
+  <g fill="#6c63ff" font-family="Helvetica" font-size="4.5">
+    <rect x="114" y="183" width="14" height="10"/>
+    <g stroke="#18486b" stroke-width="0.8">
+      <circle cx="139" cy="188" r="5"/>
+    </g>
+    <text x="150" y="190">inherited</text>
+  </g>
+  <text x="114" y="200" font-family="Helvetica" font-size="3.2" fill="#4a6f8a">Fill and font size from the outer group,</text>
+  <text x="114" y="204" font-family="Helvetica" font-size="3.2" fill="#4a6f8a">the outline from the inner one.</text>
+
+  <!-- Text chunks: each tspan starts where the previous chunk ends. -->
+  <text x="12" y="210" font-family="Helvetica" font-size="3.6" fill="#18486b">10. tspan chunks flow and restore the parent font</text>
+  <text x="16" y="217" font-family="Helvetica" font-size="4.5" fill="#333333">Hello <tspan
+      fill="#d6457b">bright</tspan> and <tspan
+      font-size="3" fill="#0a6e46">small</tspan> world</text>
+
+  <!-- A badge in the shape optimizers produce: packed flags, both sweeps, a
+       counter left open by the reversed inner subpath. -->
+  <text x="12" y="228" font-family="Helvetica" font-size="3.6" fill="#18486b">11. optimizer output: flags and a counter</text>
+  <g transform="translate(20 232) scale(0.52)">
+    <path fill="#f4c7d8"
+          d="M8 0H32A8 8 0 0 1 40 8V24A8 8 0 0 1 32 32H8A8 8 0 0 1 0 24V8A8 8 0 0 1 8 0Z M12 8A4 4 0 0 0 8 12V20A4 4 0 0 0 12 24H28A4 4 0 0 0 32 20V12A4 4 0 0 0 28 8Z"/>
+    <path fill="none" stroke="#d6457b" stroke-width="0.9"
+          d="M8 0H32a8 8 0 018 8v16a8 8 0 01-8 8H8a8 8 0 01-8-8V8a8 8 0 018-8zM12 8a4 4 0 00-4 4v8a4 4 0 004 4h16a4 4 0 004-4v-8a4 4 0 00-4-4z"/>
+  </g>
+  <text x="46" y="240" font-family="Helvetica" font-size="3.2" fill="#4a6f8a">Both sweep directions,</text>
+  <text x="46" y="245" font-family="Helvetica" font-size="3.2" fill="#4a6f8a">every flag packed.</text>
+
+  <!-- Markers sit on the vertices and turn with the segments. -->
+  <text x="110" y="228" font-family="Helvetica" font-size="3.6" fill="#18486b">12. markers on the vertices</text>
+  <path fill="none" stroke="#4a6f8a" stroke-width="0.8"
+        marker-start="url(#dot)" marker-mid="url(#dot)" marker-end="url(#tip)"
+        d="M116 240l18-7 18 7 18-7 18 7"/>
+
+  <line x1="12" y1="256" x2="198" y2="256" stroke="#18486b" stroke-width="0.4"/>
+  <text x="12" y="262" font-family="Helvetica" font-size="3.2" fill="#4a6f8a">A dark outline that leaves its pale shape, a missing outline, a run off its</text>
+  <text x="12" y="267" font-family="Helvetica" font-size="3.2" fill="#4a6f8a">guide, a filled counter, a stray marker or a blank box marks a regression.</text>
+</svg>
