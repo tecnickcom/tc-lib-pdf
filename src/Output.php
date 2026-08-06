@@ -1006,6 +1006,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
             //$out .= ' /CO ';
 
+            $fontIndex = $this->getAcroFormDefaultFontIndex();
+
             if ($this->annotation_fonts !== []) {
                 $out .= ' /DR << /Font <<';
                 foreach ($this->annotation_fonts as $fontkey => $fontid) {
@@ -1017,9 +1019,10 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' >> >>';
             }
 
-            $font = $this->font->getFont('helvetica');
-            $fontIndex = (int) $font['i'];
-            $out .= ' /DA ' . $this->encrypt->escapeDataString('/F' . $fontIndex . ' 0 Tf 0 g', $oid);
+            if ($fontIndex > 0) {
+                $out .= ' /DA ' . $this->encrypt->escapeDataString('/F' . $fontIndex . ' 0 Tf 0 g', $oid);
+            }
+
             $out .= ' /Q ' . ($this->rtl ? '2' : '0');
             //$out .= ' /XFA ';
             $out .= ' >>';
@@ -1044,6 +1047,43 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out .= ' >>' . "\n" . 'endobj' . "\n";
         return $out;
+    }
+
+    /**
+     * Returns the font index to use in the AcroForm default appearance (/DA), or 0 if no font is loaded.
+     *
+     * The selected font is registered as an annotation font, so that it is always
+     * listed in the AcroForm default resource dictionary (/DR).
+     * The first annotation font is used when available, otherwise 'helvetica',
+     * the current font, or the first loaded font.
+     *
+     * @throws FontException
+     */
+    protected function getAcroFormDefaultFontIndex(): int
+    {
+        if ($this->annotation_fonts !== []) {
+            return (int) \reset($this->annotation_fonts);
+        }
+
+        $fontkey = '';
+        if ($this->font->isValidKey('helvetica')) {
+            $fontkey = 'helvetica';
+        } elseif ($this->font->hasCurrentFont()) {
+            $fontkey = $this->font->getCurrentFontKey();
+        } else {
+            $fonts = $this->font->getFonts();
+            if ($fonts !== []) {
+                $fontkey = \array_key_first($fonts);
+            }
+        }
+
+        if ($fontkey === '') {
+            return 0;
+        }
+
+        $fontIndex = (int) $this->font->getFont($fontkey)['i'];
+        $this->annotation_fonts[$fontkey] = $fontIndex;
+        return $fontIndex;
     }
 
     /**

@@ -3771,6 +3771,67 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testGetOutCatalogAcroformDefaultAppearanceWithoutHelvetica(): void
+    {
+        self::setUpFontsPath();
+        $obj = $this->getInternalTestObject();
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $inserted = $font->insert($pon, 'dejavusans', '', 10, null, null, $fontfile);
+        $this->assertFalse($font->isValidKey('helvetica'));
+
+        $this->addRawPageWithObjectNumber($obj, 6);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4, 'signature' => 40, 'form' => []]);
+        $this->setObjectProperty($obj, 'sign', true);
+        $this->setObjectProperty($obj, 'signature', [
+            'cert_type' => 2,
+            'approval' => 'P',
+            'appearance' => [
+                'empty' => [],
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $fontIndex = (int) $font->getFont($inserted['key'])['i'];
+        $this->assertContainsAllFragments($out, [
+            '/AcroForm <<',
+            '/DR << /Font << /F' . $fontIndex . ' ',
+            '/DA (/F' . $fontIndex . ' 0 Tf 0 g)',
+        ]);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetOutCatalogAcroformDefaultAppearanceWithoutFonts(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->addRawPageWithObjectNumber($obj, 6);
+        $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4, 'signature' => 40, 'form' => []]);
+        $this->setObjectProperty($obj, 'sign', true);
+        $this->setObjectProperty($obj, 'signature', [
+            'cert_type' => 2,
+            'approval' => 'P',
+            'appearance' => [
+                'empty' => [],
+            ],
+        ]);
+
+        $out = $obj->exposeGetOutCatalog();
+
+        $this->assertStringContainsString('/AcroForm <<', $out);
+        $this->assertStringNotContainsString('/DA ', $out);
+        $this->assertStringNotContainsString('/DR ', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testGetPDFLayersWithViewFalseAndLockTrue(): void
     {
         $obj = $this->getInternalTestObject();

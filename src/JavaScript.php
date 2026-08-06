@@ -1337,8 +1337,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $curfont = $this->font->getCurrentFont();
         /** @var array{key: string, idx: int, outraw: string} $curfont */
         $fontKey = $curfont['key'];
-        $fontIdx = $curfont['idx'];
-        $this->annotation_fonts[$fontKey] = $fontIdx;
+        // the /DR resource name is the font buffer index used by the /F operator of the /DA string
+        $this->annotation_fonts[$fontKey] = (int) $this->font->getFont($fontKey)['i'];
         $fontstyle = $curfont['outraw'];
         if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && \trim($jsp['textColor']) !== '') {
             $colobj = $this->color->getColorObj($jsp['textColor']);
