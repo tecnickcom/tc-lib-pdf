@@ -2342,7 +2342,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         // P2/P3: the first strong character (L, R or AL) sets the base direction.
         foreach ($logicalOrdArr as $ord) {
-            $type = UnicodeType::UNI[$ord] ?? null;
+            $type = UnicodeType::getType($ord);
             if ($type === 'L') {
                 return false;
             }
@@ -3178,8 +3178,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $word = [];
 
         foreach ($ordarr as $ord) {
-            $unitype = UnicodeType::UNI[$ord] ?? '';
-            switch ($unitype) {
+            switch (UnicodeType::getType($ord)) {
                 case 'L':
                     $word[] = $ord;
                     break;
@@ -3222,7 +3221,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     {
         $txtarr = [];
         foreach ($ordarr as $ord) {
-            switch (UnicodeType::UNI[$ord] ?? '') {
+            switch (UnicodeType::getType($ord)) {
                 case 'ES':
                 case 'ET':
                 case 'CS':

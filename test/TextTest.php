@@ -1768,6 +1768,12 @@ class TextTest extends TestUtil
         // A leading neutral run is skipped until the first strong (R) character.
         $this->assertTrue($obj->exposeIsOrdArrBaseRtl([...$neutral, ...$hebrew], ''));
 
+        // Latin letters are not listed in the bidirectional type table, so a mixed
+        // paragraph that starts with them stays left-to-right.
+        $this->assertFalse($obj->exposeIsOrdArrBaseRtl([...$latin, 0x20, ...$hebrew], ''));
+        // The same holds for the other characters of type L that are not listed.
+        $this->assertFalse($obj->exposeIsOrdArrBaseRtl([0x4E00, 0x20, ...$hebrew], ''));
+
         // No strong character: fall back to the document default ($this->rtl).
         $this->assertFalse($obj->exposeIsOrdArrBaseRtl($neutral, ''));
         $this->setObjectProperty($obj, 'rtl', true);
@@ -1778,6 +1784,27 @@ class TextTest extends TestUtil
         $this->assertTrue($baseRtl);
         [, , , $baseLtr] = $obj->exposePrepareTextWithDir('abc', '');
         $this->assertFalse($baseLtr);
+    }
+
+    /**
+     * The text level hyphenation collects the words by bidirectional type L, so it must
+     * hyphenate them exactly like the word level pass.
+     *
+     * @throws \Throwable
+     */
+    public function testHyphenateTextOrdArrHyphenatesLatinWords(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+
+        $patterns = ['hyphen' => 'hy3phen'];
+        $hypWord = $obj->exposeHyphenateWordOrdArr($patterns, $obj->exposeStrToOrdArr('hyphen'));
+        $hypText = $obj->exposeHyphenateTextOrdArr($patterns, $obj->exposeStrToOrdArr('hyphen,test'));
+
+        $this->assertContains(0x00AD, $hypWord);
+        $this->assertSame($hypWord, \array_slice($hypText, 0, \count($hypWord)));
+        $this->assertContains(0x00AD, $hypText);
     }
 
     /**
