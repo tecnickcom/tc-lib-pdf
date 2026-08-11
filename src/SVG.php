@@ -8168,6 +8168,75 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
     }
 
     /**
+     * Get the raw value of an attribute of the root SVG tag.
+     *
+     * @param string $attributes The raw attributes string of the root SVG tag.
+     * @param string $name The attribute name.
+     *
+     * @return string The attribute value, or an empty string if not set.
+     */
+    protected function getSVGRootAttribute(string $attributes, string $name): string
+    {
+        $tmp = [];
+        if (!\preg_match('/[\s]+' . \preg_quote($name, '/') . '[\s]*=[\s]*(["\'])(.*?)\1/si', $attributes, $tmp)) {
+            return '';
+        }
+
+        return $tmp[2] ?? '';
+    }
+
+    /**
+     * Convert a length attribute of the root SVG tag to user units.
+     * Empty, 'auto', percentage and non-numeric values are returned as 0.0 (unspecified).
+     *
+     * @param string $val The raw attribute value.
+     *
+     * @return float The length in user units.
+     */
+    protected function getSVGRootLength(string $val): float
+    {
+        $raw = \trim($val);
+        if ($raw === '' || \strcasecmp($raw, 'auto') === 0 || \str_ends_with($raw, '%')) {
+            return 0.0;
+        }
+
+        try {
+            return $this->svgUnitToUnit($raw);
+        } catch (PdfException) {
+            return 0.0;
+        }
+    }
+
+    /**
+     * Get the intrinsic size of the root SVG tag, using the viewBox to
+     * resolve the width and height attributes that are not specified.
+     *
+     * @param float $width The width in user units, or 0.0 if not specified.
+     * @param float $height The height in user units, or 0.0 if not specified.
+     * @param float $vbw The viewBox width in user units.
+     * @param float $vbh The viewBox height in user units.
+     *
+     * @return array{float, float} The width and height in user units.
+     */
+    protected function getSVGIntrinsicSize(float $width, float $height, float $vbw, float $vbh): array
+    {
+        if ($vbw <= 0.0 || $vbh <= 0.0) {
+            return [$width, $height];
+        }
+        if ($width <= 0.0 && $height <= 0.0) {
+            return [$vbw, $vbh];
+        }
+        if ($width <= 0.0) {
+            return [($height * $vbw) / $vbh, $height];
+        }
+        if ($height <= 0.0) {
+            return [$width, ($width * $vbh) / $vbw];
+        }
+
+        return [$width, $height];
+    }
+
+    /**
      * Get the SVG size from the SVG data.
      *
      * @param string $data The string containing the SVG image data.
@@ -8194,56 +8263,42 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return $out;
         }
 
-        $tmp = [];
-        if (\preg_match('/[\s]+x[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp) && isset($tmp[1])) {
-            $out['x'] = $this->svgUnitToUnit($tmp[1]);
-        }
-        $tmp = [];
-        if (\preg_match('/[\s]+y[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp) && isset($tmp[1])) {
-            $out['y'] = $this->svgUnitToUnit($tmp[1]);
-        }
-        $tmp = [];
-        if (\preg_match('/[\s]+width[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp) && isset($tmp[1])) {
-            $out['width'] = $this->svgUnitToUnit($tmp[1]);
-        }
-        $tmp = [];
-        if (\preg_match('/[\s]+height[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp) && isset($tmp[1])) {
-            $out['height'] = $this->svgUnitToUnit($tmp[1]);
-        }
+        $out['x'] = $this->getSVGRootLength($this->getSVGRootAttribute($regs[1], 'x'));
+        $out['y'] = $this->getSVGRootLength($this->getSVGRootAttribute($regs[1], 'y'));
+        $out['width'] = \max(0.0, $this->getSVGRootLength($this->getSVGRootAttribute($regs[1], 'width')));
+        $out['height'] = \max(0.0, $this->getSVGRootLength($this->getSVGRootAttribute($regs[1], 'height')));
 
         $tmp = [];
         if (!\preg_match(
-            '/[\s]+viewBox[\s]*=[\s]*"[\s]*([0-9\.\-]+)[\s]+([0-9\.\-]+)[\s]+([0-9\.]+)[\s]+([0-9\.]+)[\s]*"/si',
+            '/[\s]+viewBox[\s]*=[\s]*(["\'])[\s]*'
+            . '([0-9\.\-]+)[\s,]+([0-9\.\-]+)[\s,]+([0-9\.]+)[\s,]+([0-9\.]+)[\s]*\1/si',
             $regs[1],
             $tmp,
         )) {
             return $out;
         }
 
-        if (isset($tmp[1], $tmp[2], $tmp[3], $tmp[4])) {
-            $vb0 = $this->svgUnitToUnit($tmp[1]);
-            $vb1 = $this->svgUnitToUnit($tmp[2]);
-            $vb2 = $this->svgUnitToUnit($tmp[3]);
-            $vb3 = $this->svgUnitToUnit($tmp[4]);
+        if (isset($tmp[2], $tmp[3], $tmp[4], $tmp[5])) {
+            $vb0 = $this->svgUnitToUnit($tmp[2]);
+            $vb1 = $this->svgUnitToUnit($tmp[3]);
+            $vb2 = $this->svgUnitToUnit($tmp[4]);
+            $vb3 = $this->svgUnitToUnit($tmp[5]);
             $out['viewBox'] = [
                 0 => $vb0,
                 1 => $vb1,
                 2 => $vb2,
                 3 => $vb3,
             ];
+            [$out['width'], $out['height']] = $this->getSVGIntrinsicSize($out['width'], $out['height'], $vb2, $vb3);
         }
 
         // get aspect ratio
-        $tmp = [];
-        if (!\preg_match('/[\s]+preserveAspectRatio[\s]*=[\s]*"([^"]*)"/si', $regs[1], $tmp)) {
+        $aspectRatio = \trim($this->getSVGRootAttribute($regs[1], 'preserveAspectRatio'));
+        if ($aspectRatio === '') {
             return $out;
         }
 
-        if (!isset($tmp[1])) {
-            return $out;
-        }
-
-        $asr = \preg_split('/[\s]+/si', $tmp[1]);
+        $asr = \preg_split('/[\s]+/si', $aspectRatio);
         if (!\is_array($asr) || \count($asr) < 1) {
             return $out;
         }
@@ -8454,13 +8509,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $size = $this->getSVGSize($data);
         if ($size['width'] <= 0.0 || $size['height'] <= 0.0) {
             throw new PdfException('Invalid SVG size');
-        }
-
-        if ($size['width'] <= 0.0) {
-            $size['width'] = 1.0;
-        }
-        if ($size['height'] <= 0.0) {
-            $size['height'] = 1.0;
         }
 
         // calculate image width && height on document

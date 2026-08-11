@@ -605,6 +605,71 @@ class SVGTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSvgGetSVGSizeResolvesMissingDimensionsFromViewBox(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $reference = $obj->exposeGetSVGSize('<svg width="100" height="50" viewBox="0 0 100 50"></svg>');
+        $this->assertGreaterThan(0.0, $reference['width']);
+        $this->assertGreaterThan(0.0, $reference['height']);
+
+        $variants = [
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"></svg>',
+            '<svg width="100%" height="100%" viewBox="0 0 100 50"></svg>',
+            '<svg width="auto" height="auto" viewBox="0 0 100 50"></svg>',
+            '<svg width="abc" viewBox="0 0 100 50"></svg>',
+            '<svg width="-10" height="-5" viewBox="0 0 100 50"></svg>',
+            "<svg viewBox='0 0 100 50'></svg>",
+            '<svg viewBox="0,0,100,50"></svg>',
+            '<svg width="100" viewBox="0 0 100 50"></svg>',
+            '<svg height="50" viewBox="0 0 100 50"></svg>',
+        ];
+        foreach ($variants as $variant) {
+            $size = $obj->exposeGetSVGSize($variant);
+            $this->assertEqualsWithDelta($reference['width'], $size['width'], 0.0001, $variant);
+            $this->assertEqualsWithDelta($reference['height'], $size['height'], 0.0001, $variant);
+        }
+
+        $degenerate = $obj->exposeGetSVGSize('<svg viewBox="0 0 0 0"></svg>');
+        $this->assertSame(0.0, $degenerate['width']);
+        $this->assertSame(0.0, $degenerate['height']);
+    }
+
+    /** @throws \Throwable */
+    public function testAddSVGAcceptsViewBoxOnlySvg(): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $rect = '<rect x="10" y="10" width="80" height="80" fill="#d40000"/>';
+
+        $soid = $obj->addSVG(
+            '@<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' . $rect . '</svg>',
+            20,
+            30,
+            50,
+            50,
+            $page['height'],
+        );
+        $sized = $obj->addSVG(
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+            . $rect
+            . '</svg>',
+            20,
+            30,
+            50,
+            50,
+            $page['height'],
+        );
+
+        /** @var array<int, array<string, mixed>> $svgobjs */
+        $svgobjs = $this->getObjectProperty($obj, 'svgobjs');
+        $this->assertArrayHasKey($soid, $svgobjs);
+        $this->assertArrayHasKey($sized, $svgobjs);
+        $this->assertNotSame('', $svgobjs[$soid]['out'] ?? '');
+        $this->assertSame($svgobjs[$sized]['out'] ?? '', $svgobjs[$soid]['out'] ?? '');
+    }
+
+    /** @throws \Throwable */
     public function testSvgPrescanRadialGradientWithDirectStopAttributes(): void
     {
         $obj = $this->getInternalTestObject();
