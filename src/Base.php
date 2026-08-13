@@ -85,12 +85,21 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *
  * @phpstan-type TStackCellBBox array<int, TBBox>
  *
+ * Cell side values (Top, Right, Bottom, Left) in internal points.
+ *
  * @phpstan-type TCellBound array{
  *     'T': float,
  *     'R': float,
  *     'B': float,
  *     'L': float,
  * }
+ *
+ * Cell definition.
+ *
+ * The 'margin' and 'padding' values are expressed in internal points and not in
+ * user units: use toPoints() to convert them from the current unit.
+ * The setDefaultCellMargin() and setDefaultCellPadding() methods take user units
+ * and perform the conversion internally.
  *
  * @phpstan-type TCellDef array{
  *     'margin': TCellBound,
@@ -682,7 +691,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.68.4';
+    protected string $version = '8.68.5';
 
     /**
      * Encrypt object.

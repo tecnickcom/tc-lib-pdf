@@ -15349,6 +15349,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float       $width       Width.
      * @param float       $height      Height.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     *                                 The margin and padding values are in points.
      * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
      *
      * @return string
@@ -15444,6 +15445,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float       $width       Width.
      * @param float       $height      Height.
      * @param ?TCellDef   $cell        Optional to overwrite cell parameters for padding, margin etc.
+     *                                 The margin and padding values are in points.
      * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
      *
      * @throws \Com\Tecnick\Color\Exception

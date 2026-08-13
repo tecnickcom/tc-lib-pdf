@@ -225,6 +225,79 @@ class CellTest extends TestUtil
         $this->assertGreaterThan(-1000000.0, $obj->exposeTextMaxHeight(50.0, 'C', $cell));
     }
 
+    /**
+     * The text is aligned inside the padding box, so an asymmetric padding
+     * must not be collapsed to the largest of the two opposite sides.
+     *
+     * @throws \Throwable
+     */
+    public function testCellTextVAlignKeepsTextInsideAsymmetricPadding(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        /** @var TCellDef $cell */
+        $cell = $this->getObjectProperty($obj, 'defcell');
+        $cell['padding'] = ['T' => 60.0, 'R' => 0.0, 'B' => 10.0, 'L' => 0.0];
+
+        $cellheight = 100.0;
+        $txtheight = 10.0;
+
+        // 60 + ((100 - 60 - 10 - 10) / 2)
+        $this->bcAssertEqualsWithDelta(70.0, $obj->exposeCellTextVAlign($cellheight, $txtheight, 'C', $cell));
+
+        foreach (['T', 'C', 'B', 'A', 'L', 'D'] as $align) {
+            $ypos = $obj->exposeCellTextVAlign($cellheight, $txtheight, $align, $cell);
+            $this->assertGreaterThanOrEqual($cell['padding']['T'], $ypos, 'align: ' . $align);
+            $this->assertLessThanOrEqual($cellheight - $cell['padding']['B'], $ypos + $txtheight, 'align: ' . $align);
+        }
+    }
+
+    /**
+     * The horizontal counterpart: a centered text must start at the left
+     * padding edge when the padding box exactly fits the text.
+     *
+     * @throws \Throwable
+     */
+    public function testCellTextHAlignKeepsTextInsideAsymmetricPadding(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        /** @var TCellDef $cell */
+        $cell = $this->getObjectProperty($obj, 'defcell');
+        $cell['padding'] = ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 40.0];
+
+        // 40 + ((100 - 40 - 0 - 50) / 2)
+        $this->bcAssertEqualsWithDelta(45.0, $obj->exposeCellTextHAlign(100.0, 50.0, 'C', $cell));
+        $this->bcAssertEqualsWithDelta(40.0, $obj->exposeCellTextHAlign(100.0, 60.0, 'C', $cell));
+    }
+
+    /**
+     * The minimum cell height must leave room for the text and both paddings,
+     * and textMaxHeight() must be its inverse.
+     *
+     * @throws \Throwable
+     */
+    public function testCellMinHeightAndTextMaxHeightAreConsistentWithAsymmetricPadding(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        /** @var TCellDef $cell */
+        $cell = $this->getObjectProperty($obj, 'defcell');
+        $cell['padding'] = ['T' => 60.0, 'R' => 0.0, 'B' => 10.0, 'L' => 0.0];
+
+        $txtheight = 10.0;
+
+        foreach (['T', 'C', 'B', 'A', 'L', 'D'] as $align) {
+            $cellheight = $obj->exposeCellMinHeight($txtheight, $align, $cell);
+
+            $this->bcAssertEqualsWithDelta($txtheight, $obj->exposeTextMaxHeight($cellheight, $align, $cell));
+
+            $ypos = $obj->exposeCellTextVAlign($cellheight, $txtheight, $align, $cell);
+            $this->assertGreaterThanOrEqual($cell['padding']['T'], $ypos, 'align: ' . $align);
+            $this->assertLessThanOrEqual($cellheight - $cell['padding']['B'], $ypos + $txtheight, 'align: ' . $align);
+        }
+    }
+
     /** @throws \Throwable */
     public function testCellAndTextPositionConversionsAreCallable(): void
     {

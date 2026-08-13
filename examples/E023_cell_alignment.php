@@ -209,5 +209,218 @@ $legend =
 $setFont($pdf, 'helvetica', '', 10);
 $pdf->page->addContent($pdf->getTextCell($legend, 125, 160, 70, 100, 0, 1.25, 'T', 'L', drawcell: false));
 
+// ---------------------------------------------------------------------------
+// Second page: alignment combined with asymmetric paddings.
+// ---------------------------------------------------------------------------
+
+$pdf->addPage();
+
+$setFont($pdf, 'helvetica', 'B', 20);
+$pdf->page->addContent($pdf->getTextCell(
+    'Cell Padding and Alignment',
+    15,
+    15,
+    180,
+    8,
+    valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+    drawcell: false,
+));
+
+$setFont($pdf, 'helvetica', '', 9);
+$pdf->page->addContent($pdf->getTextCell(
+    'The text is aligned inside the padding box (dashed grey) and not inside the whole cell (solid blue).'
+    . ' The margin and padding values of the "cell" parameter are expressed in points,'
+    . ' so they are converted here with toPoints(); the padding sizes below are in millimeters.',
+    15,
+    25,
+    180,
+    12,
+    0,
+    0.5,
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+    drawcell: false,
+));
+
+/**
+ * Returns a cell definition with the given padding expressed in user units.
+ */
+$getCellDef = static function (
+    \Com\Tecnick\Pdf\Tcpdf $pdf,
+    float $top,
+    float $right,
+    float $bottom,
+    float $left,
+): array {
+    return [
+        'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+        // the cell definition stores the padding in points
+        'padding' => [
+            'T' => $pdf->toPoints($top),
+            'R' => $pdf->toPoints($right),
+            'B' => $pdf->toPoints($bottom),
+            'L' => $pdf->toPoints($left),
+        ],
+        'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+    ];
+};
+
+$padStyle = $getLineStyle(0.1, '#808080');
+$padStyle['dashArray'] = [1, 1];
+
+$drawPaddingBox = static function (
+    \Com\Tecnick\Pdf\Tcpdf $pdf,
+    float $x,
+    float $y,
+    float $w,
+    float $h,
+    array $pad,
+    array $style,
+) use ($drawCellBorder): string {
+    return $drawCellBorder(
+        $pdf,
+        $x + $pdf->toUnit($pad['L']),
+        $y + $pdf->toUnit($pad['T']),
+        $w - $pdf->toUnit($pad['L'] + $pad['R']),
+        $h - $pdf->toUnit($pad['T'] + $pad['B']),
+        $style,
+    );
+};
+
+$vcolumns = [
+    ['label' => 'Top', 'valign' => \Com\Tecnick\Pdf\TextVAlign::Top],
+    ['label' => 'Center', 'valign' => \Com\Tecnick\Pdf\TextVAlign::Center],
+    ['label' => 'Bottom', 'valign' => \Com\Tecnick\Pdf\TextVAlign::Bottom],
+    ['label' => 'Ascent', 'valign' => \Com\Tecnick\Pdf\TextVAlign::Ascent],
+    ['label' => 'Baseline', 'valign' => \Com\Tecnick\Pdf\TextVAlign::Baseline],
+    ['label' => 'Descent', 'valign' => \Com\Tecnick\Pdf\TextVAlign::Descent],
+];
+
+$vpaddings = [
+    ['label' => 'vertical padding: T=0 B=0', 'T' => 0.0, 'B' => 0.0],
+    ['label' => 'vertical padding: T=10 B=0', 'T' => 10.0, 'B' => 0.0],
+    ['label' => 'vertical padding: T=0 B=10', 'T' => 0.0, 'B' => 10.0],
+    ['label' => 'vertical padding: T=12 B=4', 'T' => 12.0, 'B' => 4.0],
+];
+
+$vcellW = 180.0 / \count($vcolumns);
+$vcellH = 24.0;
+$vrowPitch = 32.0;
+$vtop = 48.0;
+
+$setFont($pdf, 'helvetica', 'B', 11);
+$pdf->page->addContent($pdf->getTextCell(
+    'Vertical alignment (valign)',
+    15,
+    40,
+    180,
+    5,
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+    drawcell: false,
+));
+
+foreach ($vpaddings as $vrow => $vpad) {
+    $rowY = $vtop + ($vrow * $vrowPitch);
+    $cellY = $rowY + 6.0;
+    $cellDef = $getCellDef($pdf, $vpad['T'], 0.0, $vpad['B'], 0.0);
+
+    $setFont($pdf, 'helvetica', 'I', 8);
+    $pdf->page->addContent($pdf->getTextCell(
+        $vpad['label'],
+        15,
+        $rowY,
+        180,
+        5,
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+        drawcell: false,
+    ));
+
+    foreach ($vcolumns as $idx => $col) {
+        $x = $startX + ($idx * $vcellW);
+        $setFont($pdf, 'helvetica', '', 9);
+        $pdf->page->addContent($pdf->getTextCell(
+            $col['label'],
+            $x,
+            $cellY,
+            $vcellW,
+            $vcellH,
+            valign: $col['valign'],
+            halign: \Com\Tecnick\Pdf\TextHAlign::Center,
+            cell: $cellDef,
+            drawcell: false,
+        ));
+        $pdf->page->addContent($drawCellBorder($pdf, $x, $cellY, $vcellW, $vcellH, $borderStyle['all']));
+        $pdf->page->addContent($drawPaddingBox($pdf, $x, $cellY, $vcellW, $vcellH, $cellDef['padding'], $padStyle));
+    }
+}
+
+$hcolumns = [
+    ['label' => 'Left', 'halign' => \Com\Tecnick\Pdf\TextHAlign::Left],
+    ['label' => 'Center', 'halign' => \Com\Tecnick\Pdf\TextHAlign::Center],
+    ['label' => 'Right', 'halign' => \Com\Tecnick\Pdf\TextHAlign::Right],
+];
+
+$hpaddings = [
+    ['label' => 'horizontal padding: L=0 R=0', 'L' => 0.0, 'R' => 0.0],
+    ['label' => 'horizontal padding: L=15 R=0', 'L' => 15.0, 'R' => 0.0],
+    ['label' => 'horizontal padding: L=0 R=15', 'L' => 0.0, 'R' => 15.0],
+];
+
+$hcellW = 180.0 / \count($hcolumns);
+$hcellH = 12.0;
+$hrowPitch = 20.0;
+$htop = 190.0;
+
+$setFont($pdf, 'helvetica', 'B', 11);
+$pdf->page->addContent($pdf->getTextCell(
+    'Horizontal alignment (halign)',
+    15,
+    182,
+    180,
+    5,
+    valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+    halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+    drawcell: false,
+));
+
+foreach ($hpaddings as $hrow => $hpad) {
+    $rowY = $htop + ($hrow * $hrowPitch);
+    $cellY = $rowY + 6.0;
+    $cellDef = $getCellDef($pdf, 0.0, $hpad['R'], 0.0, $hpad['L']);
+
+    $setFont($pdf, 'helvetica', 'I', 8);
+    $pdf->page->addContent($pdf->getTextCell(
+        $hpad['label'],
+        15,
+        $rowY,
+        180,
+        5,
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+        drawcell: false,
+    ));
+
+    foreach ($hcolumns as $idx => $col) {
+        $x = $startX + ($idx * $hcellW);
+        $setFont($pdf, 'helvetica', '', 9);
+        $pdf->page->addContent($pdf->getTextCell(
+            $col['label'],
+            $x,
+            $cellY,
+            $hcellW,
+            $hcellH,
+            valign: \Com\Tecnick\Pdf\TextVAlign::Center,
+            halign: $col['halign'],
+            cell: $cellDef,
+            drawcell: false,
+        ));
+        $pdf->page->addContent($drawCellBorder($pdf, $x, $cellY, $hcellW, $hcellH, $borderStyle['all']));
+        $pdf->page->addContent($drawPaddingBox($pdf, $x, $cellY, $hcellW, $hcellH, $cellDef['padding'], $padStyle));
+    }
+}
+
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF(rawpdf: $rawpdf);
