@@ -1212,6 +1212,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * Returns the PDF XObjects entry.
      *
      * @throws EncryptException
+     * @throws FontException
      * @throws PdfException
      */
     protected function getOutXObjects(): string
@@ -3645,7 +3646,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     && \is_numeric($mkIf['a'][0])
                     && \is_numeric($mkIf['a'][1])
                 ) {
-                    $out .= \sprintf(' /A [%F %F]', $mkIf['a'][0], $mkIf['a'][1]);
+                    $out .= \sprintf(' /A [%F %F]', \floatval($mkIf['a'][0]), \floatval($mkIf['a'][1]));
                 }
 
                 if (($mkIf['fb'] ?? false) === true) {
@@ -3655,7 +3656,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= '>>';
             }
 
-            if (isset($mk['tp']) && \is_numeric($mk['tp']) && $mk['tp'] >= 0 && $mk['tp'] <= 6) {
+            if (isset($mk['tp']) && \is_numeric($mk['tp']) && \floatval($mk['tp']) >= 0 && \floatval($mk['tp']) <= 6) {
                 $out .= ' /TP ' . (int) $mk['tp'];
             }
 
@@ -3716,7 +3717,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $out .= ' ' . $annot['opt']['v'][$vkey];
                 }
             } else {
-                if (\is_string($annot['opt']['v']) || \is_numeric($annot['opt']['v'])) {
+                if (\is_string($annot['opt']['v']) || \is_int($annot['opt']['v']) || \is_float($annot['opt']['v'])) {
                     $out .= ' ' . $this->getOutTextString((string) $annot['opt']['v'], $oid, true);
                 }
             }
@@ -3738,7 +3739,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $out .= ' ' . $annot['opt']['dv'][$dvkey];
                 }
             } else {
-                if (\is_string($annot['opt']['dv']) || \is_numeric($annot['opt']['dv'])) {
+                if (\is_string($annot['opt']['dv']) || \is_int($annot['opt']['dv']) || \is_float($annot['opt']['dv'])) {
                     $out .= ' ' . $this->getOutTextString((string) $annot['opt']['dv'], $oid, true);
                 }
             }
@@ -3760,7 +3761,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                     $out .= ' ' . $annot['opt']['rv'][$rvkey];
                 }
             } else {
-                if (\is_string($annot['opt']['rv']) || \is_numeric($annot['opt']['rv'])) {
+                if (\is_string($annot['opt']['rv']) || \is_int($annot['opt']['rv']) || \is_float($annot['opt']['rv'])) {
                     $out .= ' ' . $this->getOutTextString((string) $annot['opt']['rv'], $oid, true);
                 }
             }
@@ -3881,7 +3882,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $out .= ' /AC ' . $mk['ac'];
             }
 
-            if (isset($mk['tp']) && \is_numeric($mk['tp']) && $mk['tp'] >= 0 && $mk['tp'] <= 6) {
+            if (isset($mk['tp']) && \is_numeric($mk['tp']) && \floatval($mk['tp']) >= 0 && \floatval($mk['tp']) <= 6) {
                 $out .= ' /TP ' . (int) $mk['tp'];
             }
 

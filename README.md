@@ -84,6 +84,7 @@ The fastest way to evaluate the library is to follow the installation and quick-
 ### Text & Fonts
 - Full **UTF-8 Unicode** and **right-to-left** (RTL) language support
 - **TrueTypeUnicode**, **OpenTypeUnicode v1**, TrueType, OpenType v1, Type1, and CID-0 fonts
+- Supplementary-plane characters above U+FFFF, including mathematical alphanumeric symbols and emoji ([doc/FONTS.md](doc/FONTS.md#unicode-text-encoding))
 - Font subsetting to keep file sizes small
 - Text hyphenation, stretching, and letter-spacing (tracking)
 - Language-aware TeX hyphenation patterns and optional zero-width breakpoints

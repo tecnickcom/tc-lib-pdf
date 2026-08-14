@@ -103,7 +103,9 @@ try {
                 '',
                 32,
                 3,
-                1,
+                // Encoding ID 10 reads the format 12 cmap subtable of the font,
+                // required to render the characters above U+FFFF.
+                10,
                 false,
             );
             $fontFamily = $import->getFontName();
@@ -182,7 +184,7 @@ $manualInstructions =
     . "\n"
     . '  --flags=32 \\'
     . "\n"
-    . '  --encoding_id=1 \\'
+    . '  --encoding_id=10 \\'
     . "\n"
     . '  --fonts=target/fonts/source/'
     . \htmlspecialchars($notoFileName, ENT_QUOTES)

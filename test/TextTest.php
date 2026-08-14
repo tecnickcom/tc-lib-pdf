@@ -339,10 +339,44 @@ class TextTest extends TestUtil
 
         $this->assertSame('dejavusans', $font->getCurrentFontKey());
         $this->assertTrue($font->isCurrentUnicodeFont());
+        $this->assertTrue($font->isCurrentGidEncoded());
 
         $out = $obj->getTextCell('The quick brown fox', 1, 2, 20, 6, 0, 0, 'T', 'L');
 
-        $this->assertStringContainsString("\000T\000h\000e", $out);
+        // The character codes are the glyph indices of the font (CID == GID).
+        $expected = '';
+        foreach ([0x54, 0x68, 0x65] as $ord) { // 'The'
+            $gid = $font->getGidForOrd($ord);
+            $this->assertGreaterThan(0, $gid);
+            $expected .= \chr($gid >> 8) . \chr($gid & 0xFF);
+        }
+
+        $this->assertStringContainsString($expected, $out);
+    }
+
+    /** @throws \Throwable */
+    public function testJustifiedUnicodeStringSplitsOnSpacesOnly(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+        $this->setObjectProperty($obj, 'isunicode', true);
+
+        [$txt, $ordarr, $dim] = $obj->exposePrepareText('a b c', 'L');
+        $out = $obj->exposeGetJustifiedString($txt, $ordarr, $dim, 40);
+
+        // One TJ adjustment replaces each of the two spaces.
+        $this->assertSame(2, \preg_match_all('#\) -?[0-9.]+ \(#', $out));
+
+        // The character codes are 2 bytes wide, so searching the encoded string for the
+        // code of the space would also match the second half of a code followed by the
+        // first half of the next one. U+0100 encodes to 01 00 and U+2019 to 20 19, which
+        // together contain the 00 20 pair of the space in the codepoint encoding.
+        [$txt, $ordarr, $dim] = $obj->exposePrepareText("\u{0100}\u{2019}", 'L');
+        $out = $obj->exposeGetJustifiedString($txt, $ordarr, $dim, 40);
+
+        $this->assertStringContainsString('TJ', $out);
+        $this->assertSame(0, \preg_match_all('#\) -?[0-9.]+ \(#', $out));
     }
 
     /** @throws \Throwable */

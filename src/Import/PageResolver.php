@@ -290,12 +290,9 @@ class PageResolver
         $bleedBox = $this->resolveBox($dict['BleedBox'] ?? null, $src) ?? $cropBox;
         $trimBox = $this->resolveBox($dict['TrimBox'] ?? null, $src) ?? $cropBox;
         $artBox = $this->resolveBox($dict['ArtBox'] ?? null, $src) ?? $cropBox;
-        if (isset($dict['Rotate']) && \is_int($dict['Rotate'])) {
-            $rotate = $dict['Rotate'];
-        } elseif (isset($dict['Rotate']) && \is_numeric($dict['Rotate'])) {
+        $rotate = 0;
+        if (isset($dict['Rotate']) && \is_numeric($dict['Rotate'])) {
             $rotate = (int) $dict['Rotate'];
-        } else {
-            $rotate = 0;
         }
 
         $resources = [];

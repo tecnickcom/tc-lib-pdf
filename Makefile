@@ -102,7 +102,7 @@ PHPDOC=$(shell which phpDocumentor)
 VERAPDF_BIN?=$(shell command -v verapdf 2>/dev/null)
 
 # Mago version
-MAGOVERSION=1.43.0
+MAGOVERSION=1.46.0
 
 # --- MAKE TARGETS ---
 
@@ -220,7 +220,9 @@ endif
 ## Format the source code
 .PHONY: format
 format:
-	./vendor/bin/mago fmt src test examples
+	./vendor/bin/mago --config ./mago.src.toml fmt src
+	./vendor/bin/mago --config ./mago.test.toml fmt test
+	./vendor/bin/mago --config ./mago.src.toml fmt example
 
 ## Analyze and Lint the source code
 .PHONY: lint

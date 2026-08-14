@@ -1484,7 +1484,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                 }
                 if (isset($action['Flags'])) {
                     $flg = 0;
-                    if (\is_array($action['Flags'])) {
+                    if (\is_numeric($action['Flags'])) {
+                        $flg = intval($action['Flags']);
+                    } elseif (\is_array($action['Flags'])) {
                         $flg = \array_reduce(
                             $action['Flags'],
                             static fn(int $carry, mixed $flag): int => !\is_string($flag)
@@ -1508,8 +1510,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
                                     },
                             0,
                         );
-                    } elseif (\is_numeric($action['Flags'])) {
-                        $flg = intval($action['Flags']);
                     }
                     $opt['a'] .= ' /Flags ' . $flg;
                 }

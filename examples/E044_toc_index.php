@@ -123,6 +123,9 @@ foreach ($sections as $index => $section) {
         color: 'black',
     );
 
+    // The heading font must be the current one: the text is measured and encoded
+    // with it, so selecting a different font on the page would draw the wrong glyphs.
+    $bfont2 = $pdf->font->cloneFont($pdf->pon, $bfont2['idx'], null, $bfont2['size']);
     $pdf->page->addContent($bfont2['out'], $page['pid']);
     $pdf->page->addContent(
         $pdf->getTextCell(
@@ -139,6 +142,7 @@ foreach ($sections as $index => $section) {
         $page['pid'],
     );
 
+    $bfont3 = $pdf->font->cloneFont($pdf->pon, $bfont3['idx'], null, $bfont3['size']);
     $pdf->page->addContent($bfont3['out'], $page['pid']);
     $pdf->page->addContent(
         $pdf->getTextCell(
@@ -189,6 +193,7 @@ foreach ($sections as $index => $section) {
 $pageTOC = $pdf->addPage();
 $pdf->setBookmark(name: 'TOC', link: '', level: 0, page: -1, posx: 0, posy: 0, fstyle: 'B', color: 'black');
 
+$bfont2 = $pdf->font->cloneFont($pdf->pon, $bfont2['idx'], null, $bfont2['size']);
 $pdf->page->addContent($bfont2['out'], $pageTOC['pid']);
 $pdf->page->addContent(
     $pdf->getTextCell(
@@ -204,6 +209,7 @@ $pdf->page->addContent(
     ),
     $pageTOC['pid'],
 );
+$bfont1 = $pdf->font->cloneFont($pdf->pon, $bfont1['idx'], null, $bfont1['size']);
 $pdf->page->addContent($bfont1['out'], $pageTOC['pid']);
 
 $pdf->setDefaultCellMargin(top: 0, right: 0, bottom: 0, left: 0);

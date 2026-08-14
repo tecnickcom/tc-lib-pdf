@@ -142,6 +142,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Random\RandomException
      */

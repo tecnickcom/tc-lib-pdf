@@ -2700,7 +2700,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
         $width = $width > 0 ? $width : 0;
         $curfont = $this->font->getCurrentFont();
-        /** @var array{ascent: float, height: float, spacing: float, stretching: float, ut: float} $curfont */
+        /**
+         * @var array{
+         *     ascent: float,
+         *     height: float,
+         *     outraw: string,
+         *     spacing: float,
+         *     stretching: float,
+         *     ut: float,
+         * } $curfont
+         */
         $this->bbox[] = [
             'x' => $posx,
             'y' => $posy - $this->toUnit($curfont['ascent']),
@@ -2720,6 +2729,15 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $out = $this->getOutTextStateOperatorTz($out, $curfont['stretching']);
         $out = $this->getOutTextStateOperatorTL($out, $this->toPoints($leading));
         $out = $this->getOutTextStateOperatorTs($out, $this->toPoints($rise));
+        // A GID encoded font carries its own glyph indices as character codes, so the
+        // text object must select the font the string was encoded with: a font selected
+        // earlier on the page would resolve those codes to the wrong glyphs.
+        // The codes of any other font are independent of it, so the font selection is
+        // left to the page, as before.
+        if ($this->font->isCurrentGidEncoded()) {
+            $out = $curfont['outraw'] . ' ' . $out;
+        }
+
         $out = $this->getOutTextObject($out);
 
         $bbox = $this->getLastBBox();
@@ -2882,11 +2900,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             return $txt;
         }
 
-        $unistr = \implode('', $this->uniconv->ordArrToChrArr($ordarr));
-        $txt = $this->uniconv->toUTF16BE($unistr);
-        $txt = $this->encrypt->escapeString($txt);
-
         if ($pwidth <= 0) {
+            $txt = $this->encrypt->escapeString($this->getOutCompositeStr($ordarr));
             $totWidth = $dim['totwidth'];
             $this->bbox[$bboxid]['w'] = $this->toUnit($totWidth);
             return $this->getOutTextShowing($txt, 'Tj');
@@ -2908,9 +2923,53 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // render time, so divide by the stretching ratio to fill exactly to $pwidth.
         $spacewidth = (($pwidth - $totWidth + $totSpaceWidth) / $spaces) / $stretching;
         $spacewidth = (-1000 * $spacewidth) / $fontsize;
-        $txt = \str_replace(\chr(0) . \chr(32), \sprintf(') %F (', $spacewidth), $txt);
+
+        // Each space is dropped and replaced by the equivalent TJ adjustment. The split
+        // is done on the codepoints: searching the encoded string for the character code
+        // of the space would also match the halves of two adjacent codes.
+        $chunks = [];
+        $chunk = [];
+        foreach ($ordarr as $ord) {
+            if ($ord === 32) {
+                $chunks[] = $chunk;
+                $chunk = [];
+                continue;
+            }
+
+            $chunk[] = $ord;
+        }
+
+        $chunks[] = $chunk;
+
+        $parts = [];
+        foreach ($chunks as $chunk) {
+            $parts[] = $this->encrypt->escapeString($this->getOutCompositeStr($chunk));
+        }
+
+        $txt = \implode(\sprintf(') %F (', $spacewidth), $parts);
 
         return $this->getOutTextShowing($txt, 'TJ');
+    }
+
+    /**
+     * Returns the character codes of the given codepoints for the current composite font.
+     *
+     * The codes are the glyph indices of the font (CID == GID) when it is GID encoded,
+     * and the UTF-16BE representation of the codepoints otherwise, as expected by the
+     * predefined CMap of a CID-0 font.
+     *
+     * @param array<int, int> $ordarr Array of UTF-8 codepoints (integer values).
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getOutCompositeStr(array $ordarr): string
+    {
+        if ($this->font->isCurrentGidEncoded()) {
+            return $this->font->ordArrToGidStr($ordarr);
+        }
+
+        return $this->uniconv->toUTF16BE(\implode('', $this->uniconv->ordArrToChrArr($ordarr)));
     }
 
     /**

@@ -13973,7 +13973,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             if (!$inFirstRow && !($elm['opening'] ?? false) && $val === 'colgroup' && $colgroupactive) {
-                if (!$colgrouphascols && $colgroupspan > 0) {
+                if (!$colgrouphascols) {
                     if ($colgroupwidth > 0.0) {
                         $percol = $colgroupwidth / $colgroupspan;
                         for ($i = 0; $i < $colgroupspan; ++$i) {
@@ -14008,7 +14008,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     : 1;
                 $colspan = \max(1, \min($colspan, $cols - $hintcol));
                 $colw = $this->getHTMLElementExplicitWidth($elm, $availableWidth);
-                if ($colw > 0.0 && $colspan > 0) {
+                if ($colw > 0.0) {
                     $percol = $colw / $colspan;
                     for ($i = 0; $i < $colspan; ++$i) {
                         $idx = $hintcol + $i;
@@ -14293,8 +14293,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $graphBorderStyles = $this->normalizeHTMLGraphStyleMap($styles);
         $decor = $this->graph->getStartTransform();
-        if (isset($graphBorderStyles['all']) && $graphBorderStyles['all'] !== []) {
-            $graphStyleAll = $graphBorderStyles['all'];
+        $graphStyleAll = $graphBorderStyles['all'] ?? [];
+        if ($graphStyleAll !== []) {
             $decor .= $this->getHTMLStrokeAlphaCmd($graphStyleAll);
             $decor .= $this->graph->getBasicRect($cellx, $rowtop, $cellw, $cellh, 's', $graphStyleAll);
         } else {
@@ -14785,8 +14785,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
-                    $hasExplicitBreakBefore =
-                        isset($elm['attribute']['pagebreak']) && $elm['attribute']['pagebreak'] !== '';
+                    $hasExplicitBreakBefore = ($elm['attribute']['pagebreak'] ?? '') !== '';
                     if ($this->applyHTMLNamedPageSemantics($hrc, $elm, $hasExplicitBreakBefore, $tpx, $tpy)) {
                         if ($hrc['blockbuf'] !== []) {
                             $flush = $this->flushOpenBlockBuffers($hrc, $tpy);
@@ -14954,18 +14953,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         }
                     }
 
-                    if (
-                        isset($elm['attribute']['id'])
-                        && $elm['attribute']['id'] !== ''
-                        && \is_string($elm['attribute']['id'])
-                    ) {
-                        $name = \trim($elm['attribute']['id']);
+                    $idAttr = $elm['attribute']['id'] ?? '';
+                    if (\is_string($idAttr) && $idAttr !== '') {
+                        $name = \trim($idAttr);
                         if ($name !== '') {
                             $this->setNamedDestination($name, -1, $tpx, $tpy);
                         }
                     }
 
-                    if (isset($elm['attribute']['nobr']) && $elm['attribute']['nobr'] === 'true') {
+                    if (($elm['attribute']['nobr'] ?? '') === 'true') {
                         if ($nobrstack !== []) {
                             $elm['attribute']['nobr'] = '';
                         } elseif (!$elm['self']) {
@@ -14984,6 +14980,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     // Pre-compute per-column widths and spacing for table tags
                     // and store them directly on the DOM node for parseHTMLTagOPENtable.
                     if ($elm['value'] === 'table' || $elm['value'] === 'tablehead') {
+                        $widthAttr = $elm['attribute']['width'] ?? '';
+                        $cellspacingAttr = $elm['attribute']['cellspacing'] ?? '';
+                        $cellpaddingAttr = $elm['attribute']['cellpadding'] ?? '';
                         $tableCols = \max(1, (int) $elm['cols']);
                         $tableWidth = $tpw > 0 ? $tpw : $hrc['cellctx']['maxwidth'];
                         // Constrain $tableWidth to the table's own CSS width so that percentage-based
@@ -14992,12 +14991,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $rawTblWidth = '';
                         if (isset($elm['style']['width']) && $elm['style']['width'] !== '') {
                             $rawTblWidth = \trim($elm['style']['width']);
-                        } elseif (
-                            isset($elm['attribute']['width'])
-                            && $elm['attribute']['width'] !== ''
-                            && \is_string($elm['attribute']['width'])
-                        ) {
-                            $rawTblWidth = \trim($elm['attribute']['width']);
+                        } elseif (\is_string($widthAttr) && $widthAttr !== '') {
+                            $rawTblWidth = \trim($widthAttr);
                         }
                         if ($rawTblWidth !== '') {
                             $pctM = [];
@@ -15011,41 +15006,25 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                             }
                         }
 
-                        if (
-                            isset($elm['attribute']['cellspacing'])
-                            && $elm['attribute']['cellspacing'] !== ''
-                            && \is_numeric($elm['attribute']['cellspacing'])
-                        ) {
-                            $elm['pendingcellspacingh'] = $this->toUnit($this->getUnitValuePoints(
-                                $elm['attribute']['cellspacing'],
-                            ));
+                        if ($cellspacingAttr !== '' && \is_numeric($cellspacingAttr)) {
+                            $elm['pendingcellspacingh'] = $this->toUnit($this->getUnitValuePoints($cellspacingAttr));
                         } elseif (isset($elm['border-spacing']) && $elm['border-spacing'] !== []) {
                             $elm['pendingcellspacingh'] = $elm['border-spacing']['H'];
                         } else {
                             $elm['pendingcellspacingh'] = 0.0;
                         }
 
-                        if (
-                            isset($elm['attribute']['cellspacing'])
-                            && $elm['attribute']['cellspacing'] !== ''
-                            && \is_numeric($elm['attribute']['cellspacing'])
-                        ) {
-                            $elm['pendingcellspacingv'] = $this->toUnit($this->getUnitValuePoints(
-                                $elm['attribute']['cellspacing'],
-                            ));
+                        if ($cellspacingAttr !== '' && \is_numeric($cellspacingAttr)) {
+                            $elm['pendingcellspacingv'] = $this->toUnit($this->getUnitValuePoints($cellspacingAttr));
                         } elseif (isset($elm['border-spacing']) && $elm['border-spacing'] !== []) {
                             $elm['pendingcellspacingv'] = $elm['border-spacing']['V'];
                         } else {
                             $elm['pendingcellspacingv'] = 0.0;
                         }
 
-                        $elm['pendingcellpadding'] =
-                            isset($elm['attribute']['cellpadding'])
-                            && \is_numeric($elm['attribute']['cellpadding'])
-                            && $elm['attribute']['cellpadding'] > 0
-                                ? $this->toUnit($this->getUnitValuePoints($elm['attribute']['cellpadding']))
-                                : 0.0;
-                        $elm['cols'] = $elm['cols'];
+                        $elm['pendingcellpadding'] = \is_numeric($cellpaddingAttr) && (float) $cellpaddingAttr > 0
+                            ? $this->toUnit($this->getUnitValuePoints($cellpaddingAttr))
+                            : 0.0;
                         $effectiveCellSpacing = $this->getHTMLTableCellSpacingH($elm);
                         $availableForCols = \max(0.0, $tableWidth - ($effectiveCellSpacing * \max(0, $tableCols + 1)));
 
@@ -15972,7 +15951,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     && $hasInlineDecoration
                     && ($hasOwnBg || $hasOwnPadding || $hasOwnBorder)
                 ) {
-                    if (isset($parentElm['bgcolor'])) {
+                    if (\is_string($parentElm['bgcolor'])) {
                         $decorBgcolor = $parentElm['bgcolor'];
                     }
                     if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
@@ -15993,7 +15972,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 // keep parseHTMLText decoration only for inline inline-block containers.
                 $isInlineSpanParent = $parentElm['value'] !== '' && $parentElm['value'] === 'span';
                 if ($isInlineBlockParent && $hasInlineDecoration && $isInlineSpanParent) {
-                    if (isset($parentElm['bgcolor'])) {
+                    if (\is_string($parentElm['bgcolor'])) {
                         $decorBgcolor = $parentElm['bgcolor'];
                     }
                     if (isset($parentElm['padding']) && $parentElm['padding'] !== []) {
@@ -19093,7 +19072,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $cols = \max(1, (int) $elm['cols']);
         $elm['cols'] = $cols;
-        $colwidth = $cols > 0 ? $width / $cols : $width;
 
         // Consume pre-computed column widths and spacing stored on the DOM node.
         $colwidths = isset($elm['pendingcolwidths']) ? $elm['pendingcolwidths'] : [];
@@ -19101,7 +19079,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $cellspacingv = $this->getHTMLTableCellSpacingV($elm);
         $cellpadding = isset($elm['pendingcellpadding']) ? $elm['pendingcellpadding'] : 0.0;
         $availableWidth = \max(0.0, $width - ($cellspacingh * \max(0, $cols + 1)));
-        $colwidth = $cols > 0 ? $availableWidth / $cols : $availableWidth;
+        $colwidth = $availableWidth / $cols;
 
         if ($colwidths === []) {
             $colwidths = \array_fill(0, $cols, $colwidth);

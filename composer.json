@@ -38,7 +38,7 @@
         "tecnickcom/tc-lib-barcode": "^2.13",
         "tecnickcom/tc-lib-color": "^2.13",
         "tecnickcom/tc-lib-pdf-image": "^3.12",
-        "tecnickcom/tc-lib-pdf-font": "^3.13",
+        "tecnickcom/tc-lib-pdf-font": "^4.0",
         "tecnickcom/tc-lib-file": "^3.7",
         "tecnickcom/tc-lib-pdf-encrypt": "^2.9",
         "tecnickcom/tc-lib-pdf-sign": "^1.1",
@@ -56,7 +56,7 @@
     "prefer-stable": true,
     "require-dev": {
         "pdepend/pdepend": "^2.16",
-        "phpunit/phpunit": "^11.5 || ^12.5 || ^13.2"
+        "phpunit/phpunit": "^11.5 || ^12.5 || ^13.3"
     },
     "autoload": {
         "psr-4": {
@@ -80,12 +80,14 @@
     "scripts": {
         "test": "@php -d xdebug.mode=coverage vendor/bin/phpunit --stderr test",
         "analyse": ["@analyse:src", "@analyse:test"],
-        "analyse:src": "mago --config mago.src.toml analyze src",
-        "analyse:test": "mago --config mago.test.toml analyze test",
+        "analyse:src": "vendor/bin/mago --config mago.src.toml analyze src",
+        "analyse:test": "vendor/bin/mago --config mago.test.toml analyze test",
         "cs-check": ["@cs-check:src", "@cs-check:test"],
-        "cs-check:src": "mago --config mago.src.toml lint src",
-        "cs-check:test": "mago --config mago.test.toml lint test",
-        "cs-fix": "mago fmt src test",
+        "cs-check:src": "vendor/bin/mago --config mago.src.toml lint src",
+        "cs-check:test": "vendor/bin/mago --config mago.test.toml lint test",
+        "cs-fix": ["@cs-fix:src", "@cs-fix:test"],
+        "cs-fix:src": "vendor/bin/mago --config mago.src.toml fmt src",
+        "cs-fix:test": "vendor/bin/mago --config mago.test.toml fmt test",
         "qa": ["@cs-check", "@analyse", "@test"],
         "post-install-cmd": [
             "make fonts"

@@ -691,7 +691,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.68.5';
+    protected string $version = '8.69.0';
 
     /**
      * Encrypt object.
@@ -1824,6 +1824,7 @@ abstract class Base
      *                            disables external caching.
      *
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      */
