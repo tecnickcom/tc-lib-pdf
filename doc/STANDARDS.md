@@ -27,6 +27,14 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfa3u');  // PDF/A-3u
 | `b` | Level B | required | not required |
 | `u` | Level U (parts 2/3 only) | required | not required |
 
+Every PDF/A mode applies the restrictions of ISO 19005:
+
+- Encryption is not permitted: an encryption object passed to the constructor is ignored, and no `/Encrypt` entry is written.
+- JavaScript is not permitted and is omitted from the output.
+- PDF/A-1 does not allow live transparency, so soft masks, blend modes and transparency groups are suppressed. PDF/A-2 and PDF/A-3 allow them.
+- Embedded files are only allowed in PDF/A-3.
+- Imported streams that use the `LZWDecode` filter are re-encoded with `FlateDecode` (see [PDF_IMPORT.md](PDF_IMPORT.md)).
+
 PDF/A-3 supports embedding arbitrary file attachments (for example XML invoice payloads). This is the basis for **Factur-X / ZUGFeRD** workflows - embed the structured XML in a PDF/A-3 document and register the relationship via XMP metadata:
 
 ```php
@@ -118,3 +126,23 @@ In PDF/UA mode, the built-in `defaultPageContent()` page-number footer is emitte
 `/Type /Pagination /Subtype /Footer`.
 
 Runnable examples: [examples/E015_pdfua.php](../examples/E015_pdfua.php) through [examples/E017_pdfua2.php](../examples/E017_pdfua2.php).
+
+## Stream Compression
+
+Compressed streams always use the `FlateDecode` filter, which is permitted by ISO 19005, ISO 15930 and ISO 14289. The library never emits `LZWDecode`, the only general-purpose filter that ISO 19005 forbids.
+
+Compression is controlled by the `compress` argument of the `Tcpdf` constructor and is independent of the conformance mode:
+
+```php
+// compressed output (default), in any mode
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(compress: true, mode: 'pdfa3b');
+
+// uncompressed output, useful to inspect the generated objects
+$pdf = new \Com\Tecnick\Pdf\Tcpdf(compress: false, mode: 'pdfa3b');
+```
+
+The argument applies to page content streams, appearance and form XObjects, patterns, shaders, imported objects, image ICC profiles and palettes. Some streams do not depend on it:
+
+- Embedded font programs and the sRGB output-intent ICC profile are always `FlateDecode` encoded.
+- XMP metadata is always stored uncompressed.
+- PDF/A-3 file attachments are always stored uncompressed and carry the `/Subtype` MIME entry required by ISO 19005-3.

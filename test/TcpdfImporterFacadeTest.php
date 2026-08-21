@@ -112,6 +112,149 @@ class TcpdfImporterFacadeTest extends TestCase
     }
 
     /**
+     * Build a minimal one-page PDF whose /Contents is a single LZW stream.
+     */
+    private function buildLzwContentPdf(): string
+    {
+        $stream = $this->lzwEncode("BT /F1 12 Tf 20 160 Td (LZW) Tj ET\n");
+
+        $objects = [];
+        $objects[] = '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj' . "\n";
+        $objects[] = '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj' . "\n";
+        $objects[] =
+            '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] '
+            . '/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj'
+            . "\n";
+        $objects[] =
+            '4 0 obj << /Length '
+            . \strlen($stream)
+            . ' /Filter /LZWDecode >> stream'
+            . "\n"
+            . $stream
+            . "\n"
+            . 'endstream endobj'
+            . "\n";
+        $objects[] = '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj' . "\n";
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0 => 0];
+
+        foreach ($objects as $idx => $obj) {
+            $offsets[$idx + 1] = \strlen($pdf);
+            $pdf .= $obj;
+        }
+
+        $xrefOffset = \strlen($pdf);
+        $pdf .= 'xref' . "\n";
+        $pdf .= '0 6' . "\n";
+        $pdf .= '0000000000 65535 f ' . "\n";
+        for ($objNum = 1; $objNum <= 5; ++$objNum) {
+            $pdf .= \sprintf('%010d 00000 n ' . "\n", $offsets[$objNum] ?? 0);
+        }
+
+        $pdf .= 'trailer << /Size 6 /Root 1 0 R >>' . "\n";
+        $pdf .= 'startxref' . "\n";
+        $pdf .= $xrefOffset . "\n";
+        return $pdf . ('%%EOF' . "\n");
+    }
+
+    /**
+     * Encode data with the PDF variant of LZW (9 to 12 bit codes, early change).
+     */
+    private function lzwEncode(string $data): string
+    {
+        $dict = [];
+        for ($idx = 0; $idx < 256; ++$idx) {
+            $dict[\chr($idx)] = $idx;
+        }
+
+        $next = 258;
+        $width = 9;
+        $out = '';
+        $buffer = 0;
+        $bits = 0;
+        $emit = static function (int $code) use (&$out, &$buffer, &$bits, &$width): void {
+            $buffer = ($buffer << $width) | $code;
+            $bits += $width;
+            while ($bits >= 8) {
+                $bits -= 8;
+                $out .= \chr(($buffer >> $bits) & 0xFF);
+            }
+        };
+
+        $emit(256);
+        $word = '';
+        for ($idx = 0, $len = \strlen($data); $idx < $len; ++$idx) {
+            $char = $data[$idx];
+            if (isset($dict[$word . $char])) {
+                $word .= $char;
+                continue;
+            }
+
+            $emit((int) ($dict[$word] ?? 0));
+            $dict[$word . $char] = $next;
+            ++$next;
+            $width = $this->lzwCodeWidth($next);
+            $word = $char;
+        }
+
+        if ($word !== '') {
+            $emit((int) ($dict[$word] ?? 0));
+        }
+
+        $emit(257);
+        if ($bits > 0) {
+            $out .= \chr(($buffer << (8 - $bits)) & 0xFF);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Code width in bits for the next LZW code, with the PDF early change.
+     */
+    private function lzwCodeWidth(int $next): int
+    {
+        return match (true) {
+            ($next + 1) > 2048 => 12,
+            ($next + 1) > 1024 => 11,
+            ($next + 1) > 512 => 10,
+            default => 9,
+        };
+    }
+
+    /**
+     * Concatenate every Flate stream of a document after inflating it.
+     */
+    private function inflateStreams(string $raw): string
+    {
+        $out = '';
+        $offset = 0;
+        while (($start = \strpos($raw, "stream\n", $offset)) !== false) {
+            $end = \strpos($raw, "\nendstream", $start);
+            if ($end === false) {
+                break;
+            }
+
+            $data = \substr($raw, $start + 7, $end - $start - 7);
+            $offset = $end + 10;
+
+            \set_error_handler(static fn(): bool => true);
+            try {
+                $inflated = \gzuncompress($data);
+            } finally {
+                \restore_error_handler();
+            }
+
+            if (\is_string($inflated)) {
+                $out .= $inflated;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Build a minimal one-page PDF whose /Contents is an array of two Flate streams.
      */
     private function buildMultiContentFlatePdf(): string
@@ -555,6 +698,38 @@ class TcpdfImporterFacadeTest extends TestCase
         $raw = $pdf->getOutPDFString();
         $this->assertStringContainsString('(A) Tj ET', $raw);
         $this->assertStringContainsString('(B) Tj ET', $raw);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAppendDocumentRewritesLzwContentAsFlate(): void
+    {
+        foreach (['', 'pdfa1b', 'pdfa3b'] as $mode) {
+            $pdf = $mode === '' ? $this->makePdf() : $this->makePdfWithMode($mode);
+            $srcId = $pdf->setImportSourceData($this->buildLzwContentPdf());
+
+            $tpls = $pdf->appendDocument($srcId);
+            $this->assertCount(1, $tpls);
+
+            $raw = $pdf->getOutPDFString();
+            $this->assertStringNotContainsString('/LZWDecode', $raw);
+            $this->assertStringContainsString('(LZW) Tj ET', $this->inflateStreams($raw));
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAppendDocumentDoesNotAddTransparencyGroupInPdfa1(): void
+    {
+        $pdfa1 = $this->makePdfWithMode('pdfa1b');
+        $pdfa1->appendDocument($pdfa1->setImportSourceData($this->buildMultiContentFlatePdf()));
+        $this->assertStringNotContainsString('/S /Transparency', $pdfa1->getOutPDFString());
+
+        $pdfa3 = $this->makePdfWithMode('pdfa3b');
+        $pdfa3->appendDocument($pdfa3->setImportSourceData($this->buildMultiContentFlatePdf()));
+        $this->assertStringContainsString('/S /Transparency', $pdfa3->getOutPDFString());
     }
 
     /**

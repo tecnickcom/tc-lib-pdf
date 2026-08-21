@@ -121,18 +121,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected OutFont $outfont;
 
     /**
-     * Output-local transparency gate used by import and document assembly code.
-     */
-    protected function isTransparencyAllowed(): bool
-    {
-        if (!$this->pdfx) {
-            return true;
-        }
-
-        return \in_array($this->pdfxMode, ['pdfx4', 'pdfx5'], true);
-    }
-
-    /**
      * Record, for each page, whether it actually uses transparency, so the page
      * layer can decide whether to emit the per-page transparency /Group.
      *
@@ -390,8 +378,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $out .= $this->getOutBookmarks();
         $enc = $this->encrypt->getEncryptionData();
         $isEncrypted = $enc['encrypted'];
-        // PDF/X prohibits encryption (ISO 15930); skip the encryption object when PDF/X mode is active.
-        if ($isEncrypted && !$this->pdfx) {
+        // PDF/A (ISO 19005) and PDF/X (ISO 15930) prohibit encryption: skip the encryption object.
+        if ($isEncrypted && !$this->pdfx && $this->pdfa === 0) {
             $out .= $this->encrypt->getPdfEncryptionObj($this->pon);
         }
 
@@ -471,8 +459,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . ' 0 R';
         $encData = $this->encrypt->getEncryptionData();
         $enc = $encData;
-        // PDF/X prohibits encryption; omit the /Encrypt trailer entry when PDF/X mode is active.
-        if ((int) $enc['objid'] !== 0 && !$this->pdfx) {
+        // PDF/A and PDF/X prohibit encryption: omit the /Encrypt trailer entry in those modes.
+        if ((int) $enc['objid'] !== 0 && !$this->pdfx && $this->pdfa === 0) {
             $out .= ' /Encrypt ' . (int) $enc['objid'] . ' 0 R';
         }
 
@@ -591,7 +579,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             . $prevStartxref;
 
         $enc = $this->encrypt->getEncryptionData();
-        if ((int) $enc['objid'] !== 0 && !$this->pdfx) {
+        if ((int) $enc['objid'] !== 0 && !$this->pdfx && $this->pdfa === 0) {
             $out .= ' /Encrypt ' . (int) $enc['objid'] . ' 0 R';
         }
 

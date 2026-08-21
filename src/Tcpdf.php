@@ -107,7 +107,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param bool        $compress    Set to false to disable stream compression.
      * @param string|PdfConformance $mode PDF mode: "pdfa1", "pdfa2", "pdfa3", "pdfx", "pdfx1a", "pdfx3",
      *                                 "pdfx4", "pdfx5", "pdfua", "pdfua1", "pdfua2", empty, or a PdfConformance case.
-     * @param ?ObjEncrypt $objEncrypt  Encryption object.
+     * @param ?ObjEncrypt $objEncrypt  Encryption object. Ignored in PDF/A mode, which forbids encryption.
      * @param TFileOptions|null $fileOptions Optional configuration for the shared file helper used
      *                                       to load external resources (images, fonts, SVG, etc.).
      *                                       Supported keys:
@@ -241,11 +241,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     /**
      * Set the compression mode.
      *
+     * Compressed streams use the FlateDecode filter, which is permitted in every
+     * conformance mode.
+     *
      * @param bool $compress Set to false to disable stream compression.
      */
     protected function setCompressMode(bool $compress): void
     {
-        $this->compress = $compress && $this->pdfa !== 3;
+        $this->compress = $compress;
     }
 
     /**
@@ -1396,7 +1399,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             $xobjects = &$this->xobjects;
             $importFile = clone $this->file;
             $importFile->setAllowedPaths(['*']);
-            $this->importer = new ObjImporter($xobjects, $this->pon, $importFile);
+            $this->importer = new ObjImporter($xobjects, $this->pon, $importFile, $this->pdfa);
         }
 
         return $this->importer;

@@ -138,7 +138,7 @@ The fastest way to evaluate the library is to follow the installation and quick-
 - XObject templates and layers with object visibility controls
 - Multiple output targets: inline display, forced download, file save, and MIME attachment
 - Factur-X / ZUGFeRD workflows via embedded XML in PDF/A-3 documents
-- Page compression via the `zlib` PHP extension
+- Stream compression via the `zlib` PHP extension, available in every conformance mode
 
 ---
 

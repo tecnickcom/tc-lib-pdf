@@ -106,19 +106,28 @@ class Importer implements ImporterInterface
     private ObjFile $file;
 
     /**
+     * PDF/A part of the destination document (0 when PDF/A is not active).
+     *
+     * @var int
+     */
+    private int $pdfa;
+
+    /**
      * Constructor.
      *
      * @param array<string, mixed> $xobjects Reference to the destination document's xobjects array.
      * @param int                  $pon      Reference to the PDF object number counter.
      * @param ObjFile              $file     Shared file helper instance.
+     * @param int                  $pdfa     PDF/A part of the destination document (0 when not active).
      */
-    public function __construct(array &$xobjects, int &$pon, ObjFile $file)
+    public function __construct(array &$xobjects, int &$pon, ObjFile $file, int $pdfa = 0)
     {
         // Bind by reference so importPage() writes directly into $pdf->xobjects.
 
         $this->xobjects = &$xobjects;
         $this->pon = &$pon;
         $this->file = $file;
+        $this->pdfa = $pdfa;
     }
 
     /**
@@ -251,7 +260,7 @@ class Importer implements ImporterInterface
         $tid = 'IMP' . $xobjNum;
 
         // Clone resources.
-        $cloner = new ResourceCloner($this->pon);
+        $cloner = new ResourceCloner($this->pon, $this->pdfa);
         $resDict = $cloner->cloneResources($resolved['resources'], $src, $map);
         $this->pon = $cloner->getPon();
 

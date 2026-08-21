@@ -271,6 +271,60 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testConstructorIgnoresInjectedEncryptionInPdfaMode(): void
+    {
+        $fileid = \md5('tcpdf-pdfa-encryption');
+        $enc = new \Com\Tecnick\Pdf\Encrypt\Encrypt(true, $fileid, 2, ['print'], 'demo-user', 'demo-owner');
+
+        $pdfa = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfa3b', $enc);
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $pdfaEncrypt */
+        $pdfaEncrypt = $this->getObjectProperty($pdfa, 'encrypt');
+        $this->assertFalse($pdfaEncrypt->getEncryptionData()['encrypted']);
+
+        $this->initFontAndAddRawPage($pdfa);
+        $this->assertStringNotContainsString(' /Encrypt ', $pdfa->getOutPDFString());
+
+        $plain = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, '', $enc);
+        /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $plainEncrypt */
+        $plainEncrypt = $this->getObjectProperty($plain, 'encrypt');
+        $this->assertTrue($plainEncrypt->getEncryptionData()['encrypted']);
+    }
+
+    /** @throws \Throwable */
+    #[DataProvider('conformanceModeFixtureProvider')]
+    public function testConstructorKeepsCompressionEnabledInEveryConformanceMode(string $mode): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, $mode);
+
+        $this->assertTrue($this->getObjectProperty($obj, 'compress'));
+    }
+
+    /** @throws \Throwable */
+    #[DataProvider('conformanceModeFixtureProvider')]
+    public function testConstructorDisablesCompressionOnRequestInEveryConformanceMode(string $mode): void
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, false, $mode);
+
+        $this->assertFalse($this->getObjectProperty($obj, 'compress'));
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function conformanceModeFixtureProvider(): array
+    {
+        return [
+            'none' => [''],
+            'pdfa1b' => ['pdfa1b'],
+            'pdfa2b' => ['pdfa2b'],
+            'pdfa2u' => ['pdfa2u'],
+            'pdfa3a' => ['pdfa3a'],
+            'pdfa3b' => ['pdfa3b'],
+            'pdfa3u' => ['pdfa3u'],
+            'pdfx4' => ['pdfx4'],
+            'pdfua1' => ['pdfua1'],
+        ];
+    }
+
+    /** @throws \Throwable */
     #[DataProvider('displayModeFixtureProvider')]
     public function testSetDisplayModeStoresExpectedZoom(string|int $inputZoom, string|int $expectedZoom): void
     {

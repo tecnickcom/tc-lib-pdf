@@ -691,7 +691,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.69.2';
+    protected string $version = '8.69.3';
 
     /**
      * Encrypt object.
@@ -1690,11 +1690,16 @@ abstract class Base
     /**
      * Return true when transparency features are allowed for the active conformance mode.
      *
+     * PDF/A-1 (ISO 19005-1) disallows live transparency, while PDF/A-2 and PDF/A-3 allow it.
      * PDF/X-1a and PDF/X-3 (including generic PDF/X alias handling) disallow live transparency,
      * while PDF/X-4 and PDF/X-5 allow it.
      */
     protected function isTransparencyAllowed(): bool
     {
+        if ($this->pdfa === 1) {
+            return false;
+        }
+
         if (!$this->pdfx) {
             return true;
         }
@@ -1834,7 +1839,8 @@ abstract class Base
         ?ObjExtCache $cache = null,
     ): void {
         $this->extCache = $cache;
-        if ($objEncrypt instanceof ObjEncrypt) {
+        // ISO 19005 forbids encryption: a PDF/A document ignores the injected encryption object.
+        if ($objEncrypt instanceof ObjEncrypt && $this->pdfa === 0) {
             $this->encrypt = $objEncrypt;
             // Enforce minimum PDF version required by the encryption algorithm.
             // AES-128 (V=4) requires PDF 1.6 (Acrobat 7.0+).

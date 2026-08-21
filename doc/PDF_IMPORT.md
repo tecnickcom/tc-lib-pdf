@@ -60,5 +60,6 @@ $tpl = $pdf->addPageFromImport($sourceId, 2);
 - Digital signatures in source files are not preserved as valid signatures in the destination output.
 - Encrypted source PDFs are currently not importable with the bundled parser backend. Password-like options are accepted by the import API, but encrypted inputs fail with an explicit actionable exception.
 - For multi-stream page contents, import normalizes by decoding and concatenating stream bytes; this can change low-level byte representation while preserving rendered appearance in typical cases.
-- Transparency-group behavior is conformance-aware: when transparency is disallowed by the active PDF mode (for example PDF/X-1a or PDF/X-3), import suppresses transparency groups to remain compliant.
+- Transparency-group behavior is conformance-aware: when transparency is disallowed by the active PDF mode (PDF/A-1, PDF/X-1a or PDF/X-3), import suppresses transparency groups to remain compliant.
+- Stream filters are conformance-aware: a source stream compressed with `LZWDecode`, which ISO 19005 forbids, is decoded and re-encoded with `FlateDecode`. When the stream cannot be re-encoded (an undecodable filter chain), a PDF/A destination raises `ImportUnsupportedFeatureException` and any other mode keeps the source stream unchanged. Importing a `JPXDecode` stream into a PDF/A-1 document raises the same exception, since ISO 19005-1 does not allow that filter.
 - Setting `groupXObject` to `false` can reduce output size, but may change compositing on source pages that rely on transparency blending.

@@ -246,6 +246,118 @@ class OutputTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testPdfaDocumentCompressesPageContentWithFlate(): void
+    {
+        $compressed = $this->buildConformanceDocument('pdfa3b', true);
+        $uncompressed = $this->buildConformanceDocument('pdfa3b', false);
+
+        $this->assertNotNull(
+            $this->findStreamContaining($compressed, 'BT /F1 ', true),
+            'Expected a Flate compressed page content stream.',
+        );
+        $this->assertNull(
+            $this->findStreamContaining($uncompressed, 'BT /F1 ', true),
+            'Expected no Flate compressed page content stream.',
+        );
+        $this->assertNotNull(
+            $this->findStreamContaining($uncompressed, 'BT /F1 ', false),
+            'Expected a plain page content stream.',
+        );
+        $this->assertLessThan(\strlen($uncompressed), \strlen($compressed));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testPdfa3EmbeddedFileIsStoredUncompressedWithMimeSubtype(): void
+    {
+        foreach ([true, false] as $compress) {
+            $raw = $this->buildConformanceDocument('pdfa3b', $compress);
+
+            $start = \strpos($raw, '/Type /EmbeddedFile');
+            $this->assertNotFalse($start);
+            $end = \strpos($raw, 'endobj', $start);
+            $this->assertNotFalse($end);
+            $object = \substr($raw, $start, $end - $start);
+
+            $this->assertStringContainsString('/Subtype /text#2Fxml', $object);
+            $this->assertStringNotContainsString('/Filter', $object);
+            $this->assertStringContainsString('<invoice/>', $object);
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    private function buildConformanceDocument(string $mode, bool $compress): string
+    {
+        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, $compress, $mode);
+        $obj->addContentAsEmbeddedFile(
+            'factur-x.xml',
+            '<?xml version="1.0"?><invoice/>',
+            'text/xml',
+            \Com\Tecnick\Pdf\AFRelationship::Alternative,
+        );
+        $font = $obj->font->insert($obj->pon, 'helvetica', '', 12);
+        $obj->addPage();
+        $obj->page->addContent($font['out']);
+        $obj->addTextCell(
+            txt: \str_repeat('conformance mode stream compression. ', 20),
+            posx: 15,
+            posy: 20,
+            width: 180,
+            height: 100,
+        );
+
+        return $obj->getOutPDFString();
+    }
+
+    /**
+     * Returns the first stream containing the given marker, or null when none matches.
+     *
+     * @throws \Throwable
+     */
+    private function findStreamContaining(string $raw, string $marker, bool $flate): ?string
+    {
+        $offset = 0;
+        while (($start = \strpos($raw, "stream\n", $offset)) !== false) {
+            $end = \strpos($raw, "\nendstream", $start);
+            if ($end === false) {
+                break;
+            }
+
+            $head = \substr($raw, \max(0, $start - 200), \min(200, $start));
+            $data = \substr($raw, $start + 7, $end - $start - 7);
+            $offset = $end + 10;
+
+            if (\str_contains($head, '/Filter /FlateDecode') !== $flate) {
+                continue;
+            }
+
+            if ($flate) {
+                \set_error_handler(static fn(): bool => true);
+                try {
+                    $data = \gzuncompress($data);
+                } finally {
+                    \restore_error_handler();
+                }
+
+                if ($data === false) {
+                    continue;
+                }
+            }
+
+            if (\str_contains($data, $marker)) {
+                return $data;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testRenderPDFInCliEchoesRawString(): void
     {
         $obj = $this->getTestObject();

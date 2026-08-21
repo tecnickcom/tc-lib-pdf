@@ -38,6 +38,31 @@ namespace Com\Tecnick\Pdf\Import;
 class ResourceCloner
 {
     /**
+     * Filter names that can be decoded to re-encode a source stream, mapped to their canonical name.
+     *
+     * @var array<string, string>
+     */
+    private const DECODABLE_FILTERS = [
+        'AHx' => 'ASCIIHexDecode',
+        'ASCIIHexDecode' => 'ASCIIHexDecode',
+        'A85' => 'ASCII85Decode',
+        'ASCII85Decode' => 'ASCII85Decode',
+        'LZW' => 'LZWDecode',
+        'LZWDecode' => 'LZWDecode',
+        'Fl' => 'FlateDecode',
+        'FlateDecode' => 'FlateDecode',
+        'RL' => 'RunLengthDecode',
+        'RunLengthDecode' => 'RunLengthDecode',
+    ];
+
+    /**
+     * Filter names that ISO 19005 forbids in every PDF/A part.
+     *
+     * @var array<int, string>
+     */
+    private const PDFA_FORBIDDEN_FILTERS = ['LZW', 'LZWDecode'];
+
+    /**
      * Object number counter reference (shared with the output document).
      *
      * @var int
@@ -45,13 +70,22 @@ class ResourceCloner
     private int $pon;
 
     /**
+     * PDF/A part of the destination document (0 when PDF/A is not active).
+     *
+     * @var int
+     */
+    private int $pdfa;
+
+    /**
      * Constructor.
      *
-     * @param int $pon Current PDF object number (passed by value; read the updated counter back via getPon()).
+     * @param int $pon  Current PDF object number (passed by value; read the updated counter back via getPon()).
+     * @param int $pdfa PDF/A part of the destination document (0 when PDF/A is not active).
      */
-    public function __construct(int $pon)
+    public function __construct(int $pon, int $pdfa = 0)
     {
         $this->pon = $pon;
+        $this->pdfa = $pdfa;
     }
 
     /**
@@ -329,11 +363,19 @@ class ResourceCloner
         $out = $destNum . ' 0 obj' . "\n";
 
         if ($streamBytes !== null) {
-            // Stream object: emit with original filter preserved.
-            $filterEntry = '';
-            if (isset($streamDict['Filter'])) {
-                $filterEntry = ' /Filter ' . $streamDict['Filter'];
-            }
+            // Stream object: the source filter is preserved unless the destination mode forbids it.
+            $parms = $streamDict['DecodeParms'] ?? $streamDict['DP'] ?? '';
+            $matches = [];
+            \preg_match('/\/EarlyChange\s+(\d+)/', $parms, $matches);
+            $earlyChange = isset($matches[1]) && \is_numeric($matches[1]) ? (int) $matches[1] : 1;
+            $normalized = $this->normalizeStreamFilter(
+                $streamBytes,
+                $streamDict['Filter'] ?? '',
+                $parms !== '',
+                $earlyChange,
+            );
+            $streamBytes = $normalized['bytes'];
+            $filterEntry = $normalized['filter'] === '' ? '' : ' /Filter ' . $normalized['filter'];
 
             $out .=
                 '<<'
@@ -540,12 +582,15 @@ class ResourceCloner
      * @return array{bytes: string, filter: string, length: int}
      *
      * @throws ImportCorruptedSourceException
+     * @throws ImportUnsupportedFeatureException If a filter forbidden by the destination mode survives.
      */
     private function extractSingleStream(string $objRef, SourceDocument $src): array
     {
         $objData = $src->getObject($objRef);
-        // First pass: find the filter from the stream dict.
+        // First pass: find the filter and the decode parameters from the stream dict.
         $filter = '';
+        $hasDecodeParms = false;
+        $earlyChange = 1;
         foreach ($objData as $element) {
             if ($element[0] !== '<<' || !\is_array($element[1])) {
                 continue;
@@ -571,7 +616,12 @@ class ResourceCloner
                 $key = \ltrim($keyEl[1], '/');
                 if ($key === 'Filter') {
                     $filter = $this->extractFilterToken($vArr);
-                    break 2;
+                    continue;
+                }
+
+                if ($key === 'DecodeParms' || $key === 'DP') {
+                    $hasDecodeParms = true;
+                    $earlyChange = $this->extractEarlyChange($vArr);
                 }
             }
         }
@@ -583,7 +633,13 @@ class ResourceCloner
 
             $rawVal = $element[1];
             $raw = \is_string($rawVal) ? $rawVal : '';
-            return ['bytes' => $raw, 'filter' => $filter, 'length' => \strlen($raw)];
+            $normalized = $this->normalizeStreamFilter($raw, $filter, $hasDecodeParms, $earlyChange);
+
+            return [
+                'bytes' => $normalized['bytes'],
+                'filter' => $normalized['filter'],
+                'length' => \strlen($normalized['bytes']),
+            ];
         }
 
         return ['bytes' => '', 'filter' => '', 'length' => 0];
@@ -651,6 +707,7 @@ class ResourceCloner
      * @return array{bytes: string, filter: string, length: int}
      *
      * @throws ImportCorruptedSourceException
+     * @throws ImportUnsupportedFeatureException If a filter forbidden by the destination mode survives.
      */
     private function concatenateStreams(array $refs, SourceDocument $src): array
     {
@@ -757,6 +814,143 @@ class ResourceCloner
     }
 
     /**
+     * Replace a source filter that the destination conformance mode does not accept.
+     *
+     * LZWDecode streams are decoded and re-encoded with FlateDecode. Any /DecodeParms
+     * entry stays valid because the predictor stage is filter independent, so a chain is
+     * only collapsed to a single FlateDecode when the stream carries no /DecodeParms.
+     *
+     * @param string $bytes           Raw stream bytes.
+     * @param string $filter          Serialized /Filter value.
+     * @param bool   $hasDecodeParms  True when the stream dictionary has a /DecodeParms entry.
+     * @param int    $earlyChange     LZWDecode /EarlyChange parameter.
+     *
+     * @return array{bytes: string, filter: string} Input values when no rewrite is needed or possible.
+     *
+     * @throws ImportUnsupportedFeatureException If a filter forbidden by the destination mode survives.
+     */
+    private function normalizeStreamFilter(
+        string $bytes,
+        string $filter,
+        bool $hasDecodeParms = false,
+        int $earlyChange = 1,
+    ): array {
+        $chain = $this->parseFilterChain($filter);
+        if ($chain === []) {
+            return ['bytes' => $bytes, 'filter' => $filter];
+        }
+
+        if ($this->pdfa === 1 && \in_array('JPXDecode', $chain, true)) {
+            throw new ImportUnsupportedFeatureException(
+                'The source stream uses the JPXDecode filter, which ISO 19005-1 does not allow.',
+            );
+        }
+
+        if (\array_intersect(self::PDFA_FORBIDDEN_FILTERS, $chain) === []) {
+            return ['bytes' => $bytes, 'filter' => $filter];
+        }
+
+        $decoded = \count($chain) === 1 || !$hasDecodeParms
+            ? $this->decodeFilterChain($bytes, $chain, $earlyChange)
+            : null;
+
+        if ($decoded !== null) {
+            $flate = \gzcompress($decoded);
+            if ($flate !== false) {
+                return ['bytes' => $flate, 'filter' => '/FlateDecode'];
+            }
+        }
+
+        if ($this->pdfa > 0) {
+            throw new ImportUnsupportedFeatureException(
+                'The source stream uses the LZWDecode filter, which ISO 19005 forbids,'
+                . ' and it cannot be re-encoded with FlateDecode.',
+            );
+        }
+
+        return ['bytes' => $bytes, 'filter' => $filter];
+    }
+
+    /**
+     * Decode a stream through an ordered filter chain.
+     *
+     * @param array<int, string> $chain       Ordered filter names.
+     * @param int                $earlyChange LZWDecode /EarlyChange parameter.
+     *
+     * @return string|null Decoded bytes, or null when a filter of the chain cannot be applied.
+     */
+    private function decodeFilterChain(string $bytes, array $chain, int $earlyChange): ?string
+    {
+        $filter = new \Com\Tecnick\Pdf\Filter\Filter();
+        $data = $bytes;
+        foreach ($chain as $name) {
+            $canonical = self::DECODABLE_FILTERS[$name] ?? '';
+            if ($canonical === '') {
+                return null;
+            }
+
+            if ($canonical === 'FlateDecode') {
+                $inflated = $this->tryDecodeZlib($data);
+                if (!\is_string($inflated)) {
+                    $inflated = $this->tryGzUncompress($data);
+                }
+
+                if (!\is_string($inflated)) {
+                    $inflated = $this->tryGzInflate($data);
+                }
+
+                if (!\is_string($inflated)) {
+                    return null;
+                }
+
+                $data = $inflated;
+                continue;
+            }
+
+            try {
+                $data = $filter->decode($canonical, $data, ['EarlyChange' => $earlyChange]);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Read the /EarlyChange value from a parsed /DecodeParms token.
+     *
+     * @param mixed $token Raw parser token.
+     *
+     * @return int The declared value, or 1 (the PDF default) when absent.
+     */
+    private function extractEarlyChange(#[\SensitiveParameter] mixed $token): int
+    {
+        if (!\is_array($token) || ($token[0] ?? '') !== '<<' || !\is_array($token[1] ?? null)) {
+            return 1;
+        }
+
+        $pairs = \array_values($token[1]);
+        $cnt = \count($pairs);
+        for ($idx = 0; $idx < ($cnt - 1); $idx += 2) {
+            $pair = \array_values(\array_slice($pairs, $idx, 2));
+            if (\count($pair) !== 2 || !\is_array($pair[0]) || !\is_array($pair[1])) {
+                continue;
+            }
+
+            if (($pair[0][0] ?? '') !== '/' || \ltrim((string) ($pair[0][1] ?? ''), '/') !== 'EarlyChange') {
+                continue;
+            }
+
+            if (\is_numeric($pair[1][1] ?? null)) {
+                return (int) $pair[1][1];
+            }
+        }
+
+        return 1;
+    }
+
+    /**
      * Parse a serialized /Filter token into an ordered list of filter names.
      *
      * @return array<int, string>
@@ -777,7 +971,8 @@ class ResourceCloner
         }
 
         $matches = [];
-        if (\preg_match_all('/\/([A-Za-z0-9]+)/', $trimmed, $matches) !== 1) {
+        $found = \preg_match_all('/\/([A-Za-z0-9]+)/', $trimmed, $matches);
+        if ($found === false || $found < 1) {
             return [];
         }
 

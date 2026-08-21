@@ -215,6 +215,21 @@ class BaseTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testIsTransparencyAllowedDependsOnPdfaPart(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->setObjectProperty($obj, 'pdfa', 1);
+        $this->assertFalse($this->invokeBaseMethod($obj, 'isTransparencyAllowed'));
+
+        $this->setObjectProperty($obj, 'pdfa', 2);
+        $this->assertTrue($this->invokeBaseMethod($obj, 'isTransparencyAllowed'));
+
+        $this->setObjectProperty($obj, 'pdfa', 3);
+        $this->assertTrue($this->invokeBaseMethod($obj, 'isTransparencyAllowed'));
+    }
+
+    /** @throws \Throwable */
     public function testRequiresPdfxDeviceCmykReturnsFalseWhenPdfxDisabled(): void
     {
         $obj = $this->getInternalTestObject();
