@@ -18,6 +18,7 @@ namespace Test;
 
 /**
  * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
+ * @phpstan-import-type TextLinePos from \Com\Tecnick\Pdf\Text
  */
 class TextTest extends TestUtil
 {
@@ -2703,6 +2704,318 @@ class TextTest extends TestUtil
         ];
 
         $this->assertIsArray($method->invoke($obj, $ordarr, $dim, 8.0, 0.0));
+    }
+
+    /**
+     * Dimensions of a single 3 character word without internal break points.
+     *
+     * @return TTextDims
+     */
+    private function getSingleWordDims(float $wordwidth): array
+    {
+        return [
+            'chars' => 3,
+            'spaces' => 0,
+            'words' => 1,
+            'totwidth' => $wordwidth,
+            'totspacewidth' => 0.0,
+            'split' => [
+                0 => [
+                    'pos' => 3,
+                    'ord' => 8203,
+                    'septype' => 'BN',
+                    'spaces' => 0,
+                    'totwidth' => $wordwidth,
+                    'totspacewidth' => 0.0,
+                    'wordwidth' => $wordwidth,
+                ],
+            ],
+        ];
+    }
+
+    /** @throws \Throwable */
+    public function testSplitLinesMovesLeadingWordTooWideForTheOffsetToTheNextLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'splitLines');
+        /** @var array<int, int> $ordarr */
+        $ordarr = [65, 66, 67];
+
+        // The word is wider than the 20 units left by the offset, but fits a full line.
+        /** @var array{0: TextLinePos, 1: TextLinePos} $lines */
+        $lines = $method->invoke($obj, $ordarr, $this->getSingleWordDims(30.0), 40.0, 20.0);
+
+        $this->assertCount(2, $lines);
+        $this->assertSame(0, $lines[0]['chars']);
+        $this->assertSame(0.0, $lines[0]['totwidth']);
+        $this->assertSame(3, $lines[1]['chars']);
+        $this->assertSame(30.0, $lines[1]['totwidth']);
+    }
+
+    /** @throws \Throwable */
+    public function testSplitLinesKeepsLeadingWordFittingTheOffsetLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'splitLines');
+        /** @var array<int, int> $ordarr */
+        $ordarr = [65, 66, 67];
+
+        // The 30 unit word still fits the 35 units left by the offset.
+        /** @var array{0: TextLinePos} $lines */
+        $lines = $method->invoke($obj, $ordarr, $this->getSingleWordDims(30.0), 40.0, 5.0);
+
+        $this->assertCount(1, $lines);
+        $this->assertSame(3, $lines[0]['chars']);
+    }
+
+    /** @throws \Throwable */
+    public function testSplitLinesKeepsLeadingWordWiderThanAFullLine(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'splitLines');
+        /** @var array<int, int> $ordarr */
+        $ordarr = [65, 66, 67];
+
+        // No line can hold the word, so the offset line keeps it.
+        /** @var array{0: TextLinePos} $lines */
+        $lines = $method->invoke($obj, $ordarr, $this->getSingleWordDims(60.0), 40.0, 20.0);
+
+        $this->assertCount(1, $lines);
+        $this->assertSame(3, $lines[0]['chars']);
+    }
+
+    /** @throws \Throwable */
+    public function testSplitLinesKeepsLeadingWordWithANegativeOffset(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'splitLines');
+        /** @var array<int, int> $ordarr */
+        $ordarr = [65, 66, 67];
+
+        // A negative offset is a hanging indent: the first line is wider, not shorter.
+        /** @var array{0: TextLinePos} $lines */
+        $lines = $method->invoke($obj, $ordarr, $this->getSingleWordDims(45.0), 40.0, -10.0);
+
+        $this->assertCount(1, $lines);
+        $this->assertSame(3, $lines[0]['chars']);
+    }
+
+    /** @throws \Throwable */
+    public function testSplitLinesCountsTheHyphenOfASoftHyphenBreak(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFont($obj);
+        $obj->addPage();
+
+        $method = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'splitLines');
+        /** @var array<int, int> $ordarr */
+        $ordarr = [65, 66, 67, 0xAD, 68, 69, 70, 0xAD, 71, 72];
+        /** @var TTextDims $dim */
+        $dim = [
+            'chars' => 10,
+            'spaces' => 0,
+            'words' => 3,
+            'totwidth' => 60.0,
+            'totspacewidth' => 0.0,
+            'split' => [
+                0 => [
+                    'pos' => 3,
+                    'ord' => 0xAD,
+                    'septype' => 'BN',
+                    'spaces' => 0,
+                    'totwidth' => 20.0,
+                    'totspacewidth' => 0.0,
+                    'wordwidth' => 20.0,
+                ],
+                1 => [
+                    'pos' => 7,
+                    'ord' => 0xAD,
+                    'septype' => 'BN',
+                    'spaces' => 0,
+                    'totwidth' => 39.9,
+                    'totspacewidth' => 0.0,
+                    'wordwidth' => 19.9,
+                ],
+                2 => [
+                    'pos' => 10,
+                    'ord' => 8203,
+                    'septype' => 'BN',
+                    'spaces' => 0,
+                    'totwidth' => 60.0,
+                    'totspacewidth' => 0.0,
+                    'wordwidth' => 20.1,
+                ],
+            ],
+        ];
+
+        // Breaking at the second soft hyphen would render 39.9 units plus the hyphen,
+        // which does not fit a 40 unit line, so the break falls back to the first one.
+        /** @var array{0: TextLinePos, 1: TextLinePos} $lines */
+        $lines = $method->invoke($obj, $ordarr, $dim, 40.0, 0.0);
+
+        $this->assertCount(2, $lines);
+        $this->assertSame(4, $lines[0]['chars']);
+        $this->assertLessThanOrEqual(40.0, $lines[0]['totwidth']);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellWrapsALeadingWordTooWideForTheOffset(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $posx = 20.0;
+        $width = 170.0;
+        $word = 'AAAAAAAAAA-BBBBBBBBBB-CCCCCCCCCC-DDDDDDDDDD';
+
+        // Measure the word alone, then leave it less room than it needs on the first line.
+        $obj->addTextCell($word, $pid, $posx, 40.0, $width, 0.0);
+        $wordwidth = $obj->getLastTextBBox()['w'];
+        $this->assertLessThan($width, $wordwidth);
+
+        $offset = $width - $wordwidth + 2.0;
+        $obj->addTextCell($word, $pid, $posx, 60.0, $width, 0.0, $offset);
+
+        $bbox = $obj->getLastTextBBox();
+        $this->assertLessThanOrEqual($posx + $width, $bbox['x'] + $bbox['w']);
+        $this->assertLessThan($posx + $offset, $bbox['x']);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellKeepsTextInsideTheCellWhenTheOffsetExceedsTheWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $posx = 20.0;
+        $width = 170.0;
+        $obj->addTextCell('alpha beta gamma', $pid, $posx, 40.0, $width, 0.0, $width + 20.0);
+
+        $bbox = $obj->getLastTextBBox();
+        $this->assertGreaterThanOrEqual($posx, $bbox['x']);
+        $this->assertLessThanOrEqual($posx + $width, $bbox['x'] + $bbox['w']);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellOffsetsARightAlignedFirstLineFromTheRight(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $posx = 20.0;
+        $width = 100.0;
+        $offset = 25.0;
+
+        $obj->addTextCell('Hello world', $pid, $posx, 40.0, $width, 0.0, 0.0, 0.0, 'T', 'R');
+        $plain = $obj->getLastTextBBox();
+
+        $obj->addTextCell('Hello world', $pid, $posx, 60.0, $width, 0.0, $offset, 0.0, 'T', 'R');
+        $indented = $obj->getLastTextBBox();
+
+        // The line starts from the right, so the offset moves its right edge left.
+        $this->assertEqualsWithDelta($offset, $plain['x'] + $plain['w'] - ($indented['x'] + $indented['w']), 0.001);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellOffsetsAnRtlFirstLineFromTheRight(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initUnicodeFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $posx = 20.0;
+        $width = 100.0;
+        $offset = 25.0;
+        $txt = "\u{05D0}\u{05D1}\u{05D2}\u{05D3} \u{05D4}\u{05D5}\u{05D6}\u{05D7}";
+
+        $obj->addTextCell($txt, $pid, $posx, 40.0, $width, 0.0, 0.0, 0.0, 'T', 'R', forcedir: 'R');
+        $plain = $obj->getLastTextBBox();
+
+        $obj->addTextCell($txt, $pid, $posx, 60.0, $width, 0.0, $offset, 0.0, 'T', 'R', forcedir: 'R');
+        $indented = $obj->getLastTextBBox();
+
+        $this->assertEqualsWithDelta($offset, $plain['x'] + $plain['w'] - ($indented['x'] + $indented['w']), 0.001);
+    }
+
+    /** @throws \Throwable */
+    public function testGetLastTextBBoxIgnoresLinesWithoutGlyphs(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $obj->addTextCell('Hello', $pid, 20.0, 40.0, 170.0);
+        $inline = $obj->getLastTextBBox();
+
+        // The empty line added by the leading break carries no glyphs, so it must not
+        // widen the text bounding box.
+        $obj->addTextCell("\nHello", $pid, 20.0, 60.0, 170.0, 0.0, 150.0);
+        $wrapped = $obj->getLastTextBBox();
+
+        $this->assertEqualsWithDelta($inline['w'], $wrapped['w'], 0.001);
+        $this->assertEqualsWithDelta($inline['x'], $wrapped['x'], 0.001);
+        $this->assertGreaterThan($inline['h'], $wrapped['h']);
+    }
+
+    /** @throws \Throwable */
+    public function testGetLastTextBBoxOfAnEmptyLineKeepsItsPosition(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $obj->addTextCell('Hello', $pid, 20.0, 40.0, 170.0);
+        $inline = $obj->getLastTextBBox();
+
+        $obj->addTextCell("\n\n", $pid, 20.0, 60.0, 170.0);
+        $bbox = $obj->getLastTextBBox();
+
+        $this->assertEqualsWithDelta($inline['x'], $bbox['x'], 0.001);
+        $this->assertSame(0.0, $bbox['w']);
+        $this->assertGreaterThan(0.0, $bbox['h']);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellHyphenatedLinesFitTheCellWidth(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        // Hyphenate after every character to get a break point next to the cell edge.
+        $patterns = [];
+        foreach (\range('a', 'z') as $letter) {
+            $patterns[$letter] = $letter . '1';
+        }
+
+        $obj->setTexHyphenPatterns(patterns: $patterns);
+
+        $width = 38.0;
+        $obj->addTextCell('Loremipsumdolorsitametconsecteturadipiscingelit', $pid, 20.0, 40.0, $width);
+
+        $this->assertLessThanOrEqual($width, $obj->getLastTextBBox()['w']);
     }
 
     /** @throws \Throwable */

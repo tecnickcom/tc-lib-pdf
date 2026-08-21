@@ -16576,6 +16576,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param float $remainingWidth Remaining width on the current line.
      * @param float $curAscent Current font ascent.
      * @param float $lineascent Line ascent.
+     * @param string $forcedir Forced text direction ('R' or '').
      *
      * @return array{posx: float, width: float, offset: float, align: string, defer: bool}
      *
@@ -16595,6 +16596,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float $remainingWidth,
         float $curAscent,
         float $lineascent,
+        string $forcedir = '',
     ): array {
         $renderPosX = $lineOriginX;
         $renderWidth = $availableWidth;
@@ -16619,21 +16621,31 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $isLeadingSmall = ($curAscent + self::WIDTH_TOLERANCE) < $lineascent;
                 $lineWidthCollapsed = $hasFollowingInline && $lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE);
                 $deferWrapDetection = $hasFollowingInline && $isLeadingSmall;
-                if (
-                    $lineWidth > 0.0
-                    && $lineWidth <= ($availableWidth + self::WIDTH_TOLERANCE)
-                    && !$lineWidthCollapsed
-                ) {
+                // The first line is indented from the start side of the block, which is
+                // the right one for an RTL direction. The line is placed by hand here,
+                // so the indent is taken out of the box it is placed in.
+                $indentWidth = \max(0.0, $availableWidth - $textIndentOffset);
+                $indentStart = $forcedir === 'R' ? 0.0 : $textIndentOffset;
+                if ($lineWidth > 0.0 && $lineWidth <= ($indentWidth + self::WIDTH_TOLERANCE) && !$lineWidthCollapsed) {
                     $renderPosX = $lineOriginX
+                    + $indentStart
                     + match ($halign) {
-                        'R' => \max(0.0, $availableWidth - $lineWidth),
-                        default => \max(0.0, ($availableWidth - $lineWidth) / 2),
+                        'R' => \max(0.0, $indentWidth - $lineWidth),
+                        default => \max(0.0, ($indentWidth - $lineWidth) / 2),
                     };
                     // Use the measured lineWidth for rendering to avoid rounding-induced wraps.
-                    // The lineWidth has been verified to fit within availableWidth + self::WIDTH_TOLERANCE tolerance.
-                    $renderWidth = \min($lineWidth, $availableWidth);
+                    // The lineWidth has been verified to fit within indentWidth + self::WIDTH_TOLERANCE tolerance.
+                    $renderWidth = \min($lineWidth, $indentWidth);
                     $renderOffset = 0.0;
                     $renderAlign = 'L';
+                } elseif ($textIndentOffset > 0.0) {
+                    // The indented first line does not fit: hand the run to the text
+                    // layer, which shortens the first line at its start side and aligns
+                    // the wrapped ones on the full width.
+                    $renderPosX = $lineOriginX;
+                    $renderWidth = $availableWidth;
+                    $renderOffset = $textIndentOffset;
+                    $renderAlign = $halign;
                 } else {
                     // If the full run does not fit, avoid centering only the first fragment.
                     $renderPosX = $lineOriginX;
@@ -16768,7 +16780,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $style = $elm['fontstyle'] === '' ? '' : $elm['fontstyle'];
         $forcedir = $elm['dir'] === 'rtl' ? 'R' : '';
         if ($elm['align'] === '') {
-            $halign = $this->rtl ? 'R' : 'L';
+            // The initial text-align is 'start', which is the right edge of an RTL element.
+            $halign = $forcedir === 'R' ? 'R' : 'L';
         } else {
             $halign = (string) $elm['align'];
         }
@@ -16810,11 +16823,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // The text-indent is applied only to the first line by splitLines when used as offset parameter.
         $textIndentOffset = 0.0;
         if ($lineOffset <= self::WIDTH_TOLERANCE && !$hrc['cellctx']['textindentapplied'] && $availableWidth > 0.0) {
+            // The indent shortens the first line from the start side of the block, which
+            // the text layer resolves from the alignment, so the value stays positive.
             $textIndentOffset = $elm['text-indent'];
-            if ($forcedir === 'R') {
-                $textIndentOffset *= -1;
-            }
-
             $hrc['cellctx']['textindentapplied'] = true;
         }
 
@@ -17030,6 +17041,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $remainingWidth,
             $curAscent,
             $lineascent,
+            $forcedir,
         );
         $renderPosX = $geometry['posx'];
         $renderWidth = $geometry['width'];

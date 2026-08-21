@@ -20125,6 +20125,117 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Text placement abscissas of a content stream, in user units and render order.
+     *
+     * @return array<int, float>
+     */
+    private function getHTMLTextPlacementsX(string $out): array
+    {
+        $matches = [];
+        \preg_match_all('/(-?\d+\.?\d*) -?\d+\.?\d* Td/', $out, $matches);
+        $points = $matches[1] ?? [];
+        $xs = [];
+        foreach ($points as $point) {
+            $xs[] = \is_numeric($point) ? (float) $point / 2.83464566929134 : 0.0;
+        }
+
+        return $xs;
+    }
+
+    /**
+     * The initial text-align is 'start', so a block whose direction is RTL is
+     * anchored to its right edge without an explicit text-align.
+     *
+     * @throws \Throwable
+     */
+    public function testRtlBlockIsRightAlignedByDefault(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 11, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        $word = \str_repeat((string) \mb_chr(0x05D0), 4);
+        $posx = 20.0;
+        $width = 80.0;
+
+        $rtl = $this->getHTMLTextPlacementsX($obj->getHTMLCell(
+            '<div dir="rtl">' . $word . '</div>',
+            $posx,
+            20,
+            $width,
+        ));
+        $ltr = $this->getHTMLTextPlacementsX($obj->getHTMLCell('<div>' . $word . '</div>', $posx, 20, $width));
+
+        $this->assertCount(1, $rtl);
+        $this->assertCount(1, $ltr);
+        $this->assertLessThan($posx + 1.0, $ltr[0] ?? 0.0, 'an LTR block starts at its left edge');
+        $this->assertGreaterThan($posx + ($width / 2), $rtl[0] ?? 0.0, 'an RTL block starts at its right edge');
+    }
+
+    /**
+     * CSS text-indent shortens the first line from the side the block starts from:
+     * the right one for an RTL direction, the left one for an LTR direction. The
+     * following lines keep the full width.
+     *
+     * @throws \Throwable
+     */
+    public function testTextIndentShortensTheFirstLineFromTheStartSide(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font = $obj->font->insert($obj->pon, 'dejavusans', '', 11, null, null, $fontfile);
+        $obj->page->addContent($font['out']);
+
+        $first = \str_repeat((string) \mb_chr(0x05D0), 4);
+        $second = \str_repeat((string) \mb_chr(0x05D4), 4);
+        // The explicit break keeps the same words on both lines whatever the indent.
+        $rtlbody = $first . '<br>' . $second;
+        $indent = 25.0;
+
+        $plain = $this->getHTMLTextPlacementsX($obj->getHTMLCell('<div dir="rtl">' . $rtlbody . '</div>', 20, 20, 80));
+        $indented = $this->getHTMLTextPlacementsX($obj->getHTMLCell(
+            '<div dir="rtl" style="text-indent:25mm">' . $rtlbody . '</div>',
+            20,
+            20,
+            80,
+        ));
+
+        $this->assertCount(2, $plain);
+        $this->assertCount(2, $indented);
+        $plainfirst = $plain[0] ?? 0.0;
+        $plainsecond = $plain[1] ?? 0.0;
+        $indentedfirst = $indented[0] ?? 0.0;
+        $indentedsecond = $indented[1] ?? 0.0;
+        $this->assertGreaterThan(60.0, $plainfirst, 'the RTL lines are anchored to the right edge');
+        $this->assertGreaterThan(60.0, $indentedfirst, 'the indented RTL line stays inside the block');
+        $this->assertEqualsWithDelta($plainfirst - $indent, $indentedfirst, 0.01, 'the RTL first line moves left');
+        $this->assertEqualsWithDelta($plainsecond, $indentedsecond, 0.01, 'the following lines keep their place');
+
+        $ltrbody = 'alpha<br>beta';
+        $plain = $this->getHTMLTextPlacementsX($obj->getHTMLCell('<div>' . $ltrbody . '</div>', 20, 20, 80));
+        $indented = $this->getHTMLTextPlacementsX($obj->getHTMLCell(
+            '<div style="text-indent:25mm">' . $ltrbody . '</div>',
+            20,
+            20,
+            80,
+        ));
+
+        $this->assertCount(2, $plain);
+        $this->assertCount(2, $indented);
+        $plainfirst = $plain[0] ?? 0.0;
+        $plainsecond = $plain[1] ?? 0.0;
+        $indentedfirst = $indented[0] ?? 0.0;
+        $indentedsecond = $indented[1] ?? 0.0;
+        $this->assertEqualsWithDelta($plainfirst + $indent, $indentedfirst, 0.01, 'the LTR first line moves right');
+        $this->assertEqualsWithDelta($plainsecond, $indentedsecond, 0.01, 'the following lines keep their place');
+    }
+
+    /**
      * RTL inter-fragment engine, wrapping case: a long multi-fragment RTL paragraph
      * (base text + colored span) breaks across fragment boundaries into several
      * lines, each laid out right-to-left and stacked top-down. Verified through

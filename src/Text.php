@@ -2075,12 +2075,16 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $num_lines = \count($lines);
         $lastline = $num_lines - 1;
         $hasTextBBox = false;
+        $hasGlyphs = false;
         $minx = 0.0;
         $miny = 0.0;
         $maxx = 0.0;
         $maxy = 0.0;
 
-        $line_posx = $posx + $offset;
+        // The offset shortens the first line at the side that line starts from: the
+        // right one for a right aligned first line (the default of an RTL paragraph),
+        // where the line box is trimmed instead of being moved.
+        $line_posx = $firstlinehalign === 'R' ? $posx : $posx + $offset;
         $line_posy = $posy + $fontascent;
 
         $out = '';
@@ -2145,7 +2149,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $offset = 0;
             $line_posx = $posx;
             $bbox = $this->getLastBBox();
-            if ($line_txt === '') {
+            $glyphline = $line_txt !== '';
+            if (!$glyphline) {
                 // An empty line pushes no bounding box, so synthesize a zero-width
                 // box at the current line position using outTextLine's geometry.
                 $emptyfont = $this->font->getCurrentFont();
@@ -2156,16 +2161,21 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     'h' => $this->toUnit($emptyfont['height']),
                 ];
             }
+            if ($glyphline || !$hasGlyphs) {
+                // A line without glyphs is measured horizontally only while no line with
+                // glyphs has been found, so that a first-line offset or a blank line
+                // never widens the text bounding box.
+                $reset = !$hasTextBBox || $glyphline && !$hasGlyphs;
+                $minx = $reset ? $bbox['x'] : \min($minx, $bbox['x']);
+                $maxx = $reset ? $bbox['x'] + $bbox['w'] : \max($maxx, $bbox['x'] + $bbox['w']);
+                $hasGlyphs = $hasGlyphs || $glyphline;
+            }
             if (!$hasTextBBox) {
                 $hasTextBBox = true;
-                $minx = $bbox['x'];
                 $miny = $bbox['y'];
-                $maxx = $bbox['x'] + $bbox['w'];
                 $maxy = $bbox['y'] + $bbox['h'];
             } else {
-                $minx = \min($minx, $bbox['x']);
                 $miny = \min($miny, $bbox['y']);
-                $maxx = \max($maxx, $bbox['x'] + $bbox['w']);
                 $maxy = \max($maxy, $bbox['y'] + $bbox['h']);
             }
             $line_posy = $bbox['y'] + $bbox['h'] + $fontascent + $linespace;
@@ -2574,19 +2584,44 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
             $dataTotWidth = $data['totwidth'];
             $curwidth = $dataTotWidth - $prev_totwidth;
+            // Breaking at a soft hyphen renders a hyphen, so its width belongs to the line.
+            if ($data['ord'] === UnicodeConstant::SOFT_HYPHEN) {
+                $curwidth += $soft_hyphen_width;
+            }
+
             $overline = $curwidth > ($line_width + self::LINE_FIT_EPSILON);
+
+            // The previous word can end the current line only when it is on it,
+            // otherwise moving back would not advance the line start.
+            $prevdata = $split[$word - 1] ?? null;
+            if ($prevdata !== null && (int) $prevdata['pos'] < $posstart) {
+                $prevdata = null;
+            }
+
+            if ($overline && $prevdata === null && $curwidth <= ($pwidth + self::LINE_FIT_EPSILON)) {
+                // The current line is the one shortened by $poffset and has no word to
+                // leave behind, while the current word fits a full line: close the line
+                // empty so that the word is laid out at the full width.
+                $lines[] = [
+                    'pos' => $posstart,
+                    'chars' => 0,
+                    'spaces' => 0,
+                    'septype' => 'B',
+                    'totwidth' => 0.0,
+                    'totspacewidth' => 0.0,
+                    'words' => 0,
+                ];
+                $line_width = $pwidth;
+                $overline = false;
+            }
 
             if ($data['septype'] === 'B' || $overline) {
                 // the current word is a line break or does not fit in the current line
-                if ($overline && $word > 0) {
+                if ($overline && $prevdata !== null) {
                     // the current word does not fit in the current line
-                    $prevword = $word - 1;
-                    // avoid looping forever when moving back would not advance the line start
-                    if (isset($split[$prevword]) && (int) $split[$prevword]['pos'] >= $posstart) {
-                        $data = $split[$prevword];
-                        $dataTotWidth = $data['totwidth'];
-                        --$word;
-                    }
+                    $data = $prevdata;
+                    $dataTotWidth = $data['totwidth'];
+                    --$word;
                 }
 
                 $posend = (int) $data['pos'];
