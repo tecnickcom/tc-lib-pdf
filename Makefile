@@ -222,7 +222,7 @@ endif
 format:
 	./vendor/bin/mago --config ./mago.src.toml fmt src
 	./vendor/bin/mago --config ./mago.test.toml fmt test
-	./vendor/bin/mago --config ./mago.src.toml fmt example
+	./vendor/bin/mago --config ./mago.src.toml fmt examples
 
 ## Analyze and Lint the source code
 .PHONY: lint
