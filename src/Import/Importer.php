@@ -20,6 +20,7 @@ namespace Com\Tecnick\Pdf\Import;
 
 use Com\Tecnick\File\Exception as FileException;
 use Com\Tecnick\File\File as ObjFile;
+use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 
 /**
  * Com\Tecnick\Pdf\Import\Importer
@@ -113,14 +114,23 @@ class Importer implements ImporterInterface
     private int $pdfa;
 
     /**
+     * Encryption object of the destination document.
+     */
+    private ObjEncrypt $encrypt;
+
+    /**
      * Constructor.
      *
      * @param array<string, mixed> $xobjects Reference to the destination document's xobjects array.
      * @param int                  $pon      Reference to the PDF object number counter.
      * @param ObjFile              $file     Shared file helper instance.
      * @param int                  $pdfa     PDF/A part of the destination document (0 when not active).
+     * @param ?ObjEncrypt          $encrypt  Encryption object of the destination document; a disabled
+     *                                       one is used when null.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    public function __construct(array &$xobjects, int &$pon, ObjFile $file, int $pdfa = 0)
+    public function __construct(array &$xobjects, int &$pon, ObjFile $file, int $pdfa = 0, ?ObjEncrypt $encrypt = null)
     {
         // Bind by reference so importPage() writes directly into $pdf->xobjects.
 
@@ -128,6 +138,7 @@ class Importer implements ImporterInterface
         $this->pon = &$pon;
         $this->file = $file;
         $this->pdfa = $pdfa;
+        $this->encrypt = $encrypt ?? new ObjEncrypt();
     }
 
     /**
@@ -218,6 +229,7 @@ class Importer implements ImporterInterface
      * @throws ImportCorruptedSourceException    If the page tree is malformed.
      * @throws ImportException                   If object mapping or cloning fails.
      * @throws ImportUnsupportedFeatureException If an unsupported feature is encountered.
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function importPage(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
     {
@@ -260,8 +272,8 @@ class Importer implements ImporterInterface
         $tid = 'IMP' . $xobjNum;
 
         // Clone resources.
-        $cloner = new ResourceCloner($this->pon, $this->pdfa);
-        $resDict = $cloner->cloneResources($resolved['resources'], $src, $map);
+        $cloner = new ResourceCloner($this->pon, $this->pdfa, $this->encrypt);
+        $resDict = $cloner->cloneResources($resolved['resources'], $src, $map, $xobjNum);
         $this->pon = $cloner->getPon();
 
         // Extract content stream.
@@ -289,8 +301,8 @@ class Importer implements ImporterInterface
         $matrix = $this->rotationMatrix($rotate, $rawW, $rawH);
         $matrixStr = \implode(' ', $matrix);
 
-        // Serialize the Form XObject.
-        $streamBytes = $contentStream['bytes'];
+        // Serialize the Form XObject: the content is filtered first and encrypted last.
+        $streamBytes = $this->encrypt->encryptString($contentStream['bytes'], $xobjNum);
         $filterEntry = $contentStream['filter'] !== '' ? ' /Filter ' . $contentStream['filter'] : '';
         $groupEntry = $useGroup ? ' /Group << /Type /Group /S /Transparency >>' : '';
 
@@ -360,6 +372,7 @@ class Importer implements ImporterInterface
      * @throws ImportCorruptedSourceException    If the page tree is malformed.
      * @throws ImportException                   If object mapping or cloning fails.
      * @throws ImportUnsupportedFeatureException If an unsupported feature is encountered.
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function importPages(string $sourceId, ?array $range = null, array $options = []): array
     {

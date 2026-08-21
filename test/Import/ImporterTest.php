@@ -101,6 +101,7 @@ class ImporterTest extends TestCase
         return new ObjFile(allowedPaths: ['*']);
     }
 
+    /** @throws \Throwable */
     private function makeImporter(): Importer
     {
         $xobjects = [];
@@ -449,6 +450,7 @@ class ImporterTest extends TestCase
         $this->assertSame([], $this->getObjectProperty($importer, 'pageIndexes'));
     }
 
+    /** @throws \Throwable */
     public function testSelectBoxFallsBackToMediaBoxWhenRequestedBoxIsMissing(): void
     {
         $importer = $this->makeImporter();
@@ -466,6 +468,7 @@ class ImporterTest extends TestCase
         $this->assertSame([10.0, 20.0, 210.0, 420.0], $box);
     }
 
+    /** @throws \Throwable */
     public function testSelectBoxReturnsZeroBoxForInvalidCoordinates(): void
     {
         $importer = $this->makeImporter();
@@ -483,6 +486,7 @@ class ImporterTest extends TestCase
         $this->assertSame([0.0, 0.0, 0.0, 0.0], $box);
     }
 
+    /** @throws \Throwable */
     public function testRotationMatrixSupportsHalfAndThreeQuarterTurns(): void
     {
         $importer = $this->makeImporter();

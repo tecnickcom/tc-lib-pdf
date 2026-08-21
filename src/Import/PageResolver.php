@@ -169,7 +169,7 @@ class PageResolver
             }
 
             $nodeDict = $this->objectToDict($src->getObject($ref));
-            $nodeType = isset($nodeDict['Type']) && \is_string($nodeDict['Type']) ? $nodeDict['Type'] : '';
+            $nodeType = isset($nodeDict['Type']) && \is_string($nodeDict['Type']) ? \ltrim($nodeDict['Type'], '/') : '';
             if ($nodeType === 'Page') {
                 $index[] = $this->effectivePageDict($inherited, $nodeDict);
                 continue;
@@ -515,7 +515,22 @@ class PageResolver
             return \array_key_exists(1, $raw) && \is_string($raw[1]) ? $raw[1] : '';
         }
 
-        if (\in_array($type, ['/', 'string', 'numeric', 'boolean', 'null'], true)) {
+        // Names, literal strings and hexadecimal strings keep their PDF delimiters so that
+        // they stay distinguishable from each other and from indirect references.
+        if ($type === '/') {
+            return '/' . (\is_string($raw[1] ?? null) ? $raw[1] : '');
+        }
+
+        if ($type === '(') {
+            // The parser keeps the source escapes of a literal string verbatim.
+            return '(' . (\is_string($raw[1] ?? null) ? $raw[1] : '') . ')';
+        }
+
+        if ($type === '<' || $type === 'hex') {
+            return '<' . (\is_string($raw[1] ?? null) ? $raw[1] : '') . '>';
+        }
+
+        if (\in_array($type, ['string', 'numeric', 'boolean', 'null'], true)) {
             return $raw[1] ?? null;
         }
 

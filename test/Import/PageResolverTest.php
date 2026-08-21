@@ -232,8 +232,8 @@ class PageResolverTest extends TestCase
                         [
                             '[',
                             [
-                                ['/', '/PDF'],
-                                ['/', '/Text'],
+                                ['/', 'PDF'],
+                                ['/', 'Text'],
                             ],
                         ],
                     ],

@@ -373,6 +373,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
      * @SuppressWarnings("PHPMD.ExcessiveMethodLength")
      *
      * @throws \Com\Tecnick\Unicode\Exception
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     protected function getOutXMP(): string
     {
@@ -777,6 +778,11 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
 
         $oid = ++$this->pon;
         $this->objid['xmp'] = $oid;
+
+        // The metadata stream follows the document encryption unless /EncryptMetadata is false.
+        if ($this->encrypt->getEncryptionData()['EncryptMetadata']) {
+            $xmp = $this->encrypt->encryptString($xmp, $oid);
+        }
 
         return (
             $oid

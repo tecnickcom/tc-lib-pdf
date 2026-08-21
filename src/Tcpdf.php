@@ -1391,6 +1391,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * Return the lazy-initialized importer instance.
      *
      * @return ImporterInterface
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     private function getImporter(): ImporterInterface
     {
@@ -1399,7 +1400,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             $xobjects = &$this->xobjects;
             $importFile = clone $this->file;
             $importFile->setAllowedPaths(['*']);
-            $this->importer = new ObjImporter($xobjects, $this->pon, $importFile, $this->pdfa);
+            $this->importer = new ObjImporter($xobjects, $this->pon, $importFile, $this->pdfa, $this->encrypt);
         }
 
         return $this->importer;
@@ -1416,6 +1417,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @throws \Com\Tecnick\Pdf\Import\ImportSourceNotFoundException
      * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
      * @throws \Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function setImportSourceFile(string $path, array $cfg = []): string
     {
@@ -1432,6 +1434,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *
      * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
      * @throws \Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function setImportSourceData(string $data, array $cfg = []): string
     {
@@ -1450,6 +1453,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *
      * @throws \Com\Tecnick\Pdf\Import\ImportSourceNotFoundException
      * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function getSourcePageCount(string $sourceId): int
     {
@@ -1467,6 +1471,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Import\ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function importPage(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
     {
@@ -1596,6 +1601,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Import\ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function importPages(string $sourceId, ?array $range = null, array $options = []): array
     {
@@ -1617,6 +1623,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function addPageFromImport(string $sourceId, int $pageNum, array $options = []): PageTemplateInterface
     {
@@ -1650,6 +1657,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function appendDocument(string $sourceId, ?array $range = null, array $options = []): array
     {

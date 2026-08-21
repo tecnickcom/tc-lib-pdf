@@ -18,11 +18,14 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf\Import;
 
+use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+
 /**
  * Com\Tecnick\Pdf\Import\ResourceCloner
  *
  * Deep-copies objects from the source document into the destination PDF
  * using an ObjectMap for reference remapping. Returns serialized PDF object bytes.
+ * Streams and strings are encrypted with the key of the destination document.
  *
  * @since     2026-05-03
  * @category  Library
@@ -77,15 +80,26 @@ class ResourceCloner
     private int $pdfa;
 
     /**
+     * Encryption object of the destination document.
+     */
+    private ObjEncrypt $encrypt;
+
+    /**
      * Constructor.
      *
-     * @param int $pon  Current PDF object number (passed by value; read the updated counter back via getPon()).
-     * @param int $pdfa PDF/A part of the destination document (0 when PDF/A is not active).
+     * @param int         $pon     Current PDF object number (passed by value; read the updated counter back
+     *                             via getPon()).
+     * @param int         $pdfa    PDF/A part of the destination document (0 when PDF/A is not active).
+     * @param ?ObjEncrypt $encrypt Encryption object of the destination document; a disabled one is used
+     *                             when null.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    public function __construct(int $pon, int $pdfa = 0)
+    public function __construct(int $pon, int $pdfa = 0, ?ObjEncrypt $encrypt = null)
     {
         $this->pon = $pon;
         $this->pdfa = $pdfa;
+        $this->encrypt = $encrypt ?? new ObjEncrypt();
     }
 
     /**
@@ -149,13 +163,16 @@ class ResourceCloner
      * @param array<string, mixed> $resources Resource dictionary.
      * @param SourceDocument       $src       Source document.
      * @param ObjectMap            $map       Object map for reference remapping.
+     * @param int                  $ownerNum  Number of the object the dictionary is written into,
+     *                                        used as encryption key for the strings it contains.
      *
      * @return string Serialized PDF resource dictionary, e.g. "<< /Font << /F1 7 0 R >> >>".
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    public function cloneResources(array $resources, SourceDocument $src, ObjectMap $map): string
+    public function cloneResources(array $resources, SourceDocument $src, ObjectMap $map, int $ownerNum = 0): string
     {
         if ($resources === []) {
             return '';
@@ -170,7 +187,7 @@ class ResourceCloner
             }
 
             $out .= ' /' . $resType . ' ';
-            $out .= $this->cloneResourceEntry($resources[$resType], $src, $map);
+            $out .= $this->cloneResourceEntry($resources[$resType], $src, $map, $ownerNum);
         }
 
         $out .= ' >>';
@@ -180,16 +197,18 @@ class ResourceCloner
     /**
      * Serialize and clone one top-level resource type entry.
      *
-     * @param mixed                $resVal  Raw value.
-     * @param SourceDocument       $src     Source document.
-     * @param ObjectMap            $map     Object map.
+     * @param mixed                $resVal   Raw value.
+     * @param SourceDocument       $src      Source document.
+     * @param ObjectMap            $map      Object map.
+     * @param int                  $ownerNum Number of the object the value is written into.
      *
      * @return string Serialized PDF value for this resource entry.
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    private function cloneResourceEntry(mixed $resVal, SourceDocument $src, ObjectMap $map): string
+    private function cloneResourceEntry(mixed $resVal, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         // Resource subdicts (Font, XObject, ExtGState, ColorSpace, Pattern, Shading) are dicts of name->ref.
         if (\is_array($resVal)) {
@@ -203,7 +222,7 @@ class ResourceCloner
                     '/'
                     . (string) $name
                     . ' '
-                    . $this->serializeResourceValue($resVal[$name] ?? null, $src, $map)
+                    . $this->serializeResourceValue($resVal[$name] ?? null, $src, $map, $ownerNum)
                     . ' ';
             }
 
@@ -217,7 +236,7 @@ class ResourceCloner
                 return $destNum . ' 0 R';
             }
 
-            return $resVal;
+            return $this->reencryptStringToken($resVal, $ownerNum);
         }
 
         return 'null';
@@ -226,16 +245,18 @@ class ResourceCloner
     /**
      * Serialize a parsed resource value while remapping indirect references.
      *
-     * @param mixed          $value Resource value.
-     * @param SourceDocument $src   Source document.
-     * @param ObjectMap      $map   Object map.
+     * @param mixed          $value    Resource value.
+     * @param SourceDocument $src      Source document.
+     * @param ObjectMap      $map      Object map.
+     * @param int            $ownerNum Number of the object the value is written into.
      *
      * @return string PDF token string.
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    private function serializeResourceValue(mixed $value, SourceDocument $src, ObjectMap $map): string
+    private function serializeResourceValue(mixed $value, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         if (\is_string($value)) {
             if ($this->isIndirectRef($value)) {
@@ -243,7 +264,7 @@ class ResourceCloner
                 return $destNum . ' 0 R';
             }
 
-            return $value;
+            return $this->reencryptStringToken($value, $ownerNum);
         }
 
         if (\is_array($value)) {
@@ -257,7 +278,7 @@ class ResourceCloner
                         continue;
                     }
 
-                    $parts[] = $this->serializeResourceValue($itemSlice[0], $src, $map);
+                    $parts[] = $this->serializeResourceValue($itemSlice[0], $src, $map, $ownerNum);
                 }
 
                 return '[ ' . \implode(' ', $parts) . ' ]';
@@ -270,7 +291,11 @@ class ResourceCloner
                 }
 
                 $out .=
-                    '/' . (string) $key . ' ' . $this->serializeResourceValue($value[$key] ?? null, $src, $map) . ' ';
+                    '/'
+                    . (string) $key
+                    . ' '
+                    . $this->serializeResourceValue($value[$key] ?? null, $src, $map, $ownerNum)
+                    . ' ';
             }
 
             return $out . '>>';
@@ -297,6 +322,7 @@ class ResourceCloner
      * @return int Allocated destination object number.
      *
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     public function enqueueObject(string $srcRef, SourceDocument $src, ObjectMap $map): int
     {
@@ -335,6 +361,7 @@ class ResourceCloner
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
     private function serializeObject(int $destNum, array $objData, SourceDocument $src, ObjectMap $map): string
     {
@@ -352,7 +379,13 @@ class ResourceCloner
             }
 
             if (($elementSlice[0][0] ?? null) === '<<' && \is_array($elementSlice[0][1] ?? null)) {
-                $dictPart = $this->serializeDictArray(\array_values($elementSlice[0][1]), $src, $map, $streamDict);
+                $dictPart = $this->serializeDictArray(
+                    \array_values($elementSlice[0][1]),
+                    $src,
+                    $map,
+                    $streamDict,
+                    $destNum,
+                );
             } elseif (($elementSlice[0][0] ?? null) === 'stream' && \is_string($elementSlice[0][1] ?? null)) {
                 $streamBytes = $elementSlice[0][1];
 
@@ -374,7 +407,8 @@ class ResourceCloner
                 $parms !== '',
                 $earlyChange,
             );
-            $streamBytes = $normalized['bytes'];
+            // The stream is filtered first and encrypted last, so /Filter stays as normalized.
+            $streamBytes = $this->encryptStream($normalized['bytes'], $destNum, $streamDict);
             $filterEntry = $normalized['filter'] === '' ? '' : ' /Filter ' . $normalized['filter'];
 
             $out .=
@@ -391,7 +425,7 @@ class ResourceCloner
             $out .= '<<' . $dictPart . ">>\n";
         } else {
             // Scalar or array value.
-            $out .= $this->serializeFirstValue($objData, $src, $map) . "\n";
+            $out .= $this->serializeFirstValue($objData, $src, $map, $destNum) . "\n";
         }
 
         $out .= 'endobj' . "\n";
@@ -405,14 +439,21 @@ class ResourceCloner
      * @param SourceDocument       $src        Source document.
      * @param ObjectMap            $map        Object map.
      * @param array<string, string> $streamDict Populated with Length/Filter entries for stream objects.
+     * @param int                  $ownerNum   Number of the object the dictionary is written into.
      *
      * @return string PDF dict content (without outer << >>).
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    private function serializeDictArray(array $raw, SourceDocument $src, ObjectMap $map, array &$streamDict): string
-    {
+    private function serializeDictArray(
+        array $raw,
+        SourceDocument $src,
+        ObjectMap $map,
+        array &$streamDict,
+        int $ownerNum,
+    ): string {
         $out = '';
         $pairs = \array_values($raw);
         $cnt = \count($pairs);
@@ -431,7 +472,7 @@ class ResourceCloner
                 continue;
             }
 
-            $serializedVal = $this->serializeValue($pair[1], $src, $map);
+            $serializedVal = $this->serializeValue($pair[1], $src, $map, $ownerNum);
 
             if ($key === 'Filter') {
                 $streamDict['Filter'] = $serializedVal;
@@ -448,16 +489,18 @@ class ResourceCloner
     /**
      * Serialize a single raw parser value to a PDF token string.
      *
-     * @param mixed          $raw Raw element.
-     * @param SourceDocument $src Source document.
-     * @param ObjectMap      $map Object map.
+     * @param mixed          $raw      Raw element.
+     * @param SourceDocument $src      Source document.
+     * @param ObjectMap      $map      Object map.
+     * @param int            $ownerNum Number of the object the value is written into.
      *
      * @return string PDF token.
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    private function serializeValue(mixed $raw, SourceDocument $src, ObjectMap $map): string
+    private function serializeValue(mixed $raw, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         return match (true) {
             !\is_array($raw) => \is_scalar($raw) ? (string) $raw : '',
@@ -467,22 +510,28 @@ class ResourceCloner
                 $map,
             ) . ' 0 R',
             \is_string($raw[0] ?? null) && $raw[0] === '<<' && \is_array($raw[1] ?? null)
-                => $this->serializeNestedDictValue($raw[1], $src, $map),
+                => $this->serializeNestedDictValue($raw[1], $src, $map, $ownerNum),
             \is_string($raw[0] ?? null) && $raw[0] === '[' && \is_array($raw[1] ?? null) => $this->serializeArrayValue(
                 $raw[1],
                 $src,
                 $map,
+                $ownerNum,
             ),
             \is_string($raw[0] ?? null) && $raw[0] === '/' => '/' . (\is_string($raw[1] ?? null) ? $raw[1] : ''),
-            // Parser literal-string token `(` already carries PDF string escapes; preserve bytes verbatim.
-            \is_string($raw[0] ?? null) && $raw[0] === '(' => '(' . (\is_string($raw[1] ?? null) ? $raw[1] : '') . ')',
+            // Parser literal-string token `(` already carries PDF string escapes.
+            \is_string($raw[0] ?? null) && $raw[0] === '(' => $this->serializeEscapedLiteralString(
+                \is_string($raw[1] ?? null) ? $raw[1] : '',
+                $ownerNum,
+            ),
             // Legacy synthetic token `string` is plain text and must be escaped for PDF literal syntax.
-            \is_string($raw[0] ?? null) && $raw[0] === 'string' => '('
-                . $this->escapePdfLiteralString(\is_string($raw[1] ?? null) ? $raw[1] : '')
-                . ')',
-            \is_string($raw[0] ?? null) && ($raw[0] === '<' || $raw[0] === 'hex') => '<'
-                . (\is_string($raw[1] ?? null) ? $raw[1] : '')
-                . '>',
+            \is_string($raw[0] ?? null) && $raw[0] === 'string' => $this->serializeLiteralString(
+                \is_string($raw[1] ?? null) ? $raw[1] : '',
+                $ownerNum,
+            ),
+            \is_string($raw[0] ?? null) && ($raw[0] === '<' || $raw[0] === 'hex') => $this->serializeHexString(
+                \is_string($raw[1] ?? null) ? $raw[1] : '',
+                $ownerNum,
+            ),
             \is_scalar($raw[1] ?? null) => (string) $raw[1],
             \is_string($raw[0] ?? null) && $raw[0] !== '' => $raw[0],
             default => 'null',
@@ -492,42 +541,46 @@ class ResourceCloner
     /**
      * Serialize a nested dictionary token as a PDF dictionary string.
      *
-     * @param array<array-key, mixed> $raw Nested dictionary token payload.
-     * @param SourceDocument    $src Source document.
-     * @param ObjectMap         $map Object map.
+     * @param array<array-key, mixed> $raw      Nested dictionary token payload.
+     * @param SourceDocument          $src      Source document.
+     * @param ObjectMap               $map      Object map.
+     * @param int                     $ownerNum Number of the object the dictionary is written into.
      *
      * @return string Serialized PDF dictionary.
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    private function serializeNestedDictValue(array $raw, SourceDocument $src, ObjectMap $map): string
+    private function serializeNestedDictValue(array $raw, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         /** @var array<string, string> $unused */
         $unused = [];
 
-        return '<<' . $this->serializeDictArray(\array_values($raw), $src, $map, $unused) . '>>';
+        return '<<' . $this->serializeDictArray(\array_values($raw), $src, $map, $unused, $ownerNum) . '>>';
     }
 
     /**
      * Serialize a nested array token as a PDF array string.
      *
-     * @param array<array-key, mixed> $raw Nested array token payload.
-     * @param SourceDocument          $src Source document.
-     * @param ObjectMap               $map Object map.
+     * @param array<array-key, mixed> $raw      Nested array token payload.
+     * @param SourceDocument          $src      Source document.
+     * @param ObjectMap               $map      Object map.
+     * @param int                     $ownerNum Number of the object the array is written into.
      *
      * @return string Serialized PDF array.
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    private function serializeArrayValue(array $raw, SourceDocument $src, ObjectMap $map): string
+    private function serializeArrayValue(array $raw, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         $parts = [];
         $values = \array_values($raw);
         $itemCount = \count($values);
         for ($itemIdx = 0; $itemIdx < $itemCount; ++$itemIdx) {
-            $parts[] = $this->serializeValue($values[$itemIdx] ?? null, $src, $map);
+            $parts[] = $this->serializeValue($values[$itemIdx] ?? null, $src, $map, $ownerNum);
         }
 
         return '[' . \implode(' ', $parts) . ']';
@@ -544,16 +597,18 @@ class ResourceCloner
     /**
      * Serialize the first scalar or array value from a raw object (non-dict, non-stream).
      *
-     * @param array<int, mixed> $objData Raw object data.
-     * @param SourceDocument    $src     Source document.
-     * @param ObjectMap         $map     Object map.
+     * @param array<int, mixed> $objData  Raw object data.
+     * @param SourceDocument    $src      Source document.
+     * @param ObjectMap         $map      Object map.
+     * @param int               $ownerNum Number of the object the value is written into.
      *
      * @return string PDF token.
      *
      * @throws ImportCorruptedSourceException
      * @throws ImportException
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    private function serializeFirstValue(array $objData, SourceDocument $src, ObjectMap $map): string
+    private function serializeFirstValue(array $objData, SourceDocument $src, ObjectMap $map, int $ownerNum): string
     {
         $elements = \array_values($objData);
         $elmCount = \count($elements);
@@ -567,10 +622,214 @@ class ResourceCloner
                 continue;
             }
 
-            return $this->serializeValue($elementSlice[0], $src, $map);
+            return $this->serializeValue($elementSlice[0], $src, $map, $ownerNum);
         }
 
         return 'null';
+    }
+
+    /**
+     * Encrypt a cloned stream with the key of the object that carries it.
+     *
+     * ISO 32000 excludes from encryption the metadata streams of a document that declares
+     * /EncryptMetadata false and the streams whose crypt filter is /Identity.
+     *
+     * @param string                $bytes      Stream bytes, already filtered.
+     * @param int                   $destNum    Destination object number.
+     * @param array<string, string> $streamDict Serialized entries of the stream dictionary.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     */
+    private function encryptStream(string $bytes, int $destNum, array $streamDict): string
+    {
+        $encData = $this->encrypt->getEncryptionData();
+        if (!$encData['encrypted']) {
+            return $bytes;
+        }
+
+        if (!$encData['EncryptMetadata'] && ($streamDict['Type'] ?? '') === '/Metadata') {
+            return $bytes;
+        }
+
+        if (\str_contains($streamDict['Filter'] ?? '', '/Crypt')) {
+            // The crypt filter name is carried by /DecodeParms and defaults to /Identity.
+            $parms = $streamDict['DecodeParms'] ?? $streamDict['DP'] ?? '';
+            if (!\str_contains($parms, '/Name') || \str_contains($parms, '/Identity')) {
+                return $bytes;
+            }
+        }
+
+        return $this->encrypt->encryptString($bytes, $destNum);
+    }
+
+    /**
+     * Serialize a string value that is already a PDF token (`(...)` or `<...>`),
+     * re-encrypting its content for the destination document.
+     *
+     * @param string $value    Serialized string token.
+     * @param int    $ownerNum Number of the object the value is written into.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     */
+    private function reencryptStringToken(string $value, int $ownerNum): string
+    {
+        if (!$this->encrypt->getEncryptionData()['encrypted'] || \strlen($value) < 2) {
+            return $value;
+        }
+
+        if ($value[0] === '(' && \str_ends_with($value, ')')) {
+            return $this->serializeEscapedLiteralString(\substr($value, 1, -1), $ownerNum);
+        }
+
+        if ($value[0] === '<' && \str_ends_with($value, '>')) {
+            return $this->serializeHexString(\substr($value, 1, -1), $ownerNum);
+        }
+
+        return $value;
+    }
+
+    /**
+     * Serialize a literal string whose PDF escape sequences are already in place.
+     *
+     * The bytes are kept verbatim unless the destination document is encrypted, in which
+     * case the string is decoded and re-encrypted.
+     *
+     * @param string $escaped  String content, without the enclosing parentheses.
+     * @param int    $ownerNum Number of the object the string is written into.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     */
+    private function serializeEscapedLiteralString(string $escaped, int $ownerNum): string
+    {
+        if (!$this->encrypt->getEncryptionData()['encrypted']) {
+            return '(' . $escaped . ')';
+        }
+
+        return $this->serializeLiteralString($this->unescapePdfLiteralString($escaped), $ownerNum);
+    }
+
+    /**
+     * Serialize raw string bytes as a PDF string, encrypted for the destination document.
+     *
+     * Encrypted values are written in hexadecimal form because ciphertext is binary.
+     *
+     * @param string $bytes    Raw string bytes.
+     * @param int    $ownerNum Number of the object the string is written into.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     */
+    private function serializeLiteralString(string $bytes, int $ownerNum): string
+    {
+        if (!$this->encrypt->getEncryptionData()['encrypted']) {
+            return '(' . $this->escapePdfLiteralString($bytes) . ')';
+        }
+
+        return '<' . \bin2hex($this->encrypt->encryptString($bytes, $ownerNum)) . '>';
+    }
+
+    /**
+     * Serialize the digits of a PDF hexadecimal string, encrypted for the destination document.
+     *
+     * @param string $hex      Hexadecimal digits, without delimiters.
+     * @param int    $ownerNum Number of the object the string is written into.
+     *
+     * @throws \Com\Tecnick\Pdf\Encrypt\Exception
+     */
+    private function serializeHexString(string $hex, int $ownerNum): string
+    {
+        if (!$this->encrypt->getEncryptionData()['encrypted']) {
+            return '<' . $hex . '>';
+        }
+
+        return '<' . \bin2hex($this->encrypt->encryptString($this->hexStringToBytes($hex), $ownerNum)) . '>';
+    }
+
+    /**
+     * Convert the digits of a PDF hexadecimal string into raw bytes.
+     *
+     * An odd number of digits is completed with a trailing zero, as the format requires.
+     *
+     * @param string $hex Hexadecimal digits, without delimiters.
+     */
+    private function hexStringToBytes(string $hex): string
+    {
+        $digits = (string) \preg_replace('/[^0-9A-Fa-f]/', '', $hex);
+        if ((\strlen($digits) % 2) !== 0) {
+            $digits .= '0';
+        }
+
+        $bytes = \hex2bin($digits);
+        return $bytes === false ? '' : $bytes;
+    }
+
+    /**
+     * Decode the escape sequences of a PDF literal string into its raw bytes.
+     *
+     * @param string $value String content, without the enclosing parentheses.
+     */
+    private function unescapePdfLiteralString(string $value): string
+    {
+        $out = '';
+        $len = \strlen($value);
+        for ($idx = 0; $idx < $len; ++$idx) {
+            if ($value[$idx] !== '\\') {
+                $out .= $value[$idx];
+                continue;
+            }
+
+            ++$idx;
+            if ($idx >= $len) {
+                break;
+            }
+
+            $out .= $this->decodeEscapeSequence($value, $idx);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Decode the escape sequence that starts at the given offset of a PDF literal string.
+     *
+     * @param string $value  String content, without the enclosing parentheses.
+     * @param int    $idx    Offset of the escaped character; advanced past the sequence.
+     *
+     * @return string Decoded bytes, empty for a line continuation.
+     */
+    private function decodeEscapeSequence(string $value, int &$idx): string
+    {
+        $chr = $value[$idx];
+        $len = \strlen($value);
+
+        if ($chr >= '0' && $chr <= '7') {
+            $octal = $chr;
+            while (\strlen($octal) < 3 && ($idx + 1) < $len && $value[$idx + 1] >= '0' && $value[$idx + 1] <= '7') {
+                ++$idx;
+                $octal .= $value[$idx];
+            }
+
+            return \chr((int) \octdec($octal) % 256);
+        }
+
+        if ($chr === "\r") {
+            // Line continuation: a CRLF pair counts as one line ending.
+            if (($idx + 1) < $len && $value[$idx + 1] === "\n") {
+                ++$idx;
+            }
+
+            return '';
+        }
+
+        return match ($chr) {
+            'n' => "\n",
+            'r' => "\r",
+            't' => "\t",
+            'b' => "\x08",
+            'f' => "\x0c",
+            "\n" => '',
+            // A backslash before any other character is dropped, including \( \) and \\.
+            default => $chr,
+        };
     }
 
     /**
