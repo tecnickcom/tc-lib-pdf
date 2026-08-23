@@ -381,6 +381,51 @@ $html6 = '<h2>HTML TABLES (E): PERCENTAGE WIDTHS</h2>
 
 $pdf->addHTMLCell(html: $html6, posx: 20, posy: 10, width: 180);
 
+// ----------
+
+$page6 = $pdf->addPage();
+
+// Cell padding sources: the cellpadding attribute (pixels) sets the default on
+// all four sides, CSS padding on a cell overrides it side by side.
+// 5px = 3.75pt, so the first two tables below are equivalent.
+$html7 = '<h2>HTML TABLES (F): CELL PADDING</h2>
+<p>cellpadding="5" attribute (5px on every side)</p>
+<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse; width:100%;">
+	<tr><th>Header A</th><th>Header B</th></tr>
+	<tr><td>alpha</td><td>beta<br />second line</td></tr>
+</table>
+<p>equivalent CSS padding:3.75pt on every cell</p>
+<table border="1" cellspacing="0" style="border-collapse:collapse; width:100%;">
+	<tr><th style="padding:3.75pt;">Header A</th><th style="padding:3.75pt;">Header B</th></tr>
+	<tr><td style="padding:3.75pt;">alpha</td><td style="padding:3.75pt;">beta<br />second line</td></tr>
+</table>
+<p>no padding at all</p>
+<table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:100%;">
+	<tr><th>Header A</th><th>Header B</th></tr>
+	<tr><td>alpha</td><td>beta<br />second line</td></tr>
+</table>
+<p>per-side CSS padding overriding the cellpadding="5" attribute</p>
+<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse; width:100%;">
+	<tr>
+		<td>attribute</td>
+		<td style="padding-bottom:12mm;">bottom 12mm</td>
+		<td style="padding-left:12mm;">left 12mm</td>
+		<td style="padding:0;">none</td>
+	</tr>
+</table>
+<p>padding scale: 0, 2, 4, 8 and 12 millimeters</p>
+<table border="1" cellspacing="0" style="border-collapse:collapse; width:100%;">
+	<tr>
+		<td style="padding:0mm; background-color:#ffeeee;">0mm</td>
+		<td style="padding:2mm; background-color:#ffddcc;">2mm</td>
+		<td style="padding:4mm; background-color:#ffffcc;">4mm</td>
+		<td style="padding:8mm; background-color:#ddffcc;">8mm</td>
+		<td style="padding:12mm; background-color:#cceeff;">12mm</td>
+	</tr>
+</table>';
+
+$pdf->addHTMLCell(html: $html7, posx: 20, posy: 10, width: 180);
+
 // =============================================================
 
 // ----------

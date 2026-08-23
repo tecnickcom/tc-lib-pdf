@@ -108,6 +108,8 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *     cellw: float,
  *     colindex: int,
  *     colspan: int,
+ *     padding: array{'T': float, 'R': float, 'B': float, 'L': float},
+ *     margin: array{'T': float, 'R': float, 'B': float, 'L': float},
  *     bstyles: array<int|string, BorderStyle>,
  *     fillstyle: ?BorderStyle,
  *     rowspan: int,
@@ -21576,15 +21578,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        $cellPaddingB = $elm['padding']['B'] ?? null;
-        if ($cellPaddingB === null) {
-            $cellPaddingB = 0.0;
-        }
-
-        $cellMarginB = $elm['margin']['B'] ?? null;
-        if ($cellMarginB === null) {
-            $cellMarginB = 0.0;
-        }
+        // Use the box metrics resolved when the cell was opened: they already
+        // include the table cellpadding attribute applied as a per-side default.
+        $cellPaddingB = $cellctx['padding']['B'];
+        $cellMarginB = $cellctx['margin']['B'];
         // Only add trailing line advance when inline content is still present
         // on the current line. Block-only content (e.g. nested tables) already
         // updates the vertical cursor and must not add an extra blank line here.
