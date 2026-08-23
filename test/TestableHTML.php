@@ -162,6 +162,18 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /** @throws \Throwable */
+    public function exposeIsTextInCurrentFont(string $txt): bool
+    {
+        return $this->isTextInCurrentFont($txt);
+    }
+
+    /** @throws \Throwable */
+    public function exposeGetHTMLliBulletGlyph(string $type): string
+    {
+        return $this->getHTMLliBulletGlyph($type);
+    }
+
+    /** @throws \Throwable */
     public function exposePageBreak(): int
     {
         return $this->pageBreak();

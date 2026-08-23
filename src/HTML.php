@@ -335,6 +335,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ];
 
     /**
+     * Unicode glyphs for the unordered list markers.
+     *
+     * @var array<string, string>
+     */
+    protected const LIST_BULLET_GLYPH = [
+        'disc' => "\u{2022}",
+        'circle' => "\u{25E6}",
+        'square' => "\u{25AA}",
+    ];
+
+    /**
      * HTML block tags.
      *
      * @var array<string>
@@ -6681,11 +6692,51 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Whether list bullets should be emitted as Unicode text glyphs.
+     * Whether every codepoint of the text has a glyph in the current font.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
      */
-    protected function canUseUnicodeListBulletGlyphs(): bool
+    protected function isTextInCurrentFont(string $txt): bool
     {
-        return $this->isunicode && !$this->font->isCurrentByteFont();
+        foreach ($this->uniconv->strToOrdArr($txt) as $ord) {
+            if (!$this->font->isCharDefined($ord)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns the Unicode glyph for an unordered list marker,
+     * or an empty string when the current font cannot render it.
+     *
+     * @param string $type Type of list.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Unicode\Exception
+     */
+    protected function getHTMLliBulletGlyph(string $type): string
+    {
+        $glyph = self::LIST_BULLET_GLYPH[$type] ?? '';
+        if ($glyph === '' || !$this->isunicode || $this->font->isCurrentByteFont()) {
+            return '';
+        }
+
+        return $this->isTextInCurrentFont($glyph) ? $glyph : '';
+    }
+
+    /**
+     * Returns the abscissa of the left edge of the list marker box.
+     *
+     * @param float $posx  Abscissa of the list item text edge.
+     * @param float $gap   Space between the marker box and the item text.
+     * @param float $width Marker box width.
+     */
+    protected function getHTMLliMarkerX(float $posx, float $gap, float $width): float
+    {
+        return $this->rtl ? $posx + $gap : $posx - $gap - $width;
     }
 
     /**
@@ -6693,7 +6744,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param int    $depth  List nesting level.
      * @param int    $count  List entry position, starting form 1.
-     * @param float  $posx   Abscissa of upper-left corner.
+     * @param float  $posx   Abscissa of the list item text edge the marker is placed against.
      * @param float  $posy   Ordinate of upper-left corner.
      * @param string $type   Type of list.
      * @param array<string, mixed> $markerStyles Marker style declarations from li::marker.
@@ -6760,13 +6811,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             case 'none':
                 break;
             case 'disc':
-                if ($this->canUseUnicodeListBulletGlyphs()) {
-                    $txti = "\u{2022}";
+                $txti = $this->getHTMLliBulletGlyph($type);
+                if ($txti !== '') {
                     break;
                 }
                 $rad = $size / 4;
-                $lspace += 2 * $rad;
-                $posx += $this->rtl ? $lspace : -$lspace;
+                $markerx = $this->getHTMLliMarkerX($posx, $lspace, 2 * $rad);
                 $style = [
                     'lineWidth' => 0,
                     'lineCap' => 'butt',
@@ -6783,20 +6833,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 ];
                 $result =
                     $this->graph->getStartTransform()
-                    . $this->graph->getCircle($posx, $fontTop + ($fontheight / 2), $rad, 0, 360, 'F', $style, 8)
+                    . $this->graph->getCircle(
+                        $markerx + $rad,
+                        $fontTop + ($fontheight / 2),
+                        $rad,
+                        0,
+                        360,
+                        'F',
+                        $style,
+                        8,
+                    )
                     . $this->graph->getStopTransform();
                 if ($markerStyles !== []) {
                     $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
                 }
                 return $result;
             case 'circle':
-                if ($this->canUseUnicodeListBulletGlyphs()) {
-                    $txti = "\u{25E6}";
+                $txti = $this->getHTMLliBulletGlyph($type);
+                if ($txti !== '') {
                     break;
                 }
                 $rad = $size / 4;
-                $lspace += 2 * $rad;
-                $posx += $this->rtl ? $lspace : -$lspace;
+                $markerx = $this->getHTMLliMarkerX($posx, $lspace, 2 * $rad);
                 $style = [
                     'lineWidth' => $rad / 3,
                     'lineCap' => 'butt',
@@ -6813,20 +6871,28 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 ];
                 $result =
                     $this->graph->getStartTransform()
-                    . $this->graph->getCircle($posx, $fontTop + ($fontheight / 2), $rad, 0, 360, 'D', $style, 8)
+                    . $this->graph->getCircle(
+                        $markerx + $rad,
+                        $fontTop + ($fontheight / 2),
+                        $rad,
+                        0,
+                        360,
+                        'D',
+                        $style,
+                        8,
+                    )
                     . $this->graph->getStopTransform();
                 if ($markerStyles !== []) {
                     $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
                 }
                 return $result;
             case 'square':
-                if ($this->canUseUnicodeListBulletGlyphs()) {
-                    $txti = "\u{25AA}";
+                $txti = $this->getHTMLliBulletGlyph($type);
+                if ($txti !== '') {
                     break;
                 }
                 $len = $size / 2;
-                $lspace += $len;
-                $posx += $this->rtl ? $lspace : -$lspace;
+                $markerx = $this->getHTMLliMarkerX($posx, $lspace, $len);
                 $style = [
                     'lineWidth' => 0,
                     'lineCap' => 'butt',
@@ -6843,7 +6909,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 ];
                 $result =
                     $this->graph->getStartTransform()
-                    . $this->graph->getBasicRect($posx, $fontTop + (($fontheight - $len) / 2), $len, $len, 'F', $style)
+                    . $this->graph->getBasicRect(
+                        $markerx,
+                        $fontTop + (($fontheight - $len) / 2),
+                        $len,
+                        $len,
+                        'F',
+                        $style,
+                    )
                     . $this->graph->getStopTransform();
                 if ($markerStyles !== []) {
                     $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
@@ -6853,8 +6926,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 // 1=>type, 2=>width, 3=>height, 4=>image.ext
                 $imgWidthRaw = $img[2] ?? null;
                 $imgw = \is_numeric($imgWidthRaw) ? \floatval($imgWidthRaw) : 0.0;
-                $lspace += $imgw;
-                $posx += $this->rtl ? $lspace : -$lspace;
+                $markerx = $this->getHTMLliMarkerX($posx, $lspace, $imgw);
                 $imgtype = strtolower($img[1] ?? '');
                 $imgsrc = $img[4] ?? '';
                 if (
@@ -6890,14 +6962,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $result = '';
                 switch ($imgtype) {
                     case 'svg':
-                        $svgid = $this->addSVG($imgsrc, $posx, $imgposy, $imgwidth, $imgheight, $pageheight, true);
+                        $svgid = $this->addSVG($imgsrc, $markerx, $imgposy, $imgwidth, $imgheight, $pageheight, true);
                         $result = $this->getSetSVG($svgid);
                         break;
                     default:
                         $imgid = $this->addMarkupRasterImage($imgsrc, $imgwidth, $imgheight);
                         $result = $this->image->getSetImage(
                             $imgid,
-                            $posx,
+                            $markerx,
                             $imgposy,
                             $imgwidth,
                             $imgheight,
@@ -6972,6 +7044,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
+        if (!$this->isTextInCurrentFont($txti)) {
+            // the current font has no glyph for this counter style: use the decimal counter
+            $txti = \strval($count);
+        }
+
         // append dot separator for ordered list types only
         $unorderedTypes = ['disc', 'circle', 'square'];
         if (!\in_array($type, $unorderedTypes, true)) {
@@ -6979,10 +7056,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $itemWidth = $this->getStringWidth($txti);
-        $lspace += $itemWidth;
-        $posx += $this->rtl ? $lspace : -$lspace;
+        $markerx = $this->getHTMLliMarkerX($posx, $lspace, $itemWidth);
 
-        $out = $this->getTextLine($txti, $posx, $posy);
+        $out = $this->getTextLine($txti, $markerx, $posy);
 
         if ($markerPrefix !== '') {
             $out = $markerPrefix . $out;
@@ -18345,13 +18421,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->getHTMLFontMetric($hrc, $key); // restore the li font selected above
         $baseline = $tpy + \max($this->toUnit($fontAscent), $runAscent);
         // For 'outside' markers the bullet hangs in the li's padding area, between
-        // the list's content edge and the li's content edge. tpx was shifted by the
-        // li margin+padding, so subtract the li's own padding-left to anchor the
-        // marker at the li's border-box left edge.
-        $liPaddingL = $markerPosition === 'outside' && isset($hrc['dom'][$key]['padding']['L'])
-            ? $hrc['dom'][$key]['padding']['L']
-            : 0.0;
-        $bulletx = $tpx - $liPaddingL + $indent + $insideTextOffset;
+        // the list's content edge and the li's content edge. openHTMLBlock() shifted
+        // tpx by the li margin+padding, so the li's own padding on the marker side is
+        // taken back to anchor the marker at the li's border-box edge. In RTL the
+        // marker hangs off the right edge of the item box.
+        $liPadding = 0.0;
+        if ($markerPosition === 'outside') {
+            $liPadding = $this->rtl
+                ? $hrc['dom'][$key]['padding']['R'] ?? 0.0
+                : $hrc['dom'][$key]['padding']['L'] ?? 0.0;
+        }
+
+        $bulletx = $this->rtl
+            ? $tpx + $tpw + $liPadding - $indent - $insideTextOffset
+            : $tpx - $liPadding + $indent + $insideTextOffset;
 
         // Get marker styles from li::marker selector
         $markerStyles = [];
@@ -18386,9 +18469,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'maxwidth' => $listItemMaxWidth,
         ];
 
-        $tpx += $indent + $insideTextOffset;
-        if ($markerPosition === 'outside') {
+        // The list gutter and the inline marker space are taken from the edge the
+        // item text starts at: the left one in LTR, the right one in RTL.
+        if ($this->rtl) {
             if ($tpw > 0) {
+                $tpw = \max(0.0, $tpw - $indent - $insideTextOffset);
+            }
+        } else {
+            $tpx += $indent + $insideTextOffset;
+        }
+
+        if ($markerPosition === 'outside') {
+            if (!$this->rtl && $tpw > 0) {
                 $tpw = \max(0.0, $tpw - $indent);
             }
 

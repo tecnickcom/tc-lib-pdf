@@ -44,6 +44,23 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Select the bundled DejaVu Sans, a Unicode font, and add a page.
+     *
+     * @throws \Throwable
+     */
+    private function initUnicodeFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): void
+    {
+        /** @var \Com\Tecnick\Pdf\Font\Stack $font */
+        $font = $this->getObjectProperty($obj, 'font');
+        /** @var int $pon */
+        $pon = $this->getObjectProperty($obj, 'pon');
+        $fontfile = (string) \realpath(__DIR__
+        . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
+        $font->insert($pon, 'dejavusans', '', 10, null, null, $fontfile);
+        $obj->addPage();
+    }
+
+    /**
      * @throws \Throwable
      */
     protected function getNobrProbeTestObject(): TestableHTMLNobrProbe
@@ -14551,6 +14568,267 @@ class HTMLTest extends TestUtil
         $squareTop = ($fontHeight - ($sizePt / 2)) / 2;
         assert(isset($squareMatch[1]), "\$squareMatch[1] must be set");
         $this->assertEqualsWithDelta($pageHeight - $squareTop, \floatval($squareMatch[1]), 0.001);
+    }
+
+    /**
+     * Horizontal extents of a vector list marker, in points.
+     *
+     * @return array{0: float, 1: float}
+     */
+    private function getMarkerXRange(string $out): array
+    {
+        $rect = [];
+        if (\preg_match('/(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) re/', $out, $rect) === 1) {
+            $left = \floatval($rect[1] ?? '0');
+            return [$left, $left + \floatval($rect[3] ?? '0')];
+        }
+
+        $xpos = [];
+        $moves = [];
+        \preg_match_all('/(-?[\d.]+) (-?[\d.]+) (?:m|l)\b/', $out, $moves);
+        foreach ($moves[1] ?? [] as $val) {
+            $xpos[] = \floatval($val);
+        }
+
+        $curves = [];
+        \preg_match_all('/(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) c\b/', $out, $curves);
+        foreach ([1, 3, 5] as $group) {
+            foreach ($curves[$group] ?? [] as $val) {
+                $xpos[] = \floatval($val);
+            }
+        }
+
+        if ($xpos === []) {
+            $this->fail('No vector marker found in the bullet output.');
+        }
+
+        return [\min($xpos), \max($xpos)];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLliBulletVectorShapesShareTheSameMarkerSlot(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'rtl', false);
+
+        $posx = 100.0;
+        $gap = $obj->toPoints($obj->exposeGetStringWidth(' '));
+        $slotRight = $obj->toPoints($posx) - $gap;
+
+        $ranges = [];
+        foreach (['disc', 'circle', 'square'] as $type) {
+            $ranges[$type] = $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, $type));
+        }
+
+        foreach ($ranges as $type => $range) {
+            $this->assertEqualsWithDelta($slotRight, $range[1], 0.01, $type . ' right edge');
+            $this->assertEqualsWithDelta($ranges['square'][0], $range[0], 0.01, $type . ' left edge');
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLliBulletVectorShapesShareTheSameMarkerSlotInRtl(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+        $this->setObjectProperty($obj, 'rtl', true);
+
+        $posx = 100.0;
+        $gap = $obj->toPoints($obj->exposeGetStringWidth(' '));
+        $slotLeft = $obj->toPoints($posx) + $gap;
+
+        $ranges = [];
+        foreach (['disc', 'circle', 'square'] as $type) {
+            $ranges[$type] = $this->getMarkerXRange($obj->exposeGetHTMLliBullet(1, 1, $posx, 50.0, $type));
+        }
+
+        foreach ($ranges as $type => $range) {
+            $this->assertEqualsWithDelta($slotLeft, $range[0], 0.01, $type . ' left edge');
+            $this->assertEqualsWithDelta($ranges['square'][1], $range[1], 0.01, $type . ' right edge');
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testIsTextInCurrentFontDetectsMissingGlyphs(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $this->assertTrue($obj->exposeIsTextInCurrentFont('1.'));
+        $this->assertTrue($obj->exposeIsTextInCurrentFont("\u{2022}"));
+        $this->assertFalse($obj->exposeIsTextInCurrentFont("\u{03B1}"));
+        // a byte font never takes the glyph path
+        $this->assertSame('', $obj->exposeGetHTMLliBulletGlyph('disc'));
+
+        $uni = $this->getInternalTestObject();
+        $this->initUnicodeFontAndPage($uni);
+
+        $this->assertTrue($uni->exposeIsTextInCurrentFont("\u{2022}"));
+        $this->assertTrue($uni->exposeIsTextInCurrentFont("\u{03B1}"));
+        $this->assertFalse($uni->exposeIsTextInCurrentFont("\u{3042}"));
+        $this->assertSame("\u{2022}", $uni->exposeGetHTMLliBulletGlyph('disc'));
+        $this->assertSame("\u{25E6}", $uni->exposeGetHTMLliBulletGlyph('circle'));
+        $this->assertSame("\u{25AA}", $uni->exposeGetHTMLliBulletGlyph('square'));
+        $this->assertSame('', $uni->exposeGetHTMLliBulletGlyph('decimal'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLliBulletKeepsBulletGlyphsWhenTheFontHasThem(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFontAndPage($obj);
+
+        foreach (['disc', 'circle', 'square'] as $type) {
+            $out = $obj->exposeGetHTMLliBullet(1, 1, 20.0, 20.0, $type);
+            $this->assertStringContainsString('Tj', $out, $type);
+            $this->assertDoesNotMatchRegularExpression('/ (?:re|c)\b/', $out, $type);
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLliBulletFallsBackToDecimalWhenCounterGlyphMissing(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFontAndPage($obj);
+
+        // the bundled DejaVu Sans covers neither the Hiragana nor the CJK block
+        $this->assertFalse($obj->font->isCharDefined(0x3042));
+        $this->assertFalse($obj->font->isCharDefined(0x4E00));
+
+        $decimal = $obj->exposeGetHTMLliBullet(1, 2, 20.0, 20.0, 'decimal');
+        $this->assertNotSame('', $decimal);
+
+        foreach (['hiragana', 'hiragana-iroha', 'katakana', 'cjk-ideographic'] as $type) {
+            $this->assertSame($decimal, $obj->exposeGetHTMLliBullet(1, 2, 20.0, 20.0, $type), $type);
+        }
+
+        // a covered counter style keeps its own glyphs
+        $this->assertNotSame($decimal, $obj->exposeGetHTMLliBullet(1, 2, 20.0, 20.0, 'lower-greek'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLliBulletFallsBackToVectorWhenBulletGlyphMissing(): void
+    {
+        $bundled = (string) \realpath((string) \constant('K_PATH_FONTS'));
+        $customDir = \sys_get_temp_dir() . '/tc-lib-pdf-nobullet-' . \bin2hex(\random_bytes(6));
+        $this->assertTrue(\mkdir($customDir, 0o777, true));
+
+        try {
+            foreach ((array) \glob($bundled . '/dejavu/dejavusans.*') as $src) {
+                \copy((string) $src, $customDir . '/' . \basename((string) $src));
+            }
+
+            $ifile = $customDir . '/dejavusans.json';
+            $this->assertFileIsReadable($ifile);
+
+            // strip the widths of the two Geometric Shapes markers, as in a face that lacks them
+            /** @var array<string, mixed> $fontdata */
+            $fontdata = \json_decode((string) \file_get_contents($ifile), true);
+            if (!\is_array($fontdata['cw'] ?? null)) {
+                $this->fail('Unexpected font definition shape.');
+            }
+
+            $widths = $fontdata['cw'];
+            unset($widths[0x25E6], $widths[0x25AA]);
+            $fontdata['cw'] = $widths;
+            \file_put_contents($ifile, (string) \json_encode($fontdata));
+
+            $obj = new TestableHTML('mm', true, false, false, '', null, ['allowedPaths' => [(string) \realpath(
+                $customDir,
+            )]]);
+            $obj->addPage();
+            $pon = $obj->pon;
+            $obj->font->insert($pon, 'dejavusans', '', 10, null, null, $ifile);
+
+            $this->assertTrue($obj->font->isCharDefined(0x2022));
+            $this->assertFalse($obj->font->isCharDefined(0x25E6));
+            $this->assertFalse($obj->font->isCharDefined(0x25AA));
+
+            // the covered marker still uses its glyph
+            $this->assertStringContainsString('Tj', $obj->exposeGetHTMLliBullet(1, 1, 20.0, 20.0, 'disc'));
+
+            foreach (['circle', 'square'] as $type) {
+                $out = $obj->exposeGetHTMLliBullet(1, 1, 20.0, 20.0, $type);
+                $this->assertStringNotContainsString('Tj', $out, $type);
+                $this->assertMatchesRegularExpression('/ (?:re|c)\b/', $out, $type);
+            }
+        } finally {
+            foreach ((array) \glob($customDir . '/*') as $file) {
+                \unlink((string) $file);
+            }
+
+            \rmdir($customDir);
+        }
+    }
+
+    /**
+     * Abscissas of the square list markers, in points, in content stream order.
+     *
+     * @return array<int, float>
+     */
+    private function getListMarkerXPositions(string $pdf): array
+    {
+        $rects = [];
+        \preg_match_all('/(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) re/', $pdf, $rects);
+        $xpos = [];
+        foreach ($rects[1] ?? [] as $val) {
+            $xpos[] = \floatval($val);
+        }
+
+        return $xpos;
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellPlacesListMarkersOnTheItemTextEdge(): void
+    {
+        $html =
+            '<ul style="list-style-type: square"><li>alpha'
+            . '<ul style="list-style-type: square"><li>beta</li></ul></li></ul>';
+
+        $ltr = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+        $this->initFontAndPage($ltr);
+        $ltr->addHTMLCell($html, 10, 10, 180, 0);
+        $ltrx = $this->getListMarkerXPositions($ltr->getOutPDFString());
+
+        $rtl = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+        $rtl->setRTL(true);
+        $this->initFontAndPage($rtl);
+        $rtl->addHTMLCell($html, 10, 10, 180, 0);
+        $rtlx = $this->getListMarkerXPositions($rtl->getOutPDFString());
+
+        $this->assertCount(2, $ltrx);
+        $this->assertCount(2, $rtlx);
+
+        // the cell spans 10..190 mm
+        $middle = $ltr->toPoints(100.0);
+        $ltrOuter = $ltrx[0] ?? 0.0;
+        $ltrNested = $ltrx[1] ?? 0.0;
+        $rtlOuter = $rtlx[0] ?? 0.0;
+        $rtlNested = $rtlx[1] ?? 0.0;
+
+        $this->assertLessThan($middle, $ltrOuter);
+        $this->assertLessThan($middle, $ltrNested);
+        // a nested list indents away from the item text edge
+        $this->assertGreaterThan($ltrOuter, $ltrNested);
+
+        $this->assertGreaterThan($middle, $rtlOuter);
+        $this->assertGreaterThan($middle, $rtlNested);
+        $this->assertLessThan($rtlOuter, $rtlNested);
     }
 
     /**
