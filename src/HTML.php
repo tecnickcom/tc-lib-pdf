@@ -18,6 +18,7 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf;
 
+use Com\Tecnick\Pdf\CSS\ListStyle;
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
 
@@ -154,6 +155,7 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *     'line-height-font-size-basis'?: bool,
  *     'list-style-position': string,
  *     'listtype': string,
+ *     'listtypeset': bool,
  *     'float': string,
  *     'margin': array<string, float>,
  *     'opening': bool,
@@ -311,19 +313,41 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         'I',
         'a',
         'circle',
+        'cjk-ideographic',
         'decimal',
         'decimal-leading-zero',
         'disc',
+        'georgian',
+        'hebrew',
+        'hiragana',
+        'hiragana-iroha',
         'i',
+        'katakana',
+        'katakana-iroha',
         'lower-alpha',
+        'lower-armenian',
         'lower-greek',
         'lower-latin',
         'lower-roman',
+        'none',
         'square',
         'upper-alpha',
+        'upper-armenian',
         'upper-latin',
         'upper-roman',
     ];
+
+    /**
+     * Highest list counter value: one below the integer limit,
+     * so that the next counter cannot overflow.
+     */
+    protected const LIST_COUNTER_MAX = PHP_INT_MAX - 1;
+
+    /**
+     * Lowest list counter value: two above the integer limit,
+     * so that the list start value cannot underflow.
+     */
+    protected const LIST_COUNTER_MIN = PHP_INT_MIN + 2;
 
     /**
      * Default list types for unordered lists.
@@ -1073,6 +1097,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'list-style-position' => 'outside',
             //'list-style-type' => '', // mapped to listtype
             'listtype' => '',
+            'listtypeset' => false,
             'float' => 'none',
             'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
             'opening' => false,
@@ -3159,6 +3184,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
             if ($parentListType !== '') {
                 $dom[$key]['listtype'] = $parentListType;
+                $dom[$key]['listtypeset'] = true;
             }
 
             $parentListPosition = '';
@@ -3206,6 +3232,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $dom[$key]['listtype'] = \trim(\strtolower($dom[$key]['style']['list-style-type']));
+        $dom[$key]['listtypeset'] = true;
         if ($dom[$key]['listtype'] === 'inherit') {
             if (isset($dom[$parentkey]['listtype']) && $dom[$parentkey]['listtype'] !== '') {
                 $dom[$key]['listtype'] = \trim(\strtolower($dom[$parentkey]['listtype']));
@@ -6689,7 +6716,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        $sym = \strtolower($sym);
+        $sym = ListStyle::resolveType($sym);
         $this->ullidot = \in_array($sym, self::LIST_SYMBOL, true) ? $sym : '!';
     }
 
@@ -6701,6 +6728,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function isTextInCurrentFont(string $txt): bool
     {
+        if (\preg_match('//u', $txt) !== 1) {
+            // not a valid UTF-8 string: no font can render it
+            return false;
+        }
+
         foreach ($this->uniconv->strToOrdArr($txt) as $ord) {
             if (!$this->font->isCharDefined($ord)) {
                 return false;
@@ -6731,14 +6763,40 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Returns the abscissa of the left edge of the list marker box.
+     * An outside marker hangs before the item text edge, an inside marker
+     * starts at the item content edge.
      *
-     * @param float $posx  Abscissa of the list item text edge.
-     * @param float $gap   Space between the marker box and the item text.
-     * @param float $width Marker box width.
+     * @param float $posx   Abscissa of the list item text edge for an outside
+     *                      marker, of the item content edge for an inside one.
+     * @param float $gap    Space between the marker box and the item text.
+     * @param float $width  Marker box width.
+     * @param bool  $inside True for a list-style-position: inside marker.
      */
-    protected function getHTMLliMarkerX(float $posx, float $gap, float $width): float
+    protected function getHTMLliMarkerX(float $posx, float $gap, float $width, bool $inside = false): float
     {
+        if ($inside) {
+            return $this->rtl ? $posx - $width : $posx;
+        }
+
         return $this->rtl ? $posx + $gap : $posx - $gap - $width;
+    }
+
+    /**
+     * Returns the abscissa of the left edge of the list marker box, and sets the
+     * horizontal space the marker takes from the item content edge.
+     *
+     * @param float $posx    Abscissa of the list item text edge for an outside
+     *                       marker, of the item content edge for an inside one.
+     * @param float $gap     Space between the marker box and the item text.
+     * @param float $width   Marker box width.
+     * @param bool  $inside  True for a list-style-position: inside marker.
+     * @param float $advance Set to the space the marker takes before the item text.
+     */
+    protected function placeHTMLliMarker(float $posx, float $gap, float $width, bool $inside, float &$advance): float
+    {
+        $advance = $width + $gap;
+
+        return $this->getHTMLliMarkerX($posx, $gap, $width, $inside);
     }
 
     /**
@@ -6746,10 +6804,14 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param int    $depth  List nesting level.
      * @param int    $count  List entry position, starting form 1.
-     * @param float  $posx   Abscissa of the list item text edge the marker is placed against.
+     * @param float  $posx   Abscissa of the list item text edge the marker is placed
+     *                       against, of the item content edge for an inside marker.
      * @param float  $posy   Ordinate of upper-left corner.
      * @param string $type   Type of list.
      * @param array<string, mixed> $markerStyles Marker style declarations from li::marker.
+     * @param bool   $inside True for a list-style-position: inside marker.
+     * @param float  $advance Set to the horizontal space the marker takes from the
+     *                        item content edge, including the gap before the text.
      *
      * @return string
      *
@@ -6767,7 +6829,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         float $posy = 0,
         string $type = '',
         array $markerStyles = [],
+        bool $inside = false,
+        float &$advance = 0.0,
     ): string {
+        $advance = 0.0;
         $markerState = [];
         $markerPrefix = '';
         $img = ['', '', '0', '0', ''];
@@ -6797,7 +6862,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     // custom image type ('img|type|width|height|image.ext')
                     $img = \explode('|', $type);
                     $type = 'img';
+                    break;
                 }
+
+                $type = ListStyle::resolveType($type);
         }
 
         $font = $this->font->getCurrentFont();
@@ -6818,7 +6886,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
                 $rad = $size / 4;
-                $markerx = $this->getHTMLliMarkerX($posx, $lspace, 2 * $rad);
+                $markerx = $this->placeHTMLliMarker($posx, $lspace, 2 * $rad, $inside, $advance);
                 $style = [
                     'lineWidth' => 0,
                     'lineCap' => 'butt',
@@ -6856,7 +6924,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
                 $rad = $size / 4;
-                $markerx = $this->getHTMLliMarkerX($posx, $lspace, 2 * $rad);
+                $markerx = $this->placeHTMLliMarker($posx, $lspace, 2 * $rad, $inside, $advance);
                 $style = [
                     'lineWidth' => $rad / 3,
                     'lineCap' => 'butt',
@@ -6894,7 +6962,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     break;
                 }
                 $len = $size / 2;
-                $markerx = $this->getHTMLliMarkerX($posx, $lspace, $len);
+                $markerx = $this->placeHTMLliMarker($posx, $lspace, $len, $inside, $advance);
                 $style = [
                     'lineWidth' => 0,
                     'lineCap' => 'butt',
@@ -6928,7 +6996,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 // 1=>type, 2=>width, 3=>height, 4=>image.ext
                 $imgWidthRaw = $img[2] ?? null;
                 $imgw = \is_numeric($imgWidthRaw) ? \floatval($imgWidthRaw) : 0.0;
-                $markerx = $this->getHTMLliMarkerX($posx, $lspace, $imgw);
+                $markerx = $this->placeHTMLliMarker($posx, $lspace, $imgw, $inside, $advance);
                 $imgtype = strtolower($img[1] ?? '');
                 $imgsrc = $img[4] ?? '';
                 if (
@@ -6983,59 +7051,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
                 }
                 return $result;
-            case 'a':
-            case 'lower-alpha':
-            case 'lower-latin':
-                $txti = \chr((97 + $count - 1) & 0xFF);
-                break;
-            case 'A':
-            case 'upper-alpha':
-            case 'upper-latin':
-                $txti = \chr((65 + $count - 1) & 0xFF);
-                break;
-            case 'i':
-            case 'lower-roman':
-                $txti = \strtolower($this->intToRoman($count));
-                break;
-            case 'I':
-            case 'upper-roman':
-                $txti = $this->intToRoman($count);
-                break;
-            case 'decimal-leading-zero':
-                $txti = \number_format($count, 0, '.', '');
-                if ($count >= 0 && $count < 10) {
-                    $txti = '0' . $txti;
-                }
-                break;
-            case 'lower-greek':
-                $txti = $this->uniconv->chr(945 + $count - 1);
-                break;
-            case 'hebrew':
-                $txti = $this->uniconv->chr(1488 + $count - 1);
-                break;
-            case 'armenian':
-                $txti = $this->uniconv->chr(1377 + $count - 1);
-                break;
-            case 'georgian':
-                $txti = $this->uniconv->chr(4304 + $count - 1);
-                break;
-            case 'cjk-ideographic':
-                $txti = $this->uniconv->chr(19_968 + $count - 1);
-                break;
-            case 'hiragana':
-                $txti = $this->uniconv->chr(12_354 + $count - 1);
-                break;
-            case 'hiragana-iroha':
-                $txti = $this->uniconv->chr(12_356 + $count - 1);
-                break;
-            case 'katakana':
-                $txti = $this->uniconv->chr(12_450 + $count - 1);
-                break;
-            case 'katakana-iroha':
-                $txti = $this->uniconv->chr(12_452 + $count - 1);
-                break;
             default:
-                $txti = \strval($count);
+                $txti = ListStyle::counterText($type, $count);
                 break;
         }
 
@@ -7052,13 +7069,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         // append dot separator for ordered list types only
-        $unorderedTypes = ['disc', 'circle', 'square'];
-        if (!\in_array($type, $unorderedTypes, true)) {
+        if (!ListStyle::isUnordered($type)) {
             $txti = $this->rtl ? '.' . $txti : $txti . '.';
         }
 
         $itemWidth = $this->getStringWidth($txti);
-        $markerx = $this->getHTMLliMarkerX($posx, $lspace, $itemWidth);
+        $markerx = $this->placeHTMLliMarker($posx, $lspace, $itemWidth, $inside, $advance);
 
         $out = $this->getTextLine($txti, $markerx, $posy);
 
@@ -8756,17 +8772,26 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         }
 
-        if (
-            isset($elm['attribute']['type'])
-            && \is_string($elm['attribute']['type'])
-            && $elm['attribute']['type'] !== ''
-        ) {
-            $type = \trim(\strtolower($elm['attribute']['type']));
-            return $type === '' ? $default : $type;
+        // A list-style-type declared on this element wins over the presentational
+        // type attribute, an inherited one does not. Unsupported values are ignored,
+        // as an unknown type would otherwise render as a decimal counter.
+        if ($elm['listtypeset']) {
+            $declared = ListStyle::resolveKnownType($elm['listtype']);
+            if ($declared !== '') {
+                return $declared;
+            }
         }
 
-        if ($elm['listtype'] !== '') {
-            return $elm['listtype'];
+        if (isset($elm['attribute']['type']) && \is_string($elm['attribute']['type'])) {
+            $attrtype = ListStyle::resolveKnownType($elm['attribute']['type']);
+            if ($attrtype !== '') {
+                return $attrtype;
+            }
+        }
+
+        $csstype = ListStyle::resolveKnownType($elm['listtype']);
+        if ($csstype !== '') {
+            return $csstype;
         }
 
         return $default;
@@ -8792,14 +8817,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ];
             return;
         }
+        // The start attribute sets the first counter, including zero and negative
+        // values: those fall back to the decimal counter when rendered.
         $start = 0;
-        if (
-            $ordered
-            && isset($elm['attribute']['start'])
-            && \is_numeric($elm['attribute']['start'])
-            && $elm['attribute']['start'] > 0
-        ) {
-            $start = (int) $elm['attribute']['start'] - 1;
+        if ($ordered && isset($elm['attribute']['start']) && \is_numeric($elm['attribute']['start'])) {
+            $start = $this->clampHTMLListCounter((int) $elm['attribute']['start']) - 1;
         }
 
         $indent = $this->getHTMLListIndentOverrideByKey($hrc, $key);
@@ -8853,7 +8875,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return 1;
         }
 
-        $newCount = ($listEntry['count'] ?? 0) + 1;
+        $current = \is_int($listEntry['count'] ?? null) ? $listEntry['count'] : 0;
+        $newCount = $current >= self::LIST_COUNTER_MAX ? self::LIST_COUNTER_MAX : $current + 1;
         $hrc['liststack'][$idx]['count'] = $newCount;
         $elm = $hrc['dom'][$key] ?? null;
         if ($key < 0 || !\is_array($elm)) {
@@ -8865,19 +8888,39 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && $elm['attribute']['value'] !== ''
             && \is_numeric($elm['attribute']['value'])
         ) {
-            $hrc['liststack'][$idx]['count'] = (int) $elm['attribute']['value'];
+            $hrc['liststack'][$idx]['count'] = $this->clampHTMLListCounter((int) $elm['attribute']['value']);
         }
 
         return $hrc['liststack'][$idx]['count'];
     }
 
     /**
+     * Clamps a list counter to the range the counter arithmetic can represent.
+     *
+     * @param int $count List counter value.
+     */
+    protected function clampHTMLListCounter(int $count): int
+    {
+        return \max(self::LIST_COUNTER_MIN, \min(self::LIST_COUNTER_MAX, $count));
+    }
+
+    /**
      * Returns the marker type for the current list level.
+     * The type attribute of the list item overrides the list type for that item only.
      *
      * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $key DOM array key of the list item, or -1 to ignore it.
      */
-    protected function getCurrentHTMLListMarkerType(array &$hrc): string
+    protected function getCurrentHTMLListMarkerType(array &$hrc, int $key = -1): string
     {
+        $elm = $hrc['dom'][$key] ?? null;
+        if ($key >= 0 && \is_array($elm) && \is_string($elm['attribute']['type'] ?? null)) {
+            $itemtype = ListStyle::resolveKnownType($elm['attribute']['type']);
+            if ($itemtype !== '') {
+                return $itemtype;
+            }
+        }
+
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
             return '#';
@@ -11835,39 +11878,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     protected function getPdfUaListNumbering(array $elm): string
     {
-        $tag = isset($elm['value']) && \is_string($elm['value']) ? \strtolower($elm['value']) : '';
-        $listtype = isset($elm['listtype']) && \is_string($elm['listtype']) ? \strtolower(\trim($elm['listtype'])) : '';
+        $tag = isset($elm['value']) && \is_string($elm['value']) ? $elm['value'] : '';
 
-        $map = [
-            'disc' => 'Disc',
-            'circle' => 'Circle',
-            'square' => 'Square',
-            'decimal' => 'Decimal',
-            'decimal-leading-zero' => 'Decimal',
-            '1' => 'Decimal',
-            'upper-roman' => 'UpperRoman',
-            'i' => 'LowerRoman',
-            'lower-roman' => 'LowerRoman',
-            'upper-alpha' => 'UpperAlpha',
-            'upper-latin' => 'UpperAlpha',
-            'a' => 'LowerAlpha',
-            'lower-alpha' => 'LowerAlpha',
-            'lower-latin' => 'LowerAlpha',
-        ];
-
-        if ($listtype !== '' && isset($map[$listtype])) {
-            return $map[$listtype];
+        // the presentational type attribute takes precedence, as in getHTMLListMarkerType()
+        $listtype = ListStyle::resolveType($this->getHTMLNodeStringAttr($elm, 'type'));
+        if ($listtype === '' && isset($elm['listtype']) && \is_string($elm['listtype'])) {
+            $listtype = ListStyle::resolveType($elm['listtype']);
         }
 
-        if ($tag === 'ul') {
-            return 'Disc';
-        }
-
-        if ($tag === 'ol') {
-            return 'Decimal';
-        }
-
-        return '';
+        return ListStyle::pdfUaNumbering($listtype, $tag);
     }
 
     /**
@@ -18406,14 +18425,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // below when computing $bulletx.
 
         $counter = $this->getHTMLListItemCounter($hrc, $key);
-        $markerType = $this->getCurrentHTMLListMarkerType($hrc);
-        $markerPosition = 'outside';
+        $markerType = $this->getCurrentHTMLListMarkerType($hrc, $key);
+        // An inside marker is laid out inline at the item content edge: the space it
+        // takes before the item text is known once the marker has been rendered.
+        $insideMarker = ($hrc['dom'][$key]['list-style-position'] ?? '') === 'inside';
         $insideTextOffset = 0.0;
-        if (isset($hrc['dom'][$key]['list-style-position']) && $hrc['dom'][$key]['list-style-position'] === 'inside') {
-            $markerPosition = 'inside';
-            // Browser-like inside markers reserve inline marker space before item text.
-            $insideTextOffset = $this->getStringWidth('0 ');
-        }
 
         $fontAscent = isset($font['ascent']) && \is_numeric($font['ascent']) ? (float) $font['ascent'] : 0.0;
         // The marker shares the first line box with the item's leading inline
@@ -18428,15 +18444,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // taken back to anchor the marker at the li's border-box edge. In RTL the
         // marker hangs off the right edge of the item box.
         $liPadding = 0.0;
-        if ($markerPosition === 'outside') {
+        if (!$insideMarker) {
             $liPadding = $this->rtl
                 ? $hrc['dom'][$key]['padding']['R'] ?? 0.0
                 : $hrc['dom'][$key]['padding']['L'] ?? 0.0;
         }
 
-        $bulletx = $this->rtl
-            ? $tpx + $tpw + $liPadding - $indent - $insideTextOffset
-            : $tpx - $liPadding + $indent + $insideTextOffset;
+        $bulletx = $this->rtl ? $tpx + $tpw + $liPadding - $indent : $tpx - $liPadding + $indent;
 
         // Get marker styles from li::marker selector
         $markerStyles = [];
@@ -18452,7 +18466,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->beginStructElem('Lbl', $this->page->getPageId());
         }
 
-        $bulletOut = $this->getHTMLliBullet($depth, $counter, $bulletx, $baseline, $markerType, $markerStyles);
+        $markerAdvance = 0.0;
+        $bulletOut = $this->getHTMLliBullet(
+            depth: $depth,
+            count: $counter,
+            posx: $bulletx,
+            posy: $baseline,
+            type: $markerType,
+            markerStyles: $markerStyles,
+            inside: $insideMarker,
+            advance: $markerAdvance,
+        );
+        if ($insideMarker) {
+            $insideTextOffset = $markerAdvance;
+        }
         if ($this->pdfuaMode !== '') {
             $bulletOut = $this->tagPdfUaTextContent($bulletOut, $this->page->getPageId(), '');
             $this->endStructElem();
@@ -18479,17 +18506,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
         } else {
             $tpx += $indent + $insideTextOffset;
-        }
-
-        if ($markerPosition === 'outside') {
-            if (!$this->rtl && $tpw > 0) {
+            if ($tpw > 0) {
                 $tpw = \max(0.0, $tpw - $indent);
             }
-
-            $hrc['cellctx']['originx'] = $tpx;
-            $hrc['cellctx']['maxwidth'] = $tpw;
-            $hrc['cellctx']['lineoriginx'] = $tpx;
         }
+
+        // The item content box is where the wrapped lines and the nested blocks go.
+        // An inside marker sits inline in that box and shifts the first line only, so
+        // it belongs to neither the content edge nor the content width.
+        $contentx = $this->rtl ? $tpx : $tpx - $insideTextOffset;
+        $contentw = $this->rtl ? $tpw + $insideTextOffset : $tpw;
+        $hrc['cellctx']['originx'] = $contentx;
+        $hrc['cellctx']['maxwidth'] = $contentw;
+        $hrc['cellctx']['lineoriginx'] = $contentx;
 
         return $out;
     }
@@ -18563,7 +18592,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE) || $lineAdvanceCtx > self::WIDTH_TOLERANCE)
         ) {
             $baseOriginX = $hrc['cellctx']['originx'];
-            $lineStartX = $tpx;
+            // The nested list starts at the list-item text column, not at the inline
+            // cursor: text already rendered on the current line must not shift it.
+            $lineStartX = $hrc['cellctx']['lineoriginx'];
             $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
             // Nested lists inside <li> should continue from the current list-item
             // text column (browser-like), not from the parent list block origin.
@@ -20168,7 +20199,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && ($tpx > ($hrc['cellctx']['originx'] + self::WIDTH_TOLERANCE) || $lineAdvanceCtx > self::WIDTH_TOLERANCE)
         ) {
             $baseOriginX = $hrc['cellctx']['originx'];
-            $lineStartX = $tpx;
+            // The nested list starts at the list-item text column, not at the inline
+            // cursor: text already rendered on the current line must not shift it.
+            $lineStartX = $hrc['cellctx']['lineoriginx'];
             $this->moveHTMLToNextLine($hrc, $key, $tpx, $tpy, $tpw);
             // Nested lists inside <li> should continue from the current list-item
             // text column (browser-like), not from the parent list block origin.

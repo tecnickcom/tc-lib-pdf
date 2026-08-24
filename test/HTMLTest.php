@@ -116,6 +116,7 @@ class HTMLTest extends TestUtil
             'line-height' => 1.0,
             'list-style-position' => 'outside',
             'listtype' => '',
+            'listtypeset' => false,
             'float' => 'none',
             'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
             'opening' => false,
@@ -7098,6 +7099,551 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testListTypeAttributeSelectsTheCaseSensitiveCounters(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $html = '';
+        foreach (['1', 'a', 'A', 'i', 'I'] as $type) {
+            $html .= '<ol type="' . $type . '"><li>x</li><li>x</li></ol>';
+        }
+
+        $out = $obj->getHTMLCell($html, 0, 0, 60, 0);
+
+        foreach (['(1.)', '(2.)', '(a.)', '(b.)', '(A.)', '(B.)', '(i.)', '(ii.)', '(I.)', '(II.)'] as $marker) {
+            $this->assertStringContainsString($marker, $out);
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testListTypeAttributeMatchesTheEquivalentCssKeyword(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $items = '<li>x</li><li>x</li>';
+
+        $this->assertSame(
+            $obj->getHTMLCell('<ol style="list-style-type: upper-alpha">' . $items . '</ol>', 0, 0, 60, 0),
+            $obj->getHTMLCell('<ol type="A">' . $items . '</ol>', 0, 0, 60, 0),
+        );
+        $this->assertSame(
+            $obj->getHTMLCell('<ol style="list-style-type: upper-roman">' . $items . '</ol>', 0, 0, 60, 0),
+            $obj->getHTMLCell('<ol type="I">' . $items . '</ol>', 0, 0, 60, 0),
+        );
+        $this->assertSame(
+            $obj->getHTMLCell('<ol style="list-style-type: lower-alpha">' . $items . '</ol>', 0, 0, 60, 0),
+            $obj->getHTMLCell('<ol type="a">' . $items . '</ol>', 0, 0, 60, 0),
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testUnorderedListTypeAttributeIsCaseInsensitive(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $items = '<li>x</li><li>x</li>';
+
+        foreach (['DISC' => 'disc', 'Square' => 'square', 'CIRCLE' => 'circle'] as $upper => $lower) {
+            $this->assertSame(
+                $obj->getHTMLCell('<ul type="' . $lower . '">' . $items . '</ul>', 0, 0, 60, 0),
+                $obj->getHTMLCell('<ul type="' . $upper . '">' . $items . '</ul>', 0, 0, 60, 0),
+            );
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testListTypeAttributeIsInheritedByNestedLists(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<ol type="A"><li>x<ol style="list-style-type: inherit"><li>y</li><li>y</li></ol></li></ol>',
+            0,
+            0,
+            60,
+            0,
+        );
+
+        $this->assertStringContainsString('(A.)', $out);
+        $this->assertStringContainsString('(B.)', $out);
+        $this->assertStringNotContainsString('(a.)', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testSetULLIDotResolvesTheCaseSensitiveValues(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $obj->setULLIDot('A');
+        $this->assertSame('upper-alpha', $this->getObjectProperty($obj, 'ullidot'));
+        $this->assertStringContainsString('(A.)', $obj->getHTMLCell('<ul><li>x</li></ul>', 0, 0, 60, 0));
+
+        $obj->setULLIDot('I');
+        $this->assertSame('upper-roman', $this->getObjectProperty($obj, 'ullidot'));
+        $this->assertStringContainsString('(I.)', $obj->getHTMLCell('<ul><li>x</li></ul>', 0, 0, 60, 0));
+
+        $obj->setULLIDot('lower-latin');
+        $this->assertSame('lower-alpha', $this->getObjectProperty($obj, 'ullidot'));
+
+        $obj->setULLIDot('SQUARE');
+        $this->assertSame('square', $this->getObjectProperty($obj, 'ullidot'));
+
+        $obj->setULLIDot('bogus');
+        $this->assertSame('!', $this->getObjectProperty($obj, 'ullidot'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAlphabeticListCountersWrapPastTheAlphabet(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<ol type="a" start="24">' . \str_repeat('<li>x</li>', 5) . '</ol>', 0, 0, 60, 0);
+        foreach (['(x.)', '(y.)', '(z.)', '(aa.)', '(ab.)'] as $marker) {
+            $this->assertStringContainsString($marker, $out);
+        }
+
+        $out = $obj->getHTMLCell('<ol type="A" start="24">' . \str_repeat('<li>x</li>', 5) . '</ol>', 0, 0, 60, 0);
+        foreach (['(X.)', '(Y.)', '(Z.)', '(AA.)', '(AB.)'] as $marker) {
+            $this->assertStringContainsString($marker, $out);
+        }
+
+        $out = $obj->getHTMLCell('<ol type="a" start="701">' . \str_repeat('<li>x</li>', 3) . '</ol>', 0, 0, 60, 0);
+        foreach (['(zy.)', '(zz.)', '(aaa.)'] as $marker) {
+            $this->assertStringContainsString($marker, $out);
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAlphabeticListCountersDoNotThrowPastTheAlphabet(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<ol type="a" start="30">' . \str_repeat('<li>x</li>', 4) . '</ol>', 0, 0, 60, 0);
+        $this->assertStringContainsString('(ae.)', $out);
+        $this->assertStringContainsString('(ag.)', $out);
+
+        $out = $obj->getHTMLCell('<ol type="A" start="62">' . \str_repeat('<li>x</li>', 4) . '</ol>', 0, 0, 60, 0);
+        $this->assertStringContainsString('(BJ.)', $out);
+        $this->assertStringContainsString('(BM.)', $out);
+
+        $out = $obj->getHTMLCell('<ol type="a" start="798">' . \str_repeat('<li>x</li>', 3) . '</ol>', 0, 0, 60, 0);
+        $this->assertStringContainsString('(adr.)', $out);
+        $this->assertStringContainsString('(adt.)', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testListCounterOutsideTheStyleRangeUsesDecimal(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<ol type="a"><li value="0">x</li><li value="-3">x</li></ol>', 0, 0, 60, 0);
+        $this->assertStringContainsString('(0.)', $out);
+        $this->assertStringContainsString('(-3.)', $out);
+
+        $out = $obj->getHTMLCell('<ol type="I"><li value="0">x</li><li value="-3">x</li></ol>', 0, 0, 60, 0);
+        $this->assertStringContainsString('(0.)', $out);
+        $this->assertStringContainsString('(-3.)', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testListItemTypeAttributeOverridesTheListType(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell('<ol type="1"><li>x</li><li type="a">x</li><li>x</li></ol>', 0, 0, 60, 0);
+
+        $this->assertStringContainsString('(1.)', $out);
+        $this->assertStringContainsString('(b.)', $out);
+        $this->assertStringContainsString('(3.)', $out);
+        $this->assertStringNotContainsString('(2.)', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testDeclaredListStyleTypeOverridesTheTypeAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<ol type="A" style="list-style-type: lower-roman"><li>x</li><li>x</li></ol>',
+            0,
+            0,
+            60,
+            0,
+        );
+
+        $this->assertStringContainsString('(i.)', $out);
+        $this->assertStringContainsString('(ii.)', $out);
+        $this->assertStringNotContainsString('(A.)', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testInheritedListStyleTypeDoesNotOverrideTheTypeAttribute(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<ol style="list-style-type: upper-roman"><li>x<ol type="A"><li>y</li><li>y</li></ol></li></ol>',
+            0,
+            0,
+            60,
+            0,
+        );
+
+        $this->assertStringContainsString('(I.)', $out);
+        $this->assertStringContainsString('(A.)', $out);
+        $this->assertStringContainsString('(B.)', $out);
+    }
+
+    /**
+     * Returns the abscissa of a text fragment in a rendered content stream.
+     */
+    private function getTextFragmentAbscissa(string $out, string $text): float
+    {
+        $matches = [];
+        \preg_match_all('/([\d.]+) ([\d.]+) Td \((.*?)\) Tj/s', $out, $matches, PREG_SET_ORDER);
+        $positions = [];
+        foreach ($matches as $match) {
+            $positions[$match[3] ?? ''] = \floatval($match[1] ?? '0');
+        }
+
+        $this->assertArrayHasKey($text, $positions, 'text fragment not found in the content stream');
+
+        return $positions[$text] ?? 0.0;
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testNestedInheritedListIgnoresThePrecedingInlineText(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $nested = '<ol style="list-style-type: inherit"><li>NESTED</li></ol>';
+        $short = $this->getTextFragmentAbscissa(
+            $obj->getHTMLCell('<ol type="I"><li>x' . $nested . '</li></ol>', 20, 20, 170, 0),
+            'NESTED',
+        );
+        $long = $this->getTextFragmentAbscissa(
+            $obj->getHTMLCell('<ol type="I"><li>' . \str_repeat('x', 40) . $nested . '</li></ol>', 20, 20, 170, 0),
+            'NESTED',
+        );
+
+        // The nested list hangs from the list item text column, so the length of the
+        // text before it must not move it.
+        $this->assertEqualsWithDelta($short, $long, 0.001);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testNestedInheritedListMatchesAnExplicitNestedList(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $inherited = $obj->getHTMLCell(
+            '<ol type="I"><li>x<ol style="list-style-type: inherit"><li>NESTED</li></ol></li></ol>',
+            20,
+            20,
+            170,
+            0,
+        );
+        $explicit = $obj->getHTMLCell(
+            '<ol type="I"><li>x<ol style="list-style-type: upper-roman"><li>NESTED</li></ol></li></ol>',
+            20,
+            20,
+            170,
+            0,
+        );
+
+        $this->assertEqualsWithDelta(
+            $this->getTextFragmentAbscissa($explicit, 'NESTED'),
+            $this->getTextFragmentAbscissa($inherited, 'NESTED'),
+            0.001,
+        );
+        $this->assertEqualsWithDelta(
+            $this->getTextFragmentAbscissa($explicit, 'I.'),
+            $this->getTextFragmentAbscissa($inherited, 'I.'),
+            0.001,
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testNestedInheritedUnorderedListIgnoresThePrecedingInlineText(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $nested = '<ul style="list-style-type: inherit"><li>NESTED</li></ul>';
+        $short = $this->getTextFragmentAbscissa(
+            $obj->getHTMLCell('<ul type="square"><li>x' . $nested . '</li></ul>', 20, 20, 170, 0),
+            'NESTED',
+        );
+        $long = $this->getTextFragmentAbscissa(
+            $obj->getHTMLCell('<ul type="square"><li>' . \str_repeat('x', 40) . $nested . '</li></ul>', 20, 20, 170, 0),
+            'NESTED',
+        );
+
+        $this->assertEqualsWithDelta($short, $long, 0.001);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testInsideMarkerStartsAtTheItemContentEdge(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $inside = ' style="list-style-position: inside"';
+        $narrow = $obj->getHTMLCell('<ol' . $inside . '><li>TEXT</li></ol>', 20, 20, 170, 0);
+        $wide = $obj->getHTMLCell('<ol' . $inside . ' start="3998"><li>TEXT</li></ol>', 20, 20, 170, 0);
+
+        // Whatever its width, an inside marker is laid out from the content edge,
+        // and the item text starts after it.
+        $this->assertEqualsWithDelta(
+            $this->getTextFragmentAbscissa($narrow, '1.'),
+            $this->getTextFragmentAbscissa($wide, '3998.'),
+            0.001,
+        );
+        $this->assertGreaterThan(
+            $this->getTextFragmentAbscissa($narrow, 'TEXT'),
+            $this->getTextFragmentAbscissa($wide, 'TEXT'),
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testInsideMarkerWrappedLinesReturnToTheContentEdge(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $out = $obj->getHTMLCell(
+            '<ol style="list-style-position: inside"><li>' . \str_repeat('word ', 60) . '</li></ol>',
+            20,
+            20,
+            60,
+            0,
+        );
+
+        $matches = [];
+        \preg_match_all('/([\d.]+) ([\d.]+) Td \(word/', $out, $matches);
+        $lines = [];
+        foreach ($matches[1] ?? [] as $linex) {
+            $lines[] = \floatval($linex);
+        }
+
+        $this->assertGreaterThan(1, \count($lines), 'the item text must wrap');
+
+        $marker = $this->getTextFragmentAbscissa($out, '1.');
+        $this->assertGreaterThan($marker, $lines[0] ?? 0.0, 'the first line follows the inline marker');
+        foreach (\array_slice($lines, 1) as $linex) {
+            $this->assertEqualsWithDelta($marker, $linex, 0.001, 'wrapped lines start at the content edge');
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testInsideMarkerNestedListIsIndentedByOneLevel(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $inside = ' style="list-style-position: inside"';
+        $out = $obj->getHTMLCell(
+            '<ol' . $inside . ' start="7"><li>OUTER<ol><li>INNER</li></ol></li></ol>',
+            20,
+            20,
+            170,
+            0,
+        );
+        $outsideOut = $obj->getHTMLCell('<ol><li>OUTER<ol><li>INNER</li></ol></li></ol>', 20, 20, 170, 0);
+
+        // With inside markers the marker sits on the content edge of its item, so the
+        // two marker abscissas are the content edges of the two nesting levels.
+        $outerMarker = $this->getTextFragmentAbscissa($out, '7.');
+        $innerMarker = $this->getTextFragmentAbscissa($out, '1.');
+        $this->assertGreaterThan($outerMarker, $innerMarker);
+
+        // The nested level adds the same gutter as it does with outside markers.
+        $indent =
+            $this->getTextFragmentAbscissa($outsideOut, 'INNER') - $this->getTextFragmentAbscissa($outsideOut, 'OUTER');
+        $this->assertEqualsWithDelta($indent, $innerMarker - $outerMarker, 0.001);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testUnsupportedListTypeValuesKeepTheListMarker(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // An unknown value on the item keeps the list counter instead of falling
+        // back to the decimal one. An empty attribute is parsed as 'true'.
+        $out = $obj->getHTMLCell('<ol type="A"><li type="bogus">x</li><li type="">x</li></ol>', 20, 20, 170, 0);
+        $this->assertStringContainsString('(A.)', $out);
+        $this->assertStringContainsString('(B.)', $out);
+        $this->assertStringNotContainsString('(1.)', $out);
+
+        // An unknown value on the list keeps the default bullet: no counter is drawn.
+        $items = '<li>x</li><li>x</li>';
+        $plain = $obj->getHTMLCell('<ul>' . $items . '</ul>', 20, 20, 170, 0);
+        $this->assertSame($plain, $obj->getHTMLCell('<ul type="bogus">' . $items . '</ul>', 20, 20, 170, 0));
+        $this->assertSame($plain, $obj->getHTMLCell('<ul type="">' . $items . '</ul>', 20, 20, 170, 0));
+        $this->assertSame($plain, $obj->getHTMLCell(
+            '<ul style="list-style-type: bogus">' . $items . '</ul>',
+            20,
+            20,
+            170,
+            0,
+        ));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testOrderedListStartAcceptsZeroAndNegativeValues(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $items = '<li>x</li><li>x</li>';
+        $zero = $obj->getHTMLCell('<ol start="0">' . $items . '</ol>', 20, 20, 170, 0);
+        $this->assertStringContainsString('(0.)', $zero);
+        $this->assertStringContainsString('(1.)', $zero);
+
+        $negative = $obj->getHTMLCell('<ol start="-3">' . $items . '</ol>', 20, 20, 170, 0);
+        $this->assertStringContainsString('(-3.)', $negative);
+        $this->assertStringContainsString('(-2.)', $negative);
+
+        // A non-numeric value is ignored.
+        $this->assertSame(
+            $obj->getHTMLCell('<ol>' . $items . '</ol>', 20, 20, 170, 0),
+            $obj->getHTMLCell('<ol start="bogus">' . $items . '</ol>', 20, 20, 170, 0),
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testInsideMarkerContentWidthIsTheSameInRtl(): void
+    {
+        $ltrWidth = 0.0;
+        $rtlWidth = 0.0;
+        foreach ([false, true] as $rtl) {
+            $obj = $this->getInternalTestObject();
+            $this->initFontAndPage($obj);
+            $obj->setRTL($rtl);
+
+            $originx = 20.0;
+            $maxwidth = 150.0;
+            $obj->exposeInitHTMLCellContext($originx, 100.0, $maxwidth, 0.0);
+
+            $elm = $this->makeHtmlNode([
+                'fontname' => 'helvetica',
+                'fontsize' => 12.0,
+                'line-height' => 1.0,
+                'list-style-position' => 'inside',
+                'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+                'padding' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+            ]);
+
+            $tpx = $originx;
+            $tpy = 100.0;
+            $tpw = $maxwidth;
+            $tph = 0.0;
+
+            $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENol', $elm, $tpx, $tpy, $tpw, $tph);
+            $obj->exposeInvokeParseHTMLTagMethod('parseHTMLTagOPENli', $elm, $tpx, $tpy, $tpw, $tph);
+
+            $ctx = $obj->exposeGetHTMLRenderContext();
+            if ($rtl) {
+                $rtlWidth = $ctx['cellctx']['maxwidth'];
+            } else {
+                $ltrWidth = $ctx['cellctx']['maxwidth'];
+            }
+
+            $obj->setRTL(false);
+        }
+
+        // The inline marker shortens the first line, not the item content box, so the
+        // nested content gets the same width in both directions.
+        $this->assertEqualsWithDelta($ltrWidth, $rtlWidth, 0.001);
+        $this->assertLessThan(150.0, $ltrWidth);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testExtremeListCounterValuesAreClamped(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        // Counters beyond the integer range must clamp instead of overflowing into
+        // a float, which the counter arithmetic cannot return.
+        foreach (['-1e20', '1e20', '9223372036854775808', '-9223372036854775809'] as $start) {
+            $out = $obj->getHTMLCell('<ol start="' . $start . '"><li>x</li><li>x</li></ol>', 20, 20, 170, 0);
+            $this->assertNotSame('', $out, 'start=' . $start);
+        }
+
+        $out = $obj->getHTMLCell('<ol><li value="9223372036854775807">x</li><li>y</li></ol>', 20, 20, 170, 0);
+        $this->assertNotSame('', $out);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testIsTextInCurrentFontRejectsInvalidUtf8(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $this->assertFalse($obj->exposeIsTextInCurrentFont("\x80"));
+        $this->assertTrue($obj->exposeIsTextInCurrentFont('A'));
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testNestedListItemIndentsIncrementally(): void
     {
         $obj = $this->getInternalTestObject();
@@ -7331,7 +7877,7 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
-    public function testListItemInsideMarkerDoesNotShrinkContentBox(): void
+    public function testListItemInsideMarkerIndentsContentBoxAndReservesMarkerSpace(): void
     {
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
@@ -7362,9 +7908,13 @@ class HTMLTest extends TestUtil
 
         $this->assertNotSame('', $out);
         $this->assertGreaterThan($originx, $tpx);
-        $this->assertSame($before['cellctx']['originx'], $after['cellctx']['originx']);
-        $this->assertSame($before['cellctx']['maxwidth'], $after['cellctx']['maxwidth']);
-        $this->assertSame($maxwidth, $tpw);
+        // The list gutter indents the item content box, as it does for an outside marker.
+        $this->assertGreaterThan($before['cellctx']['originx'], $after['cellctx']['originx']);
+        $this->assertLessThan($before['cellctx']['maxwidth'], $after['cellctx']['maxwidth']);
+        $this->assertLessThan($maxwidth, $tpw);
+        // The inline marker shifts the first line only: the item text starts after it,
+        // while wrapped lines and nested blocks start at the content edge.
+        $this->assertGreaterThan($after['cellctx']['originx'], $tpx);
     }
 
     /**
@@ -7404,6 +7954,8 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan($before['cellctx']['originx'], $after['cellctx']['originx']);
         $this->assertLessThan($before['cellctx']['maxwidth'], $after['cellctx']['maxwidth']);
         $this->assertLessThan($maxwidth, $tpw);
+        // An outside marker hangs before the content edge: the item text starts on it.
+        $this->assertSame($after['cellctx']['originx'], $tpx);
     }
 
     /**
@@ -8039,7 +8591,12 @@ class HTMLTest extends TestUtil
         $this->assertSame('Circle', $obj->exposeGetPdfUaListNumbering(['value' => 'ul', 'listtype' => 'circle']));
         $this->assertSame('Disc', $obj->exposeGetPdfUaListNumbering(['value' => 'ul', 'listtype' => '']));
         $this->assertSame('Decimal', $obj->exposeGetPdfUaListNumbering(['value' => 'ol', 'listtype' => '']));
-        $this->assertSame('', $obj->exposeGetPdfUaListNumbering(['value' => 'div', 'listtype' => 'none']));
+        $this->assertSame('None', $obj->exposeGetPdfUaListNumbering(['value' => 'ul', 'listtype' => 'none']));
+        $this->assertSame('', $obj->exposeGetPdfUaListNumbering(['value' => 'div', 'listtype' => '']));
+        $this->assertSame('UpperAlpha', $obj->exposeGetPdfUaListNumbering([
+            'value' => 'ol',
+            'attribute' => ['type' => 'A'],
+        ]));
     }
 
     /** @throws \Throwable */
@@ -18633,7 +19190,7 @@ class HTMLTest extends TestUtil
         $this->assertSame(1, $obj->exposeGetHTMLListItemCounterWithDom($dom, 1));
 
         $obj->exposePushHTMLListWithDom($dom, 0, true);
-        $this->assertSame('a', $obj->exposeGetCurrentHTMLListMarkerType());
+        $this->assertSame('upper-alpha', $obj->exposeGetCurrentHTMLListMarkerType());
         $this->assertSame(7, $obj->exposeGetHTMLListItemCounterWithDom($dom, 1));
         $this->assertSame(8, $obj->exposeGetHTMLListItemCounterWithDom($dom, -1));
 

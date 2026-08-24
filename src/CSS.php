@@ -131,45 +131,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     protected string $globalCSS = '';
 
     /**
-     * Maximum value that can be represented in Roman notation.
-     *
-     * @var int
-     */
-    protected const ROMAN_LIMIT = 3_999_999_999;
-
-    /**
-     * Maps Roman Vinculum symbols to number multipliers.
-     *
-     * @var array<string, int>
-     */
-    protected const ROMAN_VINCULUM = [
-        '\u{033F}' => 1_000_000,
-        '\u{0305}' => 1_000,
-        '' => 1,
-    ];
-
-    /**
-     * Maps Roman symbols to numbers.
-     *
-     * @var array<string, int>
-     */
-    protected const ROMAN_SYMBOL = [
-        // standard notation
-        'M' => 1_000,
-        'CM' => 900,
-        'D' => 500,
-        'CD' => 400,
-        'C' => 100,
-        'XC' => 90,
-        'L' => 50,
-        'XL' => 40,
-        'X' => 10,
-        'IX' => 9,
-        'V' => 5,
-        'IV' => 4,
-    ];
-
-    /**
      * Non-print CSS media types.
      *
      * @var list<string>
@@ -1115,38 +1076,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         // sort selectors alphabetically to account for specificity and source order
         \ksort($out, SORT_STRING);
         return $out;
-    }
-
-    /**
-     * Returns the Roman representation of an integer number.
-     * Roman standard notation can represent numbers up to 3,999.
-     * For bigger numbers, up to two layers of the "vinculum" notation
-     * are used for a max value of 3,999,999,999.
-     *
-     * @param int $num number to convert.
-     *
-     * @return string roman representation of the specified number.
-     */
-    protected function intToRoman(int $num): string
-    {
-        if ($num > self::ROMAN_LIMIT) {
-            return \strval($num);
-        }
-        $rmn = '';
-        foreach (self::ROMAN_VINCULUM as $sfx => $mul) {
-            foreach (self::ROMAN_SYMBOL as $sym => $val) {
-                $limit = (int) ($mul * $val);
-                while ($num >= $limit) {
-                    $rmn .= $sym[0] . $sfx . (\strlen($sym) > 1 ? $sym[1] . $sfx : '');
-                    $num -= $limit;
-                }
-            }
-        }
-        while ($num >= 1) {
-            $rmn .= 'I';
-            $num--;
-        }
-        return $rmn;
     }
 
     /**

@@ -135,11 +135,6 @@ class TestableCSS extends \Com\Tecnick\Pdf\Tcpdf
         return $this->extractCSSproperties($css);
     }
 
-    public function exposeIntToRoman(int $num): string
-    {
-        return $this->intToRoman($num);
-    }
-
     public function exposeUnhtmlentities(string $text): string
     {
         return $this->unhtmlentities($text);

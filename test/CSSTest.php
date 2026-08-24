@@ -329,27 +329,6 @@ class CSSTest extends TestUtil
     }
 
     /** @throws \Throwable */
-    public function testIntToRomanConvertsTypicalNumber(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $out = $obj->exposeIntToRoman(14);
-
-        $this->assertSame('XIV', $out);
-        $this->assertSame('I', $obj->exposeIntToRoman(1));
-    }
-
-    /** @throws \Throwable */
-    public function testIntToRomanReturnsDecimalAboveLimit(): void
-    {
-        $obj = $this->getInternalTestObject();
-
-        $out = $obj->exposeIntToRoman(4000000000);
-
-        $this->assertSame('4000000000', $out);
-    }
-
-    /** @throws \Throwable */
     public function testUnhtmlentitiesDecodesHtmlEntities(): void
     {
         $obj = $this->getInternalTestObject();
