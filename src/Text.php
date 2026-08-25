@@ -2472,6 +2472,13 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             $bidi = new Bidi($txt, null, $ordarr, $forcedir);
             /** @var array<int, int> $bidiarr */
             $bidiarr = \array_values($bidi->getOrdArray());
+            if ($baseRtl && $bidiarr === $ordarr) {
+                // An RTL paragraph whose content is a single left-to-right run is left
+                // in logical order by the reordering, so the line breaking runs forward
+                // over it like an LTR paragraph.
+                $baseRtl = false;
+            }
+
             $ordarr = $this->replaceUnicodeChars($bidiarr);
         }
 

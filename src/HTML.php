@@ -228,6 +228,7 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *         linewordspacing: float,
  *         linewrapped: bool,
  *         textindentapplied: bool,
+ *         firstlineinset: float,
  *         pendingblockmarginb: float,
  *         activepage?: string,
  *         regionoffset?: float,
@@ -236,7 +237,6 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  *     'currentkey'?: int,
  *     'fontcache': array<string, array<string, mixed>>,
  *     'liststack': array<int, array{
- *         ordered: bool,
  *         type: string,
  *         count: int,
  *         indent: float
@@ -514,7 +514,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected const HTML_VALID_TAGS =
         '<marker/><a><b><blockquote><body><br><br/><code><dd><del><div><dl><dt><em>'
             . '<button><caption><col><colgroup><figure><figcaption><font><form>'
-            . '<h1><h2><h3><h4><h5><h6><hr><hr/><i><img><input><label>'
+            . '<h1><h2><h3><h4><h5><h6><hr><hr/><html><i><img><input><label>'
             . '<li><ol><optgroup><option>'
             . '<p><pre><s><select><small><span><strike><strong><sub><sup><table><tablehead>'
             . '<tcpdf><td><textarea><tfoot><th><thead><tr><tt><u><ul>';
@@ -770,6 +770,29 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     {
         $str = $this->strTrimLeft($str, $replace);
         return $this->strTrimRight($str, $replace);
+    }
+
+    /**
+     * Add the implicit html and body elements to an HTML fragment.
+     *
+     * Selectors targeting the document root elements match the whole
+     * fragment, as they do when the markup is a complete document.
+     *
+     * @param string $html Sanitized HTML code.
+     *
+     * @return string HTML code containing the html and body elements.
+     */
+    protected function addHTMLImplicitBody(string $html): string
+    {
+        if (\preg_match('/<body[\s>\/]/i', $html) !== 1) {
+            $html = '<body>' . $html . '</body>';
+        }
+
+        if (\preg_match('/<html[\s>\/]/i', $html) !== 1) {
+            $html = '<html>' . $html . '</html>';
+        }
+
+        return $html;
     }
 
     /**
@@ -1149,6 +1172,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function getHTMLDOM(string $html): array
     {
         $css = [];
+        // Table cells, captions and repeated headers are re-parsed as standalone
+        // fragments carrying the resolved CSS map: they are already inside the
+        // document body, so the implicit body element must not be added again.
+        $nested = \str_contains($html, '<cssarray>');
         $rawCss = $this->getCSSArrayFromHTML($html);
         foreach ($rawCss as $selector => $declaration) {
             $css[$selector] = $declaration;
@@ -1162,6 +1189,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $html = $this->sanitizeHTML($html);
+        if (!$nested) {
+            $html = $this->addHTMLImplicitBody($html);
+        }
 
         /** @var array<int, THTMLAttrib> $dom */
         $dom = [0 => $this->getHTMLRootProperties()];
@@ -7135,6 +7165,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
+            'firstlineinset' => 0.0,
             'pendingblockmarginb' => 0.0,
             'activepage' => 'auto',
             'regionoffset' => 0.0,
@@ -7175,6 +7206,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
+            'firstlineinset' => 0.0,
             'pendingblockmarginb' => 0.0,
             'activepage' => 'auto',
             'regionoffset' => 0.0,
@@ -8810,7 +8842,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elm = $hrc['dom'][$key] ?? null;
         if ($key < 0 || !\is_array($elm)) {
             $hrc['liststack'][] = [
-                'ordered' => $ordered,
                 'type' => $ordered ? '#' : $this->ullidot,
                 'count' => 0,
                 'indent' => 0.0,
@@ -8827,7 +8858,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $indent = $this->getHTMLListIndentOverrideByKey($hrc, $key);
 
         $hrc['liststack'][] = [
-            'ordered' => $ordered,
             'type' => $this->getHTMLListMarkerType($hrc, $key, $ordered),
             'count' => $start,
             'indent' => $indent,
@@ -8858,6 +8888,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
     /**
      * Returns the next list marker counter for the current list level.
+     * The counter belongs to the list, so every item advances it whatever the
+     * list element is: the marker type selects how the counter is rendered, and
+     * a bullet or image marker ignores its value. The value attribute of the
+     * item sets the counter for that item and for the ones that follow it.
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param int $key DOM array key.
@@ -8870,28 +8904,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $idx = $depth - 1;
-        $listEntry = $hrc['liststack'][$idx] ?? [];
-        if (!($listEntry['ordered'] ?? false)) {
-            return 1;
+        $current = \is_int($hrc['liststack'][$idx]['count'] ?? null) ? $hrc['liststack'][$idx]['count'] : 0;
+        $count = $current >= self::LIST_COUNTER_MAX ? self::LIST_COUNTER_MAX : $current + 1;
+
+        $value = $hrc['dom'][$key]['attribute']['value'] ?? null;
+        if ($key >= 0 && \is_numeric($value)) {
+            $count = $this->clampHTMLListCounter((int) $value);
         }
 
-        $current = \is_int($listEntry['count'] ?? null) ? $listEntry['count'] : 0;
-        $newCount = $current >= self::LIST_COUNTER_MAX ? self::LIST_COUNTER_MAX : $current + 1;
-        $hrc['liststack'][$idx]['count'] = $newCount;
-        $elm = $hrc['dom'][$key] ?? null;
-        if ($key < 0 || !\is_array($elm)) {
-            return $newCount;
-        }
+        $hrc['liststack'][$idx]['count'] = $count;
 
-        if (
-            isset($elm['attribute']['value'])
-            && $elm['attribute']['value'] !== ''
-            && \is_numeric($elm['attribute']['value'])
-        ) {
-            $hrc['liststack'][$idx]['count'] = $this->clampHTMLListCounter((int) $elm['attribute']['value']);
-        }
-
-        return $hrc['liststack'][$idx]['count'];
+        return $count;
     }
 
     /**
@@ -9947,11 +9970,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Measure the width of the remaining inline run on the current HTML line.
      *
      * @param THTMLRenderContext $hrc HTML render context.
+     * @param int $startkey First DOM array key of the run.
+     * @param float $lineOffset Fragment offset on the current line.
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
-    protected function measureHTMLInlineRunWidth(array &$hrc, int $startkey): float
+    protected function measureHTMLInlineRunWidth(array &$hrc, int $startkey, float $lineOffset = 0.0): float
     {
         $dom = &$hrc['dom'];
         $numel = \count($dom);
@@ -9986,6 +10011,20 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $text = $this->normalizeHTMLText($hrc, $nodeValue, $key);
             if ($text === '') {
                 continue;
+            }
+
+            // The renderer drops collapsible spaces at line start, so the measured
+            // run must drop them too: otherwise the run looks wider than the first
+            // fragment and the caller assumes a following inline sibling.
+            if (
+                $key === $startkey
+                && $lineOffset <= self::WIDTH_TOLERANCE
+                && !$this->isHTMLPreLikeWhiteSpaceMode($hrc, $key)
+            ) {
+                $text = \ltrim($text);
+                if ($text === '') {
+                    continue;
+                }
             }
 
             $this->getHTMLFontMetric($hrc, $key);
@@ -10206,10 +10245,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return null;
         }
 
-        $built = $this->buildHTMLRtlRunLines($hrc, $run['pieces'], $availableWidth);
+        // Inline space already taken at the start of the first line (an inside list
+        // marker), which shortens that line only.
+        $firstLineInset = $hrc['cellctx']['firstlineinset'];
+
+        $built = $this->buildHTMLRtlRunLines($hrc, $run['pieces'], $availableWidth, $firstLineInset);
         if ($built === null) {
             return null;
         }
+
+        $hrc['cellctx']['firstlineinset'] = 0.0;
 
         $lines = $built['lines'];
         $lineascent = $built['ascent'];
@@ -10263,7 +10308,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     }
 
                     $lastLineTop = $y + (($j - $idx) * $lineAdvance);
-                    $out .= $this->renderHTMLRtlLine($hrc, $line, $lineRight, $lastLineTop, $lineascent, $lineAdvance);
+                    // The first line starts left of the run's right edge by the inset.
+                    $rowRight = $j === 0 ? $lineRight - $firstLineInset : $lineRight;
+                    $out .= $this->renderHTMLRtlLine($hrc, $line, $rowRight, $lastLineTop, $lineascent, $lineAdvance);
                 }
 
                 $idx = $regionEnd;
@@ -10578,6 +10625,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param THTMLRenderContext $hrc HTML render context.
      * @param array<int, THTMLRtlPiece> $pieces Logical run pieces.
+     * @param float $availableWidth Line width.
+     * @param float $firstLineInset Inline space reserved at the start of the first line.
      *
      * @return array{
      *     lines: array<int, array<int, THTMLRtlSegment>>,
@@ -10588,8 +10637,12 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      */
-    protected function buildHTMLRtlRunLines(array &$hrc, array $pieces, float $availableWidth): ?array
-    {
+    protected function buildHTMLRtlRunLines(
+        array &$hrc,
+        array $pieces,
+        float $availableWidth,
+        float $firstLineInset = 0.0,
+    ): ?array {
         if ($availableWidth <= 0.0) {
             return null;
         }
@@ -10719,6 +10772,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $units[] = ['space' => $curSpace, 'width' => $curWidth, 'parts' => $curParts];
 
         $tolerance = $availableWidth + self::WIDTH_TOLERANCE;
+        // The inset is inline space already taken on the first line, so only that
+        // line is measured against the shortened width.
+        $firstTolerance = \max(0.0, $availableWidth - $firstLineInset) + self::WIDTH_TOLERANCE;
 
         // Greedy fill: a deferred space joins the next word or is dropped at a break.
         /** @var array<int, array<int, THTMLRtlSegment>> $lines */
@@ -10744,7 +10800,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             }
 
             $projected = $lineWidth + ($line === [] ? 0.0 : $pendingSpaceWidth) + $wordWidth;
-            if ($line !== [] && $projected > $tolerance) {
+            $linetolerance = $lines === [] ? $firstTolerance : $tolerance;
+            if ($line !== [] && $projected > $linetolerance) {
                 // Break: the deferred space sits at the line end and is dropped.
                 $lines[] = $line;
                 $line = $unit['parts'];
@@ -11728,6 +11785,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['lineoriginx'] = $tpx;
         $tpw = $hrc['cellctx']['maxwidth'];
         $hrc['cellctx']['textindentapplied'] = false;
+        $hrc['cellctx']['firstlineinset'] = 0.0;
         if ($tpw > 0) {
             $tpw = \max(0.0, $tpw - $marginLeft - $marginRight - $paddingLeft - $paddingRight);
         }
@@ -15151,7 +15209,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'b' => $this->parseHTMLTagOPENb($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'button' => $this->parseHTMLTagOPENbutton($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'blockquote' => $this->parseHTMLTagOPENblockquote($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'body' => $this->parseHTMLTagOPENbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'body', 'html' => $this->parseHTMLTagOPENbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'br' => $this->parseHTMLTagOPENbr($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'caption' => $this->parseHTMLTagOPENcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'col' => $this->parseHTMLTagOPENcol($hrc, $key, $tpx, $tpy, $tpw, $tph),
@@ -15271,7 +15329,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         'b' => $this->parseHTMLTagCLOSEb($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'button' => $this->parseHTMLTagCLOSEbutton($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'blockquote' => $this->parseHTMLTagCLOSEblockquote($hrc, $key, $tpx, $tpy, $tpw, $tph),
-                        'body' => $this->parseHTMLTagCLOSEbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
+                        'body', 'html' => $this->parseHTMLTagCLOSEbody($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'br' => $this->parseHTMLTagCLOSEbr($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'caption' => $this->parseHTMLTagCLOSEcaption($hrc, $key, $tpx, $tpy, $tpw, $tph),
                         'col' => $this->parseHTMLTagCLOSEcol($hrc, $key, $tpx, $tpy, $tpw, $tph),
@@ -16621,7 +16679,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $lineWordSpacing = 0.0;
         $customJustify = false;
         if ($halign === 'J') {
-            $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
+            $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey, $lineOffset);
             $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
             $hasLineWordSpacing = $hrc['cellctx']['linewordspacing'] > 0.0;
             $customJustify = $hasFollowingInline || $lineOffset > self::WIDTH_TOLERANCE && $hasLineWordSpacing;
@@ -16713,7 +16771,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $renderAlign = $halign === 'R' ? 'r' : 'c';
             } elseif ($fragmentWidth <= ($remainingWidth + self::WIDTH_TOLERANCE)) {
                 $lineWidth = $this->measureHTMLInlineLineWidth($hrc, $currentkey, $availableWidth);
-                $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey);
+                $runWidth = $this->measureHTMLInlineRunWidth($hrc, $currentkey, $lineOffset);
                 $hasFollowingInline = $runWidth > ($fragmentWidth + self::WIDTH_TOLERANCE);
                 $isLeadingSmall = ($curAscent + self::WIDTH_TOLERANCE) < $lineascent;
                 $lineWidthCollapsed = $hasFollowingInline && $lineWidth <= ($fragmentWidth + self::WIDTH_TOLERANCE);
@@ -16918,12 +16976,15 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Extract CSS text-indent for first-line offset (will be passed to getTextCell).
         // Positive values create a first-line indent; negative values create a hanging indent.
         // The text-indent is applied only to the first line by splitLines when used as offset parameter.
+        // The block's first-line inset, if any, reserves inline space ahead of the text on
+        // the same line and adds to the indent.
         $textIndentOffset = 0.0;
         if ($lineOffset <= self::WIDTH_TOLERANCE && !$hrc['cellctx']['textindentapplied'] && $availableWidth > 0.0) {
             // The indent shortens the first line from the start side of the block, which
             // the text layer resolves from the alignment, so the value stays positive.
-            $textIndentOffset = $elm['text-indent'];
+            $textIndentOffset = $elm['text-indent'] + $hrc['cellctx']['firstlineinset'];
             $hrc['cellctx']['textindentapplied'] = true;
+            $hrc['cellctx']['firstlineinset'] = 0.0;
         }
 
         // In normal HTML flow, collapsible spaces at line start are ignored.
@@ -18519,6 +18580,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $hrc['cellctx']['originx'] = $contentx;
         $hrc['cellctx']['maxwidth'] = $contentw;
         $hrc['cellctx']['lineoriginx'] = $contentx;
+        // In LTR the marker space is carried by tpx, which the line start is measured
+        // from. RTL lines start at the content box right edge, which tpx does not
+        // track, so the space is carried as an explicit first-line inset instead.
+        $hrc['cellctx']['firstlineinset'] = $this->rtl ? $insideTextOffset : 0.0;
 
         return $out;
     }
@@ -19807,6 +19872,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
+            'firstlineinset' => 0.0,
             'pendingblockmarginb' => 0.0,
         ]);
 
@@ -21024,6 +21090,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpx = $saved['originx'];
             $tpw = $saved['maxwidth'];
         }
+
+        // An item with no inline content leaves its marker inset unconsumed.
+        $hrc['cellctx']['firstlineinset'] = 0.0;
 
         return $out;
     }

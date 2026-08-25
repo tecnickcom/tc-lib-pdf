@@ -80,7 +80,7 @@ $pdf->page->addContent($bfont['out']);
 // - alphabetic counters wrapping past the end of the alphabet
 // - additive counter styles (hebrew, armenian, georgian, cjk-ideographic)
 // - decimal fallback for counters outside the range of their counter style
-// - right-to-left lists
+// - right-to-left lists, including list-style-position
 
 $html = <<<HTML
     <style>
@@ -199,6 +199,18 @@ $html = <<<HTML
       <ul class="ul-square marker-guide item-guide">
         <li><span class="col">Square marker</span></li>
         <li><span class="col">Second square marker item</span></li>
+      </ul>
+      <p class="note">The counter belongs to the list, not to the list element: an UL carrying a
+      counter marker style numbers its items, and the value attribute sets the counter of the item
+      and of the ones that follow it.</p>
+      <ul class="ol-decimal marker-guide">
+        <li>UL with list-style-type: decimal</li>
+        <li>Second item</li>
+      </ul>
+      <ul class="ol-lower-alpha marker-guide">
+        <li>UL with list-style-type: lower-alpha</li>
+        <li value="7">Item with value="7"</li>
+        <li>Item after the value attribute</li>
       </ul>
     </div>
 
@@ -550,6 +562,9 @@ $rtlhtml = <<<HTML
     .ul-square { list-style-type: square; }
     .ol-decimal { list-style-type: decimal; }
     .core-font { font-family: helvetica; }
+    .pos-inside { list-style-position: inside; }
+    .pos-outside { list-style-position: outside; }
+    .narrow { margin-left: 110mm; }
     </style>
 
     <h1 style="direction:ltr;">Right-To-Left Lists</h1>
@@ -601,6 +616,35 @@ $rtlhtml = <<<HTML
         <li>Item 25</li>
         <li>Item 26</li>
         <li>Item 27, the first two-letter counter</li>
+      </ol>
+    </div>
+
+    <div class="panel">
+      <h2 style="direction:ltr;">4) Marker position (`list-style-position`)</h2>
+      <p class="note" style="direction:ltr;">Note: an outside marker hangs past the right edge of the
+      item content, an inside marker sits on it and shifts the first line only. Wrapped lines and
+      nested lists start at the content edge in both cases. The first three lists below are narrowed
+      to force the item text to wrap.</p>
+      <ul class="ul-disc pos-outside narrow">
+        <li>Outside marker with text long enough to wrap onto a second line</li>
+        <li>Second outside item</li>
+      </ul>
+      <ul class="ul-disc pos-inside narrow">
+        <li>Inside marker with text long enough to wrap onto a second line</li>
+        <li>Second inside item</li>
+      </ul>
+      <ul class="ul-disc pos-inside narrow">
+        <li>علامة داخلية مع نص عربي طويل بما يكفي للالتفاف إلى سطر ثان</li>
+        <li>عنصر ثان</li>
+      </ul>
+      <ol class="ol-decimal pos-inside" start="3998">
+        <li>Wide inside counter</li>
+        <li>Item with a nested list
+          <ul class="ul-circle pos-inside">
+            <li>Nested item under an inside marker</li>
+            <li>Second nested item</li>
+          </ul>
+        </li>
       </ol>
     </div>
     HTML;

@@ -190,6 +190,22 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * Returns the key of the first opening DOM node with the specified tag name.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     */
+    private function findHtmlTagKey(array $dom, string $tag): int
+    {
+        foreach ($dom as $key => $node) {
+            if ($node['tag'] && $node['opening'] && $node['value'] === $tag) {
+                return $key;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
      * @param THTMLAttrib $node
      */
     private function getHtmlNodeAttrString(array $node, string $key): ?string
@@ -5944,6 +5960,73 @@ class HTMLTest extends TestUtil
     }
 
     /**
+     * @return array<string, array{string}>
+     */
+    public static function providerHTMLIndentedMarkupAlignments(): array
+    {
+        return [
+            'center' => ['center'],
+            'right' => ['right'],
+        ];
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('providerHTMLIndentedMarkupAlignments')]
+    public function testGetHTMLCellIgnoresInterTagWhitespaceForBlockAlignment(string $align): void
+    {
+        $cellWidth = 150.0;
+        $style = 'width:100%;text-align:' . $align . ';';
+        $compact = '<table style="' . $style . '"><tr><td>First line here<br />second line here</td></tr></table>';
+        $indented =
+            '<table style="'
+            . $style
+            . '">'
+            . "\n"
+            . '    <tr>'
+            . "\n"
+            . '      <td>'
+            . "\n"
+            . '        First line here<br />'
+            . "\n"
+            . '        second line here'
+            . "\n"
+            . '      </td>'
+            . "\n"
+            . '    </tr>'
+            . "\n"
+            . '  </table>';
+
+        $expected = null;
+        foreach (['compact' => $compact, 'indented' => $indented] as $label => $html) {
+            $obj = $this->getBBoxProbeTestObject();
+            $this->initFontAndPage($obj);
+            $obj->exposeResetBBoxTrace();
+            $out = $obj->getHTMLCell($html, 0, 0, $cellWidth, 0);
+            $this->assertNotSame('', $out);
+
+            $trace = $obj->exposeGetBBoxTrace();
+            $this->assertNotSame([], $trace);
+
+            $origins = [];
+            foreach ($trace as $frag) {
+                $origins[] = \sprintf('%.4f:%s', $frag['bbox_x'], \trim($frag['txt']));
+            }
+
+            if ($expected === null) {
+                $expected = $origins;
+                // A centered or right-aligned run must not sit at the cell start.
+                $first = $this->getTraceRow($trace, 0);
+                $this->assertGreaterThan(1.0, $first['bbox_x']);
+                continue;
+            }
+
+            $this->assertSame($expected, $origins, 'Alignment differs for the ' . $label . ' markup');
+        }
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testGetHTMLCellRightAlignedWrappedInlineSpansUseMultipleLines(): void
@@ -7286,6 +7369,74 @@ class HTMLTest extends TestUtil
     /**
      * @throws \Throwable
      */
+    public function testCounterMarkersOnAnUnorderedListNumberTheItems(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $items = '<li>x</li><li>x</li><li>x</li>';
+
+        $decimal = $obj->getHTMLCell('<ul style="list-style-type: decimal">' . $items . '</ul>', 20, 20, 170, 0);
+        $this->assertStringContainsString('(1.)', $decimal);
+        $this->assertStringContainsString('(2.)', $decimal);
+        $this->assertStringContainsString('(3.)', $decimal);
+
+        $alpha = $obj->getHTMLCell('<ul style="list-style-type: lower-alpha">' . $items . '</ul>', 20, 20, 170, 0);
+        $this->assertStringContainsString('(a.)', $alpha);
+        $this->assertStringContainsString('(b.)', $alpha);
+        $this->assertStringContainsString('(c.)', $alpha);
+
+        // The value attribute sets the counter of the item and of the ones after it.
+        $value = $obj->getHTMLCell(
+            '<ul style="list-style-type: decimal"><li>x</li><li value="7">x</li><li>x</li></ul>',
+            20,
+            20,
+            170,
+            0,
+        );
+        $this->assertStringContainsString('(1.)', $value);
+        $this->assertStringContainsString('(7.)', $value);
+        $this->assertStringContainsString('(8.)', $value);
+
+        // A counter marker set on a single item of a bullet list reads the same counter.
+        $itemtype = $obj->getHTMLCell('<ul><li>x</li><li type="1">x</li><li>x</li></ul>', 20, 20, 170, 0);
+        $this->assertStringContainsString('(2.)', $itemtype);
+        $this->assertStringNotContainsString('(1.)', $itemtype);
+        $this->assertStringNotContainsString('(3.)', $itemtype);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testBulletMarkersIgnoreTheListCounter(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFontAndPage($obj);
+
+        $items = '<li>x</li><li>x</li><li>x</li>';
+        $plain = $obj->getHTMLCell('<ul>' . $items . '</ul>', 20, 20, 170, 0);
+
+        // A bullet list draws no counter text, and its items keep an identical marker.
+        $this->assertStringNotContainsString('(1.)', $plain);
+        $this->assertSame($plain, $obj->getHTMLCell(
+            '<ul><li value="7">x</li><li>x</li><li>x</li></ul>',
+            20,
+            20,
+            170,
+            0,
+        ));
+
+        // The start attribute belongs to the ordered list only.
+        $this->assertSame($plain, $obj->getHTMLCell('<ul start="3">' . $items . '</ul>', 20, 20, 170, 0));
+        $this->assertSame(
+            $obj->getHTMLCell('<ul style="list-style-type: decimal">' . $items . '</ul>', 20, 20, 170, 0),
+            $obj->getHTMLCell('<ul style="list-style-type: decimal" start="3">' . $items . '</ul>', 20, 20, 170, 0),
+        );
+    }
+
+    /**
+     * @throws \Throwable
+     */
     public function testDeclaredListStyleTypeOverridesTheTypeAttribute(): void
     {
         $obj = $this->getTestObject();
@@ -8566,11 +8717,11 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan(0.0, $defaultIndent);
 
         $ctxWithIndent = $baseCtx;
-        $ctxWithIndent['liststack'] = [['count' => 0, 'indent' => 9.75, 'ordered' => false, 'type' => 'disc']];
+        $ctxWithIndent['liststack'] = [['count' => 0, 'indent' => 9.75, 'type' => 'disc']];
         $this->assertSame(9.75, $obj->exposeGetCurrentHTMLListIndentWidthWithContext($ctxWithIndent));
 
         $ctxWithZeroIndent = $baseCtx;
-        $ctxWithZeroIndent['liststack'] = [['count' => 0, 'indent' => 0.0, 'ordered' => false, 'type' => 'disc']];
+        $ctxWithZeroIndent['liststack'] = [['count' => 0, 'indent' => 0.0, 'type' => 'disc']];
         $this->assertEqualsWithDelta(
             $defaultIndent,
             $obj->exposeGetCurrentHTMLListIndentWidthWithContext($ctxWithZeroIndent),
@@ -14923,11 +15074,13 @@ class HTMLTest extends TestUtil
 
         $dom = $obj->exposeGetHTMLDOM('<span style="color:red;font-weight:bold">Hello</span>');
 
-        assert(isset($dom[1]), "\$dom[1] must be set");
-        assert(isset($dom[2]), "\$dom[2] must be set");
-        $this->assertSame($dom[1]['fgcolor'], $dom[2]['fgcolor']);
-        $this->assertStringContainsString('B', $dom[2]['fontstyle']);
-        $this->assertSame('Hello', $dom[2]['value']);
+        $spankey = $this->findHtmlTagKey($dom, 'span');
+        $textkey = $spankey + 1;
+        assert(isset($dom[$spankey]), "\$dom[\$spankey] must be set");
+        assert(isset($dom[$textkey]), "\$dom[\$textkey] must be set");
+        $this->assertSame($dom[$spankey]['fgcolor'], $dom[$textkey]['fgcolor']);
+        $this->assertStringContainsString('B', $dom[$textkey]['fontstyle']);
+        $this->assertSame('Hello', $dom[$textkey]['value']);
     }
 
     /**
@@ -14940,8 +15093,9 @@ class HTMLTest extends TestUtil
 
         $dom = $obj->exposeGetHTMLDOM('<style>.other{color:red;}</style><div style="font-weight:bold">Hello</div>');
 
-        assert(isset($dom[1]), "\$dom[1] must be set");
-        $style = $this->getHtmlNodeAttrString($dom[1], 'style');
+        $divkey = $this->findHtmlTagKey($dom, 'div');
+        assert(isset($dom[$divkey]), "\$dom[\$divkey] must be set");
+        $style = $this->getHtmlNodeAttrString($dom[$divkey], 'style');
 
         $this->assertIsString($style);
         $this->assertStringContainsString('font-weight:bold', $style);
@@ -14958,13 +15112,97 @@ class HTMLTest extends TestUtil
         $dom = $obj->exposeGetHTMLDOM('<style>.demo{color:red;text-align:center;}</style>'
         . '<div class="demo" style="font-weight:bold">Hello</div>');
 
-        assert(isset($dom[1]), "\$dom[1] must be set");
-        $style = $this->getHtmlNodeAttrString($dom[1], 'style');
+        $divkey = $this->findHtmlTagKey($dom, 'div');
+        assert(isset($dom[$divkey]), "\$dom[\$divkey] must be set");
+        $style = $this->getHtmlNodeAttrString($dom[$divkey], 'style');
 
         $this->assertIsString($style);
         $this->assertStringContainsString('color:red', $style);
         $this->assertStringContainsString('text-align:center', $style);
         $this->assertStringContainsString('font-weight:bold', $style);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMAppliesBodySelectorToFragmentWithoutBodyTag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<style>body{text-align:center}</style>'
+        . '<table><tr><td>Cell</td></tr></table>');
+
+        $bodykey = $this->findHtmlTagKey($dom, 'body');
+        $this->assertGreaterThan(0, $bodykey);
+        assert(isset($dom[$bodykey]), "\$dom[\$bodykey] must be set");
+        $this->assertSame('C', $dom[$bodykey]['align']);
+
+        $tdkey = $this->findHtmlTagKey($dom, 'td');
+        assert(isset($dom[$tdkey]), "\$dom[\$tdkey] must be set");
+        $this->assertSame('C', $dom[$tdkey]['align']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMAppliesHtmlSelectorToFragmentWithoutHtmlTag(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<style>html{text-align:right}</style><p>Text</p>');
+
+        $htmlkey = $this->findHtmlTagKey($dom, 'html');
+        $this->assertGreaterThan(0, $htmlkey);
+
+        $pkey = $this->findHtmlTagKey($dom, 'p');
+        assert(isset($dom[$pkey]), "\$dom[\$pkey] must be set");
+        $this->assertSame('R', $dom[$pkey]['align']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMKeepsASingleBodyElement(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<html><body><p>Text</p></body></html>');
+
+        $bodies = 0;
+        $htmls = 0;
+        foreach ($dom as $node) {
+            if (!$node['tag'] || !$node['opening']) {
+                continue;
+            }
+
+            if ($node['value'] === 'body') {
+                ++$bodies;
+            }
+
+            if ($node['value'] === 'html') {
+                ++$htmls;
+            }
+        }
+
+        $this->assertSame(1, $bodies);
+        $this->assertSame(1, $htmls);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMSkipsImplicitBodyOnNestedFragments(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        $dom = $obj->exposeGetHTMLDOM('<cssarray>[]</cssarray><p>Cell content</p>');
+
+        $this->assertSame(-1, $this->findHtmlTagKey($dom, 'body'));
+        $this->assertSame(-1, $this->findHtmlTagKey($dom, 'html'));
     }
 
     /**
@@ -15386,6 +15624,76 @@ class HTMLTest extends TestUtil
         $this->assertGreaterThan($middle, $rtlOuter);
         $this->assertGreaterThan($middle, $rtlNested);
         $this->assertLessThan($rtlOuter, $rtlNested);
+    }
+
+    /**
+     * Abscissas of the rendered text lines, in points, in content stream order.
+     *
+     * @return array<int, float>
+     */
+    private function getTextLineXPositions(string $pdf): array
+    {
+        $matches = [];
+        \preg_match_all('/(-?[\d.]+) -?[\d.]+ Td \(/', $pdf, $matches);
+        $xpos = [];
+        foreach ($matches[1] ?? [] as $val) {
+            $xpos[] = \floatval($val);
+        }
+
+        return $xpos;
+    }
+
+    /**
+     * Abscissa and width of the square list markers, in points, in content stream order.
+     *
+     * @return array<int, array<int, float>>
+     */
+    private function getListMarkerRects(string $pdf): array
+    {
+        $rects = [];
+        \preg_match_all('/(-?[\d.]+) -?[\d.]+ (-?[\d.]+) -?[\d.]+ re/', $pdf, $rects, \PREG_SET_ORDER);
+        $out = [];
+        foreach ($rects as $rect) {
+            $out[] = [\floatval($rect[1] ?? 0.0), \floatval($rect[2] ?? 0.0)];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAddHTMLCellInsetsTheFirstLineOfAnRtlInsideMarkerItem(): void
+    {
+        $lines = [];
+        $marker = [];
+        foreach (['outside', 'inside'] as $position) {
+            $pdf = new \Com\Tecnick\Pdf\Tcpdf(unit: 'mm', isunicode: true, subsetfont: false, compress: false);
+            $pdf->setRTL(true);
+            $this->initFontAndPage($pdf);
+            $style = 'list-style-type: square; list-style-position: ' . $position;
+            $pdf->addHTMLCell('<ul style="' . $style . '"><li>alpha<br>beta</li></ul>', 10, 10, 180, 0);
+            $out = $pdf->getOutPDFString();
+            $lines[$position] = $this->getTextLineXPositions($out);
+            $marker[$position] = $this->getListMarkerRects($out);
+        }
+
+        $this->assertCount(2, $lines['outside']);
+        $this->assertCount(2, $lines['inside']);
+        $this->assertCount(1, $marker['inside']);
+
+        $markerX = $marker['inside'][0][0] ?? 0.0;
+        // An inside marker ends on the item content edge, which is where an RTL line
+        // that is not inset ends, so the first line width follows from the outside case.
+        $contentRight = $markerX + ($marker['inside'][0][1] ?? 0.0);
+        $textWidth = $contentRight - ($lines['outside'][0] ?? 0.0);
+
+        // The marker takes its space from the first line only.
+        $this->assertLessThan($lines['outside'][0] ?? 0.0, $lines['inside'][0] ?? 0.0);
+        $this->assertEqualsWithDelta($lines['outside'][1] ?? 0.0, $lines['inside'][1] ?? 0.0, 0.01);
+
+        // The first line ends before the marker starts.
+        $this->assertLessThanOrEqual($markerX, ($lines['inside'][0] ?? 0.0) + $textWidth);
     }
 
     /**
@@ -16713,10 +17021,11 @@ class HTMLTest extends TestUtil
         $this->assertContains('colgroup', $values);
         $this->assertContains('col', $values);
         $this->assertContains('tfoot', $values);
-        assert(isset($dom[1]), "\$dom[1] must be set");
-        $this->assertSame(1, $dom[1]['rows']);
-        $this->assertSame(1, $dom[1]['cols']);
-        $this->assertCount(1, $dom[1]['trids']);
+        $tablekey = $this->findHtmlTagKey($dom, 'table');
+        assert(isset($dom[$tablekey]), "\$dom[\$tablekey] must be set");
+        $this->assertSame(1, $dom[$tablekey]['rows']);
+        $this->assertSame(1, $dom[$tablekey]['cols']);
+        $this->assertCount(1, $dom[$tablekey]['trids']);
     }
 
     /**
@@ -16769,11 +17078,12 @@ class HTMLTest extends TestUtil
         $dom = $obj->exposeGetHTMLDOM('<table><colgroup span="2" width="80"></colgroup>'
         . '<tr><td>A</td><td>B</td></tr></table>');
 
-        assert(isset($dom[2]), "\$dom[2] must be set");
-        $group = $dom[2];
+        $groupkey = $this->findHtmlTagKey($dom, 'colgroup');
+        assert(isset($dom[$groupkey]), "\$dom[\$groupkey] must be set");
+        $group = $dom[$groupkey];
         $groupWidth = $group['width'];
 
-        $widths = $obj->exposeComputeHTMLTableColWidths($dom, 1, 2, 100.0);
+        $widths = $obj->exposeComputeHTMLTableColWidths($dom, $this->findHtmlTagKey($dom, 'table'), 2, 100.0);
 
         $this->assertCount(2, $widths);
         $this->assertGreaterThan(0.0, $groupWidth);
@@ -16805,7 +17115,7 @@ class HTMLTest extends TestUtil
             $colWidths[] = $elm['width'];
         }
 
-        $widths = $obj->exposeComputeHTMLTableColWidths($dom, 1, 3, 120.0);
+        $widths = $obj->exposeComputeHTMLTableColWidths($dom, $this->findHtmlTagKey($dom, 'table'), 3, 120.0);
 
         $this->assertCount(2, $colWidths);
         $this->assertCount(3, $widths);
@@ -16842,7 +17152,7 @@ class HTMLTest extends TestUtil
             }
         }
 
-        $widths = $obj->exposeComputeHTMLTableColWidths($dom, 1, 2, 100.0);
+        $widths = $obj->exposeComputeHTMLTableColWidths($dom, $this->findHtmlTagKey($dom, 'table'), 2, 100.0);
 
         $this->assertCount(2, $colWidths);
         $this->assertCount(2, $tdWidths);

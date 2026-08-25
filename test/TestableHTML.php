@@ -44,6 +44,7 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
             'linewordspacing' => 0.0,
             'linewrapped' => false,
             'textindentapplied' => false,
+            'firstlineinset' => 0.0,
             'pendingblockmarginb' => 0.0,
             'basefont' => '',
         ],
