@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+    # Only dev tooling is version-constrained here; runtime requirements are
+    # deliberately broad ranges that Dependabot should not narrow.
+    allow:
+      - dependency-type: development

@@ -80,13 +80,14 @@ if ($certPath === false) {
 $cert = 'file://' . $certPath;
 
 // Preferred fluent API: $pdf->signature()->configure(...). The 'profile' option
-// selects the PAdES baseline level (legacy | pades-b-b | pades-b-t | pades-b-lt |
-// pades-b-lta); the pre-facade $pdf->setSignature([...]) method still works and
-// takes the same array. The signing process and this demo's limitations are
-// rendered into the document itself (see the explanatory block added below).
+// selects the PAdES baseline level, one of the Sign\Config::PROFILE_* constants;
+// the digest is one of the Sign\DigestAlgorithm cases. The pre-facade
+// $pdf->setSignature([...]) method still works and takes the same array. The signing
+// process and this demo's limitations are rendered into the document itself (see the
+// explanatory block added below).
 $pdf->signature()->configure([
-    'profile' => 'pades-b-b',
-    'digest_algorithm' => 'sha256', // sha256 | sha384 | sha512
+    'profile' => \Com\Tecnick\Pdf\Sign\Config::PROFILE_PADES_B_B,
+    'digest_algorithm' => \Com\Tecnick\Pdf\Sign\DigestAlgorithm::Sha256->value,
     'cert_type' => 2,
     'info' => [
         'ContactInfo' => 'https://github.com/tecnickcom/tc-lib-pdf',

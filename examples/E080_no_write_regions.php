@@ -122,8 +122,8 @@ $arrowStyle = [
     'lineColor' => 'rgb(0,0,0)',
 ];
 
-// Image used as a rectangular obstacle (legacy example used images/image_demo.jpg).
-$imgFile = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
+// Image used as a rectangular obstacle.
+$imgFile = \realpath(__DIR__ . '/images/200x100_RGBICC.jpg');
 $imgId = $pdf->image->add($imgFile);
 
 // Flowing body text (kept blue and justified as in example_064).

@@ -20,3 +20,20 @@ test/**/*.bin -text
 *.pdf binary
 *.ttf binary
 *.otf binary
+
+# Keep development-only files out of the Packagist dist archive.
+/.editorconfig     export-ignore
+/.gitattributes    export-ignore
+/.github           export-ignore
+/.gitignore        export-ignore
+/CODEOWNERS        export-ignore
+/CODE_OF_CONDUCT.md export-ignore
+/CONTRIBUTING.md   export-ignore
+/Makefile          export-ignore
+/RELEASE           export-ignore
+/examples          export-ignore
+/mago.src.toml     export-ignore
+/mago.test.toml    export-ignore
+/phpunit.xml.dist  export-ignore
+/resources         export-ignore
+/test              export-ignore

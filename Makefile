@@ -12,7 +12,7 @@
 # ----------------------------------------------------------------------------------------------------------------------
 
 SHELL=/bin/bash
-.SHELLFLAGS=-o pipefail -c
+.SHELLFLAGS=-e -o pipefail -c
 
 # Project owner
 OWNER=tecnickcom
@@ -101,9 +101,6 @@ PHPDOC=$(shell which phpDocumentor)
 # veraPDF binary path (can be overridden, e.g. make verapdf-ua VERAPDF_BIN=/opt/verapdf/bin/verapdf)
 VERAPDF_BIN?=$(shell command -v verapdf 2>/dev/null)
 
-# Mago version
-MAGOVERSION=1.46.0
-
 # --- MAKE TARGETS ---
 
 # Display general help about this command
@@ -175,7 +172,6 @@ endif
 deps: ensuretarget
 	rm -rf ./vendor/*
 	($(COMPOSER) install -vvv --no-interaction)
-	curl --proto '=https' --tlsv1.2 --silent --show-error --fail --location https://carthage.software/mago.sh | bash -s -- --install-dir=./vendor/bin --version=$(MAGOVERSION)
 
 ## Generate source code documentation
 .PHONY: doc
@@ -240,7 +236,6 @@ qa: version ensuretarget lint test report
 .PHONY: report
 report: ensuretarget
 	./vendor/bin/pdepend --jdepend-xml="$(TARGETDIR)/report/dependencies.xml" --summary-xml="$(TARGETDIR)/report/metrics.xml" --jdepend-chart="$(TARGETDIR)/report/dependecies.svg" --overview-pyramid="$(TARGETDIR)/report/overview-pyramid.svg" --ignore=vendor ./src
-	#./vendor/bartlett/php-compatinfo/bin/phpcompatinfo --no-ansi analyser:run src/ > $(TARGETDIR)/report/phpcompatinfo.txt
 
 ## Generate mode samples and run external preflight validators (if installed)
 .PHONY: preflight
@@ -322,7 +317,7 @@ tag:
 
 ## Run unit tests
 .PHONY: test
-test:
+test: ensuretarget
 	cp phpunit.xml.dist phpunit.xml
 	#./vendor/bin/phpunit --migrate-configuration || true
 	XDEBUG_MODE=coverage ./vendor/bin/phpunit --stderr test

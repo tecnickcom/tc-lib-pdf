@@ -16,7 +16,11 @@
 
 namespace Test;
 
+use Com\Tecnick\Pdf\Sign\Ocsp\Client as OcspClient;
+use Com\Tecnick\Pdf\Sign\Signer;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Test\Fixture\Authority;
+use Test\Fixture\Der;
 
 class OutputTest extends TestUtil
 {
@@ -3107,19 +3111,54 @@ class OutputTest extends TestUtil
             'verify_peer' => false,
         ]);
 
-        // TimeStampResp: SEQUENCE { PKIStatusInfo{INTEGER 0}, token SEQUENCE{INTEGER 42} }.
-        $token = (string) \hex2bin('300302012A');
-        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+        // The package verifies the token before embedding it, so the mocked TSA
+        // answers with one that is genuinely signed and matches the request.
+        $this->mockTimestampAuthority($obj);
 
         $cms = $obj->exposeBuildSignatureCms('payload');
 
         $asn1 = new \Com\Tecnick\Pdf\Sign\Cms\Asn1();
         $oid = $asn1->encodeObjectIdentifier('1.2.840.113549.1.9.16.2.14');
         $this->assertStringContainsString($oid, $cms);
-        $this->assertStringContainsString($token, $cms);
+
+        // The unsigned attribute carries the token the TSA returned, with its certificate.
+        $tokens = (new Signer())->signatureTimestampTokens($cms);
+        $this->assertCount(1, $tokens);
+        $this->assertStringContainsString(Authority::tsa()->certDer, $tokens[0] ?? '');
 
         // The TSA transport received a DER TimeStampReq (SEQUENCE).
         $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
+    }
+
+    /**
+     * A TSA naming its certificate with the RFC 2634 signing-certificate (v1)
+     * attribute, which is SHA-1, is refused unless the host opts in.
+     *
+     * @throws \Throwable
+     */
+    public function testBuildSignatureCmsRefusesASha1TimestampByDefault(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->prepareTimestampedSignature($obj, false);
+        $this->mockTimestampAuthority($obj, [], true);
+
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $this->expectExceptionMessageMatches('/Unable to obtain the TSA timestamp/');
+        $obj->exposeBuildSignatureCms('payload');
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testBuildSignatureCmsAcceptsASha1TimestampWhenAllowed(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->prepareTimestampedSignature($obj, true);
+        $this->mockTimestampAuthority($obj, [], true);
+
+        $cms = $obj->exposeBuildSignatureCms('payload');
+
+        $this->assertCount(1, (new Signer())->signatureTimestampTokens($cms));
     }
 
     /**
@@ -3167,17 +3206,80 @@ class OutputTest extends TestUtil
     }
 
     /**
+     * An extracerts bundle that repeats the signer certificate (a fullchain.pem)
+     * still yields an ordered leaf-first chain, which is what the package requires.
+     *
+     * @throws \Throwable
+     */
+    public function testCollectDssMaterialKeepsARepeatedSignerCertificateOnce(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => Authority::leaf()->certPem,
+            'extracerts' => Authority::leaf()->certPem . Authority::ca()->certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => false,
+                'embed_crl' => false,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+
+        $material = $obj->exposeCollectDssMaterial();
+
+        $this->assertSame([Authority::leaf()->certDer, Authority::ca()->certDer], $material['certs']);
+    }
+
+    /**
      * @throws \Throwable
      */
     public function testCollectDssMaterialCollectsOcspAndCrlWhenEnabled(): void
     {
         $obj = $this->getInternalTestObject();
-        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
-        $certPem = (string) \file_get_contents($certPath);
 
         $this->setObjectProperty($obj, 'signature', [
-            'signcert' => $certPem,
-            'extracerts' => $certPem,
+            'signcert' => Authority::leaf()->certPem,
+            'extracerts' => Authority::ca()->certPem,
+            'ltv' => [
+                'enabled' => true,
+                'embed_ocsp' => true,
+                'embed_crl' => true,
+                'embed_certs' => true,
+                'include_dss' => true,
+                'include_vri' => true,
+            ],
+        ]);
+        $this->mockRevocationSources($obj);
+
+        $material = $obj->exposeCollectDssMaterial();
+
+        // The leaf and its issuer, the good OCSP response, and the CRL of the issuer.
+        $this->assertSame(2, \count($material['certs']));
+        $this->assertSame(1, \count($material['ocsp']));
+        $this->assertSame(1, \count($material['crls']));
+        $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
+        // Both distribution points are tried; the second answers with the same list.
+        $this->assertSame('http://crl2.example.com/root.crl', $obj->getCapturedCrlUrl());
+        // The OCSP request is built by the package Ocsp\Client and passed to the host transport.
+        $this->assertNotSame('', $obj->getCapturedOcspRequest());
+    }
+
+    /**
+     * A response that is not signed by the authority it claims is not embedded:
+     * the package verifies every response before it becomes DSS material.
+     *
+     * @throws \Throwable
+     */
+    public function testCollectDssMaterialDropsUnverifiableRevocationData(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->setObjectProperty($obj, 'signature', [
+            'signcert' => Authority::leaf()->certPem,
+            'extracerts' => Authority::ca()->certPem,
             'ltv' => [
                 'enabled' => true,
                 'embed_ocsp' => true,
@@ -3192,13 +3294,9 @@ class OutputTest extends TestUtil
 
         $material = $obj->exposeCollectDssMaterial();
 
-        $this->assertSame(1, \count($material['certs']));
-        $this->assertSame(1, \count($material['ocsp']));
-        $this->assertSame(1, \count($material['crls']));
-        $this->assertSame('http://ocsp.example.com/', $obj->getCapturedOcspUrl());
-        $this->assertSame('http://crl2.example.com/root.crl', $obj->getCapturedCrlUrl());
-        // The OCSP request is built by the package Ocsp\Client and passed to the host transport.
-        $this->assertNotSame('', $obj->getCapturedOcspRequest());
+        $this->assertSame(2, \count($material['certs']));
+        $this->assertSame([], $material['ocsp']);
+        $this->assertSame([], $material['crls']);
     }
 
     /**
@@ -3207,12 +3305,10 @@ class OutputTest extends TestUtil
     public function testCollectDssMaterialFallsBackToCrlWhenOcspFails(): void
     {
         $obj = $this->getInternalTestObject();
-        $certPath = __DIR__ . '/fixtures/cert_with_revocation_urls.pem';
-        $certPem = (string) \file_get_contents($certPath);
 
         $this->setObjectProperty($obj, 'signature', [
-            'signcert' => $certPem,
-            'extracerts' => $certPem,
+            'signcert' => Authority::leaf()->certPem,
+            'extracerts' => Authority::ca()->certPem,
             'ltv' => [
                 'enabled' => true,
                 'embed_ocsp' => true,
@@ -3222,8 +3318,8 @@ class OutputTest extends TestUtil
                 'include_vri' => true,
             ],
         ]);
+        $this->mockRevocationSources($obj);
         $obj->setMockOcspThrows(true);
-        $obj->setMockCrlResponse('mock-crl-binary');
 
         $material = $obj->exposeCollectDssMaterial();
 
@@ -5187,8 +5283,7 @@ class OutputTest extends TestUtil
             'verify_peer' => false,
         ]);
 
-        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
-        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+        $this->mockTimestampAuthority($obj);
 
         $pdf = $obj->getOutPDFString();
 
@@ -5212,6 +5307,9 @@ class OutputTest extends TestUtil
         $this->assertMatchesRegularExpression('#/ByteRange\[0 \d+ \d+ \d+\]#', $pdf);
         $this->assertStringNotContainsString('**********', $pdf);
         $this->assertStringStartsWith("\x30", $obj->getCapturedTimestampRequest());
+        // ETSI EN 319 142-1 wants the TSA chain in the DSS as well as the signer's,
+        // so the certificates the signature timestamp token embeds are collected.
+        $this->assertStringContainsString(Authority::tsa()->certDer, \substr($pdf, (int) $firstEof));
     }
 
     /**
@@ -5262,8 +5360,7 @@ class OutputTest extends TestUtil
             'timeout' => 5,
             'verify_peer' => false,
         ]);
-        // SEQUENCE { SEQUENCE { INTEGER 0 }, SEQUENCE { INTEGER 42 } }
-        $obj->setMockTimestampResponse((string) \hex2bin('300A3003020100300302012A'));
+        $this->mockTimestampAuthority($obj);
 
         $pdf = $obj->getOutPDFString();
 
@@ -6509,5 +6606,82 @@ class OutputTest extends TestUtil
         \openssl_pkey_export($key, $keyPem);
 
         return ['cert_pem' => $certPem, 'key_pem' => $keyPem];
+    }
+
+    /**
+     * Answer the mocked TSA transport with a token the package accepts.
+     *
+     * tc-lib-pdf-sign verifies a timestamp token before embedding it: the
+     * SignerInfo signature, the TSA certificate purpose, and the match with the
+     * request that was sent. The fixture builds a response from the request.
+     *
+     * @param list<string> $extraCertsDer Certificates to embed besides the TSA's own.
+     * @param bool         $legacyEssCert Answer as a TSA that still names its
+     *                                    certificate with the SHA-1 v1 attribute.
+     *
+     * @throws \Throwable
+     */
+    private function mockTimestampAuthority(
+        TestableOutput $obj,
+        array $extraCertsDer = [],
+        bool $legacyEssCert = false,
+    ): void {
+        $der = new Der();
+        $obj->setMockTimestampResponder(
+            /** @throws \Throwable */
+            static fn(string $request): string => $der->timestampResponseFor(
+                $request,
+                $extraCertsDer,
+                null,
+                $legacyEssCert,
+            ),
+        );
+    }
+
+    /**
+     * Configure a B-T signature with the mocked TSA endpoint.
+     *
+     * @param bool $allowSha1 Value of the allow_sha1 timestamp setting.
+     *
+     * @throws \Throwable
+     */
+    private function prepareTimestampedSignature(TestableOutput $obj, bool $allowSha1): void
+    {
+        $signer = $this->makeSigningCredential();
+        $this->setSignatureArray($obj, [
+            'signcert' => $signer['cert_pem'],
+            'privkey' => $signer['key_pem'],
+            'password' => '',
+            'profile' => 'pades-b-t',
+        ]);
+        $this->setObjectProperty($obj, 'sigtimestamp', [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => false,
+            'timeout' => 5,
+            'verify_peer' => false,
+            'allow_sha1' => $allowSha1,
+        ]);
+    }
+
+    /**
+     * Mock the OCSP and CRL transports with material signed by the fixture CA.
+     *
+     * The responses answer for the fixture leaf, which is the certificate the
+     * revocation tests sign with.
+     *
+     * @throws \Throwable
+     */
+    private function mockRevocationSources(TestableOutput $obj): void
+    {
+        $der = new Der();
+        $certId = (new OcspClient())->build(Authority::ca()->certDer, Authority::leaf()->certDer)->certId;
+        $obj->setMockOcspResponse($der->ocspResponse($certId));
+        $obj->setMockCrlResponse($der->crl());
     }
 }

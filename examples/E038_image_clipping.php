@@ -60,8 +60,8 @@ $pdf->enableDefaultPageContent();
 
 $bfont1 = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 
-// test images directory
-$imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
+// bundled example images directory
+$imgdir = __DIR__ . '/images';
 
 // ----------
 

@@ -86,8 +86,8 @@ $cert = 'file://' . $certPath;
 $pdf
     ->signature()
     ->configure([
-        'profile' => 'pades-b-lt',
-        'digest_algorithm' => 'sha256',
+        'profile' => \Com\Tecnick\Pdf\Sign\Config::PROFILE_PADES_B_LT,
+        'digest_algorithm' => \Com\Tecnick\Pdf\Sign\DigestAlgorithm::Sha256->value,
         'cert_type' => 2,
         'info' => [
             'ContactInfo' => 'https://github.com/tecnickcom/tc-lib-pdf',
@@ -114,14 +114,18 @@ $pdf
         'username' => '',
         'password' => '',
         'cert' => '',
-        'hash_algorithm' => 'sha256',
+        'hash_algorithm' => \Com\Tecnick\Pdf\Sign\DigestAlgorithm::Sha256->value,
         'policy_oid' => '',
         'nonce_enabled' => true,
         'timeout' => 30,
         'verify_peer' => true,
+        // freetsa.org names its certificate with the RFC 2634 signing-certificate (v1)
+        // attribute, which is SHA-1 by definition, so the token is only accepted with
+        // this opt-in. A TSA emitting ESSCertIDv2 (SHA-256) needs no such setting.
+        'allow_sha1' => true,
     ]);
 
-$pdf->signature()->appearance()->place(posx: 15, posy: 35, width: 90, height: 20, page: -1, name: 'LTVSignature');
+$pdf->signature()->appearance()->place(posx: 15, posy: 40, width: 90, height: 20, page: -1, name: 'LTVSignature');
 
 // Attach a reusable Form XObject as signature appearance using the official API.
 // Any imported page can be used as a visual signature stamp.
@@ -177,7 +181,7 @@ $text3 = 'LTV signature widget object ID: ' . $widgetObjId;
 $textCell3 = $pdf->getTextCell(
     txt: $text3,
     posx: 15,
-    posy: 60,
+    posy: 63,
     width: 180,
     height: 0,
     offset: 0,
@@ -210,7 +214,7 @@ $explainHtml = <<<HTML
       full B-LT verdict.</li>
     </ul>
     HTML;
-$pdf->addHTMLCell(html: $explainHtml, posx: 15, posy: 70, width: 180);
+$pdf->addHTMLCell(html: $explainHtml, posx: 15, posy: 73, width: 180);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF(rawpdf: $rawpdf);

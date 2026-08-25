@@ -634,6 +634,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *        'nonce_enabled': bool,
  *        'timeout': int,
  *        'verify_peer': bool,
+ *        'allow_sha1'?: bool,
  *    }
  *
  * @phpstan-type TUserRights array{
@@ -691,7 +692,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.70.3';
+    protected string $version = '8.71.0';
 
     /**
      * Encrypt object.
@@ -1204,6 +1205,7 @@ abstract class Base
         'nonce_enabled' => true,
         'timeout' => 5,
         'verify_peer' => true,
+        'allow_sha1' => false,
     ];
 
     /**
@@ -1828,6 +1830,7 @@ abstract class Base
      *                            its (de)serialization, expiration and size limits. Null (default)
      *                            disables external caching.
      *
+     * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception

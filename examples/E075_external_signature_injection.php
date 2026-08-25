@@ -161,7 +161,7 @@ if (!in_array($mode, ['render', 'save'], true)) {
 
 // The external signing workflow (reserve placeholder, hash, remote-sign, inject)
 // is documented in the instructions rendered into the document above.
-$prepared = $pdf->getExternalSignaturePreparation('sha256');
+$prepared = $pdf->getExternalSignaturePreparation(\Com\Tecnick\Pdf\Sign\DigestAlgorithm::Sha256->value);
 
 // Demo shortcut: inject a FAKE CMS payload instead of calling a real signer (see
 // the "fake external response" note in the rendered instructions above). Replace

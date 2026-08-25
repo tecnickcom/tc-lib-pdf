@@ -113,9 +113,10 @@ The fastest way to evaluate the library is to follow the installation and quick-
 - Password and certificate-based document encryption (RC4 and AES, up to 256-bit)
 - Remote resource controls via `fileOptions` with host allowlists plus separate internal and markup local-path allowlists for external assets
 - **Digital signatures**: detached CMS (PKCS#7) and **PAdES baseline** signatures (ETSI EN 319 142-1) via the fluent `signature()` facade, with configurable appearance fields. Profiles: `legacy` (ISO 32000-1 `adbe.pkcs7.detached`), `pades-b-b`, `pades-b-t`, `pades-b-lt`, and `pades-b-lta` (`ETSI.CAdES.detached`), with RSA or ECDSA keys and `sha256`/`sha384`/`sha512` digests. Both local (private-key) and external/remote (HSM) signing are supported. The cryptography lives in the companion package [`tc-lib-pdf-sign`](https://github.com/tecnickcom/tc-lib-pdf-sign); see [doc/DIGITAL_SIGNATURES.md](doc/DIGITAL_SIGNATURES.md)
-- **RFC 3161 TSA timestamps** (PAdES B-T): embed a trusted timestamp token from any RFC 3161-compliant Time Stamping Authority (TSA) into the CMS signature as the `id-aa-signatureTimeStampToken` attribute; configurable digest algorithm (`sha256`, `sha384`, `sha512`), policy OID, nonce, timeout, and TLS peer verification
+- **RFC 3161 TSA timestamps** (PAdES B-T): embed a trusted timestamp token from any RFC 3161-compliant Time Stamping Authority (TSA) into the CMS signature as the `id-aa-signatureTimeStampToken` attribute; configurable digest algorithm (`sha256`, `sha384`, `sha512`), policy OID, nonce, timeout, and TLS peer verification. The token is verified and matched against the request before it is embedded
 - **LTV (Long-Term Validation)** (PAdES B-LT): embed revocation evidence in a post-signing incremental revision:
   - collects the signing certificate chain and fetches OCSP responses and/or CRL payloads from AIA and CDP URLs
+  - verifies every response before embedding it, and collects the certificates carried by the signature timestamp token as well
   - deduplicates binary payloads by fingerprint
   - emits a Document Security Store (`/DSS`) carrying `/VRI`, `/Certs`, `/OCSPs`, and `/CRLs`, referenced from the re-emitted document catalog
   - each feature (OCSP, CRL, cert embedding, DSS, VRI) can be enabled independently via the `signature()` LTV options

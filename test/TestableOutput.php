@@ -25,7 +25,9 @@ namespace Test;
  */
 class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
 {
-    protected string $mockTsaResp = '';
+    /** @var ?\Closure(string): string */
+    protected ?\Closure $mockTsaResponder = null;
+
     protected bool $mockTsaThrows = false;
     protected string $tsaReq = '';
     protected string $mockOcspResp = '';
@@ -506,9 +508,14 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->collectDssMaterial();
     }
 
-    public function setMockTimestampResponse(string $response): void
+    /**
+     * Answer the TSA request with a response built from it, as a real TSA does.
+     *
+     * @param \Closure(string): string $responder Maps the DER TimeStampReq to a DER TimeStampResp.
+     */
+    public function setMockTimestampResponder(\Closure $responder): void
     {
-        $this->mockTsaResp = $response;
+        $this->mockTsaResponder = $responder;
     }
 
     public function setMockTimestampThrows(bool $throws): void
@@ -563,8 +570,8 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
             throw new \Com\Tecnick\Pdf\Exception('mock tsa transport error');
         }
 
-        if ($this->mockTsaResp !== '') {
-            return $this->mockTsaResp;
+        if ($this->mockTsaResponder instanceof \Closure) {
+            return ($this->mockTsaResponder)($request);
         }
 
         return parent::postTimestampRequest($request);

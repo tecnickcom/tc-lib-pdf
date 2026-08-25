@@ -68,9 +68,6 @@ $bfont2 = $pdf->font->cloneFont($pdf->pon, null, 'B', 18);
 
 $bfont3 = $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 
-// test images directory
-$imgdir = \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/');
-
 // ----------
 
 $sections = [

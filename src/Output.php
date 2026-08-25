@@ -25,6 +25,7 @@ use Com\Tecnick\Pdf\Font\Exception as FontException;
 use Com\Tecnick\Pdf\Font\Output as OutFont;
 use Com\Tecnick\Pdf\Page\Exception as PageException;
 use Com\Tecnick\Pdf\Sign\Cms\Builder as SignBuilder;
+use Com\Tecnick\Pdf\Sign\Cms\SignedDataVerifier;
 use Com\Tecnick\Pdf\Sign\Config as SignConfig;
 use Com\Tecnick\Pdf\Sign\Exception as SignException;
 use Com\Tecnick\Pdf\Sign\Output\DocTimeStamp as SignDocTimeStamp;
@@ -280,6 +281,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * @var array<int, int>
      */
     protected array $annotstructparents = [];
+
+    /**
+     * DER-encoded CMS embedded in the signature /Contents, or '' before signing.
+     *
+     * The DSS collection reads the signature timestamp tokens back out of it.
+     */
+    protected string $signaturecms = '';
 
     /**
      * Returns the RAW PDF string.
@@ -4389,6 +4397,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $pdfdoc = $prepared['pdfdoc'];
         $byteRange = $prepared['byte_range'];
         $cms = $this->buildSignatureCms($pdfdoc);
+        $this->signaturecms = $cms;
         $signature = $this->convertBinarySignatureToHex($cms);
 
         return \substr($pdfdoc, 0, $byteRange[1]) . '<' . $signature . '>' . \substr($pdfdoc, $byteRange[1]);
@@ -4437,8 +4446,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      *
      * The RFC 3161 request/response codec lives in the tc-lib-pdf-sign package;
      * this host method only owns the HTTP transport (postTimestampRequest, which
-     * enforces the URL allow-list). The returned DER token is embedded by the CMS
+     * enforces the URL allow-list). The token is verified and matched against the
+     * request by the package before it is returned, then embedded by the CMS
      * builder as the id-aa-signatureTimeStampToken unsigned attribute (PAdES B-T).
+     *
+     * The allow_sha1 setting relaxes the digest rules for a TSA that still emits
+     * the RFC 2634 signing-certificate (v1) attribute, or signs with SHA-1.
      *
      * @param string $signature Raw SignerInfo signature bytes to be timestamped.
      *
@@ -4461,11 +4474,30 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 $this->sigtimestamp['cert'],
             );
 
-            $timestampClient = new TimestampClient($config);
+            $timestampClient = new TimestampClient($config, verifier: $this->timestampTokenVerifier());
             return $timestampClient->requestToken($signature, $this->postTimestampRequest(...));
         } catch (SignException $e) {
             throw new PdfException('Unable to obtain the TSA timestamp: ' . $e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * The verifier applied to a TSA token, or null for the package default.
+     *
+     * A token is verified when it is received and again when the DSS collection
+     * reads the certificates it carries, so both calls share this verifier. The
+     * ESS signing-certificate attribute is demanded, as RFC 3161 section 2.4.2
+     * requires it and the package default does; allow_sha1 only relaxes the
+     * digests, for a TSA that still names its certificate with the RFC 2634
+     * signing-certificate (v1) attribute or signs with SHA-1.
+     */
+    protected function timestampTokenVerifier(): ?SignedDataVerifier
+    {
+        if (!($this->sigtimestamp['allow_sha1'] ?? false)) {
+            return null;
+        }
+
+        return new SignedDataVerifier(allowSha1: true, requireSigningCertificate: true);
     }
 
     /**
@@ -4693,10 +4725,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
      * The signer certificate plus any extra certificates form a leaf-first chain
      * that the package Signer walks: OCSP is attempted for each certificate that
      * has an issuer in the chain, CRLs for every certificate's distribution
-     * points, with responses deduplicated. The HTTP transports (postOcspRequest /
-     * getCrlData) stay in the host, which owns networking and the URL allow-list;
-     * a null transport skips that revocation source. The embed_* flags gate which
-     * material is fetched and embedded.
+     * points, with responses deduplicated. Every response is verified by the
+     * package before it becomes material, against the signing time passed as the
+     * validation instant. The certificates embedded in the signature timestamp
+     * token are collected too, as ETSI EN 319 142-1 requires of a B-LT DSS. The
+     * HTTP transports (postOcspRequest / getCrlData) stay in the host, which owns
+     * networking and the URL allow-list; a null transport skips that revocation
+     * source. The embed_* flags gate which material is fetched and embedded.
      *
      * @return array{certs: list<string>, ocsp: list<string>, crls: list<string>}
      * @throws \Throwable
@@ -4719,8 +4754,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $crlTransport = $ltv['embed_crl'] ?? false ? $this->getCrlData(...) : null;
 
         try {
-            $signer = new Signer();
-            $material = $signer->collectValidationMaterial($chainPem, $ocspTransport, $crlTransport);
+            $signer = new Signer(tokenVerifier: $this->timestampTokenVerifier());
+            $material = $signer->collectValidationMaterial(
+                $chainPem,
+                $ocspTransport,
+                $crlTransport,
+                $this->collectSignatureTimestampTokens($signer),
+                $this->docmodtime,
+            );
         } catch (SignException $e) {
             throw new PdfException('Unable to collect validation material: ' . $e->getMessage(), 0, $e);
         }
@@ -4733,6 +4774,33 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     }
 
     /**
+     * Read the signature timestamp tokens back out of the embedded CMS.
+     *
+     * @return list<string> DER tokens, empty when the document is not signed yet
+     *         or the profile embeds no signature timestamp.
+     *
+     * @throws PdfException If the CMS cannot be parsed.
+     */
+    protected function collectSignatureTimestampTokens(Signer $signer): array
+    {
+        if ($this->signaturecms === '') {
+            return [];
+        }
+
+        try {
+            return $signer->signatureTimestampTokens($this->signaturecms);
+        } catch (SignException $e) {
+            throw new PdfException('Unable to read the signature timestamp: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Collect the signer chain as PEM certificates, leaf first.
+     *
+     * The package requires one certificate per entry and refuses a chain that is
+     * not ordered leaf-first, so a certificate given twice (a signcert repeated in
+     * an extracerts bundle) is kept once, at its first position.
+     *
      * @return array<int, string>
      * @throws \Throwable
      */
@@ -4753,7 +4821,12 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
             }
         }
 
-        return $inputs;
+        $unique = [];
+        foreach ($inputs as $pem) {
+            $unique[\preg_replace('/\s+/', '', $pem) ?? $pem] = $pem;
+        }
+
+        return \array_values($unique);
     }
 
     /**

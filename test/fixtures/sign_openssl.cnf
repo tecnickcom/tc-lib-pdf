@@ -1,0 +1,34 @@
+#
+# OpenSSL configuration for the certificates built by Test\Fixture\Authority.
+#
+# The extension sections carry what the tc-lib-pdf-sign validators read: the CRL
+# signing usage of the CA, the critical id-kp-timeStamping of the TSA, and the
+# AIA and CRL distribution points of the leaf.
+
+[req]
+distinguished_name = dn
+prompt = no
+
+[dn]
+C = IT
+O = Tecnick.com
+
+[ca_ext]
+subjectKeyIdentifier = hash
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+
+[tsa_ext]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature,nonRepudiation
+extendedKeyUsage = critical,timeStamping
+
+[leaf_ext]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature,nonRepudiation
+authorityInfoAccess = OCSP;URI:http://ocsp.example.com/,caIssuers;URI:http://ca.example.com/ca.crt
+crlDistributionPoints = URI:http://crl.example.com/root.crl,URI:http://crl2.example.com/root.crl

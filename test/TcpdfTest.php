@@ -413,6 +413,53 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
+    public function testSetSignTimeStampStoresTheSha1Setting(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setSignTimeStamp([
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
+            'allow_sha1' => true,
+        ]);
+
+        /** @var array{allow_sha1: bool} $timeStamp */
+        $timeStamp = $this->getObjectProperty($obj, 'sigtimestamp');
+        $this->assertTrue($timeStamp['allow_sha1']);
+    }
+
+    /** @throws \Throwable */
+    public function testSetSignTimeStampThrowsOnInvalidSha1SettingType(): void
+    {
+        $obj = $this->getTestObject();
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+
+        $data = [
+            'enabled' => true,
+            'host' => 'https://tsa.example.test',
+            'username' => '',
+            'password' => '',
+            'cert' => '',
+            'hash_algorithm' => 'sha256',
+            'policy_oid' => '',
+            'nonce_enabled' => true,
+            'timeout' => 5,
+            'verify_peer' => true,
+            'allow_sha1' => 1,
+        ];
+
+        $setSignTimeStampObj = new \ReflectionMethod($obj, 'setSignTimeStamp');
+        $setSignTimeStampObj->invoke($obj, $data);
+    }
+
+    /** @throws \Throwable */
     public function testSetSignTimeStampThrowsOnInvalidHashAlgorithm(): void
     {
         $obj = $this->getTestObject();

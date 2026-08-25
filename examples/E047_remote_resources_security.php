@@ -23,7 +23,7 @@ require __DIR__ . '/../vendor/autoload.php';
 
 define('K_PATH_FONTS', (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts'));
 
-$imgdir = (string) realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images');
+$imgdir = (string) realpath(__DIR__ . '/images');
 $allowedPaths = array_values(array_unique(array_filter([
     K_PATH_FONTS,
     $imgdir,

@@ -4621,7 +4621,7 @@ class HTMLTest extends TestUtil
         $font = $this->getObjectProperty($obj, 'font');
         $fontout = $font->insert($pon, 'helvetica', '', 12);
 
-        $img = (string) \realpath(__DIR__ . '/../vendor/tecnickcom/tc-lib-pdf-image/test/images/200x100_RGBICC.jpg');
+        $img = (string) \realpath(__DIR__ . '/../examples/images/tcpdf_logo.jpg');
         $this->assertNotSame('', $img, 'bundled test image must be present');
 
         $obj->addPage([

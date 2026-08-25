@@ -130,11 +130,8 @@ abstract class Cell extends \Com\Tecnick\Pdf\Base
      */
     public function setDefaultCellBorderPos(float $borderpos): void
     {
-        if (
-            $borderpos === self::BORDERPOS_DEFAULT
-            || $borderpos === self::BORDERPOS_EXTERNAL
-            || $borderpos === self::BORDERPOS_INTERNAL
-        ) {
+        $allowed = [self::BORDERPOS_DEFAULT, self::BORDERPOS_EXTERNAL, self::BORDERPOS_INTERNAL];
+        if (\in_array($borderpos, $allowed, true)) {
             $this->defcell['borderpos'] = $borderpos;
             return;
         }

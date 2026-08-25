@@ -30,6 +30,7 @@ Signature-focused runnable examples:
 - [examples/E009_signature_ltv.php](../examples/E009_signature_ltv.php): PAdES-BASELINE-LT signature with LTV material (`/DSS`, `/VRI`).
 - [examples/E081_signature_pades_lta.php](../examples/E081_signature_pades_lta.php): PAdES-BASELINE-LTA signature with a document archive timestamp via `upgradeToLta()`.
 - [examples/E075_external_signature_injection.php](../examples/E075_external_signature_injection.php): external/remote signing workflow with ByteRange digest export and later CMS signature injection.
+- [examples/E084_signature_two_phase_cms.php](../examples/E084_signature_two_phase_cms.php): two-phase signing where a key service signs the CMS signed attributes and the detached CAdES is assembled here.
 
 ## Fluent API: `signature()`
 
@@ -60,11 +61,15 @@ $pdf->signature()
         'hash_algorithm' => 'sha256',
         'timeout'        => 30,
         'verify_peer'    => true,
+        'allow_sha1'     => true,            // this TSA still uses the SHA-1 v1 attribute
     ]);
 
 $pdf->signature()->appearance()->place(posx: 15, posy: 35, width: 90, height: 20, page: -1, name: 'Signature');
 $widgetObjId = $pdf->signature()->widgetObjectId();
 ```
+
+A signature field name cannot contain a period: ISO 32000-1 clause 12.7.3.2 makes it the
+separator between the components of a fully qualified field name, so one is rejected.
 
 ## Adding a TSA Timestamp (RFC 3161)
 
@@ -84,8 +89,25 @@ $pdf->signature()->timestamp([
     'nonce_enabled'  => true,
     'timeout'        => 30,
     'verify_peer'    => true,
+    'allow_sha1'     => false,      // accept a SHA-1 token (see below)
 ]);
 ```
+
+The token a TSA returns is verified before it is embedded: its `SignerInfo` signature
+must verify against the TSA certificate the token carries, that certificate must hold
+`id-kp-timeStamping` as its single critical extended key usage and must have covered the
+instant the token attests, and the token must answer the request that was sent (same
+message imprint under the same digest algorithm, the nonce echoed unchanged, the policy
+that was asked for, and a `genTime` near the moment of the request). A token failing any
+of these raises a `\Com\Tecnick\Pdf\Exception` instead of being written to the document.
+
+`allow_sha1` (off by default) relaxes the digest rules for that check: it accepts a token
+whose signature, message digest, or ESS certificate hash uses SHA-1. Some public TSAs
+name their certificate with the RFC 2634 `signing-certificate` (v1) attribute, which is
+SHA-1 by definition, and are refused without it; `freetsa.org`, used by the signature
+examples, is one of them. A TSA emitting the `signing-certificate-v2` attribute
+(SHA-256) needs no such setting. The relaxation applies only to the timestamp token, not
+to the OCSP responses or CRLs collected for the DSS.
 
 ## LTV (Long-Term Validation) and archive timestamps
 
@@ -111,6 +133,12 @@ $pdf->signature()->configure([
 ]);
 ```
 
+The `extracerts` bundle is read as the chain above the signing certificate, leaf first up
+to the root, one certificate per entry; a bundle that repeats the signing certificate (a
+`fullchain.pem`) is accepted, the repeat being dropped. The order is verified by
+signature, so a chain whose entries do not issue one another is rejected with a
+`\Com\Tecnick\Pdf\Exception`.
+
 To reach PAdES-BASELINE-LTA, call `upgradeToLta()` (it selects the `pades-b-lta` profile,
 forces the DSS on, and adds a `/Type /DocTimeStamp` archive timestamp over the whole
 document in a further incremental revision; a TSA must be configured):
@@ -123,6 +151,71 @@ A validator only reports the LT/LTA level when the DSS actually contains the rev
 for the chain, so the signing certificate must expose reachable OCSP/CRL responders. A
 self-signed certificate embeds only its own bytes, so a validator then reports B-T with a
 DSS present.
+
+### What reaches the DSS
+
+Nothing an OCSP responder or a CRL distribution point returns is embedded until it has
+been verified, so the document never carries evidence a validator would reject:
+
+- an **OCSP response** must have a successful status, a basic response type, a signature
+  that verifies against a responder the issuer authorised (itself, or a delegate holding
+  `id-kp-OCSPSigning`), a `CertID` matching the request, a `good` certificate status, and
+  a validity interval covering the signing time;
+- a **CRL** must be one complete list issued and signed by the certificate whose
+  distribution point it came from, covering the signing time, not narrowed by a
+  `deltaCRLIndicator` or an `issuingDistributionPoint`, and issued by a CA whose
+  `keyUsage` admits `cRLSign`;
+- the digests and signatures accepted are SHA-256 and above; SHA-1 is refused, and
+  RSASSA-PSS is not supported in either direction.
+
+The signing time (the document modification time, the same instant the `/M` entry
+carries) is the moment every response is checked against.
+
+Revocation collection is best-effort: a source that is unreachable, that returns
+something unusable, or that reports the certificate revoked is skipped, and the rest of
+the material is still embedded. The certificates carried by the signature timestamp token
+are collected into the DSS alongside the signer's own chain, and are run through the same
+OCSP and CRL lookups, as ETSI EN 319 142-1 requires of a B-LT Document Security Store.
+
+## Signing with a key this process cannot reach
+
+`signature()->external()` reserves the signature field without a key, so the document is
+built and hashed here and the signature is made elsewhere. `configure()` takes the same
+options as `configure()` on the facade, with `signcert` and `privkey` left empty;
+`prepare()` returns the prepared document bytes, the `/ByteRange` tuple, and the digest of
+the covered bytes; `apply()` writes the returned CMS into the reserved `/Contents`, which
+has to hold it (11742 hexadecimal digits, or 31742 with a timestamp enabled).
+
+```php
+$pdf->signature()->external()->configure([/* ... */ 'privkey' => '', 'signcert' => '']);
+$prepared = $pdf->signature()->external()->prepare('sha256');
+$signedPdf = $pdf->signature()->external()->apply(
+    $prepared['prepared_pdf'],
+    $prepared['byte_range'],
+    $cms,
+    'binary',
+);
+```
+
+What produces `$cms` is what separates the two workflows:
+
+- a **provider that returns a complete CMS** is handed the digest and gives back the whole
+  detached signature, which `apply()` only injects. The profile the provider signs under
+  has to match the one `configure()` was given, since the PDF `/SubFilter` comes from it.
+  This is [examples/E075_external_signature_injection.php](../examples/E075_external_signature_injection.php);
+- a **key service that signs bytes**, such as an HSM, a KMS, or a remote signing API, never
+  sees the document. `Com\Tecnick\Pdf\Sign\Signer::prepare()` turns the digest and the
+  signing certificate into a `SigningRequest`, `signaturePayload()` renders it as the DER
+  SET OF signed attributes the key signs, and `buildFromSignature()` rebuilds the same
+  attributes, checks the returned signature against them, and emits the detached CAdES. The
+  request crosses a queue or a second HTTP request through `toArray()`/`fromArray()`, which
+  take an optional key for an HMAC over the exported state. This is
+  [examples/E084_signature_two_phase_cms.php](../examples/E084_signature_two_phase_cms.php).
+
+Both halves of a two-phase signature take the same `Com\Tecnick\Pdf\Sign\Config`: it fixes
+the digest algorithm and, through the profile, whether the CMS carries the signing-time
+attribute. A B-T or higher profile also requires the timestamp client and transport in
+`buildFromSignature()`.
 
 ## Generating a Self-Signed Test Certificate
 

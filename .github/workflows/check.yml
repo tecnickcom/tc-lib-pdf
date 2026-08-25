@@ -35,7 +35,7 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           coverage: pcov
-          extensions: bcmath, curl, date, gd, hash, imagick, json, mbstring, openssl, pcre, zlib
+          extensions: bcmath, curl, date, gd, hash, imagick, intl, json, mbstring, openssl, pcre, zlib
           ini-values: display_errors=on, error_reporting=-1, zend.assertions=1
       - name: List php modules
         run: php -m
