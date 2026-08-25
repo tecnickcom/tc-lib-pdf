@@ -1,6 +1,6 @@
 # External Preflight Matrix
 
-This folder contains a minimal scaffold to generate one sample PDF for each supported mode and run external validators.
+Generates one sample PDF for each supported conformance mode and runs external validators against them.
 
 ## Included scripts
 
@@ -42,6 +42,5 @@ Reports are written under `target/preflight/report/` (or the custom output path)
 
 ## Notes
 
-- This is a tooling scaffold for repeatable external validation runs.
-- veraPDF is used here as an explicit PDF/UA validator, not as a PDF/X validator.
-- Final compliance claims still require profile-specific preflight policies and manual review using your selected validation authority.
+- veraPDF is invoked as a PDF/UA validator only, not as a PDF/X validator.
+- Compliance claims require profile-specific preflight policies and manual review with your own validation authority.

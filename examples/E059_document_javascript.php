@@ -56,7 +56,7 @@ require __DIR__ . '/../vendor/autoload.php';
  * (e.g. Adobe Acrobat / Adobe Reader).  Many open-source readers do not run JS.
  */
 
-// main TCPDF object — plain mode (no PDF/A, PDF/X, PDF/UA constraint)
+// main TCPDF object - plain mode (no PDF/A, PDF/X, PDF/UA constraint)
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
     unit: \Com\Tecnick\Pdf\Page\Unit::Millimeter,
     isunicode: true,
@@ -78,7 +78,7 @@ $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 $pdf->enableDefaultPageContent();
 
 // -----------------------------------------------------------------------
-// 1. appendRawJavaScript — global JS string (document-open trigger)
+// 1. appendRawJavaScript - global JS string (document-open trigger)
 // -----------------------------------------------------------------------
 // The JS string is accumulated and emitted as a single named JS object
 // ("EmbeddedJS").  It fires when the document is opened.
@@ -95,7 +95,7 @@ $pdf->appendRawJavaScript(
 );
 
 // -----------------------------------------------------------------------
-// 2. addRawJavaScriptObj — separate JS object, executed on open
+// 2. addRawJavaScriptObj - separate JS object, executed on open
 // -----------------------------------------------------------------------
 // Returns the PDF object ID so you can cross-reference if needed.
 $onloadObjId = $pdf->addRawJavaScriptObj(
@@ -110,7 +110,7 @@ $onloadObjId = $pdf->addRawJavaScriptObj(
 );
 
 // -----------------------------------------------------------------------
-// 3. addRawJavaScriptObj — separate JS object, NOT an open action
+// 3. addRawJavaScriptObj - separate JS object, NOT an open action
 // -----------------------------------------------------------------------
 // This object is embedded in the PDF but is NOT automatically executed.
 // A button field or annotation action can trigger it by name.
@@ -130,7 +130,7 @@ $idleObjId = $pdf->addRawJavaScriptObj(
 );
 
 // -----------------------------------------------------------------------
-// Page 1 — Explanation
+// Page 1 - Explanation
 // -----------------------------------------------------------------------
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 $bfontB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 14);

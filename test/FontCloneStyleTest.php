@@ -17,12 +17,11 @@
 namespace Test;
 
 /**
- * Regression tests for the font style cloning.
+ * Tests for the font style cloning.
  *
- * Com\Tecnick\Pdf\Font\Stack::cloneFont() used to forward the definition file of the source font
- * to the requested style, so a style that was not already loaded was silently rendered with the
- * glyphs and the metrics of the source style.
- * See: https://github.com/tecnickcom/tc-lib-pdf-font/issues/19
+ * Com\Tecnick\Pdf\Font\Stack::cloneFont() resolves the definition file of the requested style
+ * rather than reusing the one of the source font, so a style that is not already loaded is
+ * rendered with its own glyphs and metrics.
  *
  * @since       2026-07-12
  * @category    Library

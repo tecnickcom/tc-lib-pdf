@@ -767,7 +767,7 @@ class CSSTest extends TestUtil
     }
 
     /**
-     * Regression test for spot-color name preservation (issue #209).
+     * Spot-color name preservation.
      *
      * A spot color registered through an @spot CSS rule with a name containing
      * spaces and uppercase letters must be emitted in the PDF Separation color

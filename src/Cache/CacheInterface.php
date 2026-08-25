@@ -21,9 +21,8 @@ namespace Com\Tecnick\Pdf\Cache;
 /**
  * Com\Tecnick\Pdf\Cache\CacheInterface
  *
- * Optional external cache that tc-lib-pdf can reuse across all the
- * sub-libraries that support caching (currently font subsets and processed
- * images, possibly others in the future).
+ * Optional external cache that tc-lib-pdf reuses across the sub-libraries that
+ * support caching (font subsets and processed images).
  *
  * A single implementation of this contract can be passed to the Tcpdf
  * constructor and is internally adapted to each sub-library's own cache

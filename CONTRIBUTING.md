@@ -1,10 +1,10 @@
 # Contributing to tc-lib-pdf
 
-Thank you for your interest in contributing to **tc-lib-pdf** — the modern evolution of [TCPDF](https://tcpdf.org). Contributions of all kinds are welcome: bug reports, bug fixes, documentation improvements, new features, and refactors.
+Contributions are welcome: bug reports, bug fixes, documentation improvements, new features, and refactors. Read this guide before opening an issue or pull request.
 
-Please take a moment to read this guide before opening an issue or pull request.
-
-> **Pull requests are restricted to project collaborators.** If you are not a collaborator, please [open an issue](https://github.com/tecnickcom/tc-lib-pdf/issues) instead of a pull request, describing the bug or feature in detail. A maintainer will review it and take it from there.
+> **Pull requests are restricted to project collaborators.** If you are not a collaborator, [open an issue](https://github.com/tecnickcom/tc-lib-pdf/issues) describing the bug or feature instead.
+>
+> Issues should describe the problem or the desired behaviour, not the solution. Please do not post patches, diffs, or proposed code in issues: unsolicited code cannot be merged without a signed CLA, and it prevents the maintainer from implementing the change independently.
 
 ---
 
@@ -54,7 +54,7 @@ cd tc-lib-pdf
 make buildall
 ```
 
-To verify everything is working after a change:
+To check a change:
 
 ```bash
 make qa
@@ -68,24 +68,24 @@ This runs linting, static analysis, and the full unit-test suite with coverage.
 
 Before opening an issue:
 
-1. **Check the [Security Policy](SECURITY.md)** — if the bug is a security vulnerability, do not file a public issue.
+1. **Check the [Security Policy](SECURITY.md)**: if the bug is a security vulnerability, do not file a public issue.
 2. **Search [existing issues](https://github.com/tecnickcom/tc-lib-pdf/issues)** to avoid duplicates.
 
 If no existing issue matches, [open a new one](https://github.com/tecnickcom/tc-lib-pdf/issues/new) and include:
 
 - A **clear title and description** of the problem.
 - The **library version** (`composer show tecnickcom/tc-lib-pdf`) and PHP version.
-- A **minimal, self-contained reproduction** — a short PHP script or a failing PHPUnit test case is ideal.
-- **Expected vs. actual behaviour** — what you expected to happen and what actually happened.
+- A **minimal, self-contained reproduction**: a short PHP script or a failing PHPUnit test case.
+- **Expected vs. actual behaviour**.
 - Any relevant **stack trace or error output**.
 
-The more precise and reproducible the report, the faster it can be triaged and fixed.
+Describe the failure, not the fix. A reproduction case or a failing test is welcome; a proposed patch or diff is not, and will not be used.
 
 ---
 
 ## Submitting a Bug Fix
 
-> Only project collaborators can open pull requests. If you are not a collaborator, please [open an issue](https://github.com/tecnickcom/tc-lib-pdf/issues/new) describing the bug in detail (see [Reporting a Bug](#reporting-a-bug)). A maintainer will take it from there.
+> Only project collaborators can open pull requests. If you are not a collaborator, [open an issue](https://github.com/tecnickcom/tc-lib-pdf/issues/new) describing the bug (see [Reporting a Bug](#reporting-a-bug)).
 
 Collaborators preparing a fix:
 
@@ -108,10 +108,10 @@ Collaborators preparing a fix:
 
 Before writing any code:
 
-1. **Open a Feature Request** on [GitHub Issues](https://github.com/tecnickcom/tc-lib-pdf/issues/new) describing the use case and proposed API.
-2. Wait for feedback from the maintainer. This avoids investing time in a direction that may not be accepted.
+1. **Open a Feature Request** on [GitHub Issues](https://github.com/tecnickcom/tc-lib-pdf/issues/new) describing the use case and the expected behaviour. Keep it at the level of intent and API surface; do not attach an implementation.
+2. Wait for feedback from the maintainer.
 
-Once the feature is agreed upon, a collaborator will implement it following the same branch → code → test → pull request workflow as for bug fixes, using a branch named `feature/short-description`.
+Once the feature is agreed upon, a collaborator implements it with the same branch, code, test, and pull request workflow as for bug fixes, using a branch named `feature/short-description`.
 
 ---
 
@@ -171,7 +171,7 @@ Coverage reports are generated in `target/coverage/`.
 
 - **Sign the Contributor License Agreement (CLA).** On your first pull request the CLA Assistant bot will comment with a link to sign; the PR cannot be merged until the CLA is signed.
 - Target the `main` branch.
-- Keep PRs focused — one fix or feature per PR.
+- Keep PRs focused: one fix or feature per PR.
 - Ensure `make qa` passes locally before opening the PR.
 - Do not bump the version number in your PR; that is handled by the maintainer at release time.
 - Be responsive to review feedback; stale PRs may be closed after an extended period of inactivity.
@@ -197,4 +197,4 @@ Reference issues where relevant: `fix: correct X (closes #42)`.
 
 ## Questions?
 
-If you have a question that is not covered here, feel free to open a [GitHub Discussion](https://github.com/tecnickcom/tc-lib-pdf/discussions) or contact the maintainer at [info@tecnick.com](mailto:info@tecnick.com).
+For anything not covered here, open a [GitHub Discussion](https://github.com/tecnickcom/tc-lib-pdf/discussions) or contact the maintainer at [info@tecnick.com](mailto:info@tecnick.com).

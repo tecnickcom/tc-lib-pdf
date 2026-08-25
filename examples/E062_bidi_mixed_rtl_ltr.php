@@ -37,8 +37,8 @@ require __DIR__ . '/../vendor/autoload.php';
  * tc-lib-pdf supports Unicode BiDi text via tc-lib-unicode.  The document
  * direction is set with setRTL(bool):
  *
- *   setRTL(false)  — LTR default (Latin, CJK, etc.)
- *   setRTL(true)   — RTL default (Arabic, Hebrew, Persian, Urdu, etc.)
+ *   setRTL(false) - LTR default (Latin, CJK, etc.)
+ *   setRTL(true)  - RTL default (Arabic, Hebrew, Persian, Urdu, etc.)
  *
  * The direction affects:
  *   • Cell and text origin anchoring (LTR: x is left edge; RTL: x is right edge)
@@ -80,11 +80,11 @@ $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
 $pdf->enableDefaultPageContent(false);
 
-// Unifont — comprehensive Unicode coverage including Hebrew
+// Unifont - comprehensive Unicode coverage including Hebrew
 $bfont = $pdf->font->insert($pdf->pon, 'unifont', '', 12);
 
 // ===================================================================
-// Page 1 — LTR document with embedded RTL runs
+// Page 1 - LTR document with embedded RTL runs
 // ===================================================================
 $pdf->setRTL(false); // default: LTR
 $page1 = $pdf->addPage();
@@ -125,7 +125,7 @@ $html1 = <<<'HTML'
 $pdf->addHTMLCell(html: $html1, posx: 10, posy: 10, width: 190);
 
 // ===================================================================
-// Page 2 — RTL document with embedded LTR runs
+// Page 2 - RTL document with embedded LTR runs
 // ===================================================================
 $pdf->setRTL(true); // switch to RTL for this page
 $page2 = $pdf->addPage();
@@ -157,7 +157,7 @@ $html2 = <<<'HTML'
 $pdf->addHTMLCell(html: $html2, posx: 10, posy: 10, width: 190);
 
 // ===================================================================
-// Page 3 — Back to LTR: summary and guidance
+// Page 3 - Back to LTR: summary and guidance
 // ===================================================================
 $pdf->setRTL(false); // back to LTR
 $page3 = $pdf->addPage();

@@ -2775,7 +2775,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         // text object must select the font the string was encoded with: a font selected
         // earlier on the page would resolve those codes to the wrong glyphs.
         // The codes of any other font are independent of it, so the font selection is
-        // left to the page, as before.
+        // left to the page.
         if ($this->font->isCurrentGidEncoded()) {
             $out = $curfont['outraw'] . ' ' . $out;
         }

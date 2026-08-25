@@ -35,7 +35,7 @@ Every PDF/A mode applies the restrictions of ISO 19005:
 - Embedded files are only allowed in PDF/A-3.
 - Imported streams that use the `LZWDecode` filter are re-encoded with `FlateDecode` (see [PDF_IMPORT.md](PDF_IMPORT.md)).
 
-PDF/A-3 supports embedding arbitrary file attachments (for example XML invoice payloads). This is the basis for **Factur-X / ZUGFeRD** workflows - embed the structured XML in a PDF/A-3 document and register the relationship via XMP metadata:
+PDF/A-3 supports embedding arbitrary file attachments (for example XML invoice payloads), which is what **Factur-X / ZUGFeRD** workflows use: embed the structured XML in a PDF/A-3 document and register the relationship via XMP metadata:
 
 ```php
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfa3');
@@ -56,7 +56,7 @@ Runnable example (invoice with embedded Factur-X XML): [examples/E001_invoice.ph
 `tc-lib-pdf` supports multiple PDF/X profiles for print-exchange workflows. Pass the mode string as the `mode` argument to the `Tcpdf` constructor:
 
 ```php
-// Generic PDF/X alias (maps to the library's baseline print-exchange workflow)
+// Generic PDF/X alias (same constraints as pdfx3)
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfx');
 
 // Specific variants
@@ -66,7 +66,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfx4');  // PDF/X-4:2010
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfx5');  // PDF/X-5g:2010
 ```
 
-Each variant automatically applies the appropriate conformance constraints:
+Each variant applies its own conformance constraints:
 
 | Mode | Min PDF version | Transparency | Process colors | GTS_PDFXVersion |
 |------|-----------------|--------------|----------------|-----------------|
@@ -92,7 +92,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfua1'); // PDF/UA-1 (PDF 1.7)
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(mode: 'pdfua2'); // PDF/UA-2 (PDF 2.0)
 ```
 
-When a PDF/UA mode is active the library automatically:
+When a PDF/UA mode is active the library:
 
 - Writes a `StructTreeRoot` with a `ParentTree` that maps every page to its tagged content blocks
 - Emits `MarkInfo << /Marked true >>` in the document catalog
@@ -101,7 +101,7 @@ When a PDF/UA mode is active the library automatically:
 - Maps HTML heading elements (`h1`-`h6`) to PDF structure roles `H1`-`H6` with level-clamping to prevent skipped heading levels
 - Tags text content with MCIDs and wraps each run in the appropriate structure element (`P`, `H1`-`H6`, `Link`, etc.)
 - Tags `<img>` elements as `Figure` with their `alt` attribute written as `/Alt` in the structure element
-- Emits `ActualText` entries for ligatures and special glyphs so text extraction and screen readers work correctly
+- Emits `ActualText` entries for ligatures and special glyphs
 - Provides Artifact marked-content helpers for non-semantic content (`beginArtifact()`, `endArtifact()`, `addArtifactContent()`)
 
 To provide the document language explicitly:
@@ -137,7 +137,7 @@ Compression is controlled by the `compress` argument of the `Tcpdf` constructor 
 // compressed output (default), in any mode
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(compress: true, mode: 'pdfa3b');
 
-// uncompressed output, useful to inspect the generated objects
+// uncompressed output
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(compress: false, mode: 'pdfa3b');
 ```
 

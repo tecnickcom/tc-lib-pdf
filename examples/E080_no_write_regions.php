@@ -3,6 +3,25 @@
 /**
  * E080_no_write_regions.php
  *
+ * No-write page regions.
+ *
+ * A no-write region is a portion of the page that flowing text avoids. Each region is a
+ * vertical, possibly slanted, segment plus the page side it blocks ('L' or 'R').
+ * tc-lib-pdf-page approximates the resulting writable area with a stack of rectangular
+ * regions (one per horizontal band), so text flows down the page hugging the obstacle.
+ * Several adjacent segments approximate curved shapes (see the circle in the second
+ * scenario). See Com\Tecnick\Pdf\Page\Region::setNoWriteRegions().
+ *
+ * Each obstacle scenario is rendered twice, on consecutive pages:
+ *   - with addTextCell()  (plain flowing text);
+ *   - with addHTMLCell()  (HTML cell), producing the same visual result.
+ * Both engines hug the rectangular, trapezoidal and circular obstacles band by band and, when
+ * the text overflows the last region, continue on a fresh full-width page (no-write regions are
+ * page-specific, so the continuation page has no obstacles).
+ *
+ * The band height must be at least one text line tall; with a 12pt font (~4.9mm line height) a
+ * 5mm band fits exactly one line, giving the finest (per-line) staircase.
+ *
  * @since       2026-06-16
  * @category    Library
  * @package     Pdf
@@ -12,26 +31,6 @@
  * @link        https://github.com/tecnickcom/tc-lib-pdf
  *
  * This file is part of tc-lib-pdf software library.
- *
- * No-write page regions (legacy TCPDF example_064 equivalent).
- *
- * A no-write region is a portion of the page that flowing text will avoid. Each region is
- * defined exactly as in the legacy library: a vertical, possibly slanted, segment plus the
- * page side it blocks ('L' or 'R'). tc-lib-pdf-page approximates the resulting writable area
- * with a stack of rectangular regions (one per horizontal band), so text flows down the page
- * hugging the obstacle. Several adjacent segments approximate curved shapes (see the circle on
- * the second scenario). See Com\Tecnick\Pdf\Page\Region::setNoWriteRegions().
- *
- * Each obstacle scenario is rendered twice, on consecutive pages, so the two text engines can be
- * compared side by side:
- *   - with addTextCell()  (plain flowing text);
- *   - with addHTMLCell()  (HTML cell), producing the SAME visual result.
- * Both engines hug the rectangular, trapezoidal and circular obstacles band by band and, when
- * the text overflows the last region, continue on a fresh full-width page (no-write regions are
- * page-specific, so the continuation page has no obstacles).
- *
- * NOTE: the band height must be at least one text line tall; with a 12pt font (~4.9mm line
- * height) a 5mm band fits exactly one line, giving the finest (per-line) staircase.
  */
 
 // NOTE: local file reads (images, fonts, attachments) are restricted to an allowlist of
@@ -72,9 +71,9 @@ $pdf->setPDFFilename('080_no_write_regions.pdf');
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
 // ----------
-// Fonts (matching legacy example_064: 12pt body, small 8pt annotation labels).
-// NOTE: the font engine keeps the LAST inserted font as the current one, so each font is
-// (re)inserted with insertFont() right before it is used, making it the active font.
+// Fonts: 12pt body, 8pt annotation labels.
+// The font engine keeps the last inserted font as the current one, so each font is
+// (re)inserted with insertFont() right before it is used.
 
 $insertFont = static function (string $style, float $size) use ($pdf): void {
     $font = $pdf->font->insert($pdf->pon, 'helvetica', $style, $size);
@@ -82,10 +81,10 @@ $insertFont = static function (string $style, float $size) use ($pdf): void {
 };
 
 // ----------
-// Colours (matching legacy example_064).
+// Colours.
 
 $black = $pdf->color->getPdfColor('rgb(0,0,0)'); // titles and labels (single-line, no page break)
-$bodyBlue = 'rgb(0,0,255)'; // flowing body text (justified, as in example_064)
+$bodyBlue = 'rgb(0,0,255)'; // flowing body text (justified)
 
 // Graphic styles: light-green fill, the no-write edge in red, the other edges in grey dashed.
 $fillStyle = [
@@ -126,7 +125,7 @@ $arrowStyle = [
 $imgFile = \realpath(__DIR__ . '/images/200x100_RGBICC.jpg');
 $imgId = $pdf->image->add($imgFile);
 
-// Flowing body text (kept blue and justified as in example_064).
+// Flowing body text (blue and justified).
 $intro =
     'TEST PAGE REGIONS: a no-write region is a portion of the page with a rectangular or '
     . 'trapezium shape that will not be covered when writing text. A region is aligned on the '
@@ -174,7 +173,7 @@ $startPage = static function (string $title) use ($pdf, $margin, $black, $insert
 };
 
 // Draw the two image obstacles plus the two trapezoids (with xt,yt / xb,yb / side labels and
-// direction arrows, as in the legacy example) and register the matching no-write regions.
+// direction arrows) and register the matching no-write regions.
 $setupTrapezoids = static function (float $pageHeight) use (
     $pdf,
     $imgId,
@@ -208,7 +207,7 @@ $setupTrapezoids = static function (float $pageHeight) use (
         3 => $edgeRed,
     ]));
 
-    // Annotation labels and direction arrows (8pt black), as in the legacy example.
+    // Annotation labels and direction arrows (8pt black).
     $pdf->page->addContent($black);
     $insertFont('', 8);
     $pdf->addTextCellXY(

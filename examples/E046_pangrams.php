@@ -138,7 +138,7 @@ $html .= '<p>' . 'ខ្ញុំអាចញ៉ាំកញ្ចក់បា�
 $html .= '<h2>Tibetan (བོད་སྐད།)</h2>';
 $html .= '<p>' . 'ང་གཤེགས་ཀྱི་ཡིག་གུ་ཟ་ཐུབ་ཀྱི་ཡོད། དེས་ང་ལ་གནོད་པ་མི་བྱེད།' . '</p>';
 
-// Chinese (Traditional — Thousand Character Classic)
+// Chinese (Traditional - Thousand Character Classic)
 $html .= '<h2>Chinese (中文)</h2>';
 $html .= '<p>' . '天地玄黄，宇宙洪荒。日月盈昃，辰宿列张。' . '寒来暑往，秋收冬藏。闰余成岁，律吕调阳。' . '</p>';
 

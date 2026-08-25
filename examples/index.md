@@ -1,6 +1,6 @@
 # tc-lib-pdf Examples
 
-This index lists all runnable examples bundled with tc-lib-pdf, from foundational PDF generation to advanced features such as digital signatures, conformance modes (PDF/X and PDF/UA), HTML rendering, graphics, forms, and table-of-contents generation. Use it as a quick map to pick the closest starting point for your use case.
+Index of the runnable examples bundled with tc-lib-pdf.
 
 - [E000_overview.php](E000_overview.php): General feature overview with text, graphics, HTML, SVG, images, barcodes, transparency, gradients, annotations, and bookmarks.
 - [E001_invoice.php](E001_invoice.php): Invoice layout example with embedded Factur-X / ZUGFeRD metadata.
@@ -13,10 +13,10 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E008_signature_timestamp.php](E008_signature_timestamp.php): PAdES-BASELINE-T digital signature with an RFC 3161 TSA timestamp.
 - [E009_signature_ltv.php](E009_signature_ltv.php): PAdES-BASELINE-LT digital signature with LTV validation material (/DSS and /VRI).
 - [E010_pdfx.php](E010_pdfx.php): Generic PDF/X mode example for baseline print-oriented output.
-- [E011_pdfx1a.php](E011_pdfx1a.php): PDF/X-1a conformance example focused on classic CMYK/spot print restrictions.
+- [E011_pdfx1a.php](E011_pdfx1a.php): PDF/X-1a conformance example with CMYK/spot print restrictions.
 - [E012_pdfx3.php](E012_pdfx3.php): PDF/X-3 conformance example for color-managed print workflows.
-- [E013_pdfx4.php](E013_pdfx4.php): PDF/X-4 conformance example with modern transparency-capable print output.
-- [E014_pdfx5.php](E014_pdfx5.php): PDF/X-5 conformance example for advanced PDF/X-4 family workflows.
+- [E013_pdfx4.php](E013_pdfx4.php): PDF/X-4 conformance example with transparency-capable print output.
+- [E014_pdfx5.php](E014_pdfx5.php): PDF/X-5 conformance example.
 - [E015_pdfua.php](E015_pdfua.php): Generic PDF/UA mode example for accessible tagged PDF output.
 - [E016_pdfua1.php](E016_pdfua1.php): PDF/UA-1 conformance example.
 - [E017_pdfua2.php](E017_pdfua2.php): PDF/UA-2 conformance example.
@@ -29,11 +29,11 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E024_colors.php](E024_colors.php): Color model showcase (grayscale, RGB, CMYK, spot, and Lab) applied to text and graphics.
 - [E025_transparency.php](E025_transparency.php): Transparency and alpha blending example with overlapping objects.
 - [E026_text_rendering_modes.php](E026_text_rendering_modes.php): PDF text rendering modes (fill, stroke, clip, and combinations).
-- [E027_annotations.php](E027_annotations.php): Annotation matrix showing currently supported annotation subtypes.
+- [E027_annotations.php](E027_annotations.php): Matrix of the supported annotation subtypes.
 - [E028_text_hyphenation.php](E028_text_hyphenation.php): Hyphenation behavior in justified HTML text.
 - [E029_xobject_template.php](E029_xobject_template.php): Reusable Form XObject template example with clipping and transparency.
 - [E030_svg.php](E030_svg.php): SVG rendering showcase using bundled SVG samples.
-- [E031_html_features.php](E031_html_features.php): HTML and CSS feature showcase for currently implemented parsing and layout support.
+- [E031_html_features.php](E031_html_features.php): HTML and CSS parsing and layout feature showcase.
 - [E032_html_lists.php](E032_html_lists.php): Supported HTML list-style and list-item CSS variations.
 - [E033_geometric_transformations.php](E033_geometric_transformations.php): Geometric transforms including scaling, translation, rotation, skewing, mirroring, and reflection.
 - [E034_color_gradient_mesh.php](E034_color_gradient_mesh.php): Linear/radial gradients and Coons patch mesh gradients.
@@ -52,7 +52,7 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E047_remote_resources_security.php](E047_remote_resources_security.php): Remote resource security configuration using fileOptions host/path allowlists, size limits, and cURL controls.
 - [E048_page_boxes_prepress.php](E048_page_boxes_prepress.php): Prepress page-box guide showing Media/Crop/Bleed/Trim/Art boundaries with visual overlays.
 - [E049_output_targets_integration.php](E049_output_targets_integration.php): Multi-target output example covering render, download, save-to-file, and MIME attachment workflows.
-- [E050_shipping_label_barcodes.php](E050_shipping_label_barcodes.php): Production-style shipping label layout using 1D and 2D barcodes with quiet-zone spacing.
+- [E050_shipping_label_barcodes.php](E050_shipping_label_barcodes.php): Shipping label layout using 1D and 2D barcodes with quiet-zone spacing.
 - [E051_viewer_preferences_navigation.php](E051_viewer_preferences_navigation.php): Viewer preferences, display mode, named destinations, internal link annotations, and bookmarks.
 - [E052_custom_fonts_fallback.php](E052_custom_fonts_fallback.php): Custom font selection strategy with Unicode fallback across Latin, DejaVu Sans, and Unifont.
 - [E053_spot_overprint_proof.php](E053_spot_overprint_proof.php): Spot color tint ramps and overprint simulation using tc-lib-color and tc-lib-pdf-graph.
@@ -69,21 +69,21 @@ This index lists all runnable examples bundled with tc-lib-pdf, from foundationa
 - [E064_custom_hyphenation_dictionary.php](E064_custom_hyphenation_dictionary.php): External TeX hyphenation pattern loading via loadTexHyphenPatterns and setTexHyphenPatterns with a side-by-side Dutch column comparison.
 - [E065_import_single_page.php](E065_import_single_page.php): Import one source page as a Form XObject and place it scaled on a destination page.
 - [E066_import_document_append.php](E066_import_document_append.php): Append all pages from an imported source document and preserve destination flow.
-- [E067_import_page_region_nup.php](E067_import_page_region_nup.php): Advanced 2x2 N-up composition from imported pages with clipping and centered placement per region.
+- [E067_import_page_region_nup.php](E067_import_page_region_nup.php): 2x2 N-up composition from imported pages with clipping and centered placement per region.
 - [E068_font_subset.php](E068_font_subset.php): Font subsetting example showing reduced embedding to only used glyphs.
 - [E069_html_line_height.php](E069_html_line_height.php): HTML line-height behavior showcase across percentages, absolute units, relative units, and unitless values.
 - [E070_default_page_content_import.php](E070_default_page_content_import.php): Use defaultPageContent() to place an imported source page as common content on every new page.
-- [E071_gettextcell_bbox_metrics.php](E071_gettextcell_bbox_metrics.php): Multiline getTextCell block with visible border and printed bbox/textbbox/cellbbox metrics for visual verification.
+- [E071_gettextcell_bbox_metrics.php](E071_gettextcell_bbox_metrics.php): Multiline getTextCell block with a visible border and printed bbox/textbbox/cellbbox metrics.
 - [E072_import_new_font.php](E072_import_new_font.php): Import a custom TTF/OTF font with tc-lib-pdf-font conversion tooling and use it in tc-lib-pdf.
 - [E073_css_supported_categories.php](E073_css_supported_categories.php): Consolidated CSS category showcase covering cascade, selectors, box model, typography, float/clear/position, tables, and paged media.
 - [E074_text_cell_fit_modes.php](E074_text_cell_fit_modes.php): Visual inspection grid for getTextCell() fit modes (T, S, F) including disabled precondition cases.
-- [E075_external_signature_injection.php](E075_external_signature_injection.php): External/remote signing walkthrough using signature placeholder setup, ByteRange digest export, and injected CMS/PKCS#7 signature bytes, where the provider returns a complete CMS.
+- [E075_external_signature_injection.php](E075_external_signature_injection.php): External/remote signing with signature placeholder setup, ByteRange digest export, and injection of a complete CMS/PKCS#7 signature returned by the provider.
 - [E076_absolute_position.php](E076_absolute_position.php): Absolute coordinate positioning within a given page.
 - [E077_html_table_header_px_unit.php](E077_html_table_header_px_unit.php): HTML table pagination with px document units, verifying replayed header rows keep the same column geometry on continuation pages.
 - [E078_htmlcell_page_margins.php](E078_htmlcell_page_margins.php): Single page with 100mm top and bottom margins, placing getHTMLCell text blocks in the top border, central content area, and bottom border.
 - [E079_font_stretch_spacing_matrix.php](E079_font_stretch_spacing_matrix.php): Font stretching (Tz) and character spacing (Tc) matrix across L/C/R/J alignment for both the direct text API and the HTML/CSS font-stretch/letter-spacing engine.
-- [E080_no_write_regions.php](E080_no_write_regions.php): No-write page regions: text flows around rectangular, trapezoidal, and circular obstacles via `setNoWriteRegions()`, which approximates each obstacle with a stack of rectangular write regions. Each scenario is rendered twice — with `addTextCell()` and with `addHTMLCell()` — producing the same shape-hugging flow and overflowing onto a fresh full-width page.
-- [E081_signature_pades_lta.php](E081_signature_pades_lta.php): PAdES-BASELINE-LTA archive-timestamped signature: a B-LT signature upgraded via `signature()->upgradeToLta()`, adding a `/Type /DocTimeStamp` archive timestamp over the whole document in a further incremental revision.
-- [E082_pdfa_core_fonts.php](E082_pdfa_core_fonts.php): PDF/A core font substitutes: prints the codes whose glyph names differ between the embedded PDFA* Type1 programs and the encoding the font dictionary declares (223 ß, 181 µ, 183 ·, plus the Adobe Symbol named glyphs and delimiter pieces), so a name the font program does not define shows as a blank.
-- [E083_text_line_wrap.php](E083_text_line_wrap.php): Line wrap corner cases for `addTextCell()`: first line offset (indent, hanging indent, offset wider than the cell, offset with a leading word too wide for it), break opportunities (spaces, hyphenation, zero width spaces, unbreakable words), RTL, CSS `text-indent` through `addHTMLCell()` for both directions, and a continuation flow where each run starts where the previous one ended.
-- [E084_signature_two_phase_cms.php](E084_signature_two_phase_cms.php): Two-phase CMS signing: `signature()->external()` reserves the field and hashes the ByteRange, `Signer::prepare()` and `signaturePayload()` produce the DER SET OF signed attributes a key service signs without seeing the document, and `buildFromSignature()` assembles the detached CAdES that is injected into the reserved `/Contents`. The signing request crosses the phase boundary through `toArray()`/`fromArray()` with an HMAC key.
+- [E080_no_write_regions.php](E080_no_write_regions.php): No-write page regions via `setNoWriteRegions()`, with text flowing around rectangular, trapezoidal, and circular obstacles, rendered with both `addTextCell()` and `addHTMLCell()`.
+- [E081_signature_pades_lta.php](E081_signature_pades_lta.php): PAdES-BASELINE-LTA signature, upgrading a B-LT signature with `signature()->upgradeToLta()` to add a `/Type /DocTimeStamp` archive timestamp.
+- [E082_pdfa_core_fonts.php](E082_pdfa_core_fonts.php): PDF/A core font substitutes, printing the codes whose glyph names differ between the embedded PDFA* Type1 programs and the declared encoding.
+- [E083_text_line_wrap.php](E083_text_line_wrap.php): Line wrap cases for `addTextCell()`: first line offset, break opportunities, RTL, CSS `text-indent` through `addHTMLCell()`, and continuation flows.
+- [E084_signature_two_phase_cms.php](E084_signature_two_phase_cms.php): Two-phase CMS signing with `signature()->external()`, `Signer::prepare()`, `signaturePayload()`, and `buildFromSignature()`, exchanging the signing request through `toArray()`/`fromArray()` with an HMAC key.

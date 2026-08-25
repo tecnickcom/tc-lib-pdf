@@ -232,14 +232,10 @@ class TextTest extends TestUtil
     }
 
     /**
-     * Regression test:
-     *
      * A custom defaultPageContent() that draws vector graphics through the graph
-     * component (here a line) must render correctly on the first page. The graph
-     * flips the Y axis against the page height; previously that height was still
-     * zero when the first page context was generated (it was only set after
-     * setPageContext()), so the first page emitted negative, off-page coordinates
-     * while every subsequent page reused the prior page height and rendered fine.
+     * component (here a line) renders on the first page with in-page coordinates.
+     * The graph flips the Y axis against the page height, so that height must be
+     * known when the first page context is generated.
      *
      * @throws \Throwable
      */
@@ -406,12 +402,10 @@ class TextTest extends TestUtil
     }
 
     /**
-     * Regression: a blank line inside a multi-line text cell must occupy a full
-     * line of vertical space. An empty line renders no glyphs, so getLastBBox()
-     * used to return the stale box of the previously rendered line and the blank
-     * line collapsed (the following line jumped up to overlap it). outTextLines()
-     * now synthesises a zero-width box at the blank line's own position so the
-     * text bounding box grows by one line height per blank line.
+     * A blank line inside a multi-line text cell occupies a full line of vertical
+     * space. An empty line renders no glyphs, so outTextLines() synthesises a
+     * zero-width box at the blank line's own position and the text bounding box
+     * grows by one line height per blank line.
      *
      * @throws \Throwable
      */
@@ -432,7 +426,7 @@ class TextTest extends TestUtil
         $this->assertGreaterThan(0.0, $lineHeight);
 
         // A blank middle line counts as a full line: "A\n\nB" spans three lines,
-        // exactly like "A\nC\nB". Before the fix it collapsed to two lines.
+        // exactly like "A\nC\nB".
         $this->assertEqualsWithDelta($threeLines, $blankMiddle, 1.0e-6);
         $this->assertGreaterThan($twoLines, $blankMiddle);
 
@@ -3339,9 +3333,9 @@ class TextTest extends TestUtil
 
     /**
      * A caller-supplied $linespace that exactly cancels the font height makes
-     * the per-region line pitch zero. addTextCell must not divide by it
-     * (regression: DivisionByZeroError). Using point units keeps the unit
-     * conversion an identity so $linespace can cancel the font height exactly.
+     * the per-region line pitch zero. addTextCell must not divide by it. Using
+     * point units keeps the unit conversion an identity so $linespace can cancel
+     * the font height exactly.
      *
      * @throws \Throwable
      */

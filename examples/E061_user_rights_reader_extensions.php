@@ -39,7 +39,7 @@ require __DIR__ . '/../vendor/autoload.php';
  * Standard PDF encryption (setEncrypt / E045) controls which operations a
  * user is *prevented* from performing.  That is a restriction model.
  *
- * Reader Extensions (UR — Usage Rights) are a complementary *enablement*
+ * Reader Extensions (UR - Usage Rights) are a complementary *enablement*
  * model: they grant additional privileges to free Adobe Reader users that
  * Reader would otherwise reserve for Acrobat Pro.  Common examples:
  *   • Filling in forms and saving the filled data
@@ -202,7 +202,7 @@ $pdf->page->addContent($pdf->getTextCell(
 ));
 
 // -----------------------------------------------------------------------
-// Page 2 — Contrast with DocMDP certification (cert_type > 0)
+// Page 2 - Contrast with DocMDP certification (cert_type > 0)
 // -----------------------------------------------------------------------
 $page2 = $pdf->addPage();
 // Re-insert non-bold base font before addHTMLCell.

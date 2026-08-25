@@ -523,7 +523,7 @@ class ResourceCloner
                 \is_string($raw[1] ?? null) ? $raw[1] : '',
                 $ownerNum,
             ),
-            // Legacy synthetic token `string` is plain text and must be escaped for PDF literal syntax.
+            // Synthetic token `string` is plain text and must be escaped for PDF literal syntax.
             \is_string($raw[0] ?? null) && $raw[0] === 'string' => $this->serializeLiteralString(
                 \is_string($raw[1] ?? null) ? $raw[1] : '',
                 $ownerNum,

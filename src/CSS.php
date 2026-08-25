@@ -394,7 +394,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         }
 
         if ($style === '') {
-            // Keep legacy behavior: a missing border-style renders as solid.
+            // A missing border-style renders as solid.
             $style = 'solid';
         }
 

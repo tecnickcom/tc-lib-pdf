@@ -117,7 +117,7 @@ class ResourceClonerTest extends TestCase
         $src = $this->loadFixture();
         $cloner = new ResourceCloner(0);
 
-        // Array of one ref — should behave identically to single-ref case.
+        // Array of one ref - should behave identically to single-ref case.
         $pageDict = ['Contents' => ['4_0']];
         $result = $cloner->getContentStream($pageDict, $src);
 
@@ -558,7 +558,7 @@ class ResourceClonerTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // enqueueObject — dedup and cycle safety
+    // enqueueObject - dedup and cycle safety
     // -------------------------------------------------------------------------
 
     /** @throws \Throwable */
@@ -601,7 +601,7 @@ class ResourceClonerTest extends TestCase
         $map = new ObjectMap();
         $cloner = new ResourceCloner(0);
 
-        // 99_0 does not exist in the fixture — must get a null placeholder.
+        // 99_0 does not exist in the fixture - must get a null placeholder.
         $destNum = $cloner->enqueueObject('99_0', $src, $map);
         $this->assertGreaterThan(0, $destNum);
 
@@ -786,12 +786,9 @@ class ResourceClonerTest extends TestCase
     }
 
     /**
-     * Regression: tc-lib-pdf-parser tags literal-string dictionary values with
-     * the open-paren byte `(` and hex-string values with `<` — NOT the legacy
-     * `'string'` / `'hex'` literals that the original `serializeValue()` checked
-     * for. Before the fix these values fell through to the bare-scalar path and
-     * were emitted without their `( )` / `< >` delimiters, producing malformed
-     * PDF dictionaries such as `/FontFamily Futura PT Book` instead of
+     * tc-lib-pdf-parser tags literal-string dictionary values with the open-paren
+     * byte `(` and hex-string values with `<`, so `serializeValue()` must emit
+     * them with their `( )` / `< >` delimiters, for example
      * `/FontFamily (Futura PT Book)`. This test mirrors
      * testEnqueueObjectSerializesDictionaryValuesAcrossTokenTypes above but
      * uses the parser's actual token tags.
@@ -1079,7 +1076,7 @@ class ResourceClonerTest extends TestCase
         $cloner->cloneResources($resources, $src, $map);
         $firstFlush = $map->flush();
 
-        // Second "page" import: same shared resource — nothing new should be queued.
+        // Second "page" import: same shared resource - nothing new should be queued.
         $cloner->cloneResources($resources, $src, $map);
         $secondFlush = $map->flush();
 

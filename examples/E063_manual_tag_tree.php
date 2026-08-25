@@ -38,8 +38,8 @@ require __DIR__ . '/../vendor/autoload.php';
  * in a pdfua or pdfua1/pdfua2 mode it auto-tags content produced by
  * addHTMLCell() using the HTML semantic elements (h1→H1, p→P, etc.).
  *
- * For content produced with the lower-level text APIs — or for cases
- * where you need precise control over structure roles — you can bracket each
+ * For content produced with the lower-level text APIs - or for cases
+ * where you need precise control over structure roles - you can bracket each
  * logical block with:
  *
  *   beginStructElem(string $role, int $pid)
@@ -71,10 +71,10 @@ require __DIR__ . '/../vendor/autoload.php';
  * This example uses 'pdfua1' mode and demonstrates the full manual-tagging
  * surface across four pages:
  *
- *   Page 1 — Heading roles (H1, H2, H3), P, Figure, Caption
- *   Page 2 — Note, Blockquote, multi-paragraph body
- *   Page 3 — Sect/Art grouping containers; list structure (L > LI > Lbl + LBody)
- *   Page 4 — Table nesting (Table > TR > TH / TD); Figure with /Alt alternate text
+ *   Page 1 - Heading roles (H1, H2, H3), P, Figure, Caption
+ *   Page 2 - Note, Blockquote, multi-paragraph body
+ *   Page 3 - Sect/Art grouping containers; list structure (L > LI > Lbl + LBody)
+ *   Page 4 - Table nesting (Table > TR > TH / TD); Figure with /Alt alternate text
  *
  * Non-semantic decorative content can be emitted as Artifact marked-content
  * with addArtifactContent() or, at the low level, by writing the strings
@@ -135,12 +135,12 @@ $addDecorativeSeparator = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, int $pid
 };
 
 // -----------------------------------------------------------------------
-// Font setup — insert before addPage()
+// Font setup - insert before addPage()
 // -----------------------------------------------------------------------
 $pdf->font->insert($pdf->pon, 'dejavusans', '', 10);
 
 // -----------------------------------------------------------------------
-// Page 1 — H1, H2, H3, P, Caption, Figure structure elements
+// Page 1 - H1, H2, H3, P, Caption, Figure structure elements
 // -----------------------------------------------------------------------
 $page1 = $pdf->addPage();
 $pid1 = $page1['pid'];
@@ -344,7 +344,7 @@ $pdf->addTextCell(
 $pdf->endStructElem();
 
 // -----------------------------------------------------------------------
-// Page 2 — Note, Blockquote, and multi-paragraph body
+// Page 2 - Note, Blockquote, and multi-paragraph body
 // -----------------------------------------------------------------------
 $page2 = $pdf->addPage();
 $pid2 = $page2['pid'];
@@ -458,7 +458,7 @@ foreach ($paras as $para) {
 }
 
 // -----------------------------------------------------------------------
-// Page 3 — Sect/Art grouping containers + List structure
+// Page 3 - Sect/Art grouping containers + List structure
 // -----------------------------------------------------------------------
 $page3 = $pdf->addPage();
 $pid3 = $page3['pid'];
@@ -641,7 +641,7 @@ foreach ($listItems as [$label, $body]) {
 $pdf->endStructElem(); // L
 
 // -----------------------------------------------------------------------
-// Page 4 — Table nesting + Figure with /Alt alternate description
+// Page 4 - Table nesting + Figure with /Alt alternate description
 // -----------------------------------------------------------------------
 $page4 = $pdf->addPage();
 $pid4 = $page4['pid'];

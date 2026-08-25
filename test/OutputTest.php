@@ -2572,7 +2572,7 @@ class OutputTest extends TestUtil
     }
 
     /**
-     * The DSS is no longer part of the initial body: it moves to a post-signing
+     * The DSS is not part of the initial body: it belongs to a post-signing
      * incremental revision (appendDssRevision) so its VRI key can be derived from
      * the final signature /Contents (ISO 32000-2 clause 12.8.4.3).
      *

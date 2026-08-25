@@ -277,7 +277,7 @@ foreach ($chapters as $idx => $ch) {
 // ===| GENERATE TOC |========================================================
 // addTOC() injects the outline entries onto the reserved TOC page (page i),
 // starting at y=35 (below the "TABLE OF CONTENTS" heading).
-// It uses the current font for rendering — activate bodyFont first.
+// It uses the current font for rendering - activate bodyFont first.
 
 $pdf->page->addContent($bodyFont['out'], $tocPage['pid']);
 $pdf->addTOC(page: $tocPage['pid'], posx: 15, posy: 35, width: 175);

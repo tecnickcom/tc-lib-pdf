@@ -19,6 +19,8 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf\CSS;
 
 /**
+ * Com\Tecnick\Pdf\CSS\ListStyle
+ *
  * Resolves list marker types and generates the counter text for list items.
  *
  * The HTML "type" attribute values 1/a/A/i/I are case-sensitive and are mapped to the

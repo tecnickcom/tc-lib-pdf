@@ -19,8 +19,9 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf\CSS;
 
 /**
- * Normalizes CSS declarations to ensure !important is properly propagated
- * to all longhands when shorthand properties are used.
+ * Com\Tecnick\Pdf\CSS\ImportanceNormalizer
+ *
+ * Propagates !important from a shorthand declaration to all of its longhands.
  *
  * @since     2002-08-03
  * @category  Library

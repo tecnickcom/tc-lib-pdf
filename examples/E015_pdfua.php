@@ -6,7 +6,7 @@
  * Demonstrates HTML auto-tagging in 'pdfua' (generic alias) mode.
  *
  * Every HTML element rendered by addHTMLCell() is automatically mapped to the
- * corresponding PDF structure role — no beginStructElem() calls required.
+ * corresponding PDF structure role - no beginStructElem() calls required.
  * Compare with E063 which builds the same structure tree manually via the
  * lower-level addTextCell() / beginStructElem() API.
  *
@@ -21,6 +21,16 @@
  *   figcaption  → Caption
  *   table       → Table     (tr → TR, th → TH, td → TD, caption → Caption)
  *   a           → Link
+ *
+ * @since       2026-04-25
+ * @category    Library
+ * @package     Pdf
+ * @author      Nicola Asuni <info@tecnick.com>
+ * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link        https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * This file is part of tc-lib-pdf software library.
  */
 
 // NOTE: local file reads (images, fonts, attachments) are restricted to an allowlist of

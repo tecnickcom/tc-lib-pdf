@@ -348,7 +348,7 @@ class Importer implements ImporterInterface
             'gheight' => 0.0,
         ];
 
-        // Determine user-unit dimensions (points → same unit as pon; leave in pt for now).
+        // Template dimensions stay in points.
         $tpl = new PageTemplate($tid, $bboxW, $bboxH, $rotate, $sourceId, $pageNum, [$xMin, $yMin, $xMax, $yMax]);
 
         if ($useCache) {

@@ -773,10 +773,9 @@ class JavaScriptTest extends TestUtil
     }
 
     /**
-     * Regression: addFFComboBox() must set the "Combo" field-flag bit so the
-     * widget renders as a dropdown combo box and not as a list box.
-     * getAnnotOptFromJSProp() matches the Combo property against the string
-     * 'true'; passing a boolean true left the bit clear (ff === 0).
+     * addFFComboBox() sets the "Combo" field-flag bit so the widget renders as a
+     * dropdown combo box and not as a list box. getAnnotOptFromJSProp() matches
+     * the Combo property against the string 'true', not a boolean.
      *
      * @throws \Throwable
      */

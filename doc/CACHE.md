@@ -2,11 +2,11 @@
 
 Back to root overview: [README.md](../README.md#in-depth-documentation)
 
-Generating font subsets and processing images (decode, resize, re-encode) is computationally expensive. `tc-lib-pdf` can reuse these results across `Tcpdf` instances and PHP processes through an **optional external cache** that you provide.
+`tc-lib-pdf` can reuse generated font subsets and processed images across `Tcpdf` instances and PHP processes through an **optional external cache** that you provide.
 
-No cache backend is shipped: you implement a tiny interface that bridges to whatever store you already use (filesystem, APCu, Redis, a PSR-16 cache, ...). Caching is **disabled by default**: when no cache is supplied, behavior is unchanged.
+No cache backend is shipped: you implement an interface that bridges to your own store (filesystem, APCu, Redis, a PSR-16 cache, ...). Caching is **disabled by default**.
 
-One cache instance is reused by every cacheable subsystem (currently font subsets and images, more may be added later), so a single backend, connection, and configuration serves them all.
+One cache instance is reused by every cacheable subsystem (font subsets and images), so a single backend, connection, and configuration serves them all.
 
 ## The CacheInterface
 
@@ -38,7 +38,7 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 );
 ```
 
-A minimal in-memory implementation (useful for tests or single-request deduplication):
+A minimal in-memory implementation:
 
 ```php
 use Com\Tecnick\Pdf\Cache\CacheInterface;

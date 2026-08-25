@@ -17,15 +17,15 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 );
 ```
 
-Only the listed host names are permitted. Any attempt to load a resource from an unlisted host is silently blocked. Supply an explicit allowlist rather than a wildcard to limit the attack surface when user-supplied URLs might reach this code path.
+Only the listed host names are permitted. Any attempt to load a resource from an unlisted host is silently blocked.
 
 ## Restricting Local Paths
 
-`allowedPaths` controls which local path prefixes may be read by the shared file helper for internal library IO, such as fonts, and other explicit file operations. If you omit it, the library computes a default set of trusted roots that covers the system temp directory, the `K_PATH_FONTS` directory when that constant is defined, the tc-lib-pdf package root, and, when the package is installed as a Composer dependency, the `vendor/tecnickcom` directory holding the sibling tecnickcom packages. Paths outside these roots, for example project asset directories, are rejected until you list them here. The helper that returns these defaults is `Com\\Tecnick\\Pdf\\Base::defaultFileAllowedPaths()`.
+`allowedPaths` controls which local path prefixes may be read by the shared file helper for internal library IO, such as fonts and other explicit file operations. When omitted, the default set of trusted roots covers the system temp directory, the `K_PATH_FONTS` directory when that constant is defined, the tc-lib-pdf package root, and, when the package is installed as a Composer dependency, the `vendor/tecnickcom` directory holding the sibling packages. Paths outside these roots are rejected. The defaults are returned by `Com\Tecnick\Pdf\Base::defaultFileAllowedPaths()`.
 
-`markupAllowedPaths` controls which local path prefixes may be read when resources are referenced by rendered HTML, CSS, or SVG markup. If you omit it, the library reuses an explicit `allowedPaths` value when one is provided; otherwise it computes a stricter default that excludes the system temp directory. The helper that returns those stricter defaults is `Com\\Tecnick\\Pdf\\Base::defaultMarkupAllowedPaths()`.
+`markupAllowedPaths` controls which local path prefixes may be read when resources are referenced by rendered HTML, CSS, or SVG markup. When omitted, an explicit `allowedPaths` value is reused if one is provided; otherwise a stricter default that excludes the system temp directory applies, returned by `Com\Tecnick\Pdf\Base::defaultMarkupAllowedPaths()`.
 
-Windows absolute paths with drive letters are supported as long as they are absolute and match the trusted root after path normalization. You can provide them in native form (`C:\\...`) or normalized form (`C:/...`), but using the same canonical format for both the allowlist and the resource path is safest.
+Windows absolute paths with drive letters are supported when they are absolute and match the trusted root after path normalization. They can be given in native form (`C:\...`) or normalized form (`C:/...`); use the same form for both the allowlist and the resource path.
 
 ```php
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
@@ -44,9 +44,9 @@ $pdf = new \Com\Tecnick\Pdf\Tcpdf(
 );
 ```
 
-Supplying `allowedPaths` replaces the internal-file defaults instead of merging with them. Include every local directory the PDF run needs for trusted internal operations, such as image fixtures, custom font directories, or cache-backed assets.
+Supplying `allowedPaths` replaces the internal-file defaults instead of merging with them. List every local directory the run reads for internal operations, such as image fixtures, custom font directories, or cache-backed assets.
 
-Supplying `markupAllowedPaths` replaces the stricter markup defaults instead of merging with them. Include only directories that should be reachable from rendered markup.
+Supplying `markupAllowedPaths` replaces the stricter markup defaults instead of merging with them. List only directories that should be reachable from rendered markup.
 
 ## All fileOptions Keys
 
@@ -58,7 +58,7 @@ Supplying `markupAllowedPaths` replaces the stricter markup defaults instead of 
 | `maxRemoteSize` | `int` | `52428800` (50 MiB) | Maximum bytes accepted for a single remote download. Requests exceeding this limit are aborted. |
 | `curlopts` | `array<int, bool\|int\|string>` | `[]` | Per-request cURL options (keyed by `CURLOPT_*` constants) merged on top of the built-in defaults. |
 | `defaultCurlOpts` | `array<int, bool\|int\|string>` | `null` | Replaces the built-in default cURL option set entirely. Omit this key to keep the safe defaults. |
-| `fixedCurlOpts` | `array<int, bool\|int\|string>` | `null` | cURL options that are always enforced and cannot be overridden by `curlopts` - useful for pinning TLS settings in locked-down environments. |
+| `fixedCurlOpts` | `array<int, bool\|int\|string>` | `null` | cURL options that are always enforced and cannot be overridden by `curlopts`. |
 
 ## Example: Pinning TLS and Setting a Short Timeout
 

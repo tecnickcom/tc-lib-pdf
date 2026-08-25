@@ -1382,7 +1382,7 @@ class TcpdfTest extends TestUtil
         $this->assertStringContainsString('/VRI << /' . $vriKey . ' ', $revision);
         $this->assertStringContainsString('/DSS ', $revision);
 
-        // It is no longer the legacy cert-hash VRI key.
+        // The VRI key is not the certificate hash.
         $certDer = (string) \base64_decode(
             (string) \preg_replace('/-----[^-]+-----|\s+/', '', $cred['cert_pem']),
             true,

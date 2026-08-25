@@ -128,7 +128,7 @@ $heading = static function (
     return $y + 15.0;
 };
 
-// ========== SECTION 1 — DIRECT TEXT API ==========
+// ========== SECTION 1 - DIRECT TEXT API ==========
 
 foreach ($fonts as $family) {
     $ensureFont($pdf); // ensure a current font exists before addPage
@@ -185,7 +185,7 @@ foreach ($fonts as $family) {
     }
 }
 
-// ========== SECTION 2 — HTML / CSS API ==========
+// ========== SECTION 2 - HTML / CSS API ==========
 
 foreach ($fonts as $family) {
     $ensureFont($pdf); // ensure a current font exists before addPage

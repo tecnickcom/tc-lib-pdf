@@ -245,16 +245,14 @@ class PdfColorTest extends TestUtil
     }
 
     // ---------------------------------------------------------------------
-    // Regression tests for spot-color name preservation.
+    // Spot-color name preservation.
     //
-    // tc-lib-color >= 2.11 preserves the original spot-color name (including
-    // spaces and uppercase) and emits it as a properly escaped PDF name object
-    // in the Separation color space, instead of the normalized lowercase key.
-    // See https://github.com/tecnickcom/tc-lib-pdf/issues/209
+    // tc-lib-color preserves the original spot-color name (including spaces and
+    // uppercase) and emits it as an escaped PDF name object in the Separation
+    // color space, rather than the normalized lowercase key.
     //
     // tc-lib-pdf delegates Separation object emission to tc-lib-color, so these
-    // tests pin the end-to-end contract at the tc-lib-pdf integration boundary
-    // (the PdfColor adapter) and guard against a future dependency regression.
+    // tests pin the end-to-end contract at the PdfColor adapter boundary.
     // ---------------------------------------------------------------------
 
     public function testGetPdfSpotObjectsPreservesCmykSpotColorName(): void

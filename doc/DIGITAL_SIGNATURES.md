@@ -19,9 +19,8 @@ The `profile` option selects the signature format:
 | `pades-b-lt` | `ETSI.CAdES.detached` | PAdES-BASELINE-LT: B-T plus a Document Security Store (`/DSS`, `/VRI`) with certificates and, where reachable, OCSP/CRL revocation data. |
 | `pades-b-lta` | `ETSI.CAdES.detached` + `ETSI.RFC3161` | PAdES-BASELINE-LTA: B-LT plus a `/Type /DocTimeStamp` archive timestamp over the whole document. |
 
-The default profile stays `legacy`, so existing signing output is unchanged unless a PAdES
-profile is requested. `digest_algorithm` accepts `sha256` (default), `sha384`, or `sha512`;
-RSA and ECDSA signing keys are both supported.
+`digest_algorithm` accepts `sha256` (default), `sha384`, or `sha512`; RSA and ECDSA signing
+keys are both supported.
 
 Signature-focused runnable examples:
 
@@ -34,9 +33,9 @@ Signature-focused runnable examples:
 
 ## Fluent API: `signature()`
 
-The preferred entry point is the `signature()` facade. Each call is chainable and forwards
-to the underlying methods (which remain available as `setSignature()`, `setSignTimeStamp()`,
-`setUserRights()`, `setSignatureAppearance()`, and so on).
+The `signature()` facade is the entry point. Each call is chainable and forwards to the
+underlying methods `setSignature()`, `setSignTimeStamp()`, `setUserRights()`,
+`setSignatureAppearance()`, and so on, which are also callable directly.
 
 ```php
 $pdf->signature()
@@ -74,8 +73,8 @@ separator between the components of a fully qualified field name, so one is reje
 ## Adding a TSA Timestamp (RFC 3161)
 
 For `pades-b-t` and above a timestamp is required. Configure it with
-`signature()->timestamp([...])` (or the legacy `setSignTimeStamp([...])`); the RFC 3161
-token is embedded in the CMS as the `id-aa-signatureTimeStampToken` unsigned attribute:
+`signature()->timestamp([...])` (or `setSignTimeStamp([...])`); the RFC 3161 token is
+embedded in the CMS as the `id-aa-signatureTimeStampToken` unsigned attribute:
 
 ```php
 $pdf->signature()->timestamp([
@@ -155,7 +154,7 @@ DSS present.
 ### What reaches the DSS
 
 Nothing an OCSP responder or a CRL distribution point returns is embedded until it has
-been verified, so the document never carries evidence a validator would reject:
+been verified:
 
 - an **OCSP response** must have a successful status, a basic response type, a signature
   that verifies against a responder the issuer authorised (itself, or a delegate holding
@@ -179,12 +178,12 @@ OCSP and CRL lookups, as ETSI EN 319 142-1 requires of a B-LT Document Security 
 
 ## Signing with a key this process cannot reach
 
-`signature()->external()` reserves the signature field without a key, so the document is
-built and hashed here and the signature is made elsewhere. `configure()` takes the same
-options as `configure()` on the facade, with `signcert` and `privkey` left empty;
-`prepare()` returns the prepared document bytes, the `/ByteRange` tuple, and the digest of
-the covered bytes; `apply()` writes the returned CMS into the reserved `/Contents`, which
-has to hold it (11742 hexadecimal digits, or 31742 with a timestamp enabled).
+`signature()->external()` reserves the signature field without a key: the document is built
+and hashed by the library and the signature is made elsewhere. `configure()` takes the same
+options as on the facade, with `signcert` and `privkey` left empty; `prepare()` returns the
+prepared document bytes, the `/ByteRange` tuple, and the digest of the covered bytes;
+`apply()` writes the returned CMS into the reserved `/Contents`, which has to hold it
+(11742 hexadecimal digits, or 31742 with a timestamp enabled).
 
 ```php
 $pdf->signature()->external()->configure([/* ... */ 'privkey' => '', 'signcert' => '']);
@@ -197,7 +196,7 @@ $signedPdf = $pdf->signature()->external()->apply(
 );
 ```
 
-What produces `$cms` is what separates the two workflows:
+Two workflows produce `$cms`:
 
 - a **provider that returns a complete CMS** is handed the digest and gives back the whole
   detached signature, which `apply()` only injects. The profile the provider signs under

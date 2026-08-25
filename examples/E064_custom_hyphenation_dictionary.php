@@ -66,8 +66,8 @@ require __DIR__ . '/../vendor/autoload.php';
  * Comparison layout
  * ─────────────────
  * The page shows the same Dutch paragraph rendered twice side by side:
- *   Left  column — NO patterns loaded (only explicit &shy; break points)
- *   Right column — Dutch sample patterns loaded via loadTexHyphenPatterns()
+ *   Left  column - NO patterns loaded (only explicit &shy; break points)
+ *   Right column - Dutch sample patterns loaded via loadTexHyphenPatterns()
  *
  * Dutch is a good demonstration language because it has many long compound
  * words (e.g. "woordenschat", "zelfstandigheid", "werkgelegenheid") that
@@ -123,7 +123,7 @@ $fontCode = $pdf->font->insert($pdf->pon, 'courier', '', 8);
 $fontSmall = $pdf->font->insert($pdf->pon, 'helvetica', '', 8);
 
 // -----------------------------------------------------------------------
-// Dutch sample text — a paragraph with long compound words.
+// Dutch sample text - a paragraph with long compound words.
 // -----------------------------------------------------------------------
 $dutchPara =
     'De Nederlandse taal staat bekend om zijn lange samenstellingen. '
@@ -138,7 +138,7 @@ $dutchPara =
     . 'op de linguistisch correcte syllabegrenzen van elk woord.';
 
 // -----------------------------------------------------------------------
-// Page 1 — Side-by-side comparison
+// Page 1 - Side-by-side comparison
 // -----------------------------------------------------------------------
 $page1 = $pdf->addPage();
 
@@ -215,7 +215,7 @@ $divStyle = [
 $pdf->page->addContent($pdf->graph->getLine(103.0, 44.0, 103.0, 200.0, $divStyle));
 
 // -----------------------------------------------------------------------
-// Left column — no automatic hyphenation
+// Left column - no automatic hyphenation
 // -----------------------------------------------------------------------
 
 // Temporarily disable patterns.
@@ -228,7 +228,7 @@ $pdf->font->insert($pdf->pon, 'helvetica', '', 9);
 $pdf->addHTMLCell(html: $leftHtml, posx: 15.0, posy: 45.0, width: 87.0);
 
 // -----------------------------------------------------------------------
-// Right column — Dutch patterns active
+// Right column - Dutch patterns active
 // -----------------------------------------------------------------------
 
 // Re-enable Dutch patterns.
@@ -259,7 +259,7 @@ $pdf->page->addContent($pdf->getTextCell(
 ));
 
 // -----------------------------------------------------------------------
-// Page 2 — API reference and usage guidance
+// Page 2 - API reference and usage guidance
 // -----------------------------------------------------------------------
 $page2 = $pdf->addPage();
 // Re-insert non-bold base font so the font stack is clean before addHTMLCell.

@@ -4487,8 +4487,8 @@ class SVGTest extends TestUtil
         $this->assertSame('', $obj->exposeParseSVGTagSTARTimage($parser, 84, [], $base, $base));
 
         // Plain href pointing to an image that will cause a load exception;
-        // what matters is that the early-return guard no longer rejects the call
-        // solely because xlink:href is absent — the code reaches the image loader.
+        // the early-return guard must not reject the call solely because
+        // xlink:href is absent: the code reaches the image loader.
         try {
             $out = $obj->exposeParseSVGTagSTARTimage(
                 $parser,
@@ -4573,7 +4573,7 @@ class SVGTest extends TestUtil
         $styleNone['stroke'] = '#000000';
         $styleNone['stroke-dasharray'] = 'none';
         [$strokeNone] = $obj->exposeParseSVGStyleStroke(86, $styleNone);
-        // dashArray=[] means no 'w' dash command prefix — still has stroke output.
+        // dashArray=[] means no 'w' dash command prefix - still has stroke output.
         $this->assertIsString($strokeNone);
     }
 
@@ -7397,12 +7397,10 @@ class SVGTest extends TestUtil
      */
     public function testNestedSvgViewBoxParsesDecimalsAndNegatives(): void
     {
-        // Decimal extent must be parsed like the integer equivalent (was
-        // previously dropped because "10.0" split into two regex tokens).
+        // A decimal extent is parsed like the integer equivalent.
         $this->assertSame($this->renderNestedSvgViewBox('0 0 10 10'), $this->renderNestedSvgViewBox('0 0 10.0 10.0'));
 
-        // Negative origin must keep its sign (a digits-only regex stripped it,
-        // making these two render identically); they must now differ.
+        // A negative origin keeps its sign, so these two render differently.
         $this->assertNotSame($this->renderNestedSvgViewBox('5 5 10 10'), $this->renderNestedSvgViewBox('-5 -5 10 10'));
     }
 

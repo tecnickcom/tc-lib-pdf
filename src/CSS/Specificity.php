@@ -19,9 +19,9 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf\CSS;
 
 /**
- * CSS Specificity tuple calculator and comparator
+ * Com\Tecnick\Pdf\CSS\Specificity
  *
- * Implements CSS 2.1 specificity (a,b,c) tuple scoring:
+ * CSS 2.1 specificity (a,b,c) tuple calculator and comparator:
  * - a = number of ID selectors
  * - b = number of class selectors, attribute selectors, and pseudo-classes
  * - c = number of type selectors and pseudo-elements

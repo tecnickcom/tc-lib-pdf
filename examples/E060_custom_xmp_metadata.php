@@ -38,13 +38,13 @@ require __DIR__ . '/../vendor/autoload.php';
  * Valid keys and their injection points
  * ──────────────────────────────────────
  *   'x:xmpmeta'
- *       Inserted just before </x:xmpmeta> — top-level envelope extension.
+ *       Inserted just before </x:xmpmeta> - top-level envelope extension.
  *
  *   'x:xmpmeta.rdf:RDF'
- *       Inserted just before </rdf:RDF> — adds a new rdf:Description block.
+ *       Inserted just before </rdf:RDF> - adds a new rdf:Description block.
  *
  *   'x:xmpmeta.rdf:RDF.rdf:Description'
- *       Inserted into the main rdf:Description — adds properties to the
+ *       Inserted into the main rdf:Description - adds properties to the
  *       existing shared description block (dc, xmp, pdf properties).
  *
  *   'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas'
@@ -109,7 +109,7 @@ $iptcXmp = <<<'XMP'
 $pdf->setCustomXMP('x:xmpmeta.rdf:RDF', $iptcXmp);
 
 // -----------------------------------------------------------------------
-// 2.  XMP Media Management — version / revision history
+// 2.  XMP Media Management - version / revision history
 //     Also injected as a new rdf:Description block.
 // -----------------------------------------------------------------------
 $xmpMmXmp = <<<'XMP'
@@ -167,7 +167,7 @@ $appXmpBlock = <<<'XMP'
 $pdf->setCustomXMP('x:xmpmeta.rdf:RDF', $appXmpBlock);
 
 // -----------------------------------------------------------------------
-// Page — explanation and key summary
+// Page - explanation and key summary
 // -----------------------------------------------------------------------
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 $bfontB = $pdf->font->insert($pdf->pon, 'helvetica', 'B', 14);

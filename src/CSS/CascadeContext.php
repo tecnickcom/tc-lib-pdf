@@ -19,16 +19,13 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf\CSS;
 
 /**
- * CSS Cascade Context - Tracks source order across all CSS sources
+ * Com\Tecnick\Pdf\CSS\CascadeContext
  *
- * Maintains deterministic cascade ordering by tracking global source position
- * across all CSS sources (external stylesheets, embedded styles, inline styles).
+ * Tracks the global source position across all CSS sources (external stylesheets,
+ * embedded styles, inline styles) to keep the cascade order deterministic.
  *
- * Usage:
- *   $ctx = new CascadeContext();
- *   $css1 = extractCSSFrom('stylesheet1.css', $ctx);
- *   $css2 = extractCSSFrom('stylesheet2.css', $ctx);
- *   // css1 rules always have lower source order than css2 rules with same specificity
+ * A context shared between extractions gives the rules of the first source a lower
+ * source order than the rules of the next one at equal specificity.
  *
  * @since     2002-08-03
  * @category  Library

@@ -715,7 +715,7 @@ class ImporterTest extends TestCase
         $batch = $importer->importPages($srcId, [1]);
 
         assert(isset($batch[0]), "\$batch[0] must be set");
-        // Same page imported again (cache hit) — must return the exact same template.
+        // Same page imported again (cache hit) - must return the exact same template.
         $this->assertSame($single->getXobjId(), $batch[0]->getXobjId());
     }
 
@@ -791,7 +791,7 @@ class ImporterTest extends TestCase
         $this->assertGreaterThan(0, $ponAfterFirst);
 
         // Second import of the same page (cache off): shared resources are already
-        // in the ObjectMap — only the new Form XObject itself increments pon.
+        // in the ObjectMap - only the new Form XObject itself increments pon.
         $importer->importPage($srcId, 1, ['cache' => false]);
         $ponAfterSecond = $pon;
 

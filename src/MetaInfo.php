@@ -337,8 +337,7 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
     /**
      * Set additional custom XMP data to be appended just before the end of the tag indicated by the key.
      *
-     * IMPORTANT:
-     * This data is added as-is without controls, so you have to validate your data before using this method.
+     * The data is inserted as-is without validation.
      *
      * @param string $key Key for the custom XMP data. Valid keys are:
      *                    - 'x:xmpmeta'

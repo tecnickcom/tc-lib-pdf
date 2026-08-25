@@ -19,12 +19,11 @@ namespace Test;
 use Com\Tecnick\Unicode\Data\Encoding;
 
 /**
- * Regression tests for the glyph names of the PDF/A core font substitutes.
+ * Tests for the glyph names of the PDF/A core font substitutes.
  *
  * The PDF/A substitute fonts are Type1 programs embedded verbatim, and their glyphs are selected
  * by name. A code whose declared encoding names a glyph the embedded program does not define is
  * drawn as .notdef, while its width and its ToUnicode mapping stay correct.
- * See: https://github.com/tecnickcom/tc-lib-pdf/issues/268
  *
  * @since       2026-08-21
  * @category    Library
@@ -39,8 +38,8 @@ use Com\Tecnick\Unicode\Data\Encoding;
 class PdfaCoreFontGlyphNameTest extends TestUtil
 {
     /**
-     * Glyph names that WinAnsiEncoding assigns to the codes the PDF/A substitutes used to name
-     * with their pre-Adobe-Glyph-List equivalents.
+     * Glyph names that WinAnsiEncoding assigns to the codes the PDF/A substitutes name with
+     * their pre-Adobe-Glyph-List equivalents.
      */
     private const AGL_NAME = [
         181 => 'mu',

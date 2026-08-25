@@ -2,6 +2,18 @@
 
 /**
  * E012_pdfx3.php
+ *
+ * PDF/X-3 conformance example for color-managed print workflows.
+ *
+ * @since       2026-04-25
+ * @category    Library
+ * @package     Pdf
+ * @author      Nicola Asuni <info@tecnick.com>
+ * @copyright   2002-2026 Nicola Asuni - Tecnick.com LTD
+ * @license     https://www.gnu.org/copyleft/lesser.html GNU-LGPL v3 (see LICENSE)
+ * @link        https://github.com/tecnickcom/tc-lib-pdf
+ *
+ * This file is part of tc-lib-pdf software library.
  */
 
 // NOTE: local file reads (images, fonts, attachments) are restricted to an allowlist of

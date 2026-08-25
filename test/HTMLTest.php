@@ -3101,7 +3101,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
-        // "12px" — NOT numeric as a string, but must be parsed by getFontValuePoints
+        // "12px" - NOT numeric as a string, but must be parsed by getFontValuePoints
         $dom = [
             0 => $this->makeHtmlNode(['fontsize' => 10.0]),
             1 => $this->makeHtmlNode([
@@ -4518,7 +4518,7 @@ class HTMLTest extends TestUtil
      */
     public function testAddHTMLCellFlowsIntoSecondColumnRegionNotFirstColumn(): void
     {
-        // Regression: after a region break, originx must be updated to the new
+        // After a region break, originx must be updated to the new
         // region's RX so content renders in the second column, not overlapping
         // the first column again.
         $obj = $this->getTestObject();
@@ -4586,9 +4586,8 @@ class HTMLTest extends TestUtil
         $col2x = ($leftMargin + $columnWidth + $columnGap) * 2.8346;
         $col2xMin = $col2x - 2.0;
 
-        // After the fix, at least one text Td command must have an X component
-        // inside the second column (x > col2xMin). Before the fix, all Td X
-        // values stayed in the first column (around 42–72 pt).
+        // At least one text Td command must have an X component inside the
+        // second column (x > col2xMin).
         $tdMatches = [];
         \preg_match_all('/\b([\d.]+) [\d.-]+ Td\b/', $allContent, $tdMatches);
         $foundSecondCol = false;
@@ -4612,15 +4611,13 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression fixture for the inline run-ascent leak.
+     * A taller-than-body inline run does not leak its ascent into the surrounding
+     * body lines.
      *
-     * A paragraph that mixes a taller-than-body inline run (a bold 14pt lead-in
-     * span) and an inline image inside justified 12pt body text used to let the
-     * tall run's ascent leak into the body lines rendered before the image: those
-     * lines were spaced at ~16.87pt (the leaked 13.5pt glyph box x 1.25) instead of
-     * the correct 15pt (12pt x 1.25). The pitch only snapped back to 15pt at the
-     * image. After the fix every body line is spaced by its own height, so the
-     * spacing is uniform and no line carries the leaked ~16.87pt pitch.
+     * In a paragraph that mixes a bold 14pt lead-in span and an inline image
+     * inside justified 12pt body text, every body line is spaced by its own
+     * height (15pt = 12pt x 1.25), not by the taller run's 13.5pt glyph box
+     * (~16.87pt).
      *
      * @throws \Throwable
      */
@@ -4701,8 +4698,7 @@ class HTMLTest extends TestUtil
             }
         }
 
-        // Before the fix this paragraph produced five leaked ~16.87pt gaps and only
-        // five correct 15pt gaps; after the fix the body is uniform 15pt.
+        // The body line pitch must be a uniform 15pt, with no leaked ~16.87pt gap.
         $this->assertSame(
             0,
             $leakedPitch,
@@ -4768,7 +4764,7 @@ class HTMLTest extends TestUtil
      */
     public function testParseHTMLTextReanchorsLineCursorAfterRegionBreakToSecondColumn(): void
     {
-        // Regression: when the fragment itself triggers a region break, the
+        // When the fragment itself triggers a region break, the
         // line-local state captured before the break (line origin X, offset,
         // available width) must be re-read from the updated cell context, or
         // the fragment renders at the previous region's X origin.
@@ -4786,8 +4782,8 @@ class HTMLTest extends TestUtil
             'align' => 'L',
         ]);
 
-        // Cursor at the bottom of the first column: one text line no longer
-        // fits vertically, forcing the break into the second column region.
+        // Cursor at the bottom of the first column: one text line does not fit
+        // vertically, forcing the break into the second column region.
         $tpx = $geo['leftMargin'];
         $tpy = $geo['topMargin'] + $geo['contentHeight'] - 1.0;
         $tpw = $geo['columnWidth'];
@@ -4866,7 +4862,7 @@ class HTMLTest extends TestUtil
      */
     public function testAddHTMLCellReanchorsBreakingFragmentIntoSecondColumn(): void
     {
-        // Regression: in a multi-column layout, the unbreakable fragment that
+        // In a multi-column layout, the unbreakable fragment that
         // overflows the first column must render at the second column's X
         // origin, not at the first column's X over already-rendered content.
         $obj = $this->getBBoxProbeTestObject();
@@ -5034,7 +5030,7 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression: a bounded HTML cell placed in the bottom page margin must
+     * A bounded HTML cell placed in the bottom page margin must
      * render its table at its absolute position inside the margin, not reset it
      * to the top of the content region.
      *
@@ -5072,7 +5068,7 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression: an unbounded HTML cell placed in the bottom margin with
+     * An unbounded HTML cell placed in the bottom margin with
      * automatic page break disabled must not add a page nor yank the table back
      * to the content-region top (pageBreak() is a no-op when there is nowhere to
      * break to, so the cursor must be left untouched).
@@ -5137,7 +5133,7 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression: a bounded cell must not paginate even when autobreak is on -
+     * A bounded cell must not paginate even when autobreak is on -
      * the explicit height makes it an absolutely-positioned box that stays put.
      *
      * @throws \Throwable
@@ -5172,7 +5168,7 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression: a bounded box whose height extends past the page edge renders
+     * A bounded box whose height extends past the page edge renders
      * in place on a single page (overflow is the caller's responsibility for an
      * absolutely-positioned box) rather than paginating.
      *
@@ -6399,7 +6395,7 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellContinuesInlineEmAfterMultiLineWrappedTextOnSameLine(): void
     {
-        // Regression: a long plain-text fragment that internally wraps to a new
+        // A long plain-text fragment that internally wraps to a new
         // visual line must not push the immediately following inline content
         // (here "(<em>Sierra-Tango</em>)") onto a third line. The "(" already
         // landed on the second line and "Sierra-Tango" must continue right
@@ -6662,13 +6658,13 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellContinuesPlainTextAfterEmFollowedByLongMultiLineRun(): void
     {
-        // Regression: when an inline <em> ends mid-line and the next plain-text
+        // When an inline <em> ends mid-line and the next plain-text
         // fragment is long enough to internally wrap to multiple lines, its
         // leading non-space chunk (here ")") must continue right after the
         // <em> on the SAME line. The previous logic considered the line
         // "deep" because the italic <em> bumped linebottom by a sub-millimeter
         // font-metric drift, and force-wrapped the whole continuation
-        // fragment to a fresh line — pushing ")" to a new line by itself.
+        // fragment to a fresh line - pushing ")" to a new line by itself.
         $obj = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj);
 
@@ -10559,7 +10555,7 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellDrawsTableOuterFrameOnEveryPageItSpans(): void
     {
-        // Regression: when a bordered table spanned several pages the outer
+        // When a bordered table spanned several pages the outer
         // frame was stroked only around the final page's section, because the
         // closing </table> handler frames a single section and
         // resetHTMLTableStackOnPageBreak() rebases the table origin to the new
@@ -10602,13 +10598,13 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellTableHeadReplayDoesNotOverlapBodyRowWithCellpadding(): void
     {
-        // Regression: estimateHTMLTableHeadHeight previously ignored the
+        // estimateHTMLTableHeadHeight must account for the
         // <table cellpadding="N"> attribute when measuring the replayed
-        // header on a new page (parseHTMLTagOPENtable applies that padding
+        // header on a new page: parseHTMLTagOPENtable applies that padding
         // as a default to TD/TH cells with zero CSS padding at render time,
-        // but the estimate parses the standalone thead DOM and never ran
-        // those handlers). The under-estimated header height caused the
-        // first body row on the next page to overlap the replayed header
+        // while the estimate parses the standalone thead DOM without running
+        // those handlers. An under-estimated header height makes the
+        // first body row on the next page overlap the replayed header
         // (see example 018 row 14 vs page-6 header).
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
@@ -10701,12 +10697,11 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellReplaysTableHeadWithSameColumnWidthsOnPxUnitDocument(): void
     {
-        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/224:
-        // injectHTMLTableHeadColWidths serialized the computed column widths
-        // using the document unit name. CSS pixel lengths are parsed with the
-        // 96dpi ratio (1px = 0.75pt) while the 'px' document unit maps one
-        // user unit to one point, so replayed headers on continuation pages
-        // were rendered at 75% of the table width.
+        // injectHTMLTableHeadColWidths must not serialize the computed column
+        // widths with the document unit name: CSS pixel lengths are parsed with
+        // the 96dpi ratio (1px = 0.75pt) while the 'px' document unit maps one
+        // user unit to one point, so a replayed header on a continuation page
+        // would be rendered at 75% of the table width.
         $obj = new \Com\Tecnick\Pdf\Tcpdf('px');
         $this->initFontAndPage($obj);
 
@@ -10743,12 +10738,11 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellReplaysTableHeadWhenEmbeddedStyleBlockIsPresent(): void
     {
-        // Regression: an embedded (or external) <style> block makes the CSS map
+        // An embedded (or external) <style> block makes the CSS map
         // non-empty, which triggers recomputeHTMLDOMCSSAgainstFinalTree(). That
-        // re-cascade re-runs the table defaults and cleared the serialized
-        // header rows stored on the table node, so the header was no longer
-        // replayed on continuation pages. The stored header must survive the
-        // re-cascade regardless of any unrelated style rules.
+        // re-cascade re-runs the table defaults, which clears the serialized
+        // header rows stored on the table node. The stored header must survive
+        // the re-cascade regardless of any unrelated style rules.
         $obj = new \Com\Tecnick\Pdf\Tcpdf('px');
         $this->initFontAndPage($obj);
 
@@ -10777,7 +10771,7 @@ class HTMLTest extends TestUtil
      */
     public function testEmbeddedStyleBlockDoesNotAlterAutoTableColumnWidths(): void
     {
-        // Regression: an embedded <style> block makes the CSS map non-empty,
+        // An embedded <style> block makes the CSS map non-empty,
         // which triggers the final-tree re-cascade. That pass (1) reclassified
         // the THEAD row as a body row in the table 'trids', and (2) left the
         // serialized <cssarray> payload inside each cell's content, which the
@@ -10844,9 +10838,8 @@ class HTMLTest extends TestUtil
      */
     public function testMeasureHTMLCellDivExplicitHeightReservesSpaceWithoutBackground(): void
     {
-        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/225:
-        // an explicit CSS height on a block element was honored only when the
-        // block also declared its own background or border.
+        // An explicit CSS height on a block element is honored whether or not
+        // the block also declares its own background or border.
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
@@ -10867,9 +10860,8 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellPaintsDivBackgroundBehindTextInsideTableCell(): void
     {
-        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/225:
-        // the background of a styled DIV inside a table cell was emitted after
-        // the already-captured cell text, covering it.
+        // The background of a styled DIV inside a table cell is emitted before
+        // the cell text, so it does not cover it.
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
@@ -10899,10 +10891,9 @@ class HTMLTest extends TestUtil
      */
     public function testEstimateHTMLTableRowHeightAccountsForNestedDivExplicitHeight(): void
     {
-        // Regression for https://github.com/tecnickcom/tc-lib-pdf/issues/225:
-        // row-height estimation ignored the explicit CSS height of block
-        // elements nested in the cells, so rows containing fixed-height DIVs
-        // started near the page bottom and were split across pages.
+        // Row-height estimation accounts for the explicit CSS height of block
+        // elements nested in the cells, so a row containing a fixed-height DIV
+        // is not started near the page bottom and split across pages.
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
 
@@ -14172,7 +14163,7 @@ class HTMLTest extends TestUtil
 
         $obj->exposeOpenHTMLBlock($elm, $tpx, $tpy, $tpw);
 
-        // tpy should not advance by an extra line — no inline content to push past
+        // tpy should not advance by an extra line - no inline content to push past
         $this->assertSame(20.0, $tpx);
         $this->assertSame(140.0, $tpy);
     }
@@ -14289,7 +14280,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
 
-        // First heading in document is H2 — must be clamped to H1
+        // First heading in document is H2 - must be clamped to H1
         $this->assertSame('H1', $obj->exposePdfuaClampHeadingRole('H2'));
         $this->assertSame(1, $this->getObjectProperty($obj, 'pdfuaHeadingLevel'));
     }
@@ -17775,10 +17766,10 @@ class HTMLTest extends TestUtil
         $obj = $this->getTestObject();
         $this->initFontAndPage($obj);
 
-        // Two words without a break — both on the same line
+        // Two words without a break - both on the same line
         $outSameLine = $obj->getHTMLCell('Hello World', 0, 0, 40, 20);
 
-        // Same words with a <br> — second word is on a new (lower) line
+        // Same words with a <br> - second word is on a new (lower) line
         $obj2 = $this->getTestObject();
         $this->initFontAndPage($obj2);
         $outNewLine = $obj2->getHTMLCell('Hello<br />World', 0, 0, 40, 20);
@@ -17787,7 +17778,7 @@ class HTMLTest extends TestUtil
         $this->assertStringContainsString('Hello', $outSameLine);
         $this->assertStringContainsString('Hello', $outNewLine);
         $this->assertStringContainsString('World', $outNewLine);
-        // The y coordinates differ — <br> produced a line advance
+        // The y coordinates differ - <br> produced a line advance
         $this->assertNotSame($outSameLine, $outNewLine);
     }
 
@@ -17936,7 +17927,7 @@ class HTMLTest extends TestUtil
         // Full-width HR (no attribute)
         $outFull = $obj->getHTMLCell('<hr />', 0, 0, 40, 5);
 
-        // HR with width="50" (50px ≈ 13mm — narrower than the 40mm cell)
+        // HR with width="50" (50px ≈ 13mm - narrower than the 40mm cell)
         $obj2 = $this->getTestObject();
         $this->initFontAndPage($obj2);
         $outShort = $obj2->getHTMLCell('<hr width="50" />', 0, 0, 40, 5);
@@ -18552,19 +18543,19 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression: a justified inline run that wraps over several visual lines
+     * A justified inline run that wraps over several visual lines
      * must not over-stretch the word gaps on a continuation line.
      *
-     * A wide inline image followed by mixed bold fragments used to drive one
-     * wrapped line into a runaway word-spacing: the per-line spacing was first
-     * estimated from the greedy (zero-spacing) fill, then the line was
-     * re-measured with that spacing applied. Subtracting the spacing again
-     * shrank the line capacity, dropped several words onto the next line and
-     * inflated the spacing - leaving a heavily under-packed line whose few words
-     * were spread across the full width with gaps many times the natural space.
+     * The per-line spacing is estimated from the greedy (zero-spacing) fill and
+     * the break point is taken at that spacing, so applying it never shrinks the
+     * line capacity. Re-measuring a line with its own spacing already applied
+     * would drop words onto the next line and inflate the spacing further,
+     * leaving an under-packed line whose few words are spread across the full
+     * width with gaps many times the natural space.
      *
-     * The word spacing must now stay a small fraction of the natural space width
-     * on every wrapped line.
+     * The fixture is a wide inline image followed by mixed bold fragments. The
+     * word spacing stays a small fraction of the natural space width on every
+     * wrapped line.
      *
      * @throws \Throwable
      */
@@ -18622,9 +18613,8 @@ class HTMLTest extends TestUtil
         $positive = \array_filter($wordSpacings, static fn(float $tw): bool => $tw > 1e-4);
         $this->assertNotSame([], $positive, 'Justified wrapped lines must use positive word spacing.');
 
-        // Before the fix a continuation line reached ~5.2x the natural space; every
-        // line now stays below 1x. Bound at 3x to catch the runaway while
-        // tolerating legitimate per-line variation.
+        // Every line stays below 1x the natural space. The 3x bound catches a
+        // runaway while tolerating legitimate per-line variation.
         $maxWordSpacing = \max($wordSpacings);
         $this->assertLessThan(
             3.0 * $naturalSpace,
@@ -19171,7 +19161,7 @@ class HTMLTest extends TestUtil
 
         $out = $obj->getHTMLCell('<img src="' . $src . '" width="4" height="4" />', 0, 0, 20, 10);
 
-        // Image must render — output must not fall back to literal '[img]' text
+        // Image must render - output must not fall back to literal '[img]' text
         $this->assertStringNotContainsString('[img]', $out);
     }
 
@@ -19668,11 +19658,11 @@ class HTMLTest extends TestUtil
      */
     public function testEstimateHTMLTableHeadHeightAccountsForTableCellpaddingAttribute(): void
     {
-        // Regression: estimateHTMLTableHeadHeight previously ignored the
-        // table-level cellpadding attribute. parseHTMLTagOPENtd applies it
-        // as a default for cells with zero CSS padding, so the standalone
-        // thead estimate must mirror that or the replayed header on a new
-        // page is shorter than what is actually rendered (see example 018).
+        // estimateHTMLTableHeadHeight must account for the table-level
+        // cellpadding attribute. parseHTMLTagOPENtd applies it as a default
+        // for cells with zero CSS padding, so the standalone thead estimate
+        // must mirror that or the replayed header on a new page is shorter
+        // than what is actually rendered (see example 018).
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $obj->exposeInitHTMLCellContext(0.0, 0.0, 80.0, 0.0);
@@ -19699,7 +19689,7 @@ class HTMLTest extends TestUtil
      */
     public function testEstimateHTMLTableHeadHeightAccountsForTableCellspacingAttribute(): void
     {
-        // Regression: the standalone thead estimate must also mirror the
+        // The standalone thead estimate must also mirror the
         // cellspacing the runtime adds in parseHTMLTagOPENtable (one initial
         // gap) and parseHTMLTagCLOSEtr (one gap per closed row).
         $obj = $this->getInternalTestObject();
@@ -19721,7 +19711,7 @@ class HTMLTest extends TestUtil
      */
     public function testEstimateHTMLTableHeadHeightAccountsForCssBorderSpacingStyle(): void
     {
-        // Regression: the standalone thead estimate should honor table-level
+        // The standalone thead estimate should honor table-level
         // CSS border-spacing (vertical axis), not only the HTML cellspacing
         // attribute, because runtime table opening/row closing uses the same
         // effective vertical spacing path.
@@ -19884,7 +19874,7 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression test: font family names ending in style-suffix letters
+     * Font family names ending in style-suffix letters
      * ('b', 'i', 'u', 'd', 'o') must not be truncated when deriving the
      * HTML base font name. For example "dejavusanscondensed" was returned
      * as "dejavusanscondense" because the trailing 'd' was treated as the
@@ -20545,7 +20535,7 @@ class HTMLTest extends TestUtil
             ]),
         ];
 
-        // Selector with both class AND id suffix tokens — both must match and continue.
+        // Selector with both class AND id suffix tokens - both must match and continue.
         $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 1, ' div.hero#main'));
         $this->assertTrue($obj->isValidCSSSelectorForTag($dom, 1, ' div.card#main'));
         // Class present but id wrong → false.
@@ -20815,12 +20805,12 @@ class HTMLTest extends TestUtil
      */
     public function testGetHTMLCellEmdashInOrderedListDoesNotOverlapFollowingStrongFragment(): void
     {
-        // Regression: em-dash (U+2014) and other WinAnsi high-range glyphs (curly
+        // Em-dash (U+2014) and other WinAnsi high-range glyphs (curly
         // quotes, bullet, en-dash, ellipsis, etc.) were measured using the font's
         // default width (dw = 278 units) because Import\Core keyed widths by
         // StandardEncoding code point instead of WinAnsi byte. The result was that
         // inline text following a fragment containing an em-dash appeared too far
-        // to the left — visually overlapping the preceding word.
+        // to the left - visually overlapping the preceding word.
         //
         // Expected layout (10 pt Helvetica, ~180 mm wide list item):
         //   plain text:  "Ordered item \x97 the number is auto-generated as the "
@@ -20830,7 +20820,7 @@ class HTMLTest extends TestUtil
         $obj = $this->getBBoxProbeTestObject();
         $this->initFontAndPage($obj);
 
-        // pdfua mode is used to match the E015 example that surfaced the bug.
+        // pdfua mode matches the setup of the E015 example.
         $rfn = new \ReflectionProperty($obj, 'pdfuaMode');
         $rfn->setValue($obj, 'pdfua');
 
@@ -21015,10 +21005,10 @@ class HTMLTest extends TestUtil
     }
 
     /**
-     * Regression: an opaque table-cell border (e.g. "border-bottom:1px solid
+     * An opaque table-cell border (e.g. "border-bottom:1px solid
      * red") must be stroked at full opacity even when the same cell uses a
-     * translucent RGBA text color. Previously the border inherited the text's
-     * alpha (0.4) because the stroke did not reset the graphics-state alpha.
+     * translucent RGBA text color: the stroke resets the graphics-state alpha
+     * instead of inheriting the text alpha.
      *
      * @throws \Throwable
      */
@@ -21133,8 +21123,8 @@ class HTMLTest extends TestUtil
 
         $out = $obj->getHTMLCell('<span style="font-stretch:90%;letter-spacing:-0.254mm;">LEFT</span>', 10, 20, 120, 0);
 
-        // CSS font-stretch:90% must reach the page as a 90% Tz; before the fix the
-        // HTML engine never forwarded stretching to font->insert() so it was dropped.
+        // CSS font-stretch:90% must reach the page as a 90% Tz: the HTML engine
+        // forwards the stretching to font->insert().
         $this->assertStringContainsString('90.000000 Tz', $out);
 
         // CSS letter-spacing must reach the page as a non-zero, negative Tc.
@@ -21218,7 +21208,7 @@ class HTMLTest extends TestUtil
 
     /**
      * RTL inter-fragment engine: a uniform-RTL multi-fragment inline run that fits
-     * on one line lays out right-to-left — the first logical fragment hugs the right
+     * on one line lays out right-to-left - the first logical fragment hugs the right
      * edge and each subsequent fragment is placed to its left. Verified end-to-end
      * through getHTMLCell() by the strictly-decreasing text-placement abscissas, and
      * the colored span keeps its own fill color.
@@ -21447,7 +21437,7 @@ class HTMLTest extends TestUtil
 
     /**
      * RTL inter-fragment engine, inline image (Stage 2c): an <img> embedded between
-     * two RTL text fragments is placed as an atomic box on the right-to-left line —
+     * two RTL text fragments is placed as an atomic box on the right-to-left line  -
      * the first logical fragment hugs the right edge, the image sits to its left and
      * the trailing fragment to the image's left. Verified through getHTMLCell() by
      * the descending text abscissas and the image's translate-x falling strictly
@@ -21511,8 +21501,8 @@ class HTMLTest extends TestUtil
 
     /**
      * RTL inter-fragment engine, broken inline image: when the image source cannot be
-     * drawn the engine degrades like the forward renderer — it draws the alt text in
-     * the reserved slot rather than crashing — and the surrounding text fragments
+     * drawn the engine degrades like the forward renderer - it draws the alt text in
+     * the reserved slot rather than crashing - and the surrounding text fragments
      * still lay out right-to-left. Verified by the absence of any image XObject and a
      * third (alt-text) placement between the two fragments, all right-to-left.
      *
@@ -21785,8 +21775,8 @@ class HTMLTest extends TestUtil
 
     /**
      * An empty table cell must remain in the structure tree so the row keeps
-     * its full column count and the table matrix stays regular (PDF/UA-1 7.2).
-     * Before the fix, endStructElem() dropped the empty TD.
+     * its full column count and the table matrix stays regular (PDF/UA-1 7.2):
+     * endStructElem() must keep the empty TD.
      *
      * @throws \Throwable
      */

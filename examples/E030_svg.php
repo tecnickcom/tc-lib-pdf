@@ -5,8 +5,7 @@
  *
  * Dedicated SVG rendering example.
  *
- * Exercises all SVG image files shipped in the examples/images/ directory and
- * serves as a visual regression baseline for SVG feature development.
+ * Renders every SVG image file shipped in the examples/images/ directory.
  *
  * @since       2026-04-26
  * @category    Library
@@ -66,7 +65,7 @@ $pdf->enableDefaultPageContent();
 $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
 // ---------------------------------------------------------------------------
-// Page 1 — tcpdf_box.svg
+// Page 1 - tcpdf_box.svg
 //
 // A multi-path box illustration that exercises fill, stroke, fill-rule and
 // transform handling.
@@ -137,7 +136,7 @@ $svg01c = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $svg01c));
 
 // ---------------------------------------------------------------------------
-// Page 2 — testsvg.svg
+// Page 2 - testsvg.svg
 //
 // Exercises linear and radial gradients, clip-paths, complex paths, text and
 // image embedding inside an SVG document.
@@ -208,7 +207,7 @@ $svg02c = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $svg02c));
 
 // ---------------------------------------------------------------------------
-// Page 3 — testsvgblend.svg
+// Page 3 - testsvgblend.svg
 //
 // Exercises mix-blend-mode (multiply, screen, darken …) and opacity.
 // ---------------------------------------------------------------------------
@@ -277,12 +276,12 @@ $svg03c = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $svg03c));
 
 // ---------------------------------------------------------------------------
-// Page 4 — tux.svg
+// Page 4 - tux.svg
 //
-// The Tux penguin — a complex multi-path SVG with fine detail and many style
+// The Tux penguin - a complex multi-path SVG with fine detail and many style
 // attributes (fill, stroke, stroke-width, opacity).
 //
-// Copyright: Larry Ewing — permits any use with proper attribution.
+// Copyright: Larry Ewing - permits any use with proper attribution.
 // ---------------------------------------------------------------------------
 
 $page04 = $pdf->addPage();
@@ -360,7 +359,7 @@ $svg04d = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $svg04d));
 
 // ---------------------------------------------------------------------------
-// Page 5 — all four images together (overview grid)
+// Page 5 - all four images together (overview grid)
 // ---------------------------------------------------------------------------
 
 $page05 = $pdf->addPage();
@@ -447,7 +446,7 @@ $s4 = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $s4));
 
 // ---------------------------------------------------------------------------
-// Page 6 — abstract_a4_features.svg (full-page portrait)
+// Page 6 - abstract_a4_features.svg (full-page portrait)
 //
 // Dedicated A4 portrait abstract composition that concentrates most SVG
 // features currently supported by this library in one single visual sample.
@@ -476,10 +475,10 @@ $svg06a = $pdf->addSVG(
 $pdf->page->addContent($pdf->getSetSVG(soid: $svg06a));
 
 // ---------------------------------------------------------------------------
-// Page 7 — path_text_regressions.svg (full-page portrait)
+// Page 7 - path_text_regressions.svg (full-page portrait)
 //
-// Visual regression sheet for the path and text parsing rules that are easy to
-// break: numbers with no leading digit, packed decimals, scientific notation,
+// Sheet covering the path and text parsing rules: numbers with no leading
+// digit, packed decimals, scientific notation,
 // elliptical arc flags packed against their neighbours, the smooth curve
 // commands 'S' and 'T', compound subpaths under both fill rules, text
 // anchoring, XML white space handling and multi chunk text layout.
