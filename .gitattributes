@@ -1,6 +1,6 @@
-# Normalize text sources to LF in the repository and on checkout everywhere.
-# Critical for a byte-level library: keeps source and fixtures byte-identical
-# across Windows/macOS/Linux checkouts regardless of core.autocrlf.
+# Normalize text sources to LF in the repository and on checkout everywhere,
+# so that the tree is byte-identical across Windows/macOS/Linux checkouts
+# regardless of core.autocrlf.
 *.php      text eol=lf
 *.md       text eol=lf
 *.xml      text eol=lf
@@ -13,15 +13,14 @@
 Makefile   text eol=lf
 
 # Byte-exact fixtures must never be transformed (CRLF/auto-detection off).
-test/**/*.bin -text
 *.png binary
 *.jpg binary
-*.gif binary
 *.pdf binary
-*.ttf binary
-*.otf binary
+*.z binary
 
-# Keep development-only files out of the Packagist dist archive.
+# Keep contributor-only files out of the Packagist dist archive. Files a
+# consumer of the package may need (LICENSE, README.md, SECURITY.md) are
+# shipped; everything used only when working on the repository is not.
 /.editorconfig     export-ignore
 /.gitattributes    export-ignore
 /.github           export-ignore
@@ -32,6 +31,7 @@ test/**/*.bin -text
 /Makefile          export-ignore
 /RELEASE           export-ignore
 /examples          export-ignore
+/mago.examples.toml export-ignore
 /mago.src.toml     export-ignore
 /mago.test.toml    export-ignore
 /phpunit.xml.dist  export-ignore

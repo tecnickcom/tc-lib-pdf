@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E018_html_page_span.php
  *

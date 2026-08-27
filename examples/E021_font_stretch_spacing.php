@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E021_font_stretch_spacing.php
  *

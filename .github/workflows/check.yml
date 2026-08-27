@@ -27,27 +27,31 @@ jobs:
       matrix:
         php-version: ["8.2", "8.3", "8.4", "8.5"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       #- name: Install pdfinfo
       #  run: sudo apt-get install -y poppler-utils
       - name: Use php ${{ matrix.php-version }}
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: ${{ matrix.php-version }}
           coverage: pcov
-          extensions: bcmath, curl, date, gd, hash, imagick, intl, json, mbstring, openssl, pcre, zlib
+          # curl and intl are composer 'suggest' entries and tidy guards a
+          # HTMLTest case: without them those tests skip silently, which a
+          # green build cannot distinguish from them having run.
+          extensions: ctype, curl, filter, gd, hash, intl, json, mbstring, openssl, pcre, tidy, xml, zlib
           ini-values: display_errors=on, error_reporting=-1, zend.assertions=1
       - name: List php modules
         run: php -m
       - name: List php modules using "no php ini" mode
         run: php -m -n
       - name: Cache module
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.composer/cache/
-          key: ${{ runner.os }}-php-${{ matrix.php-version }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-php-${{ matrix.php-version }}-composer-
+          key: composer-${{ matrix.os }}-${{ matrix.php-version }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.os }}-${{ matrix.php-version }}-
       - name: Install dependencies
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,8 +62,12 @@ jobs:
       - name: Run preflight
         if: matrix.php-version == '8.4'
         run: make preflight
+      - name: Validate composer.json
+        run: composer validate --strict --no-check-lock
+      - name: Audit dependencies for known advisories
+        run: composer audit
       - name: Run all tests
-        run: make qa
+        run: make qa-coverage
       #- name: Generate CSS renderability reports
       #  if: matrix.php-version == '8.4'
       #  run: |
@@ -78,7 +86,7 @@ jobs:
       #    cat target/report/renderability-trend.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload CSS renderability reports
         if: matrix.php-version == '8.4'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: css-renderability-reports-${{ github.run_id }}
           path: |
@@ -86,9 +94,72 @@ jobs:
             target/report/renderability-score.md
             target/report/renderability-trend.json
             target/report/renderability-trend.md
+      # make install, resources/autoload.php and the packaging descriptors are
+      # what reaches RPM/DEB users; nothing else in CI touches them. Install into
+      # a throwaway prefix and load the library through the shipped autoloader,
+      # which only resolves in the installed layout.
+      - name: Packaging smoke test
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          DESTDIR="$(mktemp -d)"
+          make install DESTDIR="$DESTDIR"
+          cat > "$DESTDIR/smoke.php" <<'SMOKE'
+          <?php
+          require \getenv('DESTDIR') . '/usr/share/php/Com/Tecnick/Pdf/autoload.php';
+          foreach ([
+              'Com\Tecnick\Pdf\Base',
+              'Com\Tecnick\Pdf\CSS',
+              'Com\Tecnick\Pdf\Cell',
+              'Com\Tecnick\Pdf\Exception',
+              'Com\Tecnick\Pdf\HTML',
+              'Com\Tecnick\Pdf\JavaScript',
+          ] as $class) {
+              if (!\class_exists($class)) {
+                  \fwrite(\STDERR, 'the installed autoloader cannot load ' . $class . \PHP_EOL);
+                  exit(1);
+              }
+          }
+          echo 'installed layout loads every class', \PHP_EOL;
+          SMOKE
+          DESTDIR="$DESTDIR" php "$DESTDIR/smoke.php"
+
       - name: Send coverage
         if: matrix.php-version == '8.4'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
           flags: php-${{ matrix.php-version }}-ubuntu-latest
           name: php-${{ matrix.php-version }}-ubuntu-latest
+
+  test-lowest:
+    name: Test lowest supported dependencies on php 8.2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use php 8.2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.2"
+          coverage: none
+          # curl and intl are composer 'suggest' entries and tidy guards a
+          # HTMLTest case: without them those tests skip silently, which a
+          # green build cannot distinguish from them having run.
+          extensions: ctype, curl, filter, gd, hash, intl, json, mbstring, openssl, pcre, tidy, xml, zlib
+          ini-values: display_errors=on, error_reporting=-1, zend.assertions=1
+      - name: Cache module
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.composer/cache/
+          key: composer-lowest-${{ hashFiles('composer.json') }}
+          restore-keys: composer-lowest-
+      # composer.lock is not committed, so the default install always resolves
+      # to the top of every declared range. Pin the bottom of the ranges here.
+      - name: Install lowest supported dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: composer update --prefer-lowest --prefer-stable --no-interaction
+      - name: Run unit tests
+        run: composer run test

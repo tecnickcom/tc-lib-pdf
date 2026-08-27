@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E050_shipping_label_barcodes.php
  *

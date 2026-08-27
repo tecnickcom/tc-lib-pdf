@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E084_signature_two_phase_cms.php
  *
@@ -270,7 +272,7 @@ $signedPdf = $pdf
 if ($mode === 'save') {
     $targetDir = \dirname(__DIR__) . '/target';
     if (!\is_dir($targetDir)) {
-        \mkdir($targetDir, 0777, true);
+        \mkdir($targetDir, 0o777, true);
     }
 
     $preparedPath = $targetDir . '/E084_prepared_unsigned_two_phase_cms.pdf';

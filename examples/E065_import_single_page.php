@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E065_import_single_page.php
  *

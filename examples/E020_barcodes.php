@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E020_barcodes.php
  *
@@ -217,14 +219,16 @@ $linear = [
     ],
     [
         'type' => 'PHARMA2T',
-        'code' => '0123456789',
+        // the two-track Pharmacode encodes an integer between 4 and 64570080
+        'code' => '12345678',
         'name' => 'Pharmacode two-track',
         'standard' => 'Pharmacode (2-track variant)',
         'use' => 'Pharmaceutical package line verification using two-track bar patterns.',
     ],
     [
         'type' => 'PHARMA',
-        'code' => '0123456789',
+        // the Pharmacode encodes an integer between 3 and 131070
+        'code' => '123456',
         'name' => 'Pharmacode',
         'standard' => 'Laetus Pharmacode',
         'use' => 'Pharmaceutical packaging control on production lines.',

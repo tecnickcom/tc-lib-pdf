@@ -96,6 +96,7 @@ class ImporterTest extends TestCase
         return $data;
     }
 
+    /** @throws \Throwable */
     private function makeObjFile(): ObjFile
     {
         return new ObjFile(allowedPaths: ['*']);

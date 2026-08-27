@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E023_cell_alignment.php
  *
@@ -51,16 +53,14 @@ $setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string 
     return $font;
 };
 
-$getLineStyle = static function (float $width, string $color): array {
-    return [
-        'lineWidth' => $width,
-        'lineCap' => 'butt',
-        'lineJoin' => 'miter',
-        'dashArray' => [],
-        'dashPhase' => 0,
-        'lineColor' => $color,
-    ];
-};
+$getLineStyle = static fn(float $width, string $color): array => [
+    'lineWidth' => $width,
+    'lineCap' => 'butt',
+    'lineJoin' => 'miter',
+    'dashArray' => [],
+    'dashPhase' => 0,
+    'lineColor' => $color,
+];
 
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);
 
@@ -108,51 +108,47 @@ $rows = [
     ['lineY' => 120.0, 'suffix' => 'Bottom', 'textAlign' => 'B'],
 ];
 
-$getCellTopY = static function (
+$getCellTopY = static fn(
     float $lineY,
     float $cellH,
     string $cellAlign,
     string $textAlign,
     float $fontHeight,
     float $fontAscent,
-): float {
-    return match ($cellAlign) {
-        'C' => $lineY - ($cellH / 2.0),
+): float => match ($cellAlign) {
+    'C' => $lineY - ($cellH / 2.0),
+    'B' => $lineY - $cellH,
+    'A' => match ($textAlign) {
+        'T' => $lineY,
+        'B' => $lineY - ($cellH - $fontHeight),
+        default => $lineY - (($cellH - $fontHeight) / 2.0),
+    },
+    'L' => match ($textAlign) {
+        'T' => $lineY - $fontAscent,
+        'B' => $lineY - ($cellH - ($fontHeight - $fontAscent)),
+        default => $lineY - ((($cellH - $fontHeight) / 2.0) + $fontAscent),
+    },
+    'D' => match ($textAlign) {
+        'T' => $lineY - $fontHeight,
         'B' => $lineY - $cellH,
-        'A' => match ($textAlign) {
-            'T' => $lineY,
-            'B' => $lineY - ($cellH - $fontHeight),
-            default => $lineY - (($cellH - $fontHeight) / 2.0),
-        },
-        'L' => match ($textAlign) {
-            'T' => $lineY - $fontAscent,
-            'B' => $lineY - ($cellH - ($fontHeight - $fontAscent)),
-            default => $lineY - ((($cellH - $fontHeight) / 2.0) + $fontAscent),
-        },
-        'D' => match ($textAlign) {
-            'T' => $lineY - $fontHeight,
-            'B' => $lineY - $cellH,
-            default => $lineY - (($cellH + $fontHeight) / 2.0),
-        },
-        default => $lineY,
-    };
+        default => $lineY - (($cellH + $fontHeight) / 2.0),
+    },
+    default => $lineY,
 };
 
-$drawCellBorder = static function (
+$drawCellBorder = static fn(
     \Com\Tecnick\Pdf\Tcpdf $pdf,
     float $x,
     float $y,
     float $w,
     float $h,
     array $style,
-): string {
-    return (
-        $pdf->graph->getLine($x, $y, $x + $w, $y, $style)
-        . $pdf->graph->getLine($x + $w, $y, $x + $w, $y + $h, $style)
-        . $pdf->graph->getLine($x + $w, $y + $h, $x, $y + $h, $style)
-        . $pdf->graph->getLine($x, $y + $h, $x, $y, $style)
-    );
-};
+): string => (
+    $pdf->graph->getLine($x, $y, $x + $w, $y, $style)
+    . $pdf->graph->getLine($x + $w, $y, $x + $w, $y + $h, $style)
+    . $pdf->graph->getLine($x + $w, $y + $h, $x, $y + $h, $style)
+    . $pdf->graph->getLine($x, $y + $h, $x, $y, $style)
+);
 
 foreach ($rows as $row) {
     $pdf->page->addContent($pdf->graph->getLine(15, $row['lineY'], 195, $row['lineY'], $lineStyle));
@@ -246,30 +242,22 @@ $pdf->page->addContent($pdf->getTextCell(
 /**
  * Returns a cell definition with the given padding expressed in user units.
  */
-$getCellDef = static function (
-    \Com\Tecnick\Pdf\Tcpdf $pdf,
-    float $top,
-    float $right,
-    float $bottom,
-    float $left,
-): array {
-    return [
-        'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
-        // the cell definition stores the padding in points
-        'padding' => [
-            'T' => $pdf->toPoints($top),
-            'R' => $pdf->toPoints($right),
-            'B' => $pdf->toPoints($bottom),
-            'L' => $pdf->toPoints($left),
-        ],
-        'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
-    ];
-};
+$getCellDef = static fn(\Com\Tecnick\Pdf\Tcpdf $pdf, float $top, float $right, float $bottom, float $left): array => [
+    'margin' => ['T' => 0.0, 'R' => 0.0, 'B' => 0.0, 'L' => 0.0],
+    // the cell definition stores the padding in points
+    'padding' => [
+        'T' => $pdf->toPoints($top),
+        'R' => $pdf->toPoints($right),
+        'B' => $pdf->toPoints($bottom),
+        'L' => $pdf->toPoints($left),
+    ],
+    'borderpos' => \Com\Tecnick\Pdf\Base::BORDERPOS_DEFAULT,
+];
 
 $padStyle = $getLineStyle(0.1, '#808080');
 $padStyle['dashArray'] = [1, 1];
 
-$drawPaddingBox = static function (
+$drawPaddingBox = static fn(
     \Com\Tecnick\Pdf\Tcpdf $pdf,
     float $x,
     float $y,
@@ -277,16 +265,14 @@ $drawPaddingBox = static function (
     float $h,
     array $pad,
     array $style,
-) use ($drawCellBorder): string {
-    return $drawCellBorder(
-        $pdf,
-        $x + $pdf->toUnit($pad['L']),
-        $y + $pdf->toUnit($pad['T']),
-        $w - $pdf->toUnit($pad['L'] + $pad['R']),
-        $h - $pdf->toUnit($pad['T'] + $pad['B']),
-        $style,
-    );
-};
+): string => $drawCellBorder(
+    $pdf,
+    $x + $pdf->toUnit($pad['L']),
+    $y + $pdf->toUnit($pad['T']),
+    $w - $pdf->toUnit($pad['L'] + $pad['R']),
+    $h - $pdf->toUnit($pad['T'] + $pad['B']),
+    $style,
+);
 
 $vcolumns = [
     ['label' => 'Top', 'valign' => \Com\Tecnick\Pdf\TextVAlign::Top],

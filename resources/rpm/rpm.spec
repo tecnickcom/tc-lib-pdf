@@ -26,29 +26,29 @@ Requires:  php-pcre
 Requires:  php-xml
 Requires:  php-zlib
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.13.4
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.14.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 2.13.5
+Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 3.0.2
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.12.6
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) >= 3.13.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 4.2.3
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-font) >= 4.3.1
 Requires:  php-composer(%{c_vendor}/tc-lib-file) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.8.2
+Requires:  php-composer(%{c_vendor}/tc-lib-file) >= 3.9.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.10.1
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-encrypt) >= 2.11.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) >= 2.0.0
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-sign) >= 2.0.1
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 3.0.4
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode-data) >= 3.0.5
 Requires:  php-composer(%{c_vendor}/tc-lib-unicode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 3.0.4
+Requires:  php-composer(%{c_vendor}/tc-lib-unicode) >= 3.0.5
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) < 5.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.14.5
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.15.1
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.15.5
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.16.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) < 4.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.14.4
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.15.0
 
 Recommends: php-curl
 Recommends: php-intl
@@ -73,5 +73,7 @@ rm -rf "%{buildroot}"
 %config(noreplace) %{_configpath}*
 
 %changelog
+* %{_builddate} Nicola Asuni <info@tecnick.com> %{version}-%{release}
+- Refer to the project git history for the contents of this release.
 * Tue Apr 21 2026 Nicola Asuni <info@tecnick.com> 8.7.0-1
 - Update RPM packaging metadata and release mapping.

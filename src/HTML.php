@@ -1164,7 +1164,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return array<int, THTMLAttrib> HTML DOM Array
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws PdfException
@@ -1277,7 +1276,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<int, THTMLAttrib> $dom
      * @param array<string, string> $css
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws PdfException
      */
@@ -1668,7 +1666,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return void
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws PdfException
      */
@@ -2662,7 +2659,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param int $key key of the current HTML tag.
      * @param int $parentkey Key of the parent element.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws PdfException
      */
@@ -3859,8 +3855,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse color style property.
      *
      * @param array<int, THTMLAttrib> $dom
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseHTMLStyleColorProperty(array &$dom, int $key, int $parentkey): void
     {
@@ -3887,8 +3881,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Parse background and background-color style properties.
      *
      * @param array<int, THTMLAttrib> $dom
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseHTMLStyleBackgroundProperty(array &$dom, int $key, int $parentkey): void
     {
@@ -4589,7 +4581,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
      */
     protected function parseHTMLStyleBorderProperties(array &$dom, int $key, int $parentkey): void
@@ -4698,7 +4689,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
      */
     protected function parseHTMLStyleBorderShorthandProperty(array &$dom, int $key, int $parentkey): void
@@ -4819,8 +4809,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<string, BorderStyleOpt> $brdr
      * @param array<string, BorderStyleOpt> $parentBorder
      * @param BorderStyleOpt $parentLTRB
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseHTMLStyleBorderColorProperty(
         array &$dom,
@@ -4965,7 +4953,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * } $ref
      * @param bool $globalOverrides Whether active border-width/style/color longhands already seeded the sides.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
      */
     protected function parseHTMLStyleBorderSideProperties(
@@ -5029,7 +5016,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<string, BorderStyleOpt> $parentBorder
      * @param BorderStyleOpt $parentLTRB
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
      */
     protected function parseHTMLStyleBorderSideShorthandProperty(
@@ -5078,8 +5064,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<string, BorderStyleOpt> $brdr
      * @param array<string, BorderStyleOpt> $parentBorder
      * @param BorderStyleOpt $parentLTRB
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseHTMLStyleBorderSideColorProperty(
         array &$dom,
@@ -5909,7 +5893,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param int $key key of the current HTML tag.
      * @param bool $thead
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
      */
     public function parseHTMLAttributes(array &$dom, int $key, bool $thead): void
@@ -5968,7 +5951,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key Current element ID.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
      */
     protected function parseHTMLAttributesBorderProperty(array &$dom, int $key): void
@@ -6436,7 +6418,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key Current element ID.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws PdfException
      */
     protected function parseHTMLAttributesTableCellDefaults(array &$dom, int $key): void
@@ -6543,8 +6524,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key Current element ID.
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseHTMLAttributesForegroundColor(array &$dom, int $key): void
     {
@@ -6568,8 +6547,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key Current element ID.
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseHTMLAttributesBackgroundColor(array &$dom, int $key): void
     {
@@ -6588,8 +6565,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param array<int, THTMLAttrib> $dom DOM array.
      * @param int $key Current element ID.
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseHTMLAttributesStrokeColor(array &$dom, int $key): void
     {
@@ -7228,7 +7203,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws PdfException
@@ -7336,7 +7310,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -7476,7 +7449,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * Follows the getHTMLCell() rendering flow and discards the output, so
      * callers can advance cursors by the real rendered height.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -7585,7 +7557,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @param THTMLRenderContext $hrc HTML render context.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Throwable
      */
@@ -14769,7 +14740,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      * @throws PdfException
@@ -14842,7 +14812,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      * @throws PdfException
@@ -15488,7 +15457,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -15582,7 +15550,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *                                 The margin and padding values are in points.
      * @param array<int|string, BorderStyle> $styles Cell border styles (see: getCurrentStyleArray).
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -18246,7 +18213,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -18869,7 +18835,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
@@ -19068,7 +19033,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Throwable
      */
     protected function parseHTMLTagOPENspan(
@@ -19907,7 +19871,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      *
      * @return string PDF code.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception

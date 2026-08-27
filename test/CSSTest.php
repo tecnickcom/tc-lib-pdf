@@ -813,6 +813,51 @@ class CSSTest extends TestUtil
         $this->assertSame('', $obj->exposeGetCSSColor(''));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unsupportedCSSColorProvider(): array
+    {
+        return [
+            'oklch' => ['oklch(0.7 0.1 200)'],
+            'lch' => ['lch(50% 40 30)'],
+            'hwb' => ['hwb(90 10% 10%)'],
+            'color-mix' => ['color-mix(in srgb, red, blue)'],
+            'mixed separators' => ['rgb(64, 128 191)'],
+            'malformed number' => ['rgb(1.2.3,4,5)'],
+            'malformed hash' => ['#zzz'],
+            'unknown name' => ['notacolor'],
+        ];
+    }
+
+    /**
+     * A color value the parser does not support drops the declaration instead
+     * of aborting the rendering.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('unsupportedCSSColorProvider')]
+    public function testGetCSSColorDropsUnsupportedColor(string $color): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $this->assertSame('', $obj->exposeGetCSSColor($color));
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('unsupportedCSSColorProvider')]
+    public function testAddHTMLCellRendersWithUnsupportedColor(string $color): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initPageContext($obj);
+
+        $obj->addHTMLCell('<p style="color:' . $color . ';border:1px solid ' . $color . '">test</p>', 10, 10, 100, 40);
+
+        $this->assertStringStartsWith('%PDF-', $obj->getOutPDFString());
+    }
+
     /** @throws \Throwable */
     public function testResolveImportRulesStripsImportAndPrependsContent(): void
     {

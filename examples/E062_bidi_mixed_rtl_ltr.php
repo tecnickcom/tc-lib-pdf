@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E062_bidi_mixed_rtl_ltr.php
  *

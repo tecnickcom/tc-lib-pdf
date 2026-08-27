@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E025_transparency.php
  *
@@ -51,19 +53,17 @@ $setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string 
     return $font;
 };
 
-$getRectStyle = static function (string $strokeColor, string $fillColor): array {
-    return [
-        'all' => [
-            'lineWidth' => 2.0,
-            'lineCap' => 'square',
-            'lineJoin' => 'miter',
-            'dashArray' => [],
-            'dashPhase' => 0,
-            'lineColor' => $strokeColor,
-            'fillColor' => $fillColor,
-        ],
-    ];
-};
+$getRectStyle = static fn(string $strokeColor, string $fillColor): array => [
+    'all' => [
+        'lineWidth' => 2.0,
+        'lineCap' => 'square',
+        'lineJoin' => 'miter',
+        'dashArray' => [],
+        'dashPhase' => 0,
+        'lineColor' => $strokeColor,
+        'fillColor' => $fillColor,
+    ],
+];
 
 // Insert one neutral font before addPage() so page context has a valid current font.
 $pdf->font->insert($pdf->pon, 'helvetica', '', 10, 0.0, 1.0);

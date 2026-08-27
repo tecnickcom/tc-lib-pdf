@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E072_import_new_font.php
  *
@@ -65,19 +67,19 @@ function downloadFile(string $url, string $destination, int $timeout = 30): void
 
 try {
     if (!\is_dir($sourceFontsDir)) {
-        if (!@\mkdir($sourceFontsDir, 0755, true) && !\is_dir($sourceFontsDir)) {
+        if (!@\mkdir($sourceFontsDir, 0o755, true) && !\is_dir($sourceFontsDir)) {
             throw new \RuntimeException('Unable to create directory: ' . $sourceFontsDir);
         }
     }
 
     if (!\is_dir($customFontsDir)) {
-        if (!@\mkdir($customFontsDir, 0755, true) && !\is_dir($customFontsDir)) {
+        if (!@\mkdir($customFontsDir, 0o755, true) && !\is_dir($customFontsDir)) {
             throw new \RuntimeException('Unable to create directory: ' . $customFontsDir);
         }
     }
 
     $customFontsReal = (string) \realpath($customFontsDir);
-    if (empty($customFontsReal)) {
+    if ($customFontsReal === '') {
         throw new \RuntimeException('Unable to resolve custom fonts directory path.');
     }
 
@@ -91,7 +93,7 @@ try {
     // 2) Convert it to tc-lib-pdf-font format when not already converted.
     if (!\is_file($convertedFontPath)) {
         $sourceFontPath = (string) \realpath($notoSourcePath);
-        if (empty($sourceFontPath)) {
+        if ($sourceFontPath === '') {
             throw new \RuntimeException('Unable to resolve downloaded font path.');
         }
 
@@ -111,7 +113,7 @@ try {
             $fontFamily = $import->getFontName();
             $convertedFontPath = $customFontsReal . '/' . $fontFamily . '.json';
         } catch (\Throwable $e) {
-            $alreadyImported = \strpos($e->getMessage(), 'already imported:') !== false;
+            $alreadyImported = \str_contains($e->getMessage(), 'already imported:');
             if ($alreadyImported && \preg_match('/([a-z0-9_\-]+)\.json$/i', $e->getMessage(), $match) === 1) {
                 $fontFamily = \strtolower((string) $match[1]);
                 $convertedFontPath = $customFontsReal . '/' . $fontFamily . '.json';
@@ -128,7 +130,7 @@ try {
     $fontSetupError = $e->getMessage();
 }
 
-if (empty($fontSetupError) && !empty($customFontsReal)) {
+if ($fontSetupError === '' && $customFontsReal !== '') {
     // The HTML <pre> tag defaults to courier in this renderer.
     // Copy core courier metrics into the custom font directory when missing.
     $defaultCourier = $defaultFontsDir . '/core/courier.json';
@@ -138,7 +140,7 @@ if (empty($fontSetupError) && !empty($customFontsReal)) {
     }
 }
 
-$fontsRoot = !empty($fontSetupError) || empty($customFontsReal) ? $defaultFontsDir : $customFontsReal;
+$fontsRoot = $fontSetupError !== '' || $customFontsReal === '' ? $defaultFontsDir : $customFontsReal;
 \define('K_PATH_FONTS', $fontsRoot);
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
@@ -157,7 +159,7 @@ $pdf->setTitle('Import and Use a New Font');
 $pdf->setKeywords('TCPDF tc-lib-pdf font import custom ttf otf noto sans');
 $pdf->setPDFFilename('072_import_new_font.pdf');
 
-$manualFontFamily = !empty($fontSetupError) ? 'helvetica' : $fontFamily;
+$manualFontFamily = $fontSetupError !== '' ? 'helvetica' : $fontFamily;
 
 $manualInstructions =
     '<p style="font-family: '
@@ -196,7 +198,7 @@ $manualInstructions =
     . \htmlspecialchars($fontFamily, ENT_QUOTES)
     . '.json.</p>';
 
-if (!empty($fontSetupError)) {
+if ($fontSetupError !== '') {
     $baseFont = $pdf->font->insert($pdf->pon, 'helvetica', '', 10);
 
     $pdf->addPage(['format' => 'A4']);

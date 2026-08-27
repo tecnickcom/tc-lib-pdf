@@ -156,11 +156,13 @@ class TestableOutput extends \Com\Tecnick\Pdf\Tcpdf
         return $this->getLayerDict();
     }
 
+    /** @throws \Throwable */
     public function exposeGetOutResourcesDict(): string
     {
         return $this->getOutResourcesDict();
     }
 
+    /** @throws \Throwable */
     public function exposeGetPatternStreamResourceDict(string $stream): string
     {
         return $this->getPatternStreamResourceDict($stream);

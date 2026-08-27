@@ -4,7 +4,7 @@ php-version = "8.2.0"
 
 [source]
 workspace = "."
-paths = ["src", "test"]
+paths = ["src", "examples"]
 includes = ["vendor"]
 excludes = []
 
@@ -17,31 +17,37 @@ tab-width = 4
 use-tabs = false
 
 [linter]
-integrations = ["phpunit"]
+integrations = []
 
 [linter.rules]
 ambiguous-function-call = { enabled = false }
 literal-named-argument = { enabled = false }
-assertion-style = { enabled = false }
 cyclomatic-complexity = { enabled = false }
 excessive-parameter-list = { enabled = false }
 halstead = { enabled = false, effort-threshold = 7000 }
-identity-comparison = { enabled = false }
+identity-comparison = { enabled = true }
 kan-defect = { enabled = false }
 no-boolean-flag-parameter = { enabled = false }
 no-else-clause = { enabled = false }
-no-empty = { enabled = false }
+no-empty = { enabled = true }
 no-duplicate-match-arm = { enabled = false }
 excessive-nesting = { enabled = true, threshold = 10, function-like-threshold = 10 }
-no-empty-catch-clause = { enabled = false }
-no-isset = { enabled = false }
-no-literal-password = { enabled = true, exclude = ["test/TcpdfImporterFacadeTest.php", "test/Import/ImporterTest.php", "test/JavaScriptTest.php"] }
-readable-literal = { enabled = false }
-str-contains = { enabled = false }
-strict-assertions = { enabled = false }
-strict-behavior = { enabled = false }
-strict-types = { enabled = false }
 too-many-methods = { enabled = false }
+no-isset = { enabled = true, allow-array-checks = true }
+too-many-properties = { enabled = true, threshold = 70 }
+no-insecure-comparison = { enabled = true, exclude = ["src/HTML.php", "src/JavaScript.php"] }
+no-literal-password = { enabled = true, exclude = ["src/HTML.php"] }
+
+# Examples subclass Tcpdf inline to demonstrate a hook, so the class name
+# cannot match the numbered example file name.
+file-name = { enabled = false }
+# An example may need more memory than the default limit allows.
+no-ini-set = { enabled = false }
+# The `@` suppresses the warnings of the network and filesystem calls whose
+# return value the example already checks explicitly.
+no-error-control-operator = { enabled = false }
+# The example helper functions follow the camel case naming of the library methods.
+function-name = { enabled = true, camel = true }
 
 [analyzer]
 plugins = []
@@ -54,9 +60,6 @@ unchecked-exceptions = [
 	"Error",
 	"LogicException",
 	"ReflectionException",
-	"PHPUnit\\Framework\\Exception",
-	"PHPUnit\\Framework\\ExpectationFailedException",
-	"PHPUnit\\Framework\\UnknownClassOrInterfaceException",
 ]
 unchecked-exception-classes = []
 check-missing-override = true

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E027_annotations.php
  *
@@ -179,18 +181,16 @@ $addRow = static function (
     return $aid;
 };
 
-$mkQuadPoints = static function (float $x, float $y, float $w, float $h): array {
-    return [[
-        $x,
-        $y + $h,
-        $x + $w,
-        $y + $h,
-        $x,
-        $y,
-        $x + $w,
-        $y,
-    ]];
-};
+$mkQuadPoints = static fn(float $x, float $y, float $w, float $h): array => [[
+    $x,
+    $y + $h,
+    $x + $w,
+    $y + $h,
+    $x,
+    $y,
+    $x + $w,
+    $y,
+]];
 
 $attachmentPath = __DIR__ . '/data/utf8test.txt';
 $soundPath = __DIR__ . '/data/utf8test.txt';

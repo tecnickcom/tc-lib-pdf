@@ -795,7 +795,7 @@ class HTMLTest extends TestUtil
 
         $this->assertSame('', $obj->exposeGetHTMLBackgroundShorthandColor(''));
         $this->assertSame(
-            'rgb(7%,20%,34%)',
+            'rgb(18,51,87)',
             $obj->exposeGetHTMLBackgroundShorthandColor('url(bg.png) rgb(7%,20%,34%) no-repeat'),
         );
 
@@ -974,7 +974,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('ltr', $dom[1]['dir']);
         $this->assertFalse($dom[1]['hide']);
         $this->assertSame('L', $dom[1]['align']);
-        $this->assertSame('rgb(0%,0%,0%)', $dom[1]['fgcolor']);
+        $this->assertSame('rgb(0,0,0)', $dom[1]['fgcolor']);
         $this->assertSame($dom[0]['line-height'], $dom[1]['line-height']);
         $this->assertSame('separate', $dom[1]['border-collapse']);
         $this->assertSame('outside', $dom[1]['list-style-position']);
@@ -1024,7 +1024,7 @@ class HTMLTest extends TestUtil
         $this->assertSame('ltr', $dom[1]['dir']);
         $this->assertFalse($dom[1]['hide']);
         $this->assertSame('L', $dom[1]['align']);
-        $this->assertSame('rgb(0%,0%,100%)', $dom[1]['fgcolor']);
+        $this->assertSame('rgb(0,0,255)', $dom[1]['fgcolor']);
         $this->assertSame($dom[0]['line-height'], $dom[1]['line-height']);
         $this->assertSame('separate', $dom[1]['border-collapse']);
         $this->assertSame('outside', $dom[1]['list-style-position']);
@@ -7014,8 +7014,8 @@ class HTMLTest extends TestUtil
 
         $hrc = $obj->exposeGetHTMLRenderContext();
         assert(isset($hrc['dom'][0]), "\$hrc['dom'][0] must be set");
-        $this->assertStringContainsString('100%,0%,0%', $hrc['dom'][0]['fgcolor']);
-        $this->assertStringContainsString('0%,100%,0%', (string) $hrc['dom'][0]['bgcolor']);
+        $this->assertStringContainsString('255,0,0', $hrc['dom'][0]['fgcolor']);
+        $this->assertStringContainsString('0,255,0', (string) $hrc['dom'][0]['bgcolor']);
     }
 
     /**
@@ -8899,8 +8899,8 @@ class HTMLTest extends TestUtil
             $this->fail('Expected parsed DOM nodes at keys 1, 2 and 3.');
         }
 
-        $this->assertSame('rgb(0%,0%,100%)', $dom[1]['bgcolor']);
-        $this->assertSame('rgb(100%,0%,0%)', $dom[2]['bgcolor']);
+        $this->assertSame('rgb(0,0,255)', $dom[1]['bgcolor']);
+        $this->assertSame('rgb(255,0,0)', $dom[2]['bgcolor']);
         $this->assertSame('#00ff00', $dom[3]['bgcolor']);
     }
 
@@ -16135,9 +16135,9 @@ class HTMLTest extends TestUtil
             }
         }
 
-        $this->assertSame('rgb(4%,48%,4%)', $firstTextColor);
+        $this->assertSame('rgb(10,122,10)', $firstTextColor);
         $this->assertSame('black', $middleTextColor);
-        $this->assertSame('rgb(67%,13%,13%)', $lastTextColor);
+        $this->assertSame('rgb(170,34,34)', $lastTextColor);
     }
 
     /**
@@ -20685,7 +20685,7 @@ class HTMLTest extends TestUtil
         $obj->exposeParseHTMLStyleAttributesWithDom($dom, 1, 0);
 
         $node = $dom[1] ?? [];
-        $this->assertSame('rgb(0%,33%,67%)', $node['fgcolor'] ?? '');
+        $this->assertSame('rgb(0,85,170)', $node['fgcolor'] ?? '');
     }
 
     /**

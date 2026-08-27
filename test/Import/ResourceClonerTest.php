@@ -314,6 +314,54 @@ class ResourceClonerTest extends TestCase
         $this->assertSame('', $combined['filter']);
     }
 
+    /**
+     * Concatenating an array /Contents decodes every standard filter, written
+     * either with the PDF name or with the inline-image abbreviation.
+     *
+     * @throws \Throwable
+     */
+    public function testGetContentStreamDecodesNonFlateFiltersForConcatenation(): void
+    {
+        $src = $this->makeMockSourceDocument([
+            '1_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        ['/', 'ASCIIHexDecode'],
+                    ],
+                ],
+                ['stream', '616c706861>'],
+            ],
+            '2_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        ['/', 'Fl'],
+                    ],
+                ],
+                ['stream', (string) \gzcompress('beta')],
+            ],
+            '3_0' => [
+                [
+                    '<<',
+                    [
+                        ['/', 'Filter'],
+                        ['/', 'RunLengthDecode'],
+                    ],
+                ],
+                ['stream', "\x04gamma\x80"],
+            ],
+        ]);
+        $cloner = new ResourceCloner(0);
+
+        $combined = $cloner->getContentStream(['Contents' => ['1_0', '2_0', '3_0']], $src);
+
+        $this->assertSame('alpha beta gamma', $combined['bytes']);
+        $this->assertSame('', $combined['filter']);
+    }
+
     /** @throws \Throwable */
     public function testGetContentStreamParsesArrayFilterToken(): void
     {

@@ -2211,8 +2211,9 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param int $soid SVG object ID.
      * @param TSVGStyle $svgstyle SVG style.
      *
+     * An unparseable stroke color leaves the shape unstroked.
+     *
      * @return string the Raw PDF command to set the stroke.
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseSVGStyleStroke(int $soid, array &$svgstyle): string
     {
@@ -2223,7 +2224,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
 
             $strokestyle = $this->graph->getDefaultStyle();
 
-            $col = $this->color->getColorObj($svgstyle['stroke']);
+            $col = $this->color->tryGetColorObj($svgstyle['stroke']);
             if ($col === null) {
                 return '';
             }
@@ -2325,7 +2326,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string Raw PDF command or empty string.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -3050,7 +3050,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string Pattern resource ID or empty string on failure.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
@@ -3263,7 +3262,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
@@ -3514,7 +3512,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
      */
     protected function parseSVGStyleFill(
@@ -3605,7 +3602,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             }
         }
 
-        $col = $this->color->getColorObj($svgstyle['fill']);
+        $col = $this->color->tryGetColorObj($svgstyle['fill']);
         if ($col === null) {
             return $out;
         }
@@ -3637,7 +3634,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @param int $soid SVG object ID.
      * @param array<string, TSVGAttribs> $clippaths Clipping paths.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -3676,7 +3672,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function parseSVGStyle(
         \XMLParser $parser,
@@ -3747,7 +3742,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
      * @throws \Com\Tecnick\Unicode\Exception
-     * @throws \Com\Tecnick\Color\Exception
      *
      * @SuppressWarnings("PHPMD.UnusedFormalParameter")
      */
@@ -3818,7 +3812,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return void
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -4022,7 +4015,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
@@ -4044,7 +4036,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
@@ -4138,7 +4129,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -4334,7 +4324,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return void
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -4684,7 +4673,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
@@ -4818,7 +4806,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
@@ -4994,7 +4981,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      */
     protected function parseSVGTagSTARTstop(int $soid, array $attr, array $svgstyle): string
@@ -5006,13 +4992,10 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         $svgobj = &$this->getSVGObjRef($soid);
 
         $offset = isset($attr['offset']) ? $this->svgUnitToUnit($attr['offset'], $soid) : 0.0;
-        $stop_color = $svgstyle['stop-color'];
-        // Normalize stop colors to hex RGB so all gradient stops share one
-        // color space.
-        $colobj = $this->color->getColorObj($stop_color);
-        if ($colobj !== null) {
-            $stop_color = $colobj->getRgbHexColor();
-        }
+        // Normalize stop colors to hex RGB so all gradient stops share one color
+        // space; an unparseable value falls back to the initial value of stop-color.
+        $colobj = $this->color->tryGetColorObj($svgstyle['stop-color']);
+        $stop_color = $colobj === null ? '#000000' : $colobj->getRgbHexColor();
         $opacity = \max(0.0, \min(1.0, \floatval($svgstyle['stop-opacity'])));
         $gid = $svgobj['gradientid'];
 
@@ -5039,7 +5022,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -5124,7 +5106,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
@@ -5195,7 +5176,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
@@ -5277,7 +5257,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
@@ -5362,7 +5341,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -5432,7 +5410,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -5473,7 +5450,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      * @throws \Com\Tecnick\Pdf\Exception
@@ -6029,7 +6005,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -6285,7 +6260,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
@@ -6381,7 +6355,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
@@ -6543,7 +6516,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\Pdf\Image\Exception
      * @throws \Com\Tecnick\Unicode\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
@@ -6732,7 +6704,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @return string
      *
      * @throws \Com\Tecnick\File\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -7416,7 +7387,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      * @throws \Com\Tecnick\Pdf\Font\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
      * @throws \Com\Tecnick\Unicode\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Graph\Exception
      */
@@ -7874,7 +7844,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
@@ -7930,7 +7899,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
      *
      * @return string
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception

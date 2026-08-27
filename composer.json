@@ -1,100 +1,106 @@
 {
-    "name": "tecnickcom/tc-lib-pdf",
-    "description": "PHP PDF Library",
-    "type": "library",
-    "homepage": "https://tcpdf.org",
-    "license": "LGPL-3.0-or-later",
-    "keywords": [
-        "tc-lib-pdf",
-        "TCPDF",
-        "PDF",
-        "PDFD32000-2008",
-        "document"
-    ],
-    "authors": [
-        {
-            "name": "Nicola Asuni",
-            "email": "info@tecnick.com",
-            "role": "lead"
-        }
-    ],
-    "funding": [
-        {
-            "type": "github",
-            "url": "https://github.com/sponsors/tecnickcom"
-        }
-    ],
-    "require": {
-        "php": "^8.2",
-        "ext-ctype": "*",
-        "ext-filter": "*",
-        "ext-hash": "*",
-        "ext-json": "*",
-        "ext-mbstring": "*",
-        "ext-openssl": "*",
-        "ext-pcre": "*",
-        "ext-xml": "*",
-        "ext-zlib": "*",
-        "tecnickcom/tc-lib-barcode": "^2.13",
-        "tecnickcom/tc-lib-color": "^2.13",
-        "tecnickcom/tc-lib-pdf-image": "^3.12",
-        "tecnickcom/tc-lib-pdf-font": "^4.2",
-        "tecnickcom/tc-lib-file": "^3.8",
-        "tecnickcom/tc-lib-pdf-encrypt": "^2.10",
-        "tecnickcom/tc-lib-pdf-sign": "^2.0",
-        "tecnickcom/tc-lib-unicode-data": "^3.0",
-        "tecnickcom/tc-lib-unicode": "^3.0",
-        "tecnickcom/tc-lib-pdf-page": "^4.14",
-        "tecnickcom/tc-lib-pdf-graph": "^2.15",
-        "tecnickcom/tc-lib-pdf-parser": "^3.14"
-    },
-    "suggest": {
-        "ext-curl": "Required to contact a Timestamp Authority (RFC 3161) when timestamping signatures",
-        "ext-intl": "Enables Unicode NFC normalization of the PDF file name"
-    },
-    "minimum-stability": "stable",
-    "prefer-stable": true,
-    "require-dev": {
-        "carthage-software/mago": "^1.47",
-        "pdepend/pdepend": "^2.16",
-        "phpunit/phpunit": "^11.5 || ^12.5 || ^13.3"
-    },
-    "autoload": {
-        "psr-4": {
-            "Com\\Tecnick\\Pdf\\": "src"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Test\\": "test"
-        }
-    },
-    "archive": {
-        "exclude": [
-            "/examples"
-        ]
-    },
-    "support": {
-        "issues": "https://github.com/tecnickcom/tc-lib-pdf/issues",
-        "source": "https://github.com/tecnickcom/tc-lib-pdf"
-    },
-    "scripts": {
-        "test": "@php -d xdebug.mode=coverage vendor/bin/phpunit --stderr test",
-        "analyse": ["@analyse:src", "@analyse:test"],
-        "analyse:src": "vendor/bin/mago --config mago.src.toml analyze src",
-        "analyse:test": "vendor/bin/mago --config mago.test.toml analyze test",
-        "cs-check": ["@cs-check:src", "@cs-check:test"],
-        "cs-check:src": "vendor/bin/mago --config mago.src.toml lint src",
-        "cs-check:test": "vendor/bin/mago --config mago.test.toml lint test",
-        "cs-fix": ["@cs-fix:src", "@cs-fix:test"],
-        "cs-fix:src": "vendor/bin/mago --config mago.src.toml fmt src",
-        "cs-fix:test": "vendor/bin/mago --config mago.test.toml fmt test",
-        "qa": ["@cs-check", "@analyse", "@test"],
-        "post-install-cmd": [
-            "make fonts"
-        ],
-        "post-update-cmd": [
-            "make fonts"
-        ]
+  "name": "tecnickcom/tc-lib-pdf",
+  "description": "PHP PDF Library",
+  "type": "library",
+  "homepage": "https://tcpdf.org",
+  "license": "LGPL-3.0-or-later",
+  "keywords": [
+    "tc-lib-pdf",
+    "TCPDF",
+    "PDF",
+    "PDFD32000-2008",
+    "document"
+  ],
+  "authors": [
+    {
+      "name": "Nicola Asuni",
+      "email": "info@tecnick.com",
+      "role": "lead"
     }
+  ],
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/tecnickcom"
+    }
+  ],
+  "require": {
+    "php": "^8.2",
+    "ext-ctype": "*",
+    "ext-filter": "*",
+    "ext-hash": "*",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "ext-openssl": "*",
+    "ext-pcre": "*",
+    "ext-xml": "*",
+    "ext-zlib": "*",
+    "tecnickcom/tc-lib-barcode": "^2.14",
+    "tecnickcom/tc-lib-color": "^3.0",
+    "tecnickcom/tc-lib-pdf-image": "^3.13",
+    "tecnickcom/tc-lib-pdf-font": "^4.3",
+    "tecnickcom/tc-lib-file": "^3.9",
+    "tecnickcom/tc-lib-pdf-encrypt": "^2.11",
+    "tecnickcom/tc-lib-pdf-sign": "^2.0",
+    "tecnickcom/tc-lib-unicode-data": "^3.0",
+    "tecnickcom/tc-lib-unicode": "^3.0",
+    "tecnickcom/tc-lib-pdf-page": "^4.15",
+    "tecnickcom/tc-lib-pdf-graph": "^2.16",
+    "tecnickcom/tc-lib-pdf-parser": "^3.15"
+  },
+  "suggest": {
+    "ext-curl": "Required to contact a Timestamp Authority (RFC 3161) when timestamping signatures",
+    "ext-intl": "Enables Unicode NFC normalization of the PDF file name"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "require-dev": {
+    "carthage-software/mago": "^1.47.4",
+    "pdepend/pdepend": "^2.16",
+    "phpunit/phpunit": "^11.5 || ^12.5 || ^13.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Com\\Tecnick\\Pdf\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Test\\": "test"
+    }
+  },
+  "archive": {
+    "exclude": [
+      "/examples"
+    ]
+  },
+  "support": {
+    "issues": "https://github.com/tecnickcom/tc-lib-pdf/issues",
+    "source": "https://github.com/tecnickcom/tc-lib-pdf"
+  },
+  "scripts": {
+    "test": "@php vendor/bin/phpunit --stderr --no-coverage --display-skipped test",
+    "test:coverage": "@php -d xdebug.mode=coverage vendor/bin/phpunit --stderr --display-skipped --coverage-clover=target/coverage/coverage.xml --coverage-html=target/coverage test",
+    "analyse": ["@analyse:src", "@analyse:test"],
+    "analyse:src": "vendor/bin/mago --config mago.src.toml analyze -m warning src resources/autoload.php",
+    "analyse:test": "vendor/bin/mago --config mago.test.toml analyze -m warning test",
+    "cs-check": ["@cs-check:src", "@cs-check:test", "@cs-check:example"],
+    "cs-check:src": "vendor/bin/mago --config mago.src.toml lint -m warning src resources/autoload.php",
+    "cs-check:test": "vendor/bin/mago --config mago.test.toml lint -m warning test",
+    "cs-check:example": "vendor/bin/mago --config mago.examples.toml lint -m warning examples",
+    "fmt-check": ["@fmt-check:src", "@fmt-check:test", "@fmt-check:example"],
+    "fmt-check:src": "vendor/bin/mago --config mago.src.toml fmt --check src resources/autoload.php",
+    "fmt-check:test": "vendor/bin/mago --config mago.test.toml fmt --check test",
+    "fmt-check:example": "vendor/bin/mago --config mago.examples.toml fmt --check examples",
+    "cs-fix": ["@cs-fix:src", "@cs-fix:test", "@cs-fix:example"],
+    "cs-fix:src": "vendor/bin/mago --config mago.src.toml fmt src resources/autoload.php",
+    "cs-fix:test": "vendor/bin/mago --config mago.test.toml fmt test",
+    "cs-fix:example": "vendor/bin/mago --config mago.examples.toml fmt examples",
+    "report": "mkdir -p target/report && vendor/bin/pdepend --jdepend-xml=target/report/dependencies.xml --summary-xml=target/report/metrics.xml --jdepend-chart=target/report/dependencies.svg --overview-pyramid=target/report/overview-pyramid.svg --ignore=vendor ./src",
+    "check-deps": ["@composer validate --strict --no-check-lock", "@composer audit"],
+    "qa": ["@check-deps", "@fmt-check", "@cs-check", "@analyse", "@test"],
+    "fonts": "cd vendor/tecnickcom/tc-lib-pdf-font/ && make fonts",
+    "post-install-cmd": ["@fonts"],
+    "post-update-cmd": ["@fonts"]
+  }
 }

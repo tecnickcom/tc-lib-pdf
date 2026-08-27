@@ -144,6 +144,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Graph\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Random\RandomException
      */
@@ -466,7 +467,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param StyleDataOpt              $style   Array of style options.
      *
      * @throws BarcodeException in case of error
-     * @throws \Com\Tecnick\Color\Exception
+     * @throws \Com\Tecnick\Color\Exception in case of an invalid style color
      */
     public function getBarcode(
         string $type,

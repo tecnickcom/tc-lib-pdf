@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E022_cell_borders.php
  *
@@ -51,16 +53,14 @@ $setFont = static function (\Com\Tecnick\Pdf\Tcpdf $pdf, string $family, string 
     return $font;
 };
 
-$getLineStyle = static function (float $width, string $color): array {
-    return [
-        'lineWidth' => $width,
-        'lineCap' => 'butt',
-        'lineJoin' => 'miter',
-        'dashArray' => [],
-        'dashPhase' => 0,
-        'lineColor' => $color,
-    ];
-};
+$getLineStyle = static fn(float $width, string $color): array => [
+    'lineWidth' => $width,
+    'lineCap' => 'butt',
+    'lineJoin' => 'miter',
+    'dashArray' => [],
+    'dashPhase' => 0,
+    'lineColor' => $color,
+];
 
 $buildCellStyles = static function (array $sideStyles, string $fillColor): array {
     $fillStyle = [
@@ -147,9 +147,11 @@ foreach ($masks as $mask) {
     $active = $mask === '1' ? 'LTRB' : $mask;
     $sideStyles = [];
     foreach ($maskToSide as $side => $idx) {
-        if (\strpos($active, $side) !== false) {
-            $sideStyles[$idx] = $basicLineStyle;
+        if (!\str_contains($active, $side)) {
+            continue;
         }
+
+        $sideStyles[$idx] = $basicLineStyle;
     }
     $drawStyledCell($pdf, $mask, $x, $y, $w, $h, $buildCellStyles($sideStyles, $fillColor), $pdf::BORDERPOS_DEFAULT);
     $y += 10.0;

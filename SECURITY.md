@@ -26,7 +26,7 @@ If you receive no response, reply to the same email thread.
 ## What to Include
 
 - **Description**: summary of the vulnerability and its impact.
-- **Affected component**: the class, method, or feature involved (for example `HTML::render()`, font loading, image processing).
+- **Affected component**: the class, method, or feature involved.
 - **Steps to reproduce**: a minimal, self-contained PHP script or unit test.
 - **Expected vs. actual behaviour**.
 - **Environment**: PHP version, OS, library version (output of `composer show tecnickcom/tc-lib-pdf`).

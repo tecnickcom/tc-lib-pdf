@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E071_gettextcell_bbox_metrics.php
  *

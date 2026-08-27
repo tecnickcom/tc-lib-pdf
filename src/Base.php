@@ -692,7 +692,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.71.2';
+    protected string $version = '8.72.0';
 
     /**
      * Encrypt object.
@@ -1833,6 +1833,7 @@ abstract class Base
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws \Com\Tecnick\Pdf\Graph\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      */

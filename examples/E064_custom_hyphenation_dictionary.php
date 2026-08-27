@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E064_custom_hyphenation_dictionary.php
  *

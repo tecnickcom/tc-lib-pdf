@@ -15,7 +15,6 @@ declare(strict_types=1);
  *
  * This file is part of tc-lib-pdf software library.
  *
- * @phpcs:disable Generic.Files.LineLength
  */
 
 namespace Com\Tecnick\Pdf;
@@ -388,7 +387,6 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             . '-'
             . \substr($this->fileid, 20, 12);
 
-        // @codingStandardsIgnoreStart
         $xmp =
             '<?xpacket begin="'
             . $this->uniconv->chr(0xfeff)
@@ -773,7 +771,6 @@ abstract class MetaInfo extends \Com\Tecnick\Pdf\HTML
             . '</x:xmpmeta>'
             . "\n"
             . '<?xpacket end="w"?>';
-        // @codingStandardsIgnoreEnd
 
         $oid = ++$this->pon;
         $this->objid['xmp'] = $oid;

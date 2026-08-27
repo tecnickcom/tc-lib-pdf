@@ -66,6 +66,72 @@ class SVGTest extends TestUtil
         $obj->addSVG('@<svg xmlns="http://www.w3.org/2000/svg"></svg>');
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unsupportedSVGColorProvider(): array
+    {
+        return [
+            'oklch' => ['oklch(0.7 0.1 200)'],
+            'lch' => ['lch(50% 40 30)'],
+            'hwb' => ['hwb(90 10% 10%)'],
+            'color-mix' => ['color-mix(in srgb, red, blue)'],
+            'unknown name' => ['notacolor'],
+        ];
+    }
+
+    /**
+     * A paint value the color parser does not support leaves the shape unpainted
+     * instead of aborting the import of the whole SVG.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('unsupportedSVGColorProvider')]
+    public function testAddSVGDropsUnsupportedPaintColor(string $color): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">'
+            . '<rect x="0" y="0" width="40" height="40" fill="'
+            . $color
+            . '" stroke="'
+            . $color
+            . '"/>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 10, 10, 50, 50, $page['height']);
+
+        $this->assertSame(1, $soid);
+    }
+
+    /**
+     * An unsupported stop-color falls back to the initial value of the property.
+     *
+     * @throws \Throwable
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('unsupportedSVGColorProvider')]
+    public function testAddSVGFallsBackOnUnsupportedGradientStopColor(string $color): void
+    {
+        $obj = $this->getTestObject();
+        $page = $this->initFontAndPage($obj);
+        $svg =
+            '@<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">'
+            . '<defs><linearGradient id="g">'
+            . '<stop offset="0" stop-color="'
+            . $color
+            . '"/>'
+            . '<stop offset="1" stop-color="blue"/>'
+            . '</linearGradient></defs>'
+            . '<rect width="40" height="40" fill="url(#g)"/>'
+            . '</svg>';
+
+        $soid = $obj->addSVG($svg, 10, 10, 50, 50, $page['height']);
+
+        $this->assertSame(1, $soid);
+        $this->assertStringStartsWith('%PDF-', $obj->getOutPDFString());
+    }
+
     /** @throws \Throwable */
     public function testGetSetSVGReturnsRenderableOutput(): void
     {

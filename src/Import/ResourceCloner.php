@@ -19,6 +19,8 @@ declare(strict_types=1);
 namespace Com\Tecnick\Pdf\Import;
 
 use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
+use Com\Tecnick\Pdf\Filter\Filter as ObjFilter;
+use Com\Tecnick\Pdf\Filter\FilterType;
 
 /**
  * Com\Tecnick\Pdf\Import\ResourceCloner
@@ -41,29 +43,17 @@ use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
 class ResourceCloner
 {
     /**
-     * Filter names that can be decoded to re-encode a source stream, mapped to their canonical name.
+     * Filters that can be decoded to re-encode a source stream.
      *
-     * @var array<string, string>
+     * @var array<int, FilterType>
      */
     private const DECODABLE_FILTERS = [
-        'AHx' => 'ASCIIHexDecode',
-        'ASCIIHexDecode' => 'ASCIIHexDecode',
-        'A85' => 'ASCII85Decode',
-        'ASCII85Decode' => 'ASCII85Decode',
-        'LZW' => 'LZWDecode',
-        'LZWDecode' => 'LZWDecode',
-        'Fl' => 'FlateDecode',
-        'FlateDecode' => 'FlateDecode',
-        'RL' => 'RunLengthDecode',
-        'RunLengthDecode' => 'RunLengthDecode',
+        FilterType::AsciiHexDecode,
+        FilterType::Ascii85Decode,
+        FilterType::LzwDecode,
+        FilterType::FlateDecode,
+        FilterType::RunLengthDecode,
     ];
-
-    /**
-     * Filter names that ISO 19005 forbids in every PDF/A part.
-     *
-     * @var array<int, string>
-     */
-    private const PDFA_FORBIDDEN_FILTERS = ['LZW', 'LZWDecode'];
 
     /**
      * Object number counter reference (shared with the output document).
@@ -992,84 +982,12 @@ class ResourceCloner
      * Decode one content stream for multi-stream concatenation.
      *
      * Single-stream imports keep the original bytes and /Filter metadata. An
-     * array /Contents needs plain bytes, so known filters are decoded; the
+     * array /Contents needs plain bytes, so decodable filters are applied; the
      * original bytes are kept when decoding fails.
      */
     private function decodeMultiContentStream(string $bytes, string $filter): string
     {
-        $filters = $this->parseFilterChain($filter);
-        if ($filters === []) {
-            return $bytes;
-        }
-
-        $decoded = $bytes;
-        foreach ($filters as $name) {
-            if ($name !== 'FlateDecode' && $name !== 'Fl') {
-                return $bytes;
-            }
-
-            $next = $this->tryDecodeZlib($decoded);
-            if (!\is_string($next)) {
-                $next = $this->tryGzUncompress($decoded);
-            }
-
-            if (!\is_string($next)) {
-                $next = $this->tryGzInflate($decoded);
-            }
-
-            if (!\is_string($next)) {
-                return $bytes;
-            }
-
-            $decoded = $next;
-        }
-
-        return $decoded;
-    }
-
-    /**
-     * Attempt zlib decode without emitting runtime warnings.
-     */
-    private function tryDecodeZlib(string $data): string|false
-    {
-        \set_error_handler(static fn(): bool => true);
-        try {
-            $decoded = \zlib_decode($data);
-        } finally {
-            \restore_error_handler();
-        }
-
-        return \is_string($decoded) ? $decoded : false;
-    }
-
-    /**
-     * Attempt gzuncompress without emitting runtime warnings.
-     */
-    private function tryGzUncompress(string $data): string|false
-    {
-        \set_error_handler(static fn(): bool => true);
-        try {
-            $decoded = \gzuncompress($data);
-        } finally {
-            \restore_error_handler();
-        }
-
-        return \is_string($decoded) ? $decoded : false;
-    }
-
-    /**
-     * Attempt gzinflate without emitting runtime warnings.
-     */
-    private function tryGzInflate(string $data): string|false
-    {
-        \set_error_handler(static fn(): bool => true);
-        try {
-            $decoded = \gzinflate($data);
-        } finally {
-            \restore_error_handler();
-        }
-
-        return \is_string($decoded) ? $decoded : false;
+        return $this->decodeFilterChain($bytes, $this->resolveFilterChain($filter), 1) ?? $bytes;
     }
 
     /**
@@ -1094,18 +1012,19 @@ class ResourceCloner
         bool $hasDecodeParms = false,
         int $earlyChange = 1,
     ): array {
-        $chain = $this->parseFilterChain($filter);
+        $chain = $this->resolveFilterChain($filter);
         if ($chain === []) {
             return ['bytes' => $bytes, 'filter' => $filter];
         }
 
-        if ($this->pdfa === 1 && \in_array('JPXDecode', $chain, true)) {
+        if ($this->pdfa === 1 && \in_array(FilterType::JpxDecode, $chain, true)) {
             throw new ImportUnsupportedFeatureException(
                 'The source stream uses the JPXDecode filter, which ISO 19005-1 does not allow.',
             );
         }
 
-        if (\array_intersect(self::PDFA_FORBIDDEN_FILTERS, $chain) === []) {
+        // LZWDecode is the only filter ISO 19005 forbids in every PDF/A part.
+        if (!\in_array(FilterType::LzwDecode, $chain, true)) {
             return ['bytes' => $bytes, 'filter' => $filter];
         }
 
@@ -1133,47 +1052,28 @@ class ResourceCloner
     /**
      * Decode a stream through an ordered filter chain.
      *
-     * @param array<int, string> $chain       Ordered filter names.
-     * @param int                $earlyChange LZWDecode /EarlyChange parameter.
+     * The /DecodeParms predictor stage is deliberately left out: the caller keeps
+     * the original /DecodeParms entry, which is applied when the stream is read back.
+     *
+     * @param array<int, ?FilterType> $chain       Ordered filters, null for an unknown name.
+     * @param int                     $earlyChange LZWDecode /EarlyChange parameter.
      *
      * @return string|null Decoded bytes, or null when a filter of the chain cannot be applied.
      */
     private function decodeFilterChain(string $bytes, array $chain, int $earlyChange): ?string
     {
-        $filter = new \Com\Tecnick\Pdf\Filter\Filter();
-        $data = $bytes;
-        foreach ($chain as $name) {
-            $canonical = self::DECODABLE_FILTERS[$name] ?? '';
-            if ($canonical === '') {
-                return null;
-            }
-
-            if ($canonical === 'FlateDecode') {
-                $inflated = $this->tryDecodeZlib($data);
-                if (!\is_string($inflated)) {
-                    $inflated = $this->tryGzUncompress($data);
-                }
-
-                if (!\is_string($inflated)) {
-                    $inflated = $this->tryGzInflate($data);
-                }
-
-                if (!\is_string($inflated)) {
-                    return null;
-                }
-
-                $data = $inflated;
-                continue;
-            }
-
-            try {
-                $data = $filter->decode($canonical, $data, ['EarlyChange' => $earlyChange]);
-            } catch (\Throwable) {
+        foreach ($chain as $type) {
+            if (!\in_array($type, self::DECODABLE_FILTERS, true)) {
                 return null;
             }
         }
 
-        return $data;
+        try {
+            /** @var array<int, FilterType> $chain */
+            return (new ObjFilter())->decodeAll($chain, $bytes, ['EarlyChange' => $earlyChange]);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -1210,11 +1110,14 @@ class ResourceCloner
     }
 
     /**
-     * Parse a serialized /Filter token into an ordered list of filter names.
+     * Parse a serialized /Filter token into an ordered list of filters.
      *
-     * @return array<int, string>
+     * Both the PDF filter names and the inline-image abbreviations are recognised;
+     * a name that is not a standard filter is reported as null.
+     *
+     * @return array<int, ?FilterType>
      */
-    private function parseFilterChain(string $filter): array
+    private function resolveFilterChain(string $filter): array
     {
         $trimmed = \trim($filter);
         if ($trimmed === '') {
@@ -1222,7 +1125,7 @@ class ResourceCloner
         }
 
         if ($trimmed[0] === '/') {
-            return [\ltrim($trimmed, '/')];
+            return [$this->resolveFilterType(\ltrim($trimmed, '/'))];
         }
 
         if ($trimmed[0] !== '[' || \substr($trimmed, -1) !== ']') {
@@ -1235,21 +1138,28 @@ class ResourceCloner
             return [];
         }
 
-        $names = $matches[1] ?? [];
-        if ($names === []) {
-            return [];
-        }
-
         $out = [];
-        foreach ($names as $name) {
+        foreach ($matches[1] ?? [] as $name) {
             if ($name === '') {
                 continue;
             }
 
-            $out[] = $name;
+            $out[] = $this->resolveFilterType($name);
         }
 
         return $out;
+    }
+
+    /**
+     * Resolve a PDF filter name to its type, or null when it is not a standard filter.
+     */
+    private function resolveFilterType(string $name): ?FilterType
+    {
+        try {
+            return FilterType::fromLoose($name);
+        } catch (\Com\Tecnick\Pdf\Filter\Exception) {
+            return null;
+        }
     }
 
     /**

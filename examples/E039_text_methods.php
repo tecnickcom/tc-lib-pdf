@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E039_text_methods.php
  *
@@ -311,7 +313,8 @@ $bstyle = [
     2 => $defbstyle, // BOTTOM
     3 => $defbstyle, // LEFT
 ];
-$bstyle[0]['lineColor'] = $bstyle[3]['lineColor'] = '#e7e7e7';
+$bstyle[0]['lineColor'] = '#e7e7e7';
+$bstyle[3]['lineColor'] = '#e7e7e7';
 
 $pdf->setDefaultCellBorderPos(borderpos: $pdf::BORDERPOS_DEFAULT);
 $txtcell3 = $pdf->getTextCell(

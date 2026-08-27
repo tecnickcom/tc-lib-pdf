@@ -195,7 +195,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, string> $prop javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     protected function addJavaScriptField(
@@ -230,7 +229,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         );
         foreach ($prop as $key => $val) {
             if (\strcmp(\substr($key, -5), 'Color') === 0) {
-                $color = $this->color->getColorObj($val);
+                $color = $this->color->tryGetColorObj($val);
                 $val = $color === null ? '' : $color->getJsPdfColor();
             } else {
                 $val = "'" . $val . "'";
@@ -271,7 +270,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, mixed> $prp javascript field properties (see: Javascript for Acrobat API reference).
      *
      * @return TAnnotOpts Annotation properties.
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function getAnnotOptFromJSProp(array $prp): array
     {
@@ -404,7 +402,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             if (\is_array($prp['fillColor'])) {
                 $mk['bg'] = $prp['fillColor'];
             } elseif (\is_string($prp['fillColor'])) {
-                $fillColor = $this->color->getColorObj($prp['fillColor']);
+                $fillColor = $this->color->tryGetColorObj($prp['fillColor']);
                 if ($fillColor !== null) {
                     $mk['bg'] = $fillColor->getPDFacArray();
                 }
@@ -417,7 +415,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             if (\is_array($prp['strokeColor'])) {
                 $mk['bc'] = $prp['strokeColor'];
             } elseif (\is_string($prp['strokeColor'])) {
-                $strokeColor = $this->color->getColorObj($prp['strokeColor']);
+                $strokeColor = $this->color->tryGetColorObj($prp['strokeColor']);
                 if ($strokeColor !== null) {
                     $mk['bc'] = $strokeColor->getPDFacArray();
                 }
@@ -1298,13 +1296,12 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * Returns the PDF command to set the default fill color from the style stack.
      *
      * @return string
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function getPDFDefFillColor(): string
     {
         $style = $this->graph->getCurrentStyleArray();
         if (isset($style['fillColor']) && $style['fillColor'] !== '') {
-            $colobj = $this->color->getColorObj($style['fillColor']);
+            $colobj = $this->color->tryGetColorObj($style['fillColor']);
             if ($colobj !== null) {
                 return $colobj->getPdfColor();
             }
@@ -1321,7 +1318,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      *
      * @return TAnnotOpts merged Annotation options.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function mergeAnnotOptions(
         array $opt = [
@@ -1341,13 +1337,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $this->annotation_fonts[$fontKey] = (int) $this->font->getFont($fontKey)['i'];
         $fontstyle = $curfont['outraw'];
         if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && \trim($jsp['textColor']) !== '') {
-            $colobj = $this->color->getColorObj($jsp['textColor']);
+            $colobj = $this->color->tryGetColorObj($jsp['textColor']);
             if ($colobj !== null) {
                 $color = $colobj->getPdfColor();
             }
         }
         if ($color === '') {
-            $black = $this->color->getColorObj('black');
+            $black = $this->color->tryGetColorObj('black');
             $color = $black !== null ? $black->getPdfColor() : '';
         }
         $opt['da'] = $fontstyle . ' ' . $color;
@@ -1374,7 +1370,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @return int PDF Object ID.
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      * @throws \Com\Tecnick\File\Exception
@@ -1539,7 +1534,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @return int PDF Object ID.
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
      */
@@ -1615,7 +1609,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @return int PDF Object ID.
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
@@ -1689,7 +1682,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @return int PDF Object ID.
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
@@ -1762,7 +1754,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @return int PDF Object ID.
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
      */
@@ -1861,7 +1852,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @return int PDF Object ID.
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      * @throws \Com\Tecnick\File\Exception
      * @throws \Com\Tecnick\Pdf\Image\Exception
@@ -1888,13 +1878,13 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $text = \is_scalar($fieldValue) ? (string) $fieldValue : '';
         $txtColor = '';
         if (isset($jsp['textColor']) && \is_string($jsp['textColor']) && \trim($jsp['textColor']) !== '') {
-            $colobj = $this->color->getColorObj($jsp['textColor']);
+            $colobj = $this->color->tryGetColorObj($jsp['textColor']);
             if ($colobj !== null) {
                 $txtColor = $colobj->getPdfColor();
             }
         }
         if ($txtColor === '') {
-            $black = $this->color->getColorObj('black');
+            $black = $this->color->tryGetColorObj('black');
             if ($black !== null) {
                 $txtColor = $black->getPdfColor();
             }
@@ -1949,7 +1939,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSButton(
@@ -1979,7 +1968,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSCheckBox(string $name, float $posx, float $posy, float $width, array $jsp = []): void
@@ -1999,7 +1987,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSComboBox(
@@ -2035,7 +2022,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSListBox(
@@ -2069,7 +2055,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSRadioButton(string $name, float $posx, float $posy, float $width, array $jsp = []): void
@@ -2088,7 +2073,6 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param array<string, string> $jsp javascript field properties (see: Javascript for Acrobat API reference).
      * @throws PdfException in case of error.
      * @throws \Com\Tecnick\Pdf\Font\Exception
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
     public function addJSText(

@@ -15,6 +15,19 @@ insert_final_newline = true
 indent_style = space
 indent_size = 4
 
-[*.{js,json,scss,css,yml,vue}]
+[*.{js,json,scss,css,yml,yaml,vue}]
 indent_style = space
 indent_size = 2
+
+# Tabs, matching the [*] default the repository already uses for these.
+[*.{toml,xml,dist}]
+indent_style = tab
+
+# deb822 (control) and the Debian changelog require leading spaces, not tabs.
+[resources/debian/{control,changelog,copyright}]
+indent_style = space
+indent_size = 1
+
+# Two trailing spaces are a Markdown hard line break.
+[*.md]
+trim_trailing_whitespace = false

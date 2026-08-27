@@ -1,10 +1,10 @@
-#:schema https://mago.carthage.software/1.47.3/schema.json
+#:schema https://mago.carthage.software/1.47.4/schema.json
 version = "1"
 php-version = "8.2.0"
 
 [source]
 workspace = "."
-paths = ["src"]
+paths = ["src", "resources/autoload.php"]
 includes = ["vendor"]
 excludes = []
 

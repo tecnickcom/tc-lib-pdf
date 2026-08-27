@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E049_output_targets_integration.php
  *
@@ -110,7 +112,7 @@ if ($mode === 'save') {
         header('Content-Type: text/plain; charset=utf-8');
     }
 
-    echo 'Saved PDF to: ' . $targetDir . '/' . '049_output_targets_integration.pdf' . "\n";
+    echo 'Saved PDF to: ' . $targetDir . '/049_output_targets_integration.pdf' . "\n";
     exit();
 }
 

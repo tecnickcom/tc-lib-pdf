@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E048_page_boxes_prepress.php
  *
@@ -139,14 +141,14 @@ foreach (['MediaBox', 'CropBox', 'BleedBox', 'TrimBox', 'ArtBox'] as $name) {
     $pdf->page->addContent($pdf->graph->getRect($x, $y, $w, $h, 'D', $styles[$name]));
 
     $pdf->page->addContent($pdf->getTextCell(
-        txt: $name
-            . sprintf(
-                ' [%.1f, %.1f, %.1f, %.1f]',
-                (float) ($box['llx'] ?? 0.0),
-                (float) ($box['lly'] ?? 0.0),
-                (float) ($box['urx'] ?? 0.0),
-                (float) ($box['ury'] ?? 0.0),
-            ),
+        txt: sprintf(
+            '%s [%.1f, %.1f, %.1f, %.1f]',
+            $name,
+            (float) ($box['llx'] ?? 0.0),
+            (float) ($box['lly'] ?? 0.0),
+            (float) ($box['urx'] ?? 0.0),
+            (float) ($box['ury'] ?? 0.0),
+        ),
         posx: 25,
         posy: $labelY,
         width: 180,

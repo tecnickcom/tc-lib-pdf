@@ -18,6 +18,7 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf;
 
+use Com\Tecnick\Color\Exception as ColorException;
 use Com\Tecnick\File\Exception as FileException;
 use Com\Tecnick\Pdf\Encrypt\Exception as EncryptException;
 use Com\Tecnick\Pdf\Exception as PdfException;
@@ -1207,6 +1208,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF XObjects entry.
      *
+     * @throws ColorException
      * @throws EncryptException
      * @throws FontException
      * @throws PdfException
@@ -1291,6 +1293,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
     /**
      * Returns the PDF Resources Dictionary entry.
+     *
+     * @throws ColorException
      */
     protected function getOutResourcesDict(): string
     {
@@ -1330,6 +1334,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     /**
      * Returns the PDF Pattern objects entry.
      *
+     * @throws ColorException
      * @throws EncryptException
      * @throws PdfException
      */
@@ -1516,6 +1521,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
     /**
      * Build a minimized resources dictionary fragment for a pattern stream.
+     *
+     * @throws ColorException
      */
     protected function getPatternStreamResourceDict(string $stream): string
     {

@@ -159,6 +159,7 @@ class PdfColorTest extends TestUtil
         $this->assertFalse($obj->exposeIsRegisteredSpotColor('black'));
     }
 
+    /** @throws \Throwable */
     public function testGetPdfColorUsesSpotForRegisteredSpotColorByBareName(): void
     {
         $obj = $this->getTestObject();
@@ -255,6 +256,7 @@ class PdfColorTest extends TestUtil
     // tests pin the end-to-end contract at the PdfColor adapter boundary.
     // ---------------------------------------------------------------------
 
+    /** @throws \Throwable */
     public function testGetPdfSpotObjectsPreservesCmykSpotColorName(): void
     {
         $obj = $this->getTestObject();
@@ -282,6 +284,7 @@ class PdfColorTest extends TestUtil
         $this->assertSame(6, $pon);
     }
 
+    /** @throws \Throwable */
     public function testGetPdfSpotObjectsEncodesPdfNameDelimitersInSpotName(): void
     {
         $obj = $this->getTestObject();
@@ -301,6 +304,7 @@ class PdfColorTest extends TestUtil
         $this->assertStringContainsString('/Separation /Spot#20#28Test#29#2F50#25 /DeviceCMYK', $out);
     }
 
+    /** @throws \Throwable */
     public function testGetPdfSpotObjectsPreservesLabSpotColorName(): void
     {
         $obj = $this->getTestObject();
@@ -314,6 +318,7 @@ class PdfColorTest extends TestUtil
         $this->assertStringNotContainsString('brandlabink', $out);
     }
 
+    /** @throws \Throwable */
     public function testGetPdfColorByRegisteredNameEmitsSeparationWithPreservedName(): void
     {
         $obj = $this->getTestObject();
@@ -333,5 +338,39 @@ class PdfColorTest extends TestUtil
         // ...and the Separation object that backs that reference keeps the name.
         $pon = 0;
         $this->assertStringContainsString('/Separation /SPOTTYPE#20123#20C', $obj->getPdfSpotObjects($pon));
+    }
+
+    /** @throws \Throwable */
+    public function testGetPdfColorWithoutAllowSpotNeverEmitsSeparation(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->addSpotColorFromArray('Brand Ink', [
+            'cyan' => 0.1,
+            'magenta' => 0.2,
+            'yellow' => 0.3,
+            'key' => 0.4,
+        ]);
+
+        // A registered spot color, the spot() function and a Lab color resolve
+        // to a Separation only while spot colors are allowed.
+        $this->assertStringContainsString('cs', $obj->getPdfColor('Brand Ink'));
+        $this->assertSame('', $obj->getPdfColor('Brand Ink', false, 1, false));
+        $this->assertSame('', $obj->getPdfColor('spot(Brand Ink)', false, 1, false));
+        $this->assertStringContainsString('cs', $obj->getPdfColor('lab(50,20,-30)'));
+        $this->assertStringContainsString('rg', $obj->getPdfColor('lab(50,20,-30)', false, 1, false));
+
+        // A device color is unaffected by the flag.
+        $this->assertSame($obj->getPdfColor('red'), $obj->getPdfColor('red', false, 1, false));
+    }
+
+    public function testGetPdfColorWithoutAllowSpotUnderForcedDeviceCmyk(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setForceDeviceCmyk(true);
+
+        // 'red' is a default spot color name: it yields a Separation while spot
+        // colors are allowed, and DeviceCMYK otherwise.
+        $this->assertStringContainsString('cs', $obj->getPdfColor('red'));
+        $this->assertSame("0.000000 1.000000 1.000000 0.000000 k\n", $obj->getPdfColor('red', false, 1, false));
     }
 }

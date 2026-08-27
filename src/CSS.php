@@ -18,6 +18,7 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf;
 
+use Com\Tecnick\Color\Exception as ColorException;
 use Com\Tecnick\Pdf\CSS\CascadeContext;
 use Com\Tecnick\Pdf\CSS\ImportanceNormalizer;
 use Com\Tecnick\Pdf\CSS\Specificity;
@@ -351,7 +352,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @return BorderStyle border properties.
      *
-     * @throws \Com\Tecnick\Color\Exception
      * @throws \Com\Tecnick\Pdf\Exception
      */
     protected function getCSSBorderStyle(string $cssborder): array
@@ -1128,7 +1128,6 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      * @return array<string, string> CSS styles (selector => properties).
      *
      * @throws \Com\Tecnick\File\Exception
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function getCSSArrayFromHTML(string &$html): array
     {
@@ -1225,11 +1224,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
     /**
      * Parse and normalize CSS color.
      *
+     * An unparseable value yields an empty string, so the declaration is
+     * dropped instead of aborting the rendering of the document.
+     *
      * @param string $color CSS color string to parse.
      *
      * @return string CSS color representation.
-     *
-     * @throws \Com\Tecnick\Color\Exception
      */
     protected function getCSSColor(string $color): string
     {
@@ -1238,7 +1238,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             return $spot;
         }
 
-        $colobj = $this->color->getColorObj($color);
+        $colobj = $this->color->tryGetColorObj($color);
         if ($colobj === null) {
             return '';
         }
@@ -1266,7 +1266,12 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     continue;
                 }
 
-                $this->registerCSSSpotRule($name, $ruleBody);
+                try {
+                    $this->registerCSSSpotRule($name, $ruleBody);
+                } catch (ColorException $colorException) {
+                    // Skip a rule the color engine rejects, as for a malformed body.
+                    unset($colorException);
+                }
             }
         }
 
@@ -1275,6 +1280,8 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
 
     /**
      * Register a single @spot rule body against the color engine.
+     *
+     * @throws ColorException if the color engine rejects the name
      */
     protected function registerCSSSpotRule(string $name, string $ruleBody): void
     {

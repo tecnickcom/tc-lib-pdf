@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E066_import_document_append.php
  *
@@ -75,7 +77,7 @@ $bfont = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($bfont['out']);
 $pdf->addHTMLCell(
-    html: '<h1>Document append demo</h1>' . '<p>The following pages are imported from a separate source document.</p>',
+    html: '<h1>Document append demo</h1><p>The following pages are imported from a separate source document.</p>',
     posx: 15,
     posy: 20,
     width: 160,

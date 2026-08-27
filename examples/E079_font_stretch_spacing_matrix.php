@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E079_font_stretch_spacing_matrix.php
  *
@@ -208,6 +210,7 @@ foreach ($fonts as $family) {
         foreach ($stretchRatios as $ratio) {
             $pct = (int) \round($ratio * 100.0);
             foreach ($spacingMillim as $spacing) {
+                $spacingLabel = \sprintf('%+.3F', $spacing);
                 $html .=
                     '<table border="1" cellpadding="3" cellspacing="0" style="width:100%;"><tr><td>'
                     . '<div style="text-align:'
@@ -225,7 +228,7 @@ foreach ($fonts as $family) {
                     . $pct
                     . '%</span> | '
                     . '<span style="color:blue;">Spacing = '
-                    . \sprintf('%+.3F', $spacing)
+                    . $spacingLabel
                     . 'mm</span><br />'
                     . 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. In sed imperdiet lectus. '
                     . 'Phasellus quis velit velit, non condimentum quam. Sed neque urna, ultrices ac '

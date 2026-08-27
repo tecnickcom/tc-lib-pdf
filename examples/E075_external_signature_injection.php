@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * E075_external_signature_injection.php
  *
@@ -177,7 +179,7 @@ $signedPdf = $pdf->applyExternalSignature(
 if ($mode === 'save') {
     $targetDir = \dirname(__DIR__) . '/target';
     if (!is_dir($targetDir)) {
-        mkdir($targetDir, 0777, true);
+        mkdir($targetDir, 0o777, true);
     }
 
     $preparedPath = $targetDir . '/E075_prepared_unsigned_external_signature.pdf';
