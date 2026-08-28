@@ -447,6 +447,18 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     ];
 
     /**
+     * Internal marker for a collapsible space that must survive whitespace collapsing.
+     * It is turned back into a space by processHTMLDOMText() and is never rendered.
+     */
+    protected const HTML_KEPT_SPACE = "\u{E01F}";
+
+    /**
+     * PCRE character class matching every collapsible whitespace character,
+     * that is any "\s" character except the non-breaking ones.
+     */
+    protected const HTML_COLLAPSIBLE_SPACE = '[^\S' . self::NO_BREAK_SPACE_CLASS . ']';
+
+    /**
      * HTML character replacements.
      *
      * @var array<string, string>
@@ -742,7 +754,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function strTrimLeft(string $str, string $replace = ''): string
     {
-        return \preg_replace('/^[^\S\xa0]+/u', $replace, $str) ?? '';
+        return \preg_replace('/^' . self::HTML_COLLAPSIBLE_SPACE . '+/u', $replace, $str) ?? '';
     }
 
     /**
@@ -755,7 +767,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
      */
     public function strTrimRight(string $str, string $replace = ''): string
     {
-        return \preg_replace('/[^\S\xa0]+$/u', $replace, $str) ?? '';
+        return \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+$/u', $replace, $str) ?? '';
     }
 
     /**
@@ -829,14 +841,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 $html_b =
                     \preg_replace("'<xre([^\>]*)>(.*?)\n(.*?)</pre>'si", "<xre\\1>\\2<br />\\3</pre>", $html_b) ?? '';
             }
-            while (\preg_match("'<xre([^\\>]*)>(.*?)[^\\S\\xa0](.*?)</pre>'ui", $html_b) === 1) {
+            $prespace = "'<xre([^\\>]*)>(.*?)" . self::HTML_COLLAPSIBLE_SPACE . "(.*?)</pre>'ui";
+            while (\preg_match($prespace, $html_b) === 1) {
                 // preserve spaces on <pre> tag
-                $html_b =
-                    \preg_replace(
-                        "'<xre([^\\>]*)>(.*?)[^\\S\\xa0](.*?)</pre>'ui",
-                        "<xre\\1>\\2&nbsp;\\3</pre>",
-                        $html_b,
-                    ) ?? '';
+                $html_b = \preg_replace($prespace, "<xre\\1>\\2" . self::HTML_KEPT_SPACE . "\\3</pre>", $html_b) ?? '';
             }
             $html = $html_a . $html_b . \substr($html, $pos + 6);
             $offset = \strlen($html_a . $html_b);
@@ -990,9 +998,9 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         // remove extra spaces
         $html = \preg_replace('/[\s]+<\/(table|tr|ul|ol|dl)>/', '</\\1>', $html) ?? '';
-        $html = \preg_replace('/[^\\S\\xa0]+<\/(td|th|li|dt|dd)>/u', '</\\1>', $html) ?? '';
+        $html = \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+<\/(td|th|li|dt|dd)>/u', '</\\1>', $html) ?? '';
         $html = \preg_replace('/[\s]+<(tr|td|th|li|dt|dd)/', '<\\1', $html) ?? '';
-        $html = \preg_replace('/[^\\S\\xa0]+<(ul|ol|dl|br)/u', '<\\1', $html) ?? '';
+        $html = \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+<(ul|ol|dl|br)/u', '<\\1', $html) ?? '';
         $html =
             \preg_replace(
                 '/<\/(table|tr|td|th|blockquote|dd|dt|dl|div|h1|h2|h3|h4|h5|h6|hr|li|ol|ul|p)>[\s]+</',
@@ -1001,23 +1009,27 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ) ?? '';
         $html = \preg_replace('/<\/(td|th)>/', '<marker style="font-size:0"/></\\1>', $html) ?? '';
         $html = \preg_replace('/<\/table>([\s]*)<marker style="font-size:0"\/>/', '</table>', $html) ?? '';
-        $html = \preg_replace('/[^\\S\\xa0]+<img/u', chr(32) . '<img', $html) ?? '';
-        $html = \preg_replace('/<img([^\>]*)>[\s]+([^\<])/xi', '<img\\1>&nbsp;\\2', $html) ?? '';
+        $html = \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+<img/u', chr(32) . '<img', $html) ?? '';
+        $html = \preg_replace('/<img([^\>]*)>[\s]+([^\<])/xi', '<img\\1>' . self::HTML_KEPT_SPACE . '\\2', $html) ?? '';
         $html = \preg_replace('/<img([^\>]*)>/xi', '<img\\1><span><marker style="font-size:0"/></span>', $html) ?? '';
         // restore pre tag
         $html = \preg_replace('/<xre/', '<pre', $html) ?? '';
         $html = \preg_replace('/<textarea([^\>]*)>([^\<]*)<\/textarea>/xi', '<textarea\\1 value="\\2" />', $html) ?? '';
-        $html = \preg_replace('/<li([^\>]*)><\/li>/', '<li\\1>&nbsp;</li>', $html) ?? '';
+        $html = \preg_replace('/<li([^\>]*)><\/li>/', '<li\\1>' . self::HTML_KEPT_SPACE . '</li>', $html) ?? '';
         $html =
-            \preg_replace('/<li([^\>]*)>[^\\S\\xa0]*<img/u', '<li\\1><font size="1">&nbsp;</font><img', $html) ?? '';
+            \preg_replace(
+                '/<li([^\>]*)>' . self::HTML_COLLAPSIBLE_SPACE . '*<img/u',
+                '<li\\1><font size="1">' . self::HTML_KEPT_SPACE . '</font><img',
+                $html,
+            ) ?? '';
         // preserve some spaces
-        $html = \preg_replace('/<([^\>\/]*)>[\s]/', '<\\1>&nbsp;', $html) ?? '';
-        $html = \preg_replace('/[\s]<\/([^\>]*)>/', '&nbsp;</\\1>', $html) ?? '';
+        $html = \preg_replace('/<([^\>\/]*)>[\s]/', '<\\1>' . self::HTML_KEPT_SPACE, $html) ?? '';
+        $html = \preg_replace('/[\s]<\/([^\>]*)>/', self::HTML_KEPT_SPACE . '</\\1>', $html) ?? '';
         // fix sub/sup alignment
         $html = \preg_replace('/<su([bp])/', '<zws/><su\\1', $html) ?? '';
         $html = \preg_replace('/<\/su([bp])>/', '</su\\1><zws/>', $html) ?? '';
         // replace multiple spaces with a single space
-        $html = \preg_replace('/[^\\S\\xa0]+/u', chr(32), $html) ?? '';
+        $html = \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+/u', chr(32), $html) ?? '';
 
         // trim string
         $html = $this->strTrim($html);
@@ -1459,6 +1471,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $decoded = \html_entity_decode($element, ENT_QUOTES, $encoding);
+        $decoded = \str_replace(self::HTML_KEPT_SPACE, ' ', $decoded);
         $dom[$key]['value'] = \stripslashes($decoded);
     }
 
@@ -9615,17 +9628,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $mode = $this->getHTMLWhiteSpaceMode($hrc, $key);
         if ($mode === 'pre' || $mode === 'pre-wrap') {
-            return \str_replace("\u{00A0}", ' ', $text);
+            return $text;
         }
 
         if ($mode === 'pre-line') {
-            $text = \str_replace("\u{00A0}", ' ', $text);
             $text = \str_replace(["\r\n", "\r", "\f"], "\n", $text);
             $lines = \explode("\n", $text);
             $count = \count($lines);
             for ($idx = 0; $idx < $count; ++$idx) {
                 $lineText = $lines[$idx] ?? '';
-                $normalizedLine = \preg_replace('/[^\S\n]+/u', ' ', $lineText);
+                $normalizedLine = \preg_replace('/[^\S\n' . self::NO_BREAK_SPACE_CLASS . ']+/u', ' ', $lineText);
                 $line = \is_string($normalizedLine) ? $normalizedLine : '';
                 $lines[$idx] = \trim($line, ' ');
             }
@@ -9633,7 +9645,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return \implode("\n", $lines);
         }
 
-        $text = \preg_replace('/\s+/u', ' ', $text) ?? '';
+        $text = \preg_replace('/' . self::HTML_COLLAPSIBLE_SPACE . '+/u', ' ', $text) ?? '';
         if ($text === '') {
             return '';
         }
@@ -9833,7 +9845,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     protected function cleanupText(string $txt): string
     {
         $txt = \str_replace("\r", ' ', $txt);
-        $txt = \str_replace($this->uniconv->chr(UnicodeConstant::NO_BREAK_SPACE), ' ', $txt);
+        $txt = \str_replace(self::HTML_KEPT_SPACE, ' ', $txt);
 
         if (!$this->htmlRenderSoftHyphen) {
             return \str_replace($this->uniconv->chr(UnicodeConstant::SOFT_HYPHEN), '', $txt);

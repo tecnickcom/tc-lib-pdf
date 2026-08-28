@@ -692,7 +692,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.72.0';
+    protected string $version = '8.72.1';
 
     /**
      * Encrypt object.
@@ -1083,21 +1083,6 @@ abstract class Base
      * @var array<int, TAnnot>
      */
     protected array $annotation = [];
-
-    /**
-     * Array containing the regular expression used to identify whitespaces or word separators.
-     *
-     * @var array{
-     *         r: string,
-     *         p: string,
-     *         m: string,
-     *      }
-     */
-    protected array $spaceregexp = [
-        'r' => '/[^\S\xa0]/',
-        'p' => '[^\S\xa0]',
-        'm' => '',
-    ];
 
     /**
      * File name of the PDF document.

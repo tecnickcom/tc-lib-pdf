@@ -711,6 +711,75 @@ $pdf->addHTMLCell(html: $html_vc2, posx: 20, posy: 120, width: 150, height: 100)
 
 // ----------
 
+// HTML G - Non-breaking characters
+//
+// Every column is 33 mm wide, so "AAAA BBBB CCCC" fits on one line but
+// "AAAA BBBB CCCC DDDD" does not. Only the first column, joined by an ordinary
+// space, may break between CCCC and DDDD: in all the others the two words move
+// to the second line together.
+
+$pageNB = $pdf->addPage();
+
+$pdf->page->addContent($bfont6['out']);
+
+$nb_separators = [
+    'U+0020 SPACE' => ' ',
+    'U+00A0 NO-BREAK SPACE' => "\u{00A0}",
+    'U+2007 FIGURE SPACE' => "\u{2007}",
+    'U+202F NARROW NO-BREAK' => "\u{202F}",
+];
+
+$nb_posx = 20.0;
+foreach ($nb_separators as $nb_label => $nb_separator) {
+    $nb_text = 'AAAA BBBB CCCC' . $nb_separator . 'DDDD EEEE';
+
+    $pdf->addHTMLCell(
+        html: '<p style="font-size:7pt;color:#666666;">' . $nb_label . '</p>',
+        posx: $nb_posx,
+        posy: 20,
+        width: 36,
+    );
+    $pdf->addHTMLCell(html: '<p style="font-size:10pt;">' . $nb_text . '</p>', posx: $nb_posx, posy: 28, width: 33);
+    $pdf->addTextCell(
+        txt: $nb_text,
+        pid: -1,
+        posx: $nb_posx,
+        posy: 50,
+        width: 33,
+        height: 30,
+        offset: 0,
+        linespace: 0,
+        valign: \Com\Tecnick\Pdf\TextVAlign::Top,
+        halign: \Com\Tecnick\Pdf\TextHAlign::Left,
+        cell: null,
+        styles: [],
+        strokewidth: 0,
+        wordspacing: 0,
+        leading: 0,
+        rise: 0,
+        jlast: true,
+        fill: true,
+        stroke: false,
+        underline: false,
+        linethrough: false,
+        overline: false,
+        clip: false,
+        drawcell: false,
+    );
+
+    $nb_posx += 41.0;
+}
+
+// A NO-BREAK SPACE keeps a short word attached to the one that follows it.
+
+$html_nb = <<<HTML
+    <p style="font-size:10pt;">Заголовок в&nbsp;двух строках и&nbsp;ещё немного текста для переноса.</p>
+    HTML;
+
+$pdf->addHTMLCell(html: $html_nb, posx: 20, posy: 90, width: 60);
+
+// ----------
+
 // get PDF document as raw string
 $rawpdf = $pdf->getOutPDFString();
 

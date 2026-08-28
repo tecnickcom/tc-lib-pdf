@@ -258,23 +258,11 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected int $structtreerootoid = 0;
 
     /**
-     * ParentTree object ID.
-     */
-    protected int $parenttreeoid = 0;
-
-    /**
      * Struct parent keys assigned to page object IDs.
      *
      * @var array<int, int>
      */
     protected array $pagestructparents = [];
-
-    /**
-     * Count of MCID-tagged content blocks per page object ID, for PDF/UA structure tree building.
-     *
-     * @var array<int, int>
-     */
-    protected array $pagestructmcids = [];
 
     /**
      * Struct parent keys assigned to annotation object IDs.
@@ -344,7 +332,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function getOutPDFBody(): string
     {
         if ($this->pdfuaMode === '') {
-            $this->pagestructmcids = [];
             $this->pdfuaStructLog = [];
             $this->pdfuaStructStack = [];
         }
@@ -1801,9 +1788,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     {
         if ($this->pdfuaMode === '') {
             $this->pagestructparents = [];
-            $this->pagestructmcids = [];
             $this->annotstructparents = [];
-            $this->parenttreeoid = 0;
             $this->structtreerootoid = 0;
             return '';
         }
@@ -1811,7 +1796,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         $structLog = $this->pdfuaStructLog;
         if ($structLog === []) {
             $this->annotstructparents = [];
-            $this->parenttreeoid = 0;
             $this->structtreerootoid = 0;
             return '';
         }
@@ -1846,7 +1830,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         $this->pon = $nextOid - 1;
-        $this->parenttreeoid = $parentTreeOid;
         $this->structtreerootoid = $structTreeRootOid;
 
         $childEntryIdx = [];
@@ -2170,7 +2153,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
     protected function setPageStructParents(string $pdfpages): string
     {
         $this->pagestructparents = [];
-        $this->pagestructmcids = [];
         $pages = $this->page->getPages();
         $parentKey = 0;
         foreach ($pages as $page) {
@@ -5202,24 +5184,6 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         }
 
         return $response;
-    }
-
-    /** @param int<0, max> $value */
-    protected function asn1EncodeBase128Int(int $value): string
-    {
-        $bytes = [$value & 0x7F];
-        $value = (int) ($value / 128);
-        while ($value > 0) {
-            \array_unshift($bytes, ($value & 0x7F) | 0x80);
-            $value = (int) ($value / 128);
-        }
-
-        $out = '';
-        foreach ($bytes as $byte) {
-            $out .= \chr($byte);
-        }
-
-        return $out;
     }
 
     /**

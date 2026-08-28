@@ -573,13 +573,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             . ')/';
 
     /**
-     * Default SVG minimum length in points.
-     *
-     * @var float
-     */
-    protected const SVGMINPNTLEN = 0.01;
-
-    /**
      * Default SVG minimum float diff.
      *
      * @var float
@@ -737,24 +730,6 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
         'writing-mode' => 'lr-tb',
         'text-color' => 'black',
         'transfmatrix' => self::TMXID,
-    ];
-
-    /**
-     * List of possible SVG font attributes to parse.
-     *
-     * @var array<string>
-     *
-     */
-    protected const FONTATTRIBS = [
-        'font-family',
-        'font-size-adjust',
-        'font-size',
-        'font-stretch',
-        'font-style',
-        'font-variant',
-        'font-weight',
-        'letter-spacing',
-        'text-decoration',
     ];
 
     /**

@@ -30,10 +30,36 @@ class TextTest extends TestUtil
         }
     }
 
+    /**
+     * Code points that must never provide a line break opportunity.
+     *
+     * @var array<int, int>
+     */
+    private const NO_BREAK_CODEPOINTS = [0x00A0, 0x180E, 0x2007, 0x202F, 0x2060, 0xFEFF];
+
     /** @throws \Throwable */
     protected function getTestObject(): \Com\Tecnick\Pdf\Tcpdf
     {
         return new \Com\Tecnick\Pdf\Tcpdf();
+    }
+
+    /**
+     * @param array<int, int> $ordarr
+     * @phpstan-param array<int, TextLinePos> $lines
+     */
+    private function getLineText(array $ordarr, array $lines, int $index): string
+    {
+        $line = $lines[$index] ?? null;
+        if ($line === null) {
+            $this->fail('Missing line ' . $index);
+        }
+
+        $text = '';
+        foreach (\array_slice($ordarr, $line['pos'], $line['chars']) as $ord) {
+            $text .= (string) \mb_chr($ord);
+        }
+
+        return $text;
     }
 
     /** @throws \Throwable */
@@ -1627,7 +1653,7 @@ class TextTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
 
-        $this->assertSame('A B C', $obj->exposeCleanupText("A\rB\u{00A0}C\u{00AD}"));
+        $this->assertSame("A B\u{00A0}C", $obj->exposeCleanupText("A\rB\u{00A0}C\u{00AD}"));
         $this->assertSame([65, 173], \array_values($obj->exposeRemoveOrdArrSoftHyphens([65, 173, 8203, 173])));
         $this->assertSame([36, 8203, 65], $obj->exposeAddOrdArrBreakPoints([36, 65]));
         $this->assertSame([65, 66], $obj->exposeReplaceUnicodeChars([65, 66]));
@@ -1677,6 +1703,82 @@ class TextTest extends TestUtil
         $newlineLines = $obj->exposeSplitLines($ordarrWithNewline, $dimWithNewline, 1000);
         $this->assertSame("Cell Borders\nnextline", $textWithNewline);
         $this->assertCount(2, $newlineLines);
+    }
+
+    /**
+     * Non-breaking code points must reach the line breaker unchanged.
+     *
+     * @throws \Throwable
+     */
+    public function testCleanupTextKeepsNonBreakingCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        foreach (self::NO_BREAK_CODEPOINTS as $ord) {
+            $chr = (string) \mb_chr($ord);
+            $this->assertSame('A' . $chr . 'B', $obj->exposeCleanupText('A' . $chr . 'B'));
+        }
+    }
+
+    /**
+     * A break opportunity falling on a non-breaking code point must be dropped,
+     * while every other one is kept.
+     *
+     * @throws \Throwable
+     */
+    public function testRemoveNoBreakSplitsDropsNonBreakingOpportunities(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+
+        foreach (self::NO_BREAK_CODEPOINTS as $ord) {
+            $chr = (string) \mb_chr($ord);
+            $uniarr = (new \Com\Tecnick\Unicode\Convert())->strToOrdArr('aaa' . $chr . 'bbb ccc');
+            /** @var array<int, int> $uniarr */
+            $dim = $obj->exposeRemoveNoBreakSplits($obj->font->getOrdArrDims($uniarr));
+
+            $ords = [];
+            foreach ($dim['split'] as $data) {
+                $ords[] = $data['ord'];
+            }
+
+            $this->assertNotContains($ord, $ords, \sprintf('U+%04X must not be a break opportunity', $ord));
+            $this->assertContains(0x0020, $ords, \sprintf('U+%04X must not remove the space break', $ord));
+            $this->assertCount($dim['words'], $dim['split']);
+        }
+    }
+
+    /**
+     * A run joined by a non-breaking code point must move to the next line as a whole.
+     *
+     * @throws \Throwable
+     */
+    public function testSplitLinesKeepsNonBreakingRunsTogether(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFont($obj);
+        $obj->addPage();
+
+        // Width that fits "AAAA BBBB CCCC" but not the following word.
+        [, , $refdim] = $obj->exposePrepareText('AAAA BBBB CCCC');
+        $pwidth = $refdim['totwidth'] * 1.01;
+
+        [, $spaceord, $spacedim] = $obj->exposePrepareText('AAAA BBBB CCCC DDDD EEEE');
+        $spacelines = $obj->exposeSplitLines($spaceord, $spacedim, $pwidth);
+        $this->assertSame('AAAA BBBB CCCC', $this->getLineText($spaceord, $spacelines, 0));
+
+        foreach (self::NO_BREAK_CODEPOINTS as $ord) {
+            $chr = (string) \mb_chr($ord);
+            [, $ordarr, $dim] = $obj->exposePrepareText('AAAA BBBB CCCC' . $chr . 'DDDD EEEE');
+            $lines = $obj->exposeSplitLines($ordarr, $dim, $pwidth);
+            $message = \sprintf('U+%04X must not allow a break between CCCC and DDDD', $ord);
+
+            $second = $this->getLineText($ordarr, $lines, 1);
+            $this->assertSame('AAAA BBBB', $this->getLineText($ordarr, $lines, 0), $message);
+            $this->assertStringContainsString('CCCC', $second, $message);
+            $this->assertStringContainsString('DDDD', $second, $message);
+        }
     }
 
     /**
@@ -2591,7 +2693,7 @@ class TextTest extends TestUtil
         $obj = $this->getInternalTestObject();
 
         $cleanupMethod = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'cleanupText');
-        $this->assertSame('A B C', $cleanupMethod->invoke($obj, "A\rB\u{00A0}C\u{00AD}"));
+        $this->assertSame("A B\u{00A0}C", $cleanupMethod->invoke($obj, "A\rB\u{00A0}C\u{00AD}"));
 
         $removeMethod = new \ReflectionMethod(\Com\Tecnick\Pdf\Text::class, 'removeOrdArrSoftHyphens');
         $this->assertSame([65, 66], $removeMethod->invoke($obj, [65, 173, 8203, 66]));

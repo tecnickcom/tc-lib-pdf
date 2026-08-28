@@ -74,7 +74,6 @@ use Com\Tecnick\Pdf\Signature\SignatureAppearanceMode;
  * @property bool $compress
  * @property string $pdffilename
  * @property string $encpdffilename
- * @property array{r: string, p: string, m: string} $spaceregexp
  * @property array{zoom: int|string, layout: string, mode: string} $display
  * @property array<string, string> $lang
  * @property TUserRights $userrights
@@ -273,14 +272,6 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     protected function setUnicodeMode(bool $isunicode): void
     {
         $this->isunicode = $isunicode;
-        // check if PCRE Unicode support is enabled
-        if ($this->isunicode && \preg_match('/\pL/u', 'a') === 1) {
-            $this->setSpaceRegexp('/(?!\xa0)[\s\p{Z}]/u');
-            return;
-        }
-
-        // PCRE unicode support is turned OFF
-        $this->setSpaceRegexp('/[^\S\xa0]/');
     }
 
     /**
@@ -339,30 +330,16 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
-     * Set regular expression to detect whitespaces or word separators.
-     * The pattern delimiter must be the forward-slash character "/".
-     * Some example patterns are:
-     * <pre>
-     * Non-Unicode or missing PCRE unicode support: "/[^\S\xa0]/"
-     * Unicode and PCRE unicode support: "/(?!\xa0)[\s\p{Z}]/u"
-     * Unicode and PCRE unicode support in Chinese mode: "/(?!\xa0)[\s\p{Z}\p{Lo}]/u"
-     * if PCRE unicode support is turned ON ("\P" is the negate class of "\p"):
-     *      \s     : any whitespace character
-     *      \p{Z}  : any separator
-     *      \p{Lo} : Unicode letter or ideograph that does not have lowercase and uppercase variants.
-     *      \xa0   : Unicode Character 'NO-BREAK SPACE' (U+00A0)
-     * </pre>
+     * No-op kept for API compatibility.
      *
-     * @param string $regexp regular expression (leave empty for default).
+     * Word separators are resolved from the Unicode Bidi class of each code
+     * point by the font layer, so no configurable pattern is involved.
+     *
+     * @param string $regexp Ignored.
      */
-    public function setSpaceRegexp(string $regexp = '/[^\S\xa0]/'): void
+    public function setSpaceRegexp(string $regexp = ''): void
     {
-        $parts = \explode('/', $regexp);
-        $this->spaceregexp = [
-            'r' => $regexp,
-            'p' => !isset($parts[1]) || $parts[1] === '' ? '[\s]' : $parts[1],
-            'm' => !isset($parts[2]) || $parts[2] === '' ? '' : $parts[2],
-        ];
+        unset($regexp);
     }
 
     /**

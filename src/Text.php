@@ -106,6 +106,27 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected const TEXTCELL_MIN_FONTSIZE = 4.0;
 
     /**
+     * Code points that never provide a line break opportunity:
+     * Unicode Line_Break GL (glue) and WJ (word joiner).
+     *
+     * @var array<int, bool>
+     */
+    protected const NO_BREAK_ORD = [
+        0x00A0 => true, // NO-BREAK SPACE
+        0x180E => true, // MONGOLIAN VOWEL SEPARATOR
+        0x2007 => true, // FIGURE SPACE
+        0x202F => true, // NARROW NO-BREAK SPACE
+        0x2060 => true, // WORD JOINER
+        0xFEFF => true, // ZERO WIDTH NO-BREAK SPACE
+    ];
+
+    /**
+     * PCRE character class fragment listing the NO_BREAK_ORD code points
+     * that "\s" matches under the "u" modifier.
+     */
+    protected const NO_BREAK_SPACE_CLASS = '\x{00A0}\x{180E}\x{2007}\x{202F}';
+
+    /**
      * Unicode ligature codepoints that require /ActualText in PDF/UA mode,
      * mapped to their decomposed UTF-8 text equivalents.
      *
@@ -2494,6 +2515,37 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Drop the line break opportunities that fall on a non-breaking code point.
+     *
+     * The font layer derives them from the Bidi class, which groups FIGURE SPACE
+     * with the ordinary spaces and WORD JOINER with the zero width space.
+     *
+     * @param TTextDims $dim Array of dimensions.
+     *
+     * @return TTextDims Array of dimensions with the break opportunities filtered.
+     */
+    protected function removeNoBreakSplits(array $dim): array
+    {
+        $split = [];
+        foreach ($dim['split'] as $data) {
+            if (isset(self::NO_BREAK_ORD[$data['ord']])) {
+                continue;
+            }
+
+            $split[] = $data;
+        }
+
+        if (\count($split) === \count($dim['split'])) {
+            return $dim;
+        }
+
+        $dim['split'] = $split;
+        $dim['words'] = \count($split);
+
+        return $dim;
+    }
+
+    /**
      * Split the text into lines to fit the specified width.
      *
      * @param array<int, int> $ordarr   Array of UTF-8 codepoints (integer values).
@@ -2542,6 +2594,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         }
 
         $line_width = $pwidth - $poffset;
+
+        $dim = $this->removeNoBreakSplits($dim);
 
         $dimTotWidth = $dim['totwidth'];
         $dimChars = $dim['chars'];
@@ -2885,9 +2939,8 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
 
     /**
      * Remove special characters from the text string:
-     *     - 'CARRIAGE RETURN' (U+000D)
-     *     - 'NO-BREAK SPACE' (U+00A0)
-     *     - 'SHY' (U+00AD) SOFT HYPHEN
+     *     - 'CARRIAGE RETURN' (U+000D) is replaced by a space
+     *     - 'SHY' (U+00AD) SOFT HYPHEN is removed
      *
      * @param string $txt Text string to be processed.
      *
@@ -2896,7 +2949,6 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected function cleanupText(string $txt): string
     {
         $txt = \str_replace("\r", ' ', $txt);
-        $txt = \str_replace($this->uniconv->chr(UnicodeConstant::NO_BREAK_SPACE), ' ', $txt);
         return \str_replace($this->uniconv->chr(UnicodeConstant::SOFT_HYPHEN), '', $txt);
     }
 

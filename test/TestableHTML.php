@@ -65,6 +65,11 @@ class TestableHTML extends \Com\Tecnick\Pdf\Tcpdf
         return $this->sanitizeHTML($html);
     }
 
+    public function exposeKeptSpace(): string
+    {
+        return self::HTML_KEPT_SPACE;
+    }
+
     /**
      * Render context defaults are pre-initialized in `$testhrc` for probe-style tests.
      * @throws \Throwable

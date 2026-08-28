@@ -14447,9 +14447,111 @@ class HTMLTest extends TestUtil
 
         $this->assertStringContainsString('<pre>', $out);
         $this->assertStringContainsString('line1', $out);
-        $this->assertStringContainsString('&nbsp;', $out);
+        $this->assertStringContainsString($obj->exposeKeptSpace(), $out);
         $this->assertStringContainsString('line2', $out);
         $this->assertStringContainsString('</pre>', $out);
+    }
+
+    /**
+     * Whitespace collapsing must keep every non-breaking character, written
+     * either as a literal code point or as a numeric entity.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLWhitespaceCollapsingKeepsNonBreakingCharacters(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        foreach ([0x00A0, 0x180E, 0x2007, 0x202F] as $ord) {
+            $chr = (string) \mb_chr($ord);
+            $message = \sprintf('U+%04X must survive whitespace collapsing', $ord);
+
+            foreach ([$chr, '&#' . $ord . ';'] as $source) {
+                $dom = $obj->exposeGetHTMLDOM('<p>AAAA  BBBB' . $source . 'CCCC</p>');
+                $text = '';
+                foreach ($dom as $node) {
+                    if ($node['tag']) {
+                        continue;
+                    }
+
+                    $text .= $node['value'];
+                }
+
+                $this->assertStringContainsString('BBBB' . $chr . 'CCCC', $text, $message);
+                $this->assertStringContainsString('AAAA BBBB', $text, $message);
+            }
+        }
+    }
+
+    /**
+     * A NO-BREAK SPACE must move the words it joins to the next line together,
+     * while an ordinary space in the same position is a break opportunity.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellDoesNotBreakOnNoBreakSpace(): void
+    {
+        foreach ([' ' => true, '&nbsp;' => false, "\u{00A0}" => false] as $separator => $breaks) {
+            $obj = $this->getTestObject();
+            $this->initFontAndPage($obj);
+
+            /** @var \Com\Tecnick\Pdf\Page\Page $page */
+            $page = $this->getObjectProperty($obj, 'page');
+            $obj->addHTMLCell(
+                '<div style="font-size:10pt;">AAAA BBBB CCCC' . $separator . 'DDDD EEEE</div>',
+                10,
+                10,
+                33,
+            );
+            $content = \implode("\n", $page->getPage()['content']);
+
+            if ($breaks) {
+                $this->assertStringContainsString('(AAAA BBBB CCCC) Tj', $content);
+                continue;
+            }
+
+            $this->assertStringContainsString('(AAAA BBBB) Tj', $content, $separator);
+            $this->assertStringNotContainsString('(AAAA BBBB CCCC) Tj', $content, $separator);
+        }
+    }
+
+    /**
+     * The spaces the renderer inserts around markup stay breakable and are
+     * never rendered as the internal marker.
+     *
+     * @throws \Throwable
+     */
+    public function testHTMLCellKeepsMarkupSpacesBreakable(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initFontAndPage($obj);
+
+        /** @var \Com\Tecnick\Pdf\Page\Page $page */
+        $page = $this->getObjectProperty($obj, 'page');
+        $obj->addHTMLCell('<div style="font-size:10pt;"><span>AAAA BBBB </span>CCCC DDDD EEEE</div>', 10, 10, 25);
+        $content = \implode("\n", $page->getPage()['content']);
+
+        // The space before </span> is rendered as U+0020 and still wraps.
+        $this->assertStringContainsString('(AAAA BBBB ) Tj', $content);
+        $this->assertStringNotContainsString($obj->exposeKeptSpace(), $content);
+        $this->assertNotSame(
+            $this->getShowTextPosY($content, '(AAAA BBBB ) Tj'),
+            $this->getShowTextPosY($content, '(CCCC DDDD) Tj'),
+        );
+    }
+
+    /**
+     * Y coordinate of the Td operator preceding the given text showing operator.
+     */
+    private function getShowTextPosY(string $content, string $show): float
+    {
+        $matches = [];
+        $found = \preg_match('/[\d.]+ ([\d.]+) Td ' . \preg_quote($show, '/') . '/', $content, $matches);
+        if ($found !== 1 || !isset($matches[1])) {
+            $this->fail('Text run not found: ' . $show);
+        }
+
+        return \round(\floatval($matches[1]), 4);
     }
 
     /**

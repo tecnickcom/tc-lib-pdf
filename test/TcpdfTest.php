@@ -164,16 +164,27 @@ class TcpdfTest extends TestUtil
     }
 
     /** @throws \Throwable */
-    public function testSetSpaceRegexpParsesPatternAndModifiers(): void
+    public function testSetSpaceRegexpIsANoOp(): void
+    {
+        $this->assertSame($this->renderWordWrapSample(''), $this->renderWordWrapSample('/abc/i'));
+    }
+
+    /**
+     * Wrap a sentence in a narrow cell, optionally after setting a word separator pattern.
+     *
+     * @throws \Throwable
+     */
+    private function renderWordWrapSample(string $regexp): string
     {
         $obj = $this->getTestObject();
-        $obj->setSpaceRegexp('/abc/i');
+        $this->initFontAndPage($obj);
+        if ($regexp !== '') {
+            $obj->setSpaceRegexp($regexp);
+        }
 
-        /** @var array{r: string, p: string, m: string} $regexp */
-        $regexp = $this->getObjectProperty($obj, 'spaceregexp');
-        $this->assertSame('/abc/i', $regexp['r']);
-        $this->assertSame('abc', $regexp['p']);
-        $this->assertSame('i', $regexp['m']);
+        $obj->addTextCell('Alfa Bravo Charlie Delta Echo', -1, 10, 10, 30);
+
+        return \implode("\n", $obj->page->getPage()['content']);
     }
 
     /** @throws \Throwable */
@@ -675,16 +686,6 @@ class TcpdfTest extends TestUtil
         $this->assertSame('', $this->getObjectProperty($unknown, 'pdfxMode'));
         $this->assertSame('', $this->getObjectProperty($unknown, 'pdfuaMode'));
         $this->assertSame(0, $this->getObjectProperty($unknown, 'pdfa'));
-    }
-
-    /** @throws \Throwable */
-    public function testConstructorWithUnicodeDisabledSetsAsciiWhitespacePattern(): void
-    {
-        $obj = new \Com\Tecnick\Pdf\Tcpdf('mm', false, false, true);
-
-        /** @var array{r: string} $regexp */
-        $regexp = $this->getObjectProperty($obj, 'spaceregexp');
-        $this->assertSame('/[^\S\xa0]/', $regexp['r']);
     }
 
     /** @throws \Throwable */

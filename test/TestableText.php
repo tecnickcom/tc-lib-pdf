@@ -263,6 +263,15 @@ class TestableText extends \Com\Tecnick\Pdf\Tcpdf
     }
 
     /**
+     * @phpstan-param TTextDims $dim
+     * @phpstan-return TTextDims
+     */
+    public function exposeRemoveNoBreakSplits(array $dim): array
+    {
+        return $this->removeNoBreakSplits($dim);
+    }
+
+    /**
      * @phpstan-param array<int, int> $ordarr
      * @phpstan-param TTextDims|array{} $dim
      * @phpstan-param TextShadow|null $shadow

@@ -3912,16 +3912,12 @@ class OutputTest extends TestUtil
     public function testGetOutPDFBodyResetsStructureObjectIdsOutsidePdfuaMode(): void
     {
         $obj = $this->getInternalTestObject();
-        $this->setObjectProperty($obj, 'parenttreeoid', 12);
         $this->setObjectProperty($obj, 'structtreerootoid', 34);
         $this->setObjectProperty($obj, 'pagestructparents', [9 => 0]);
-        $this->setObjectProperty($obj, 'pagestructmcids', [9 => 1]);
 
         $method = new \ReflectionMethod($obj, 'getOutStructTreeRoot');
         $this->assertSame('', $method->invoke($obj));
         $this->assertSame([], $this->getObjectProperty($obj, 'pagestructparents'));
-        $this->assertSame([], $this->getObjectProperty($obj, 'pagestructmcids'));
-        $this->assertSame(0, $this->getObjectProperty($obj, 'parenttreeoid'));
         $this->assertSame(0, $this->getObjectProperty($obj, 'structtreerootoid'));
     }
 
@@ -6048,7 +6044,6 @@ class OutputTest extends TestUtil
         $this->assertSame('', $out);
 
         // OID tracking must be reset.
-        $this->assertSame(0, $this->getObjectProperty($obj, 'parenttreeoid'));
         $this->assertSame(0, $this->getObjectProperty($obj, 'structtreerootoid'));
     }
 
