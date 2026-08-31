@@ -601,7 +601,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $baseRtl = false;
         $this->prepareText($txt, $ordarr, $dim, $forcedir, $baseRtl);
         $txt_pwidth = $dim['totwidth'];
-        $actualText = $this->pdfuaMode !== '' ? $this->getActualTextForOrdarr($ordarr) : '';
+        $actualText = $this->isTaggedMode() ? $this->getActualTextForOrdarr($ordarr) : '';
 
         $ocell = $this->adjustMinCellPadding($cstyles, $cell);
         $cell = $ocell;
@@ -759,7 +759,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                         }
                     }
 
-                    $out = $this->drawCell($cell_pntx, $cell_pnty, $cell_pwidth, $cell_pheight, $styles, $cell) . $out;
+                    // The cell background and borders are decorations: a tagged mode
+                    // marks them as artifacts (ISO 14289-1 clause 7.1).
+                    $celldraw = $this->drawCell($cell_pntx, $cell_pnty, $cell_pwidth, $cell_pheight, $styles, $cell);
+                    $out = $this->tagPdfUaArtifactContent($celldraw) . $out;
                 }
 
                 if ($fontout_prefix !== '' && $num_blocks === 0) {
@@ -821,7 +824,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Suspend PDF/UA structure tagging and marked-content recording.
+     * Suspend structure tagging and marked-content recording.
      *
      * While suspended, beginStructElem()/endStructElem() and the marked-content
      * helpers are no-ops, so no structure elements are appended and the per-page
@@ -834,15 +837,19 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     {
         $previous = $this->pdfuaMode;
         $this->pdfuaMode = '';
+        ++$this->taggingSuspendDepth;
         return $previous;
     }
 
     /**
-     * Resume PDF/UA tagging, restoring the mode returned by suspendPdfUaTagging().
+     * Resume structure tagging, restoring the mode returned by suspendPdfUaTagging().
      */
     public function resumePdfUaTagging(string $previous): void
     {
         $this->pdfuaMode = $previous;
+        if ($this->taggingSuspendDepth > 0) {
+            --$this->taggingSuspendDepth;
+        }
     }
 
     /**
@@ -866,7 +873,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         array $attr = [],
         bool $required = false,
     ): void {
-        if ($this->pdfuaMode === '') {
+        if (!$this->isTaggedMode()) {
             return;
         }
 
@@ -898,7 +905,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function endStructElem(): void
     {
-        if ($this->pdfuaMode === '' || $this->pdfuaStructStack === []) {
+        if (!$this->isTaggedMode() || $this->pdfuaStructStack === []) {
             return;
         }
 
@@ -974,7 +981,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function beginArtifact(string $type = '', string $subtype = ''): string
     {
-        if ($this->pdfuaMode === '') {
+        if (!$this->isTaggedMode()) {
             return '';
         }
 
@@ -1004,7 +1011,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     public function endArtifact(): string
     {
-        if ($this->pdfuaMode === '') {
+        if (!$this->isTaggedMode()) {
             return '';
         }
 
@@ -1695,7 +1702,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function tagPdfUaTextContent(string $content, int $pid, string $actualText = ''): string
     {
-        if ($this->pdfuaMode === '') {
+        if (!$this->isTaggedMode()) {
             return $content;
         }
 
@@ -1793,7 +1800,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function registerPdfUaAnnotation(int $oid, int $pid): void
     {
-        if ($this->pdfuaMode === '' || $oid <= 0) {
+        if (!$this->isTaggedMode() || $oid <= 0) {
             return;
         }
 
@@ -1864,7 +1871,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function tagPdfUaFigureContent(string $content, int $pid, string $alt = '', array $bbox = []): string
     {
-        if ($this->pdfuaMode === '' || $content === '') {
+        if (!$this->isTaggedMode() || $content === '') {
             return $content;
         }
 
@@ -1934,6 +1941,30 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
+     * Record the page a structure element refers to, on the element currently open
+     * on the stack.
+     *
+     * The /Ref entry of the element is written as the structure element that owns
+     * the target page, as ISO 14289-2 clause 8.2.5.8 requires for a table of
+     * contents item.
+     *
+     * @param int $pid Page index of the referenced target.
+     */
+    protected function setPdfUaStructElemRef(int $pid): void
+    {
+        if (!$this->isTaggedMode() || $pid < 0) {
+            return;
+        }
+
+        $stackTop = \array_key_last($this->pdfuaStructStack);
+        if ($stackTop !== null && isset($this->pdfuaStructStack[$stackTop])) {
+            $entry = $this->pdfuaStructStack[$stackTop];
+            $entry['refpid'] = $pid;
+            $this->pdfuaStructStack[$stackTop] = $entry;
+        }
+    }
+
+    /**
      * Record a bounding box on the structure element currently open on the stack.
      *
      * Used by block-level elements whose extent is only known once their content has
@@ -1945,7 +1976,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function setPdfUaStructElemBBox(array $bbox, string $role = ''): void
     {
-        if ($this->pdfuaMode === '' || \count($bbox) !== 4) {
+        if (!$this->isTaggedMode() || \count($bbox) !== 4) {
             return;
         }
 
@@ -2003,7 +2034,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      */
     protected function tagPdfUaArtifactContent(string $content, string $type = '', string $subtype = ''): string
     {
-        if ($this->pdfuaMode === '' || $content === '') {
+        if (!$this->isTaggedMode() || $content === '') {
             return $content;
         }
 
@@ -3060,10 +3091,53 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     protected function getOutCompositeStr(array $ordarr): string
     {
         if ($this->font->isCurrentGidEncoded()) {
-            return $this->font->ordArrToGidStr($ordarr);
+            return $this->font->ordArrToGidStr($this->getMappedOrdArr($ordarr));
         }
 
         return $this->uniconv->toUTF16BE(\implode('', $this->uniconv->ordArrToChrArr($ordarr)));
+    }
+
+    /**
+     * Returns the given codepoints without the ones the current font has no glyph
+     * for, when the active conformance mode forbids a .notdef reference.
+     *
+     * The codepoint is dropped from the text showing operator rather than written
+     * as glyph 0: the reference itself is what the conformance rules forbid, and no
+     * metadata can repair it. The characters are reported through getWarnings().
+     *
+     * @param array<int, int> $ordarr Array of UTF-8 codepoints (integer values).
+     *
+     * @return array<int, int>
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     */
+    protected function getMappedOrdArr(array $ordarr): array
+    {
+        if (!$this->forbidsUnmappedGlyphs()) {
+            return $ordarr;
+        }
+
+        $mapped = [];
+        $dropped = [];
+        foreach ($ordarr as $ord) {
+            if ($this->font->getGidForOrd($ord) === 0) {
+                $dropped[] = \sprintf('U+%04X', $ord);
+                continue;
+            }
+
+            $mapped[] = $ord;
+        }
+
+        if ($dropped !== []) {
+            $this->addWarning(
+                'The active conformance mode forbids a glyph with no Unicode mapping: the current font has'
+                . ' no glyph for the character(s) '
+                . \implode(', ', \array_unique($dropped))
+                . ', which were dropped from the text',
+            );
+        }
+
+        return $mapped;
     }
 
     /**

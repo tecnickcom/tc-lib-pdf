@@ -138,7 +138,8 @@ The runnable examples in [examples/index.md](examples/index.md) cover the equiva
 - Interactive AcroForm fields (buttons, checkboxes, radio buttons, text, combo boxes, list boxes)
 - XObject templates and layers with object visibility controls
 - Multiple output targets: inline display, forced download, file save, and MIME attachment
-- Factur-X / ZUGFeRD workflows via embedded XML in PDF/A-3 documents
+- Factur-X / ZUGFeRD / Order-X workflows via embedded XML in PDF/A-3 documents (`setFacturX()`)
+- Reproducible output: pin the dates and the file identifier (`setDocCreationDate()`, `setDocModificationDate()`, `setFileId()`) to render the same bytes on every run
 - Stream compression via the `zlib` PHP extension, available in every conformance mode
 
 ---

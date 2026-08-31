@@ -119,6 +119,19 @@ class Importer implements ImporterInterface
     private ObjEncrypt $encrypt;
 
     /**
+     * True when the conformance mode of the destination document requires every
+     * font to be embedded.
+     */
+    private bool $requireEmbeddedFonts;
+
+    /**
+     * Conformance warnings raised while pages were imported.
+     *
+     * @var array<int, string>
+     */
+    private array $warnings = [];
+
+    /**
      * Constructor.
      *
      * @param array<string, mixed> $xobjects Reference to the destination document's xobjects array.
@@ -127,11 +140,19 @@ class Importer implements ImporterInterface
      * @param int                  $pdfa     PDF/A part of the destination document (0 when not active).
      * @param ?ObjEncrypt          $encrypt  Encryption object of the destination document; a disabled
      *                                       one is used when null.
+     * @param bool                 $requireEmbeddedFonts True when the destination document requires
+     *                                       every font to be embedded.
      *
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
-    public function __construct(array &$xobjects, int &$pon, ObjFile $file, int $pdfa = 0, ?ObjEncrypt $encrypt = null)
-    {
+    public function __construct(
+        array &$xobjects,
+        int &$pon,
+        ObjFile $file,
+        int $pdfa = 0,
+        ?ObjEncrypt $encrypt = null,
+        bool $requireEmbeddedFonts = false,
+    ) {
         // Bind by reference so importPage() writes directly into $pdf->xobjects.
 
         $this->xobjects = &$xobjects;
@@ -139,6 +160,50 @@ class Importer implements ImporterInterface
         $this->file = $file;
         $this->pdfa = $pdfa;
         $this->encrypt = $encrypt ?? new ObjEncrypt();
+        $this->requireEmbeddedFonts = $requireEmbeddedFonts;
+    }
+
+    /**
+     * Return the conformance warnings raised while pages were imported.
+     *
+     * @return array<int, string>
+     */
+    public function getWarnings(): array
+    {
+        return $this->warnings;
+    }
+
+    /**
+     * Record a warning for each font of an imported page whose program is not
+     * embedded in the source document.
+     *
+     * The source page is copied into a Form XObject as it stands, so a font the
+     * source does not carry cannot be embedded by the destination document.
+     *
+     * @param array<string, mixed> $resources Resolved page resource dictionary.
+     * @param SourceDocument       $src       Source document.
+     * @param int                  $pageNum   1-based page number of the imported page.
+     */
+    private function checkImportedFonts(array $resources, SourceDocument $src, int $pageNum): void
+    {
+        if (!$this->requireEmbeddedFonts || $resources === []) {
+            return;
+        }
+
+        $inspector = new FontInspector();
+        foreach ($inspector->findNonEmbeddedFonts($resources, $src) as $name) {
+            $message =
+                'The active conformance mode requires embedded fonts: the imported page '
+                . $pageNum
+                . ' uses the font '
+                . $name
+                . ', whose program is not embedded in the source document';
+            if (\in_array($message, $this->warnings, true)) {
+                continue;
+            }
+
+            $this->warnings[] = $message;
+        }
     }
 
     /**
@@ -258,6 +323,8 @@ class Importer implements ImporterInterface
         $src = $this->requireSource($sourceId);
         $resolver = new PageResolver();
         $resolved = $resolver->resolveFromIndex($src, $this->getPageIndex($sourceId), $pageNum);
+
+        $this->checkImportedFonts($resolved['resources'], $src, $pageNum);
 
         $box = $this->selectBox($resolved, $useBox);
         $rotate = $respectRotation ? $resolved['rotate'] : 0;

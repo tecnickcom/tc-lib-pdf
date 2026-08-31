@@ -118,6 +118,13 @@ interface ImporterInterface
     public function importPages(string $sourceId, ?array $range = null, array $options = []): array;
 
     /**
+     * Return the conformance warnings raised while pages were imported.
+     *
+     * @return array<int, string>
+     */
+    public function getWarnings(): array;
+
+    /**
      * Flush all queued raw PDF object bytes to the output stream.
      * Must be called during the PDF body write phase (after XObjects have been emitted).
      *

@@ -34,7 +34,9 @@ no-duplicate-match-arm = { enabled = false }
 excessive-nesting = { enabled = true, threshold = 10, function-like-threshold = 10 }
 too-many-methods = { enabled = false }
 no-isset = { enabled = true, allow-array-checks = true }
-too-many-properties = { enabled = true, threshold = 70 }
+# Base is the state container for the whole document, so its property count tracks
+# the number of supported document-level settings.
+too-many-properties = { enabled = true, threshold = 76 }
 no-insecure-comparison = { enabled = true, exclude = ["src/HTML.php", "src/JavaScript.php"] }
 no-literal-password = { enabled = true, exclude = ["src/HTML.php"] }
 

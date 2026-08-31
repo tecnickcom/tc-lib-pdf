@@ -104,6 +104,9 @@ $pdf->setTitle('Manual Tag Tree (PDF/UA Structure Elements)');
 $pdf->setKeywords('TCPDF tc-lib-pdf example pdfua tagged structure accessibility wcag screen reader');
 $pdf->setPDFFilename('E063_manual_tag_tree.pdf');
 
+// A tagged document must declare the natural language of its content.
+$pdf->setLanguage('en-US');
+
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
 
 $leftMargin = 15.0;

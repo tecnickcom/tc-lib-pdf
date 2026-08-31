@@ -53,14 +53,16 @@ require __DIR__ . '/../vendor/autoload.php';
  *   'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag'
  *       PDF/A extension schema declarations (only meaningful in PDF/A mode).
  *
- * IMPORTANT: the injected XML is NOT validated by the library.  You are
- * responsible for well-formed, namespace-correct XMP.  Malformed XMP will
- * not prevent PDF generation but may confuse metadata readers.
+ * IMPORTANT: each fragment is checked for well-formedness in the namespace
+ * context of its injection point, and a fragment that fails raises an exception.
+ * Only the prefixes declared at that point are in scope: declare any other prefix
+ * on the fragment's own root element, as the blocks below do.
  *
  * Use cases illustrated here:
  *   1. IPTC Core rights metadata   (photojournalism / stock-photography DAM)
  *   2. XMP-MM version history      (document management / DAM systems)
  *   3. Custom application metadata (arbitrary key-value pairs for integration)
+ *   4. Producer suffix and trapping status in the Info dictionary and XMP
  */
 
 $pdf = new \Com\Tecnick\Pdf\Tcpdf(
@@ -80,6 +82,11 @@ $pdf->setKeywords('TCPDF tc-lib-pdf example xmp metadata iptc dublin core dam ar
 $pdf->setPDFFilename('E060_custom_xmp_metadata.pdf');
 
 $pdf->setViewerPreferences(['DisplayDocTitle' => true]);
+
+// Identify the producing application after the library attribution, and declare
+// the trapping status. Both drive the Info dictionary and the XMP packet.
+$pdf->setProducerSuffix('tc-lib-pdf examples 060');
+$pdf->setTrapped('Unknown');
 
 $pdf->enableDefaultPageContent();
 
@@ -212,8 +219,11 @@ $html = <<<'HTML'
 
     <h2 style="font-size:13pt; color:#005599;">Important notes</h2>
     <p style="font-size:9pt; color:#333333;">
-    • The injected XML is embedded as-is; the library does NOT validate XMP well-formedness.<br />
-    • Multiple calls with the same key are concatenated in insertion order.<br />
+    • Each fragment is checked for well-formedness in the namespace context of its
+      injection point; an invalid fragment raises an exception instead of corrupting
+      the metadata stream.<br />
+    • Multiple calls with the same key are concatenated in insertion order; pass the
+      third argument to replace them instead.<br />
     • Injection into <code>x:xmpmeta.rdf:RDF.rdf:Description</code> adds properties to the
       shared Description block; prefer a standalone Description block (as done here) to
       keep namespace declarations self-contained.<br />

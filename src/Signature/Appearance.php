@@ -66,6 +66,18 @@ final class Appearance
     }
 
     /**
+     * Set the description of the signature field, used as the /TU and /Contents
+     * entries of the widget annotation in a tagged mode.
+     *
+     * @param string $description Human readable description of the signature field.
+     */
+    public function description(string $description): self
+    {
+        $this->pdf->setSignatureAppearanceDescription($description);
+        return $this;
+    }
+
+    /**
      * Set a custom appearance stream for the signature widget annotation.
      *
      * @param string $stream Appearance stream content.

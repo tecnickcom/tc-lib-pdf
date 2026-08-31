@@ -46,6 +46,58 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
     protected array $labSpotKeys = [];
 
     /**
+     * True when a DeviceCMYK color operator was emitted.
+     */
+    protected bool $deviceCmykEmitted = false;
+
+    /**
+     * Names of the emitted spot colors whose Separation alternate space is DeviceCMYK.
+     *
+     * @var array<string, true>
+     */
+    protected array $cmykSpotColors = [];
+
+    /**
+     * Return true when a DeviceCMYK color operator was emitted.
+     */
+    public function hasEmittedDeviceCmyk(): bool
+    {
+        return $this->deviceCmykEmitted;
+    }
+
+    /**
+     * Return the names of the emitted spot colors whose Separation alternate
+     * space is DeviceCMYK.
+     *
+     * @return array<int, string>
+     */
+    public function getEmittedCmykSpotColors(): array
+    {
+        return \array_keys($this->cmykSpotColors);
+    }
+
+    /**
+     * Record the given spot color when its Separation alternate space is DeviceCMYK.
+     *
+     * @param string $color Name of a spot color that resolves to a Separation resource.
+     */
+    protected function trackCmykSpotColor(string $color): void
+    {
+        try {
+            $spot = $this->getSpotColor($color);
+        } catch (\Com\Tecnick\Color\Exception $colorException) {
+            unset($colorException);
+            return;
+        }
+
+        if ($spot['space'] !== 'DeviceCMYK') {
+            return;
+        }
+
+        $this->cmykSpotColors[$spot['name']] = true;
+    }
+
+    /**
      * Parse CSS spot(name[, tint]) and return [name, tint] when valid.
      *
      * @return array{0: string, 1: float}|null
@@ -183,6 +235,7 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
             // color already registered by the caller. Bare color names
             // (e.g. "black", "red") resolve to process colors.
             if ($allowSpot && ($explicitSpot || $this->isRegisteredSpotColor($color))) {
+                $this->trackCmykSpotColor($color);
                 return parent::getPdfColor($color, $stroke, $tint, true);
             }
 
@@ -202,6 +255,7 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         if ($allowSpot) {
             try {
                 $col = $this->getSpotColor($color);
+                $this->trackCmykSpotColor($color);
                 $tint = \sprintf('cs %F scn', \max(0, \min(1, $tint)));
                 if ($stroke) {
                     $tint = \strtoupper($tint);
@@ -220,6 +274,7 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
         }
 
         $cmyk = new \Com\Tecnick\Color\Model\Cmyk($model->toCmykArray());
+        $this->deviceCmykEmitted = true;
         return $cmyk->getPdfColor($stroke);
     }
 
@@ -249,6 +304,10 @@ class PdfColor extends \Com\Tecnick\Color\Pdf
 
         if (!$model instanceof \Com\Tecnick\Color\Model) {
             return '';
+        }
+
+        if ($model instanceof \Com\Tecnick\Color\Model\Cmyk) {
+            $this->deviceCmykEmitted = true;
         }
 
         return $model->getPdfColor($stroke);

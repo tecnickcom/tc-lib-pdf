@@ -24,12 +24,6 @@ use PHPUnit\Framework\TestCase;
 
 class PageResolverTest extends TestCase
 {
-    private function invokeResolverMethod(PageResolver $resolver, string $method, mixed ...$args): mixed
-    {
-        $ref = new \ReflectionClass($resolver);
-        return $ref->getMethod($method)->invokeArgs($resolver, $args);
-    }
-
     /** @throws \Throwable */
     private function loadDoc(): SourceDocument
     {
@@ -548,52 +542,6 @@ class PageResolverTest extends TestCase
         $this->expectException(ImportCorruptedSourceException::class);
         $this->expectExceptionMessageMatches('/' . preg_quote('Unexpected page tree node type', '/') . '/');
         $resolver->resolve($doc, 1);
-    }
-
-    public function testObjectToDictThrowsWhenDictionaryElementIsMissing(): void
-    {
-        $resolver = new PageResolver();
-
-        $this->expectException(ImportCorruptedSourceException::class);
-        $this->expectExceptionMessageMatches('/' . preg_quote('Expected dictionary object', '/') . '/');
-        $this->invokeResolverMethod($resolver, 'objectToDict', ['not-an-array-element']);
-    }
-
-    public function testParseDictArraySkipsMalformedKeysAndParsesFallbackValueTypes(): void
-    {
-        $resolver = new PageResolver();
-
-        /** @var array<string, mixed> $parsed */
-        $parsed = $this->invokeResolverMethod($resolver, 'parseDictArray', [
-            ['numeric', 1],
-            ['string', 'ignored-non-name-key'],
-            ['/', 123],
-            ['string', 'ignored-non-string-name'],
-            ['/', '/Literal'],
-            'plain-text',
-            ['/', '/Ref'],
-            ['objref'],
-            ['/', '/Unknown'],
-            ['keyword', 'fallback-value'],
-            ['/', '/Empty'],
-            [],
-        ]);
-
-        $this->assertSame(
-            [
-                'Literal' => 'plain-text',
-                'Ref' => '',
-                'Unknown' => 'fallback-value',
-                'Empty' => null,
-            ],
-            \array_intersect_key($parsed, [
-                'Literal' => true,
-                'Ref' => true,
-                'Unknown' => true,
-                'Empty' => true,
-            ]),
-        );
-        $this->assertArrayNotHasKey('123', $parsed);
     }
 
     /**

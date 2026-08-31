@@ -62,7 +62,7 @@ Index of the runnable examples bundled with tc-lib-pdf.
 - [E057_multisignature_incremental.php](E057_multisignature_incremental.php): Multi-signature approval workflow with a primary certifier signature and reserved empty approval fields.
 - [E058_embedded_files_portfolio.php](E058_embedded_files_portfolio.php): PDF as a document container embedding CSV, XML, and JSON attachments with annotation links.
 - [E059_document_javascript.php](E059_document_javascript.php): Document-level JavaScript using appendRawJavaScript and addRawJavaScriptObj for open-action, print, and close event triggers.
-- [E060_custom_xmp_metadata.php](E060_custom_xmp_metadata.php): Custom XMP namespace injection (IPTC rights, XMP-MM version history, application metadata) via setCustomXMP.
+- [E060_custom_xmp_metadata.php](E060_custom_xmp_metadata.php): Custom XMP namespace injection (IPTC rights, XMP-MM version history, application metadata) via setCustomXMP, with setProducerSuffix and setTrapped.
 - [E061_user_rights_reader_extensions.php](E061_user_rights_reader_extensions.php): Adobe Reader extension rights (UR3 signature) via setUserRights to enable form-filling, commenting, and saving in free Reader.
 - [E062_bidi_mixed_rtl_ltr.php](E062_bidi_mixed_rtl_ltr.php): Mixed bidirectional typography with mid-document setRTL switching and inline Hebrew/Latin runs on the same page.
 - [E063_manual_tag_tree.php](E063_manual_tag_tree.php): Manual PDF/UA structure-element tagging with beginStructElem/endStructElem plus Artifact-tagged decorative layout separators.

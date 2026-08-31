@@ -18,6 +18,7 @@ namespace Test;
 
 use Com\Tecnick\Pdf\Exception as PdfException;
 use Com\Tecnick\Pdf\Tcpdf;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -186,16 +187,66 @@ class PageTransparencyGroupTest extends TestCase
     }
 
     /**
+     * The modes that forbid transparency drop the group whatever the caller asks for.
+     *
      * @throws \Throwable
      */
-    public function testPdfaStillSuppressesGroupRegardlessOfMode(): void
+    #[DataProvider('transparencyForbiddenModeProvider')]
+    public function testModesForbiddingTransparencySuppressGroup(string $mode): void
     {
-        $pdf = new Tcpdf(mode: 'pdfa2b');
+        $pdf = new Tcpdf(mode: $mode);
+        $pdf->setTitle('Transparency group test');
         $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
         $pdf->setPageTransparencyGroup('always');
         $this->addTransparentPage($pdf);
 
         $raw = $pdf->getOutPDFString();
         $this->assertStringNotContainsString(self::PAGE_GROUP, $raw);
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function transparencyForbiddenModeProvider(): array
+    {
+        return [
+            // ISO 19005-1 is based on PDF 1.4 and has no transparency.
+            'pdfa1b' => ['pdfa1b'],
+            // ISO 15930-4 and ISO 15930-6 require opaque content.
+            'pdfx1a' => ['pdfx1a'],
+            'pdfx3' => ['pdfx3'],
+        ];
+    }
+
+    /**
+     * ISO 19005-2 and ISO 19005-3 allow transparency, so the group is kept.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('transparencyAllowedModeProvider')]
+    public function testModesAllowingTransparencyKeepGroup(string $mode): void
+    {
+        $pdf = new Tcpdf(mode: $mode);
+        $pdf->setTitle('Transparency group test');
+
+        if ($mode === 'pdfx4') {
+            // This part requires an embedded destination profile.
+            $pdf->setSRGB(true);
+        }
+
+        $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
+        $pdf->setPageTransparencyGroup('always');
+        $this->addTransparentPage($pdf);
+
+        $raw = $pdf->getOutPDFString();
+        $this->assertStringContainsString(self::PAGE_GROUP, $raw);
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function transparencyAllowedModeProvider(): array
+    {
+        return [
+            'pdfa2b' => ['pdfa2b'],
+            'pdfa3b' => ['pdfa3b'],
+            'pdfx4' => ['pdfx4'],
+        ];
     }
 }

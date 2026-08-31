@@ -616,8 +616,11 @@ class OutputTest extends TestUtil
         $this->assertSame(580, $obj->exposeGetAnnotationFlagsCode(['print', 'readonly', 'lockedcontents']));
         $this->assertSame(' /F 128', $obj->exposeGetOutAnnotationFlags(['opt' => ['f' => ['locked']]]));
 
+        // PDF/A forces the Print flag and clears the Hidden and NoView flags.
         $obj->setPdfaMode(1);
-        $this->assertSame(' /F 6', $obj->exposeGetOutAnnotationFlags(['opt' => ['f' => ['hidden']]]));
+        $this->assertSame(' /F 4', $obj->exposeGetOutAnnotationFlags(['opt' => ['f' => ['hidden']]]));
+        $this->assertSame(' /F 4', $obj->exposeGetOutAnnotationFlags(['opt' => ['f' => ['noview']]]));
+        $this->assertSame(' /F 12', $obj->exposeGetOutAnnotationFlags(['opt' => ['f' => ['nozoom', 'hidden']]]));
     }
 
     /**
@@ -1598,6 +1601,8 @@ class OutputTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua2');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->setObjectProperty($obj, 'embeddedfiles', [
             'attach.bin' => ['a' => 2],
         ]);
@@ -1867,6 +1872,8 @@ class OutputTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $annot = [
             'txt' => 'field-choice',
             'opt' => [
@@ -2045,6 +2052,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $obj->addTextCell('Tagged PDF/UA text', $page['pid'], 10, 10, 60, 10);
 
         $out = $obj->exposeGetOutPDFBody();
@@ -2071,6 +2080,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $obj->addTextCell('Tagged PDF/UA text', $page['pid'], 10, 10, 60, 10);
 
         $out = $obj->exposeGetOutPDFBody();
@@ -2088,6 +2099,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $obj->addTextCell('First PDF/UA text block', $page['pid'], 10, 10, 60, 10);
         $obj->addTextCell('Second PDF/UA text block', $page['pid'], 10, 20, 60, 10);
 
@@ -2107,6 +2120,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->beginStructElem('H1', $page['pid']);
         $obj->addTextCell('Heading text', $page['pid'], 10, 10, 60, 10);
@@ -2132,6 +2147,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->beginStructElem('H2', $page['pid']);
         $obj->addTextCell('Subheading', $page['pid'], 10, 10, 60, 10);
@@ -2152,6 +2169,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->addHTMLCell('<h1>PDF/UA</h1><p>Mode: pdfua</p>', 10, 10, 80, 20);
 
@@ -2172,6 +2191,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->beginStructElem('Sect', $page['pid']);
         $obj->beginStructElem('H1', $page['pid']);
@@ -2223,6 +2244,8 @@ class OutputTest extends TestUtil
     public function testGetOutPDFBodyTagsHtmlImageAsFigureWithAltInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->initFontAndPage($obj);
 
         $img = \imagecreate(4, 4);
@@ -2253,6 +2276,8 @@ class OutputTest extends TestUtil
     public function testGetOutPDFBodyTagsHtmlTableStructRolesInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->initFontAndPage($obj);
 
         $html =
@@ -2278,6 +2303,8 @@ class OutputTest extends TestUtil
     public function testGetOutPDFBodyTagsHtmlListStructRolesInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->initFontAndPage($obj);
 
         $html = '<ul><li>Alpha</li><li>Beta</li></ul>';
@@ -2300,6 +2327,8 @@ class OutputTest extends TestUtil
     public function testGetOutPDFBodyTagsManualFigureContentWithAltInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->initFontAndPage($obj);
 
         /** @var \Com\Tecnick\Pdf\Page\Page $page */
@@ -2337,6 +2366,8 @@ class OutputTest extends TestUtil
     public function testGetOutPDFBodyTagsHtmlFigureWithFigcaptionInPdfuaMode(): void
     {
         $obj = new TestableOutput('mm', true, false, false, 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->initFontAndPage($obj);
 
         $img = \imagecreate(4, 4);
@@ -2378,6 +2409,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->beginStructElem('TH', $page['pid'], null, ['Scope' => 'Column']);
         $obj->addTextCell('Header', $page['pid'], 10, 10, 40, 10);
@@ -2397,6 +2430,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->addTaggedFigureContent("q\nQ\n", $page['pid'], 'Boxed figure', [10.0, 20.0, 110.0, 70.0]);
 
@@ -2414,6 +2449,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $html = '<table border="1"><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>';
         $htmlOut = $obj->getHTMLCell($html, 15, 20, 100, 0);
@@ -2438,6 +2475,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $rows = '';
         for ($idx = 0; $idx < 120; ++$idx) {
@@ -2464,6 +2503,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $secondPage = $obj->addPage();
         if (!isset($secondPage['pid']) || !\is_int($secondPage['pid'])) {
             $this->fail('Expected addPage to return an integer pid');
@@ -2491,6 +2532,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $page = $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->beginStructElem('Note', $page['pid'], null, ['ID' => 'note-1']);
         $obj->addTextCell('Note content', $page['pid'], 10, 10, 40, 10);
@@ -2510,6 +2553,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalUncompressedTestObject();
         $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $obj->addHTMLCell('<p><a href="https://example.com">Link</a></p>', 10, 10, 80, 20);
 
@@ -2720,35 +2765,42 @@ class OutputTest extends TestUtil
         $this->assertStringContainsString('/GTS_PDFX', $obj->exposeGetOutputIntentsPdfX());
         $this->assertStringContainsString('/GTS_PDFX', $obj->exposeGetOutputIntents());
 
-        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
-        $this->assertStringContainsString(
-            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x004",
-            $obj->exposeGetOutputIntentsPdfX(),
-        );
+        // The PDF/X part names are not registered print conditions, so every variant
+        // falls back to the same registered characterization name and, since an sRGB
+        // profile object is present, references it as the destination profile.
+        foreach (['pdfx1a', 'pdfx3', 'pdfx4', 'pdfx5', ''] as $pdfxMode) {
+            $this->setObjectProperty($obj, 'pdfxMode', $pdfxMode);
+            $intent = $obj->exposeGetOutputIntentsPdfX();
 
+            $this->assertContainsAllFragments($intent, [
+                '/OutputConditionIdentifier (OFCOM_PO_P1_F60_95)',
+                '/RegistryName (http://www.color.org)',
+                '/DestOutputProfile 4 0 R',
+            ]);
+            $this->assertStringNotContainsString('PDF/X-', $intent);
+        }
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testSetOutputIntentOverridesThePdfxPrintCondition(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx1a');
-        $this->assertStringContainsString(
-            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x001\x00a",
-            $obj->exposeGetOutputIntentsPdfX(),
+        $this->setObjectProperty($obj, 'objid', ['catalog' => 7, 'srgbicc' => 0, 'outputintenticc' => 9]);
+
+        $obj->setOutputIntent(
+            'FOGRA39',
+            info: 'Coated FOGRA39 (ISO 12647-2:2004)',
+            condition: 'Offset commercial printing',
         );
 
-        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx3');
-        $this->assertStringContainsString(
-            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x003",
-            $obj->exposeGetOutputIntentsPdfX(),
-        );
-
-        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx5');
-        $this->assertStringContainsString(
-            "\xfe\xff\x00P\x00D\x00F\x00/\x00X\x00-\x005",
-            $obj->exposeGetOutputIntentsPdfX(),
-        );
-
-        $this->setObjectProperty($obj, 'pdfxMode', '');
-        $this->assertStringContainsString(
-            "\xfe\xff\x00O\x00F\x00C\x00O\x00M\x00_\x00P\x00O\x00_\x00P\x001\x00_\x00F\x006\x000\x00_\x009\x005",
-            $obj->exposeGetOutputIntentsPdfX(),
-        );
+        $this->assertContainsAllFragments($obj->exposeGetOutputIntentsPdfX(), [
+            '/OutputConditionIdentifier (FOGRA39)',
+            '/DestOutputProfile 9 0 R',
+        ]);
     }
 
     /**
@@ -3851,6 +3903,8 @@ class OutputTest extends TestUtil
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
         $this->setObjectProperty($obj, 'jstree', '<< /Names [(JS) 1 0 R] >>');
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $out = $obj->exposeGetOutCatalog();
 
@@ -3882,6 +3936,8 @@ class OutputTest extends TestUtil
         $this->addRawPageWithObjectNumber($obj, 3);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
 
         $out = $obj->exposeGetOutCatalog();
 
@@ -3899,6 +3955,8 @@ class OutputTest extends TestUtil
         $this->addRawPageWithObjectNumber($obj, 3);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->setObjectProperty($obj, 'structtreerootoid', 42);
 
         $out = $obj->exposeGetOutCatalog();
@@ -3930,6 +3988,8 @@ class OutputTest extends TestUtil
         $this->addRawPageWithObjectNumber($obj, 3);
         $obj->setOutputState(9, ['pages' => 3, 'xmp' => 4]);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->setObjectProperty($obj, 'lang', ['a_meta_language' => 'it-IT']);
 
         $out = $obj->exposeGetOutCatalog();
@@ -4513,9 +4573,10 @@ class OutputTest extends TestUtil
 
         $out = $obj->exposeGetOutAnnotations();
 
+        // The lowercase subtype accepted by the API is written as the ISO 32000-1 name.
         $this->assertContainsAllFragments($out, [
             '/Type /Annot',
-            '/Subtype /text',
+            '/Subtype /Text',
             '/Rect [',
             '/Contents ',
         ]);
@@ -4564,6 +4625,8 @@ class OutputTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $pageInfo = $this->initFontAndPage($obj);
         /** @var \Com\Tecnick\Pdf\Page\Page $pageObj */
         $pageObj = $this->getObjectProperty($obj, 'page');
@@ -4738,6 +4801,8 @@ class OutputTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->initFontAndPage($obj);
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $page = $this->addRawPageWithObjectNumber($obj, 5);
 
         $this->setObjectProperty($obj, 'embeddedfiles', [
@@ -4997,6 +5062,8 @@ class OutputTest extends TestUtil
     {
         $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->setObjectProperty($obj, 'javascript', 'app.alert("hi");');
         $this->setObjectProperty($obj, 'jsobjects', [[
             'n' => 1,
@@ -6037,6 +6104,8 @@ class OutputTest extends TestUtil
 
         // pdfuaMode is set but pdfuaStructLog is empty.
         $this->setObjectProperty($obj, 'pdfuaMode', 'pdfua1');
+        $obj->setTitle('PDF/UA test document');
+        $obj->setLanguage('en-US');
         $this->setObjectProperty($obj, 'pdfuaStructLog', []);
 
         $out = $obj->exposeGetOutStructTreeRoot();

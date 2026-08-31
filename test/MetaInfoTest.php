@@ -118,15 +118,17 @@ class MetaInfoTest extends TestUtil
     }
 
     /** @throws \Throwable */
-    public function testSetPDFVersionThrowsOnInvalidFormatWhenPdfxEnabled(): void
+    public function testSetPDFVersionPinsVersionWhenPdfxEnabled(): void
     {
         $obj = $this->getTestObject();
         $this->setObjectProperty($obj, 'pdfx', true);
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
-        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
-        $this->expectExceptionMessageMatches('/' . preg_quote('Invalid PDF version format', '/') . '/');
 
+        // Each PDF/X part is defined against one exact PDF version, so the requested
+        // version is ignored just as it is in PDF/A mode.
         $obj->setPDFVersion('1.A');
+
+        $this->assertSame('1.6', $this->getObjectProperty($obj, 'pdfver'));
     }
 
     /** @throws \Throwable */
@@ -170,6 +172,284 @@ class MetaInfoTest extends TestUtil
         /** @var array<string, string> $after */
         $after = $this->getObjectProperty($obj, 'custom_xmp');
         $this->assertSame($before, $after);
+    }
+
+    /** @throws \Throwable */
+    public function testSetCustomXMPAppendsRepeatedFragments(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setCustomXMP('x:xmpmeta', '<first/>');
+        $obj->setCustomXMP('x:xmpmeta', '<second/>');
+
+        /** @var array<string, string> $custom */
+        $custom = $this->getObjectProperty($obj, 'custom_xmp');
+        $this->assertSame("<first/>\n<second/>", $custom['x:xmpmeta'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testSetCustomXMPReplacesAndClearsOnRequest(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setCustomXMP('x:xmpmeta', '<first/>');
+        $obj->setCustomXMP('x:xmpmeta', '<second/>', true);
+
+        /** @var array<string, string> $custom */
+        $custom = $this->getObjectProperty($obj, 'custom_xmp');
+        $this->assertSame('<second/>', $custom['x:xmpmeta'] ?? null);
+
+        $obj->setCustomXMP('x:xmpmeta', '', true);
+        /** @var array<string, string> $custom */
+        $custom = $this->getObjectProperty($obj, 'custom_xmp');
+        $this->assertSame('', $custom['x:xmpmeta'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testSetCustomXMPAcceptsFragmentsValidInTheKeyContext(): void
+    {
+        $obj = $this->getTestObject();
+
+        $obj->setCustomXMP('x:xmpmeta.rdf:RDF', '<rdf:Description rdf:about=""/>');
+        $obj->setCustomXMP(
+            'x:xmpmeta.rdf:RDF',
+            '<rdf:Description rdf:about="" xmlns:tc="urn:tc"><tc:a>1</tc:a></rdf:Description>',
+        );
+        $obj->setCustomXMP(
+            'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag',
+            '<rdf:li rdf:parseType="Resource"><pdfaSchema:prefix>tc</pdfaSchema:prefix></rdf:li>',
+        );
+        $obj->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description', '<!--CUSTOM-->');
+
+        /** @var array<string, string> $custom */
+        $custom = $this->getObjectProperty($obj, 'custom_xmp');
+        $this->assertStringContainsString('<tc:a>1</tc:a>', $custom['x:xmpmeta.rdf:RDF'] ?? '');
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('invalidCustomXMPProvider')]
+    public function testSetCustomXMPRejectsMalformedFragments(string $key, string $xmp): void
+    {
+        $obj = $this->getTestObject();
+
+        $this->expectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->setCustomXMP($key, $xmp);
+    }
+
+    /** @return array<string, array{0: string, 1: string}> */
+    public static function invalidCustomXMPProvider(): array
+    {
+        return [
+            'unbalanced' => ['x:xmpmeta', '<open>'],
+            'stray_close' => ['x:xmpmeta.rdf:RDF', '</rdf:Description>'],
+            'undeclared_prefix' => ['x:xmpmeta.rdf:RDF.rdf:Description', '<tc:a>1</tc:a>'],
+            // The extension schema description declares no 'x' prefix.
+            'prefix_out_of_scope' => ['x:xmpmeta.rdf:RDF.rdf:Description', '<x:a/>'],
+            'doctype' => ['x:xmpmeta', '<!DOCTYPE foo><foo/>'],
+            'entity' => ['x:xmpmeta', '<!ENTITY xxe SYSTEM "file:///etc/passwd">'],
+            'bad_attribute' => ['x:xmpmeta', '<a b=c/>'],
+        ];
+    }
+
+    /** @throws \Throwable */
+    public function testSetCustomXMPKeepsTheStoredValueWhenARejectedFragmentFollows(): void
+    {
+        $obj = $this->getTestObject();
+        $obj->setCustomXMP('x:xmpmeta', '<valid/>');
+
+        try {
+            $obj->setCustomXMP('x:xmpmeta', '<broken>');
+        } catch (\Com\Tecnick\Pdf\Exception) {
+            // expected
+        }
+
+        /** @var array<string, string> $custom */
+        $custom = $this->getObjectProperty($obj, 'custom_xmp');
+        $this->assertSame('<valid/>', $custom['x:xmpmeta'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    protected function getFacturXTestObject(): TestablMetaInfo
+    {
+        $obj = new TestablMetaInfo(mode: \Com\Tecnick\Pdf\PdfConformance::Pdfa3);
+        $obj->setFacturX('<rsm:CrossIndustryInvoice/>');
+        return $obj;
+    }
+
+    /** @throws \Throwable */
+    public function testSetFacturXEmbedsThePayloadAsAnAlternativeAssociatedFile(): void
+    {
+        $obj = $this->getFacturXTestObject();
+
+        /** @var array<string, array<string, mixed>> $files */
+        $files = $this->getObjectProperty($obj, 'embeddedfiles');
+        $this->assertArrayHasKey('factur-x.xml', $files);
+        $this->assertSame('<rsm:CrossIndustryInvoice/>', $files['factur-x.xml']['content'] ?? null);
+        $this->assertSame('text/xml', $files['factur-x.xml']['mimeType'] ?? null);
+        $this->assertSame('Alternative', $files['factur-x.xml']['afRelationship'] ?? null);
+        $this->assertSame('Factur-X/ZUGFeRD electronic invoice', $files['factur-x.xml']['description'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testSetFacturXStoresTheProfileMetadataAndReturnsSameInstance(): void
+    {
+        $obj = new TestablMetaInfo(mode: \Com\Tecnick\Pdf\PdfConformance::Pdfa3);
+
+        $this->assertSame($obj, $obj->setFacturX('<rsm:CrossIndustryInvoice/>'));
+
+        $this->assertSame(
+            [
+                'filename' => 'factur-x.xml',
+                'doctype' => 'INVOICE',
+                'version' => '1.0',
+                'conformance' => 'EN 16931',
+                'uri' => 'urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#',
+                'prefix' => 'fx',
+                'schema' => 'Factur-X PDFA Extension Schema',
+            ],
+            $this->getObjectProperty($obj, 'hybriddoc'),
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testSetFacturXAppliesTheProfileDefaults(): void
+    {
+        $obj = new TestablMetaInfo(mode: \Com\Tecnick\Pdf\PdfConformance::Pdfa3);
+        $obj->setFacturX(
+            '<rsm:CrossIndustryOrder/>',
+            \Com\Tecnick\Pdf\HybridProfile::OrderX,
+            \Com\Tecnick\Pdf\HybridConformance::Extended,
+        );
+
+        /** @var array<string, string> $meta */
+        $meta = $this->getObjectProperty($obj, 'hybriddoc');
+        $this->assertSame('order-x.xml', $meta['filename'] ?? null);
+        $this->assertSame('ORDER', $meta['doctype'] ?? null);
+        $this->assertSame('EXTENDED', $meta['conformance'] ?? null);
+
+        /** @var array<string, mixed> $files */
+        $files = $this->getObjectProperty($obj, 'embeddedfiles');
+        $this->assertArrayHasKey('order-x.xml', $files);
+    }
+
+    /** @throws \Throwable */
+    public function testSetFacturXAcceptsExplicitOverrides(): void
+    {
+        $obj = new TestablMetaInfo(mode: \Com\Tecnick\Pdf\PdfConformance::Pdfa3);
+        $obj->setFacturX(
+            xml: '<rsm:CrossIndustryInvoice/>',
+            profile: 'facturx',
+            level: 'en16931',
+            doctype: 'CREDITNOTE',
+            filename: '/tmp/custom.xml',
+            version: '1.07',
+            desc: 'custom description',
+        );
+
+        /** @var array<string, string> $meta */
+        $meta = $this->getObjectProperty($obj, 'hybriddoc');
+        $this->assertSame('custom.xml', $meta['filename'] ?? null);
+        $this->assertSame('CREDITNOTE', $meta['doctype'] ?? null);
+        $this->assertSame('1.07', $meta['version'] ?? null);
+
+        /** @var array<string, array<string, mixed>> $files */
+        $files = $this->getObjectProperty($obj, 'embeddedfiles');
+        $this->assertSame('custom description', $files['custom.xml']['description'] ?? null);
+    }
+
+    /** @throws \Throwable */
+    public function testSetFacturXRejectsAnEmptyPayload(): void
+    {
+        $obj = new TestablMetaInfo(mode: \Com\Tecnick\Pdf\PdfConformance::Pdfa3);
+
+        $this->bcExpectException(\Com\Tecnick\Pdf\Exception::class);
+        $obj->setFacturX("  \n ");
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPDeclaresTheProfilePropertiesAndExtensionSchema(): void
+    {
+        $result = $this->getFacturXTestObject()->exposeGetOutXMP();
+
+        $this->assertStringContainsString(
+            '<rdf:Description rdf:about="" xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#">',
+            $result,
+        );
+        $this->assertStringContainsString('<fx:DocumentType>INVOICE</fx:DocumentType>', $result);
+        $this->assertStringContainsString('<fx:DocumentFileName>factur-x.xml</fx:DocumentFileName>', $result);
+        $this->assertStringContainsString('<fx:Version>1.0</fx:Version>', $result);
+        $this->assertStringContainsString('<fx:ConformanceLevel>EN 16931</fx:ConformanceLevel>', $result);
+        $this->assertStringContainsString(
+            '<pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema>',
+            $result,
+        );
+        $this->assertStringContainsString('<pdfaProperty:name>ConformanceLevel</pdfaProperty:name>', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPKeepsProfilePropertiesAlongsideCustomFragments(): void
+    {
+        $obj = $this->getFacturXTestObject();
+        $obj->setCustomXMP('x:xmpmeta.rdf:RDF', '<!--CUSTOM-->');
+        $obj->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag', '<!--CUSTOMBAG-->');
+
+        $result = $obj->exposeGetOutXMP();
+
+        // A custom fragment on the same XMP key must not replace the profile block.
+        $this->assertStringContainsString('<!--CUSTOM-->', $result);
+        $this->assertStringContainsString('<!--CUSTOMBAG-->', $result);
+        $this->assertStringContainsString('<fx:DocumentType>INVOICE</fx:DocumentType>', $result);
+        $this->assertStringContainsString('<pdfaSchema:prefix>fx</pdfaSchema:prefix>', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPWithFacturXIsWellFormedXml(): void
+    {
+        $result = $this->getFacturXTestObject()->exposeGetOutXMP();
+
+        $start = \strpos($result, '<x:xmpmeta');
+        $end = \strpos($result, '</x:xmpmeta>');
+        $this->assertIsInt($start);
+        $this->assertIsInt($end);
+
+        $doc = new \DOMDocument();
+        $this->assertTrue($doc->loadXML(\substr($result, $start, $end - $start + 12)));
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPOmitsTheProfileBlockWithoutSetFacturX(): void
+    {
+        $obj = new TestablMetaInfo(mode: \Com\Tecnick\Pdf\PdfConformance::Pdfa3);
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringNotContainsString('DocumentFileName', $result);
+        $this->assertStringNotContainsString('urn:factur-x:', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutMetaInfoWarnsWhenFacturXIsNotPdfa3(): void
+    {
+        $obj = new TestablMetaInfo();
+        $obj->setFacturX('<rsm:CrossIndustryInvoice/>');
+
+        $warned = false;
+        \set_error_handler(static function (int $errno, string $errstr) use (&$warned): bool {
+            if ($errno !== E_USER_WARNING || !\str_contains($errstr, 'requires PDF/A-3')) {
+                return false;
+            }
+
+            $warned = true;
+            return true;
+        });
+
+        try {
+            $obj->exposeGetOutMetaInfo();
+        } finally {
+            \restore_error_handler();
+        }
+
+        $this->assertTrue($warned);
     }
 
     /** @throws \Throwable */
@@ -314,12 +594,44 @@ class MetaInfoTest extends TestUtil
     public function testGetOutMetaInfoContainsDocumentInfoKeys(): void
     {
         $obj = $this->getInternalTestObject();
+        $obj->setCreator('Test Creator');
 
         $result = $obj->exposeGetOutMetaInfo();
 
         $this->assertStringContainsString('/Creator', $result);
         $this->assertStringContainsString('/Producer', $result);
         $this->assertStringContainsString('/Trapped /False', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutMetaInfoOmitsUnsetDocumentInfoKeys(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetOutMetaInfo();
+
+        // An unset entry carries no information: it is omitted rather than
+        // filled with a placeholder value.
+        foreach (['/Creator', '/Author', '/Subject', '/Title', '/Keywords'] as $key) {
+            $this->assertStringNotContainsString($key, $result);
+        }
+
+        $this->assertStringContainsString('/Producer', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPOmitsUnsetDublinCoreProperties(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetOutXMP();
+
+        foreach (['<dc:title>', '<dc:creator>', '<dc:description>', '<dc:subject>', '<xmp:CreatorTool>'] as $tag) {
+            $this->assertStringNotContainsString($tag, $result);
+        }
+
+        $this->assertStringContainsString('<dc:format>application/pdf</dc:format>', $result);
+        $this->assertStringContainsString('<pdf:Producer>', $result);
     }
 
     /** @throws \Throwable */
@@ -345,6 +657,134 @@ class MetaInfoTest extends TestUtil
 
         $this->assertStringContainsString('<pdfaid:part>3</pdfaid:part>', $result);
         $this->assertStringContainsString('<pdfaid:conformance>U</pdfaid:conformance>', $result);
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPDescribesAdobePdfExtensionSchemaForTrapped(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfa', 3);
+
+        $result = $obj->exposeGetOutXMP();
+
+        // pdf:Trapped mirrors the Info dictionary /Trapped entry but is not part of the
+        // predefined set, so the schema entry describing it has to be complete.
+        $this->assertStringContainsString('<pdf:Trapped>False</pdf:Trapped>', $result);
+        $this->assertStringContainsString('<pdfaSchema:prefix>pdf</pdfaSchema:prefix>', $result);
+        $this->assertStringContainsString('<pdfaSchema:schema>Adobe PDF Schema</pdfaSchema:schema>', $result);
+        $this->assertStringContainsString('<pdfaProperty:name>Trapped</pdfaProperty:name>', $result);
+    }
+
+    /** @throws \Throwable */
+    #[DataProvider('conformanceModeFixtureProvider')]
+    public function testGetOutXMPExtensionSchemasAllDeclareValueType(
+        string $property,
+        string|int|bool $value,
+        int $expected,
+    ): void {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, $property, $value);
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertSame($expected, \substr_count($result, '<pdfaSchema:schema>'));
+        $this->assertSame($expected, \substr_count($result, '<pdfaSchema:valueType>'));
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPOmitsExtensionSchemasWithoutConformanceMode(): void
+    {
+        $obj = $this->getInternalTestObject();
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringNotContainsString('pdfaExtension:schemas', $result);
+    }
+
+    /** @throws \Throwable */
+    #[DataProvider('customXmpExtensionKeyFixtureProvider')]
+    public function testGetOutXMPKeepsCustomXMPWithoutConformanceMode(string $key, bool $hasSchemas): void
+    {
+        $obj = $this->getInternalTestObject();
+        $obj->setCustomXMP($key, '<!--CUSTOM-->');
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringContainsString('<!--CUSTOM-->', $result);
+        $this->assertStringContainsString('xmlns:pdfaExtension=', $result);
+        $this->assertSame($hasSchemas, \str_contains($result, '<pdfaExtension:schemas>'));
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPDeclaresPdfaidExtensionSchemaOnlyWhenPdfaEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfa', 3);
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringContainsString('<pdfaSchema:prefix>pdfaid</pdfaSchema:prefix>', $result);
+
+        $plain = $this->getInternalTestObject();
+        $plain->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag', '<!--CUSTOM-->');
+
+        $this->assertStringNotContainsString(
+            '<pdfaSchema:prefix>pdfaid</pdfaSchema:prefix>',
+            $plain->exposeGetOutXMP(),
+        );
+    }
+
+    /** @throws \Throwable */
+    #[DataProvider('pdfuaExtensionSchemaFixtureProvider')]
+    public function testGetOutXMPDeclaresPdfuaidExtensionSchema(string $pdfuaMode, bool $hasRev): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfuaMode', $pdfuaMode);
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringContainsString('<pdfaSchema:prefix>pdfuaid</pdfaSchema:prefix>', $result);
+        $this->assertStringContainsString('<pdfaSchema:schema>PDF/UA Universal Accessibility Schema', $result);
+        $this->assertSame($hasRev, \str_contains($result, '<pdfaProperty:name>rev</pdfaProperty:name>'));
+    }
+
+    /** @throws \Throwable */
+    public function testGetOutXMPDeclaresPdfxidExtensionSchemaWhenPdfxEnabled(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, 'pdfx', true);
+        $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertStringContainsString('<pdfaSchema:prefix>pdfxid</pdfaSchema:prefix>', $result);
+        $this->assertStringContainsString('<pdfaProperty:name>GTS_PDFXVersion</pdfaProperty:name>', $result);
+    }
+
+    /** @throws \Throwable */
+    #[DataProvider('conformanceModeFixtureProvider')]
+    public function testGetOutXMPIsWellFormedXmlInEveryMode(
+        string $property,
+        string|int|bool $value,
+        int $expected,
+    ): void {
+        $obj = $this->getInternalTestObject();
+        $this->setObjectProperty($obj, $property, $value);
+        $obj->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description', '<!--CUSTOM-->');
+
+        $result = $obj->exposeGetOutXMP();
+
+        $this->assertSame($expected > 0, \str_contains($result, '<pdfaExtension:schemas>'));
+
+        $start = \strpos($result, '<x:xmpmeta');
+        $end = \strpos($result, '</x:xmpmeta>');
+        $this->assertIsInt($start);
+        $this->assertIsInt($end);
+
+        $xml = \substr($result, $start, $end - $start + 12);
+
+        $doc = new \DOMDocument();
+        $this->assertTrue($doc->loadXML($xml));
     }
 
     /** @throws \Throwable */
@@ -392,6 +832,8 @@ class MetaInfoTest extends TestUtil
         $obj = $this->getInternalTestObject();
         $this->setObjectProperty($obj, 'pdfx', true);
         $this->setObjectProperty($obj, 'pdfxMode', 'pdfx4');
+        // PDF/X requires a title; without one the output warns.
+        $obj->setTitle('PDF/X test document');
 
         $result = $obj->exposeGetOutMetaInfo();
 
@@ -509,13 +951,14 @@ class MetaInfoTest extends TestUtil
     public static function pdfxVersionFixtureProvider(): array
     {
         return [
-            'pdfx1a_enforces_min_1_3_when_lower' => ['pdfx1a', '1.1', '1.3'],
-            'pdfx1a_allows_higher_explicit' => ['pdfx1a', '1.6', '1.6'],
-            'pdfx3_enforces_min_1_3' => ['pdfx3', '1.2', '1.3'],
-            'pdfx4_enforces_min_1_6_when_lower' => ['pdfx4', '1.3', '1.6'],
-            'pdfx4_allows_higher_explicit' => ['pdfx4', '1.7', '1.7'],
-            'pdfx5_enforces_min_1_6' => ['pdfx5', '1.4', '1.6'],
-            'pdfx_generic_enforces_min_1_3' => ['pdfx', '1.1', '1.3'],
+            'pdfx1a_pins_1_4_when_lower' => ['pdfx1a', '1.1', '1.4'],
+            'pdfx1a_pins_1_4_when_higher' => ['pdfx1a', '1.6', '1.4'],
+            'pdfx3_pins_1_4' => ['pdfx3', '1.2', '1.4'],
+            'pdfx4_pins_1_6_when_lower' => ['pdfx4', '1.3', '1.6'],
+            'pdfx4_pins_1_6_when_higher' => ['pdfx4', '1.7', '1.6'],
+            'pdfx5_pins_1_6' => ['pdfx5', '1.4', '1.6'],
+            'pdfx_generic_pins_1_4' => ['pdfx', '1.1', '1.4'],
+            'pdfx_ignores_malformed_version' => ['pdfx1a', '1.A', '1.4'],
         ];
     }
 
@@ -531,13 +974,49 @@ class MetaInfoTest extends TestUtil
         ];
     }
 
+    /** @return array<string, array{0: string, 1: bool}> */
+    public static function customXmpExtensionKeyFixtureProvider(): array
+    {
+        return [
+            'bag' => ['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag', true],
+            'schemas' => ['x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas', true],
+            'description' => ['x:xmpmeta.rdf:RDF.rdf:Description', false],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: bool}> */
+    public static function pdfuaExtensionSchemaFixtureProvider(): array
+    {
+        return [
+            'pdfua_defaults_to_part_1' => ['pdfua', false],
+            'pdfua1_has_no_rev' => ['pdfua1', false],
+            'pdfua2_has_rev' => ['pdfua2', true],
+        ];
+    }
+
+    /** @return array<string, array{0: string, 1: string|int|bool, 2: int}> */
+    public static function conformanceModeFixtureProvider(): array
+    {
+        return [
+            // Every conformance mode describes the xmpMM and Adobe PDF schemas plus
+            // the schema identifying the mode itself.
+            'none' => ['pdfa', 0, 0],
+            'pdfa1' => ['pdfa', 1, 3],
+            'pdfa2' => ['pdfa', 2, 3],
+            'pdfa3' => ['pdfa', 3, 3],
+            'pdfua1' => ['pdfuaMode', 'pdfua1', 3],
+            'pdfua2' => ['pdfuaMode', 'pdfua2', 3],
+            'pdfx' => ['pdfx', true, 3],
+        ];
+    }
+
     /** @return array<string, array{0: int, 1: string, 2: string}> */
     public static function pdfaVersionFixtureProvider(): array
     {
         return [
             'pdfa1_forces_1_4' => [1, '1.9', '1.4'],
             'pdfa2_forces_1_7' => [2, '1.5', '1.7'],
-            'pdfa4_forces_2_0' => [4, '1.5', '2.0'],
+            'pdfa3_forces_1_7' => [3, '1.5', '1.7'],
         ];
     }
 

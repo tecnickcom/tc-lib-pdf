@@ -6818,6 +6818,34 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Closes the marker style block of a graphic list marker and marks it as an Artifact.
+     *
+     * A vector or image marker carries no text, so in a tagged document it is decoration:
+     * ISO 14289-1 clause 7.1 requires it to be marked as an Artifact instead of being left
+     * as untagged content. Outside tagged modes the wrapping is a no-op.
+     *
+     * @param string               $result       Marker drawing operators.
+     * @param string               $markerPrefix Marker style operators to prepend.
+     * @param array<string, mixed> $markerState  Graphic state saved before the marker styles.
+     * @param array<string, mixed> $markerStyles Marker style declarations from li::marker.
+     *
+     * @throws \Com\Tecnick\Pdf\Font\Exception
+     * @throws PdfException
+     */
+    protected function finishHTMLliGraphicMarker(
+        string $result,
+        string $markerPrefix,
+        array $markerState,
+        array $markerStyles,
+    ): string {
+        if ($markerStyles !== []) {
+            $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
+        }
+
+        return $this->tagPdfUaArtifactContent($result);
+    }
+
+    /**
      * Returns the PDF code for an HTML list bullet or ordered list item symbol.
      *
      * @param int    $depth  List nesting level.
@@ -6932,10 +6960,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         8,
                     )
                     . $this->graph->getStopTransform();
-                if ($markerStyles !== []) {
-                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
-                }
-                return $result;
+                return $this->finishHTMLliGraphicMarker($result, $markerPrefix, $markerState, $markerStyles);
             case 'circle':
                 $txti = $this->getHTMLliBulletGlyph($type);
                 if ($txti !== '') {
@@ -6970,10 +6995,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         8,
                     )
                     . $this->graph->getStopTransform();
-                if ($markerStyles !== []) {
-                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
-                }
-                return $result;
+                return $this->finishHTMLliGraphicMarker($result, $markerPrefix, $markerState, $markerStyles);
             case 'square':
                 $txti = $this->getHTMLliBulletGlyph($type);
                 if ($txti !== '') {
@@ -7006,10 +7028,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         $style,
                     )
                     . $this->graph->getStopTransform();
-                if ($markerStyles !== []) {
-                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
-                }
-                return $result;
+                return $this->finishHTMLliGraphicMarker($result, $markerPrefix, $markerState, $markerStyles);
             case 'img':
                 // 1=>type, 2=>width, 3=>height, 4=>image.ext
                 $imgWidthRaw = $img[2] ?? null;
@@ -7065,10 +7084,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         );
                         break;
                 }
-                if ($markerStyles !== []) {
-                    $result = $markerPrefix . $result . $this->getStopMarkerStyle($markerState);
-                }
-                return $result;
+                return $this->finishHTMLliGraphicMarker($result, $markerPrefix, $markerState, $markerStyles);
             default:
                 $txti = ListStyle::counterText($type, $count);
                 break;
@@ -10205,7 +10221,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         // Engine guards: only a plain inline flow at a fresh line start, no tables,
         // nested block cells, links, or PDF/UA tagging (handled by later increments).
         if (
-            $this->pdfuaMode !== ''
+            $this->isTaggedMode()
             || $hrc['tablestack'] !== []
             || $hrc['bcellctx'] !== []
             || $this->getCurrentHTMLLink($hrc) !== ''
@@ -11813,7 +11829,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $role = $this->getHTMLStructRole($elm);
         if ($role !== '') {
-            if ($this->pdfuaMode !== '') {
+            if ($this->isTaggedMode()) {
                 $role = $this->pdfuaClampHeadingRole($role);
             }
             $attr = [];
@@ -12860,7 +12876,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpw = \max(0.0, $hrc['cellctx']['maxwidth'] - ($tpx - $hrc['cellctx']['originx']));
         }
 
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             // Flip the top-left image origin to the bottom-left PDF user space origin.
             $pageheight = $this->page->getPage()['height'];
             $out = $this->tagPdfUaFigureContent($out, $this->page->getPageId(), $alt, [
@@ -14413,7 +14429,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             );
         }
 
-        if ($decor !== '' && $this->pdfuaMode !== '') {
+        if ($decor !== '' && $this->isTaggedMode()) {
             $out .= $this->tagPdfUaArtifactContent($decor);
         } else {
             $out .= $decor;
@@ -14440,7 +14456,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $decor .= $this->graph->getStopTransform();
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $out .= $this->tagPdfUaArtifactContent($decor);
             return $out;
         }
@@ -17248,7 +17264,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $elmStroke = $elm['stroke'];
         $elmFill = $elm['fill'];
         $elmClip = $elm['clip'];
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $ordarr = [];
             $dim = self::DIM_DEFAULT;
             $this->prepareText($text, $ordarr, $dim, $forcedir);
@@ -17292,7 +17308,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $this->htmlRenderSoftHyphen = $prevSoftHyphen;
         }
 
-        if ($textout !== '' && $this->pdfuaMode !== '') {
+        if ($textout !== '' && $this->isTaggedMode()) {
             $textout = $this->tagPdfUaTextContent($textout, $this->page->getPageId(), $actualText);
         }
 
@@ -17363,7 +17379,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($link !== '' && $bbox['w'] > 0.0 && $bbox['h'] > 0.0) {
             $lnkid = $this->setLink($bbox['x'], $bbox['y'], $bbox['w'], $bbox['h'], $link);
             $this->page->addAnnotRef($lnkid, $this->page->getPageID());
-            if ($this->pdfuaMode !== '' && $lnkid > 0) {
+            if ($this->isTaggedMode() && $lnkid > 0) {
                 $this->registerPdfUaAnnotation($lnkid, $this->page->getPageID());
             }
         }
@@ -17462,7 +17478,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 ? $elm['attribute']['href']
                 : '';
 
-        if ($this->pdfuaMode !== '' && $href !== '') {
+        if ($this->isTaggedMode() && $href !== '') {
             $this->beginStructElem('Link', $this->page->getPageId());
         }
 
@@ -18441,7 +18457,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $out = $this->openHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
         $depth = $this->getHTMLListDepth($hrc);
         if ($depth < 1) {
-            if ($this->pdfuaMode !== '') {
+            if ($this->isTaggedMode()) {
                 $this->beginStructElem('LBody', $this->page->getPageId());
             }
 
@@ -18501,7 +18517,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         }
 
         $out .= $this->getHTMLTextPrefix($hrc, $key);
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $this->beginStructElem('Lbl', $this->page->getPageId());
         }
 
@@ -18519,7 +18535,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($insideMarker) {
             $insideTextOffset = $markerAdvance;
         }
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $bulletOut = $this->tagPdfUaTextContent($bulletOut, $this->page->getPageId(), '');
             $this->endStructElem();
             $this->beginStructElem('LBody', $this->page->getPageId());
@@ -19660,7 +19676,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $colspan = \max(1, \min($remaining, $colspan));
         $rowspan = \max(1, $rowspan);
 
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $role = $elm['value'] === 'th' ? 'TH' : 'TD';
             $attr = [];
             if ($role === 'TH') {
@@ -20101,7 +20117,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return '';
         }
 
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $this->beginStructElem('TR', $this->page->getPageId());
         }
 
@@ -20301,7 +20317,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if ($value === 'a') {
             $hadlink = $this->getCurrentHTMLLink($hrc) !== '';
             $this->popHTMLLink($hrc);
-            if ($this->pdfuaMode !== '' && $hadlink) {
+            if ($this->isTaggedMode() && $hadlink) {
                 $this->endStructElem();
             }
         }
@@ -21053,7 +21069,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         unset($tph);
         // closeHTMLBlock calls endStructElem() once (pops LBody when pdfuaMode is active).
         $out = $this->closeHTMLBlock($hrc, $key, $tpx, $tpy, $tpw);
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             // Pop the LI that was opened by openHTMLBlock.
             $this->endStructElem();
         }
@@ -21552,7 +21568,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             $tpw = $captpw;
         }
 
-        if ($this->pdfuaMode !== '' && $tableheight > 0.0) {
+        if ($this->isTaggedMode() && $tableheight > 0.0) {
             // Record the box on the open Table element before closeHTMLBlock() ends it.
             // The top and bottom are taken from the captions when present, as they are
             // children of the Table element. Flip to the bottom-left user space origin.
@@ -21728,7 +21744,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $tpx = $this->getHTMLTableColX($table, $table['colindex']);
         $tpw = \max(0.0, $table['width'] - ($tpx - $table['originx']));
 
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $this->endStructElem();
         }
 
@@ -22003,7 +22019,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'width' => $tableWidth,
         ]);
 
-        if ($this->pdfuaMode !== '') {
+        if ($this->isTaggedMode()) {
             $this->endStructElem();
         }
 

@@ -59,6 +59,42 @@ jobs:
       - name: Install qpdf
         if: matrix.php-version == '8.4'
         run: sudo apt-get update && sudo apt-get install -y qpdf
+      # The preflight matrix skips the veraPDF checks when the binary is absent, so a
+      # failed download degrades to the qpdf structural checks instead of a red build.
+      - name: Install veraPDF
+        if: matrix.php-version == '8.4'
+        continue-on-error: true
+        env:
+          VERAPDF_URL: https://software.verapdf.org/rel/1.30/verapdf-greenfield-1.30.2-installer.zip
+          VERAPDF_SHA256: 6cc6341cb1af644044054b81f00a6590a7918abb18f762243de115258bcad838
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          curl -sSL --retry 3 -o "${workdir}/verapdf.zip" "${VERAPDF_URL}"
+          echo "${VERAPDF_SHA256}  ${workdir}/verapdf.zip" | sha256sum --check --status
+          unzip -q "${workdir}/verapdf.zip" -d "${workdir}"
+          installer="$(find "${workdir}" -name 'verapdf-izpack-installer-*.jar' | head -n 1)"
+          cat > "${workdir}/auto.xml" <<XML
+          <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+          <AutomatedInstallation langpack="eng">
+            <com.izforge.izpack.panels.htmlhello.HTMLHelloPanel id="welcome"/>
+            <com.izforge.izpack.panels.target.TargetPanel id="install_dir">
+              <installpath>${HOME}/verapdf</installpath>
+            </com.izforge.izpack.panels.target.TargetPanel>
+            <com.izforge.izpack.panels.packs.PacksPanel id="sdk_pack_select">
+              <pack index="0" name="veraPDF GUI" selected="true"/>
+              <pack index="1" name="veraPDF Mac Software" selected="false"/>
+              <pack index="2" name="veraPDF Validation model" selected="false"/>
+              <pack index="3" name="veraPDF Documentation" selected="false"/>
+              <pack index="4" name="veraPDF Sample Plugins" selected="false"/>
+            </com.izforge.izpack.panels.packs.PacksPanel>
+            <com.izforge.izpack.panels.install.InstallPanel id="install"/>
+            <com.izforge.izpack.panels.finish.FinishPanel id="finish"/>
+          </AutomatedInstallation>
+          XML
+          java -jar "${installer}" "${workdir}/auto.xml"
+          "${HOME}/verapdf/verapdf" --version
+          echo "${HOME}/verapdf" >> "${GITHUB_PATH}"
       - name: Run preflight
         if: matrix.php-version == '8.4'
         run: make preflight

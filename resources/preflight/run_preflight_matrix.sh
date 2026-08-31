@@ -6,13 +6,57 @@ OUT_DIR="${1:-${ROOT_DIR}/target/preflight}"
 REPORT_DIR="${OUT_DIR}/report"
 GENERATOR="${ROOT_DIR}/resources/preflight/generate_mode_samples.php"
 
+PDFA_MODES=(pdfa1 pdfa1a pdfa1b pdfa2 pdfa2a pdfa2b pdfa2u pdfa3 pdfa3a pdfa3b pdfa3u)
 PDFX_MODES=(pdfx pdfx1a pdfx3 pdfx4 pdfx5)
 PDFUA_MODES=(pdfua pdfua1 pdfua2)
-ALL_MODES=("${PDFX_MODES[@]}" "${PDFUA_MODES[@]}")
+ALL_MODES=("${PDFA_MODES[@]}" "${PDFX_MODES[@]}" "${PDFUA_MODES[@]}")
 
 VERAPDF_BIN="${VERAPDF_BIN:-$(command -v verapdf || true)}"
 QPDF_BIN="${QPDF_BIN:-$(command -v qpdf || true)}"
+
+if [[ -n "${VERAPDF_BIN}" && ! -x "${VERAPDF_BIN}" ]]; then
+  echo "[warn] VERAPDF_BIN is not executable: ${VERAPDF_BIN}"
+  VERAPDF_BIN=""
+fi
+
+if [[ -n "${QPDF_BIN}" && ! -x "${QPDF_BIN}" ]]; then
+  echo "[warn] QPDF_BIN is not executable: ${QPDF_BIN}"
+  QPDF_BIN=""
+fi
 PDFX_VALIDATOR_CMD="${PDFX_VALIDATOR_CMD:-}"
+
+# A mode without a conformance letter defaults to level B.
+pdfa_flavour() {
+  case "$1" in
+    pdfa1|pdfa1b)
+      printf '1b'
+      ;;
+    pdfa1a)
+      printf '1a'
+      ;;
+    pdfa2|pdfa2b)
+      printf '2b'
+      ;;
+    pdfa2a)
+      printf '2a'
+      ;;
+    pdfa2u)
+      printf '2u'
+      ;;
+    pdfa3|pdfa3b)
+      printf '3b'
+      ;;
+    pdfa3a)
+      printf '3a'
+      ;;
+    pdfa3u)
+      printf '3u'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
 pdfua_flavour() {
   case "$1" in
@@ -71,6 +115,20 @@ else
 fi
 
 if [[ -n "${VERAPDF_BIN}" ]]; then
+  echo "[preflight] running veraPDF PDF/A profile checks"
+  for mode in "${PDFA_MODES[@]}"; do
+    file="${OUT_DIR}/mode-${mode}.pdf"
+    report="${REPORT_DIR}/verapdf-${mode}.txt"
+    flavour="$(pdfa_flavour "${mode}")"
+    if "${VERAPDF_BIN}" --format text --flavour "${flavour}" "${file}" >"${report}" 2>&1; then
+      echo "[ok] veraPDF ${mode} (${flavour})"
+      checks=$((checks + 1))
+    else
+      echo "[fail] veraPDF ${mode} (${flavour}) (see ${report})"
+      failures=$((failures + 1))
+    fi
+  done
+
   echo "[preflight] running veraPDF PDF/UA profile checks"
   for mode in "${PDFUA_MODES[@]}"; do
     file="${OUT_DIR}/mode-${mode}.pdf"
@@ -85,7 +143,7 @@ if [[ -n "${VERAPDF_BIN}" ]]; then
     fi
   done
 else
-  echo "[skip] veraPDF not found; install verapdf to enable explicit PDF/UA profile validation"
+  echo "[skip] veraPDF not found; install verapdf to enable explicit PDF/A and PDF/UA profile validation"
 fi
 
 echo "[preflight] completed checks=${checks} failures=${failures}"

@@ -42,6 +42,12 @@ $pdf->setTitle('PDF/X-4 Example');
 $pdf->setKeywords('TCPDF tc-lib-pdf example pdfx4');
 $pdf->setPDFFilename('013_pdfx4.pdf');
 
+// ISO 15930-7 and ISO 15930-8 require the destination profile to be embedded.
+// A real print job supplies its own condition (for example 'FOGRA39' with the
+// matching CMYK profile); the bundled sRGB profile keeps this example self-contained.
+$pdf->setSRGB(true);
+$pdf->setOutputIntent(identifier: 'sRGB IEC61966-2.1', info: 'sRGB IEC61966-2.1', condition: 'sRGB display condition');
+
 $font = $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
 $pdf->addPage();
 $pdf->page->addContent($font['out']);

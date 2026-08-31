@@ -84,6 +84,8 @@ class TcpdfImporterFacadeTest extends TestCase
     private function makePdfWithMode(string $mode): Tcpdf
     {
         $pdf = new Tcpdf(mode: $mode);
+        // PDF/X and PDF/UA require a document title; without one the output warns.
+        $pdf->setTitle('Conformance test document');
         $pdf->font->insert($pdf->pon, 'helvetica', '', 12);
         return $pdf;
     }

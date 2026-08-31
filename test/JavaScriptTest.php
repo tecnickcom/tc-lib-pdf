@@ -601,7 +601,7 @@ class JavaScriptTest extends TestUtil
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
         $opt = $this->getAnnotationOpt($ann, $oid);
-        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Widget', $opt['subtype'] ?? null);
         $this->assertSame('Tx', $opt['ft'] ?? null);
         $this->assertSame('field1', $opt['t'] ?? null);
     }
@@ -683,7 +683,7 @@ class JavaScriptTest extends TestUtil
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
         $opt = $this->getAnnotationOpt($ann, $oid);
-        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Widget', $opt['subtype'] ?? null);
         $this->assertSame('Btn', $opt['ft'] ?? null);
         $this->assertSame('Caption', $opt['t'] ?? null);
         $this->assertSame('btnField', $opt['v'] ?? null);
@@ -746,7 +746,7 @@ class JavaScriptTest extends TestUtil
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
         $opt = $this->getAnnotationOpt($ann, $oid);
-        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Widget', $opt['subtype'] ?? null);
         $this->assertSame('Btn', $opt['ft'] ?? null);
         $this->assertSame('Yes', $opt['as'] ?? null);
         $this->assertSame(['Yes'], $opt['opt'] ?? null);
@@ -766,7 +766,7 @@ class JavaScriptTest extends TestUtil
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
         $opt = $this->getAnnotationOpt($ann, $oid);
-        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Widget', $opt['subtype'] ?? null);
         $this->assertSame('Ch', $opt['ft'] ?? null);
         $this->assertSame('cmbField', $opt['t'] ?? null);
         $this->assertSame($vals, $opt['opt'] ?? null);
@@ -820,7 +820,7 @@ class JavaScriptTest extends TestUtil
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
         $opt = $this->getAnnotationOpt($ann, $oid);
-        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Widget', $opt['subtype'] ?? null);
         $this->assertSame('Ch', $opt['ft'] ?? null);
         $this->assertSame('lstField', $opt['t'] ?? null);
         $this->assertSame($vals, $opt['opt'] ?? null);
@@ -839,7 +839,7 @@ class JavaScriptTest extends TestUtil
         $ann = $this->getObjectProperty($obj, 'annotation');
         $this->assertArrayHasKey($oid, $ann);
         $opt = $this->getAnnotationOpt($ann, $oid);
-        $this->assertSame('Widget', $opt['Subtype'] ?? null);
+        $this->assertSame('Widget', $opt['subtype'] ?? null);
         $this->assertSame('Btn', $opt['ft'] ?? null);
         $this->assertSame('On', $opt['as'] ?? null);
 

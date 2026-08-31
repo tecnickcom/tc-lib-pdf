@@ -33,6 +33,7 @@ use Com\Tecnick\Pdf\Graph\Draw as ObjGraph;
 use Com\Tecnick\Pdf\Image\Import as ObjImage;
 use Com\Tecnick\Pdf\Import\ImporterInterface as ObjImporter;
 use Com\Tecnick\Pdf\Page\Page as ObjPage;
+use Com\Tecnick\Pdf\Page\PageBoxType;
 use Com\Tecnick\Unicode\Convert as ObjUniConvert;
 
 /**
@@ -133,6 +134,23 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    'x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag': string,
  * }
  *
+ * @phpstan-type THybridDoc array{
+ *    'filename': string,
+ *    'doctype': string,
+ *    'version': string,
+ *    'conformance': string,
+ *    'uri': string,
+ *    'prefix': string,
+ *    'schema': string,
+ * }
+ *
+ * @phpstan-type TXMPProperties list<array{
+ *    category: string,
+ *    description: string,
+ *    name: string,
+ *    valueType: string,
+ * }>
+ *
  * @phpstan-type TPdfUaStructKid array{
  *    type: 'elem'|'mcid',
  *    id: int,
@@ -148,6 +166,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *    annots?: int[],
  *    attr?: array<string, string>,
  *    bbox?: TFourFloat,
+ *    refpid?: int,
  *    required?: bool,
  * }
  *
@@ -600,10 +619,12 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *                'name': string,
  *                'page': int,
  *                'rect': string,
+ *                'tu'?: string,
  *            }>,
  *            'name': string,
  *            'page': int,
  *            'rect': string,
+ *            'tu'?: string,
  *            'xobj'?: string,
  *        },
  *        'approval': string,
@@ -671,6 +692,7 @@ use Com\Tecnick\Unicode\Convert as ObjUniConvert;
  *        'resdic': int,
  *        'signature': int,
  *        'srgbicc': int,
+ *        'outputintenticc': int,
  *        'xmp': int,
  *    }
  *
@@ -692,7 +714,7 @@ abstract class Base
     /**
      * TCPDF version.
      */
-    protected string $version = '8.72.1';
+    protected string $version = '8.73.0';
 
     /**
      * Encrypt object.
@@ -771,17 +793,17 @@ abstract class Base
      * If the document was converted to PDF from another format,
      * the name of the conforming product that created the original document from which it was converted.
      */
-    protected string $creator = 'TCPDF';
+    protected string $creator = '';
 
     /**
      * The name of the person who created the document.
      */
-    protected string $author = 'TCPDF';
+    protected string $author = '';
 
     /**
      * Subject of the document.
      */
-    protected string $subject = '-';
+    protected string $subject = '';
 
     /**
      * Title of the document.
@@ -791,7 +813,20 @@ abstract class Base
     /**
      * Space-separated list of keywords associated with the document.
      */
-    protected string $keywords = 'TCPDF';
+    protected string $keywords = '';
+
+    /**
+     * Trapping status of the document: 'True', 'False' or 'Unknown'.
+     *
+     * Emitted as the Info dictionary /Trapped entry and as the equivalent
+     * pdf:Trapped XMP property.
+     */
+    protected string $trapped = 'False';
+
+    /**
+     * Application identification appended to the producer string.
+     */
+    protected string $producersuffix = '';
 
     /**
      * Additional custom XMP data.
@@ -807,9 +842,56 @@ abstract class Base
     ];
 
     /**
+     * XMP metadata of the hybrid electronic document (Factur-X, ZUGFeRD, Order-X).
+     *
+     * The 'uri' entry is empty when setFacturX() has not been called. Stored
+     * separately from 'custom_xmp' so that a custom fragment set on the same XMP
+     * key does not replace it.
+     *
+     * @var THybridDoc
+     */
+    protected array $hybriddoc = [
+        'filename' => '',
+        'doctype' => '',
+        'version' => '',
+        'conformance' => '',
+        'uri' => '',
+        'prefix' => '',
+        'schema' => '',
+    ];
+
+    /**
      * Set this to TRUE to add the default sRGB ICC color profile
      */
     protected bool $sRGB = false;
+
+    /**
+     * Output intent describing the intended printing condition.
+     *
+     * An empty 'identifier' means no explicit intent was set and the
+     * conformance-specific default applies.
+     *
+     * @var array{
+     *     'identifier': string,
+     *     'condition': string,
+     *     'info': string,
+     *     'registry': string,
+     *     'iccfile': string,
+     * }
+     */
+    protected array $outputintent = [
+        'identifier' => '',
+        'condition' => '',
+        'info' => '',
+        'registry' => '',
+        'iccfile' => '',
+    ];
+
+    /**
+     * Number of colour components of the embedded output intent profile,
+     * or 0 when no profile was supplied. Set when the profile is serialized.
+     */
+    protected int $outputintentComponents = 0;
 
     /**
      * Viewer preferences dictionary controlling the way the document is to be presented on the screen or in print.
@@ -838,7 +920,8 @@ abstract class Base
     protected bool $tmprtl = false;
 
     /**
-     * Document ID.
+     * Document ID (32 hexadecimal digits), used for the trailer /ID array and the XMP
+     * xmpMM:InstanceID property.
      */
     protected string $fileid;
 
@@ -992,6 +1075,20 @@ abstract class Base
     protected string $pdfuaMode = '';
 
     /**
+     * Conformance warnings collected while the document is written and serialized.
+     *
+     * @var array<int, string>
+     */
+    protected array $warnings = [];
+
+    /**
+     * Nesting depth of the active structure tagging suspensions.
+     *
+     * Tagging is suspended while this is greater than zero.
+     */
+    protected int $taggingSuspendDepth = 0;
+
+    /**
      * Count of MCID-tagged content blocks per page (keyed by page PID) for PDF/UA output.
      *
      * @var array<int, int>
@@ -1110,6 +1207,7 @@ abstract class Base
         'resdic' => 0,
         'signature' => 0,
         'srgbicc' => 0,
+        'outputintenticc' => 0,
         'xmp' => 0,
     ];
 
@@ -1695,6 +1793,158 @@ abstract class Base
     }
 
     /**
+     * Return true when the active conformance mode forbids encryption.
+     *
+     * ISO 19005 (PDF/A) and ISO 15930 (PDF/X) both require the document to be
+     * readable without a decryption key. PDF/UA places no such restriction.
+     */
+    protected function forbidsEncryption(): bool
+    {
+        return $this->pdfa !== 0 || $this->pdfx;
+    }
+
+    /**
+     * Return true when the active conformance mode requires every font to be embedded.
+     *
+     * Required by ISO 19005 (PDF/A), ISO 15930 (PDF/X) and ISO 14289 (PDF/UA).
+     * Drives the substitution of the standard 14 fonts with their embeddable variants.
+     */
+    protected function requiresEmbeddedFonts(): bool
+    {
+        return $this->pdfa !== 0 || $this->pdfx || $this->pdfuaMode !== '';
+    }
+
+    /**
+     * Return true when the active conformance mode forbids embedded files.
+     *
+     * ISO 19005-1 and ISO 19005-2 allow no embedded file streams; ISO 19005-3 (PDF/A-3)
+     * introduced them. The public entry points refuse them too, so this only keeps the
+     * file objects and the catalog references consistent.
+     */
+    protected function forbidsEmbeddedFiles(): bool
+    {
+        return $this->pdfa === 1 || $this->pdfa === 2;
+    }
+
+    /**
+     * Return true when the active conformance mode forbids image alternates.
+     *
+     * ISO 19005 (PDF/A) and ISO 15930 (PDF/X) both forbid the /Alternates entry
+     * in image XObjects. Drives the suppression in the image library.
+     */
+    protected function forbidsImageAlternates(): bool
+    {
+        return $this->pdfa !== 0 || $this->pdfx;
+    }
+
+    /**
+     * Return true when the active conformance mode forbids actions on widget annotations.
+     *
+     * ISO 19005-1 clause 6.6.1 forbids an interactive form field from performing an
+     * action of any type; ISO 19005-2 and ISO 19005-3 clause 6.4.1 forbid the /A and
+     * /AA entries in a widget annotation and in its field dictionary.
+     */
+    protected function forbidsWidgetActions(): bool
+    {
+        return $this->pdfa !== 0;
+    }
+
+    /**
+     * Return the conformance warnings raised while the document was rendered.
+     *
+     * The list is filled while the content is written and while the document is
+     * serialized, so it is complete only after getOutPDFString() has been called.
+     *
+     * @return array<int, string>
+     */
+    public function getWarnings(): array
+    {
+        return $this->warnings;
+    }
+
+    /**
+     * Record a conformance warning, ignoring duplicates.
+     */
+    protected function addWarning(string $message): void
+    {
+        if ($message === '' || \in_array($message, $this->warnings, true)) {
+            return;
+        }
+
+        $this->warnings[] = $message;
+    }
+
+    /**
+     * Return true when the active conformance mode forbids optional content.
+     *
+     * ISO 19005-1 is based on PDF 1.4, which has no optional content: clause 6.1.13
+     * forbids the /OCProperties key in the document catalog.
+     */
+    protected function forbidsOptionalContent(): bool
+    {
+        return $this->pdfa === 1;
+    }
+
+    /**
+     * Return true when the active conformance mode forbids usage application
+     * dictionaries in an optional content configuration dictionary.
+     *
+     * ISO 19005-2 and ISO 19005-3 clause 6.9, ISO 14289-1 clause 7.10 and
+     * ISO 14289-2 clause 8.7 forbid the /AS key, which makes the visibility of
+     * the content depend on the viewer rather than on the document.
+     */
+    protected function forbidsOptionalContentUsage(): bool
+    {
+        return $this->pdfa !== 0 || $this->pdfx || $this->pdfuaMode !== '';
+    }
+
+    /**
+     * Return true when the active conformance mode forbids a reference to the
+     * .notdef glyph, which no Unicode value maps to.
+     *
+     * Required by the PDF/A conformance levels A and U (ISO 19005-1 clause 6.3.8,
+     * ISO 19005-2 and ISO 19005-3 clauses 6.2.11.7.2 and 6.2.11.8) and by PDF/UA
+     * (ISO 14289-1 clauses 7.21.7 and 7.21.8). The B levels accept it.
+     */
+    protected function forbidsUnmappedGlyphs(): bool
+    {
+        if ($this->pdfuaMode !== '') {
+            return true;
+        }
+
+        return $this->pdfa !== 0 && \in_array($this->pdfaConformance, ['A', 'U'], true);
+    }
+
+    /**
+     * Return true when the active conformance mode requires a structure destination
+     * for every destination whose target lies inside the document.
+     *
+     * ISO 14289-2 clause 8.8 requires the destination of an outline item, of a link
+     * annotation and of a GoTo action to point at a structure element rather than at
+     * a page. The entry is a PDF 2.0 feature, so it applies to PDF/UA-2 only.
+     */
+    protected function requiresStructureDestinations(): bool
+    {
+        return $this->pdfuaMode === 'pdfua2';
+    }
+
+    /**
+     * Return true when the document uses tagged PDF (logical structure).
+     *
+     * Tagging is driven by PDF/UA (ISO 14289) and by PDF/A conformance level A
+     * (ISO 19005 clauses 6.7.2.2 and 6.7.3.3), which require a StructTreeRoot and
+     * a MarkInfo dictionary with Marked true.
+     */
+    protected function isTaggedMode(): bool
+    {
+        if ($this->taggingSuspendDepth > 0) {
+            return false;
+        }
+
+        return $this->pdfuaMode !== '' || $this->pdfa !== 0 && $this->pdfaConformance === 'A';
+    }
+
+    /**
      * Return true when the active PDF/X variant should avoid DeviceRGB process colors.
      *
      * PDF/X-1a and PDF/X-3 are treated as restrictive process-color variants in this
@@ -1731,12 +1981,6 @@ abstract class Base
             return $this;
         }
 
-        // // PDF/A-4 is based on and require the PDF 2.0 (ISO 32000-2)
-        if ($this->pdfa === 4) {
-            $this->pdfver = '2.0';
-            return $this;
-        }
-
         // PDF/UA-2 uses PDF 2.0.
         if ($this->pdfuaMode === 'pdfua2') {
             $this->pdfver = '2.0';
@@ -1749,19 +1993,15 @@ abstract class Base
             return $this;
         }
 
-        // PDF/X-1a and PDF/X-3 require a minimum of PDF 1.3.
-        // PDF/X-4 and PDF/X-5 require a minimum of PDF 1.6.
+        // Each PDF/X part is defined against one exact PDF version, which is a ceiling
+        // and not just a floor: ISO 15930-4 (PDF/X-1a:2003) and ISO 15930-6 (PDF/X-3:2003)
+        // define a conforming file as a PDF 1.4 file, ISO 15930-7 (PDF/X-4) as PDF 1.6.
+        // The requested version is ignored, as it already is for PDF/A.
         if ($this->pdfx) {
-            $isvalid = \preg_match('/^[1-9]+[.]\d+$/', $version);
-            if ($isvalid !== 1) {
-                throw new PdfException('Invalid PDF version format');
-            }
-
-            $minVersion = match ($this->pdfxMode) {
+            $this->pdfver = match ($this->pdfxMode) {
                 'pdfx4', 'pdfx5' => '1.6',
-                default => '1.3',
+                default => '1.4',
             };
-            $this->pdfver = \version_compare($version, $minVersion, '<') ? $minVersion : $version;
             return $this;
         }
 
@@ -1828,8 +2068,11 @@ abstract class Base
         ?ObjExtCache $cache = null,
     ): void {
         $this->extCache = $cache;
-        // ISO 19005 forbids encryption: a PDF/A document ignores the injected encryption object.
-        if ($objEncrypt instanceof ObjEncrypt && $this->pdfa === 0) {
+        // ISO 19005 (PDF/A) and ISO 15930 (PDF/X) forbid encryption: those modes ignore
+        // the injected encryption object. The /Encrypt object and trailer entry are also
+        // suppressed downstream, so keeping the encrypting object here would emit
+        // ciphertext that no reader could decrypt.
+        if ($objEncrypt instanceof ObjEncrypt && !$this->forbidsEncryption()) {
             $this->encrypt = $objEncrypt;
             // Enforce minimum PDF version required by the encryption algorithm.
             // AES-128 (V=4) requires PDF 1.6 (Acrobat 7.0+).
@@ -1849,6 +2092,13 @@ abstract class Base
                 }
             }
         } else {
+            if ($objEncrypt instanceof ObjEncrypt && $objEncrypt->getEncryptionData()['encrypted']) {
+                \trigger_error(
+                    'Encryption is not allowed in the active conformance mode and has been disabled.',
+                    E_USER_WARNING,
+                );
+            }
+
             $this->encrypt = new ObjEncrypt();
         }
 
@@ -1877,9 +2127,26 @@ abstract class Base
         $this->cache = new ObjCache();
         $this->uniconv = new ObjUniConvert();
 
-        $pdfamode = $this->pdfa > 0;
+        // The page and graph layers use this flag to suppress the page transparency
+        // group and the transparency extended graphic states, so it follows the same
+        // predicate as the transparency gates in this library rather than the PDF/A
+        // part alone: ISO 19005-2 and ISO 19005-3 allow transparency, ISO 15930-4 and
+        // ISO 15930-6 (PDF/X-1a and PDF/X-3) do not.
+        $notransparency = !$this->isTransparencyAllowed();
 
-        $this->page = new ObjPage($this->unit, $this->color, $this->encrypt, $pdfamode, $this->compress, $this->sigapp);
+        $this->page = new ObjPage(
+            $this->unit,
+            $this->color,
+            $this->encrypt,
+            $notransparency,
+            $this->compress,
+            $this->sigapp,
+        );
+
+        if ($this->pdfx) {
+            // ISO 15930 requires a page to carry a trim box or an art box, not both.
+            $this->page->omitPageBox(PageBoxType::ArtBox);
+        }
 
         $this->kunit = $this->page->getKUnit();
         $this->svgminunitlen = $this->toUnit(0.01);
@@ -1890,25 +2157,32 @@ abstract class Base
             0, // $this->graph->setPageHeight($pageh)
             $this->color,
             $this->encrypt,
-            $pdfamode,
+            $notransparency,
             $this->compress,
         );
 
+        // The font layer uses this flag only to substitute the standard 14 fonts with
+        // their embeddable variants, which PDF/X and PDF/UA require just as PDF/A does.
         $this->font = new ObjFont(
             kunit: $this->kunit,
             subset: $this->subsetfont,
             unicode: $this->isunicode,
-            pdfa: $pdfamode,
+            pdfa: $this->requiresEmbeddedFonts(),
             fileHelper: $this->file,
         );
 
+        // The image layer uses the first flag only to suppress the /Alternates entry,
+        // which PDF/X forbids just as PDF/A does. The second one suppresses the /SMask
+        // entry and the mask object of an alpha image, which ISO 19005-1 clause 6.4 and
+        // ISO 15930-4 and ISO 15930-6 forbid: the flattened sub-image is emitted alone.
         $this->image = new ObjImage(
             kunit: $this->kunit,
             encrypt: $this->encrypt,
             fileHelper: $this->file,
-            pdfa: $pdfamode,
+            pdfa: $this->forbidsImageAlternates(),
             compress: $this->compress,
             imageCache: $this->imageCacheAdapter(),
+            notransparency: $notransparency,
         );
     }
 

@@ -287,7 +287,25 @@ class TcpdfTest extends TestUtil
         $fileid = \md5('tcpdf-pdfa-encryption');
         $enc = new \Com\Tecnick\Pdf\Encrypt\Encrypt(true, $fileid, 2, ['print'], 'demo-user', 'demo-owner');
 
-        $pdfa = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfa3b', $enc);
+        $warned = false;
+        \set_error_handler(static function (int $errno, string $errstr) use (&$warned): bool {
+            if ($errno !== E_USER_WARNING || !\str_contains($errstr, 'Encryption is not allowed')) {
+                return false;
+            }
+
+            $warned = true;
+            return true;
+        });
+
+        try {
+            $pdfa = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfa3b', $enc);
+        } finally {
+            \restore_error_handler();
+        }
+
+        // Dropping the caller's encryption object silently would hide the ignored password.
+        $this->assertTrue($warned);
+
         /** @var \Com\Tecnick\Pdf\Encrypt\Encrypt $pdfaEncrypt */
         $pdfaEncrypt = $this->getObjectProperty($pdfa, 'encrypt');
         $this->assertFalse($pdfaEncrypt->getEncryptionData()['encrypted']);
@@ -681,7 +699,24 @@ class TcpdfTest extends TestUtil
             $this->assertSame('', $this->getObjectProperty($pdfua, 'pdfxMode'));
         }
 
-        $unknown = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfunknown');
+        $warned = false;
+        \set_error_handler(static function (int $errno, string $errstr) use (&$warned): bool {
+            if ($errno !== E_USER_WARNING || !\str_contains($errstr, 'Unsupported PDF conformance mode')) {
+                return false;
+            }
+
+            $warned = true;
+            return true;
+        });
+
+        try {
+            $unknown = new \Com\Tecnick\Pdf\Tcpdf('mm', true, false, true, 'pdfunknown');
+        } finally {
+            \restore_error_handler();
+        }
+
+        // An unrecognized mode must not degrade to "no conformance" in silence.
+        $this->assertTrue($warned);
         $this->assertFalse($this->getObjectProperty($unknown, 'pdfx'));
         $this->assertSame('', $this->getObjectProperty($unknown, 'pdfxMode'));
         $this->assertSame('', $this->getObjectProperty($unknown, 'pdfuaMode'));

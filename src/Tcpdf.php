@@ -236,6 +236,18 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
                 }
                 $this->pdfaConformance = $conf;
             }
+
+            return;
+        }
+
+        if ($normalizedMode !== '') {
+            // Without this the caller silently gets a plain PDF carrying no
+            // conformance metadata at all (for example on a typo, or on 'pdfa4',
+            // which this library does not implement).
+            \trigger_error(
+                'Unsupported PDF conformance mode "' . $mode . '": no conformance metadata will be emitted.',
+                E_USER_WARNING,
+            );
         }
     }
 
@@ -1022,6 +1034,22 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
     }
 
     /**
+     * Set the description of the signature field, written as the /TU and /Contents
+     * entries of the widget annotation in a tagged mode.
+     *
+     * Without it the field name is used, which is an identifier rather than the
+     * description a screen reader is expected to read.
+     *
+     * @param string $description Human readable description of the signature field.
+     *
+     * Also available through the fluent API: signature()->appearance()->description().
+     */
+    public function setSignatureAppearanceDescription(string $description): void
+    {
+        $this->signature['appearance']['tu'] = $description;
+    }
+
+    /**
      * Add an empty digital signature appearance (a clickable rectangle area to get signature properties).
      *
      * @param float $posx Abscissa of the upper-left corner.
@@ -1030,6 +1058,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param float $height Height of the signature area.
      * @param int $page optional page number (if < 0 the current page is used).
      * @param string $name Name of the signature.
+     * @param string $description Description of the field, written as /TU in a tagged mode.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
      *
@@ -1042,15 +1071,21 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         float $height = 0,
         int $page = -1,
         string $name = '',
+        string $description = '',
     ): void {
         ++$this->pon;
         $data = $this->getSignatureAppearanceArray($posx, $posy, $width, $height, $page, $name);
-        $this->signature['appearance']['empty'][] = [
+        $entry = [
             'objid' => $this->pon,
             'name' => $data['name'],
             'page' => $data['page'],
             'rect' => $data['rect'],
         ];
+        if ($description !== '') {
+            $entry['tu'] = $description;
+        }
+
+        $this->signature['appearance']['empty'][] = $entry;
         $this->setSignAnnotRefs();
     }
 
@@ -1096,6 +1131,8 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * @param bool $lock Set the lock state of the layer.
      *
      * @return string
+     *
+     * @throws PdfException if the active conformance mode forbids optional content.
      */
     public function newLayer(
         string $name = '',
@@ -1104,6 +1141,10 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
         bool $view = true,
         bool $lock = true,
     ): string {
+        if ($this->forbidsOptionalContent()) {
+            throw new PdfException('Optional content (layers) is not allowed in PDF/A mode version 1');
+        }
+
         $layer = \sprintf('LYR%03d', \count($this->pdflayer) + 1);
         $name = (string) \preg_replace('/[^a-zA-Z0-9_\-]/', '', $name);
         if ($name === '') {
@@ -1222,6 +1263,11 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
         $pid = $page < 0 ? (int) $this->page->getPageID() : (int) $page;
 
+        // In a tagged mode the list is a TOC structure element holding one TOCI per
+        // entry (ISO 32000-1 table 333); the cell decorations and the dot filler are
+        // artifacts.
+        $this->beginStructElem('TOC', $pid);
+
         $outlines = $this->outlines;
         foreach ($outlines as $bmrk) {
             $bmrkStyle = $bmrk['s'];
@@ -1257,6 +1303,12 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
                 $region = $this->page->getRegion($pid);
                 $posy = 0; // $region['RY'];
             }
+
+            // The entry text and its page number are the reference to the target,
+            // which the TOCI names through its /Ref entry (ISO 14289-2 clause 8.2.5.8).
+            $this->beginStructElem('TOCI', $pid);
+            $this->setPdfUaStructElemRef($bmrkPage);
+            $this->beginStructElem('Reference', $pid);
 
             $this->page->addContent($this->graph->getStartTransform(), $pid);
             $this->page->addContent($fontOut, $pid);
@@ -1332,7 +1384,7 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             $line_posy = $bboxY + $this->toUnit($fontAscent);
             $lineLength = $width - $wtxt - $wnum - (2 * $cellSpaceH) - $offset;
             $line = $this->graph->getLine($line_posx, $line_posy, $line_posx + $lineLength, $line_posy, $linestyle);
-            $this->page->addContent($line, $pid);
+            $this->page->addContent($this->tagPdfUaArtifactContent($line), $pid);
 
             $bboxH = (float) $bbox['h'];
             $lnkid = $this->setLink($posx, $bboxY, $width, $bboxH, $bmrkLink);
@@ -1340,9 +1392,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
 
             $this->page->addContent($this->graph->getStopTransform(), $pid);
 
+            $this->endStructElem(); // Reference
+            $this->endStructElem(); // TOCI
+
             // Move to the next line.
             $posy = $bboxY + $bboxH + $cellSpaceB;
         }
+
+        $this->endStructElem(); // TOC
     }
 
     // -------------------------------------------------------------------------
@@ -1376,7 +1433,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
             $xobjects = &$this->xobjects;
             $importFile = clone $this->file;
             $importFile->setAllowedPaths(['*']);
-            $this->importer = new ObjImporter($xobjects, $this->pon, $importFile, $this->pdfa, $this->encrypt);
+            $this->importer = new ObjImporter(
+                $xobjects,
+                $this->pon,
+                $importFile,
+                $this->pdfa,
+                $this->encrypt,
+                $this->requiresEmbeddedFonts(),
+            );
         }
 
         return $this->importer;

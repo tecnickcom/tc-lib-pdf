@@ -21817,13 +21817,19 @@ class HTMLTest extends TestUtil
      */
     private function getPdfUaUncompressedObject(): \Com\Tecnick\Pdf\Tcpdf
     {
-        return new \Com\Tecnick\Pdf\Tcpdf(
+        $pdf = new \Com\Tecnick\Pdf\Tcpdf(
             unit: 'mm',
             isunicode: true,
             subsetfont: false,
             compress: false,
             mode: 'pdfua1',
         );
+
+        // PDF/UA requires a document title and a document language; without them
+        // the output warns.
+        $pdf->setTitle('PDF/UA test document');
+        $pdf->setLanguage('en-US');
+        return $pdf;
     }
 
     /**

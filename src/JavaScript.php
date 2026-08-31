@@ -67,6 +67,71 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     ];
 
     /**
+     * Annotation subtypes disallowed by ISO 19005-1 clause 6.5.2 (PDF/A-1).
+     *
+     * @var array<int, string>
+     */
+    protected const PDFA1_BLOCKED_ANNOT_SUBTYPES = [
+        '3d',
+        'caret',
+        'fileattachment',
+        'movie',
+        'polygon',
+        'polyline',
+        'redact',
+        'screen',
+        'sound',
+        'watermark',
+    ];
+
+    /**
+     * Annotation subtypes disallowed by ISO 19005-2 and ISO 19005-3 clause 6.3.1
+     * (PDF/A-2 and PDF/A-3).
+     *
+     * @var array<int, string>
+     */
+    protected const PDFA_BLOCKED_ANNOT_SUBTYPES = [
+        '3d',
+        'movie',
+        'screen',
+        'sound',
+    ];
+
+    /**
+     * Annotation subtypes defined in ISO 32000-1 table 169, keyed by their lowercase form.
+     *
+     * @var array<string, string>
+     */
+    protected const ANNOT_SUBTYPES = [
+        '3d' => '3D',
+        'caret' => 'Caret',
+        'circle' => 'Circle',
+        'fileattachment' => 'FileAttachment',
+        'freetext' => 'FreeText',
+        'highlight' => 'Highlight',
+        'ink' => 'Ink',
+        'line' => 'Line',
+        'link' => 'Link',
+        'movie' => 'Movie',
+        'polygon' => 'Polygon',
+        'polyline' => 'PolyLine',
+        'popup' => 'Popup',
+        'printermark' => 'PrinterMark',
+        'redact' => 'Redact',
+        'screen' => 'Screen',
+        'sound' => 'Sound',
+        'square' => 'Square',
+        'squiggly' => 'Squiggly',
+        'stamp' => 'Stamp',
+        'strikeout' => 'StrikeOut',
+        'text' => 'Text',
+        'trapnet' => 'TrapNet',
+        'underline' => 'Underline',
+        'watermark' => 'Watermark',
+        'widget' => 'Widget',
+    ];
+
+    /**
      * Fonts used in annotations.
      *
      * @var array<string, int>
@@ -663,7 +728,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $afrel = $afrel->value;
         }
 
-        if ($this->pdfa === 1 || $this->pdfa === 2) {
+        if ($this->forbidsEmbeddedFiles()) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
 
@@ -715,7 +780,7 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             $afrel = $afrel->value;
         }
 
-        if ($this->pdfa === 1 || $this->pdfa === 2) {
+        if ($this->forbidsEmbeddedFiles()) {
             throw new PdfException('Embedded files are not allowed in PDF/A mode version 1 and 2');
         }
         if ($file === '' || $content === '') {
@@ -738,6 +803,69 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
     }
 
     /**
+     * Returns the subtype found in an annotation option array, whatever the case of the key.
+     *
+     * @param array<string, mixed> $opt Annotation options.
+     *
+     * @return string Subtype as given by the caller, or 'text' when absent or empty.
+     */
+    protected function getRawAnnotationSubtype(array $opt): string
+    {
+        foreach (\array_keys($opt) as $key) {
+            if (\strtolower($key) !== 'subtype' || !\is_string($opt[$key] ?? null) || \trim($opt[$key]) === '') {
+                continue;
+            }
+
+            return \trim($opt[$key]);
+        }
+
+        return 'text';
+    }
+
+    /**
+     * Returns true when the active conformance mode forbids the given annotation subtype.
+     *
+     * ISO 15930 drops the interactive subtypes, ISO 19005-1 the subtypes it does not
+     * list in clause 6.5.2, and ISO 19005-2 and ISO 19005-3 the multimedia ones.
+     *
+     * @param string $subtype Lowercase annotation subtype.
+     */
+    protected function isBlockedAnnotSubtype(string $subtype): bool
+    {
+        if ($this->pdfx && \in_array($subtype, self::PDFX_BLOCKED_ANNOT_SUBTYPES, true)) {
+            return true;
+        }
+
+        if ($this->pdfa === 1) {
+            return \in_array($subtype, self::PDFA1_BLOCKED_ANNOT_SUBTYPES, true);
+        }
+
+        return $this->pdfa > 0 && \in_array($subtype, self::PDFA_BLOCKED_ANNOT_SUBTYPES, true);
+    }
+
+    /**
+     * Replaces every case variant of the subtype key with a single lowercase 'subtype' entry.
+     *
+     * @param TAnnotOpts $opt     Annotation options.
+     * @param string     $subtype Subtype name to store.
+     *
+     * @return TAnnotOpts Annotation options carrying the given subtype.
+     */
+    protected function setAnnotationSubtype(array $opt, string $subtype): array
+    {
+        foreach (\array_keys($opt) as $key) {
+            if ($key === 'subtype' || \strtolower($key) !== 'subtype') {
+                continue;
+            }
+
+            unset($opt[$key]);
+        }
+
+        $opt['subtype'] = $subtype;
+        return $opt;
+    }
+
+    /**
      * Add an annotation and returns the object id.
      *
      * @param float      $posx   Abscissa of upper-left corner.
@@ -745,7 +873,9 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
      * @param float      $width  Width.
      * @param float      $height Height.
      * @param string     $txt    Annotation text or alternate content.
-     * @param TAnnotOpts $opt    Array of options (Annotation Types) - all lowercase.
+     * @param TAnnotOpts $opt    Array of options (Annotation Types). The option keys are
+     *                           lowercase; the 'subtype' value is case insensitive and is
+     *                           normalized to the ISO 32000-1 annotation type name.
      *
      * @return int Object ID.
      * @throws PdfException in case of error.
@@ -762,14 +892,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             'subtype' => 'text',
         ],
     ): int {
-        if ($opt['subtype'] === '') {
-            $opt['subtype'] = 'text';
-        }
+        $raw = $this->getRawAnnotationSubtype($opt);
+        $subtype = \strtolower($raw);
+        $opt = $this->setAnnotationSubtype($opt, self::ANNOT_SUBTYPES[$subtype] ?? $raw);
 
-        $subtype = \strtolower($opt['subtype']);
-
-        // PDF/X interaction restriction: suppress interactive annotation subtypes.
-        if ($this->pdfx && \in_array($subtype, self::PDFX_BLOCKED_ANNOT_SUBTYPES, true)) {
+        if ($this->isBlockedAnnotSubtype($subtype)) {
             return 0;
         }
 
@@ -1453,11 +1580,11 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
         $opt['mk']['ca'] = $this->getOutTextString($caption, $oid, true);
         $opt['mk']['rc'] = $this->getOutTextString($caption, $oid, true);
         $opt['mk']['ac'] = $this->getOutTextString($caption, $oid, true);
-        if ($action !== '' && $action !== []) {
+        // ISO 19005 forbids an action of any type on a form field, so neither the
+        // JavaScript action nor the form action is emitted in a PDF/A mode.
+        if ($action !== '' && $action !== [] && !$this->forbidsWidgetActions()) {
             if (\is_string($action)) {
-                if ($this->pdfa <= 0) {
-                    $opt['a'] = '/S /JavaScript /JS ' . $this->getOutTextString($action, $oid, true);
-                }
+                $opt['a'] = '/S /JavaScript /JS ' . $this->getOutTextString($action, $oid, true);
             } else {
                 // form action options as in section 12.7.5 of PDF32000_2008.
                 $opt['a'] = '/S';

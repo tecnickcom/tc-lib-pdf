@@ -324,56 +324,13 @@ $invoiceXML = <<<XML
     </rsm:CrossIndustryInvoice>
     XML;
 
-// Factur-X/ZUGFeRD requires the XML to be embedded as text/xml with the
-// AFRelationship set to "Alternative" and the exact file name "factur-x.xml".
-$pdf->addContentAsEmbeddedFile(
-    file: 'factur-x.xml',
-    content: $invoiceXML,
-    mime: 'text/xml',
-    afrel: \Com\Tecnick\Pdf\AFRelationship::Alternative,
-    desc: 'Factur-X/ZUGFeRD electronic invoice',
+// Embeds the XML with the file name, MIME type and /AFRelationship required by the
+// profile, and adds the PDF/A extension schema and the profile XMP properties.
+$pdf->setFacturX(
+    xml: $invoiceXML,
+    profile: \Com\Tecnick\Pdf\HybridProfile::FacturX,
+    level: \Com\Tecnick\Pdf\HybridConformance::En16931,
 );
-
-$pdf->setCustomXMP('x:xmpmeta.rdf:RDF.rdf:Description.pdfaExtension:schemas.rdf:Bag', '<rdf:li rdf:parseType="Resource">
-    <pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema>
-    <pdfaSchema:namespaceURI>urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#</pdfaSchema:namespaceURI>
-    <pdfaSchema:prefix>fx</pdfaSchema:prefix>
-    <pdfaSchema:property>
-      <rdf:Seq>
-        <rdf:li rdf:parseType="Resource">
-          <pdfaProperty:name>DocumentFileName</pdfaProperty:name>
-          <pdfaProperty:valueType>Text</pdfaProperty:valueType>
-          <pdfaProperty:category>external</pdfaProperty:category>
-          <pdfaProperty:description>The name of the embedded XML document</pdfaProperty:description>
-        </rdf:li>
-        <rdf:li rdf:parseType="Resource">
-          <pdfaProperty:name>DocumentType</pdfaProperty:name>
-          <pdfaProperty:valueType>Text</pdfaProperty:valueType>
-          <pdfaProperty:category>external</pdfaProperty:category>
-          <pdfaProperty:description>The type of the hybrid document in capital letters, e.g. INVOICE or ORDER</pdfaProperty:description>
-        </rdf:li>
-        <rdf:li rdf:parseType="Resource">
-          <pdfaProperty:name>Version</pdfaProperty:name>
-          <pdfaProperty:valueType>Text</pdfaProperty:valueType>
-          <pdfaProperty:category>external</pdfaProperty:category>
-          <pdfaProperty:description>The actual version of the standard applying to the embedded XML document</pdfaProperty:description>
-        </rdf:li>
-        <rdf:li rdf:parseType="Resource">
-          <pdfaProperty:name>ConformanceLevel</pdfaProperty:name>
-          <pdfaProperty:valueType>Text</pdfaProperty:valueType>
-          <pdfaProperty:category>external</pdfaProperty:category>
-          <pdfaProperty:description>The conformance level of the embedded XML document</pdfaProperty:description>
-        </rdf:li>
-      </rdf:Seq>
-    </pdfaSchema:property>
-</rdf:li>');
-
-$pdf->setCustomXMP('x:xmpmeta.rdf:RDF', '<rdf:Description xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#" rdf:about="">
-  <fx:DocumentType>INVOICE</fx:DocumentType>
-  <fx:DocumentFileName>factur-x.xml</fx:DocumentFileName>
-  <fx:Version>1.0</fx:Version>
-  <fx:ConformanceLevel>EN 16931</fx:ConformanceLevel>
-</rdf:Description>');
 
 // =============================================================
 

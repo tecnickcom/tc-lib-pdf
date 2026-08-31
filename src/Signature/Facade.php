@@ -110,6 +110,7 @@ final class Facade
      * @param float  $height Height of the signature area.
      * @param int    $page   Page number (if < 0 the current page is used).
      * @param string $name   Name of the signature field.
+     * @param string $description Description of the field, written as /TU in a tagged mode.
      *
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
@@ -120,8 +121,9 @@ final class Facade
         float $height = 0,
         int $page = -1,
         string $name = '',
+        string $description = '',
     ): self {
-        $this->pdf->addEmptySignatureAppearance($posx, $posy, $width, $height, $page, $name);
+        $this->pdf->addEmptySignatureAppearance($posx, $posy, $width, $height, $page, $name, $description);
         return $this;
     }
 
