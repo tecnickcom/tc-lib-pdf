@@ -64,6 +64,13 @@ $style = [
 
 $linear = [
     [
+        'type' => 'AUSPOST',
+        'code' => '6254516251ABC123',
+        'name' => 'Australia Post 4-State Customer Barcode',
+        'standard' => 'Australia Post 4-State Customer Code',
+        'use' => 'Australian postal sorting and customer routing barcode.',
+    ],
+    [
         'type' => 'C128A',
         'code' => '0123456789',
         'name' => 'Code 128 Set A',
@@ -90,6 +97,27 @@ $linear = [
         'name' => 'Code 128 (Auto)',
         'standard' => 'ISO/IEC 15417',
         'use' => 'General-purpose high-density linear symbology with automatic charset selection.',
+    ],
+    [
+        'type' => 'C16K',
+        'code' => 'ab0123456789',
+        'name' => 'Code 16K',
+        'standard' => 'Uniform Symbology Specification Code 16K',
+        'use' => 'Stacked Code 128 symbology for small items requiring multi-row data.',
+    ],
+    [
+        'type' => 'C32',
+        'code' => '012345676',
+        'name' => 'Code 32',
+        'standard' => 'Italian Pharmacode (IMH, radix 32)',
+        'use' => 'Italian pharmaceutical product coding derived from Code 39.',
+    ],
+    [
+        'type' => 'C49',
+        'code' => 'MULTIPLE ROWS IN CODE 49',
+        'name' => 'Code 49',
+        'standard' => 'ANSI/AIM BC6',
+        'use' => 'Multi-row stacked symbology for compact alphanumeric data.',
     ],
     [
         'type' => 'C39E+',
@@ -141,6 +169,55 @@ $linear = [
         'use' => 'Numeric code widely used in telecommunications and labeling of equipment.',
     ],
     [
+        'type' => 'DATABAR',
+        'code' => '09501101530010',
+        'name' => 'GS1 DataBar Omnidirectional',
+        'standard' => 'ISO/IEC 24724',
+        'use' => 'GS1 item identification scannable from any orientation at retail point of sale.',
+    ],
+    [
+        'type' => 'DATABAREXP',
+        'code' => '(01)90614141000015(3202)000150',
+        'name' => 'GS1 DataBar Expanded',
+        'standard' => 'ISO/IEC 24724',
+        'use' => 'Encodes GS1 Application Identifiers such as weight, price, and dates.',
+    ],
+    [
+        'type' => 'DATABAREXPSTACK',
+        'code' => '(01)90614141000015(3202)000150',
+        'name' => 'GS1 DataBar Expanded Stacked',
+        'standard' => 'ISO/IEC 24724',
+        'use' => 'Stacked form of DataBar Expanded for narrow label areas.',
+    ],
+    [
+        'type' => 'DATABARLIMITED',
+        'code' => '15012345678907',
+        'name' => 'GS1 DataBar Limited',
+        'standard' => 'ISO/IEC 24724',
+        'use' => 'Item identification for small retail packages not scanned omnidirectionally.',
+    ],
+    [
+        'type' => 'DATABARSTACK',
+        'code' => '00012345678905',
+        'name' => 'GS1 DataBar Stacked',
+        'standard' => 'ISO/IEC 24724',
+        'use' => 'Two-row DataBar for very small items such as loose produce.',
+    ],
+    [
+        'type' => 'DATABARSTACKOMNI',
+        'code' => '00034567890125',
+        'name' => 'GS1 DataBar Stacked Omnidirectional',
+        'standard' => 'ISO/IEC 24724',
+        'use' => 'Two-row omnidirectional DataBar for point-of-sale scanning of small items.',
+    ],
+    [
+        'type' => 'DATABARTRUNC',
+        'code' => '00012345678905',
+        'name' => 'GS1 DataBar Truncated',
+        'standard' => 'ISO/IEC 24724',
+        'use' => 'Reduced-height DataBar for non-retail item marking.',
+    ],
+    [
         'type' => 'EAN13',
         'code' => '0123456789',
         'name' => 'EAN-13',
@@ -169,6 +246,34 @@ $linear = [
         'use' => 'Compact retail barcode for very small consumer packages.',
     ],
     [
+        'type' => 'GS114',
+        'code' => '9501101020917',
+        'name' => 'GS1-14 / EAN-14 / SCC-14',
+        'standard' => 'GS1 General Specifications (GS1-128 with AI 01)',
+        'use' => 'Trade item grouping identifier (GTIN-14) for cases and pallets.',
+    ],
+    [
+        'type' => 'GS1128',
+        'code' => '(01)09501101020917(10)AB-123',
+        'name' => 'GS1-128',
+        'standard' => 'ISO/IEC 15417 with GS1 Application Identifiers',
+        'use' => 'Supply-chain data carrier for batch, expiry, and logistics attributes.',
+    ],
+    [
+        'type' => 'HIBC128',
+        'code' => '+A123BJC5D6E71',
+        'name' => 'HIBC in Code 128',
+        'standard' => 'ANSI/HIBC 2.6 and ANSI/HIBC 1.3',
+        'use' => 'Health industry supplier labeling of medical products in Code 128.',
+    ],
+    [
+        'type' => 'HIBC39',
+        'code' => '+A123BJC5D6E71',
+        'name' => 'HIBC in Code 39',
+        'standard' => 'ANSI/HIBC 2.6 and ANSI/HIBC 1.3',
+        'use' => 'Health industry supplier labeling of medical products in Code 39.',
+    ],
+    [
         'type' => 'I25+',
         'code' => '0123456789',
         'name' => 'Interleaved 2 of 5 + checksum',
@@ -181,6 +286,13 @@ $linear = [
         'name' => 'Interleaved 2 of 5',
         'standard' => 'ITF / Interleaved 2 of 5',
         'use' => 'Numeric-only barcode frequently used on corrugated packaging.',
+    ],
+    [
+        'type' => 'IDENTCODE',
+        'code' => '563102430313',
+        'name' => 'Deutsche Post Identcode',
+        'standard' => 'Deutsche Post Identcode (Interleaved 2 of 5 based)',
+        'use' => 'German parcel identification for Deutsche Post shipments.',
     ],
     [
         'type' => 'IMB',
@@ -197,11 +309,46 @@ $linear = [
         'use' => 'Feeds a precomputed IMB state pattern when encoding is prepared upstream.',
     ],
     [
+        'type' => 'ITF14',
+        'code' => '09312345678907',
+        'name' => 'ITF-14',
+        'standard' => 'GS1 General Specifications (ITF-14)',
+        'use' => 'GTIN-14 marking on corrugated cartons and outer packaging, with bearer bars.',
+    ],
+    [
+        'type' => 'JPPOST',
+        'code' => '910-00673-80-25J1-2B',
+        'name' => 'Japan Post Customer Barcode',
+        'standard' => 'Japan Post Customer Barcode (4-state)',
+        'use' => 'Japanese postal address and routing barcode.',
+    ],
+    [
         'type' => 'KIX',
         'code' => '0123456789',
         'name' => 'KIX',
         'standard' => 'PostNL KIX (4-state)',
         'use' => 'Dutch postal customer indexing and routing barcode.',
+    ],
+    [
+        'type' => 'LEITCODE',
+        'code' => '21348075016401',
+        'name' => 'Deutsche Post Leitcode',
+        'standard' => 'Deutsche Post Leitcode (Interleaved 2 of 5 based)',
+        'use' => 'German postal routing code for destination sorting.',
+    ],
+    [
+        'type' => 'LOGMARS',
+        'code' => '12345/ABCDE',
+        'name' => 'LOGMARS',
+        'standard' => 'MIL-STD-1189B (Code 39 profile)',
+        'use' => 'US military logistics marking and asset labeling.',
+    ],
+    [
+        'type' => 'MAILMARK',
+        'code' => '41038422416563762EF61AH8T ',
+        'name' => 'Royal Mail Mailmark',
+        'standard' => 'Royal Mail Mailmark 4-state (types C and L)',
+        'use' => 'UK mail tracking and reporting barcode.',
     ],
     [
         'type' => 'MSI+',
@@ -241,11 +388,25 @@ $linear = [
         'use' => 'Legacy USPS mail tracking and routing barcode.',
     ],
     [
+        'type' => 'PLESSEY',
+        'code' => '0123456789ABCDEF',
+        'name' => 'Plessey Code',
+        'standard' => 'Plessey (legacy)',
+        'use' => 'Legacy hexadecimal symbology used for retail shelf labeling.',
+    ],
+    [
         'type' => 'POSTNET',
         'code' => '0123456789',
         'name' => 'POSTNET',
         'standard' => 'USPS POSTNET (legacy)',
         'use' => 'Legacy USPS ZIP and delivery-point encoding for mail sorting.',
+    ],
+    [
+        'type' => 'PZN',
+        'code' => '2758089',
+        'name' => 'PZN',
+        'standard' => 'IFA Pharmazentralnummer (Code 39 based)',
+        'use' => 'German pharmaceutical central product number for medicines.',
     ],
     [
         'type' => 'RMS4CC',
@@ -267,6 +428,41 @@ $linear = [
         'name' => 'Standard 2 of 5',
         'standard' => 'Standard 2 of 5 (industrial)',
         'use' => 'Legacy numeric industrial labeling barcode.',
+    ],
+    [
+        'type' => 'S25DATALOGIC',
+        'code' => '0123456789',
+        'name' => '2 of 5 Datalogic',
+        'standard' => '2 of 5 Datalogic (China Post Code)',
+        'use' => 'Numeric variant used by China Post and legacy Datalogic systems.',
+    ],
+    [
+        'type' => 'S25IATA',
+        'code' => '0123456789',
+        'name' => '2 of 5 IATA',
+        'standard' => '2 of 5 IATA (Computer Identics 2 of 5)',
+        'use' => 'Air cargo and baggage handling numeric barcode.',
+    ],
+    [
+        'type' => 'S25MATRIX',
+        'code' => '0123456789',
+        'name' => '2 of 5 Matrix',
+        'standard' => '2 of 5 Matrix',
+        'use' => 'Numeric symbology denser than Standard 2 of 5 for industrial labels.',
+    ],
+    [
+        'type' => 'SSCC18',
+        'code' => '39501101020917171',
+        'name' => 'SSCC-18',
+        'standard' => 'GS1 General Specifications (GS1-128 with AI 00)',
+        'use' => 'Serial Shipping Container Code identifying logistic units.',
+    ],
+    [
+        'type' => 'TELEPEN',
+        'code' => 'ABC123',
+        'name' => 'Telepen',
+        'standard' => 'Telepen (full ASCII)',
+        'use' => 'Library and academic sector symbology encoding the full ASCII set.',
     ],
     [
         'type' => 'UPCA',
@@ -314,11 +510,25 @@ $square = [
         'use' => 'Aztec variant with explicit encoder parameters for size/error tuning.',
     ],
     [
+        'type' => 'AZTECRUNE',
+        'code' => '125',
+        'name' => 'Aztec Rune',
+        'standard' => 'ISO/IEC 24778:2008 Annex A',
+        'use' => 'Minimal Aztec symbol encoding a single value from 0 to 255.',
+    ],
+    [
         'type' => 'PDF417',
         'code' => '0123456789',
         'name' => 'PDF417',
         'standard' => 'ISO/IEC 15438:2006',
         'use' => 'Stacked 2D barcode used in transport, identity, and archival workflows.',
+    ],
+    [
+        'type' => 'PDF417C',
+        'code' => '0123456789',
+        'name' => 'Compact PDF417',
+        'standard' => 'ISO/IEC 15438:2006 (compact/truncated)',
+        'use' => 'Truncated PDF417 without right row indicators for narrow print areas.',
     ],
     [
         'type' => 'QRCODE',
@@ -333,6 +543,41 @@ $square = [
         'name' => 'QR Code (with parameters)',
         'standard' => 'ISO/IEC 18004',
         'use' => 'QR variant with explicit error correction and encoding parameters.',
+    ],
+    [
+        'type' => 'MICROQR',
+        'code' => '0123456789',
+        'name' => 'Micro QR Code',
+        'standard' => 'ISO/IEC 18004',
+        'use' => 'Reduced-size QR variant for small marking areas and short payloads.',
+    ],
+    [
+        'type' => 'MICROQR,M,4,AN',
+        'code' => 'ABCDEFGHIJKLMNOPQR',
+        'name' => 'Micro QR Code (with parameters)',
+        'standard' => 'ISO/IEC 18004',
+        'use' => 'Micro QR variant with explicit error correction, version, and encoding mode.',
+    ],
+    [
+        'type' => 'HIBCAZ',
+        'code' => '+A123BJC5D6E71',
+        'name' => 'HIBC in Aztec Code',
+        'standard' => 'ANSI/HIBC 2.6 and ANSI/HIBC 1.3',
+        'use' => 'Health industry supplier labeling of medical products in Aztec Code.',
+    ],
+    [
+        'type' => 'HIBCDM',
+        'code' => '+A123BJC5D6E71',
+        'name' => 'HIBC in Data Matrix',
+        'standard' => 'ANSI/HIBC 2.6 and ANSI/HIBC 1.3',
+        'use' => 'Health industry supplier labeling of medical products in Data Matrix.',
+    ],
+    [
+        'type' => 'HIBCQR',
+        'code' => '+A123BJC5D6E71',
+        'name' => 'HIBC in QR Code',
+        'standard' => 'ANSI/HIBC 2.6 and ANSI/HIBC 1.3',
+        'use' => 'Health industry supplier labeling of medical products in QR Code.',
     ],
     [
         'type' => 'DATAMATRIX',
@@ -361,6 +606,27 @@ $square = [
         'name' => 'GS1 Data Matrix (rectangular)',
         'standard' => 'ISO/IEC 16022 with GS1 AIs',
         'use' => 'Rectangular GS1 Data Matrix for compact traceability labels.',
+    ],
+    [
+        'type' => 'DMRE',
+        'code' => 'A1B2C3D4E5F6G7H8I9J0K1L2',
+        'name' => 'Data Matrix Rectangular Extension',
+        'standard' => 'ISO/IEC 21471',
+        'use' => 'Extra rectangular symbol sizes for marking thin parts and narrow labels.',
+    ],
+    [
+        'type' => 'DMRE,GS1',
+        'code' => \chr(232) . '01095011010209171719050810ABCD1234' . \chr(232) . '2110',
+        'name' => 'GS1 Data Matrix Rectangular Extension',
+        'standard' => 'ISO/IEC 21471 with GS1 AIs',
+        'use' => 'GS1-compliant rectangular extension for traceability on narrow labels.',
+    ],
+    [
+        'type' => 'DMRE,N,ASCII,8x144',
+        'code' => 'A1B2C3D4E5F6G7H8I9J0K1L2',
+        'name' => 'Data Matrix Rectangular Extension 8x144',
+        'standard' => 'ISO/IEC 21471',
+        'use' => 'Rectangular extension with an explicit symbol size and encoding mode.',
     ],
 ];
 
@@ -483,12 +749,16 @@ function renderBarcodeSection(
             $descBBox = $pdf->getLastBBox();
             $barcodePosY = (float) $descBBox['y'] + (float) $descBBox['h'] + $barcodeGap;
             $barcodeWidth = -1;
-            $barcodeHeight = $square ? -1 : 10;
+            $barcodeHeight = -1;
 
             if (!$square) {
-                $ncols = (int) $pdf->barcode->getBarcodeObj($item['type'], $item['code'])->getArray()['ncols'];
+                $metrics = $pdf->barcode->getBarcodeObj($item['type'], $item['code'])->getArray();
+                $ncols = (int) $metrics['ncols'];
+                $nrows = (int) $metrics['nrows'];
                 $targetMinBarWidth = 0.65;
-                $barcodeWidth = (int) \max(1, \round($ncols * $targetMinBarWidth));
+                $barcodeWidth = (int) \max(1, \min($contentWidth, \round($ncols * $targetMinBarWidth)));
+                // stacked symbologies keep the module aspect ratio, the other ones use a fixed bar height
+                $barcodeHeight = $nrows > 4 ? (int) \max(1, \round(($barcodeWidth * $nrows) / $ncols)) : 10;
             }
 
             $barcodeModel = $pdf->barcode->getBarcodeObj(

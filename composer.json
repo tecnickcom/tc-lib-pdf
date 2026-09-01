@@ -35,7 +35,7 @@
     "ext-pcre": "*",
     "ext-xml": "*",
     "ext-zlib": "*",
-    "tecnickcom/tc-lib-barcode": "^2.14",
+    "tecnickcom/tc-lib-barcode": "^2.15",
     "tecnickcom/tc-lib-color": "^3.0",
     "tecnickcom/tc-lib-pdf-image": "^3.14",
     "tecnickcom/tc-lib-pdf-font": "^4.3",
