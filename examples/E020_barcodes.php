@@ -23,6 +23,25 @@ declare(strict_types=1);
 
 // NOTE: run make fonts in the project root to generate the dependencies and example fonts.
 
+// NOTE: this library encodes the data it is given. Several formats carry a number that only
+// its registration body can issue, so a symbol is valid in its scheme only once that number
+// has been obtained: GS1 member organisations issue the company prefix used by EAN, UPC,
+// ITF-14, GS1-128, SSCC-18, GS1-14 and GS1 DataBar; HIBCC assigns the Labeler Identification
+// Code used by HIBC39, HIBC128, HIBCDM, HIBCQR and HIBCAZ; Royal Mail issues the Supply Chain
+// ID carried by MAILMARK; IFA GmbH allocates the PZN Pharmazentralnummer; Deutsche Post DHL
+// assigns the customer number and street codes of IDENTCODE and LEITCODE; AIFA assigns the
+// Italian AIC number encoded by C32.
+
+// NOTE: the symbology names below identify the encoded formats and belong to their respective
+// owners: QR Code (DENSO WAVE INCORPORATED); GS1, GS1-128 and GS1 DataBar (GS1 AISBL);
+// Mailmark (Royal Mail Group Ltd); Intelligent Mail (United States Postal Service);
+// PHARMA-CODE (Laetus GmbH); Telepen (S.B. Electronic Systems Ltd); HIBC and HIBCC (Health
+// Industry Business Communications Council); KIX (PostNL); Identcode and Leitcode (Deutsche
+// Post DHL). They are used descriptively; no affiliation with or endorsement by their owners
+// is claimed or implied. GS1 licenses the claims necessary to implement its standards under
+// its IP Policy (https://www.gs1.org/standards/ip) to GS1 members and to the participants of
+// the work group that developed the standard, rather than to the public at large.
+
 // autoloader when using Composer
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -559,6 +578,20 @@ $square = [
         'use' => 'Micro QR variant with explicit error correction, version, and encoding mode.',
     ],
     [
+        'type' => 'HANXIN',
+        'code' => '0123456789',
+        'name' => 'Han Xin Code',
+        'standard' => 'GB/T 21049, ISO/IEC 20830',
+        'use' => 'Chinese national 2D code for logistics, product identification, and Chinese text.',
+    ],
+    [
+        'type' => 'HANXIN,L3,10,2',
+        'code' => '1234567890ABCDEFGabcdefg,Han Xin Code',
+        'name' => 'Han Xin Code (with parameters)',
+        'standard' => 'GB/T 21049, ISO/IEC 20830',
+        'use' => 'Han Xin variant with explicit error correction level, symbol version, and mask pattern.',
+    ],
+    [
         'type' => 'HIBCAZ',
         'code' => '+A123BJC5D6E71',
         'name' => 'HIBC in Aztec Code',
@@ -630,6 +663,102 @@ $square = [
     ],
 ];
 
+// notices from tc-lib-barcode README.md
+$notices = <<<'EOD'
+    <style>
+    h1 { font-size: 12pt; }
+    h2 { font-size: 10pt; }
+    p { font-size: 8pt; }
+    table { font-size: 8pt; }
+    th { text-align: left; }
+    </style>
+    <h1>Barcode Types Catalog (3/3): Registration Bodies and Trademarks</h1>
+    <p>Source: tc-lib-barcode README.md</p>
+    <h2>Identifiers issued by a registration body</h2>
+    <p>The library encodes the data it is given. Several formats carry a number that only its
+    registration body can issue, so a symbol is valid in its scheme only once that number has been
+    obtained.</p>
+    <table border="1" cellpadding="3" cellspacing="0" width="100%">
+        <tr>
+            <th width="35%" bgcolor="#eeeeee">Format</th>
+            <th width="65%" bgcolor="#eeeeee">Issued by</th>
+        </tr>
+        <tr>
+            <td>EAN, UPC, ITF-14, GS1-128, SSCC-18, GS1-14, GS1 DataBar</td>
+            <td>a GS1 member organisation, which issues the company prefix</td>
+        </tr>
+        <tr>
+            <td>HIBC39, HIBC128, HIBCDM, HIBCQR, HIBCAZ</td>
+            <td>HIBCC, which assigns the Labeler Identification Code</td>
+        </tr>
+        <tr>
+            <td>MAILMARK</td>
+            <td>Royal Mail, which issues the Supply Chain ID carried in the barcode</td>
+        </tr>
+        <tr>
+            <td>PZN</td>
+            <td>IFA GmbH, which allocates the Pharmazentralnummer</td>
+        </tr>
+        <tr>
+            <td>IDENTCODE, LEITCODE</td>
+            <td>Deutsche Post DHL, which assigns the customer number and the street codes</td>
+        </tr>
+        <tr>
+            <td>C32</td>
+            <td>AIFA, which assigns the Italian AIC number</td>
+        </tr>
+    </table>
+    <h2>Trademarks</h2>
+    <p>The names below identify the symbologies this library encodes and belong to their respective
+    owners. They are used descriptively; no affiliation with or endorsement by their owners is
+    claimed or implied.</p>
+    <table border="1" cellpadding="3" cellspacing="0" width="100%">
+        <tr>
+            <th width="35%" bgcolor="#eeeeee">Name</th>
+            <th width="65%" bgcolor="#eeeeee">Owner</th>
+        </tr>
+        <tr>
+            <td>QR Code</td>
+            <td>DENSO WAVE INCORPORATED</td>
+        </tr>
+        <tr>
+            <td>GS1, GS1-128, GS1 DataBar</td>
+            <td>GS1 AISBL</td>
+        </tr>
+        <tr>
+            <td>Mailmark</td>
+            <td>Royal Mail Group Ltd</td>
+        </tr>
+        <tr>
+            <td>Intelligent Mail</td>
+            <td>United States Postal Service</td>
+        </tr>
+        <tr>
+            <td>PHARMA-CODE</td>
+            <td>Laetus GmbH</td>
+        </tr>
+        <tr>
+            <td>Telepen</td>
+            <td>S.B. Electronic Systems Ltd</td>
+        </tr>
+        <tr>
+            <td>HIBC, HIBCC</td>
+            <td>Health Industry Business Communications Council</td>
+        </tr>
+        <tr>
+            <td>KIX</td>
+            <td>PostNL</td>
+        </tr>
+        <tr>
+            <td>Identcode, Leitcode</td>
+            <td>Deutsche Post DHL</td>
+        </tr>
+    </table>
+    <p>GS1 licenses the claims necessary to implement its standards under its IP Policy
+    (https://www.gs1.org/standards/ip), to GS1 members and to the participants of the work group
+    that developed the standard, rather than to the public at large.</p>
+    EOD;
+
 function formatSampleDataForText(string $sample): string
 {
     $out = '';
@@ -660,6 +789,7 @@ function renderBarcodeSection(
     array $items,
     string $title,
     int $sectionIndex,
+    int $sectionCount,
     array $titlefont,
     array $textfont,
     array $smallfont,
@@ -691,12 +821,13 @@ function renderBarcodeSection(
         $smallfont,
         $title,
         $sectionIndex,
+        $sectionCount,
         $marginLeft,
         $contentWidth,
     ): float {
         $pdf->page->addContent($titlefont['out']);
         $pdf->page->addContent($pdf->getTextCell(
-            txt: 'Barcode Types Catalog (' . $sectionIndex . '/2): ' . $title,
+            txt: 'Barcode Types Catalog (' . $sectionIndex . '/' . $sectionCount . '): ' . $title,
             posx: $marginLeft,
             posy: 10,
             width: $contentWidth,
@@ -821,8 +952,32 @@ function renderBarcodeSection(
     }
 }
 
-renderBarcodeSection($pdf, $linear, 'Linear', 1, $titlefont, $textfont, $smallfont, $style, false);
-renderBarcodeSection($pdf, $square, 'Square / 2D', 2, $titlefont, $textfont, $smallfont, $style, true);
+function renderNoticePage(\Com\Tecnick\Pdf\Tcpdf $pdf, string $html, array $textfont): void
+{
+    $marginLeft = 12.0;
+    $marginRight = 12.0;
+
+    $page = $pdf->addPage([
+        'margin' => [
+            'PL' => $marginLeft,
+            'PR' => $marginRight,
+            'CT' => 15.0,
+            'CB' => 12.0,
+        ],
+    ]);
+
+    $pdf->page->addContent($textfont['out']);
+    $pdf->addHTMLCell(
+        html: $html,
+        posx: $marginLeft,
+        posy: 10,
+        width: (float) $page['width'] - $marginLeft - $marginRight,
+    );
+}
+
+renderBarcodeSection($pdf, $linear, 'Linear', 1, 3, $titlefont, $textfont, $smallfont, $style, false);
+renderBarcodeSection($pdf, $square, 'Square / 2D', 2, 3, $titlefont, $textfont, $smallfont, $style, true);
+renderNoticePage($pdf, $notices, $textfont);
 
 $rawpdf = $pdf->getOutPDFString();
 $pdf->renderPDF(rawpdf: $rawpdf);

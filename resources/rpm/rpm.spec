@@ -26,7 +26,7 @@ Requires:  php-pcre
 Requires:  php-xml
 Requires:  php-zlib
 Requires:  php-composer(%{c_vendor}/tc-lib-barcode) < 3.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.15.0
+Requires:  php-composer(%{c_vendor}/tc-lib-barcode) >= 2.16.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-color) >= 3.0.2
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-image) < 3.0.0

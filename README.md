@@ -38,6 +38,15 @@ It is the modern evolution of TCPDF, built around a modular package architecture
 
 It coordinates companion packages for fonts, images, graphics, pages, filtering, encryption, and digital signatures into a single document-authoring API.
 
+**Why tc-lib-pdf:**
+
+- **Pure PHP.** No external binaries, headless browsers, or shell calls in the rendering pipeline. Only `gd` and `zlib` are optional extensions.
+- **Archival, print, and accessibility conformance in one library.** PDF/A (1/2/3, a/b/u), PDF/X (1a, 3, 4, 5), and PDF/UA (1, 2) are built in, under the LGPL.
+- **Signing up to PAdES B-LTA.** Detached CMS and PAdES B-B/B-T/B-LT/B-LTA, with RFC 3161 timestamps, embedded revocation evidence, and support for both local keys and remote HSM signing.
+- **Reproducible output.** Pinning the dates and file identifier renders byte-identical documents on every run, so builds are diffable and verifiable.
+- **Modular and strictly typed.** Each concern is a separate Composer package with declared types, so upgrades and dependencies stay scoped.
+- **Continuity with TCPDF.** The actively-developed successor to a library installed 100M+ times, by the original author.
+
 | | |
 |---|---|
 | **Namespace** | `\Com\Tecnick\Pdf` |

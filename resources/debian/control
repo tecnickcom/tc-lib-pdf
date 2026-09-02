@@ -14,7 +14,7 @@ Provides: php-~#PROJECT#~
 Architecture: all
 Depends: php (>= 8.2.0), php-ctype, php-json, php-mbstring, php-xml,
  php-tecnickcom-tc-lib-barcode (<< 3.0.0),
- php-tecnickcom-tc-lib-barcode (>= 2.15.0),
+ php-tecnickcom-tc-lib-barcode (>= 2.16.0),
  php-tecnickcom-tc-lib-color (<< 3.0.0),
  php-tecnickcom-tc-lib-color (>= 3.0.2),
  php-tecnickcom-tc-lib-file (<< 3.0.0),
