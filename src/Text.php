@@ -347,6 +347,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                 $overline,
                 $clip,
                 $shadow,
+                $baseRtl,
             );
 
             if ($fontout_prefix !== '') {
@@ -742,6 +743,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
                     $overline,
                     $clip,
                     $shadow,
+                    $baseRtl,
                 );
 
                 if ($drawcell) {
@@ -2077,6 +2079,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
      * @param bool        $overline    If true overline the text.
      * @param bool        $clip        If true activate clipping mode.
      * @param ?TextShadow $shadow      Text shadow parameters.
+     * @param bool        $baseRtl     True when the paragraph base direction is RTL.
      *
      * @return string PDF code to render the text.
      *
@@ -2106,6 +2109,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         bool $overline = false,
         bool $clip = false,
         ?array $shadow = null,
+        bool $baseRtl = false,
     ): string {
         if ($ordarr === [] || $lines === []) {
             return '';
@@ -2133,10 +2137,10 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
         $maxx = 0.0;
         $maxy = 0.0;
 
-        // The offset shortens the first line at the side that line starts from: the
-        // right one for a right aligned first line (the default of an RTL paragraph),
-        // where the line box is trimmed instead of being moved.
-        $line_posx = $firstlinehalign === 'R' ? $posx : $posx + $offset;
+        // The offset shortens the first line at the side that line starts from:
+        // the right one for an RTL paragraph, where the line box is trimmed
+        // instead of being moved.
+        $line_posx = $baseRtl ? $posx : $posx + $offset;
         $line_posy = $posy + $fontascent;
 
         $out = '';

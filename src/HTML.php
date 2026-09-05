@@ -44,6 +44,7 @@ use Com\Tecnick\Unicode\Data\Constant as UnicodeConstant;
  * @phpstan-import-type TCellBound from \Com\Tecnick\Pdf\Base
  * @phpstan-import-type TTextDims from \Com\Tecnick\Pdf\Font\Stack
  * @phpstan-import-type TAnnotOpts from \Com\Tecnick\Pdf\Base
+ * @phpstan-import-type TRefUnitValues from \Com\Tecnick\Pdf\Base
  * @phpstan-type THTMLTableCell array{
  *     cellx: float,
  *     cellw: float,
@@ -2693,12 +2694,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $this->parseHTMLStyleListStyleImageProperty($dom, $key, $parentkey);
 
         // Text flow and font metrics.
-        $this->parseHTMLStyleTextIndentProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleTextTransformProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleWhiteSpaceProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleOverflowWrapProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleWordBreakProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleFontSizeProperty($dom, $key, $parentkey);
+        // Resolved after font-size: its font-relative units refer to the element font size.
+        $this->parseHTMLStyleTextIndentProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleFontSizeAdjustProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleFontStretchProperty($dom, $key, $parentkey);
         $this->parseHTMLStyleLetterSpacingProperty($dom, $key, $parentkey);
@@ -3024,13 +3026,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                         return 0.0;
                     }
 
-                    return $this->toUnit($this->getUnitValuePoints($parentRaw));
+                    return $this->toUnit($this->getUnitValuePoints($parentRaw, $this->getHTMLNodeUnitRef(
+                        $dom,
+                        $parentkey,
+                    )));
                 }
 
                 return 0.0;
             }
 
-            return $this->toUnit($this->getUnitValuePoints($raw));
+            return $this->toUnit($this->getUnitValuePoints($raw, $this->getHTMLNodeUnitRef($dom, $key)));
         }
 
         return 0.0;
@@ -3360,11 +3365,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ) {
                 $parentTextIndent = \strtolower(\trim($dom[$parentkey]['style']['text-indent']));
                 if ($parentTextIndent !== 'inherit') {
-                    $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($parentTextIndent));
+                    $ref = $this->getHTMLNodeUnitRef($dom, $parentkey);
+                    $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($parentTextIndent, $ref));
                 }
             }
         } else {
-            $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($textIndent));
+            $ref = $this->getHTMLNodeUnitRef($dom, $key);
+            $dom[$key]['text-indent'] = $this->toUnit($this->getUnitValuePoints($textIndent, $ref));
         }
     }
 
@@ -3477,6 +3484,50 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
+     * Reference values to resolve CSS units.
+     *
+     * The font-relative units em, ex and ch refer to $fontsize and rem to $rootsize.
+     *
+     * @param float $fontsize Font size in points the font-relative units refer to.
+     * @param float $rootsize Root element font size in points the rem unit refers to.
+     * @param float $parent Value the percentage unit refers to.
+     *
+     * @return TRefUnitValues
+     */
+    protected function getHTMLUnitRef(float $fontsize, float $rootsize = 0.0, float $parent = 0.0): array
+    {
+        $ref = self::REFUNITVAL;
+        $ref['parent'] = $parent;
+        if ($fontsize <= 0) {
+            return $ref;
+        }
+
+        $ref['font']['size'] = $fontsize;
+        $ref['font']['rootsize'] = $rootsize > 0 ? $rootsize : $fontsize;
+        $ref['font']['xheight'] = $fontsize / 2;
+        $ref['font']['zerowidth'] = $fontsize / 3;
+        return $ref;
+    }
+
+    /**
+     * Reference values to resolve CSS units of a DOM element from its own font size.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     * @param int $key ID of the element providing the font-relative reference size.
+     * @param float $parent Value the percentage unit refers to.
+     *
+     * @return TRefUnitValues
+     */
+    protected function getHTMLNodeUnitRef(array $dom, int $key, float $parent = 0.0): array
+    {
+        return $this->getHTMLUnitRef(
+            isset($dom[$key]['fontsize']) ? \floatval($dom[$key]['fontsize']) : 0.0,
+            isset($dom[0]['fontsize']) ? \floatval($dom[0]['fontsize']) : 0.0,
+            $parent,
+        );
+    }
+
+    /**
      * Parse font-size style property.
      *
      * @param array<int, THTMLAttrib> $dom
@@ -3498,20 +3549,17 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 if (isset($parentNode['style']['font-size']) && $parentNode['style']['font-size'] !== '') {
                     $parentFontSize = \strtolower(\trim($parentNode['style']['font-size']));
                     if ($parentFontSize !== 'inherit') {
-                        $ref = self::REFUNITVAL;
                         $rootNode = $dom[0] ?? null;
-                        if (\is_array($rootNode)) {
-                            $ref['parent'] = \floatval($rootNode['fontsize']);
-                        }
+                        $rootsize = \is_array($rootNode) ? \floatval($rootNode['fontsize']) : 0.0;
+                        $ref = $this->getHTMLUnitRef($rootsize, $rootsize, $rootsize);
                         $dom[$key]['fontsize'] = $this->getFontValuePoints($parentFontSize, $ref, 'pt');
                     }
                 }
             }
         } else {
-            $ref = self::REFUNITVAL;
-            if (\is_array($parentNode)) {
-                $ref['parent'] = \floatval($parentNode['fontsize']);
-            }
+            $parentsize = \is_array($parentNode) ? \floatval($parentNode['fontsize']) : 0.0;
+            // The font-relative units of font-size refer to the parent font size.
+            $ref = $this->getHTMLNodeUnitRef($dom, $parentkey, $parentsize);
             $dom[$key]['fontsize'] = $this->getFontValuePoints($fsize, $ref, 'pt');
         }
     }
@@ -3642,9 +3690,10 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                 if ($parentSpacingStyle === 'normal') {
                     $parentWordSpacing = 0.0;
                 } else {
-                    $parentWordSpacing = $this->toUnit($this->getUnitValuePoints($parentSpacingStyle, \array_merge(self::REFUNITVAL, [
-                        'parent' => 0.0,
-                    ])));
+                    $parentWordSpacing = $this->toUnit($this->getUnitValuePoints($parentSpacingStyle, $this->getHTMLNodeUnitRef(
+                        $dom,
+                        $parentkey,
+                    )));
                 }
             }
         }
@@ -3653,9 +3702,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         } elseif ($spacing === 'normal') {
             $dom[$key]['word-spacing'] = 0.0;
         } else {
-            $dom[$key]['word-spacing'] = $this->toUnit($this->getUnitValuePoints($spacing, \array_merge(self::REFUNITVAL, [
-                'parent' => $parentWordSpacing,
-            ])));
+            $dom[$key]['word-spacing'] = $this->toUnit($this->getUnitValuePoints($spacing, $this->getHTMLNodeUnitRef(
+                $dom,
+                $key,
+                $parentWordSpacing,
+            )));
         }
     }
 
@@ -3675,6 +3726,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         $node = &$dom[$key];
         $lineheight = \strtolower(\trim($dom[$key]['style']['line-height']));
         $rootLineHeight = isset($dom[0]['line-height']) ? $dom[0]['line-height'] : 1.0;
+        $rootsize = \floatval($dom[0]['fontsize']);
         $parentLineHeight = isset($dom[$parentkey]['line-height']) ? $dom[$parentkey]['line-height'] : $rootLineHeight;
         $parentLineHeightAbsolute = isset($dom[$parentkey]['line-height-absolute'])
             ? $dom[$parentkey]['line-height-absolute']
@@ -3731,8 +3783,8 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
                     /** @var array<int, THTMLAttrib> $dom */
                 } else {
                     // Absolute unit (pt, mm, ...): keep explicit length in points.
-                    $lhpts = $this->getUnitValuePoints($lineheight);
-                    $fontsize = isset($dom[$key]['fontsize']) ? $dom[$key]['fontsize'] : 0.0;
+                    $fontsize = isset($node['fontsize']) ? \floatval($node['fontsize']) : 0.0;
+                    $lhpts = $this->getUnitValuePoints($lineheight, $this->getHTMLUnitRef($fontsize, $rootsize));
                     $node['line-height'] = $fontsize > 0 ? $lhpts / $fontsize : 1.0;
                     $node['line-height-absolute'] = $lhpts;
                     if (isset($node['line-height-font-size-basis'])) {
@@ -4092,11 +4144,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } elseif (isset($dom[$parentkey]['style']['width']) && $dom[$parentkey]['style']['width'] !== '') {
                 $parentWidth = \trim($dom[$parentkey]['style']['width']);
                 if (\strtolower($parentWidth) !== 'inherit') {
-                    $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($parentWidth));
+                    $ref = $this->getHTMLNodeUnitRef($dom, $parentkey);
+                    $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($parentWidth, $ref));
                 }
             }
         } else {
-            $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($width));
+            $ref = $this->getHTMLNodeUnitRef($dom, $key);
+            $dom[$key]['width'] = $this->toUnit($this->getUnitValuePoints($width, $ref));
         }
     }
 
@@ -4118,15 +4172,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $min = null;
         $max = null;
+        $ref = $this->getHTMLNodeUnitRef($dom, $key);
 
         if (isset($dom[$key]['style']['min-width']) && $dom[$key]['style']['min-width'] !== '') {
-            $min = $this->getHTMLStyleLengthValue($dom[$key]['style']['min-width']);
+            $min = $this->getHTMLStyleLengthValue($dom[$key]['style']['min-width'], $ref);
         }
 
         if (isset($dom[$key]['style']['max-width']) && $dom[$key]['style']['max-width'] !== '') {
             $maxRaw = \strtolower(\trim($dom[$key]['style']['max-width']));
             if ($maxRaw !== 'none') {
-                $max = $this->getHTMLStyleLengthValue($dom[$key]['style']['max-width']);
+                $max = $this->getHTMLStyleLengthValue($dom[$key]['style']['max-width'], $ref);
             }
         }
 
@@ -4169,11 +4224,13 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } elseif (isset($dom[$parentkey]['style']['height']) && $dom[$parentkey]['style']['height'] !== '') {
                 $parentHeight = \trim($dom[$parentkey]['style']['height']);
                 if (\strtolower($parentHeight) !== 'inherit') {
-                    $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($parentHeight));
+                    $ref = $this->getHTMLNodeUnitRef($dom, $parentkey);
+                    $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($parentHeight, $ref));
                 }
             }
         } else {
-            $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($height));
+            $ref = $this->getHTMLNodeUnitRef($dom, $key);
+            $dom[$key]['height'] = $this->toUnit($this->getUnitValuePoints($height, $ref));
         }
     }
 
@@ -4195,15 +4252,16 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
 
         $min = null;
         $max = null;
+        $ref = $this->getHTMLNodeUnitRef($dom, $key);
 
         if (isset($dom[$key]['style']['min-height']) && $dom[$key]['style']['min-height'] !== '') {
-            $min = $this->getHTMLStyleLengthValue($dom[$key]['style']['min-height']);
+            $min = $this->getHTMLStyleLengthValue($dom[$key]['style']['min-height'], $ref);
         }
 
         if (isset($dom[$key]['style']['max-height']) && $dom[$key]['style']['max-height'] !== '') {
             $maxRaw = \strtolower(\trim($dom[$key]['style']['max-height']));
             if ($maxRaw !== 'none') {
-                $max = $this->getHTMLStyleLengthValue($dom[$key]['style']['max-height']);
+                $max = $this->getHTMLStyleLengthValue($dom[$key]['style']['max-height'], $ref);
             }
         }
 
@@ -4287,9 +4345,11 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     /**
      * Convert a CSS length-like token to user units for box constraints.
      *
+     * @param ?TRefUnitValues $ref Reference values in internal points.
+     *
      * @throws PdfException
      */
-    protected function getHTMLStyleLengthValue(string $value): ?float
+    protected function getHTMLStyleLengthValue(string $value, ?array $ref = null): ?float
     {
         $value = \trim($value);
         $normalized = \strtolower($value);
@@ -4297,7 +4357,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return null;
         }
 
-        return $this->toUnit($this->getUnitValuePoints($value));
+        return $this->toUnit($this->getUnitValuePoints($value, $ref ?? self::REFUNITVAL));
     }
 
     /**
@@ -4394,7 +4454,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } elseif (\preg_match('/^0(?:[a-z%]+)?$/i', $padding) === 1) {
                 $dom[$key]['padding'] = self::ZEROCELLBOUND;
             } else {
-                $dom[$key]['padding'] = $this->getCSSPadding($padding);
+                $dom[$key]['padding'] = $this->getCSSPadding($padding, 0.0, $this->getHTMLNodeUnitRef($dom, $key));
             }
         } else {
             $dom[$key]['padding'] = self::ZEROCELLBOUND;
@@ -4498,7 +4558,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             return;
         }
 
-        $nodeBox[$side] = $this->toUnit($this->getUnitValuePoints($pvalue));
+        $nodeBox[$side] = $this->toUnit($this->getUnitValuePoints($pvalue, $this->getHTMLNodeUnitRef($dom, $key)));
         $node[$box] = $nodeBox;
     }
 
@@ -4520,7 +4580,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             } elseif (\preg_match('/^0(?:[a-z%]+)?$/i', $margin) === 1) {
                 $dom[$key]['margin'] = self::ZEROCELLBOUND;
             } else {
-                $dom[$key]['margin'] = $this->getCSSMargin($margin);
+                $dom[$key]['margin'] = $this->getCSSMargin($margin, 0.0, $this->getHTMLNodeUnitRef($dom, $key));
             }
         } else {
             $dom[$key]['margin'] = self::ZEROCELLBOUND;
@@ -4615,8 +4675,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             'T' => 'top',
             'B' => 'bottom',
         ];
-        $ref = self::REFUNITVAL;
-        $ref['parent'] = 0.0;
+        $ref = $this->getHTMLNodeUnitRef($dom, $key);
         $this->parseHTMLStyleBorderSideProperties(
             $dom,
             $key,
@@ -5502,11 +5561,19 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             ) {
                 $parentSpacing = \trim($dom[$parentkey]['style']['border-spacing']);
                 if (\strtolower($parentSpacing) !== 'inherit') {
-                    $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($parentSpacing);
+                    $dom[$key]['border-spacing'] = $this->getCSSBorderMargin(
+                        $parentSpacing,
+                        0.0,
+                        $this->getHTMLNodeUnitRef($dom, $parentkey),
+                    );
                 }
             }
         } else {
-            $dom[$key]['border-spacing'] = $this->getCSSBorderMargin($borderSpacing);
+            $dom[$key]['border-spacing'] = $this->getCSSBorderMargin(
+                $borderSpacing,
+                0.0,
+                $this->getHTMLNodeUnitRef($dom, $key),
+            );
         }
     }
 
@@ -6669,8 +6736,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
             && $dom[$key]['attribute']['stroke'] !== ''
             && \is_numeric($dom[$key]['attribute']['stroke'])
         ) {
-            $ref = self::REFUNITVAL;
-            $ref['parent'] = \floatval($dom[$key]['fontsize']);
+            $ref = $this->getHTMLNodeUnitRef($dom, $key, \floatval($dom[$key]['fontsize']));
             // font stroke width
             $dom[$key]['stroke'] = $this->toUnit($this->getUnitValuePoints($dom[$key]['attribute']['stroke'], $ref));
         }
@@ -9013,8 +9079,7 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
         if (isset($markerStyles['font-size']) && \is_string($markerStyles['font-size'])) {
             $fsize = \trim($markerStyles['font-size']);
             if ($fsize !== '') {
-                $ref = self::REFUNITVAL;
-                $ref['parent'] = $fontsize;
+                $ref = $this->getHTMLUnitRef($fontsize, $fontsize, $fontsize);
                 $csssize = $this->getUnitValuePoints($fsize, $ref);
                 if ($csssize > 0.0) {
                     $fontsize = $csssize;

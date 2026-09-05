@@ -48,7 +48,7 @@ class HTMLTest extends TestUtil
      *
      * @throws \Throwable
      */
-    private function initUnicodeFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj): void
+    private function initUnicodeFontAndPage(\Com\Tecnick\Pdf\Tcpdf $obj, float $size = 10): void
     {
         /** @var \Com\Tecnick\Pdf\Font\Stack $font */
         $font = $this->getObjectProperty($obj, 'font');
@@ -56,8 +56,26 @@ class HTMLTest extends TestUtil
         $pon = $this->getObjectProperty($obj, 'pon');
         $fontfile = (string) \realpath(__DIR__
         . '/../vendor/tecnickcom/tc-lib-pdf-font/target/fonts/dejavu/dejavusans.json');
-        $font->insert($pon, 'dejavusans', '', 10, null, null, $fontfile);
+        $font->insert($pon, 'dejavusans', '', $size, null, null, $fontfile);
         $obj->addPage();
+    }
+
+    /**
+     * Return the first opening element of the given tag carrying the given id.
+     *
+     * @param array<int, THTMLAttrib> $dom
+     *
+     * @return THTMLAttrib
+     */
+    private function getHtmlNodeById(array $dom, string $id): array
+    {
+        foreach ($dom as $node) {
+            if ($node['opening'] && $this->getHtmlNodeAttrString($node, 'id') === $id) {
+                return $node;
+            }
+        }
+
+        $this->fail('element #' . $id . ' not found');
     }
 
     /**
@@ -1105,6 +1123,53 @@ class HTMLTest extends TestUtil
         $this->assertSame('keepme', $dom[3]['page']);
         $this->assertSame('auto', $dom[3]['quotes']);
         $this->assertSame(9, $dom[3]['widows']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMResolvesFontRelativeFontSizeUnitsAgainstTheParentFontSize(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFontAndPage($obj, 14);
+
+        $dom = $obj->exposeGetHTMLDOM(
+            '<style>#em{font-size:1.5em;}#pct{font-size:150%;}#rem{font-size:1.5rem;}#pt{font-size:21pt;}</style>'
+            . '<p id="em">A</p><p id="pct">B</p><p id="rem">C</p><p id="pt">D</p>',
+        );
+
+        // em and rem refer to the parent and root font size: all four are 1.5 x 14pt.
+        $this->assertSame(21.0, $this->getHtmlNodeById($dom, 'pt')['fontsize']);
+        $this->assertSame(21.0, $this->getHtmlNodeById($dom, 'pct')['fontsize']);
+        $this->assertSame(21.0, $this->getHtmlNodeById($dom, 'em')['fontsize']);
+        $this->assertSame(21.0, $this->getHtmlNodeById($dom, 'rem')['fontsize']);
+    }
+
+    /**
+     * @throws \Throwable
+     */
+    public function testGetHTMLDOMResolvesFontRelativeLengthUnitsAgainstTheElementFontSize(): void
+    {
+        $obj = $this->getInternalTestObject();
+        $this->initUnicodeFontAndPage($obj, 14);
+
+        $dom = $obj->exposeGetHTMLDOM(
+            '<style>#em{margin-left:2em;}#pt{margin-left:28pt;}'
+            . '#indent{text-indent:2em;}#nested{font-size:7pt;margin-left:2em;}</style>'
+            . '<p id="em">A</p><p id="pt">B</p><p id="indent">C</p><p id="nested">D</p>',
+        );
+
+        $expected = $this->getHtmlNodeById($dom, 'pt')['margin']['L'] ?? 0.0;
+        $this->assertGreaterThan(0.0, $expected);
+
+        // 2em of the 14pt element font size is 28pt.
+        $this->assertEqualsWithDelta($expected, $this->getHtmlNodeById($dom, 'em')['margin']['L'] ?? 0.0, 0.001);
+        $this->assertEqualsWithDelta($expected, $this->getHtmlNodeById($dom, 'indent')['text-indent'], 0.001);
+
+        // The element font size wins over the inherited one: 2em of 7pt is half as much.
+        $nested = $this->getHtmlNodeById($dom, 'nested');
+        $this->assertSame(7.0, $nested['fontsize']);
+        $this->assertEqualsWithDelta($expected / 2, $nested['margin']['L'] ?? 0.0, 0.001);
     }
 
     /**

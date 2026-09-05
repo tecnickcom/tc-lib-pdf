@@ -125,8 +125,9 @@ $drawCase = function (string $label, float $posy, array $args) use (
 
     $offset = isset($args['offset']) && \is_float($args['offset']) ? $args['offset'] : 0.0;
     if ($offset > 0.0 && $offset < $width) {
-        // A right aligned first line starts from the right, so the offset is taken there.
-        $fromright = ($args['halign'] ?? null) === \Com\Tecnick\Pdf\TextHAlign::Right;
+        // The offset is taken from the side the paragraph starts from: the right one
+        // for RTL. The alignment moves the glyphs inside the line, not that side.
+        $fromright = ($args['forcedir'] ?? null) === \Com\Tecnick\Unicode\TextDirection::Rtl;
         $markx = $fromright ? $posx + $width - $offset : $posx + $offset;
         $pdf->page->addContent($pdf->graph->getLine($markx, $posy, $markx, $posy + $height, $markStyle));
     }
@@ -241,10 +242,17 @@ $posy = $drawCase('offset and justified', $posy, [
     'offset' => $tight,
     'halign' => \Com\Tecnick\Pdf\TextHAlign::Justify,
 ]);
-$drawCase('offset and centered', $posy, [
+$posy = $drawCase('offset and centered', $posy, [
     'txt' => $word . ' ' . $text,
     'offset' => $tight,
     'halign' => \Com\Tecnick\Pdf\TextHAlign::Center,
+]);
+// The offset shortens an LTR first line on the left, so every line still ends
+// flush with the right edge of the cell.
+$drawCase('offset and right aligned', $posy, [
+    'txt' => $word . ' ' . $text,
+    'offset' => $tight - 12.0,
+    'halign' => \Com\Tecnick\Pdf\TextHAlign::Right,
 ]);
 
 // ----------
@@ -329,6 +337,9 @@ $posy = $drawHtmlCase(
     '<div style="text-align:center;text-indent:25mm">' . $ltrbody . '</div>',
 );
 $posy = $drawHtmlCase('LTR hanging', $posy, '<div style="text-indent:-4mm">' . $ltrbody . '</div>');
+// em refers to the font size of the element, so these two indents are the same.
+$posy = $drawHtmlCase('LTR indent 2em', $posy, '<div style="font-size:14pt;text-indent:2em">' . $ltrbody . '</div>');
+$posy = $drawHtmlCase('LTR indent 28pt', $posy, '<div style="font-size:14pt;text-indent:28pt">' . $ltrbody . '</div>');
 $posy = $drawHtmlCase('RTL', $posy, '<div dir="rtl">' . $rtlbody . '</div>');
 $posy = $drawHtmlCase('RTL indent', $posy, '<div dir="rtl" style="text-indent:25mm">' . $rtlbody . '</div>');
 $drawHtmlCase(

@@ -417,13 +417,14 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @param string $csspadding padding properties.
      * @param float $width width of the containing element.
+     * @param ?TRefUnitValues $ref Reference values in internal points.
      *
      * @return TCellBound cell paddings.
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    protected function getCSSPadding(string $csspadding, float $width = 0.0): array
+    protected function getCSSPadding(string $csspadding, float $width = 0.0, ?array $ref = null): array
     {
         $cellpad = $this->defCSSCellPadding;
         $padSplit = \preg_split('/[\s]+/', \trim($csspadding));
@@ -461,7 +462,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
-        $ref = self::REFUNITVAL;
+        $ref ??= self::REFUNITVAL;
         $ref['parent'] = $width;
         $cellpad['T'] = $this->toUnit($this->getUnitValuePoints($cellpad['T'], $ref));
         $cellpad['R'] = $this->toUnit($this->getUnitValuePoints($cellpad['R'], $ref));
@@ -475,13 +476,14 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @param string $cssmargin margin properties.
      * @param float $width width of the containing element.
+     * @param ?TRefUnitValues $ref Reference values in internal points.
      *
      * @return TCellBound cell margins.
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    protected function getCSSMargin(string $cssmargin, float $width = 0.0): array
+    protected function getCSSMargin(string $cssmargin, float $width = 0.0, ?array $ref = null): array
     {
         $cellmrg = $this->defCSSCellMargin;
         $mrgSplit = \preg_split('/[\s]+/', \trim($cssmargin));
@@ -523,7 +525,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
         $cellmrg['R'] = \str_replace('auto', '0', $cellmrg['R']);
         $cellmrg['B'] = \str_replace('auto', '0', $cellmrg['B']);
         $cellmrg['L'] = \str_replace('auto', '0', $cellmrg['L']);
-        $ref = self::REFUNITVAL;
+        $ref ??= self::REFUNITVAL;
         $ref['parent'] = $width;
         $cellmrg['T'] = $this->toUnit($this->getUnitValuePoints($cellmrg['T'], $ref));
         $cellmrg['R'] = $this->toUnit($this->getUnitValuePoints($cellmrg['R'], $ref));
@@ -537,13 +539,14 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
      *
      * @param string $cssbspace border-spacing CSS properties.
      * @param float $width width of the containing element.
+     * @param ?TRefUnitValues $ref Reference values in internal points.
      *
      * @return TCSSBorderSpacing of border spacings.
      *
      * @throws \Com\Tecnick\Pdf\Exception
      * @throws \Com\Tecnick\Pdf\Page\Exception
      */
-    protected function getCSSBorderMargin(string $cssbspace, float $width = 0.0): array
+    protected function getCSSBorderMargin(string $cssbspace, float $width = 0.0, ?array $ref = null): array
     {
         $bsp = $this->defCSSBorderSpacing;
         $spaceSplit = \preg_split('/[\s]+/', \trim($cssbspace));
@@ -565,7 +568,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
             $region = $this->page->getRegion();
             $width = $region['RW'];
         }
-        $ref = self::REFUNITVAL;
+        $ref ??= self::REFUNITVAL;
         $ref['parent'] = $width;
         $bsp['H'] = $this->toUnit($this->getUnitValuePoints($bsp['H'], $ref));
         $bsp['V'] = $this->toUnit($this->getUnitValuePoints($bsp['V'], $ref));

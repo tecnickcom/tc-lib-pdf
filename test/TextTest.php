@@ -3110,7 +3110,7 @@ class TextTest extends TestUtil
     }
 
     /** @throws \Throwable */
-    public function testAddTextCellOffsetsARightAlignedFirstLineFromTheRight(): void
+    public function testAddTextCellOffsetsARightAlignedLtrFirstLineFromTheLeft(): void
     {
         $obj = $this->getTestObject();
         $this->initFont($obj);
@@ -3127,8 +3127,36 @@ class TextTest extends TestUtil
         $obj->addTextCell('Hello world', $pid, $posx, 60.0, $width, 0.0, $offset, 0.0, 'T', 'R');
         $indented = $obj->getLastTextBBox();
 
-        // The line starts from the right, so the offset moves its right edge left.
-        $this->assertEqualsWithDelta($offset, $plain['x'] + $plain['w'] - ($indented['x'] + $indented['w']), 0.001);
+        // An LTR line starts from the left, so the offset shortens it there and
+        // leaves the right edge it is aligned to in place.
+        $this->assertLessThanOrEqual($posx + $width, $plain['x'] + $plain['w']);
+        $this->assertEqualsWithDelta($plain['x'] + $plain['w'], $indented['x'] + $indented['w'], 0.001);
+    }
+
+    /** @throws \Throwable */
+    public function testAddTextCellShortensARightAlignedLtrFirstLineByTheOffset(): void
+    {
+        $obj = $this->getTestObject();
+        $this->initFont($obj);
+        $page = $obj->addPage();
+        $pid = $this->requirePageId($page);
+
+        $posx = 20.0;
+        $width = 100.0;
+        $txt = 'Hello world';
+
+        $obj->addTextCell($txt, $pid, $posx, 40.0, $width, 0.0, 0.0, 0.0, 'T', 'R');
+        $plain = $obj->getLastTextBBox();
+        $this->assertLessThan($width, $plain['w']);
+
+        // An offset leaving less room than the text needs wraps the first line,
+        // while the text stays flush with the right edge.
+        $offset = $width - $plain['w'] + 2.0;
+        $obj->addTextCell($txt, $pid, $posx, 60.0, $width, 0.0, $offset, 0.0, 'T', 'R');
+        $wrapped = $obj->getLastTextBBox();
+
+        $this->assertGreaterThan($plain['h'], $wrapped['h']);
+        $this->assertEqualsWithDelta($plain['x'] + $plain['w'], $wrapped['x'] + $wrapped['w'], 0.001);
     }
 
     /** @throws \Throwable */
