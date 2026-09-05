@@ -9871,33 +9871,6 @@ abstract class HTML extends \Com\Tecnick\Pdf\JavaScript
     }
 
     /**
-     * Convert trailing SHY to visible hyphen only when HTML line wrapping breaks on SHY.
-     *
-     * @param array<int, int> $ordarr The array of Unicode code points.
-     *
-     * @return array<int, int> The filtered array.
-     */
-    protected function removeOrdArrSoftHyphens(array $ordarr): array
-    {
-        $keeplast = false;
-        $lastidx = \array_key_last($ordarr);
-        if ($lastidx !== null && isset($ordarr[$lastidx])) {
-            $keeplast = $ordarr[$lastidx] === UnicodeConstant::SOFT_HYPHEN;
-        }
-
-        $retarr = \array_values(\array_filter(
-            $ordarr,
-            static fn($ord) => $ord !== UnicodeConstant::SOFT_HYPHEN && $ord !== UnicodeConstant::ZERO_WIDTH_SPACE,
-        ));
-
-        if ($keeplast) {
-            $retarr[] = $this->htmlRenderSoftHyphen ? UnicodeConstant::HYPHEN : UnicodeConstant::SOFT_HYPHEN;
-        }
-
-        return $retarr;
-    }
-
-    /**
      * Reset the cursor to the current HTML block origin.
      *
      * @param THTMLRenderContext $hrc HTML render context.

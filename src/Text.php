@@ -3426,11 +3426,11 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
     }
 
     /**
-     * Removes soft hyphens from an array of Unicode code points.
+     * Converts a trailing SHY to a visible HYPHEN and removes the other SHY and ZWSP.
      *
      * @param array<int, int> $ordarr The array of Unicode code points.
      *
-     * @return array<int, int> The filtered array with soft hyphens removed.
+     * @return array<int, int> The filtered array.
      */
     protected function removeOrdArrSoftHyphens(array $ordarr): array
     {
@@ -3444,7 +3444,7 @@ abstract class Text extends \Com\Tecnick\Pdf\Cell
             static fn($ord) => $ord !== UnicodeConstant::SOFT_HYPHEN && $ord !== UnicodeConstant::ZERO_WIDTH_SPACE,
         ));
         if ($keeplast) {
-            $retarr[] = UnicodeConstant::SOFT_HYPHEN;
+            $retarr[] = UnicodeConstant::HYPHEN;
         }
         return $retarr;
     }

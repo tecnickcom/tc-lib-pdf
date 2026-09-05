@@ -55,7 +55,7 @@
   "minimum-stability": "stable",
   "prefer-stable": true,
   "require-dev": {
-    "carthage-software/mago": "^1.47.4",
+    "carthage-software/mago": "1.47.4",
     "pdepend/pdepend": "^2.16",
     "phpunit/phpunit": "^11.5 || ^12.5 || ^13.3"
   },
