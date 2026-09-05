@@ -584,7 +584,7 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         $out = $pdf . $body;
         $xrefOffset = \strlen($out);
-        $size = \max($this->pon, \array_key_last($offsets) ?? 0) + 1;
+        $size = \max($this->pon, \array_key_last($offsets)) + 1;
 
         $out .= $this->buildIncrementalXref($offsets);
         $out .= $this->buildIncrementalTrailer($this->previousStartxref($pdf), $size);
@@ -2045,8 +2045,9 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         // Document StructElem.
         $firstPageOid = $this->pagestructparents === [] ? 0 : (int) \array_key_first($this->pagestructparents);
-        if ($rootEntryIdx !== []) {
-            $firstTaggedPageOid = $pidToOid[$structLog[$rootEntryIdx[0]]['pid']] ?? 0;
+        $firstRootEntry = $rootEntryIdx === [] ? null : $structLog[$rootEntryIdx[0]] ?? null;
+        if ($firstRootEntry !== null) {
+            $firstTaggedPageOid = $pidToOid[$firstRootEntry['pid']] ?? 0;
             if ($firstTaggedPageOid > 0) {
                 $firstPageOid = $firstTaggedPageOid;
             }
@@ -2087,9 +2088,13 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
                 continue;
             }
 
+            $entry = $structLog[$entryIdx] ?? null;
+            if ($entry === null) {
+                continue;
+            }
+
             $entryParentOid[$entryIdx] = $parentOid;
-            $entryOrder[] = $entryIdx;
-            $entry = $structLog[$entryIdx];
+            $entryOrder[$entryIdx] = $entry;
             $entryOid = $elemOids[$entryIdx] ?? 0;
             $childElemIdx = [];
             foreach ($entry['kids'] as $kid) {
@@ -2108,15 +2113,14 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
 
         // The elements are visited in document order, so the first one recorded for a
         // page is the element a destination or a reference to that page points at.
-        foreach ($entryOrder as $entryIdx) {
-            $pageOid = $pidToOid[$structLog[$entryIdx]['pid']] ?? 0;
+        foreach ($entryOrder as $entryIdx => $entry) {
+            $pageOid = $pidToOid[$entry['pid']] ?? 0;
             if ($pageOid > 0 && !isset($this->pagestructelems[$pageOid])) {
                 $this->pagestructelems[$pageOid] = $elemOids[$entryIdx] ?? 0;
             }
         }
 
-        foreach ($entryOrder as $entryIdx) {
-            $entry = $structLog[$entryIdx];
+        foreach ($entryOrder as $entryIdx => $entry) {
             $entry += ['annots' => [], 'alt' => '', 'attr' => [], 'bbox' => [], 'refpid' => -1];
             $entryPageOid = $pidToOid[$entry['pid']] ?? 0;
             $kidsOut = '';
@@ -5995,8 +5999,8 @@ abstract class Output extends \Com\Tecnick\Pdf\MetaInfo
         if (!$this->hasAnnotationAppearance($appearance) && isset($appearance['xobj']) && $appearance['xobj'] !== '') {
             $xobjid = $appearance['xobj'];
             if (isset($this->xobjects[$xobjid]) && $this->xobjects[$xobjid] !== []) {
-                $xobjw = $this->xobjects[$xobjid]['w'] ?? 0.0;
-                $xobjh = $this->xobjects[$xobjid]['h'] ?? 0.0;
+                $xobjw = $this->xobjects[$xobjid]['w'];
+                $xobjh = $this->xobjects[$xobjid]['h'];
                 if ($xobjw > 0.0 && $xobjh > 0.0) {
                     $sx = $width > 0.0 ? $width / $xobjw : 1.0;
                     $sy = $height > 0.0 ? $height / $xobjh : 1.0;

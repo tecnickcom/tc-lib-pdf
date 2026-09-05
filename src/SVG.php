@@ -3508,7 +3508,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        if ((int) ($this->svgobjs[$soid]['patternmode'] ?? 0) > 0) {
+        if ((int) $this->svgobjs[$soid]['patternmode'] > 0) {
             return '';
         }
 
@@ -5443,7 +5443,7 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             return '';
         }
 
-        if ($segments === [] || (int) ($this->svgobjs[$soid]['markermode'] ?? 0) > 0) {
+        if ($segments === [] || (int) $this->svgobjs[$soid]['markermode'] > 0) {
             return '';
         }
 
@@ -8612,8 +8612,8 @@ abstract class SVG extends \Com\Tecnick\Pdf\Text
             throw new PdfException('Unknownn SVG ID: ' . $soid);
         }
 
-        $out = $this->svgobjs[$soid]['out'] ?? '';
-        $children = $this->svgobjs[$soid]['child'] ?? [];
+        $out = $this->svgobjs[$soid]['out'];
+        $children = $this->svgobjs[$soid]['child'];
 
         foreach ($children as $chid) {
             $out .= $this->getSetSVG($chid);

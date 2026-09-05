@@ -5574,7 +5574,7 @@ class HTMLTest extends TestUtil
 
         // If we have multiple text fragments, verify first line is indented
         if (\count($textFragments) >= 2) {
-            $first = $textFragments[0] ?? null;
+            $first = $textFragments[0];
             $second = $textFragments[1] ?? null;
             $this->assertIsArray($first);
             $this->assertIsArray($second);
@@ -5933,7 +5933,7 @@ class HTMLTest extends TestUtil
                 continue;
             }
 
-            $line = $lines[$key] ?? ['left' => 0.0, 'right' => 0.0];
+            $line = $lines[$key];
             $lines[$key] = [
                 'left' => \min($line['left'], $frag['bbox_x']),
                 'right' => \max($line['right'], $frag['bbox_end_x']),
@@ -18551,6 +18551,7 @@ class HTMLTest extends TestUtil
         }
 
         $this->assertNotSame([], $gaps);
+        assert(isset($gaps[0]), "\$gaps[0] must be set");
         $expected = $gaps[0];
         foreach ($gaps as $gap) {
             $this->assertEqualsWithDelta($expected, $gap, 1e-6);
@@ -18629,6 +18630,7 @@ class HTMLTest extends TestUtil
         }
 
         $this->assertNotSame([], $gaps);
+        assert(isset($gaps[0]), "\$gaps[0] must be set");
         $expectedGap = $gaps[0];
         foreach ($gaps as $gap) {
             $this->assertEqualsWithDelta($expectedGap, $gap, 1e-6);

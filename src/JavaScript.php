@@ -1152,13 +1152,8 @@ abstract class JavaScript extends \Com\Tecnick\Pdf\CSS
             return;
         }
 
-        if (isset($this->xobjects[$this->xobjtid]['pheight'])) {
-            $this->page->setPagePHeight($this->xobjects[$this->xobjtid]['pheight']);
-        }
-
-        if (isset($this->xobjects[$this->xobjtid]['gheight'])) {
-            $this->graph->setPageHeight($this->xobjects[$this->xobjtid]['gheight']);
-        }
+        $this->page->setPagePHeight($this->xobjects[$this->xobjtid]['pheight']);
+        $this->graph->setPageHeight($this->xobjects[$this->xobjtid]['gheight']);
 
         // restore page height
         $this->xobjtid = '';

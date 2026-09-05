@@ -634,7 +634,7 @@ abstract class CSS extends \Com\Tecnick\Pdf\SVG
                     continue;
                 }
 
-                $decl = $decls[$key] ?? ['name' => '', 'value' => '', 'important' => false];
+                $decl = $decls[$key];
                 if ($decl['important'] && !$important) {
                     // Existing !important declaration wins over later non-important declaration.
                     continue;

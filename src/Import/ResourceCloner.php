@@ -177,7 +177,7 @@ class ResourceCloner
             }
 
             $out .= ' /' . $resType . ' ';
-            $out .= $this->cloneResourceEntry($resources[$resType], $src, $map, $ownerNum);
+            $out .= $this->cloneResourceEntry($resources[$resType] ?? null, $src, $map, $ownerNum);
         }
 
         $out .= ' >>';

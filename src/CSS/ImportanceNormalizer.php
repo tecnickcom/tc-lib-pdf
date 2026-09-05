@@ -199,7 +199,6 @@ class ImportanceNormalizer
                             '_from_shorthand' => true,
                         ];
                     } else {
-                        $result[$longhand]['value'] ??= '';
                         $result[$longhand]['important'] = true;
                     }
                 }
