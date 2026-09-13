@@ -17,6 +17,8 @@
 namespace Test\Import;
 
 use Com\Tecnick\Pdf\Import\ImportCorruptedSourceException;
+use Com\Tecnick\Pdf\Import\ImportException;
+use Com\Tecnick\Pdf\Import\ImportResourceLimitException;
 use Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException;
 use Com\Tecnick\Pdf\Import\SourceDocument;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -106,6 +108,31 @@ class SourceDocumentTest extends TestCase
         return $this->buildPdf('1 0 R', [
             1 => 'null',
         ]);
+    }
+
+    /**
+     * Build a PDF whose objects form a chain of indirect /Length references.
+     *
+     * @param int  $chain         Number of chained stream objects.
+     * @param bool $invalidFilter If true, add a stream with an undecodable filter.
+     */
+    private function buildLengthChainPdf(int $chain, bool $invalidFilter = false): string
+    {
+        $objects = [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 50 50] /Contents 4 0 R >>',
+            4 =>
+                "<< /Length 3 /Filter /ASCIIHexDecode >>\nstream\n" . ($invalidFilter ? 'GG>' : '414>') . "\nendstream",
+        ];
+
+        for ($idx = 0; $idx < $chain; ++$idx) {
+            $objects[5 + $idx] = '<< /Length ' . (6 + $idx) . " 0 R >>\nstream\nab\nendstream";
+        }
+
+        $objects[5 + $chain] = '2';
+
+        return $this->buildPdf('1 0 R', $objects);
     }
 
     /** @throws \Throwable */
@@ -242,6 +269,98 @@ class SourceDocumentTest extends TestCase
     }
 
     /** @throws \Throwable */
+    public function testParserLimitIsReportedAsAWarning(): void
+    {
+        $doc = new SourceDocument($this->buildLengthChainPdf(20), ['max_resolution_depth' => 4]);
+
+        $warnings = $doc->getParserWarnings();
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('resolution depth limit (4)', $warnings[0] ?? '');
+    }
+
+    /** @throws \Throwable */
+    public function testNoParserWarningIsReportedWithinTheLimit(): void
+    {
+        $doc = new SourceDocument($this->buildLengthChainPdf(20));
+
+        $this->assertSame([], $doc->getParserWarnings());
+    }
+
+    /** @throws \Throwable */
+    public function testParserWarningsSurviveTheIgnoreFilterErrorsRetry(): void
+    {
+        $doc = new SourceDocument($this->buildLengthChainPdf(20, true), [
+            'decode_streams' => true,
+            'max_resolution_depth' => 4,
+        ]);
+
+        $warnings = $doc->getParserWarnings();
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('resolution depth limit (4)', $warnings[0] ?? '');
+    }
+
+    /** @throws \Throwable */
+    public function testStrictLimitsRaiseAResourceLimitException(): void
+    {
+        $this->expectException(ImportResourceLimitException::class);
+        $this->expectExceptionMessageMatches('/resolution depth limit \(4\)/');
+
+        new SourceDocument($this->buildLengthChainPdf(20), [
+            'max_resolution_depth' => 4,
+            'strict_limits' => true,
+        ]);
+    }
+
+    /** @throws \Throwable */
+    public function testStrictLimitsRaiseAResourceLimitExceptionOnTheRetryPath(): void
+    {
+        $this->expectException(ImportResourceLimitException::class);
+
+        new SourceDocument($this->buildLengthChainPdf(20, true), [
+            'decode_streams' => true,
+            'max_resolution_depth' => 4,
+            'strict_limits' => true,
+        ]);
+    }
+
+    /**
+     * A limit failure must also be catchable as a corrupted source failure.
+     *
+     * @throws \Throwable
+     */
+    public function testResourceLimitExceptionSpecializesTheCorruptedSourceException(): void
+    {
+        try {
+            new SourceDocument($this->buildLengthChainPdf(20), [
+                'max_resolution_depth' => 4,
+                'strict_limits' => true,
+            ]);
+            $this->fail('Expected an import exception.');
+        } catch (ImportException $exc) {
+            $this->assertInstanceOf(ImportResourceLimitException::class, $exc);
+            $this->assertInstanceOf(ImportCorruptedSourceException::class, $exc);
+        }
+    }
+
+    /** @throws \Throwable */
+    public function testNestingLimitCanBeRaised(): void
+    {
+        $data = $this->buildPdf('1 0 R', [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 => '<< /Type /Page /Parent 2 0 R /Deep ' . str_repeat('[', 400) . str_repeat(']', 400) . ' >>',
+        ]);
+
+        $this->assertNotEmpty((new SourceDocument($data, ['max_nesting_depth' => 1024]))->getXref());
+
+        $this->expectException(ImportResourceLimitException::class);
+        $this->expectExceptionMessageMatches('/Maximum object nesting depth exceeded/');
+        new SourceDocument($data);
+    }
+
+    /** @throws \Throwable */
     public function testConstructThrowsWhenRootObjectIsExplicitNull(): void
     {
         $this->expectException(ImportCorruptedSourceException::class);
@@ -296,6 +415,80 @@ class SourceDocumentTest extends TestCase
         $cfg = $this->callNormalizeParserConfig($doc, ['ignore_filter_errors' => 'yes'], $passwordProvided);
         $this->assertSame(['decode_streams' => false], $cfg);
         $this->assertFalse($passwordProvided);
+    }
+
+    /** @throws \Throwable */
+    public function testNormalizeParserConfigPassesThroughTheLimitOptions(): void
+    {
+        $doc = new SourceDocument($this->loadFixture());
+
+        $passwordProvided = false;
+        $cfg = $this->callNormalizeParserConfig(
+            $doc,
+            [
+                'strict_limits' => true,
+                'max_stream_size' => 1024,
+                'max_resolution_depth' => 512,
+                'max_nesting_depth' => 2048,
+            ],
+            $passwordProvided,
+        );
+
+        $this->assertSame(
+            [
+                'decode_streams' => false,
+                'strict_limits' => true,
+                'max_stream_size' => 1024,
+                'max_resolution_depth' => 512,
+                'max_nesting_depth' => 2048,
+            ],
+            $cfg,
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testNormalizeParserConfigRejectsNonIntegerLimits(): void
+    {
+        $doc = new SourceDocument($this->loadFixture());
+
+        $passwordProvided = false;
+        $cfg = $this->callNormalizeParserConfig(
+            $doc,
+            [
+                'strict_limits' => 'yes',
+                'max_resolution_depth' => '512',
+                'max_nesting_depth' => 12.5,
+            ],
+            $passwordProvided,
+        );
+
+        $this->assertSame(['decode_streams' => false], $cfg);
+    }
+
+    /** @throws \Throwable */
+    public function testNormalizeParserConfigLeavesOutOfRangeLimitsToTheParser(): void
+    {
+        $doc = new SourceDocument($this->loadFixture());
+
+        $passwordProvided = false;
+        $cfg = $this->callNormalizeParserConfig($doc, ['max_resolution_depth' => -3], $passwordProvided);
+
+        $this->assertSame(['decode_streams' => false, 'max_resolution_depth' => -3], $cfg);
+    }
+
+    /**
+     * A limit below 1 must be clamped by the parser to the strictest usable value.
+     *
+     * @throws \Throwable
+     */
+    public function testOutOfRangeResolutionDepthIsClampedByTheParser(): void
+    {
+        $doc = new SourceDocument($this->buildLengthChainPdf(20), ['max_resolution_depth' => 0]);
+
+        $warnings = $doc->getParserWarnings();
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('resolution depth limit (1)', $warnings[0] ?? '');
     }
 
     /** @throws \Throwable */

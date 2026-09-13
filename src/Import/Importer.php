@@ -45,6 +45,15 @@ use Com\Tecnick\Pdf\Encrypt\Encrypt as ObjEncrypt;
  *     cache?:         bool,
  * }
  *
+ * @phpstan-type ParserOptions array{
+ *     ignore_filter_errors?: bool,
+ *     decode_streams?:       bool,
+ *     strict_limits?:        bool,
+ *     max_stream_size?:      int,
+ *     max_resolution_depth?: int,
+ *     max_nesting_depth?:    int,
+ * }
+ *
  * @SuppressWarnings("CouplingBetweenObjects")
  */
 class Importer implements ImporterInterface
@@ -204,6 +213,28 @@ class Importer implements ImporterInterface
 
             $this->warnings[] = $message;
         }
+
+        if ($inspector->walkWasTruncated()) {
+            $this->addWarning(
+                'The embedded font check of the imported page '
+                . $pageNum
+                . ' stopped after '
+                . FontInspector::MAX_RESOURCE_NODES
+                . ' resource dictionaries: the source may use further non-embedded fonts',
+            );
+        }
+    }
+
+    /**
+     * Record a warning, ignoring duplicates.
+     */
+    private function addWarning(string $message): void
+    {
+        if (\in_array($message, $this->warnings, true)) {
+            return;
+        }
+
+        $this->warnings[] = $message;
     }
 
     /**
@@ -212,10 +243,14 @@ class Importer implements ImporterInterface
      * @param string               $path File path to a readable PDF.
      * @param array<string, mixed> $cfg  Optional parser configuration.
      *
+     * @phpstan-param ParserOptions|array<string, mixed> $cfg
+     *
      * @return string Source document identifier.
      *
      * @throws ImportSourceNotFoundException   If the file cannot be read.
      * @throws ImportCorruptedSourceException  If the file cannot be parsed.
+     * @throws ImportResourceLimitException    If the nesting depth limit is exceeded, or
+     *                                         any limit is reached with 'strict_limits'.
      * @throws ImportUnsupportedFeatureException If the source is encrypted.
      */
     public function setImportSourceFile(string $path, array $cfg = []): string
@@ -244,9 +279,13 @@ class Importer implements ImporterInterface
      * @param string              $data Raw PDF binary data.
      * @param array<string, mixed> $cfg  Optional parser configuration.
      *
+     * @phpstan-param ParserOptions|array<string, mixed> $cfg
+     *
      * @return string Source document identifier (SHA-256 of the data).
      *
      * @throws ImportCorruptedSourceException    If the data cannot be parsed.
+     * @throws ImportResourceLimitException      If the nesting depth limit is exceeded, or
+     *                                         any limit is reached with 'strict_limits'.
      * @throws ImportUnsupportedFeatureException If the source is encrypted.
      */
     public function setImportSourceData(string $data, array $cfg = []): string
@@ -256,9 +295,27 @@ class Importer implements ImporterInterface
         if (!isset($this->sources[$srcId])) {
             $this->sources[$srcId] = $doc;
             $this->objectMaps[$srcId] = new ObjectMap();
+            $this->collectParserWarnings($doc);
         }
 
         return $srcId;
+    }
+
+    /**
+     * Record a warning for each parsing limit reached while a source was parsed.
+     *
+     * @param SourceDocument $doc Registered source document.
+     */
+    private function collectParserWarnings(SourceDocument $doc): void
+    {
+        foreach ($doc->getParserWarnings() as $warning) {
+            $this->addWarning(
+                'The source document '
+                . \substr($doc->getId(), 0, 8)
+                . ' was not fully resolved while parsing: '
+                . $warning,
+            );
+        }
     }
 
     /**

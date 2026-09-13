@@ -55,6 +55,11 @@ final class FontInspector
     private DictParser $dict;
 
     /**
+     * True when the last walk stopped on the node budget instead of exhausting the queue.
+     */
+    private bool $truncated = false;
+
+    /**
      * Constructor.
      */
     public function __construct()
@@ -80,10 +85,12 @@ final class FontInspector
         $visited = [];
         $queue = [$resources];
         $nodes = 0;
+        $this->truncated = false;
         while ($queue !== []) {
             $node = \array_pop($queue);
             ++$nodes;
             if ($nodes > self::MAX_RESOURCE_NODES) {
+                $this->truncated = true;
                 break;
             }
 
@@ -101,6 +108,15 @@ final class FontInspector
         }
 
         return \array_keys($missing);
+    }
+
+    /**
+     * Return true when the last walk stopped on MAX_RESOURCE_NODES, so the
+     * returned font list may be incomplete.
+     */
+    public function walkWasTruncated(): bool
+    {
+        return $this->truncated;
     }
 
     /**

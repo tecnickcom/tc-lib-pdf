@@ -17,6 +17,7 @@
 namespace Test\Import;
 
 use Com\Tecnick\File\File as ObjFile;
+use Com\Tecnick\Pdf\Import\FontInspector;
 use Com\Tecnick\Pdf\Import\ImportCorruptedSourceException;
 use Com\Tecnick\Pdf\Import\Importer;
 use Com\Tecnick\Pdf\Import\ImportPageOutOfRangeException;
@@ -149,6 +150,152 @@ class ImporterTest extends TestCase
         }
 
         return $pdf . "trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefStart}\n%%EOF";
+    }
+
+    /**
+     * Build a donor PDF whose objects form a chain of indirect /Length references.
+     *
+     * @param int $chain Number of chained stream objects.
+     */
+    private function buildLengthChainPdf(int $chain): string
+    {
+        $objects = [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>',
+        ];
+
+        for ($idx = 0; $idx < $chain; ++$idx) {
+            $objects[4 + $idx] = '<< /Length ' . (5 + $idx) . " 0 R >>\nstream\nab\nendstream";
+        }
+
+        $objects[4 + $chain] = '2';
+
+        $pdf = "%PDF-1.7\n";
+        $offsets = [];
+        foreach ($objects as $num => $body) {
+            $offsets[$num] = strlen($pdf);
+            $pdf .= $num . " 0 obj\n" . $body . "\nendobj\n";
+        }
+
+        $xrefStart = strlen($pdf);
+        $size = count($objects) + 1;
+        $pdf .= "xref\n0 {$size}\n0000000000 65535 f \n";
+        foreach (array_keys($objects) as $num) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$num]);
+        }
+
+        return $pdf . "trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefStart}\n%%EOF";
+    }
+
+    /**
+     * Build a one-page PDF whose page resources reference the given number of Form XObjects.
+     *
+     * @param int $forms Number of Form XObjects listed in the page resources.
+     */
+    private function buildWideResourcePdf(int $forms): string
+    {
+        $refs = [];
+        for ($idx = 0; $idx < $forms; ++$idx) {
+            $refs[] = '/X' . $idx . ' ' . (5 + $idx) . ' 0 R';
+        }
+
+        $objects = [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 =>
+                '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R'
+                    . ' /Resources << /XObject << '
+                    . implode(' ', $refs)
+                    . ' >> >> >>',
+            4 => "<< /Length 0 >>\nstream\n\nendstream",
+        ];
+
+        for ($idx = 0; $idx < $forms; ++$idx) {
+            $objects[5 + $idx] =
+                '<< /Type /XObject /Subtype /Form /BBox [0 0 1 1]'
+                . " /Resources << /ProcSet [/PDF] >> /Length 0 >>\nstream\n\nendstream";
+        }
+
+        $pdf = "%PDF-1.7\n";
+        $offsets = [];
+        foreach ($objects as $num => $body) {
+            $offsets[$num] = strlen($pdf);
+            $pdf .= $num . " 0 obj\n" . $body . "\nendobj\n";
+        }
+
+        $xrefStart = strlen($pdf);
+        $size = count($objects) + 1;
+        $pdf .= "xref\n0 {$size}\n0000000000 65535 f \n";
+        foreach (array_keys($objects) as $num) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$num]);
+        }
+
+        return $pdf . "trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefStart}\n%%EOF";
+    }
+
+    /** @throws \Throwable */
+    public function testTruncatedEmbeddedFontWalkIsReported(): void
+    {
+        $xobjects = [];
+        $pon = 0;
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile(), requireEmbeddedFonts: true);
+
+        $srcId = $importer->setImportSourceData($this->buildWideResourcePdf(FontInspector::MAX_RESOURCE_NODES + 1));
+        $importer->importPage($srcId, 1);
+
+        $warnings = implode("\n", $importer->getWarnings());
+
+        $this->assertStringContainsString(
+            'stopped after ' . FontInspector::MAX_RESOURCE_NODES . ' resource dictionaries',
+            $warnings,
+        );
+    }
+
+    /** @throws \Throwable */
+    public function testCompleteEmbeddedFontWalkIsNotReported(): void
+    {
+        $xobjects = [];
+        $pon = 0;
+        $importer = new Importer($xobjects, $pon, $this->makeObjFile(), requireEmbeddedFonts: true);
+
+        $srcId = $importer->setImportSourceData($this->buildWideResourcePdf(4));
+        $importer->importPage($srcId, 1);
+
+        $this->assertSame([], $importer->getWarnings());
+    }
+
+    /** @throws \Throwable */
+    public function testParserLimitsAreReportedAsImporterWarnings(): void
+    {
+        $importer = $this->makeImporter();
+        $importer->setImportSourceData($this->buildLengthChainPdf(20), ['max_resolution_depth' => 4]);
+
+        $warnings = $importer->getWarnings();
+
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('was not fully resolved while parsing', $warnings[0] ?? '');
+        $this->assertStringContainsString('resolution depth limit (4)', $warnings[0] ?? '');
+    }
+
+    /** @throws \Throwable */
+    public function testParserLimitWarningsAreNotDuplicatedPerSource(): void
+    {
+        $data = $this->buildLengthChainPdf(20);
+        $importer = $this->makeImporter();
+        $importer->setImportSourceData($data, ['max_resolution_depth' => 4]);
+        $importer->setImportSourceData($data, ['max_resolution_depth' => 4]);
+
+        $this->assertCount(1, $importer->getWarnings());
+    }
+
+    /** @throws \Throwable */
+    public function testNoWarningIsReportedWhenNoLimitIsReached(): void
+    {
+        $importer = $this->makeImporter();
+        $importer->setImportSourceData($this->buildLengthChainPdf(20));
+
+        $this->assertSame([], $importer->getWarnings());
     }
 
     /** @throws \Throwable */

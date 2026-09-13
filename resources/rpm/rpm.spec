@@ -48,7 +48,7 @@ Requires:  php-composer(%{c_vendor}/tc-lib-pdf-page) >= 4.16.3
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) < 3.0.0
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-graph) >= 2.17.2
 Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) < 4.0.0
-Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.15.2
+Requires:  php-composer(%{c_vendor}/tc-lib-pdf-parser) >= 3.16.0
 
 Recommends: php-curl
 Recommends: php-intl

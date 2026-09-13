@@ -17,6 +17,58 @@ The page count is derived from the page tree actually reachable through `/Kids`;
 
 The reachable-page walk runs once per registered source and produces a flattened page index (one effective page dictionary per page, with inherited attributes resolved) that is cached and reused by `getSourcePageCount()`, `importPage()`, and `importPages()`.
 
+## Parser Limits and Diagnostics
+
+`setImportSourceFile()` and `setImportSourceData()` accept an optional configuration array that is forwarded to the parser. Parsing happens once per source, at registration time, so these settings belong here rather than in the per-page `importPage()` options.
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `ignore_filter_errors` | `bool` | `false` | Keep a stream that fails to decode as raw data instead of failing |
+| `decode_streams` | `bool` | `false` | Decode stream payloads while parsing indirect objects |
+| `max_stream_size` | `int` | `33554432` | Maximum size in bytes of a single decoded stream; `0` means unlimited |
+| `max_resolution_depth` | `int` | `64` | Maximum number of indirect object resolutions in flight at once; values below `1` are clamped to `1` |
+| `max_nesting_depth` | `int` | `256` | Maximum nesting depth of array and dictionary objects; values below `1` are clamped to `1` |
+| `strict_limits` | `bool` | `false` | Fail with `ImportResourceLimitException` as soon as a limit leaves an object unresolved |
+
+Exceeding `max_nesting_depth` always raises `ImportResourceLimitException`: a dictionary or array that cannot be tokenized has no usable value to fall back to. Reaching `max_resolution_depth`, or meeting a reference cycle, leaves that reference unresolved and lets the rest of the document import; the affected pages may lose content whose object could not be reached.
+
+Those non-fatal cases are recorded as document warnings, one per kind of event, with the number of occurrences and the first object affected:
+
+```php
+$sourceId = $pdf->setImportSourceFile('/path/to/source.pdf');
+$pdf->importPages($sourceId);
+$pdf->getOutPDFString();
+
+foreach ($pdf->getWarnings() as $warning) {
+    // "The source document 3fa8c1d2 was not fully resolved while parsing: the indirect
+    //  object resolution depth limit (64) left a reference unresolved 7 times, first
+    //  at object 128_0"
+}
+```
+
+The warning list is complete only after `getOutPDFString()` has been called, like every other document warning.
+
+To fail instead of degrading, set `strict_limits`:
+
+```php
+try {
+    $sourceId = $pdf->setImportSourceFile('/path/to/source.pdf', ['strict_limits' => true]);
+} catch (\Com\Tecnick\Pdf\Import\ImportResourceLimitException $exc) {
+    // the source needs higher limits, or cannot be imported faithfully
+}
+```
+
+To import a document that legitimately nests deeper than the defaults, raise the limits:
+
+```php
+$sourceId = $pdf->setImportSourceFile('/path/to/source.pdf', [
+    'max_resolution_depth' => 512,
+    'max_nesting_depth'    => 2048,
+]);
+```
+
+`ImportResourceLimitException` extends `ImportCorruptedSourceException`, so a handler for the latter around source registration also catches limit failures.
+
 ## Import One Page and Place It
 
 ```php

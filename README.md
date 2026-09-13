@@ -141,6 +141,7 @@ The runnable examples in [examples/index.md](examples/index.md) cover the equiva
 - Import a single page at a user-defined position and scale (`importPage` / `useImportedPage`)
 - Append full documents page-by-page, auto-sized to the source page dimensions (`addPageFromImport`)
 - Load source PDFs from a file path or raw byte string (`setImportSourceFile` / `setImportSourceData`)
+- Configurable parser limits with either a warning or an exception when a source cannot be fully resolved (`max_resolution_depth`, `max_nesting_depth`, `strict_limits`)
 
 ### Other
 - **1D and 2D barcodes** via [`tc-lib-barcode`](https://github.com/tecnickcom/tc-lib-barcode)

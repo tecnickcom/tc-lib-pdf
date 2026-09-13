@@ -18,6 +18,7 @@ declare(strict_types=1);
 
 namespace Com\Tecnick\Pdf\Import;
 
+use Com\Tecnick\Pdf\Parser\LimitException as ParserLimitException;
 use Com\Tecnick\Pdf\Parser\Parser;
 
 /**
@@ -62,12 +63,21 @@ class SourceDocument
     private array $objects;
 
     /**
+     * Descriptions of the parsing limits reached while the document was parsed.
+     *
+     * @var array<int, string>
+     */
+    private array $parserWarnings = [];
+
+    /**
      * Load and parse a PDF from raw binary data.
      *
      * @param string             $data PDF binary data.
      * @param array<string, mixed> $cfg  Parser configuration.
      *
      * @throws ImportCorruptedSourceException  If the PDF cannot be parsed.
+     * @throws ImportResourceLimitException  If the nesting depth limit is exceeded, or any limit
+     *                                       is reached with 'strict_limits'.
      * @throws ImportUnsupportedFeatureException  If the PDF is encrypted.
      */
     public function __construct(string $data, array $cfg = [])
@@ -78,6 +88,9 @@ class SourceDocument
         try {
             $parser = new Parser($parserCfg);
             [$this->xref, $this->objects] = $parser->parse($data);
+            $this->parserWarnings = $parser->getLimitWarnings();
+        } catch (ParserLimitException $limitExc) {
+            throw new ImportResourceLimitException('Failed to parse PDF: ' . $limitExc->getMessage(), 0, $limitExc);
         } catch (\Exception $exc) {
             $retried = false;
             $retryExc = null;
@@ -88,7 +101,14 @@ class SourceDocument
                 try {
                     $parser = new Parser($retryCfg);
                     [$this->xref, $this->objects] = $parser->parse($data);
+                    $this->parserWarnings = $parser->getLimitWarnings();
                     $retried = true;
+                } catch (ParserLimitException $limitExc) {
+                    throw new ImportResourceLimitException(
+                        'Failed to parse PDF: ' . $limitExc->getMessage(),
+                        0,
+                        $limitExc,
+                    );
                 } catch (\Exception $retryFailure) {
                     $retryExc = $retryFailure;
                 }
@@ -139,7 +159,7 @@ class SourceDocument
      * @param array<string, mixed> $cfg
      * @param bool                 $passwordProvided Set to true when a password alias is present in $cfg.
      *
-     * @return array<string, bool>
+     * @return array<string, bool|int>
      */
     private function normalizeParserConfig(array $cfg, bool &$passwordProvided): array
     {
@@ -155,17 +175,36 @@ class SourceDocument
             }
         }
 
-        /** @var array<string, bool> $parserCfg */
+        /** @var array<string, bool|int> $parserCfg */
         $parserCfg = ['decode_streams' => false];
-        if (isset($cfg['ignore_filter_errors']) && \is_bool($cfg['ignore_filter_errors'])) {
-            $parserCfg['ignore_filter_errors'] = $cfg['ignore_filter_errors'];
+        foreach (['ignore_filter_errors', 'decode_streams', 'strict_limits'] as $key) {
+            if (!isset($cfg[$key]) || !\is_bool($cfg[$key])) {
+                continue;
+            }
+
+            $parserCfg[$key] = $cfg[$key];
         }
 
-        if (isset($cfg['decode_streams']) && \is_bool($cfg['decode_streams'])) {
-            $parserCfg['decode_streams'] = $cfg['decode_streams'];
+        // the parser clamps each limit with its own rule, so the value is passed through as given
+        foreach (['max_stream_size', 'max_resolution_depth', 'max_nesting_depth'] as $key) {
+            if (!isset($cfg[$key]) || !\is_int($cfg[$key])) {
+                continue;
+            }
+
+            $parserCfg[$key] = $cfg[$key];
         }
 
         return $parserCfg;
+    }
+
+    /**
+     * Return the descriptions of the parsing limits reached while the document was parsed.
+     *
+     * @return array<int, string>
+     */
+    public function getParserWarnings(): array
+    {
+        return $this->parserWarnings;
     }
 
     /**

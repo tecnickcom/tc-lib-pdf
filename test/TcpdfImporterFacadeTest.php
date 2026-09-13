@@ -17,6 +17,7 @@
 namespace Test;
 
 use Com\Tecnick\Pdf\Import\ImportPageOutOfRangeException;
+use Com\Tecnick\Pdf\Import\ImportResourceLimitException;
 use Com\Tecnick\Pdf\Import\ImportSourceNotFoundException;
 use Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException;
 use Com\Tecnick\Pdf\Import\PageTemplate;
@@ -111,6 +112,42 @@ class TcpdfImporterFacadeTest extends TestCase
     private function stringValue(mixed $value): string
     {
         return \is_string($value) ? $value : '';
+    }
+
+    /**
+     * Build a one-page PDF whose objects form a chain of indirect /Length references.
+     *
+     * @param int $chain Number of chained stream objects.
+     */
+    private function buildLengthChainPdf(int $chain): string
+    {
+        $bodies = [
+            1 => '<< /Type /Catalog /Pages 2 0 R >>',
+            2 => '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            3 => '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 4 0 R >>',
+        ];
+
+        for ($idx = 0; $idx < $chain; ++$idx) {
+            $bodies[4 + $idx] = '<< /Length ' . (5 + $idx) . " 0 R >>\nstream\nab\nendstream";
+        }
+
+        $bodies[4 + $chain] = '2';
+
+        $pdf = "%PDF-1.7\n";
+        $offsets = [];
+        foreach ($bodies as $num => $body) {
+            $offsets[$num] = \strlen($pdf);
+            $pdf .= $num . " 0 obj\n" . $body . "\nendobj\n";
+        }
+
+        $xrefStart = \strlen($pdf);
+        $size = \count($bodies) + 1;
+        $pdf .= "xref\n0 " . $size . "\n0000000000 65535 f \n";
+        foreach (\array_keys($bodies) as $num) {
+            $pdf .= \sprintf("%010d 00000 n \n", $offsets[$num]);
+        }
+
+        return $pdf . "trailer\n<< /Size " . $size . " /Root 1 0 R >>\nstartxref\n" . $xrefStart . "\n%%EOF";
     }
 
     /**
@@ -526,6 +563,59 @@ class TcpdfImporterFacadeTest extends TestCase
 
         $raw = $pdf->getOutPDFString();
         $this->assertStringNotContainsString('/Group << /Type /Group /S /Transparency >>', $raw);
+    }
+
+    /**
+     * A parsing limit reached on a source must reach the document warnings.
+     *
+     * @throws \Throwable
+     */
+    public function testParserLimitReachesTheDocumentWarnings(): void
+    {
+        $pdf = $this->makePdf();
+        $srcId = $pdf->setImportSourceData($this->buildLengthChainPdf(20), ['max_resolution_depth' => 4]);
+        $tpl = $pdf->importPage($srcId, 1);
+        $pdf->addPage();
+        $pdf->useImportedPage($tpl, 10, 10, 120, 80, ['keepAspectRatio' => false]);
+        $pdf->getOutPDFString();
+
+        $warnings = \implode("\n", $pdf->getWarnings());
+
+        $this->assertStringContainsString('was not fully resolved while parsing', $warnings);
+        $this->assertStringContainsString('resolution depth limit (4)', $warnings);
+    }
+
+    /**
+     * The same source must not warn when it stays within the limits.
+     *
+     * @throws \Throwable
+     */
+    public function testNoParserLimitWarningWithinTheDefaultLimits(): void
+    {
+        $pdf = $this->makePdf();
+        $srcId = $pdf->setImportSourceData($this->buildLengthChainPdf(20));
+        $tpl = $pdf->importPage($srcId, 1);
+        $pdf->addPage();
+        $pdf->useImportedPage($tpl, 10, 10, 120, 80, ['keepAspectRatio' => false]);
+        $pdf->getOutPDFString();
+
+        $this->assertSame([], $pdf->getWarnings());
+    }
+
+    /**
+     * Strict mode must fail the registration of a source that reaches a limit.
+     *
+     * @throws \Throwable
+     */
+    public function testStrictLimitsFailTheSourceRegistration(): void
+    {
+        $pdf = $this->makePdf();
+
+        $this->expectException(ImportResourceLimitException::class);
+        $pdf->setImportSourceData($this->buildLengthChainPdf(20), [
+            'max_resolution_depth' => 4,
+            'strict_limits' => true,
+        ]);
     }
 
     /**

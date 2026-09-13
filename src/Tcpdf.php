@@ -1450,12 +1450,15 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * Register a source PDF file for import.
      *
      * @param string              $path File path to a readable PDF.
-     * @param array<string, mixed> $cfg  Optional parser configuration.
+     * @param array<string, mixed> $cfg  Optional parser configuration: 'ignore_filter_errors',
+     *                                   'decode_streams', 'max_stream_size', 'max_resolution_depth',
+     *                                   'max_nesting_depth' and 'strict_limits'.
      *
      * @return string Source document identifier.
      *
      * @throws \Com\Tecnick\Pdf\Import\ImportSourceNotFoundException
      * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
+     * @throws \Com\Tecnick\Pdf\Import\ImportResourceLimitException
      * @throws \Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */
@@ -1468,11 +1471,14 @@ class Tcpdf extends \Com\Tecnick\Pdf\Output
      * Register a source PDF from raw binary data.
      *
      * @param string              $data Raw PDF binary data.
-     * @param array<string, mixed> $cfg  Optional parser configuration.
+     * @param array<string, mixed> $cfg  Optional parser configuration: 'ignore_filter_errors',
+     *                                   'decode_streams', 'max_stream_size', 'max_resolution_depth',
+     *                                   'max_nesting_depth' and 'strict_limits'.
      *
      * @return string Source document identifier.
      *
      * @throws \Com\Tecnick\Pdf\Import\ImportCorruptedSourceException
+     * @throws \Com\Tecnick\Pdf\Import\ImportResourceLimitException
      * @throws \Com\Tecnick\Pdf\Import\ImportUnsupportedFeatureException
      * @throws \Com\Tecnick\Pdf\Encrypt\Exception
      */

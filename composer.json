@@ -46,7 +46,7 @@
     "tecnickcom/tc-lib-unicode": "^3.0",
     "tecnickcom/tc-lib-pdf-page": "^4.16",
     "tecnickcom/tc-lib-pdf-graph": "^2.17",
-    "tecnickcom/tc-lib-pdf-parser": "^3.15"
+    "tecnickcom/tc-lib-pdf-parser": "^3.16"
   },
   "suggest": {
     "ext-curl": "Required to contact a Timestamp Authority (RFC 3161) when timestamping signatures",
